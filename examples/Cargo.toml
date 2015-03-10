@@ -1,0 +1,10 @@
+[package]
+name = "system-examples"
+version = "0.0.1"
+authors = ["guillaume1.gomez@gmail.com"]
+
+[dependencies.system]
+path = ".."
+
+[[bin]]
+name = "simple"

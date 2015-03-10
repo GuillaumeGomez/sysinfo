@@ -1,0 +1,16 @@
+[package]
+name = "system"
+version = "0.0.1"
+authors = ["guillaume1.gomez@gmail.com"]
+
+description = "Library to handle processus"
+repository = "https://github.com/GuillaumeGomez/system"
+license = "LGPL-3.0+"
+
+[dependencies]
+libc = "0.1"
+
+[lib]
+name = "system"
+crate_type = ["rlib"]
+path = "src/system.rs"
