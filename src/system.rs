@@ -4,13 +4,7 @@
 
 */
 
-#![crate_name = "system"]
-#![crate_type = "lib"]
-#![crate_type = "rlib"]
-
-#![feature(std_misc, old_io, collections, old_path, io, path, core)]
-
-pub use self::processus::*;
+use processus::*;
 use std::old_io::fs;
 use std::fs::{File, read_link, PathExt};
 use std::io::Read;
@@ -24,8 +18,6 @@ use std::path::{Path, PathBuf};
 use std::io;
 use std::old_path;
 use std::old_io;
-
-pub mod processus;
 
 pub struct System {
     processus_list: Vec<Processus>

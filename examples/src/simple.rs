@@ -2,9 +2,9 @@
 
 #![feature(path)]
 
-extern crate system;
+extern crate sysinfo;
 
-use system::*;
+use sysinfo::*;
 use std::io::{self, BufRead};
 use std::str::FromStr;
 use std::io::Write;

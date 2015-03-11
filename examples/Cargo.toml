@@ -1,9 +1,9 @@
 [package]
-name = "system-examples"
+name = "sysinfo-examples"
 version = "0.0.1"
 authors = ["guillaume1.gomez@gmail.com"]
 
-[dependencies.system]
+[dependencies.sysinfo]
 path = ".."
 
 [[bin]]
