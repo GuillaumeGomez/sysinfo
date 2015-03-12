@@ -12,7 +12,6 @@ use std::ffi::AsOsStr;
 use std::old_io::fs::PathExtensions;
 use std::old_path::posix::Path as PosixPath;
 use std::str::FromStr;
-use std::fmt::{self, Formatter, Debug};
 use std::os;
 use std::path::{Path, PathBuf};
 use std::io;
@@ -32,11 +31,6 @@ impl System {
         s.refresh();
         s
     }
-
-    /* create an Signal enum (with Sigkill and all the stuff)
-    pub fn kill(&self, pid: i32, signal: Signal) {
-
-    }*/
 
     pub fn refresh(&mut self) {
         match fs::readdir(&PosixPath::new("/proc")) {

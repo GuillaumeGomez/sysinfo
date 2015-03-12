@@ -1,24 +1,19 @@
-use std::old_io::fs;
-use std::fs::{File, read_link, PathExt};
-use std::io::Read;
-use std::ffi::AsOsStr;
-use std::old_io::fs::PathExtensions;
-use std::old_path::posix::Path as PosixPath;
-use std::str::FromStr;
 use std::fmt::{self, Formatter, Debug};
-use std::os;
-use std::path::{Path, PathBuf};
-use std::io;
-use std::old_path;
-use std::old_io;
+use libc::{c_int};
 
 pub struct Processus {
     pub cmd: String, // command line
     pub exe: String, // path to the executable
-    pub pid: i32,
-    pub environ: Vec<String>,
+    pub pid: i32, // pid of the processus
+    pub environ: Vec<String>, // environment of the processus
     pub cwd: String, // current working directory
     pub root: String // path of the root directory
+}
+
+impl Processus {
+    pub fn kill(&self, signal: ::Signal) -> bool {
+        unsafe { ::ffi::kill(self.pid as c_int, signal as c_int) == 0 }
+    }
 }
 
 impl Debug for Processus {

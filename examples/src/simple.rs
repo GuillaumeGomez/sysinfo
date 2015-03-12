@@ -1,20 +1,29 @@
 #![crate_type = "bin"]
 
-#![feature(path)]
+#![feature(io, core)]
+
+ #![allow(unused_must_use, non_upper_case_globals)]
 
 extern crate sysinfo;
 
 use sysinfo::*;
+use sysinfo::Signal::*;
 use std::io::{self, BufRead};
 use std::str::FromStr;
 use std::io::Write;
 
+const signals : [Signal; 31] = [Hangup, Interrupt, Quit, Illegal, Trap, Abort, Bus, FloatingPointException, Kill, User1,
+    Segv, User2, Pipe, Alarm, Term, Stklft, Child, Continue, Stop, TSTP, TTIN, TTOU, Urgent, XCPU, XFSZ, VirtualAlarm,
+    Profiling, Winch, IO, Power, Sys];
+
 fn print_help() -> bool {
-    io::stdout().write("== Help menu ==\n".as_bytes());
-    io::stdout().write("help: show this menu\n".as_bytes());
-    io::stdout().write("refresh: reloads processus' information\n".as_bytes());
-    io::stdout().write("show [pid]: show information of the given [pid]\n".as_bytes());
-    io::stdout().write("quit: exit the program\n".as_bytes());
+    write!(&mut io::stdout(), "== Help menu ==\n");
+    write!(&mut io::stdout(), "help: show this menu\n");
+    write!(&mut io::stdout(), "signals: show the available signals\n");
+    write!(&mut io::stdout(), "refresh: reloads processus' information\n");
+    write!(&mut io::stdout(), "show [pid]: show information of the given [pid]\n");
+    write!(&mut io::stdout(), "kill [pid] [signal]: send [signal] to the processus with this [pid]. 0 < [signal] < 32\n");
+    write!(&mut io::stdout(), "quit: exit the program\n");
     false
 }
 
@@ -22,30 +31,64 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
     match input {
         "help" => print_help(),
         "refresh" => {
-            io::stdout().write("Getting processus' information...\n".as_bytes());
+            write!(&mut io::stdout(), "Getting processus' information...\n");
             sys.refresh();
-            io::stdout().write("Done.\n".as_bytes());
+            write!(&mut io::stdout(), "Done.\n");
             false
         },
+        "signals" => {
+            let mut nb = 1i32;
+
+            for sig in signals.iter() {
+                write!(&mut io::stdout(), "{:2}:{:?}\n", nb, sig);
+                nb += 1;
+            }
+            false
+        }
         "quit" => true,
         e if e.starts_with("show ") => {
             let tmp : Vec<&str> = e.split(" ").collect();
 
             if tmp.len() != 2 {
-                io::stdout().write("show command takes the pid in parameter !\n".as_bytes());
-                io::stdout().write("example: show 1254\n".as_bytes());
+                write!(&mut io::stdout(), "show command takes the pid in parameter !\n");
+                write!(&mut io::stdout(), "example: show 1254\n");
             } else {
                 let pid = i32::from_str(tmp.get(1).unwrap()).unwrap();
 
                 match sys.get_processus(pid) {
-                    Some(p) => io::stdout().write(format!("{:?}\n", *p).as_bytes()),
-                    None => io::stdout().write("pid not found\n".as_bytes())
+                    Some(p) => write!(&mut io::stdout(), "{:?}\n", *p),
+                    None => write!(&mut io::stdout(), "pid not found\n")
                 };
             }
             false
         },
+        e if e.starts_with("kill ") => {
+            let tmp : Vec<&str> = e.split(" ").collect();
+
+            if tmp.len() != 3 {
+                write!(&mut io::stdout(), "kill command takes the pid and a signal number in parameter !\n");
+                write!(&mut io::stdout(), "example: kill 1254 9\n");
+            } else {
+                let pid = i32::from_str(tmp.get(1).unwrap()).unwrap();
+                let signal = i32::from_str(tmp.get(2).unwrap()).unwrap();
+
+                if signal < 1 || signal > 31 {
+                    write!(&mut io::stdout(), "Signal must be between 0 and 32 ! See the signals list with the signals command\n");
+                } else {
+                    match sys.get_processus(pid) {
+                        Some(p) => {
+                            write!(&mut io::stdout(), "kill: {}\n", p.kill(*signals.get(signal as usize - 1).unwrap()));
+                        },
+                        None => {
+                            write!(&mut io::stdout(), "pid not found\n");
+                        }
+                    };
+                }
+            }
+            false
+        },
         e => {
-            io::stdout().write(format!("\"{}\": Unknown command. Enter 'help' if you want to get the commands' list.\n", e).as_bytes());
+            write!(&mut io::stdout(), "\"{}\": Unknown command. Enter 'help' if you want to get the commands' list.\n", e);
             false
         }
     }
@@ -62,7 +105,7 @@ fn main() {
     println!("To get the commands' list, enter 'help'.");
     while !done {
         let mut input = String::new();
-        io::stdout().write("> ".as_bytes());
+        write!(&mut io::stdout(), "> ");
         io::stdout().flush();
 
         stin.read_line(&mut input);
