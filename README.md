@@ -1,2 +1,2 @@
 # system
-A system handler to get interact with processus
+A system handler to interact with processus.
