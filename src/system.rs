@@ -82,7 +82,8 @@ fn _get_processus_data(path: &PosixPath) -> Option<Processus> {
                         environ: Vec::new(),
                         exe: String::new(),
                         cwd: String::new(),
-                        root: String::new()
+                        root: String::new(),
+                        memory: 0
                     };
 
                     for entry in v.iter() {
@@ -107,6 +108,23 @@ fn _get_processus_data(path: &PosixPath) -> Option<Processus> {
                             "root" => {
                                 p.root = String::from_str(realpath(Path::new(entry.as_str().unwrap())).unwrap().as_os_str().to_str().unwrap());
                             },
+                            "status" => {
+                                let mut file = File::open(entry.as_str().unwrap()).unwrap();
+                                let mut data = String::new();
+
+                                file.read_to_string(&mut data);
+                                let lines : Vec<&str> = data.split('\n').collect();
+                                for line in lines.iter() {
+                                    match *line {
+                                        l => if l.starts_with("VmSize") {
+                                            let parts : Vec<&str> = line.split(' ').collect();
+
+                                            p.memory = u32::from_str(parts[parts.len() - 2]).unwrap();
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                             l => {}
                         };
                     }

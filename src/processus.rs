@@ -7,7 +7,8 @@ pub struct Processus {
     pub pid: i32, // pid of the processus
     pub environ: Vec<String>, // environment of the processus
     pub cwd: String, // current working directory
-    pub root: String // path of the root directory
+    pub root: String, // path of the root directory
+    pub memory: u32 // memory usage
 }
 
 impl Processus {
@@ -26,6 +27,7 @@ impl Debug for Processus {
         write!(f, "command: {}\n", self.cmd);
         write!(f, "executable path: {}\n", self.exe);
         write!(f, "current working directory: {}\n", self.cwd);
+        write!(f, "memory usage: {} kB\n", self.memory);
         write!(f, "root path: {}", self.root)
     }
 }
