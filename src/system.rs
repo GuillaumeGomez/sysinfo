@@ -116,12 +116,13 @@ fn _get_processus_data(path: &PosixPath) -> Option<Processus> {
                                 let lines : Vec<&str> = data.split('\n').collect();
                                 for line in lines.iter() {
                                     match *line {
-                                        l => if l.starts_with("VmSize") {
+                                        l if l.starts_with("VmSize") => {
                                             let parts : Vec<&str> = line.split(' ').collect();
 
                                             p.memory = u32::from_str(parts[parts.len() - 2]).unwrap();
                                             break;
                                         }
+                                        _ => continue,
                                     }
                                 }
                             }
