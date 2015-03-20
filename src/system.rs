@@ -5,6 +5,7 @@
 */
 
 use processus::*;
+use process::*;
 use std::old_io::fs;
 use std::fs::{File, read_link, PathExt};
 use std::io::Read;
@@ -17,15 +18,26 @@ use std::path::{Path, PathBuf};
 use std::io;
 use std::old_path;
 use std::old_io;
+use std::fmt::{self, Formatter, Debug};
 
 pub struct System {
-    processus_list: Vec<Processus>
+    processus_list: Vec<Processus>,
+    mem_total: u64,
+    mem_free: u64,
+    swap_total: u64,
+    swap_free: u64,
+    processes: Vec<Process>,
 }
 
 impl System {
     pub fn new() -> System {
         let mut s = System {
-            processus_list: Vec::new()
+            processus_list: Vec::new(),
+            mem_total: 0,
+            mem_free: 0,
+            swap_total: 0,
+            swap_free: 0,
+            processes: Vec::new(),
         };
 
         s.refresh();
@@ -43,6 +55,71 @@ impl System {
                             Some(p) => self.processus_list.push(p),
                             None => {}
                         };
+                    } else {
+                        match entry.as_os_str().to_str().unwrap() {
+                            "/proc/meminfo" => {
+                                let mut file = File::open(entry.as_str().unwrap()).unwrap();
+                                let mut data = String::new();
+
+                                file.read_to_string(&mut data);
+                                let lines : Vec<&str> = data.split('\n').collect();
+                                for line in lines.iter() {
+                                    match *line {
+                                        l if l.starts_with("MemTotal:") => {
+                                            let parts : Vec<&str> = line.split(' ').collect();
+
+                                            self.mem_total = u64::from_str(parts[parts.len() - 2]).unwrap();
+                                        },
+                                        l if l.starts_with("MemFree:") => {
+                                            let parts : Vec<&str> = line.split(' ').collect();
+
+                                            self.mem_free = u64::from_str(parts[parts.len() - 2]).unwrap();
+                                        },
+                                        l if l.starts_with("SwapTotal:") => {
+                                            let parts : Vec<&str> = line.split(' ').collect();
+
+                                            self.swap_total = u64::from_str(parts[parts.len() - 2]).unwrap();
+                                        },
+                                        l if l.starts_with("SwapFree:") => {
+                                            let parts : Vec<&str> = line.split(' ').collect();
+
+                                            self.swap_free = u64::from_str(parts[parts.len() - 2]).unwrap();
+                                        },
+                                        _ => continue,
+                                    }
+                                }
+                            },
+                            "/proc/stat" => {
+                                let mut file = File::open(entry.as_str().unwrap()).unwrap();
+                                let mut data = String::new();
+
+                                file.read_to_string(&mut data);
+                                let lines : Vec<&str> = data.split('\n').collect();
+                                let mut i = 0;
+                                let first = self.processes.len() == 0;
+                                for line in lines.iter() {
+                                    if !line.starts_with("cpu") {
+                                        break;
+                                    }
+
+                                    let (parts, _) : (Vec<&str>, Vec<&str>) = line.split(' ').partition(|s| s.len() > 0);
+                                    if first {
+                                        self.processes.push(new_process(parts[0], u64::from_str(parts[1]).unwrap(),
+                                            u64::from_str(parts[2]).unwrap(),
+                                            u64::from_str(parts[3]).unwrap(),
+                                            u64::from_str(parts[4]).unwrap()));
+                                    } else {
+                                        set_process(self.processes.get_mut(i).unwrap(),
+                                            u64::from_str(parts[1]).unwrap(),
+                                            u64::from_str(parts[2]).unwrap(),
+                                            u64::from_str(parts[3]).unwrap(),
+                                            u64::from_str(parts[4]).unwrap());
+                                        i += 1;
+                                    }
+                                }
+                            }
+                           _ => {},
+                        }
                     }
                 }
             },
@@ -63,6 +140,27 @@ impl System {
             }
         }
         None
+    }
+
+    // The first process in the array is the "main" process
+    pub fn get_process_list<'a>(&'a self) -> &'a [Process] {
+        self.processes.as_slice()
+    }
+
+    pub fn get_total_memory(&self) -> u64 {
+        self.mem_total
+    }
+
+    pub fn get_free_memory(&self) -> u64 {
+        self.mem_free
+    }
+
+    pub fn get_total_swap(&self) -> u64 {
+        self.swap_total
+    }
+
+    pub fn get_free_swap(&self) -> u64 {
+        self.swap_free
     }
 }
 
@@ -116,7 +214,7 @@ fn _get_processus_data(path: &PosixPath) -> Option<Processus> {
                                 let lines : Vec<&str> = data.split('\n').collect();
                                 for line in lines.iter() {
                                     match *line {
-                                        l if l.starts_with("VmSize") => {
+                                        l if l.starts_with("VmRSS") => {
                                             let parts : Vec<&str> = line.split(' ').collect();
 
                                             p.memory = u32::from_str(parts[parts.len() - 2]).unwrap();

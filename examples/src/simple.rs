@@ -1,6 +1,6 @@
 #![crate_type = "bin"]
 
-#![feature(io, core)]
+#![feature(core)]
 
  #![allow(unused_must_use, non_upper_case_globals)]
 
@@ -18,12 +18,14 @@ const signals : [Signal; 31] = [Hangup, Interrupt, Quit, Illegal, Trap, Abort, B
 
 fn print_help() -> bool {
     write!(&mut io::stdout(), "== Help menu ==\n");
-    write!(&mut io::stdout(), "help: show this menu\n");
-    write!(&mut io::stdout(), "signals: show the available signals\n");
-    write!(&mut io::stdout(), "refresh: reloads processus' information\n");
-    write!(&mut io::stdout(), "show [pid]: show information of the given [pid]\n");
+    write!(&mut io::stdout(), "help               : show this menu\n");
+    write!(&mut io::stdout(), "signals            : show the available signals\n");
+    write!(&mut io::stdout(), "refresh            : reloads processus' information\n");
+    write!(&mut io::stdout(), "show [pid]         : show information of the given [pid]\n");
     write!(&mut io::stdout(), "kill [pid] [signal]: send [signal] to the processus with this [pid]. 0 < [signal] < 32\n");
-    write!(&mut io::stdout(), "quit: exit the program\n");
+    write!(&mut io::stdout(), "proc               : Displays proc state\n");
+    write!(&mut io::stdout(), "memory             : Displays memory state\n");
+    write!(&mut io::stdout(), "quit               : exit the program\n");
     false
 }
 
@@ -44,7 +46,23 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 nb += 1;
             }
             false
-        }
+        },
+        "proc" => {
+            let procs = sys.get_process_list();
+
+            write!(&mut io::stdout(), "total process usage: {}%\n", procs[0].get_cpu_usage());
+            for i in 1..procs.len() {
+                write!(&mut io::stdout(), "{:?}\n", procs[i]);
+            }
+            false
+        },
+        "memory" => {
+            write!(&mut io::stdout(), "total memory: {} kB\n", sys.get_total_memory());
+            write!(&mut io::stdout(), "free memory : {} kB\n", sys.get_free_memory());
+            write!(&mut io::stdout(), "total swap  : {} kB\n", sys.get_total_swap());
+            write!(&mut io::stdout(), "free memory : {} kB\n", sys.get_free_swap());
+            false
+        },
         "quit" => true,
         e if e.starts_with("show ") => {
             let tmp : Vec<&str> = e.split(" ").collect();
