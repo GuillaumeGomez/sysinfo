@@ -44,7 +44,9 @@ pub struct Process {
     old_values: CpuValues,
     new_values: CpuValues,
     name: String,
-    cpu_usage: f32
+    cpu_usage: f32,
+    total_time: u64,
+    old_total_time: u64
 }
 
 impl Process {
@@ -53,20 +55,24 @@ impl Process {
             name: String::new(),
             old_values: CpuValues::new(),
             new_values: CpuValues::new(),
-            cpu_usage: 0f32
+            cpu_usage: 0f32,
+            total_time: 0,
+            old_total_time: 0
         }
     }
 
-    fn new_with_values(name: &str, user: u64, nice: u64, system: u64, idle: u64) -> Process {
+    fn new_with_values(name: &str, user: u64, nice: u64, system: u64, idle: u64, total_time: u64) -> Process {
         Process {
             name: String::from_str(name),
             old_values: CpuValues::new_with_values(user, nice, system, idle),
             new_values: CpuValues::new(),
-            cpu_usage: 0f32
+            cpu_usage: 0f32,
+            total_time: total_time,
+            old_total_time: total_time
         }
     }
 
-    fn set(&mut self, user: u64, nice: u64, system: u64, idle: u64) {
+    fn set(&mut self, user: u64, nice: u64, system: u64, idle: u64, total_time: u64) {
         if self.old_values.is_zero() {
             self.old_values.set(user, nice, system, idle);
         } else {
@@ -78,6 +84,14 @@ impl Process {
                 (self.old_values.user + self.old_values.nice + self.old_values.system)) as f32 /
                 ((self.new_values.user + self.new_values.nice + self.new_values.system + self.new_values.idle) -
                 (self.old_values.user + self.old_values.nice + self.old_values.system + self.old_values.idle)) as f32;
+        }
+        if self.old_total_time == 0 {
+            self.old_total_time = total_time;
+        } else {
+            if self.total_time != 0 {
+                self.old_total_time = self.total_time;
+            }
+            self.total_time = total_time;
         }
     }
 
@@ -97,9 +111,13 @@ impl Debug for Process {
 }
 
 pub fn new_process(name: &str, user: u64, nice: u64, system: u64, idle: u64) -> Process {
-    Process::new_with_values(name, user, nice, system, idle)
+    Process::new_with_values(name, user, nice, system, idle, user + system)
 }
 
 pub fn set_process(p: &mut Process, user: u64, nice: u64, system: u64, idle: u64) {
-    p.set(user, nice, system, idle)
+    p.set(user, nice, system, idle, user + system)
+}
+
+pub fn get_raw_times(p: &Process) -> (u64, u64) {
+    (p.total_time, p.old_total_time)
 }

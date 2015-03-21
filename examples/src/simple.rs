@@ -71,7 +71,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 write!(&mut io::stdout(), "show command takes the pid in parameter !\n");
                 write!(&mut io::stdout(), "example: show 1254\n");
             } else {
-                let pid = i32::from_str(tmp.get(1).unwrap()).unwrap();
+                let pid = i64::from_str(tmp.get(1).unwrap()).unwrap();
 
                 match sys.get_processus(pid) {
                     Some(p) => write!(&mut io::stdout(), "{:?}\n", *p),
@@ -87,7 +87,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 write!(&mut io::stdout(), "kill command takes the pid and a signal number in parameter !\n");
                 write!(&mut io::stdout(), "example: kill 1254 9\n");
             } else {
-                let pid = i32::from_str(tmp.get(1).unwrap()).unwrap();
+                let pid = i64::from_str(tmp.get(1).unwrap()).unwrap();
                 let signal = i32::from_str(tmp.get(2).unwrap()).unwrap();
 
                 if signal < 1 || signal > 31 {

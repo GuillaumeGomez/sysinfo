@@ -19,9 +19,10 @@ use std::io;
 use std::old_path;
 use std::old_io;
 use std::fmt::{self, Formatter, Debug};
+use std::collections::VecMap;
 
 pub struct System {
-    processus_list: Vec<Processus>,
+    processus_list: VecMap<Processus>,
     mem_total: u64,
     mem_free: u64,
     swap_total: u64,
@@ -32,7 +33,7 @@ pub struct System {
 impl System {
     pub fn new() -> System {
         let mut s = System {
-            processus_list: Vec::new(),
+            processus_list: VecMap::new(),
             mem_total: 0,
             mem_free: 0,
             swap_total: 0,
@@ -47,21 +48,20 @@ impl System {
     pub fn refresh(&mut self) {
         match fs::readdir(&PosixPath::new("/proc")) {
             Ok(v) => {
-                self.processus_list = Vec::new();
+                let mut proc_list : VecMap<Processus> = VecMap::new();
 
                 for entry in v.iter() {
                     if entry.is_dir() {
-                        match _get_processus_data(entry) {
-                            Some(p) => self.processus_list.push(p),
+                        match _get_processus_data(entry, &self.processus_list) {
+                            Some(p) => {
+                                proc_list.insert(p.pid as usize, p);
+                            }
                             None => {}
                         };
                     } else {
                         match entry.as_os_str().to_str().unwrap() {
                             "/proc/meminfo" => {
-                                let mut file = File::open(entry.as_str().unwrap()).unwrap();
-                                let mut data = String::new();
-
-                                file.read_to_string(&mut data);
+                                let mut data = get_all_data(entry.as_str().unwrap());
                                 let lines : Vec<&str> = data.split('\n').collect();
                                 for line in lines.iter() {
                                     match *line {
@@ -90,10 +90,7 @@ impl System {
                                 }
                             },
                             "/proc/stat" => {
-                                let mut file = File::open(entry.as_str().unwrap()).unwrap();
-                                let mut data = String::new();
-
-                                file.read_to_string(&mut data);
+                                let mut data = get_all_data(entry.as_str().unwrap());
                                 let lines : Vec<&str> = data.split('\n').collect();
                                 let mut i = 0;
                                 let first = self.processes.len() == 0;
@@ -122,24 +119,30 @@ impl System {
                         }
                     }
                 }
+                for (pid, proc_) in proc_list.iter_mut() {
+                    match self.processus_list.get(&pid) {
+                        Some(p) => {
+                            let (new, old) = get_raw_times(&self.processes[0]);
+                            let (pnew, pold) = get_raw_processus_times(&p);
+                            compute_cpu_usage(proc_, pnew, pold, new, old);
+                        }
+                        None => {}
+                    }
+                }
+                self.processus_list = proc_list;
             },
             Err(e) => {
-                panic!("readdir error: {}", e);
+                panic!("cannot read /proc ! error: {}", e);
             }
         }
     }
 
-    pub fn get_processus_list<'a>(&'a self) -> &'a [Processus] {
-        self.processus_list.as_slice()
+    pub fn get_processus_list<'a>(&'a self) -> &'a VecMap<Processus> {
+        &self.processus_list
     }
 
-    pub fn get_processus(&self, pid: i32) -> Option<&Processus> {
-        for pro in self.processus_list.iter() {
-            if pro.pid == pid {
-                return Some(pro);
-            }
-        }
-        None
+    pub fn get_processus(&self, pid: i64) -> Option<&Processus> {
+        self.processus_list.get(&(pid as usize))
     }
 
     // The first process in the array is the "main" process
@@ -164,75 +167,66 @@ impl System {
     }
 }
 
-fn _get_processus_data(path: &PosixPath) -> Option<Processus> {
+fn get_all_data(file_path: &str) -> String {
+    let mut file = File::open(file_path).unwrap();
+    let mut data = String::new();
+
+    file.read_to_string(&mut data);
+    data
+}
+
+fn _get_processus_data(path: &PosixPath, proc_list: &VecMap<Processus>) -> Option<Processus> {
     if !path.exists() || !path.is_dir() {
         return None;
     }
-    match fs::readdir(path) {
-        Ok(v) => {
-            let paths : Vec<&str> = path.as_os_str().to_str().unwrap().split("/").collect();
-            let last = paths[paths.len() - 1];
-            match i32::from_str(last) {
-                Ok(nb) => {
-                    let mut p = Processus {
-                        pid: nb,
-                        cmd: String::new(),
-                        environ: Vec::new(),
-                        exe: String::new(),
-                        cwd: String::new(),
-                        root: String::new(),
-                        memory: 0
-                    };
-
-                    for entry in v.iter() {
-                        let t = get_last(entry);
-
-                        match t {
-                            "cmdline" => {
-                                p.cmd = String::from_str(copy_from_file(entry)[0].as_slice());
-                            },
-                            "environ" => {
-                                p.environ = copy_from_file(entry);
-                            },
-                            "exe" => {
-                                let s = read_link(entry.as_str().unwrap());
-                                if s.is_ok() {
-                                    p.exe = String::from_str(s.unwrap().as_os_str().to_str().unwrap());
-                                }
-                            },
-                            "cwd" => {
-                                p.cwd = String::from_str(realpath(Path::new(entry.as_str().unwrap())).unwrap().as_os_str().to_str().unwrap());
-                            },
-                            "root" => {
-                                p.root = String::from_str(realpath(Path::new(entry.as_str().unwrap())).unwrap().as_os_str().to_str().unwrap());
-                            },
-                            "status" => {
-                                let mut file = File::open(entry.as_str().unwrap()).unwrap();
-                                let mut data = String::new();
-
-                                file.read_to_string(&mut data);
-                                let lines : Vec<&str> = data.split('\n').collect();
-                                for line in lines.iter() {
-                                    match *line {
-                                        l if l.starts_with("VmRSS") => {
-                                            let parts : Vec<&str> = line.split(' ').collect();
-
-                                            p.memory = u32::from_str(parts[parts.len() - 2]).unwrap();
-                                            break;
-                                        }
-                                        _ => continue,
-                                    }
-                                }
-                            }
-                            l => {}
-                        };
-                    }
-                    Some(p)
-                },
-                Err(_) => None
+    let paths : Vec<&str> = path.as_os_str().to_str().unwrap().split("/").collect();
+    let last = paths[paths.len() - 1];
+    match i64::from_str(last) {
+        Ok(nb) => {
+            let mut p = Processus::new(nb);
+            let mut tmp = path.clone();
+            tmp.push("cmdline");
+            p.cmd = String::from_str(copy_from_file(&tmp)[0].as_slice());
+            tmp = path.clone();
+            tmp.push("environ");
+            p.environ = copy_from_file(&tmp);
+            tmp = path.clone();
+            tmp.push("exe");
+            let s = read_link(tmp.as_str().unwrap());
+            if s.is_ok() {
+                p.exe = String::from_str(s.unwrap().as_os_str().to_str().unwrap());
             }
+            tmp = path.clone();
+            tmp.push("cwd");
+            p.cwd = String::from_str(realpath(Path::new(tmp.as_str().unwrap())).unwrap().as_os_str().to_str().unwrap());
+            tmp = path.clone();
+            tmp.push("root");
+            p.root = String::from_str(realpath(Path::new(tmp.as_str().unwrap())).unwrap().as_os_str().to_str().unwrap());
+            tmp = path.clone();
+            tmp.push("status");
+            let mut data = get_all_data(tmp.as_str().unwrap());
+
+            let lines : Vec<&str> = data.split('\n').collect();
+            for line in lines.iter() {
+                match *line {
+                    l if l.starts_with("VmRSS") => {
+                        let parts : Vec<&str> = line.split(' ').collect();
+
+                        p.memory = u64::from_str(parts[parts.len() - 2]).unwrap();
+                        break;
+                    }
+                    _ => continue,
+                }
+            }
+            tmp = path.clone();
+            tmp.push("stat");
+            let mut data2 = get_all_data(tmp.as_str().unwrap());
+            // ne marche pas car il faut aussi les anciennes valeurs !!!!
+            let (parts, _) : (Vec<&str>, Vec<&str>) = data2.split(' ').partition(|s| s.len() > 0);
+            set_time(&mut p, u64::from_str(parts[13]).unwrap(), u64::from_str(parts[14]).unwrap());
+            Some(p)
         }
-        Err(_) => None
+        _ => None
     }
 }
 
