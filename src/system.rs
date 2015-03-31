@@ -185,6 +185,7 @@ fn _get_processus_data(path: &PosixPath, proc_list: &VecMap<Processus>) -> Optio
         Ok(nb) => {
             let mut p = Processus::new(nb);
             let mut tmp = path.clone();
+
             tmp.push("cmdline");
             p.cmd = String::from_str(copy_from_file(&tmp)[0].as_slice());
             tmp = path.clone();
@@ -194,7 +195,13 @@ fn _get_processus_data(path: &PosixPath, proc_list: &VecMap<Processus>) -> Optio
             tmp.push("exe");
             let s = read_link(tmp.as_str().unwrap());
             if s.is_ok() {
+
                 p.exe = String::from_str(s.unwrap().as_os_str().to_str().unwrap());
+                {
+                    let mut tmp_name : Vec<&str> = p.exe.split("/").collect();
+
+                    p.name = String::from_str(tmp_name[tmp_name.len() - 1]);
+                }
             }
             tmp = path.clone();
             tmp.push("cwd");

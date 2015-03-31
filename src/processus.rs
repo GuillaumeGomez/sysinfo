@@ -8,6 +8,7 @@ use std::fmt::{self, Formatter, Debug};
 use libc::{c_int};
 
 pub struct Processus {
+    pub name: String, // name of the program
     pub cmd: String, // command line
     pub exe: String, // path to the executable
     pub pid: i64, // pid of the processus
@@ -23,6 +24,7 @@ pub struct Processus {
 impl Processus {
     pub fn new(pid: i64) -> Processus {
         Processus {
+            name: String::new(),
             pid: pid,
             cmd: String::new(),
             environ: Vec::new(),
@@ -44,6 +46,7 @@ impl Processus {
 impl Debug for Processus {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "pid: {}\n", self.pid);
+        write!(f, "name: {}\n", self.name);
         write!(f, "environment:");
         for var in self.environ.iter() {
             write!(f, "\n\t{}", var);
