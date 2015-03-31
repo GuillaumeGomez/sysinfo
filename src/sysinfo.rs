@@ -1,14 +1,14 @@
-// license info
-
-/*!
-
-*/
+// 
+// Sysinfo
+// 
+// Copyright (c) 2015 Guillaume Gomez
+//
 
 #![crate_name = "sysinfo"]
 #![crate_type = "lib"]
 #![crate_type = "rlib"]
 
-#![feature(std_misc, old_io, collections, old_path, io, path, core, os)]
+#![feature(std_misc, old_io, old_fs, convert, collections, old_path, core, os)]
 
 extern crate libc;
 

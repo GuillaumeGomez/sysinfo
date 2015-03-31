@@ -1,8 +1,8 @@
-// license info
-
-/*!
-
-*/
+// 
+// Sysinfo
+// 
+// Copyright (c) 2015 Guillaume Gomez
+//
 
 use processus::*;
 use process::*;
@@ -18,8 +18,8 @@ use std::path::{Path, PathBuf};
 use std::io;
 use std::old_path;
 use std::old_io;
-use std::fmt::{self, Formatter, Debug};
 use std::collections::VecMap;
+use std::old_path::GenericPath;
 
 pub struct System {
     processus_list: VecMap<Processus>,
@@ -242,7 +242,7 @@ fn get_last(path: &PosixPath) -> &str {
 }
 
 fn copy_from_file(entry: &PosixPath) -> Vec<String> {
-    match File::open(entry) {
+    match File::open(entry.as_str().unwrap()) {
         Ok(mut f) => {
             let mut d = String::new();
 
@@ -294,7 +294,7 @@ fn realpath(original: &Path) -> io::Result<PathBuf> {
     let old = old_path::Path::new(original.to_str().unwrap());
 
     match old_realpath(&old) {
-        Ok(p) => Ok(PathBuf::new(p.as_str().unwrap())),
-        Err(_) => Ok(PathBuf::new(""))
+        Ok(p) => Ok(PathBuf::from(p.as_str().unwrap())),
+        Err(_) => Ok(PathBuf::new())
     }
 }

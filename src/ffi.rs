@@ -1,3 +1,9 @@
+// 
+// Sysinfo
+// 
+// Copyright (c) 2015 Guillaume Gomez
+//
+
 use libc::{c_int};
 
 extern "C" {

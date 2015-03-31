@@ -1,5 +1,10 @@
+// 
+// Sysinfo
+// 
+// Copyright (c) 2015 Guillaume Gomez
+//
+
 use std::fmt::{self, Formatter, Debug};
-use libc::{c_int};
 
 #[derive(Copy)]
 pub struct CpuValues {
