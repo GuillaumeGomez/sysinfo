@@ -266,9 +266,9 @@ fn copy_from_file(entry: &PosixPath) -> Vec<String> {
     }
 }
 
-fn old_realpath(original: &old_path::Path) -> old_io::IoResult<old_path::Path> {
+fn old_realpath(original: &PosixPath) -> old_io::IoResult<old_path::Path> {
     const MAX_LINKS_FOLLOWED: usize = 256;
-    let original = try!(os::getcwd()).join(original);
+    let original = PosixPath::new(::std::env::current_dir().unwrap().as_os_str().to_str().unwrap()).join(original);
     // Right now lstat on windows doesn't work quite well
     if cfg!(windows) {
         return Ok(original)

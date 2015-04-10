@@ -6,7 +6,7 @@
 
 use std::fmt::{self, Formatter, Debug};
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct CpuValues {
     user: u64,
     nice: u64,
