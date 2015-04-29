@@ -1,7 +1,5 @@
 #![crate_type = "bin"]
 
-#![feature(core)]
-
  #![allow(unused_must_use, non_upper_case_globals)]
 
 extern crate sysinfo;
@@ -127,9 +125,9 @@ fn main() {
         io::stdout().flush();
 
         stin.read_line(&mut input);
-        if input.as_slice().ends_with("\n") {
+        if (&input as &str).ends_with("\n") {
             input.pop();
         }
-        done = interpret_input(input.as_slice(), &mut t);
+        done = interpret_input(input.as_ref(), &mut t);
     }
 }

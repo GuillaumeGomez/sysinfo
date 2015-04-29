@@ -105,7 +105,7 @@ impl Process {
     }
 
     pub fn get_name<'a>(&'a self) -> &'a str {
-        self.name.as_slice()
+        &self.name
     }
 }
 

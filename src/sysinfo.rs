@@ -8,7 +8,7 @@
 #![crate_type = "lib"]
 #![crate_type = "rlib"]
 
-#![feature(std_misc, old_io, old_fs, convert, collections, old_path, core, os)]
+#![feature(path_ext, convert, collections)]
 
 extern crate libc;
 

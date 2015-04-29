@@ -6,20 +6,17 @@
 
 use processus::*;
 use process::*;
-use std::old_io::fs;
 use std::fs::{File, read_link, PathExt};
 use std::io::Read;
-use std::ffi::AsOsStr;
-use std::old_io::fs::PathExtensions;
-use std::old_path::posix::Path as PosixPath;
 use std::str::FromStr;
-use std::os;
 use std::path::{Path, PathBuf};
-use std::io;
-use std::old_path;
-use std::old_io;
 use std::collections::VecMap;
-use std::old_path::GenericPath;
+use std::fs;
+use libc::types::os::arch::posix01::stat;
+use libc::c_char;
+use libc::funcs::posix01::stat_::lstat;
+use libc::consts::os::posix88::{S_IFLNK, S_IFMT};
+use std::path::Component::Normal;
 
 pub struct System {
     processus_list: VecMap<Processus>,
@@ -46,22 +43,28 @@ impl System {
     }
 
     pub fn refresh(&mut self) {
-        match fs::readdir(&PosixPath::new("/proc")) {
-            Ok(v) => {
-                let mut proc_list : VecMap<Processus> = VecMap::new();
+        let mut proc_list : VecMap<Processus> = VecMap::new();
 
-                for entry in v.iter() {
+        match fs::read_dir(&Path::new("/proc")) {
+            Ok(d) => {
+                for entry in d {
+                    if !entry.is_ok() {
+                        continue;
+                    }
+                    let entry = entry.unwrap();
+                    let entry = entry.path();
+
                     if entry.is_dir() {
-                        match _get_processus_data(entry, &self.processus_list) {
+                        match _get_processus_data(entry.as_path(), &self.processus_list) {
                             Some(p) => {
                                 proc_list.insert(p.pid as usize, p);
                             }
                             None => {}
                         };
                     } else {
-                        match entry.as_os_str().to_str().unwrap() {
+                        match entry.to_str().unwrap() {
                             "/proc/meminfo" => {
-                                let mut data = get_all_data(entry.as_str().unwrap());
+                                let data = get_all_data(entry.to_str().unwrap());
                                 let lines : Vec<&str> = data.split('\n').collect();
                                 for line in lines.iter() {
                                     match *line {
@@ -90,7 +93,7 @@ impl System {
                                 }
                             },
                             "/proc/stat" => {
-                                let mut data = get_all_data(entry.as_str().unwrap());
+                                let data = get_all_data(entry.to_str().unwrap());
                                 let lines : Vec<&str> = data.split('\n').collect();
                                 let mut i = 0;
                                 let first = self.processes.len() == 0;
@@ -130,10 +133,8 @@ impl System {
                     }
                 }
                 self.processus_list = proc_list;
-            },
-            Err(e) => {
-                panic!("cannot read /proc ! error: {}", e);
             }
+            Err(_) => {}
         }
     }
 
@@ -175,7 +176,7 @@ fn get_all_data(file_path: &str) -> String {
     data
 }
 
-fn _get_processus_data(path: &PosixPath, proc_list: &VecMap<Processus>) -> Option<Processus> {
+fn _get_processus_data(path: &Path, proc_list: &VecMap<Processus>) -> Option<Processus> {
     if !path.exists() || !path.is_dir() {
         return None;
     }
@@ -184,36 +185,38 @@ fn _get_processus_data(path: &PosixPath, proc_list: &VecMap<Processus>) -> Optio
     match i64::from_str(last) {
         Ok(nb) => {
             let mut p = Processus::new(nb);
-            let mut tmp = path.clone();
+            let mut tmp = PathBuf::from(path);
 
             tmp.push("cmdline");
-            p.cmd = String::from_str(copy_from_file(&tmp)[0].as_slice());
+            p.cmd = String::from_str(copy_from_file(&tmp)[0].as_ref());
             {
-                let mut tmp_line : Vec<&str> = p.cmd.split(" ").collect();
-                let mut tmp_name : Vec<&str> = tmp_line[0].split("/").collect();
+                let tmp_line : Vec<&str> = p.cmd.split(" ").collect();
+                let tmp_name : Vec<&str> = tmp_line[0].split("/").collect();
 
                 p.name = String::from_str(tmp_name[tmp_name.len() - 1]);
             }
-            tmp = path.clone();
+            tmp = PathBuf::from(path);
             tmp.push("environ");
             p.environ = copy_from_file(&tmp);
-            tmp = path.clone();
+            tmp = PathBuf::from(path);
             tmp.push("exe");
-            let s = read_link(tmp.as_str().unwrap());
-            if s.is_ok() {
-                p.exe = String::from_str(s.unwrap().as_os_str().to_str().unwrap());
-            }
-            tmp = path.clone();
-            tmp.push("cwd");
-            p.cwd = String::from_str(realpath(Path::new(tmp.as_str().unwrap())).unwrap().as_os_str().to_str().unwrap());
-            tmp = path.clone();
-            tmp.push("root");
-            p.root = String::from_str(realpath(Path::new(tmp.as_str().unwrap())).unwrap().as_os_str().to_str().unwrap());
-            tmp = path.clone();
-            tmp.push("status");
-            let mut data = get_all_data(tmp.as_str().unwrap());
 
+            let s = read_link(tmp.to_str().unwrap());
+
+            if s.is_ok() {
+                p.exe = String::from_str(s.unwrap().to_str().unwrap());
+            }
+            tmp = PathBuf::from(path);
+            tmp.push("cwd");
+            p.cwd = String::from_str(realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap());
+            tmp = PathBuf::from(path);
+            tmp.push("root");
+            p.root = String::from_str(realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap());
+            tmp = PathBuf::from(path);
+            tmp.push("status");
+            let data = get_all_data(tmp.to_str().unwrap());
             let lines : Vec<&str> = data.split('\n').collect();
+
             for line in lines.iter() {
                 match *line {
                     l if l.starts_with("VmRSS") => {
@@ -225,11 +228,11 @@ fn _get_processus_data(path: &PosixPath, proc_list: &VecMap<Processus>) -> Optio
                     _ => continue,
                 }
             }
-            tmp = path.clone();
+            tmp = PathBuf::from(path);
             tmp.push("stat");
-            let mut data2 = get_all_data(tmp.as_str().unwrap());
+            let data = get_all_data(tmp.to_str().unwrap());
             // ne marche pas car il faut aussi les anciennes valeurs !!!!
-            let (parts, _) : (Vec<&str>, Vec<&str>) = data2.split(' ').partition(|s| s.len() > 0);
+            let (parts, _) : (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
             set_time(&mut p, u64::from_str(parts[13]).unwrap(), u64::from_str(parts[14]).unwrap());
             Some(p)
         }
@@ -237,24 +240,13 @@ fn _get_processus_data(path: &PosixPath, proc_list: &VecMap<Processus>) -> Optio
     }
 }
 
-fn get_last(path: &PosixPath) -> &str {
-    let t = path.as_os_str().to_str().unwrap();
-    let v : Vec<&str> = t.split('/').collect();
-
-    if v.len() > 0 {
-        v[v.len() - 1]
-    } else {
-        ""
-    }
-}
-
-fn copy_from_file(entry: &PosixPath) -> Vec<String> {
-    match File::open(entry.as_str().unwrap()) {
+fn copy_from_file(entry: &Path) -> Vec<String> {
+    match File::open(entry.to_str().unwrap()) {
         Ok(mut f) => {
             let mut d = String::new();
 
             f.read_to_string(&mut d);
-            let mut v : Vec<&str> = d.split('\0').collect();
+            let v : Vec<&str> = d.split('\0').collect();
             let mut ret = Vec::new();
 
             for tmp in v.iter() {
@@ -266,42 +258,45 @@ fn copy_from_file(entry: &PosixPath) -> Vec<String> {
     }
 }
 
-fn old_realpath(original: &PosixPath) -> old_io::IoResult<old_path::Path> {
+fn old_realpath(ori: &Path) -> PathBuf {
     const MAX_LINKS_FOLLOWED: usize = 256;
-    let original = PosixPath::new(::std::env::current_dir().unwrap().as_os_str().to_str().unwrap()).join(original);
+
     // Right now lstat on windows doesn't work quite well
     if cfg!(windows) {
-        return Ok(original)
+        return PathBuf::from(ori);
     }
-    let result = original.root_path();
-    let mut result = result.expect("make_absolute has no root_path");
+    let original = ::std::env::current_dir().unwrap().join(ori);
+    let mut result = PathBuf::from(original.parent().unwrap());
     let mut followed = 0;
     for part in original.components() {
-        result.push(part);
-        loop {
-            if followed == MAX_LINKS_FOLLOWED {
-                return Ok(old_path::Path::new(""));
-            }
-            match fs::lstat(&result) {
-                Err(..) => break,
-                Ok(ref stat) if stat.kind != old_io::FileType::Symlink => break,
-                Ok(..) => {
-                    followed += 1;
-                    let path = try!(fs::readlink(&result));
-                    result.pop();
-                    result.push(path);
+        match part {
+            Normal(s) => {
+                result.push(s);
+                loop {
+                    if followed == MAX_LINKS_FOLLOWED {
+                        return PathBuf::new();
+                    }
+                    let mut buf : stat = unsafe { ::std::mem::uninitialized() };
+                    let res = unsafe { lstat(result.to_str().unwrap().as_ptr() as *const c_char, &mut buf as *mut stat) };
+                    
+                    if res < 0 || (buf.st_mode  & S_IFMT) != S_IFLNK {
+                        break;
+                    } else {
+                        followed += 1;
+                        let path = fs::read_link(&result).unwrap();
+                        result.pop();
+                        result.push(path);
+                    }
                 }
             }
+            _ => {}
         }
     }
-    return Ok(result);
+    result
 }
 
-fn realpath(original: &Path) -> io::Result<PathBuf> {
-    let old = old_path::Path::new(original.to_str().unwrap());
+fn realpath(original: &Path) -> PathBuf {
+    let old = Path::new(original.to_str().unwrap());
 
-    match old_realpath(&old) {
-        Ok(p) => Ok(PathBuf::from(p.as_str().unwrap())),
-        Err(_) => Ok(PathBuf::new())
-    }
+    old_realpath(&old)
 }
