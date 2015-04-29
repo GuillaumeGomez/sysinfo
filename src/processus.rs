@@ -7,6 +7,7 @@
 use std::fmt::{self, Formatter, Debug};
 use libc::{c_int};
 
+#[derive(Clone)]
 pub struct Processus {
     pub name: String, // name of the program
     pub cmd: String, // command line
