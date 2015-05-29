@@ -21,7 +21,7 @@ use std::path::Component::Normal;
 pub struct System {
     processus_list: VecMap<Processus>,
     mem_total: u64,
-    mem_free: u64,
+    mem_used: u64,
     swap_total: u64,
     swap_free: u64,
     processes: Vec<Process>,
@@ -32,7 +32,7 @@ impl System {
         let mut s = System {
             processus_list: VecMap::new(),
             mem_total: 0,
-            mem_free: 0,
+            mem_used: 0,
             swap_total: 0,
             swap_free: 0,
             processes: Vec::new(),
@@ -76,7 +76,7 @@ impl System {
                                         l if l.starts_with("MemFree:") => {
                                             let parts : Vec<&str> = line.split(' ').collect();
 
-                                            self.mem_free = u64::from_str(parts[parts.len() - 2]).unwrap();
+                                            self.mem_used = u64::from_str(parts[parts.len() - 2]).unwrap();
                                         },
                                         l if l.starts_with("SwapTotal:") => {
                                             let parts : Vec<&str> = line.split(' ').collect();
@@ -146,7 +146,7 @@ impl System {
         self.processus_list.get(&(pid as usize))
     }
 
-    // The first process in the array is the "main" process
+    /// The first process in the array is the "main" process
     pub fn get_process_list<'a>(&'a self) -> &'a [Process] {
         self.processes.as_slice()
     }
@@ -155,15 +155,16 @@ impl System {
         self.mem_total
     }
 
-    pub fn get_free_memory(&self) -> u64 {
-        self.mem_free
+    pub fn get_used_memory(&self) -> u64 {
+        self.mem_used
     }
 
     pub fn get_total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    pub fn get_free_swap(&self) -> u64 {
+    // need to be checked
+    pub fn get_used_swap(&self) -> u64 {
         self.swap_free
     }
 }
