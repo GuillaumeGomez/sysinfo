@@ -19,6 +19,8 @@ pub struct Processus {
     pub memory: u64, // memory usage
     utime: u64,
     stime: u64,
+    old_utime: u64,
+    old_stime: u64,
     pub cpu_usage: f32 // total cpu usage
 }
 
@@ -35,7 +37,9 @@ impl Processus {
             memory: 0,
             cpu_usage: 0f32,
             utime: 0,
-            stime: 0
+            stime: 0,
+            old_utime: 0,
+            old_stime: 0
         }
     }
 
@@ -62,12 +66,15 @@ impl Debug for Processus {
 }
 
 pub fn set_time(p: &mut Processus, utime: u64, stime: u64) {
+    p.old_utime = p.utime;
+    p.old_stime = p.stime;
     p.utime = utime;
     p.stime = stime;
 }
 
 pub fn compute_cpu_usage(p: &mut Processus, old_utime: u64, old_stime: u64, total_time: u64, old_total_time: u64) {
-    p.cpu_usage = 100f32 * (p.utime - old_utime) as f32 / (total_time - old_total_time) as f32;
+    p.cpu_usage = ((p.utime - old_utime) as f32 / (total_time - old_total_time) as f32
+        + (p.stime - old_stime) as f32 / (total_time - old_total_time) as f32) * 25f32;
 }
 
 pub fn get_raw_processus_times(p: &Processus) -> (u64, u64) {

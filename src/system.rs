@@ -235,6 +235,7 @@ fn _get_processus_data(path: &Path, proc_list: &VecMap<Processus>) -> Option<Pro
             // ne marche pas car il faut aussi les anciennes valeurs !!!!
             let (parts, _) : (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
             set_time(&mut p, u64::from_str(parts[13]).unwrap(), u64::from_str(parts[14]).unwrap());
+                //u64::from_str(parts[15]).unwrap(), u64::from_str(parts[16]).unwrap());
             Some(p)
         }
         _ => None
