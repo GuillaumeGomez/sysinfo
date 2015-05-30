@@ -56,9 +56,9 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         },
         "memory" => {
             write!(&mut io::stdout(), "total memory: {} kB\n", sys.get_total_memory());
-            write!(&mut io::stdout(), "free memory : {} kB\n", sys.get_free_memory());
+            write!(&mut io::stdout(), "used memory : {} kB\n", sys.get_used_memory());
             write!(&mut io::stdout(), "total swap  : {} kB\n", sys.get_total_swap());
-            write!(&mut io::stdout(), "free swap : {} kB\n", sys.get_free_swap());
+            write!(&mut io::stdout(), "used swap : {} kB\n", sys.get_used_swap());
             false
         },
         "quit" => true,

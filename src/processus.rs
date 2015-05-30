@@ -48,6 +48,7 @@ impl Processus {
     }
 }
 
+#[allow(unused_must_use)]
 impl Debug for Processus {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "pid: {}\n", self.pid);

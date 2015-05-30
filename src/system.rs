@@ -43,7 +43,7 @@ impl System {
     }
 
     pub fn refresh(&mut self) {
-        let mut proc_list : VecMap<Processus> = VecMap::new();
+        let mut proc_list : VecMap<Processus> = VecMap::with_capacity(self.processes.len());
 
         match fs::read_dir(&Path::new("/proc")) {
             Ok(d) => {
@@ -55,7 +55,7 @@ impl System {
                     let entry = entry.path();
 
                     if entry.is_dir() {
-                        match _get_processus_data(entry.as_path(), &self.processus_list) {
+                        match _get_processus_data(entry.as_path()) {
                             Some(p) => {
                                 proc_list.insert(p.pid as usize, p);
                             }
@@ -177,7 +177,7 @@ fn get_all_data(file_path: &str) -> String {
     data
 }
 
-fn _get_processus_data(path: &Path, proc_list: &VecMap<Processus>) -> Option<Processus> {
+fn _get_processus_data(path: &Path) -> Option<Processus> {
     if !path.exists() || !path.is_dir() {
         return None;
     }
@@ -235,13 +235,13 @@ fn _get_processus_data(path: &Path, proc_list: &VecMap<Processus>) -> Option<Pro
             // ne marche pas car il faut aussi les anciennes valeurs !!!!
             let (parts, _) : (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
             set_time(&mut p, u64::from_str(parts[13]).unwrap(), u64::from_str(parts[14]).unwrap());
-                //u64::from_str(parts[15]).unwrap(), u64::from_str(parts[16]).unwrap());
             Some(p)
         }
         _ => None
     }
 }
 
+#[allow(unused_must_use)] 
 fn copy_from_file(entry: &Path) -> Vec<String> {
     match File::open(entry.to_str().unwrap()) {
         Ok(mut f) => {
@@ -260,7 +260,9 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
     }
 }
 
-fn old_realpath(ori: &Path) -> PathBuf {
+fn realpath(original: &Path) -> PathBuf {
+    let ori = Path::new(original.to_str().unwrap());
+
     const MAX_LINKS_FOLLOWED: usize = 256;
 
     // Right now lstat on windows doesn't work quite well
@@ -295,10 +297,4 @@ fn old_realpath(ori: &Path) -> PathBuf {
         }
     }
     result
-}
-
-fn realpath(original: &Path) -> PathBuf {
-    let old = Path::new(original.to_str().unwrap());
-
-    old_realpath(&old)
 }
