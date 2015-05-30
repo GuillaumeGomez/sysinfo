@@ -1,4 +1,6 @@
 language: rust
+rust:
+- nightly
 script:
   - rustc --version
   - RUST_BACKTRACE=1 cargo build
