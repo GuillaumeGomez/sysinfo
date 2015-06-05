@@ -71,7 +71,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             } else {
                 let pid = i64::from_str(tmp.get(1).unwrap()).unwrap();
 
-                match sys.get_processus(pid) {
+                match sys.get_process(pid) {
                     Some(p) => write!(&mut io::stdout(), "{:?}\n", *p),
                     None => write!(&mut io::stdout(), "pid not found\n")
                 };
@@ -91,7 +91,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 if signal < 1 || signal > 31 {
                     write!(&mut io::stdout(), "Signal must be between 0 and 32 ! See the signals list with the signals command\n");
                 } else {
-                    match sys.get_processus(pid) {
+                    match sys.get_process(pid) {
                         Some(p) => {
                             write!(&mut io::stdout(), "kill: {}\n", p.kill(*signals.get(signal as usize - 1).unwrap()));
                         },
