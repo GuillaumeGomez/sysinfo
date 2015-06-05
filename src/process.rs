@@ -78,6 +78,6 @@ pub fn compute_cpu_usage(p: &mut Process, old_utime: u64, old_stime: u64, total_
         + (p.stime - old_stime) as f32 / (total_time - old_total_time) as f32) * 25f32;
 }
 
-pub fn get_raw_processus_times(p: &Process) -> (u64, u64) {
+pub fn get_raw_process_times(p: &Process) -> (u64, u64) {
     (p.utime, p.stime)
 }

@@ -109,7 +109,7 @@ impl System {
                     let entry = entry.path();
 
                     if entry.is_dir() {
-                        match _get_processus_data(entry.as_path()) {
+                        match _get_process_data(entry.as_path()) {
                             Some(p) => {
                                 proc_list.insert(p.pid as usize, p);
                             }
@@ -125,7 +125,7 @@ impl System {
                     match self.process_list.get(&pid) {
                         Some(p) => {
                             let (new, old) = get_raw_times(&self.processors[0]);
-                            let (pnew, pold) = get_raw_processus_times(&p);
+                            let (pnew, pold) = get_raw_process_times(&p);
                             compute_cpu_usage(proc_, pnew, pold, new, old);
                         }
                         None => {}
@@ -146,7 +146,7 @@ impl System {
         &self.process_list
     }
 
-    pub fn get_processus(&self, pid: i64) -> Option<&Process> {
+    pub fn get_process(&self, pid: i64) -> Option<&Process> {
         self.process_list.get(&(pid as usize))
     }
 
@@ -181,7 +181,7 @@ fn get_all_data(file_path: &str) -> String {
     data
 }
 
-fn _get_processus_data(path: &Path) -> Option<Process> {
+fn _get_process_data(path: &Path) -> Option<Process> {
     if !path.exists() || !path.is_dir() {
         return None;
     }
