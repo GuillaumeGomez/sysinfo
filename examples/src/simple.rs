@@ -32,7 +32,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "help" => print_help(),
         "refresh" => {
             write!(&mut io::stdout(), "Getting processus' information...\n");
-            sys.refresh();
+            sys.refresh_all();
             write!(&mut io::stdout(), "Done.\n");
             false
         },
@@ -46,7 +46,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             false
         },
         "proc" => {
-            let procs = sys.get_process_list();
+            let procs = sys.get_processor_list();
 
             write!(&mut io::stdout(), "total process usage: {}%\n", procs[0].get_cpu_usage());
             for i in 1..procs.len() {

@@ -5,124 +5,79 @@
 //
 
 use std::fmt::{self, Formatter, Debug};
+use libc::{c_int};
 
-#[derive(Clone, Copy)]
-pub struct CpuValues {
-    user: u64,
-    nice: u64,
-    system: u64,
-    idle: u64
-}
-
-impl CpuValues {
-    pub fn new() -> CpuValues {
-        CpuValues {
-            user: 0,
-            nice: 0,
-            system: 0,
-            idle: 0
-        }
-    }
-
-    pub fn new_with_values(user: u64, nice: u64, system: u64, idle: u64) -> CpuValues {
-        CpuValues {
-            user: user,
-            nice: nice,
-            system: system,
-            idle: idle
-        }
-    }
-
-    pub fn is_zero(&self) -> bool {
-        self.user == 0 && self.nice == 0 && self.system == 0 && self.idle == 0
-    }
-
-    pub fn set(&mut self, user: u64, nice: u64, system: u64, idle: u64) {
-        self.user = user;
-        self.nice = nice;
-        self.system = system;
-        self.idle = idle;
-    }
-}
-
+#[derive(Clone)]
 pub struct Process {
-    old_values: CpuValues,
-    new_values: CpuValues,
-    name: String,
-    cpu_usage: f32,
-    total_time: u64,
-    old_total_time: u64
+    pub name: String, // name of the program
+    pub cmd: String, // command line
+    pub exe: String, // path to the executable
+    pub pid: i64, // pid of the processus
+    pub environ: Vec<String>, // environment of the processus
+    pub cwd: String, // current working directory
+    pub root: String, // path of the root directory
+    pub memory: u64, // memory usage
+    utime: u64,
+    stime: u64,
+    old_utime: u64,
+    old_stime: u64,
+    pub cpu_usage: f32 // total cpu usage
 }
 
 impl Process {
-    fn new() -> Process {
+    pub fn new(pid: i64) -> Process {
         Process {
             name: String::new(),
-            old_values: CpuValues::new(),
-            new_values: CpuValues::new(),
+            pid: pid,
+            cmd: String::new(),
+            environ: Vec::new(),
+            exe: String::new(),
+            cwd: String::new(),
+            root: String::new(),
+            memory: 0,
             cpu_usage: 0f32,
-            total_time: 0,
-            old_total_time: 0
+            utime: 0,
+            stime: 0,
+            old_utime: 0,
+            old_stime: 0
         }
     }
 
-    fn new_with_values(name: &str, user: u64, nice: u64, system: u64, idle: u64, total_time: u64) -> Process {
-        Process {
-            name: String::from_str(name),
-            old_values: CpuValues::new_with_values(user, nice, system, idle),
-            new_values: CpuValues::new(),
-            cpu_usage: 0f32,
-            total_time: total_time,
-            old_total_time: total_time
-        }
-    }
-
-    fn set(&mut self, user: u64, nice: u64, system: u64, idle: u64, total_time: u64) {
-        if self.old_values.is_zero() {
-            self.old_values.set(user, nice, system, idle);
-        } else {
-            if !self.new_values.is_zero() {
-                self.old_values = self.new_values;
-            }
-            self.new_values.set(user, nice, system, idle);
-            self.cpu_usage = ((self.new_values.user + self.new_values.nice + self.new_values.system) -
-                (self.old_values.user + self.old_values.nice + self.old_values.system)) as f32 /
-                ((self.new_values.user + self.new_values.nice + self.new_values.system + self.new_values.idle) -
-                (self.old_values.user + self.old_values.nice + self.old_values.system + self.old_values.idle)) as f32;
-        }
-        if self.old_total_time == 0 {
-            self.old_total_time = total_time;
-        } else {
-            if self.total_time != 0 {
-                self.old_total_time = self.total_time;
-            }
-            self.total_time = total_time;
-        }
-    }
-
-    pub fn get_cpu_usage(&self) -> f32 {
-        self.cpu_usage
-    }
-
-    pub fn get_name<'a>(&'a self) -> &'a str {
-        &self.name
+    pub fn kill(&self, signal: ::Signal) -> bool {
+        unsafe { ::ffi::kill(self.pid as c_int, signal as c_int) == 0 }
     }
 }
 
+#[allow(unused_must_use)]
 impl Debug for Process {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}: {}%", self.name, self.cpu_usage)
+        write!(f, "pid: {}\n", self.pid);
+        write!(f, "name: {}\n", self.name);
+        write!(f, "environment:");
+        for var in self.environ.iter() {
+            write!(f, "\n\t{}", var);
+        }
+        write!(f, "command: {}\n", self.cmd);
+        write!(f, "executable path: {}\n", self.exe);
+        write!(f, "current working directory: {}\n", self.cwd);
+        write!(f, "memory usage: {} kB\n", self.memory);
+        write!(f, "cpu usage: {}%\n", self.cpu_usage);
+        write!(f, "root path: {}", self.root)
     }
 }
 
-pub fn new_process(name: &str, user: u64, nice: u64, system: u64, idle: u64) -> Process {
-    Process::new_with_values(name, user, nice, system, idle, user + system)
+pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
+    p.old_utime = p.utime;
+    p.old_stime = p.stime;
+    p.utime = utime;
+    p.stime = stime;
 }
 
-pub fn set_process(p: &mut Process, user: u64, nice: u64, system: u64, idle: u64) {
-    p.set(user, nice, system, idle, user + system)
+pub fn compute_cpu_usage(p: &mut Process, old_utime: u64, old_stime: u64, total_time: u64, old_total_time: u64) {
+    p.cpu_usage = ((p.utime - old_utime) as f32 / (total_time - old_total_time) as f32
+        + (p.stime - old_stime) as f32 / (total_time - old_total_time) as f32) * 25f32;
 }
 
-pub fn get_raw_times(p: &Process) -> (u64, u64) {
-    (p.total_time, p.old_total_time)
+pub fn get_raw_processus_times(p: &Process) -> (u64, u64) {
+    (p.utime, p.stime)
 }

@@ -4,7 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use processus::*;
+use processor::*;
 use process::*;
 use std::fs::{File, read_link, PathExt};
 use std::io::Read;
@@ -19,31 +19,85 @@ use libc::consts::os::posix88::{S_IFLNK, S_IFMT};
 use std::path::Component::Normal;
 
 pub struct System {
-    processus_list: VecMap<Processus>,
+    process_list: VecMap<Process>,
     mem_total: u64,
     mem_used: u64,
     swap_total: u64,
     swap_free: u64,
-    processes: Vec<Process>,
+    processors: Vec<Processor>,
 }
 
 impl System {
     pub fn new() -> System {
         let mut s = System {
-            processus_list: VecMap::new(),
+            process_list: VecMap::new(),
             mem_total: 0,
             mem_used: 0,
             swap_total: 0,
             swap_free: 0,
-            processes: Vec::new(),
+            processors: Vec::new(),
         };
 
-        s.refresh();
+        s.refresh_all();
         s
     }
 
-    pub fn refresh(&mut self) {
-        let mut proc_list : VecMap<Processus> = VecMap::with_capacity(self.processes.len());
+    pub fn refresh_system(&mut self) {
+        let data = get_all_data("/proc/meminfo");
+        let lines : Vec<&str> = data.split('\n').collect();
+        for line in lines.iter() {
+            match *line {
+                l if l.starts_with("MemTotal:") => {
+                    let parts : Vec<&str> = line.split(' ').collect();
+
+                    self.mem_total = u64::from_str(parts[parts.len() - 2]).unwrap();
+                },
+                l if l.starts_with("MemFree:") => {
+                    let parts : Vec<&str> = line.split(' ').collect();
+
+                    self.mem_used = u64::from_str(parts[parts.len() - 2]).unwrap();
+                },
+                l if l.starts_with("SwapTotal:") => {
+                    let parts : Vec<&str> = line.split(' ').collect();
+
+                    self.swap_total = u64::from_str(parts[parts.len() - 2]).unwrap();
+                },
+                l if l.starts_with("SwapFree:") => {
+                    let parts : Vec<&str> = line.split(' ').collect();
+
+                    self.swap_free = u64::from_str(parts[parts.len() - 2]).unwrap();
+                },
+                _ => continue,
+            }
+        }
+        let data = get_all_data("/proc/stat");
+        let lines : Vec<&str> = data.split('\n').collect();
+        let mut i = 0;
+        let first = self.processors.len() == 0;
+        for line in lines.iter() {
+            if !line.starts_with("cpu") {
+                break;
+            }
+
+            let (parts, _) : (Vec<&str>, Vec<&str>) = line.split(' ').partition(|s| s.len() > 0);
+            if first {
+                self.processors.push(new_process(parts[0], u64::from_str(parts[1]).unwrap(),
+                    u64::from_str(parts[2]).unwrap(),
+                    u64::from_str(parts[3]).unwrap(),
+                    u64::from_str(parts[4]).unwrap()));
+            } else {
+                set_process(self.processors.get_mut(i).unwrap(),
+                    u64::from_str(parts[1]).unwrap(),
+                    u64::from_str(parts[2]).unwrap(),
+                    u64::from_str(parts[3]).unwrap(),
+                    u64::from_str(parts[4]).unwrap());
+                i += 1;
+            }
+        }
+    }
+
+    pub fn refresh_process(&mut self) {
+        let mut proc_list : VecMap<Process> = VecMap::with_capacity(self.processors.len());
 
         match fs::read_dir(&Path::new("/proc")) {
             Ok(d) => {
@@ -63,92 +117,42 @@ impl System {
                         };
                     } else {
                         match entry.to_str().unwrap() {
-                            "/proc/meminfo" => {
-                                let data = get_all_data(entry.to_str().unwrap());
-                                let lines : Vec<&str> = data.split('\n').collect();
-                                for line in lines.iter() {
-                                    match *line {
-                                        l if l.starts_with("MemTotal:") => {
-                                            let parts : Vec<&str> = line.split(' ').collect();
-
-                                            self.mem_total = u64::from_str(parts[parts.len() - 2]).unwrap();
-                                        },
-                                        l if l.starts_with("MemFree:") => {
-                                            let parts : Vec<&str> = line.split(' ').collect();
-
-                                            self.mem_used = u64::from_str(parts[parts.len() - 2]).unwrap();
-                                        },
-                                        l if l.starts_with("SwapTotal:") => {
-                                            let parts : Vec<&str> = line.split(' ').collect();
-
-                                            self.swap_total = u64::from_str(parts[parts.len() - 2]).unwrap();
-                                        },
-                                        l if l.starts_with("SwapFree:") => {
-                                            let parts : Vec<&str> = line.split(' ').collect();
-
-                                            self.swap_free = u64::from_str(parts[parts.len() - 2]).unwrap();
-                                        },
-                                        _ => continue,
-                                    }
-                                }
-                            },
-                            "/proc/stat" => {
-                                let data = get_all_data(entry.to_str().unwrap());
-                                let lines : Vec<&str> = data.split('\n').collect();
-                                let mut i = 0;
-                                let first = self.processes.len() == 0;
-                                for line in lines.iter() {
-                                    if !line.starts_with("cpu") {
-                                        break;
-                                    }
-
-                                    let (parts, _) : (Vec<&str>, Vec<&str>) = line.split(' ').partition(|s| s.len() > 0);
-                                    if first {
-                                        self.processes.push(new_process(parts[0], u64::from_str(parts[1]).unwrap(),
-                                            u64::from_str(parts[2]).unwrap(),
-                                            u64::from_str(parts[3]).unwrap(),
-                                            u64::from_str(parts[4]).unwrap()));
-                                    } else {
-                                        set_process(self.processes.get_mut(i).unwrap(),
-                                            u64::from_str(parts[1]).unwrap(),
-                                            u64::from_str(parts[2]).unwrap(),
-                                            u64::from_str(parts[3]).unwrap(),
-                                            u64::from_str(parts[4]).unwrap());
-                                        i += 1;
-                                    }
-                                }
-                            }
                            _ => {},
                         }
                     }
                 }
                 for (pid, proc_) in proc_list.iter_mut() {
-                    match self.processus_list.get(&pid) {
+                    match self.process_list.get(&pid) {
                         Some(p) => {
-                            let (new, old) = get_raw_times(&self.processes[0]);
+                            let (new, old) = get_raw_times(&self.processors[0]);
                             let (pnew, pold) = get_raw_processus_times(&p);
                             compute_cpu_usage(proc_, pnew, pold, new, old);
                         }
                         None => {}
                     }
                 }
-                self.processus_list = proc_list;
+                self.process_list = proc_list;
             }
             Err(_) => {}
         }
     }
 
-    pub fn get_processus_list<'a>(&'a self) -> &'a VecMap<Processus> {
-        &self.processus_list
+    pub fn refresh_all(&mut self) {
+        self.refresh_process();
+        self.refresh_system();
     }
 
-    pub fn get_processus(&self, pid: i64) -> Option<&Processus> {
-        self.processus_list.get(&(pid as usize))
+    pub fn get_process_list<'a>(&'a self) -> &'a VecMap<Process> {
+        &self.process_list
+    }
+
+    pub fn get_processus(&self, pid: i64) -> Option<&Process> {
+        self.process_list.get(&(pid as usize))
     }
 
     /// The first process in the array is the "main" process
-    pub fn get_process_list<'a>(&'a self) -> &'a [Process] {
-        self.processes.as_slice()
+    pub fn get_processor_list<'a>(&'a self) -> &'a [Processor] {
+        self.processors.as_slice()
     }
 
     pub fn get_total_memory(&self) -> u64 {
@@ -177,7 +181,7 @@ fn get_all_data(file_path: &str) -> String {
     data
 }
 
-fn _get_processus_data(path: &Path) -> Option<Processus> {
+fn _get_processus_data(path: &Path) -> Option<Process> {
     if !path.exists() || !path.is_dir() {
         return None;
     }
@@ -185,7 +189,7 @@ fn _get_processus_data(path: &Path) -> Option<Processus> {
     let last = paths[paths.len() - 1];
     match i64::from_str(last) {
         Ok(nb) => {
-            let mut p = Processus::new(nb);
+            let mut p = Process::new(nb);
             let mut tmp = PathBuf::from(path);
 
             tmp.push("cmdline");

@@ -13,11 +13,11 @@
 extern crate libc;
 
 pub use self::process::Process;
-pub use self::processus::Processus;
+pub use self::processor::Processor;
 pub use self::system::*;
 
 pub mod process;
-pub mod processus;
+pub mod processor;
 pub mod system;
 mod ffi;
 
