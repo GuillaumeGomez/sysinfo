@@ -68,7 +68,7 @@ impl Processor {
 
     fn new_with_values(name: &str, user: u64, nice: u64, system: u64, idle: u64, total_time: u64) -> Processor {
         Processor {
-            name: String::from_str(name),
+            name: name.to_owned(),
             old_values: CpuValues::new_with_values(user, nice, system, idle),
             new_values: CpuValues::new(),
             cpu_usage: 0f32,

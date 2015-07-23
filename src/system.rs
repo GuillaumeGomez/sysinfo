@@ -10,7 +10,7 @@ use std::fs::{File, read_link, PathExt};
 use std::io::Read;
 use std::str::FromStr;
 use std::path::{Path, PathBuf};
-use std::collections::VecMap;
+use std::collections::HashMap;
 use std::fs;
 use libc::types::os::arch::posix01::stat;
 use libc::c_char;
@@ -19,7 +19,7 @@ use libc::consts::os::posix88::{S_IFLNK, S_IFMT};
 use std::path::Component::Normal;
 
 pub struct System {
-    process_list: VecMap<Process>,
+    process_list: HashMap<usize, Process>,
     mem_total: u64,
     mem_used: u64,
     swap_total: u64,
@@ -30,7 +30,7 @@ pub struct System {
 impl System {
     pub fn new() -> System {
         let mut s = System {
-            process_list: VecMap::new(),
+            process_list: HashMap::new(),
             mem_total: 0,
             mem_used: 0,
             swap_total: 0,
@@ -97,7 +97,7 @@ impl System {
     }
 
     pub fn refresh_process(&mut self) {
-        let mut proc_list : VecMap<Process> = VecMap::with_capacity(self.processors.len());
+        let mut proc_list : HashMap<usize, Process> = HashMap::with_capacity(self.processors.len());
 
         match fs::read_dir(&Path::new("/proc")) {
             Ok(d) => {
@@ -142,7 +142,7 @@ impl System {
         self.refresh_system();
     }
 
-    pub fn get_process_list<'a>(&'a self) -> &'a VecMap<Process> {
+    pub fn get_process_list<'a>(&'a self) -> &'a HashMap<usize, Process> {
         &self.process_list
     }
 
@@ -193,12 +193,12 @@ fn _get_process_data(path: &Path) -> Option<Process> {
             let mut tmp = PathBuf::from(path);
 
             tmp.push("cmdline");
-            p.cmd = String::from_str(copy_from_file(&tmp)[0].as_ref());
+            p.cmd = copy_from_file(&tmp)[0].clone();
             {
                 let tmp_line : Vec<&str> = p.cmd.split(" ").collect();
                 let tmp_name : Vec<&str> = tmp_line[0].split("/").collect();
 
-                p.name = String::from_str(tmp_name[tmp_name.len() - 1]);
+                p.name = tmp_name[tmp_name.len() - 1].to_owned();
             }
             tmp = PathBuf::from(path);
             tmp.push("environ");
@@ -209,14 +209,14 @@ fn _get_process_data(path: &Path) -> Option<Process> {
             let s = read_link(tmp.to_str().unwrap());
 
             if s.is_ok() {
-                p.exe = String::from_str(s.unwrap().to_str().unwrap());
+                p.exe = s.unwrap().to_str().unwrap().to_owned();
             }
             tmp = PathBuf::from(path);
             tmp.push("cwd");
-            p.cwd = String::from_str(realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap());
+            p.cwd = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
             tmp = PathBuf::from(path);
             tmp.push("root");
-            p.root = String::from_str(realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap());
+            p.root = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
             tmp = PathBuf::from(path);
             tmp.push("status");
             let data = get_all_data(tmp.to_str().unwrap());
@@ -253,10 +253,10 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 
             f.read_to_string(&mut d);
             let v : Vec<&str> = d.split('\0').collect();
-            let mut ret = Vec::new();
+            let mut ret : Vec<String> = Vec::new();
 
             for tmp in v.iter() {
-                ret.push(String::from_str(tmp));
+                ret.push((*tmp).to_owned());
             }
             ret
         },
