@@ -45,6 +45,7 @@ impl System {
     pub fn refresh_system(&mut self) {
         let data = get_all_data("/proc/meminfo");
         let lines : Vec<&str> = data.split('\n').collect();
+
         for line in lines.iter() {
             match *line {
                 l if l.starts_with("MemTotal:") => {
@@ -81,24 +82,34 @@ impl System {
 
             let (parts, _) : (Vec<&str>, Vec<&str>) = line.split(' ').partition(|s| s.len() > 0);
             if first {
-                self.processors.push(new_process(parts[0], u64::from_str(parts[1]).unwrap(),
+                self.processors.push(new_processor(parts[0], u64::from_str(parts[1]).unwrap(),
                     u64::from_str(parts[2]).unwrap(),
                     u64::from_str(parts[3]).unwrap(),
-                    u64::from_str(parts[4]).unwrap()));
+                    u64::from_str(parts[4]).unwrap(),
+                    u64::from_str(parts[5]).unwrap(),
+                    u64::from_str(parts[6]).unwrap(),
+                    u64::from_str(parts[7]).unwrap(),
+                    u64::from_str(parts[8]).unwrap(),
+                    u64::from_str(parts[9]).unwrap(),
+                    u64::from_str(parts[10]).unwrap()));
             } else {
-                set_process(self.processors.get_mut(i).unwrap(),
+                set_processor(self.processors.get_mut(i).unwrap(),
                     u64::from_str(parts[1]).unwrap(),
                     u64::from_str(parts[2]).unwrap(),
                     u64::from_str(parts[3]).unwrap(),
-                    u64::from_str(parts[4]).unwrap());
+                    u64::from_str(parts[4]).unwrap(),
+                    u64::from_str(parts[5]).unwrap(),
+                    u64::from_str(parts[6]).unwrap(),
+                    u64::from_str(parts[7]).unwrap(),
+                    u64::from_str(parts[8]).unwrap(),
+                    u64::from_str(parts[9]).unwrap(),
+                    u64::from_str(parts[10]).unwrap());
                 i += 1;
             }
         }
     }
 
     pub fn refresh_process(&mut self) {
-        let mut proc_list : HashMap<usize, Process> = HashMap::with_capacity(self.processors.len());
-
         match fs::read_dir(&Path::new("/proc")) {
             Ok(d) => {
                 for entry in d {
@@ -109,37 +120,38 @@ impl System {
                     let entry = entry.path();
 
                     if entry.is_dir() {
-                        match _get_process_data(entry.as_path()) {
-                            Some(p) => {
-                                proc_list.insert(p.pid as usize, p);
-                            }
-                            None => {}
-                        };
+                        _get_process_data(entry.as_path(), &mut self.process_list);
                     } else {
                         match entry.to_str().unwrap() {
                            _ => {},
                         }
                     }
                 }
-                for (pid, proc_) in proc_list.iter_mut() {
-                    match self.process_list.get(&pid) {
-                        Some(p) => {
-                            let (new, old) = get_raw_times(&self.processors[0]);
-                            let (pnew, pold) = get_raw_process_times(&p);
-                            compute_cpu_usage(proc_, pnew, pold, new, old);
+                if self.processors.len() > 0 {
+                    let (new, old) = get_raw_times(&self.processors[0]);
+                    let total_time = (new - old) as f32;
+                    let mut to_delete = Vec::new();
+
+                    for (pid, proc_) in self.process_list.iter_mut() {
+                        if has_been_updated(&proc_) == false {
+                            to_delete.push(*pid);
+                        } else {
+                            let (pnew, pold) = get_raw_process_times(&proc_);
+                            compute_cpu_usage(proc_, pnew, pold, total_time);
                         }
-                        None => {}
+                    }
+                    for pid in to_delete {
+                        self.process_list.remove(&pid);
                     }
                 }
-                self.process_list = proc_list;
             }
             Err(_) => {}
         }
     }
 
     pub fn refresh_all(&mut self) {
-        self.refresh_process();
         self.refresh_system();
+        self.refresh_process();
     }
 
     pub fn get_process_list<'a>(&'a self) -> &'a HashMap<usize, Process> {
@@ -181,42 +193,45 @@ fn get_all_data(file_path: &str) -> String {
     data
 }
 
-fn _get_process_data(path: &Path) -> Option<Process> {
+fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>) {
     if !path.exists() || !path.is_dir() {
-        return None;
+        return ;
     }
     let paths : Vec<&str> = path.as_os_str().to_str().unwrap().split("/").collect();
     let last = paths[paths.len() - 1];
     match i64::from_str(last) {
         Ok(nb) => {
-            let mut p = Process::new(nb);
             let mut tmp = PathBuf::from(path);
 
-            tmp.push("cmdline");
-            p.cmd = copy_from_file(&tmp)[0].clone();
-            {
-                let tmp_line : Vec<&str> = p.cmd.split(" ").collect();
-                let tmp_name : Vec<&str> = tmp_line[0].split("/").collect();
+            match proc_list.get(&(nb as usize)) {
+                Some(_) => {}
+                None => {
+                    let mut p = Process::new(nb);
 
-                p.name = tmp_name[tmp_name.len() - 1].to_owned();
+                    tmp.push("cmdline");
+                    p.cmd = copy_from_file(&tmp)[0].clone();
+                    tmp = PathBuf::from(path);
+                    tmp.push("environ");
+                    p.environ = copy_from_file(&tmp);
+                    tmp = PathBuf::from(path);
+                    tmp.push("exe");
+
+                    let s = read_link(tmp.to_str().unwrap());
+
+                    if s.is_ok() {
+                        p.exe = s.unwrap().to_str().unwrap().to_owned();
+                    }
+                    tmp = PathBuf::from(path);
+                    tmp.push("cwd");
+                    p.cwd = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
+                    tmp = PathBuf::from(path);
+                    tmp.push("root");
+                    p.root = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
+                    proc_list.insert(nb as usize, p);
+                }
             }
-            tmp = PathBuf::from(path);
-            tmp.push("environ");
-            p.environ = copy_from_file(&tmp);
-            tmp = PathBuf::from(path);
-            tmp.push("exe");
-
-            let s = read_link(tmp.to_str().unwrap());
-
-            if s.is_ok() {
-                p.exe = s.unwrap().to_str().unwrap().to_owned();
-            }
-            tmp = PathBuf::from(path);
-            tmp.push("cwd");
-            p.cwd = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
-            tmp = PathBuf::from(path);
-            tmp.push("root");
-            p.root = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
+            let mut entry = proc_list.get_mut(&(nb as usize)).unwrap();
+            
             tmp = PathBuf::from(path);
             tmp.push("status");
             let data = get_all_data(tmp.to_str().unwrap());
@@ -227,21 +242,31 @@ fn _get_process_data(path: &Path) -> Option<Process> {
                     l if l.starts_with("VmRSS") => {
                         let parts : Vec<&str> = line.split(' ').collect();
 
-                        p.memory = u64::from_str(parts[parts.len() - 2]).unwrap();
+                        entry.memory = u64::from_str(parts[parts.len() - 2]).unwrap();
                         break;
                     }
                     _ => continue,
                 }
             }
+            /*tmp = PathBuf::from(path);
+            tmp.push("statm");
+            let data = get_all_data(tmp.to_str().unwrap());
+            let (parts, _) : (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
+            p.memory = u64::from_str(parts[1]).unwrap();*/
+
             tmp = PathBuf::from(path);
             tmp.push("stat");
             let data = get_all_data(tmp.to_str().unwrap());
-            // ne marche pas car il faut aussi les anciennes valeurs !!!!
             let (parts, _) : (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
-            set_time(&mut p, u64::from_str(parts[13]).unwrap(), u64::from_str(parts[14]).unwrap());
-            Some(p)
+            entry.name = parts[1][1..].to_owned();
+            entry.name.pop();
+            //p.memory = u64::from_str(parts[22]).unwrap();
+            set_time(&mut entry, u64::from_str(parts[9]).unwrap() + u64::from_str(parts[10]).unwrap() +
+                u64::from_str(parts[11]).unwrap() + u64::from_str(parts[12]).unwrap(), u64::from_str(parts[13]).unwrap(),
+                u64::from_str(parts[14]).unwrap(), u64::from_str(parts[15]).unwrap(),
+                u64::from_str(parts[16]).unwrap());
         }
-        _ => None
+        _ => {}
     }
 }
 
