@@ -131,13 +131,13 @@ impl System {
                     let (new, old) = get_raw_times(&self.processors[0]);
                     let total_time = (new - old) as f32;
                     let mut to_delete = Vec::new();
+                    let nb_processors = self.processors.len() as u64 - 1;
 
                     for (pid, proc_) in self.process_list.iter_mut() {
                         if has_been_updated(&proc_) == false {
                             to_delete.push(*pid);
                         } else {
-                            let (pnew, pold) = get_raw_process_times(&proc_);
-                            compute_cpu_usage(proc_, pnew, pold, total_time);
+                            compute_cpu_usage(proc_, nb_processors, total_time);
                         }
                     }
                     for pid in to_delete {
@@ -203,11 +203,15 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>) {
         Ok(nb) => {
             let mut tmp = PathBuf::from(path);
 
+            tmp.push("stat");
+            let data = get_all_data(tmp.to_str().unwrap());
+            let (parts, _) : (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
             match proc_list.get(&(nb as usize)) {
                 Some(_) => {}
                 None => {
-                    let mut p = Process::new(nb);
+                    let mut p = Process::new(nb, u64::from_str(parts[21]).unwrap());
 
+                    tmp = PathBuf::from(path);
                     tmp.push("cmdline");
                     p.cmd = copy_from_file(&tmp)[0].clone();
                     tmp = PathBuf::from(path);
@@ -231,7 +235,9 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>) {
                 }
             }
             let mut entry = proc_list.get_mut(&(nb as usize)).unwrap();
-            
+
+            entry.name = parts[1][1..].to_owned();
+            entry.name.pop();
             tmp = PathBuf::from(path);
             tmp.push("status");
             let data = get_all_data(tmp.to_str().unwrap());
@@ -248,23 +254,8 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>) {
                     _ => continue,
                 }
             }
-            /*tmp = PathBuf::from(path);
-            tmp.push("statm");
-            let data = get_all_data(tmp.to_str().unwrap());
-            let (parts, _) : (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
-            p.memory = u64::from_str(parts[1]).unwrap();*/
-
-            tmp = PathBuf::from(path);
-            tmp.push("stat");
-            let data = get_all_data(tmp.to_str().unwrap());
-            let (parts, _) : (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
-            entry.name = parts[1][1..].to_owned();
-            entry.name.pop();
-            //p.memory = u64::from_str(parts[22]).unwrap();
-            set_time(&mut entry, u64::from_str(parts[9]).unwrap() + u64::from_str(parts[10]).unwrap() +
-                u64::from_str(parts[11]).unwrap() + u64::from_str(parts[12]).unwrap(), u64::from_str(parts[13]).unwrap(),
-                u64::from_str(parts[14]).unwrap(), u64::from_str(parts[15]).unwrap(),
-                u64::from_str(parts[16]).unwrap());
+            set_time(&mut entry, u64::from_str(parts[13]).unwrap(),
+                u64::from_str(parts[14]).unwrap());
         }
         _ => {}
     }
