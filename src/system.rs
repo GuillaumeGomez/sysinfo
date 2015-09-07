@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
 use libc::types::os::arch::posix01::stat;
-use libc::c_char;
+use libc::{c_char, sysconf, _SC_PAGESIZE};
 use libc::funcs::posix01::stat_::lstat;
 use libc::consts::os::posix88::{S_IFLNK, S_IFMT};
 use std::path::Component::Normal;
@@ -25,6 +25,7 @@ pub struct System {
     swap_total: u64,
     swap_free: u64,
     processors: Vec<Processor>,
+    page_size_kb: u64,
 }
 
 impl System {
@@ -36,6 +37,7 @@ impl System {
             swap_total: 0,
             swap_free: 0,
             processors: Vec::new(),
+            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
         };
 
         s.refresh_all();
@@ -120,7 +122,7 @@ impl System {
                     let entry = entry.path();
 
                     if entry.is_dir() {
-                        _get_process_data(entry.as_path(), &mut self.process_list);
+                        _get_process_data(entry.as_path(), &mut self.process_list, self.page_size_kb);
                     } else {
                         match entry.to_str().unwrap() {
                            _ => {},
@@ -193,7 +195,7 @@ fn get_all_data(file_path: &str) -> String {
     data
 }
 
-fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>) {
+fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_size_kb: u64) {
     if !path.exists() || !path.is_dir() {
         return ;
     }
@@ -238,22 +240,8 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>) {
 
             entry.name = parts[1][1..].to_owned();
             entry.name.pop();
-            tmp = PathBuf::from(path);
-            tmp.push("status");
-            let data = get_all_data(tmp.to_str().unwrap());
-            let lines : Vec<&str> = data.split('\n').collect();
-
-            for line in lines.iter() {
-                match *line {
-                    l if l.starts_with("VmRSS") => {
-                        let parts : Vec<&str> = line.split(' ').collect();
-
-                        entry.memory = u64::from_str(parts[parts.len() - 2]).unwrap();
-                        break;
-                    }
-                    _ => continue,
-                }
-            }
+            // we get the rss then we add the vsize
+            entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb + u64::from_str(parts[22]).unwrap() / 1024;
             set_time(&mut entry, u64::from_str(parts[13]).unwrap(),
                 u64::from_str(parts[14]).unwrap());
         }

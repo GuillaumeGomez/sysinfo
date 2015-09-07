@@ -1,6 +1,6 @@
 [package]
 name = "sysinfo"
-version = "0.0.3"
+version = "0.1.0"
 authors = ["guillaume1.gomez@gmail.com"]
 
 description = "Library to handle processus"
@@ -8,7 +8,7 @@ repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "LGPL-3.0+"
 
 [dependencies]
-libc = "0.1"
+libc = "*"
 
 [lib]
 name = "sysinfo"
