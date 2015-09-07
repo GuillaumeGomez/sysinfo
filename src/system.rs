@@ -17,6 +17,8 @@ use libc::{c_char, sysconf, _SC_PAGESIZE};
 use libc::funcs::posix01::stat_::lstat;
 use libc::consts::os::posix88::{S_IFLNK, S_IFMT};
 use std::path::Component::Normal;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 pub struct System {
     process_list: HashMap<usize, Process>,
@@ -112,6 +114,9 @@ impl System {
     }
 
     pub fn refresh_process(&mut self) {
+        let mut threads = Vec::new();
+        let mut process_list = Arc::new(Mutex::new(self.process_list));
+
         match fs::read_dir(&Path::new("/proc")) {
             Ok(d) => {
                 for entry in d {
@@ -119,15 +124,23 @@ impl System {
                         continue;
                     }
                     let entry = entry.unwrap();
-                    let entry = entry.path();
+                    let t_entry = entry.path();
+                    if t_entry.is_dir() {
+                        let a_entry = entry.path().clone();
+                        let page_size_kb = self.page_size_kb.clone();
+                        let mut a_process_list = process_list.clone();
 
-                    if entry.is_dir() {
-                        _get_process_data(entry.as_path(), &mut self.process_list, self.page_size_kb);
+                        threads.push(thread::spawn(move || {
+                            _get_process_data(a_entry.clone().as_path().clone(), a_process_list.clone(), page_size_kb.clone());
+                        }));
                     } else {
-                        match entry.to_str().unwrap() {
+                        match t_entry.to_str().unwrap() {
                            _ => {},
                         }
                     }
+                }
+                for thread in threads {
+                    thread.join();
                 }
                 if self.processors.len() > 0 {
                     let (new, old) = get_raw_times(&self.processors[0]);
@@ -195,7 +208,7 @@ fn get_all_data(file_path: &str) -> String {
     data
 }
 
-fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_size_kb: u64) {
+fn _get_process_data(path: &Path, proc_list: Arc<Mutex<HashMap<usize, Process>>>, page_size_kb: u64) {
     if !path.exists() || !path.is_dir() {
         return ;
     }
@@ -208,35 +221,34 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
             tmp.push("stat");
             let data = get_all_data(tmp.to_str().unwrap());
             let (parts, _) : (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
-            match proc_list.get(&(nb as usize)) {
-                Some(_) => {}
-                None => {
-                    let mut p = Process::new(nb, u64::from_str(parts[21]).unwrap());
+            let missing = proc_list.lock().unwrap().get(&(nb as usize)).is_none();
 
-                    tmp = PathBuf::from(path);
-                    tmp.push("cmdline");
-                    p.cmd = copy_from_file(&tmp)[0].clone();
-                    tmp = PathBuf::from(path);
-                    tmp.push("environ");
-                    p.environ = copy_from_file(&tmp);
-                    tmp = PathBuf::from(path);
-                    tmp.push("exe");
+            if missing == true {
+                let mut p = Process::new(nb, u64::from_str(parts[21]).unwrap());
 
-                    let s = read_link(tmp.to_str().unwrap());
+                tmp = PathBuf::from(path);
+                tmp.push("cmdline");
+                p.cmd = copy_from_file(&tmp)[0].clone();
+                tmp = PathBuf::from(path);
+                tmp.push("environ");
+                p.environ = copy_from_file(&tmp);
+                tmp = PathBuf::from(path);
+                tmp.push("exe");
 
-                    if s.is_ok() {
-                        p.exe = s.unwrap().to_str().unwrap().to_owned();
-                    }
-                    tmp = PathBuf::from(path);
-                    tmp.push("cwd");
-                    p.cwd = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
-                    tmp = PathBuf::from(path);
-                    tmp.push("root");
-                    p.root = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
-                    proc_list.insert(nb as usize, p);
+                let s = read_link(tmp.to_str().unwrap());
+
+                if s.is_ok() {
+                    p.exe = s.unwrap().to_str().unwrap().to_owned();
                 }
+                tmp = PathBuf::from(path);
+                tmp.push("cwd");
+                p.cwd = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
+                tmp = PathBuf::from(path);
+                tmp.push("root");
+                p.root = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
+                proc_list.lock().unwrap().insert(nb as usize, p);
             }
-            let mut entry = proc_list.get_mut(&(nb as usize)).unwrap();
+            let mut entry = proc_list.lock().unwrap().get_mut(&(nb as usize)).unwrap();
 
             entry.name = parts[1][1..].to_owned();
             entry.name.pop();
