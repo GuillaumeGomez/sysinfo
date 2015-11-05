@@ -6,16 +6,13 @@
 
 use processor::*;
 use process::*;
-use std::fs::{File, read_link, PathExt};
+use std::fs::{File, read_link};
 use std::io::Read;
 use std::str::FromStr;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
-use libc::types::os::arch::posix01::stat;
-use libc::{c_char, sysconf, _SC_PAGESIZE};
-use libc::funcs::posix01::stat_::lstat;
-use libc::consts::os::posix88::{S_IFLNK, S_IFMT};
+use libc::{stat, lstat, c_char, sysconf, _SC_PAGESIZE, S_IFLNK, S_IFMT};
 use std::path::Component::Normal;
 
 pub struct System {
