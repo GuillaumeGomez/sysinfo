@@ -163,7 +163,7 @@ impl System {
 
     /// The first process in the array is the "main" process
     pub fn get_processor_list<'a>(&'a self) -> &'a [Processor] {
-        self.processors.as_slice()
+        &self.processors[..]
     }
 
     pub fn get_total_memory(&self) -> u64 {

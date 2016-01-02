@@ -8,8 +8,6 @@
 #![crate_type = "lib"]
 #![crate_type = "rlib"]
 
-#![feature(convert)]
-
 extern crate libc;
 
 pub use self::process::Process;
