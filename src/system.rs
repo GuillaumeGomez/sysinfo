@@ -213,6 +213,7 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
                     tmp = PathBuf::from(path);
                     tmp.push("cmdline");
                     p.cmd = copy_from_file(&tmp)[0].clone();
+                    p.name = p.cmd.split("/").last().unwrap().split(":").collect::<Vec<&str>>()[0].to_owned();
                     tmp = PathBuf::from(path);
                     tmp.push("environ");
                     p.environ = copy_from_file(&tmp);
@@ -235,8 +236,8 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
             }
             let mut entry = proc_list.get_mut(&(nb as usize)).unwrap();
 
-            entry.name = parts[1][1..].to_owned();
-            entry.name.pop();
+            //entry.name = parts[1][1..].to_owned();
+            //entry.name.pop();
             // we get the rss then we add the vsize
             entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb + u64::from_str(parts[22]).unwrap() / 1024;
             set_time(&mut entry, u64::from_str(parts[13]).unwrap(),
