@@ -93,6 +93,7 @@ impl Component {
         f.read_to_string(&mut reader).unwrap();
         self.label = reader.replace("\n", "");
         let mut f = File::open(self.input_file.as_path()).unwrap();
+        reader = String::new();
         f.read_to_string(&mut reader).unwrap();
         self.temperature = reader.replace("\n", "").parse::<f32>().unwrap() / 1000f32;
     }
