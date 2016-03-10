@@ -10,13 +10,15 @@
 
 extern crate libc;
 
+pub use self::component::Component;
 pub use self::process::Process;
 pub use self::processor::Processor;
 pub use self::system::*;
 
-pub mod process;
-pub mod processor;
-pub mod system;
+mod component;
+mod process;
+mod processor;
+mod system;
 mod ffi;
 
 #[repr(C)]

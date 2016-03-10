@@ -4,6 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use Component;
 use processor::*;
 use process::*;
 use std::fs::{File, read_link};
@@ -23,6 +24,7 @@ pub struct System {
     swap_free: u64,
     processors: Vec<Processor>,
     page_size_kb: u64,
+    temperatures: Vec<Component>,
 }
 
 impl System {
@@ -35,8 +37,8 @@ impl System {
             swap_free: 0,
             processors: Vec::new(),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
+            temperatures: Vec::new(),
         };
-
         s.refresh_all();
         s
     }
@@ -45,6 +47,9 @@ impl System {
         let data = get_all_data("/proc/meminfo");
         let lines : Vec<&str> = data.split('\n').collect();
 
+        for component in self.temperatures.iter_mut() {
+            component.update();
+        }
         for line in lines.iter() {
             match *line {
                 l if l.starts_with("MemTotal:") => {
@@ -182,13 +187,17 @@ impl System {
     pub fn get_used_swap(&self) -> u64 {
         self.swap_free
     }
+
+    pub fn get_components_list<'a>(&'a self) -> &'a [Component] {
+        &self.temperatures[..]
+    }
 }
 
 fn get_all_data(file_path: &str) -> String {
     let mut file = File::open(file_path).unwrap();
     let mut data = String::new();
 
-    file.read_to_string(&mut data);
+    file.read_to_string(&mut data).unwrap();
     data
 }
 
