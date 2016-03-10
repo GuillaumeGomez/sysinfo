@@ -37,7 +37,7 @@ impl System {
             swap_free: 0,
             processors: Vec::new(),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
-            temperatures: Vec::new(),
+            temperatures: Component::get_components(),
         };
         s.refresh_all();
         s
