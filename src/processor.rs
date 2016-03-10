@@ -52,11 +52,11 @@ impl CpuValues {
         }
     }
 
-    pub fn is_zero(&self) -> bool {
+    /*pub fn is_zero(&self) -> bool {
         self.user == 0 && self.nice == 0 && self.system == 0 && self.idle == 0 &&
         self.iowait == 0 && self.irq == 0 && self.softirq == 0 && self.steal == 0 &&
         self.guest == 0 && self.guest_nice == 0
-    }
+    }*/
 
     pub fn set(&mut self, user: u64, nice: u64, system: u64, idle: u64, iowait: u64,
         irq: u64, softirq: u64, steal: u64, guest: u64, guest_nice: u64) {

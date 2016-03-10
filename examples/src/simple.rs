@@ -18,11 +18,12 @@ fn print_help() -> bool {
     write!(&mut io::stdout(), "== Help menu ==\n");
     write!(&mut io::stdout(), "help               : show this menu\n");
     write!(&mut io::stdout(), "signals            : show the available signals\n");
-    write!(&mut io::stdout(), "refresh            : reloads processus' information\n");
+    write!(&mut io::stdout(), "refresh            : reloads processes' information\n");
     write!(&mut io::stdout(), "show [pid]         : show information of the given [pid]\n");
     write!(&mut io::stdout(), "kill [pid] [signal]: send [signal] to the processus with this [pid]. 0 < [signal] < 32\n");
     write!(&mut io::stdout(), "proc               : Displays proc state\n");
     write!(&mut io::stdout(), "memory             : Displays memory state\n");
+    write!(&mut io::stdout(), "temperature        : Displays components' temperature\n");
     write!(&mut io::stdout(), "quit               : exit the program\n");
     false
 }
@@ -49,8 +50,8 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             let procs = sys.get_processor_list();
 
             write!(&mut io::stdout(), "total process usage: {}%\n", procs[0].get_cpu_usage());
-            for i in 1..procs.len() {
-                write!(&mut io::stdout(), "{:?}\n", procs[i]);
+            for proc_ in procs.iter().skip(1) {
+                write!(&mut io::stdout(), "{:?}\n", proc_);
             }
             false
         },
@@ -75,6 +76,12 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                     Some(p) => write!(&mut io::stdout(), "{:?}\n", *p),
                     None => write!(&mut io::stdout(), "pid not found\n")
                 };
+            }
+            false
+        },
+        "temperature" => {
+            for component in sys.get_components_list() {
+                write!(&mut io::stdout(), "{}: {}°C\n", component.label, component.temperature);
             }
             false
         },
@@ -111,7 +118,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
 }
 
 fn main() {
-    println!("Getting processus' information...");
+    println!("Getting processes' information...");
     let mut t = System::new();
     println!("Done.");
     let t_stin = io::stdin();
