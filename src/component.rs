@@ -73,6 +73,7 @@ impl Component {
                 }
             }
         }
+        ret.sort_by(|c1, c2| c1.label.to_lowercase().cmp(&c2.label.to_lowercase()));
         ret
     }
 
