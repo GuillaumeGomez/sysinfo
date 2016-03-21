@@ -81,7 +81,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         },
         "temperature" => {
             for component in sys.get_components_list() {
-                write!(&mut io::stdout(), "{}: {}°C\n", component.label, component.temperature);
+                write!(&mut io::stdout(), "{:?}\n", component);
             }
             false
         },
