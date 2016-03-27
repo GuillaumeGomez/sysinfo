@@ -10,11 +10,16 @@ use std::fmt::{Debug, Error, Formatter};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+/// More information can be found at http://lxr.free-electrons.com/source/Documentation/hwmon/sysfs-interface
 pub struct Component {
-    temperature: f32, // temperature is in celsius
-    max: f32, // the highest stored temperature
-    critical: Option<f32>, // the highest temperature before the computer halts
-    label: String,
+    /// Temperature is in celsius.
+    pub temperature: f32,
+    /// Temperature max value.
+    pub max: f32,
+    /// The highest temperature before the computer halts.
+    pub critical: Option<f32>,
+    /// Component's label.
+    pub label: String,
     input_file: PathBuf,
 }
 
@@ -138,21 +143,5 @@ impl Component {
         if self.temperature > self.max {
             self.max = self.temperature;
         }
-    }
-
-    pub fn get_label(&self) -> &str {
-        &self.label
-    }
-
-    pub fn get_temperature(&self) -> f32 {
-        self.temperature
-    }
-
-    pub fn get_max(&self) -> f32 {
-        self.max
-    }
-
-    pub fn get_critical(&self) -> Option<f32> {
-        self.critical
     }
 }
