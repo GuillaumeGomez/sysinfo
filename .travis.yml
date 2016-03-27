@@ -7,5 +7,3 @@ script:
   - RUST_BACKTRACE=1 cargo build
   - cd examples
   - RUST_BACKTRACE=1 cargo build
-  - cd ..
-  - RUST_BACKTRACE=1 cargo doc
