@@ -59,7 +59,7 @@ impl Debug for Process {
         write!(f, "name: {}\n", self.name);
         write!(f, "environment:\n");
         for var in self.environ.iter() {
-	    if var.len() > 0 {
+        if var.len() > 0 {
                 write!(f, "\t{}\n", var);
             }
         }

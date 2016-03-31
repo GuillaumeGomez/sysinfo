@@ -78,7 +78,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                     };
                 } else {
                     let proc_name = tmp.get(1).unwrap();
-		    for proc_ in sys.get_process_by_name(proc_name) {
+                    for proc_ in sys.get_process_by_name(proc_name) {
                         write!(&mut io::stdout(), "==== {} ====\n", proc_.name);
                         write!(&mut io::stdout(), "{:?}\n", proc_);
                     }
@@ -95,7 +95,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "show" => {
             write!(&mut io::stdout(), "'show' command expects a pid number or process name\n");
             false
-	},
+        },
         e if e.starts_with("kill ") => {
             let tmp : Vec<&str> = e.split(" ").collect();
 
