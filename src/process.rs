@@ -9,21 +9,31 @@ use libc::{c_int};
 
 #[derive(Clone)]
 pub struct Process {
-    pub name: String, // name of the program
-    pub cmd: String, // command line
-    pub exe: String, // path to the executable
-    pub pid: i64, // pid of the processus
-    pub environ: Vec<String>, // environment of the processus
-    pub cwd: String, // current working directory
-    pub root: String, // path of the root directory
-    pub memory: u64, // memory usage
+    /// name of the program
+    pub name: String,
+    /// command line
+    pub cmd: String,
+    /// path to the executable
+    pub exe: String,
+    /// pid of the processus
+    pub pid: i64,
+    /// environment of the processus
+    pub environ: Vec<String>,
+    /// current working directory
+    pub cwd: String,
+    /// path of the root directory
+    pub root: String,
+    /// memory usage (in kB)
+    pub memory: u64,
     utime: u64,
     stime: u64,
     old_utime: u64,
     old_stime: u64,
-    start_time: u64,
+    /// time of process launch
+    pub start_time: u64,
     updated: bool,
-    pub cpu_usage: f32, // total cpu usage
+    /// total cpu usage
+    pub cpu_usage: f32,
 }
 
 impl Process {
