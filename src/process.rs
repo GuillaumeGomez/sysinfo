@@ -57,9 +57,11 @@ impl Debug for Process {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "pid: {}\n", self.pid);
         write!(f, "name: {}\n", self.name);
-        write!(f, "environment:");
+        write!(f, "environment:\n");
         for var in self.environ.iter() {
-            write!(f, "\n\t{}", var);
+	    if var.len() > 0 {
+                write!(f, "\t{}\n", var);
+            }
         }
         write!(f, "command: {}\n", self.cmd);
         write!(f, "executable path: {}\n", self.exe);
