@@ -1,3 +1,4 @@
+
 #![crate_type = "bin"]
 
  #![allow(unused_must_use, non_upper_case_globals)]
@@ -19,7 +20,7 @@ fn print_help() -> bool {
     write!(&mut io::stdout(), "help               : show this menu\n");
     write!(&mut io::stdout(), "signals            : show the available signals\n");
     write!(&mut io::stdout(), "refresh            : reloads processes' information\n");
-    write!(&mut io::stdout(), "show [pid]         : show information of the given [pid]\n");
+    write!(&mut io::stdout(), "show [pid | name]  : show information of the given process corresponding to [pid | name]\n");
     write!(&mut io::stdout(), "kill [pid] [signal]: send [signal] to the processus with this [pid]. 0 < [signal] < 32\n");
     write!(&mut io::stdout(), "proc               : Displays proc state\n");
     write!(&mut io::stdout(), "memory             : Displays memory state\n");
@@ -29,7 +30,7 @@ fn print_help() -> bool {
 }
 
 fn interpret_input(input: &str, sys: &mut System) -> bool {
-    match input {
+    match input.trim() {
         "help" => print_help(),
         "refresh" => {
             write!(&mut io::stdout(), "Getting processus' information...\n");
@@ -62,20 +63,26 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             write!(&mut io::stdout(), "used swap : {} kB\n", sys.get_used_swap());
             false
         },
-        "quit" => true,
+        "quit" | "exit" => true,
         e if e.starts_with("show ") => {
             let tmp : Vec<&str> = e.split(" ").collect();
 
             if tmp.len() != 2 {
-                write!(&mut io::stdout(), "show command takes the pid in parameter !\n");
+                write!(&mut io::stdout(), "show command takes a pid or a name in parameter!\n");
                 write!(&mut io::stdout(), "example: show 1254\n");
             } else {
-                let pid = i64::from_str(tmp.get(1).unwrap()).unwrap();
-
-                match sys.get_process(pid) {
-                    Some(p) => write!(&mut io::stdout(), "{:?}\n", *p),
-                    None => write!(&mut io::stdout(), "pid not found\n")
-                };
+                if let Ok(pid) = i64::from_str(tmp.get(1).unwrap()) {
+                    match sys.get_process(pid) {
+                        Some(p) => write!(&mut io::stdout(), "{:?}\n", *p),
+                        None => write!(&mut io::stdout(), "pid not found\n")
+                    };
+                } else {
+                    let proc_name = tmp.get(1).unwrap();
+		    for proc_ in sys.get_process_by_name(proc_name) {
+                        write!(&mut io::stdout(), "==== {} ====\n", proc_.name);
+                        write!(&mut io::stdout(), "{:?}\n", proc_);
+                    }
+                }
             }
             false
         },
@@ -85,6 +92,10 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
             false
         },
+        "show" => {
+            write!(&mut io::stdout(), "'show' command expects a pid number or process name\n");
+            false
+	},
         e if e.starts_with("kill ") => {
             let tmp : Vec<&str> = e.split(" ").collect();
 

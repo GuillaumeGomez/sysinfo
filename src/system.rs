@@ -14,7 +14,6 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
 use libc::{stat, lstat, c_char, sysconf, _SC_PAGESIZE, S_IFLNK, S_IFMT};
-use std::path::Component::Normal;
 
 pub struct System {
     process_list: HashMap<usize, Process>,
@@ -162,8 +161,20 @@ impl System {
         &self.process_list
     }
 
+    /// Return the process corresponding to the given pid or None if no such process exists.
     pub fn get_process(&self, pid: i64) -> Option<&Process> {
         self.process_list.get(&(pid as usize))
+    }
+
+    /// Return a list of process starting with the given name.
+    pub fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
+        let mut ret = vec!();
+        for val in self.process_list.values() {
+            if val.name.starts_with(name) {
+                ret.push(val);
+            }
+        }
+        ret
     }
 
     /// The first process in the array is the "main" process
@@ -221,7 +232,11 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
 
                     tmp = PathBuf::from(path);
                     tmp.push("cmdline");
-                    p.cmd = copy_from_file(&tmp)[0].clone();
+                    p.cmd = if let Some(t) = copy_from_file(&tmp).get(0) {
+                        t.clone()
+                    } else {
+                        String::new()
+                    };
                     let x = p.cmd.split(":").collect::<Vec<&str>>()[0]
                                  .split(" ").collect::<Vec<&str>>()[0].to_owned();
                     p.name = if x.contains("/") {
@@ -273,6 +288,9 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
             let mut ret : Vec<String> = Vec::new();
 
             for tmp in v.iter() {
+	        if tmp.len() < 1 {
+                    continue;
+                }
                 ret.push((*tmp).to_owned());
             }
             ret
@@ -284,38 +302,19 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 fn realpath(original: &Path) -> PathBuf {
     let ori = Path::new(original.to_str().unwrap());
 
-    const MAX_LINKS_FOLLOWED: usize = 256;
-
     // Right now lstat on windows doesn't work quite well
     if cfg!(windows) {
         return PathBuf::from(ori);
     }
-    let original = ::std::env::current_dir().unwrap().join(ori);
-    let mut result = PathBuf::from(original.parent().unwrap());
-    let mut followed = 0;
-    for part in original.components() {
-        match part {
-            Normal(s) => {
-                result.push(s);
-                loop {
-                    if followed == MAX_LINKS_FOLLOWED {
-                        return PathBuf::new();
-                    }
-                    let mut buf : stat = unsafe { ::std::mem::uninitialized() };
-                    let res = unsafe { lstat(result.to_str().unwrap().as_ptr() as *const c_char, &mut buf as *mut stat) };
-                    
-                    if res < 0 || (buf.st_mode  & S_IFMT) != S_IFLNK {
-                        break;
-                    } else {
-                        followed += 1;
-                        let path = fs::read_link(&result).unwrap();
-                        result.pop();
-                        result.push(path);
-                    }
-                }
-            }
-            _ => {}
+    let result = PathBuf::from(original);
+    let mut buf: stat = unsafe { ::std::mem::uninitialized() };
+    let res = unsafe { lstat(result.to_str().unwrap().as_ptr() as *const c_char, &mut buf as *mut stat) };
+    if res < 0 || (buf.st_mode & S_IFMT) != S_IFLNK {
+        PathBuf::new()
+    } else {
+        match fs::read_link(&result) {
+            Ok(f) => f,
+	    Err(_) => PathBuf::new(),
         }
     }
-    result
 }
