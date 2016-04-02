@@ -29,7 +29,7 @@ pub struct Process {
     stime: u64,
     old_utime: u64,
     old_stime: u64,
-    /// time of process launch
+    /// time of process launch (in seconds)
     pub start_time: u64,
     updated: bool,
     /// total cpu usage

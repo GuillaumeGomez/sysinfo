@@ -13,7 +13,7 @@ use std::str::FromStr;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
-use libc::{stat, lstat, c_char, sysconf, _SC_PAGESIZE, S_IFLNK, S_IFMT};
+use libc::{stat, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_IFMT};
 
 pub struct System {
     process_list: HashMap<usize, Process>,
@@ -228,7 +228,9 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
             match proc_list.get(&(nb as usize)) {
                 Some(_) => {}
                 None => {
-                    let mut p = Process::new(nb, u64::from_str(parts[21]).unwrap());
+                    let mut p = Process::new(nb,
+                                             u64::from_str(parts[21]).unwrap() /
+                                             unsafe { sysconf(_SC_CLK_TCK) } as u64);
 
                     tmp = PathBuf::from(path);
                     tmp.push("cmdline");
@@ -269,7 +271,8 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
             //entry.name = parts[1][1..].to_owned();
             //entry.name.pop();
             // we get the rss then we add the vsize
-            entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb + u64::from_str(parts[22]).unwrap() / 1024;
+            entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb +
+                           u64::from_str(parts[22]).unwrap() / 1024;
             set_time(&mut entry, u64::from_str(parts[13]).unwrap(),
                 u64::from_str(parts[14]).unwrap());
         }
