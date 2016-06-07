@@ -56,7 +56,7 @@ impl System {
 
                     self.mem_total = u64::from_str(parts[parts.len() - 2]).unwrap();
                 },
-                l if l.starts_with("MemFree:") => {
+                l if l.starts_with("MemAvailable:") => {
                     let parts: Vec<&str> = line.split(' ').collect();
 
                     self.mem_free = u64::from_str(parts[parts.len() - 2]).unwrap();
