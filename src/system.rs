@@ -18,7 +18,7 @@ use libc::{stat, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_I
 pub struct System {
     process_list: HashMap<usize, Process>,
     mem_total: u64,
-    mem_used: u64,
+    mem_free: u64,
     swap_total: u64,
     swap_free: u64,
     processors: Vec<Processor>,
@@ -31,7 +31,7 @@ impl System {
         let mut s = System {
             process_list: HashMap::new(),
             mem_total: 0,
-            mem_used: 0,
+            mem_free: 0,
             swap_total: 0,
             swap_free: 0,
             processors: Vec::new(),
@@ -52,22 +52,22 @@ impl System {
         for line in lines.iter() {
             match *line {
                 l if l.starts_with("MemTotal:") => {
-                    let parts : Vec<&str> = line.split(' ').collect();
+                    let parts: Vec<&str> = line.split(' ').collect();
 
                     self.mem_total = u64::from_str(parts[parts.len() - 2]).unwrap();
                 },
                 l if l.starts_with("MemFree:") => {
-                    let parts : Vec<&str> = line.split(' ').collect();
+                    let parts: Vec<&str> = line.split(' ').collect();
 
-                    self.mem_used = u64::from_str(parts[parts.len() - 2]).unwrap();
+                    self.mem_free = u64::from_str(parts[parts.len() - 2]).unwrap();
                 },
                 l if l.starts_with("SwapTotal:") => {
-                    let parts : Vec<&str> = line.split(' ').collect();
+                    let parts: Vec<&str> = line.split(' ').collect();
 
                     self.swap_total = u64::from_str(parts[parts.len() - 2]).unwrap();
                 },
                 l if l.starts_with("SwapFree:") => {
-                    let parts : Vec<&str> = line.split(' ').collect();
+                    let parts: Vec<&str> = line.split(' ').collect();
 
                     self.swap_free = u64::from_str(parts[parts.len() - 2]).unwrap();
                 },
@@ -186,17 +186,25 @@ impl System {
         self.mem_total
     }
 
+    pub fn get_free_memory(&self) -> u64 {
+        self.mem_free
+    }
+
     pub fn get_used_memory(&self) -> u64 {
-        self.mem_used
+        self.mem_total - self.mem_free
     }
 
     pub fn get_total_swap(&self) -> u64 {
         self.swap_total
     }
 
+    pub fn get_free_swap(&self) -> u64 {
+        self.swap_free
+    }
+
     // need to be checked
     pub fn get_used_swap(&self) -> u64 {
-        self.swap_free
+        self.swap_total - self.swap_free
     }
 
     pub fn get_components_list<'a>(&'a self) -> &'a [Component] {
