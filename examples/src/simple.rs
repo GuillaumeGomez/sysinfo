@@ -25,6 +25,7 @@ fn print_help() -> bool {
     write!(&mut io::stdout(), "proc               : Displays proc state\n");
     write!(&mut io::stdout(), "memory             : Displays memory state\n");
     write!(&mut io::stdout(), "temperature        : Displays components' temperature\n");
+    write!(&mut io::stdout(), "all                : Displays all process name and pid\n");
     write!(&mut io::stdout(), "quit               : exit the program\n");
     false
 }
@@ -37,7 +38,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             sys.refresh_all();
             write!(&mut io::stdout(), "Done.\n");
             false
-        },
+        }
         "signals" => {
             let mut nb = 1i32;
 
@@ -46,7 +47,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 nb += 1;
             }
             false
-        },
+        }
         "proc" => {
             let procs = sys.get_processor_list();
 
@@ -55,15 +56,21 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 write!(&mut io::stdout(), "{:?}\n", proc_);
             }
             false
-        },
+        }
         "memory" => {
             write!(&mut io::stdout(), "total memory: {} kB\n", sys.get_total_memory());
             write!(&mut io::stdout(), "used memory : {} kB\n", sys.get_used_memory());
             write!(&mut io::stdout(), "total swap  : {} kB\n", sys.get_total_swap());
             write!(&mut io::stdout(), "used swap : {} kB\n", sys.get_used_swap());
             false
-        },
+        }
         "quit" | "exit" => true,
+        "all" => {
+            for (pid, proc_) in sys.get_process_list() {
+                write!(&mut io::stdout(), "{}:{}\n", pid, proc_.name);
+            }
+            false
+        }
         e if e.starts_with("show ") => {
             let tmp : Vec<&str> = e.split(" ").collect();
 
@@ -85,17 +92,17 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 }
             }
             false
-        },
+        }
         "temperature" => {
             for component in sys.get_components_list() {
                 write!(&mut io::stdout(), "{:?}\n", component);
             }
             false
-        },
+        }
         "show" => {
-            write!(&mut io::stdout(), "'show' command expects a pid number or process name\n");
+            write!(&mut io::stdout(), "'show' command expects a pid number or a process name\n");
             false
-        },
+        }
         e if e.starts_with("kill ") => {
             let tmp : Vec<&str> = e.split(" ").collect();
 
@@ -120,7 +127,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 }
             }
             false
-        },
+        }
         e => {
             write!(&mut io::stdout(), "\"{}\": Unknown command. Enter 'help' if you want to get the commands' list.\n", e);
             false

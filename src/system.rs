@@ -4,6 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use ffi;
 use Component;
 use processor::*;
 use process::*;
@@ -13,7 +14,7 @@ use std::str::FromStr;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
-use libc::{stat, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_IFMT};
+use libc::{self, c_void, stat, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_IFMT};
 
 pub struct System {
     process_list: HashMap<usize, Process>,
@@ -24,6 +25,17 @@ pub struct System {
     processors: Vec<Processor>,
     page_size_kb: u64,
     temperatures: Vec<Component>,
+}
+
+fn get_string_from_array(ar: &[u8]) -> String {
+    let mut it = 0;
+
+    while it < ar.len() && ar[it] != 0 {
+        it += 1;
+    }
+    let mut tmp = ar.to_vec();
+    unsafe { tmp.set_len(it); }
+    unsafe { String::from_utf8_unchecked(tmp) }
 }
 
 impl System {
@@ -42,6 +54,12 @@ impl System {
         s
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn refresh_system(&mut self) {
+        ;
+    }
+
+    #[cfg(not(target_os = "macos"))]
     pub fn refresh_system(&mut self) {
         let data = get_all_data("/proc/meminfo");
         let lines : Vec<&str> = data.split('\n').collect();
@@ -112,6 +130,69 @@ impl System {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn refresh_process(&mut self) {
+        let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
+        if count < 1 {
+            return;
+        }
+        let mut pids: Vec<libc::pid_t> = Vec::with_capacity(count as usize);
+        unsafe { pids.set_len(count as usize); }
+        let count = count * ::std::mem::size_of::<libc::pid_t>() as i32;
+        let x = unsafe { ffi::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
+
+        if x < 1 || x as usize > pids.len() {
+            return;
+        } else if pids.len() > x as usize {
+            unsafe { pids.set_len(x as usize); }
+        }
+
+        let size = ::std::mem::size_of::<ffi::proc_taskallinfo>() as i32;
+        let name_len = 2 * ffi::MAXCOMLEN;
+        let mut name: Vec<u8> = Vec::with_capacity(name_len as usize);
+        let mut cmd_path: Vec<u8> = Vec::with_capacity(ffi::MAXPATHLEN);
+        for pid in pids {
+            let mut task_info = unsafe { ::std::mem::zeroed::<ffi::proc_taskallinfo>() };
+            let x = unsafe {
+                ffi::proc_pidinfo(pid,
+                                  ffi::PROC_PIDTASKALLINFO,
+                                  0,
+                                  &mut task_info as *mut ffi::proc_taskallinfo as *mut c_void,
+                                  size) }; // no real need to check
+            println!("========== {:?} {}", x, pid);
+
+            match self.process_list.get(&(pid as usize)) {
+                Some(_) => {}
+                None => {
+                    let mut p = Process::new(pid as i64, task_info.pbsd.pbi_start_tvsec);
+                    let len = unsafe { ffi::proc_pidpath(pid, cmd_path.as_mut_slice().as_mut_ptr() as *mut c_void, ffi::MAXPATHLEN as u32) };
+                    if len > 0 {
+                        unsafe { cmd_path.set_len(len as usize); }
+                        p.cmd = unsafe { String::from_utf8_unchecked(cmd_path.clone()) };
+                        if let Some(l) = p.cmd.split("/").last() {
+                            p.name = l.to_owned();
+                        }
+                    }
+                    if p.name.len() < 1 {
+                        let len = unsafe { ffi::proc_name(pid, name.as_mut_slice().as_mut_ptr() as *mut c_void, name_len as u32) };
+                        if len > 0 {
+                            unsafe { name.set_len(len as usize); }
+                            p.name = unsafe { String::from_utf8_unchecked(name.clone()) };
+                        }
+                    }
+                    if x == size {
+                        //p.cmd = get_string_from_array(&task_info.pbsd.pbi_name);
+                        println!("{:?} {:?}", p.name, p.cmd);
+                    }
+                    self.process_list.insert(pid as usize, p);
+                }
+            }
+            let mut proc_ = self.process_list.get_mut(&(pid as usize)).unwrap();
+            proc_.memory = task_info.ptinfo.pti_resident_size / 1024;
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
     pub fn refresh_process(&mut self) {
         match fs::read_dir(&Path::new("/proc")) {
             Ok(d) => {
@@ -124,31 +205,31 @@ impl System {
 
                     if entry.is_dir() {
                         _get_process_data(entry.as_path(), &mut self.process_list, self.page_size_kb);
-                    } else {
-                        match entry.to_str().unwrap() {
-                           _ => {},
-                        }
                     }
                 }
-                if self.processors.len() > 0 {
-                    let (new, old) = get_raw_times(&self.processors[0]);
-                    let total_time = (new - old) as f32;
-                    let mut to_delete = Vec::new();
-                    let nb_processors = self.processors.len() as u64 - 1;
-
-                    for (pid, proc_) in self.process_list.iter_mut() {
-                        if has_been_updated(&proc_) == false {
-                            to_delete.push(*pid);
-                        } else {
-                            compute_cpu_usage(proc_, nb_processors, total_time);
-                        }
-                    }
-                    for pid in to_delete {
-                        self.process_list.remove(&pid);
-                    }
-                }
+                self.clear_procs();
             }
             Err(_) => {}
+        }
+    }
+
+    fn clear_procs(&mut self) {
+        if self.processors.len() > 0 {
+            let (new, old) = get_raw_times(&self.processors[0]);
+            let total_time = (new - old) as f32;
+            let mut to_delete = Vec::new();
+            let nb_processors = self.processors.len() as u64 - 1;
+
+            for (pid, proc_) in self.process_list.iter_mut() {
+                if has_been_updated(&proc_) == false {
+                    to_delete.push(*pid);
+                } else {
+                    compute_cpu_usage(proc_, nb_processors, total_time);
+                }
+            }
+            for pid in to_delete {
+                self.process_list.remove(&pid);
+            }
         }
     }
 
@@ -281,8 +362,9 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
             // we get the rss then we add the vsize
             entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb +
                            u64::from_str(parts[22]).unwrap() / 1024;
-            set_time(&mut entry, u64::from_str(parts[13]).unwrap(),
-                u64::from_str(parts[14]).unwrap());
+            set_time(&mut entry,
+                     u64::from_str(parts[13]).unwrap(),
+                     u64::from_str(parts[14]).unwrap());
         }
         _ => {}
     }
@@ -299,7 +381,7 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
             let mut ret : Vec<String> = Vec::new();
 
             for tmp in v.iter() {
-	        if tmp.len() < 1 {
+            if tmp.len() < 1 {
                     continue;
                 }
                 ret.push((*tmp).to_owned());
@@ -325,7 +407,7 @@ fn realpath(original: &Path) -> PathBuf {
     } else {
         match fs::read_link(&result) {
             Ok(f) => f,
-	    Err(_) => PathBuf::new(),
+        Err(_) => PathBuf::new(),
         }
     }
 }
