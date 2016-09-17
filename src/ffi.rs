@@ -6,25 +6,46 @@
 
 use libc::c_int;
 #[cfg(target_os = "macos")]
-use libc::{c_char, c_void, gid_t, uid_t};
+use libc::{c_char, c_void, gid_t, uid_t, c_uint, size_t};
 
 extern "C" {
     pub fn kill(pid: c_int, signal: c_int) -> c_int;
 }
 
+// -----------------
+// -- MAC OS PART --
+// -----------------
+
 #[cfg(target_os = "macos")]
 extern "C" {
-    pub fn proc_pidinfo(pid: c_int, flavor: c_int, arg: u64, buffer: *mut c_void, buffersize: c_int) -> c_int;
+    pub fn proc_pidinfo(pid: c_int, flavor: c_int, arg: u64, buffer: *mut c_void,
+                        buffersize: c_int) -> c_int;
     pub fn proc_listallpids(buffer: *mut c_void, buffersize: c_int) -> c_int;
     pub fn proc_name(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
-    pub fn proc_regionfilename(pid: c_int, address: u64, buffer: *mut c_void, buffersize: u32) -> c_int;
+    pub fn proc_regionfilename(pid: c_int, address: u64, buffer: *mut c_void,
+                               buffersize: u32) -> c_int;
     pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
+    pub fn sysctl(name: *mut c_int, namelen: c_uint, oldp: *mut c_void, oldlenp: *mut size_t,
+                  newp: *mut c_void, newlen: size_t) -> c_int;
+    pub fn memcpy(dst: *mut c_void, src: *const c_void, n: size_t) -> *mut c_void;
 }
 
+#[cfg(target_os = "macos")]
+pub const CTL_KERN: c_int = 1;
+#[cfg(target_os = "macos")]
+pub const KERN_ARGMAX: c_int = 8;
+#[cfg(target_os = "macos")]
+pub const KERN_PROCARGS2: c_int = 49;
+
+#[cfg(target_os = "macos")]
 pub const PROC_PIDTASKINFO: i32 = 4;
+#[cfg(target_os = "macos")]
 pub const PROC_PIDTASKALLINFO: i32 = 2;
+#[cfg(target_os = "macos")]
 pub const MAXCOMLEN: usize = 16; // MAXCOMLEN;
+#[cfg(target_os = "macos")]
 pub const MAXPATHLEN: usize = 4 * 1024;
+#[cfg(target_os = "macos")]
 const MAXTHREADNAMESIZE: usize = 64; // MAXTHREADNAMESIZE
 
 #[cfg(target_os = "macos")]

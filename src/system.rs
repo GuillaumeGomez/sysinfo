@@ -14,7 +14,7 @@ use std::str::FromStr;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
-use libc::{self, c_void, stat, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_IFMT};
+use libc::{self, c_void, c_int, size_t, stat, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_IFMT};
 
 pub struct System {
     process_list: HashMap<usize, Process>,
@@ -158,37 +158,85 @@ impl System {
                                   ffi::PROC_PIDTASKALLINFO,
                                   0,
                                   &mut task_info as *mut ffi::proc_taskallinfo as *mut c_void,
-                                  size) }; // no real need to check
-            println!("========== {:?} {}", x, pid);
+                                  size) };
 
-            match self.process_list.get(&(pid as usize)) {
-                Some(_) => {}
-                None => {
-                    let mut p = Process::new(pid as i64, task_info.pbsd.pbi_start_tvsec);
-                    let len = unsafe { ffi::proc_pidpath(pid, cmd_path.as_mut_slice().as_mut_ptr() as *mut c_void, ffi::MAXPATHLEN as u32) };
-                    if len > 0 {
-                        unsafe { cmd_path.set_len(len as usize); }
-                        p.cmd = unsafe { String::from_utf8_unchecked(cmd_path.clone()) };
-                        if let Some(l) = p.cmd.split("/").last() {
+            if let Some(ref mut p) = self.process_list.get_mut(&(pid as usize)) {
+                p.memory = task_info.ptinfo.pti_resident_size / 1024;
+                continue;
+            }
+
+            let mut p = Process::new(pid as i64, task_info.pbsd.pbi_start_tvsec);
+            p.memory = task_info.ptinfo.pti_resident_size / 1024;
+
+            let mut mib: [c_int; 3] = [ffi::CTL_KERN, ffi::KERN_ARGMAX, 0];
+            let mut argmax = 0;
+            let mut size = 0;
+            unsafe {
+                if ffi::sysctl(mib.as_mut_ptr(), 2, (&mut argmax) as *mut i32 as *mut c_void, &mut size, ::std::ptr::null_mut(), 0) != -1 {
+                    let mut proc_args = Vec::with_capacity(argmax as usize);
+                    let mut ptr = proc_args.as_mut_slice().as_mut_ptr();
+                    mib[0] = ffi::CTL_KERN;
+                    mib[1] = ffi::KERN_PROCARGS2;
+                    mib[2] = pid as c_int;
+                    size = argmax as size_t;
+                    if ffi::sysctl(mib.as_mut_ptr(), 3, ptr as *mut c_void,
+                                   &mut size, ::std::ptr::null_mut(), 0) != -1 {
+                        let mut n_args: c_int = 0;
+                        ffi::memcpy((&mut n_args) as *mut c_int as *mut c_void, ptr as *const c_void, ::std::mem::size_of::<c_int>());
+                        let mut cp = ptr.offset(::std::mem::size_of::<c_int>() as isize);
+                        while cp < ptr.offset(size as isize) && *cp != 0 {
+                            cp = cp.offset(1);
+                        }
+                        if cp < ptr.offset(size as isize) {
+                            let mut sp = cp;
+                            let mut np = ::std::ptr::null_mut();
+                            let mut c = 0;
+                            while c < n_args && cp < ptr.offset(size as isize) {
+                                if *cp == 0 {
+                                    c += 1;
+                                    if np != ::std::ptr::null_mut() {
+                                        *np = ' ' as u8;
+                                    } else {
+                                        proc_args.set_len(c as usize);
+                                        let part = Vec::from_raw_parts(sp, cp as usize, cp as usize);
+                                        p.exe = String::from_utf8_unchecked(part.clone());
+                                        if let Some(l) = p.exe.split("/").last() {
+                                            p.name = l.to_owned();
+                                        }
+                                        ::std::mem::forget(part);
+                                    }
+                                    np = cp;
+                                }
+                                cp = cp.offset(1);
+                            }
+                            let part = Vec::from_raw_parts(sp, cp as usize, cp as usize);
+                            p.cmd = String::from_utf8_unchecked(part.clone());
+                            ::std::mem::forget(part);
+                        }
+                    }
+                }
+            }
+
+            if p.exe.len() < 1 {
+                let len = unsafe { ffi::proc_pidpath(pid, cmd_path.as_mut_slice().as_mut_ptr() as *mut c_void, ffi::MAXPATHLEN as u32) };
+                if len > 0 {
+                    unsafe { cmd_path.set_len(len as usize); }
+                    p.exe = unsafe { String::from_utf8_unchecked(cmd_path.clone()) };
+                    if p.name.len() < 1 {
+                        if let Some(l) = p.exe.split("/").last() {
                             p.name = l.to_owned();
                         }
                     }
-                    if p.name.len() < 1 {
-                        let len = unsafe { ffi::proc_name(pid, name.as_mut_slice().as_mut_ptr() as *mut c_void, name_len as u32) };
-                        if len > 0 {
-                            unsafe { name.set_len(len as usize); }
-                            p.name = unsafe { String::from_utf8_unchecked(name.clone()) };
-                        }
-                    }
-                    if x == size {
-                        //p.cmd = get_string_from_array(&task_info.pbsd.pbi_name);
-                        println!("{:?} {:?}", p.name, p.cmd);
-                    }
-                    self.process_list.insert(pid as usize, p);
                 }
             }
-            let mut proc_ = self.process_list.get_mut(&(pid as usize)).unwrap();
-            proc_.memory = task_info.ptinfo.pti_resident_size / 1024;
+            if p.name.len() < 1 {
+                let len = unsafe { ffi::proc_name(pid, name.as_mut_slice().as_mut_ptr() as *mut c_void, name_len as u32) };
+                if len > 0 {
+                    unsafe { name.set_len(len as usize); }
+                    p.name = unsafe { String::from_utf8_unchecked(name.clone()) };
+                }
+            }
+            self.process_list.insert(pid as usize, p);
         }
     }
 
@@ -301,9 +349,20 @@ fn get_all_data(file_path: &str) -> String {
     data
 }
 
+fn update_time_and_memory(entry: &mut Process, parts: &[&str], page_size_kb: u64) {
+    //entry.name = parts[1][1..].to_owned();
+    //entry.name.pop();
+    // we get the rss then we add the vsize
+    entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb +
+                   u64::from_str(parts[22]).unwrap() / 1024;
+    set_time(entry,
+             u64::from_str(parts[13]).unwrap(),
+             u64::from_str(parts[14]).unwrap());
+}
+
 fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_size_kb: u64) {
     if !path.exists() || !path.is_dir() {
-        return ;
+        return;
     }
     let paths : Vec<&str> = path.as_os_str().to_str().unwrap().split("/").collect();
     let last = paths[paths.len() - 1];
@@ -313,58 +372,49 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
 
             tmp.push("stat");
             let data = get_all_data(tmp.to_str().unwrap());
-            let (parts, _) : (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
-            match proc_list.get(&(nb as usize)) {
-                Some(_) => {}
-                None => {
-                    let mut p = Process::new(nb,
-                                             u64::from_str(parts[21]).unwrap() /
-                                             unsafe { sysconf(_SC_CLK_TCK) } as u64);
-
-                    tmp = PathBuf::from(path);
-                    tmp.push("cmdline");
-                    p.cmd = if let Some(t) = copy_from_file(&tmp).get(0) {
-                        t.clone()
-                    } else {
-                        String::new()
-                    };
-                    let x = p.cmd.split(":").collect::<Vec<&str>>()[0]
-                                 .split(" ").collect::<Vec<&str>>()[0].to_owned();
-                    p.name = if x.contains("/") {
-                        x.split("/").last().unwrap().to_owned()
-                    } else {
-                        x
-                    };
-                    tmp = PathBuf::from(path);
-                    tmp.push("environ");
-                    p.environ = copy_from_file(&tmp);
-                    tmp = PathBuf::from(path);
-                    tmp.push("exe");
-
-                    let s = read_link(tmp.to_str().unwrap());
-
-                    if s.is_ok() {
-                        p.exe = s.unwrap().to_str().unwrap().to_owned();
-                    }
-                    tmp = PathBuf::from(path);
-                    tmp.push("cwd");
-                    p.cwd = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
-                    tmp = PathBuf::from(path);
-                    tmp.push("root");
-                    p.root = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
-                    proc_list.insert(nb as usize, p);
-                }
+            let (parts, _): (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
+            if let Some(ref mut entry) = proc_list.get_mut(&(nb as usize)) {
+                update_time_and_memory(entry, &parts, page_size_kb);
+                return;
             }
-            let mut entry = proc_list.get_mut(&(nb as usize)).unwrap();
+            let mut p = Process::new(nb,
+                                     u64::from_str(parts[21]).unwrap() /
+                                     unsafe { sysconf(_SC_CLK_TCK) } as u64);
 
-            //entry.name = parts[1][1..].to_owned();
-            //entry.name.pop();
-            // we get the rss then we add the vsize
-            entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb +
-                           u64::from_str(parts[22]).unwrap() / 1024;
-            set_time(&mut entry,
-                     u64::from_str(parts[13]).unwrap(),
-                     u64::from_str(parts[14]).unwrap());
+            tmp = PathBuf::from(path);
+            tmp.push("cmdline");
+            p.cmd = if let Some(t) = copy_from_file(&tmp).get(0) {
+                t.clone()
+            } else {
+                String::new()
+            };
+            let x = p.cmd.split(":").collect::<Vec<&str>>()[0]
+                         .split(" ").collect::<Vec<&str>>()[0].to_owned();
+            p.name = if x.contains("/") {
+                x.split("/").last().unwrap().to_owned()
+            } else {
+                x
+            };
+            tmp = PathBuf::from(path);
+            tmp.push("environ");
+            p.environ = copy_from_file(&tmp);
+            tmp = PathBuf::from(path);
+            tmp.push("exe");
+
+            let s = read_link(tmp.to_str().unwrap());
+
+            if s.is_ok() {
+                p.exe = s.unwrap().to_str().unwrap().to_owned();
+            }
+            tmp = PathBuf::from(path);
+            tmp.push("cwd");
+            p.cwd = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
+            tmp = PathBuf::from(path);
+            tmp.push("root");
+            p.root = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
+
+            update_time_and_memory(&mut p, &parts, page_size_kb);
+            proc_list.insert(nb as usize, p);
         }
         _ => {}
     }
