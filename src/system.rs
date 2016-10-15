@@ -15,6 +15,10 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
 use libc::{self, c_void, c_int, size_t, stat, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_IFMT};
+#[cfg(target_os = "macos")]
+use std::rc::Rc;
+#[cfg(target_os = "macos")]
+use processor;
 
 pub struct System {
     process_list: HashMap<usize, Process>,
@@ -38,6 +42,14 @@ fn get_string_from_array(ar: &[u8]) -> String {
     unsafe { String::from_utf8_unchecked(tmp) }
 }
 
+unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
+    let len = cp as usize - start as usize;
+    let part = Vec::from_raw_parts(start, len, len);
+    let tmp = String::from_utf8_unchecked(part.clone());
+    ::std::mem::forget(part);
+    tmp
+}
+
 impl System {
     pub fn new() -> System {
         let mut s = System {
@@ -56,7 +68,65 @@ impl System {
 
     #[cfg(target_os = "macos")]
     pub fn refresh_system(&mut self) {
-        ;
+        let mut numCPUsU = 0u32;
+        let mut cpuInfo: *mut i32 = ::std::ptr::null_mut();
+        let mut numCpuInfo = 0u32;
+
+        unsafe {
+            if self.processors.len() == 0 {
+                let mut numCPUs = 0;
+
+                let mut mib = [ffi::CTL_HW, ffi::HW_NCPU];
+                let mut sizeOfNumCPUs = ::std::mem::size_of::<u32>();
+                if ffi::sysctl(mib.as_mut_ptr() as *mut i32, 2,
+                               &mut numCPUs as *mut usize as *mut c_void,
+                               &mut sizeOfNumCPUs as *mut size_t,
+                               ::std::ptr::null_mut(), 0) != 0 {
+                    numCPUs = 1;
+                }
+
+                if ffi::host_processor_info(ffi::mach_host_self(), ffi::PROCESSOR_CPU_LOAD_INFO,
+                                       &mut numCPUsU as *mut u32,
+                                       &mut cpuInfo as *mut *mut i32,
+                                       &mut numCpuInfo as *mut u32) == ffi::KERN_SUCCESS {
+                    let mut proc_data = Rc::new(ProcessorData::new(cpuInfo, numCpuInfo));
+                    for i in 0..numCPUs {
+                        let mut p = processor::create_proc(format!("{}", i + 1), proc_data.clone());
+                        let inUse = *cpuInfo.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize)
+                            + *cpuInfo.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_SYSTEM as isize)
+                            + *cpuInfo.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_NICE as isize);
+                        let total = inUse + *cpuInfo.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize);
+                        processor::set_cpu_proc(&mut p, inUse as f32 / total as f32);
+                        self.processors.push(p);
+                    }
+                }
+            } else if ffi::host_processor_info(ffi::mach_host_self(), ffi::PROCESSOR_CPU_LOAD_INFO,
+                                               &mut numCPUsU as *mut u32,
+                                               &mut cpuInfo as *mut *mut i32,
+                                               &mut numCpuInfo as *mut u32) == ffi::KERN_SUCCESS {
+                let mut proc_data = Rc::new(ProcessorData::new(cpuInfo, numCpuInfo));
+                for (i, proc_) in self.processors.iter_mut().enumerate() {
+                    let old_proc_data = &*processor::get_processor_data(proc_);
+                    let inUse = (*cpuInfo.offset((ffi::CPU_STATE_MAX * i) as isize
+                            + ffi::CPU_STATE_USER as isize)
+                            - *old_proc_data.cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
+                            + ffi::CPU_STATE_USER as isize))
+                        + (*cpuInfo.offset((ffi::CPU_STATE_MAX * i) as isize
+                            + ffi::CPU_STATE_SYSTEM as isize)
+                            - *old_proc_data.cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
+                            + ffi::CPU_STATE_SYSTEM as isize))
+                        + (*cpuInfo.offset((ffi::CPU_STATE_MAX * i) as isize
+                            + ffi::CPU_STATE_NICE as isize)
+                            - *old_proc_data.cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
+                            + ffi::CPU_STATE_NICE as isize));
+                    let total = inUse + (*cpuInfo.offset((ffi::CPU_STATE_MAX * i) as isize
+                            + ffi::CPU_STATE_IDLE as isize)
+                        - *old_proc_data.cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
+                            + ffi::CPU_STATE_IDLE as isize));
+                    processor::update_proc(proc_, inUse as f32 / total as f32, proc_data.clone());
+                }
+            }
+        }
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -147,96 +217,131 @@ impl System {
             unsafe { pids.set_len(x as usize); }
         }
 
-        let size = ::std::mem::size_of::<ffi::proc_taskallinfo>() as i32;
+        let taskallinfo_size = ::std::mem::size_of::<ffi::proc_taskallinfo>() as i32;
+        let taskinfo_size = ::std::mem::size_of::<ffi::proc_taskinfo>() as i32;
+        let threadinfo_size = ::std::mem::size_of::<ffi::proc_threadinfo>() as i32;
         let name_len = 2 * ffi::MAXCOMLEN;
         let mut name: Vec<u8> = Vec::with_capacity(name_len as usize);
         let mut cmd_path: Vec<u8> = Vec::with_capacity(ffi::MAXPATHLEN);
+
+        let mut mib: [c_int; 3] = [ffi::CTL_KERN, ffi::KERN_ARGMAX, 0];
+        let mut argmax = 0;
+        let mut size = ::std::mem::size_of::<c_int>();
+        unsafe {
+            while ffi::sysctl(mib.as_mut_ptr(), 2, (&mut argmax) as *mut i32 as *mut c_void, &mut size, ::std::ptr::null_mut(), 0) == -1 {}
+        }
+        let mut proc_args = Vec::with_capacity(argmax as usize);
+
         for pid in pids {
-            let mut task_info = unsafe { ::std::mem::zeroed::<ffi::proc_taskallinfo>() };
-            let x = unsafe {
-                ffi::proc_pidinfo(pid,
-                                  ffi::PROC_PIDTASKALLINFO,
-                                  0,
-                                  &mut task_info as *mut ffi::proc_taskallinfo as *mut c_void,
-                                  size) };
-
-            if let Some(ref mut p) = self.process_list.get_mut(&(pid as usize)) {
-                p.memory = task_info.ptinfo.pti_resident_size / 1024;
-                continue;
-            }
-
-            let mut p = Process::new(pid as i64, task_info.pbsd.pbi_start_tvsec);
-            p.memory = task_info.ptinfo.pti_resident_size / 1024;
-
-            let mut mib: [c_int; 3] = [ffi::CTL_KERN, ffi::KERN_ARGMAX, 0];
-            let mut argmax = 0;
-            let mut size = 0;
             unsafe {
-                if ffi::sysctl(mib.as_mut_ptr(), 2, (&mut argmax) as *mut i32 as *mut c_void, &mut size, ::std::ptr::null_mut(), 0) != -1 {
-                    let mut proc_args = Vec::with_capacity(argmax as usize);
-                    let mut ptr = proc_args.as_mut_slice().as_mut_ptr();
-                    mib[0] = ffi::CTL_KERN;
-                    mib[1] = ffi::KERN_PROCARGS2;
-                    mib[2] = pid as c_int;
-                    size = argmax as size_t;
-                    if ffi::sysctl(mib.as_mut_ptr(), 3, ptr as *mut c_void,
-                                   &mut size, ::std::ptr::null_mut(), 0) != -1 {
-                        let mut n_args: c_int = 0;
-                        ffi::memcpy((&mut n_args) as *mut c_int as *mut c_void, ptr as *const c_void, ::std::mem::size_of::<c_int>());
-                        let mut cp = ptr.offset(::std::mem::size_of::<c_int>() as isize);
+                if let Some(ref mut p) = self.process_list.get_mut(&(pid as usize)) {
+                    let mut task_info = ::std::mem::zeroed::<ffi::proc_taskinfo>();
+                    if ffi::proc_pidinfo(pid,
+                                         ffi::PROC_PIDTASKINFO,
+                                         0,
+                                         &mut task_info as *mut ffi::proc_taskinfo as *mut c_void,
+                                         taskinfo_size) != taskinfo_size {
+                        continue;
+                    }
+                    p.memory = task_info.pti_resident_size / 1024;
+                    p.cpu_usage = task_info.pti_total_user as f32 / task_info.pti_total_system as f32;
+                    continue;
+                }
+
+                let mut task_info = ::std::mem::zeroed::<ffi::proc_taskallinfo>();
+                if ffi::proc_pidinfo(pid,
+                                     ffi::PROC_PIDTASKALLINFO,
+                                     0,
+                                     &mut task_info as *mut ffi::proc_taskallinfo as *mut c_void,
+                                     taskallinfo_size as i32) != taskallinfo_size as i32 {
+                    continue;
+                }
+
+                let mut p = Process::new(pid as i64, task_info.pbsd.pbi_start_tvsec);
+                p.memory = task_info.ptinfo.pti_resident_size / 1024;
+
+                let mut ptr = proc_args.as_mut_slice().as_mut_ptr();
+                mib[0] = ffi::CTL_KERN;
+                mib[1] = ffi::KERN_PROCARGS2;
+                mib[2] = pid as c_int;
+                size = argmax as size_t;
+                /*
+                * /---------------\ 0x00000000
+                * | ::::::::::::: |
+                * |---------------| <-- Beginning of data returned by sysctl() is here.
+                * | argc          |
+                * |---------------|
+                * | exec_path     |
+                * |---------------|
+                * | 0             |
+                * |---------------|
+                * | arg[0]        |
+                * |---------------|
+                * | 0             |
+                * |---------------|
+                * | arg[n]        |
+                * |---------------|
+                * | 0             |
+                * |---------------|
+                * | env[0]        |
+                * |---------------|
+                * | 0             |
+                * |---------------|
+                * | env[n]        |
+                * |---------------|
+                * | ::::::::::::: |
+                * |---------------| <-- Top of stack.
+                * :               :
+                * :               :
+                * \---------------/ 0xffffffff
+                */
+                if ffi::sysctl(mib.as_mut_ptr(), 3, ptr as *mut c_void,
+                               &mut size, ::std::ptr::null_mut(), 0) != -1 {
+                    let mut n_args: c_int = 0;
+                    ffi::memcpy((&mut n_args) as *mut c_int as *mut c_void, ptr as *const c_void, ::std::mem::size_of::<c_int>());
+                    let mut cp = ptr.offset(::std::mem::size_of::<c_int>() as isize);
+                    let mut start = cp;
+                    if cp < ptr.offset(size as isize) {
                         while cp < ptr.offset(size as isize) && *cp != 0 {
                             cp = cp.offset(1);
                         }
-                        if cp < ptr.offset(size as isize) {
-                            let mut sp = cp;
-                            let mut np = ::std::ptr::null_mut();
-                            let mut c = 0;
-                            while c < n_args && cp < ptr.offset(size as isize) {
-                                if *cp == 0 {
-                                    c += 1;
-                                    if np != ::std::ptr::null_mut() {
-                                        *np = ' ' as u8;
-                                    } else {
-                                        proc_args.set_len(c as usize);
-                                        let part = Vec::from_raw_parts(sp, cp as usize, cp as usize);
-                                        p.exe = String::from_utf8_unchecked(part.clone());
-                                        if let Some(l) = p.exe.split("/").last() {
-                                            p.name = l.to_owned();
-                                        }
-                                        ::std::mem::forget(part);
-                                    }
-                                    np = cp;
-                                }
-                                cp = cp.offset(1);
-                            }
-                            let part = Vec::from_raw_parts(sp, cp as usize, cp as usize);
-                            p.cmd = String::from_utf8_unchecked(part.clone());
-                            ::std::mem::forget(part);
-                        }
-                    }
-                }
-            }
-
-            if p.exe.len() < 1 {
-                let len = unsafe { ffi::proc_pidpath(pid, cmd_path.as_mut_slice().as_mut_ptr() as *mut c_void, ffi::MAXPATHLEN as u32) };
-                if len > 0 {
-                    unsafe { cmd_path.set_len(len as usize); }
-                    p.exe = unsafe { String::from_utf8_unchecked(cmd_path.clone()) };
-                    if p.name.len() < 1 {
+                        p.exe = get_unchecked_str(cp, start);
                         if let Some(l) = p.exe.split("/").last() {
                             p.name = l.to_owned();
                         }
+                        while cp < ptr.offset(size as isize) && *cp == 0 {
+                            cp = cp.offset(1);
+                        }
+                        start = cp;
+                        let mut c = 0;
+                        while c < n_args && cp < ptr.offset(size as isize) {
+                            if *cp == 0 {
+                                c += 1;
+                                if c < n_args {
+                                    *cp = ' ' as u8;
+                                }
+                            }
+                            cp = cp.offset(1);
+                        }
+                        p.cmd = get_unchecked_str(cp.offset(-1), start);
+                        start = cp;
+                        while cp < ptr.offset(size as isize) {
+                            if *cp == 0 {
+                                if cp == start {
+                                    break;
+                                }
+                                p.environ.push(get_unchecked_str(cp, start));
+                                start = cp.offset(1);
+                            }
+                            cp = cp.offset(1);
+                        }
                     }
+                } else {
+                    // we don't have enough priviledges to get access to these info
+                    continue;
                 }
+                self.process_list.insert(pid as usize, p);
             }
-            if p.name.len() < 1 {
-                let len = unsafe { ffi::proc_name(pid, name.as_mut_slice().as_mut_ptr() as *mut c_void, name_len as u32) };
-                if len > 0 {
-                    unsafe { name.set_len(len as usize); }
-                    p.name = unsafe { String::from_utf8_unchecked(name.clone()) };
-                }
-            }
-            self.process_list.insert(pid as usize, p);
         }
     }
 
@@ -261,6 +366,7 @@ impl System {
         }
     }
 
+    #[cfg(not(target_os = "macos"))]
     fn clear_procs(&mut self) {
         if self.processors.len() > 0 {
             let (new, old) = get_raw_times(&self.processors[0]);

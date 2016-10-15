@@ -28,6 +28,16 @@ extern "C" {
     pub fn sysctl(name: *mut c_int, namelen: c_uint, oldp: *mut c_void, oldlenp: *mut size_t,
                   newp: *mut c_void, newlen: size_t) -> c_int;
     pub fn memcpy(dst: *mut c_void, src: *const c_void, n: size_t) -> *mut c_void;
+
+    pub fn perror(c: *const c_char);
+
+    pub fn mach_task_self() -> u32;
+    pub fn mach_host_self() -> u32;
+    pub fn host_processor_info(host_info: u32, t: u32, num_cpu_u: *mut u32,
+                               cpu_info: *mut *mut i32, num_cpu_info: *mut u32) -> u32;
+    pub fn host_statistics(host_priv: u32, flavor: u32, host_info: *mut c_void,
+                           host_count: *const u32) -> u32;
+    pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> u32;
 }
 
 #[cfg(target_os = "macos")]
@@ -35,16 +45,25 @@ pub const CTL_KERN: c_int = 1;
 #[cfg(target_os = "macos")]
 pub const KERN_ARGMAX: c_int = 8;
 #[cfg(target_os = "macos")]
+pub const KERN_PROC: c_int = 14;
+#[cfg(target_os = "macos")]
+pub const KERN_PROCARGS: c_int = 38;
+#[cfg(target_os = "macos")]
 pub const KERN_PROCARGS2: c_int = 49;
 
 #[cfg(target_os = "macos")]
+pub const PROC_PIDTASKALLINFO: i32 = 2;
+#[cfg(target_os = "macos")]
 pub const PROC_PIDTASKINFO: i32 = 4;
 #[cfg(target_os = "macos")]
-pub const PROC_PIDTASKALLINFO: i32 = 2;
+pub const PROC_PIDTHREADINFO: i32 = 5;
+
 #[cfg(target_os = "macos")]
 pub const MAXCOMLEN: usize = 16; // MAXCOMLEN;
 #[cfg(target_os = "macos")]
 pub const MAXPATHLEN: usize = 4 * 1024;
+#[cfg(target_os = "macos")]
+pub const PROC_PIDPATHINFO_MAXSIZE: usize = 4 * MAXPATHLEN;
 #[cfg(target_os = "macos")]
 const MAXTHREADNAMESIZE: usize = 64; // MAXTHREADNAMESIZE
 
@@ -119,4 +138,34 @@ pub struct proc_threadinfo {
     pub pth_priority: i32, /*  priority */
     pub pth_maxpriority: i32, /* max priority */
     pub pth_name: [u8; MAXTHREADNAMESIZE], /* thread name, if any */
+}
+
+#[cfg(target_os = "macos")]
+pub const HOST_CPU_LOAD_INFO_COUNT: usize = 4;
+#[cfg(target_os = "macos")]
+pub const HOST_CPU_LOAD_INFO: u32 = 3;
+#[cfg(target_os = "macos")]
+pub const KERN_SUCCESS: u32 = 0;
+
+#[cfg(target_os = "macos")]
+pub const HW_NCPU: u32 = 3;
+#[cfg(target_os = "macos")]
+pub const CTL_HW: u32 = 6;
+#[cfg(target_os = "macos")]
+pub const PROCESSOR_CPU_LOAD_INFO: u32 = 2;
+#[cfg(target_os = "macos")]
+pub const CPU_STATE_USER: u32 = 0;
+#[cfg(target_os = "macos")]
+pub const CPU_STATE_SYSTEM: u32 = 1;
+#[cfg(target_os = "macos")]
+pub const CPU_STATE_IDLE: u32 = 2;
+#[cfg(target_os = "macos")]
+pub const CPU_STATE_NICE: u32 = 3;
+#[cfg(target_os = "macos")]
+pub const CPU_STATE_MAX: usize = 4;
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+pub struct host_cpu_load_info_data_t {
+    pub cpu_ticks: [u64; CPU_STATE_MAX],
 }
