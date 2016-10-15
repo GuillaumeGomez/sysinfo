@@ -107,6 +107,9 @@ pub fn compute_cpu_usage(p: &mut Process, time: u64, task_time: u64) {
     } else {
         (system_time_delta as f64 * 100f64 / time_delta as f64) as f32
     };
+    if p.cpu_usage > 100f32 {
+        p.cpu_usage = 100f32;
+    }
 }
 
 pub fn has_been_updated(p: &Process) -> bool {

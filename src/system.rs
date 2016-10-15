@@ -68,23 +68,46 @@ impl System {
 
     #[cfg(target_os = "macos")]
     pub fn refresh_system(&mut self) {
-        let mut numCPUsU = 0u32;
-        let mut cpuInfo: *mut i32 = ::std::ptr::null_mut();
-        let mut numCpuInfo = 0u32;
+        unsafe fn get_sys_value(high: u32, low: u32, mut len: usize, value: *mut c_void) -> bool {
+            let mut mib = [high as i32, low as i32];
+            ffi::sysctl(mib.as_mut_ptr(), 2, value, &mut len as *mut usize,
+                        ::std::ptr::null_mut(), 0) == 0
+        }
 
         unsafe {
+            // get system values
+            if self.mem_total < 1 {
+                get_sys_value(ffi::CTL_HW, ffi::HW_MEMSIZE, ::std::mem::size_of::<u64>(),
+                              &mut self.mem_total as *mut u64 as *mut c_void);
+                self.mem_total /= 1024;
+            }
+            let count: u32 = ffi::HOST_VM_INFO64_COUNT;
+            let mut stat = ::std::mem::zeroed::<ffi::vm_statistics64>();
+            if ffi::host_statistics64(ffi::mach_host_self(), ffi::HOST_VM_INFO64,
+                                      &mut stat as *mut ffi::vm_statistics64 as *mut c_void,
+                                      &count as *const u32) == ffi::KERN_SUCCESS {
+                self.mem_free = (stat.free_count + stat.inactive_count
+                    + stat.speculative_count) as u64 * self.page_size_kb;
+            }
+
+            // get processor values
+            let mut numCPUsU = 0u32;
+            let mut cpuInfo: *mut i32 = ::std::ptr::null_mut();
+            let mut numCpuInfo = 0u32;
+
             if self.processors.len() == 0 {
                 let mut numCPUs = 0;
 
                 let mut mib = [ffi::CTL_HW, ffi::HW_NCPU];
                 let mut sizeOfNumCPUs = ::std::mem::size_of::<u32>();
-                if ffi::sysctl(mib.as_mut_ptr() as *mut i32, 2,
-                               &mut numCPUs as *mut usize as *mut c_void,
-                               &mut sizeOfNumCPUs as *mut size_t,
-                               ::std::ptr::null_mut(), 0) != 0 {
+                if get_sys_value(ffi::CTL_HW, ffi::HW_NCPU, ::std::mem::size_of::<u32>(),
+                                 &mut numCPUs as *mut usize as *mut c_void) == false {
                     numCPUs = 1;
                 }
 
+                self.processors.push(
+                    processor::create_proc("0".to_owned(),
+                                           Rc::new(ProcessorData::new(::std::ptr::null_mut(), 0))));
                 if ffi::host_processor_info(ffi::mach_host_self(), ffi::PROCESSOR_CPU_LOAD_INFO,
                                        &mut numCPUsU as *mut u32,
                                        &mut cpuInfo as *mut *mut i32,
@@ -104,8 +127,9 @@ impl System {
                                                &mut numCPUsU as *mut u32,
                                                &mut cpuInfo as *mut *mut i32,
                                                &mut numCpuInfo as *mut u32) == ffi::KERN_SUCCESS {
+                let mut pourcent = 0f32;
                 let mut proc_data = Rc::new(ProcessorData::new(cpuInfo, numCpuInfo));
-                for (i, proc_) in self.processors.iter_mut().enumerate() {
+                for (i, proc_) in self.processors.iter_mut().skip(1).enumerate() {
                     let old_proc_data = &*processor::get_processor_data(proc_);
                     let inUse = (*cpuInfo.offset((ffi::CPU_STATE_MAX * i) as isize
                             + ffi::CPU_STATE_USER as isize)
@@ -124,6 +148,13 @@ impl System {
                         - *old_proc_data.cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
                             + ffi::CPU_STATE_IDLE as isize));
                     processor::update_proc(proc_, inUse as f32 / total as f32, proc_data.clone());
+                    pourcent += proc_.get_cpu_usage();
+                }
+                if self.processors.len() > 1 {
+                    let len = self.processors.len() - 1;
+                    if let Some(p) = self.processors.get_mut(0) {
+                        processor::set_cpu_usage(p, pourcent / len as f32);
+                    }
                 }
             }
         }
@@ -132,7 +163,7 @@ impl System {
     #[cfg(not(target_os = "macos"))]
     pub fn refresh_system(&mut self) {
         let data = get_all_data("/proc/meminfo");
-        let lines : Vec<&str> = data.split('\n').collect();
+        let lines: Vec<&str> = data.split('\n').collect();
 
         for component in self.temperatures.iter_mut() {
             component.update();
@@ -163,7 +194,7 @@ impl System {
             }
         }
         let data = get_all_data("/proc/stat");
-        let lines : Vec<&str> = data.split('\n').collect();
+        let lines: Vec<&str> = data.split('\n').collect();
         let mut i = 0;
         let first = self.processors.len() == 0;
         for line in lines.iter() {
@@ -171,7 +202,7 @@ impl System {
                 break;
             }
 
-            let (parts, _) : (Vec<&str>, Vec<&str>) = line.split(' ').partition(|s| s.len() > 0);
+            let (parts, _): (Vec<&str>, Vec<&str>) = line.split(' ').partition(|s| s.len() > 0);
             if first {
                 self.processors.push(new_processor(parts[0], u64::from_str(parts[1]).unwrap(),
                     u64::from_str(parts[2]).unwrap(),
@@ -253,7 +284,7 @@ impl System {
                                          0,
                                          &mut task_info as *mut ffi::proc_taskinfo as *mut c_void,
                                          taskinfo_size) != taskinfo_size {
-                        continue;
+                        continue
                     }
                     let task_time = user_time + system_time
                         + task_info.pti_total_user + task_info.pti_total_system;
@@ -261,8 +292,7 @@ impl System {
                     compute_cpu_usage(p, time, task_time);
 
                     p.memory = task_info.pti_resident_size / 1024;
-                    //p.cpu_usage = task_info.pti_total_user as f32 / task_info.pti_total_system as f32;
-                    continue;
+                    continue
                 }
 
                 let mut task_info = ::std::mem::zeroed::<ffi::proc_taskallinfo>();
@@ -271,7 +301,7 @@ impl System {
                                      0,
                                      &mut task_info as *mut ffi::proc_taskallinfo as *mut c_void,
                                      taskallinfo_size as i32) != taskallinfo_size as i32 {
-                    continue;
+                    continue
                 }
 
                 let mut p = Process::new(pid as i64, task_info.pbsd.pbi_start_tvsec);

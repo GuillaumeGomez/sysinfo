@@ -225,6 +225,11 @@ impl Processor {
 }
 
 #[cfg(target_os = "macos")]
+pub fn set_cpu_usage(p: &mut Processor, usage: f32) {
+    p.cpu_usage = usage;
+}
+
+#[cfg(target_os = "macos")]
 pub fn create_proc(name: String, processor_data: Rc<ProcessorData>) -> Processor {
     Processor::new(name, processor_data)
 }

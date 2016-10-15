@@ -37,6 +37,7 @@ extern "C" {
     pub fn mach_task_self() -> u32;
     pub fn mach_host_self() -> u32;
     pub fn task_info(host_info: u32, t: u32, c: *mut c_void, x: *mut u32) -> u32;
+    pub fn host_statistics64(host_info: u32, x: u32, y: *mut c_void, z: *const u32) -> u32;
     pub fn host_processor_info(host_info: u32, t: u32, num_cpu_u: *mut u32,
                                cpu_info: *mut *mut i32, num_cpu_info: *mut u32) -> u32;
     pub fn host_statistics(host_priv: u32, flavor: u32, host_info: *mut c_void,
@@ -160,6 +161,8 @@ pub type task_t = u32;
 pub type pid_t = i32;
 #[cfg(target_os = "macos")]
 pub type time_value_t = time_value;
+#[cfg(target_os = "macos")]
+pub type natural_t = u32;
 
 #[cfg(target_os = "macos")]
 #[repr(C)]
@@ -213,6 +216,36 @@ pub struct task_basic_info_64 {
 }
 
 #[cfg(target_os = "macos")]
+#[repr(C)]
+#[derive(Debug)]
+pub struct vm_statistics64 {
+    pub free_count: natural_t,
+    pub active_count: natural_t,
+    pub inactive_count: natural_t,
+    pub wire_count: natural_t,
+    pub zero_fill_count: u64,
+    pub reactivations: u64,
+    pub pageins: u64,
+    pub pageouts: u64,
+    pub faults: u64,
+    pub cow_faults: u64,
+    pub lookups: u64,
+    pub hits: u64,
+    pub purges: u64,
+    pub purgeable_count: natural_t,
+    pub speculative_count: natural_t,
+    pub decompressions: u64,
+    pub compressions: u64,
+    pub swapins: u64,
+    pub swapouts: u64,
+    pub compressor_page_count: natural_t,
+    pub throttled_count: natural_t,
+    pub external_page_count: natural_t,
+    pub internal_page_count: natural_t,
+    pub total_uncompressed_pages_in_compressor: u64,
+}
+
+#[cfg(target_os = "macos")]
 pub const HOST_CPU_LOAD_INFO_COUNT: usize = 4;
 #[cfg(target_os = "macos")]
 pub const HOST_CPU_LOAD_INFO: u32 = 3;
@@ -235,6 +268,8 @@ pub const CPU_STATE_IDLE: u32 = 2;
 pub const CPU_STATE_NICE: u32 = 3;
 #[cfg(target_os = "macos")]
 pub const CPU_STATE_MAX: usize = 4;
+#[cfg(target_os = "macos")]
+pub const HW_MEMSIZE: u32 = 24;
 
 #[cfg(target_os = "macos")]
 pub const TASK_THREAD_TIMES_INFO: u32 = 3;
@@ -244,6 +279,10 @@ pub const TASK_THREAD_TIMES_INFO_COUNT: u32 = 4;
 pub const TASK_BASIC_INFO_64: u32 = 5;
 #[cfg(target_os = "macos")]
 pub const TASK_BASIC_INFO_64_COUNT: u32 = 10;
+#[cfg(target_os = "macos")]
+pub const HOST_VM_INFO64: u32 = 4;
+#[cfg(target_os = "macos")]
+pub const HOST_VM_INFO64_COUNT: u32 = 38;
 
 #[cfg(target_os = "macos")]
 #[repr(C)]
