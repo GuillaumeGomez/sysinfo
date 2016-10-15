@@ -30,9 +30,13 @@ extern "C" {
     pub fn memcpy(dst: *mut c_void, src: *const c_void, n: size_t) -> *mut c_void;
 
     pub fn perror(c: *const c_char);
+    pub fn getpid() -> i32;
 
+    pub fn mach_absolute_time() -> u64;
+    pub fn task_for_pid(host: u32, pid: pid_t, task: *mut task_t) -> u32;
     pub fn mach_task_self() -> u32;
     pub fn mach_host_self() -> u32;
+    pub fn task_info(host_info: u32, t: u32, c: *mut c_void, x: *mut u32) -> u32;
     pub fn host_processor_info(host_info: u32, t: u32, num_cpu_u: *mut u32,
                                cpu_info: *mut *mut i32, num_cpu_info: *mut u32) -> u32;
     pub fn host_statistics(host_priv: u32, flavor: u32, host_info: *mut c_void,
@@ -141,6 +145,74 @@ pub struct proc_threadinfo {
 }
 
 #[cfg(target_os = "macos")]
+pub type policy_t = i32;
+#[cfg(target_os = "macos")]
+pub type integer_t = i32;
+#[cfg(target_os = "macos")]
+pub type time_t = i64;
+#[cfg(target_os = "macos")]
+pub type suseconds_t = i32;
+#[cfg(target_os = "macos")]
+pub type mach_vm_size_t = u64;
+#[cfg(target_os = "macos")]
+pub type task_t = u32;
+#[cfg(target_os = "macos")]
+pub type pid_t = i32;
+#[cfg(target_os = "macos")]
+pub type time_value_t = time_value;
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+pub struct timeval {
+    pub tv_sec: time_t,
+    pub tv_usec: suseconds_t,
+}
+
+#[cfg(target_os = "macos")]
+impl timeval {
+    pub fn to_microseconds(&self) -> u64 {
+        let mut ret = self.tv_sec as u64;
+        ret *= 1000000;
+        ret + self.tv_usec as u64
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+pub struct time_value {
+    pub seconds: integer_t,
+    pub micro_seconds: integer_t,
+}
+
+#[cfg(target_os = "macos")]
+impl time_value {
+    pub fn to_timeval(&self) -> timeval {
+        timeval {
+            tv_sec: self.seconds as time_t,
+            tv_usec: self.micro_seconds as suseconds_t,
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+pub struct task_thread_times_info {
+    pub user_time: time_value,
+    pub system_time: time_value,
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+pub struct task_basic_info_64 {
+    pub suspend_count: integer_t,
+    pub virtual_size: mach_vm_size_t,
+    pub resident_size: mach_vm_size_t,
+    pub user_time: time_value_t,
+    pub system_time: time_value_t,
+    pub policy: policy_t,
+}
+
+#[cfg(target_os = "macos")]
 pub const HOST_CPU_LOAD_INFO_COUNT: usize = 4;
 #[cfg(target_os = "macos")]
 pub const HOST_CPU_LOAD_INFO: u32 = 3;
@@ -163,6 +235,15 @@ pub const CPU_STATE_IDLE: u32 = 2;
 pub const CPU_STATE_NICE: u32 = 3;
 #[cfg(target_os = "macos")]
 pub const CPU_STATE_MAX: usize = 4;
+
+#[cfg(target_os = "macos")]
+pub const TASK_THREAD_TIMES_INFO: u32 = 3;
+#[cfg(target_os = "macos")]
+pub const TASK_THREAD_TIMES_INFO_COUNT: u32 = 4;
+#[cfg(target_os = "macos")]
+pub const TASK_BASIC_INFO_64: u32 = 5;
+#[cfg(target_os = "macos")]
+pub const TASK_BASIC_INFO_64_COUNT: u32 = 10;
 
 #[cfg(target_os = "macos")]
 #[repr(C)]

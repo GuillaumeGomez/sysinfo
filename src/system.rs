@@ -228,12 +228,24 @@ impl System {
         let mut argmax = 0;
         let mut size = ::std::mem::size_of::<c_int>();
         unsafe {
-            while ffi::sysctl(mib.as_mut_ptr(), 2, (&mut argmax) as *mut i32 as *mut c_void, &mut size, ::std::ptr::null_mut(), 0) == -1 {}
+            while ffi::sysctl(mib.as_mut_ptr(), 2, (&mut argmax) as *mut i32 as *mut c_void,
+                              &mut size, ::std::ptr::null_mut(), 0) == -1 {}
         }
         let mut proc_args = Vec::with_capacity(argmax as usize);
 
         for pid in pids {
             unsafe {
+                let mut thread_info = ::std::mem::zeroed::<ffi::proc_threadinfo>();
+                let mut user_time = 0;
+                let mut system_time = 0;
+                if ffi::proc_pidinfo(pid,
+                                     ffi::PROC_PIDTHREADINFO,
+                                     0,
+                                     &mut thread_info as *mut ffi::proc_threadinfo as *mut c_void,
+                                     threadinfo_size) != 0 {
+                    user_time = thread_info.pth_user_time;
+                    system_time = thread_info.pth_system_time;
+                }
                 if let Some(ref mut p) = self.process_list.get_mut(&(pid as usize)) {
                     let mut task_info = ::std::mem::zeroed::<ffi::proc_taskinfo>();
                     if ffi::proc_pidinfo(pid,
@@ -243,8 +255,13 @@ impl System {
                                          taskinfo_size) != taskinfo_size {
                         continue;
                     }
+                    let task_time = user_time + system_time
+                        + task_info.pti_total_user + task_info.pti_total_system;
+                    let time = ffi::mach_absolute_time();
+                    compute_cpu_usage(p, time, task_time);
+
                     p.memory = task_info.pti_resident_size / 1024;
-                    p.cpu_usage = task_info.pti_total_user as f32 / task_info.pti_total_system as f32;
+                    //p.cpu_usage = task_info.pti_total_user as f32 / task_info.pti_total_system as f32;
                     continue;
                 }
 

@@ -90,9 +90,23 @@ pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
     p.updated = true;
 }
 
+#[cfg(not(target_os = "macos"))]
 pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64, total_time: f32) {
     p.cpu_usage = ((p.utime - p.old_utime + p.stime - p.old_stime) * nb_processors * 100) as f32 / total_time;
     p.updated = false;
+}
+
+#[cfg(target_os = "macos")]
+pub fn compute_cpu_usage(p: &mut Process, time: u64, task_time: u64) {
+    let system_time_delta = task_time - p.old_utime;
+    let time_delta = time - p.old_stime;
+    p.old_utime = task_time;
+    p.old_stime = time;
+    p.cpu_usage = if time_delta == 0 {
+        0f32
+    } else {
+        (system_time_delta as f64 * 100f64 / time_delta as f64) as f32
+    };
 }
 
 pub fn has_been_updated(p: &Process) -> bool {
