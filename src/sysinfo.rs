@@ -37,7 +37,7 @@ pub enum Signal {
     /// Abort signal from C abort function
     Abort = 6,
     // IOT trap. A synonym for SIGABRT
-    //IOT = 6,
+    // IOT = 6,
     /// Bus error (bad memory access)
     Bus = 7,
     /// Floating point exception
