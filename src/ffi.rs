@@ -27,10 +27,28 @@ extern "C" {
     pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
     pub fn sysctl(name: *mut c_int, namelen: c_uint, oldp: *mut c_void, oldlenp: *mut size_t,
                   newp: *mut c_void, newlen: size_t) -> c_int;
+
     pub fn memcpy(dst: *mut c_void, src: *const c_void, n: size_t) -> *mut c_void;
+    pub fn memset(ptr: *mut c_void, c: i32, d: size_t) -> *mut c_void;
+    pub fn strcmp(s1: *const c_char, s2: *const c_char) -> i32;
+    pub fn sprintf(s: *mut c_char, c: *const c_char, ...) -> i32;
 
     pub fn perror(c: *const c_char);
     pub fn getpid() -> i32;
+
+    pub fn IOMasterPort(a: i32, b: *mut mach_port_t) -> i32;
+    pub fn IOServiceMatching(a: *const c_char) -> *mut c_void;
+    pub fn IOServiceGetMatchingServices(a: mach_port_t, b: *mut c_void, c: *mut io_iterator_t) -> i32;
+    pub fn IOIteratorNext(iterator: io_iterator_t) -> io_object_t;
+    pub fn IOObjectRelease(obj: io_object_t) -> i32;
+    pub fn IOServiceOpen(device: io_object_t, a: u32, t: u32, x: *mut io_connect_t) -> i32;
+    pub fn IOServiceClose(a: io_connect_t) -> i32;
+    pub fn IOConnectCallStructMethod(connection: mach_port_t, 
+                                     selector: u32, 
+                                     inputStruct: *mut KeyData_t, 
+                                     inputStructCnt: size_t, 
+                                     outputStruct: *mut KeyData_t, 
+                                     outputStructCnt: *mut size_t) -> i32;
 
     pub fn mach_absolute_time() -> u64;
     pub fn task_for_pid(host: u32, pid: pid_t, task: *mut task_t) -> u32;
@@ -163,6 +181,14 @@ pub type pid_t = i32;
 pub type time_value_t = time_value;
 #[cfg(target_os = "macos")]
 pub type natural_t = u32;
+#[cfg(target_os = "macos")]
+pub type mach_port_t = u32;
+#[cfg(target_os = "macos")]
+pub type io_object_t = mach_port_t;
+#[cfg(target_os = "macos")]
+pub type io_iterator_t = io_object_t;
+#[cfg(target_os = "macos")]
+pub type io_connect_t = io_object_t;
 
 #[cfg(target_os = "macos")]
 #[repr(C)]
@@ -217,7 +243,6 @@ pub struct task_basic_info_64 {
 
 #[cfg(target_os = "macos")]
 #[repr(C)]
-#[derive(Debug)]
 pub struct vm_statistics64 {
     pub free_count: natural_t,
     pub active_count: natural_t,
@@ -243,6 +268,57 @@ pub struct vm_statistics64 {
     pub external_page_count: natural_t,
     pub internal_page_count: natural_t,
     pub total_uncompressed_pages_in_compressor: u64,
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+pub struct Val_t {
+    pub key: [i8; 5],
+    pub data_size: u32,
+    pub data_type: [i8; 5], // UInt32Char_t
+    pub bytes: [i8; 32], // SMCBytes_t
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+pub struct KeyData_vers_t {
+    pub major: u8,
+    pub minor: u8,
+    pub build: u8,
+    pub reserved: [u8; 1],
+    pub release: u16,
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+pub struct KeyData_pLimitData_t {
+    pub version: u16,
+    pub length: u16,
+    pub cpuPLimit: u32,
+    pub gpuPLimit: u32,
+    pub memPLimit: u32,
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+pub struct KeyData_keyInfo_t {
+    pub data_size: u32,
+    pub data_type: u32,
+    pub data_attributes: u8,
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+pub struct KeyData_t {
+    pub key: u32,
+    pub vers: KeyData_vers_t,
+    pub pLimitData: KeyData_pLimitData_t,
+    pub key_info: KeyData_keyInfo_t,
+    pub result: u8,
+    pub status: u8,
+    pub data8: u8,
+    pub data32: u32,
+    pub bytes: [i8; 32], // SMCBytes_t
 }
 
 #[cfg(target_os = "macos")]
@@ -283,6 +359,18 @@ pub const TASK_BASIC_INFO_64_COUNT: u32 = 10;
 pub const HOST_VM_INFO64: u32 = 4;
 #[cfg(target_os = "macos")]
 pub const HOST_VM_INFO64_COUNT: u32 = 38;
+
+#[cfg(target_os = "macos")]
+pub const MACH_PORT_NULL: i32 = 0;
+#[cfg(target_os = "macos")]
+pub const KERNEL_INDEX_SMC: i32 = 2;
+#[cfg(target_os = "macos")]
+pub const SMC_CMD_READ_KEYINFO: u8 = 9;
+#[cfg(target_os = "macos")]
+pub const SMC_CMD_READ_BYTES: u8 = 5;
+
+#[cfg(target_os = "macos")]
+pub const kIOReturnSuccess: i32 = 0;
 
 #[cfg(target_os = "macos")]
 #[repr(C)]

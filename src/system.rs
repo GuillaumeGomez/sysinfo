@@ -6,6 +6,7 @@
 
 use ffi;
 use Component;
+use component;
 use processor::*;
 use process::*;
 use std::fs::{File, read_link};
@@ -20,6 +21,20 @@ use std::rc::Rc;
 #[cfg(target_os = "macos")]
 use processor;
 
+#[cfg(target_os = "macos")]
+pub struct System {
+    process_list: HashMap<usize, Process>,
+    mem_total: u64,
+    mem_free: u64,
+    swap_total: u64,
+    swap_free: u64,
+    processors: Vec<Processor>,
+    page_size_kb: u64,
+    temperatures: Vec<Component>,
+    connection: Option<ffi::io_connect_t>,
+}
+
+#[cfg(not(target_os = "macos"))]
 pub struct System {
     process_list: HashMap<usize, Process>,
     mem_total: u64,
@@ -31,6 +46,125 @@ pub struct System {
     temperatures: Vec<Component>,
 }
 
+#[cfg(target_os = "macos")]
+impl Drop for System {
+    fn drop(&mut self) {
+        if let Some(conn) = self.connection {
+            unsafe { ffi::IOServiceClose(conn); }
+        }
+    }
+}
+
+// code from https://github.com/Chris911/iStats
+#[cfg(target_os = "macos")]
+fn get_io_service_connection() -> Option<ffi::io_connect_t> {
+    let mut masterPort: ffi::mach_port_t = 0;
+    let mut iterator: ffi::io_iterator_t = 0;
+
+    unsafe {
+        ffi::IOMasterPort(ffi::MACH_PORT_NULL, &mut masterPort);
+
+        let mut matchingDictionary = ffi::IOServiceMatching(b"AppleSMC\0".as_ptr() as *const i8);
+        let result = ffi::IOServiceGetMatchingServices(masterPort, matchingDictionary,
+                                                       &mut iterator);
+        if result != ffi::kIOReturnSuccess {
+            //println!("Error: IOServiceGetMatchingServices() = {}", result);
+            return None;
+        }
+
+        let device = ffi::IOIteratorNext(iterator);
+        ffi::IOObjectRelease(iterator);
+        if device == 0 {
+            //println!("Error: no SMC found");
+            return None;
+        }
+
+        let mut conn = 0;
+        let result = ffi::IOServiceOpen(device, ffi::mach_task_self(), 0, &mut conn);
+        ffi::IOObjectRelease(device);
+        if result != ffi::kIOReturnSuccess {
+            //println!("Error: IOServiceOpen() = {}", result);
+            return None;
+        }
+
+        Some(conn)
+    }
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn strtoul(s: *mut c_char, size: c_int, base: c_int) -> u32 {
+    let mut total = 0u32;
+
+    for i in 0..size {
+        if base == 16 {
+            total += (*s.offset(i as isize) as u32) << ((size - 1 - i) as u32) * 8;
+        } else {
+            total += (*s.offset(i as isize) << (size - 1 - i) * 8) as u32;
+        }
+    }
+    return total;
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn ultostr(s: *mut c_char, val: u32) {
+    *s = 0;
+    ffi::sprintf(s, b"%c%c%c%c\0".as_ptr() as *const i8, val >> 24, val >> 16, val >> 8, val);
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn perform_call(conn: ffi::io_connect_t, index: c_int, inputStructure: *mut ffi::KeyData_t,
+                  outputStructure: *mut ffi::KeyData_t) -> i32 {
+    let mut structureOutputSize = ::std::mem::size_of::<ffi::KeyData_t>();
+
+    ffi::IOConnectCallStructMethod(conn, index as u32,
+                                   inputStructure, ::std::mem::size_of::<ffi::KeyData_t>(),
+                                   outputStructure, &mut structureOutputSize)
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn read_key(con: ffi::io_connect_t, key: *mut c_char) -> Result<ffi::Val_t, i32> {
+    let mut inputStructure: ffi::KeyData_t = ::std::mem::zeroed::<ffi::KeyData_t>();
+    let mut outputStructure: ffi::KeyData_t = ::std::mem::zeroed::<ffi::KeyData_t>();
+    let mut val: ffi::Val_t = ::std::mem::zeroed::<ffi::Val_t>();
+
+    inputStructure.key = strtoul(key, 4, 16);
+    inputStructure.data8 = ffi::SMC_CMD_READ_KEYINFO;
+
+    let result = perform_call(con, ffi::KERNEL_INDEX_SMC, &mut inputStructure, &mut outputStructure);
+    if result != ffi::kIOReturnSuccess {
+        return Err(result);
+    }
+
+    val.data_size = outputStructure.key_info.data_size;
+    ultostr(val.data_type.as_mut_ptr(), outputStructure.key_info.data_type);
+    inputStructure.key_info.data_size = val.data_size;
+    inputStructure.data8 = ffi::SMC_CMD_READ_BYTES;
+
+    let result = perform_call(con, ffi::KERNEL_INDEX_SMC, &mut inputStructure, &mut outputStructure);
+    if result != ffi::kIOReturnSuccess {
+        Err(result)
+    } else {
+        ffi::memcpy(val.bytes.as_mut_ptr() as *mut c_void,
+                    outputStructure.bytes.as_mut_ptr() as *mut c_void,
+                    ::std::mem::size_of::<[u8; 32]>());
+        Ok(val)
+    }
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn get_temperature(con: ffi::io_connect_t, key: *mut c_char) -> f32 {
+    if let Ok(val) = read_key(con, key) {
+        if val.data_size > 0 &&
+           ffi::strcmp(val.data_type.as_ptr(), b"sp78\0".as_ptr() as *const i8) == 0 {
+            // convert fp78 value to temperature
+            let x = (val.bytes[0] as i32 * 256 + val.bytes[1] as i32) >> 2;
+            return x as f32 / 64f32;
+        }
+    }
+    return 0f32;
+}
+
+#[cfg(target_os = "macos")]
 fn get_string_from_array(ar: &[u8]) -> String {
     let mut it = 0;
 
@@ -42,6 +176,7 @@ fn get_string_from_array(ar: &[u8]) -> String {
     unsafe { String::from_utf8_unchecked(tmp) }
 }
 
+#[cfg(target_os = "macos")]
 unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
     let len = cp as usize - start as usize;
     let part = Vec::from_raw_parts(start, len, len);
@@ -51,6 +186,7 @@ unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
 }
 
 impl System {
+    #[cfg(not(target_os = "macos"))]
     pub fn new() -> System {
         let mut s = System {
             process_list: HashMap::new(),
@@ -61,6 +197,23 @@ impl System {
             processors: Vec::new(),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
             temperatures: Component::get_components(),
+        };
+        s.refresh_all();
+        s
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn new() -> System {
+        let mut s = System {
+            process_list: HashMap::new(),
+            mem_total: 0,
+            mem_free: 0,
+            swap_total: 0,
+            swap_free: 0,
+            processors: Vec::new(),
+            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
+            temperatures: Vec::new(),
+            connection: get_io_service_connection(),
         };
         s.refresh_all();
         s
@@ -88,6 +241,61 @@ impl System {
                                       &count as *const u32) == ffi::KERN_SUCCESS {
                 self.mem_free = (stat.free_count + stat.inactive_count
                     + stat.speculative_count) as u64 * self.page_size_kb;
+            }
+
+            if let Some(con) = self.connection {
+                if self.temperatures.len() < 1 {
+                    // getting CPU critical temperature
+                    let mut v = vec!('T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0);
+                    let tmp = unsafe { get_temperature(con, v.as_mut_ptr()) };
+                    let critical_temp = if tmp > 0f32 {
+                        Some(tmp)
+                    } else {
+                        None
+                    };
+                    // getting CPU temperature
+                    v[3] = 'P' as i8;
+                    let temp = unsafe { get_temperature(con, v.as_mut_ptr() as *mut i8) };
+                    if temp > 0f32 {
+                        self.temperatures.push(Component::new("CPU".to_owned(),
+                                                              None, critical_temp));
+                    }
+                    // getting GPU temperature
+                    v[1] = 'G' as i8;
+                    let temp = unsafe { get_temperature(con, v.as_mut_ptr() as *mut i8) };
+                    if temp > 0f32 {
+                        self.temperatures.push(Component::new("GPU".to_owned(),
+                                                              None, critical_temp));
+                    }
+                    // getting battery temperature
+                    v[1] = 'B' as i8;
+                    v[3] = 'T' as i8;
+                    let temp = unsafe { get_temperature(con, v.as_mut_ptr() as *mut i8) };
+                    if temp > 0f32 {
+                        self.temperatures.push(Component::new("Battery".to_owned(),
+                                                              None, critical_temp));
+                    }
+                } else {
+                    let mut v = vec!('T' as i8, 'C' as i8, '0' as i8, 'P' as i8, 0);
+                    for comp in self.temperatures.iter_mut() {
+                        match &*comp.label {
+                            "CPU" => {
+                                v[1] = 'C' as i8;
+                                v[3] = 'P' as i8;
+                            }
+                            "GPU" => {
+                                v[1] = 'G' as i8;
+                                v[3] = 'P' as i8;
+                            }
+                            _ => {
+                                v[1] = 'B' as i8;
+                                v[3] = 'T' as i8;
+                            }
+                        };
+                        let temp = unsafe { get_temperature(con, v.as_mut_ptr() as *mut i8) };
+                        component::update_component(comp, temp);
+                    }
+                }
             }
 
             // get processor values
