@@ -4,8 +4,6 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use std::fmt::{self, Formatter, Debug};
-
 #[derive(Clone, Copy)]
 pub struct CpuValues {
     user: u64,
@@ -93,6 +91,7 @@ pub struct Processor {
 }
 
 impl Processor {
+    #[allow(dead_code)]
     fn new() -> Processor {
         Processor {
             name: String::new(),

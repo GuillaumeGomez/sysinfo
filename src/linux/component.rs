@@ -6,11 +6,11 @@
 
 use std::collections::HashMap;
 use std::fs::{File, read_dir};
-use std::fmt::{Debug, Error, Formatter};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-/// More information can be found at http://lxr.free-electrons.com/source/Documentation/hwmon/sysfs-interface
+/// More information can be found at
+/// http://lxr.free-electrons.com/source/Documentation/hwmon/sysfs-interface
 pub struct Component {
     /// Temperature is in celsius.
     pub temperature: f32,

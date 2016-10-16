@@ -4,6 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use sys::ffi;
 use std::fmt::{self, Formatter, Debug};
 use libc::{c_int};
 
@@ -58,7 +59,7 @@ impl Process {
     }
 
     pub fn kill(&self, signal: ::Signal) -> bool {
-        unsafe { ::ffi::kill(self.pid as c_int, signal as c_int) == 0 }
+        unsafe { ffi::kill(self.pid as c_int, signal as c_int) == 0 }
     }
 }
 

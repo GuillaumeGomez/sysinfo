@@ -4,18 +4,16 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use ffi;
-use Component;
-use component;
-use processor::*;
-use process::*;
+use sys::component::Component;
+use sys::processor::*;
+use sys::process::*;
 use std::fs::{File, read_link};
 use std::io::Read;
 use std::str::FromStr;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
-use libc::{self, c_void, c_int, size_t, stat, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_IFMT};
+use libc::{stat, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_IFMT};
 
 pub struct System {
     process_list: HashMap<usize, Process>,
