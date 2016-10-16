@@ -10,16 +10,26 @@
 
 extern crate libc;
 
-pub use self::component::Component;
-pub use self::process::Process;
-pub use self::processor::Processor;
-pub use self::system::*;
+#[cfg(target_os = "macos")]
+pub mod mac;
+#[cfg(target_os = "macos")]
+pub use mac as sys;
+#[cfg(not(target_os = "macos"))]
+pub mod linux;
+#[cfg(not(target_os = "macos"))]
+pub use linux as sys;
+
+pub use sys::{
+    Component,
+    Process,
+    Processor,
+    System,
+};
 
 mod component;
 mod process;
 mod processor;
 mod system;
-mod ffi;
 
 #[repr(C)]
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
