@@ -11,6 +11,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 /// More information can be found at http://lxr.free-electrons.com/source/Documentation/hwmon/sysfs-interface
+#[cfg(not(target_os = "macos"))]
 pub struct Component {
     /// Temperature is in celsius.
     pub temperature: f32,
@@ -21,6 +22,18 @@ pub struct Component {
     /// Component's label.
     pub label: String,
     input_file: PathBuf,
+}
+
+#[cfg(target_os = "macos")]
+pub struct Component {
+    /// Temperature is in celsius.
+    pub temperature: f32,
+    /// Temperature max value.
+    pub max: f32,
+    /// The highest temperature before the computer halts.
+    pub critical: Option<f32>,
+    /// Component's label.
+    pub label: String,
 }
 
 impl Debug for Component {
@@ -35,6 +48,7 @@ impl Debug for Component {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 fn get_file_line(file: &Path) -> Option<String> {
     let mut reader = String::new();
     if let Ok(mut f) = File::open(file) {
@@ -45,6 +59,7 @@ fn get_file_line(file: &Path) -> Option<String> {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 fn append_files(components: &mut Vec<Component>, folder: &Path) {
     let mut matchings = HashMap::new();
     if let Ok(dir) = read_dir(folder) {
@@ -105,6 +120,7 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 impl Component {
     pub fn get_components() -> Vec<Component> {
         let mut ret = Vec::new();
@@ -143,5 +159,25 @@ impl Component {
         if self.temperature > self.max {
             self.max = self.temperature;
         }
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl Component {
+    pub fn new(label: String, max: Option<f32>, critical: Option<f32>) -> Component {
+        let mut c = Component {
+            temperature: 0f32,
+            label: label,
+            max: max.unwrap_or(0.0),
+            critical: critical,
+        };
+        c
+    }
+}
+
+pub fn update_component(comp: &mut Component, temperature: f32) {
+    comp.temperature = temperature;
+    if comp.temperature > comp.max {
+        comp.max = comp.temperature;
     }
 }
