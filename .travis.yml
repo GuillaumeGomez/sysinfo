@@ -1,7 +1,16 @@
 language: rust
-rust:
-- nightly
-- stable
+matrix:
+  include:
+    - os: linux
+      rust: stable
+      dist: trusty
+    - os: linux
+      rust: nightly
+      dist: trusty
+    - os: osx
+      rust: stable
+    - os: osx
+      rust: nightly
 script:
   - rustc --version
   - RUST_BACKTRACE=1 cargo build
