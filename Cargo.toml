@@ -16,6 +16,3 @@ libc = "^0.2"
 name = "sysinfo"
 crate_type = ["rlib"]
 path = "src/sysinfo.rs"
-
-[target.'cfg(target_os = "macos")'.sysinfo]
-links = "IOKit.framework"
