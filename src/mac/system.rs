@@ -172,6 +172,15 @@ impl System {
 
         unsafe {
             // get system values
+            // get swap info
+            let mut xs: ffi::xsw_usage = ::std::mem::zeroed::<ffi::xsw_usage>();
+            if get_sys_value(ffi::CTL_VM, ffi::VM_SWAPUSAGE,
+                             ::std::mem::size_of::<ffi::xsw_usage>(),
+                             &mut xs as *mut ffi::xsw_usage as *mut c_void) {
+                self.swap_total = xs.xsu_total / 1024;
+                self.swap_free = xs.xsu_avail / 1024;
+            }
+            // get ram info
             if self.mem_total < 1 {
                 get_sys_value(ffi::CTL_HW, ffi::HW_MEMSIZE, ::std::mem::size_of::<u64>(),
                               &mut self.mem_total as *mut u64 as *mut c_void);

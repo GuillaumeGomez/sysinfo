@@ -158,6 +158,8 @@ pub type io_object_t = mach_port_t;
 pub type io_iterator_t = io_object_t;
 #[allow(non_camel_case_types)]
 pub type io_connect_t = io_object_t;
+#[allow(non_camel_case_types)]
+pub type boolean_t = c_uint;
 
 /*#[repr(C)]
 pub struct task_thread_times_info {
@@ -249,12 +251,23 @@ pub struct KeyData_t {
     pub bytes: [i8; 32], // SMCBytes_t
 }
 
+#[repr(C)]
+pub struct xsw_usage {
+    pub xsu_total: u64,
+    pub xsu_avail: u64,
+    pub xsu_used: u64,
+    pub xsu_pagesize: u32,
+    pub xsu_encrypted: boolean_t,
+}
+
 //pub const HOST_CPU_LOAD_INFO_COUNT: usize = 4;
 //pub const HOST_CPU_LOAD_INFO: u32 = 3;
 pub const KERN_SUCCESS: u32 = 0;
 
 pub const HW_NCPU: u32 = 3;
 pub const CTL_HW: u32 = 6;
+pub const CTL_VM: u32 = 2;
+pub const VM_SWAPUSAGE: u32 = 5;
 pub const PROCESSOR_CPU_LOAD_INFO: u32 = 2;
 pub const CPU_STATE_USER: u32 = 0;
 pub const CPU_STATE_SYSTEM: u32 = 1;
