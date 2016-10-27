@@ -3,7 +3,7 @@ name = "sysinfo"
 version = "0.2.1"
 authors = ["guillaume1.gomez@gmail.com"]
 
-description = "Library to handle processus"
+description = "Library to handle processes"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "LGPL-3.0+"
 
