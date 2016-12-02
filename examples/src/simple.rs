@@ -21,7 +21,7 @@ fn print_help() -> bool {
     write!(&mut io::stdout(), "signals            : show the available signals\n");
     write!(&mut io::stdout(), "refresh            : reloads processes' information\n");
     write!(&mut io::stdout(), "show [pid | name]  : show information of the given process corresponding to [pid | name]\n");
-    write!(&mut io::stdout(), "kill [pid] [signal]: send [signal] to the processus with this [pid]. 0 < [signal] < 32\n");
+    write!(&mut io::stdout(), "kill [pid] [signal]: send [signal] to the process with this [pid]. 0 < [signal] < 32\n");
     write!(&mut io::stdout(), "proc               : Displays proc state\n");
     write!(&mut io::stdout(), "memory             : Displays memory state\n");
     write!(&mut io::stdout(), "temperature        : Displays components' temperature\n");

@@ -16,9 +16,9 @@ pub struct Process {
     pub cmd: String,
     /// path to the executable
     pub exe: String,
-    /// pid of the processus
+    /// pid of the process
     pub pid: i64,
-    /// environment of the processus
+    /// environment of the process
     pub environ: Vec<String>,
     /// current working directory
     pub cwd: String,

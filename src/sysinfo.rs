@@ -34,7 +34,7 @@ mod system;
 #[repr(C)]
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
 pub enum Signal {
-    /// Hangup detected on controlling terminal or death of controlling processus
+    /// Hangup detected on controlling terminal or death of controlling process
     Hangup = 1,
     /// Interrupt from keyboard
     Interrupt = 2,
