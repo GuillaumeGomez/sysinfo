@@ -9,7 +9,7 @@ use sys::component::Component;
 use sys::processor::*;
 use sys::process::*;
 use std::collections::HashMap;
-use libc::{self, c_void, c_int, size_t, stat, c_char, sysconf, _SC_PAGESIZE};
+use libc::{self, c_void, c_int, size_t, c_char, sysconf, _SC_PAGESIZE};
 use std::rc::Rc;
 use sys::processor;
 
