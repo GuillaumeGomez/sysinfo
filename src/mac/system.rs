@@ -387,7 +387,9 @@ impl System {
                     continue
                 }
 
-                let mut p = Process::new(pid as i64, task_info.pbsd.pbi_start_tvsec);
+                let mut p = Process::new(pid as i64,
+                                         task_info.pbsd.pbi_ppid as i64,
+                                         task_info.pbsd.pbi_start_tvsec);
                 p.memory = task_info.ptinfo.pti_resident_size / 1024;
 
                 let ptr = proc_args.as_mut_slice().as_mut_ptr();

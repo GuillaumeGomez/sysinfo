@@ -253,6 +253,7 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
                 return;
             }
             let mut p = Process::new(nb,
+                                     i64::from_str(parts[3]).unwrap(),
                                      u64::from_str(parts[21]).unwrap() /
                                      unsafe { sysconf(_SC_CLK_TCK) } as u64);
 
