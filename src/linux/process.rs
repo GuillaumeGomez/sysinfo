@@ -19,7 +19,7 @@ pub struct Process {
     /// pid of the process
     pub pid: i64,
     /// pid of the parent process
-    pub parent: i64,
+    pub parent: Option<i64>,
     /// environment of the process
     pub environ: Vec<String>,
     /// current working directory
@@ -40,7 +40,7 @@ pub struct Process {
 }
 
 impl Process {
-    pub fn new(pid: i64, parent: i64, start_time: u64) -> Process {
+    pub fn new(pid: i64, parent: Option<i64>, start_time: u64) -> Process {
         Process {
             name: String::new(),
             pid: pid,
@@ -70,7 +70,7 @@ impl Process {
 impl Debug for Process {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "pid: {}\n", self.pid);
-        write!(f, "parent: {}\n", self.parent);
+        write!(f, "parent: {:?}\n", self.parent);
         write!(f, "name: {}\n", self.name);
         write!(f, "environment:\n");
         for var in self.environ.iter() {

@@ -387,8 +387,13 @@ impl System {
                     continue
                 }
 
+                let parent = match task_info.pbsd.pbi_ppid as i64 {
+                    0 => None,
+                    p => Some(p)
+                };
+
                 let mut p = Process::new(pid as i64,
-                                         task_info.pbsd.pbi_ppid as i64,
+                                         parent,
                                          task_info.pbsd.pbi_start_tvsec);
                 p.memory = task_info.ptinfo.pti_resident_size / 1024;
 
