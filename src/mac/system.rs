@@ -9,7 +9,7 @@ use sys::component::Component;
 use sys::processor::*;
 use sys::process::*;
 use std::collections::HashMap;
-use libc::{self, c_void, c_int, size_t, stat, c_char, sysconf, _SC_PAGESIZE};
+use libc::{self, c_void, c_int, size_t, c_char, sysconf, _SC_PAGESIZE};
 use std::rc::Rc;
 use sys::processor;
 
@@ -387,7 +387,14 @@ impl System {
                     continue
                 }
 
-                let mut p = Process::new(pid as i64, task_info.pbsd.pbi_start_tvsec);
+                let parent = match task_info.pbsd.pbi_ppid as i64 {
+                    0 => None,
+                    p => Some(p)
+                };
+
+                let mut p = Process::new(pid as i64,
+                                         parent,
+                                         task_info.pbsd.pbi_start_tvsec);
                 p.memory = task_info.ptinfo.pti_resident_size / 1024;
 
                 let ptr = proc_args.as_mut_slice().as_mut_ptr();

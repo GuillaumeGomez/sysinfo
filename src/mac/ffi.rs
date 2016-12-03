@@ -93,7 +93,7 @@ pub struct proc_bsdinfo {
     pub pbi_status: u32,
     pub pbi_xstatus: u32,
     pub pbi_pid: u32,
-    pub ppbi_pid: u32,
+    pub pbi_ppid: u32,
     pub pbi_uid: uid_t,
     pub pbi_gid: gid_t,
     pub pbi_ruid: uid_t,

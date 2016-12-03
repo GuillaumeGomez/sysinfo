@@ -252,7 +252,14 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
                 update_time_and_memory(entry, &parts, page_size_kb);
                 return;
             }
+
+            let parent = match i64::from_str(parts[3]).unwrap() {
+                0 => None,
+                p => Some(p)
+            };
+
             let mut p = Process::new(nb,
+                                     parent,
                                      u64::from_str(parts[21]).unwrap() /
                                      unsafe { sysconf(_SC_CLK_TCK) } as u64);
 
