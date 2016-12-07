@@ -270,8 +270,7 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
             } else {
                 String::new()
             };
-            let x = p.cmd.split(":").collect::<Vec<&str>>()[0]
-                         .split(" ").collect::<Vec<&str>>()[0].to_owned();
+            let x = p.cmd.split(" ").collect::<Vec<&str>>()[0].to_owned();
             p.name = if x.contains("/") {
                 x.split("/").last().unwrap().to_owned()
             } else {
