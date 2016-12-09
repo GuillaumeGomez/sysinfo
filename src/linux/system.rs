@@ -247,7 +247,25 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
 
             tmp.push("stat");
             let data = get_all_data(tmp.to_str().unwrap());
-            let (parts, _): (Vec<&str>, Vec<&str>) = data.split(' ').partition(|s| s.len() > 0);
+
+            // The stat file is "interesting" to parse, because spaces cannot
+            // be used as delimiters. The second field stores the command name
+            // sourrounded by parentheses. Unfortunately, whitespace and
+            // parentheses are legal parts of the command, so parsing has to
+            // proceed like this: The first field is delimited by the first
+            // whitespace, the second field is everything until the last ')'
+            // in the entire string. All other fields are delimited by
+            // whitespace.
+
+            let mut parts = Vec::new();
+            let mut data_it = data.splitn(2, " ");
+            parts.push(data_it.next().unwrap());
+            // The following loses the ) from the input, but that's ok because
+            // we're not using it anyway.
+            let mut data_it = data_it.next().unwrap().rsplitn(2, ")");
+            let data = data_it.next().unwrap();
+            parts.push(data_it.next().unwrap());
+            parts.extend(data.split_whitespace());
             if let Some(ref mut entry) = proc_list.get_mut(&(nb as usize)) {
                 update_time_and_memory(entry, &parts, page_size_kb);
                 return;
@@ -270,11 +288,10 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
             } else {
                 String::new()
             };
-            let x = p.cmd.split(" ").collect::<Vec<&str>>()[0].to_owned();
-            p.name = if x.contains("/") {
-                x.split("/").last().unwrap().to_owned()
+            p.name = if p.cmd.contains("/") {
+                p.cmd.split("/").last().unwrap().to_owned()
             } else {
-                x
+                p.cmd.to_owned()
             };
             tmp = PathBuf::from(path);
             tmp.push("environ");
