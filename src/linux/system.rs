@@ -283,16 +283,8 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
 
             tmp = PathBuf::from(path);
             tmp.push("cmdline");
-            p.cmd = if let Some(t) = copy_from_file(&tmp).get(0) {
-                t.clone()
-            } else {
-                String::new()
-            };
-            p.name = if p.cmd.contains("/") {
-                p.cmd.split("/").last().unwrap().to_owned()
-            } else {
-                p.cmd.to_owned()
-            };
+            p.cmd = copy_from_file(&tmp);
+            p.name = p.cmd[0].split("/").last().unwrap().to_owned();
             tmp = PathBuf::from(path);
             tmp.push("environ");
             p.environ = copy_from_file(&tmp);
@@ -325,16 +317,7 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
             let mut d = String::new();
 
             f.read_to_string(&mut d);
-            let v : Vec<&str> = d.split('\0').collect();
-            let mut ret : Vec<String> = Vec::new();
-
-            for tmp in v.iter() {
-            if tmp.len() < 1 {
-                    continue;
-                }
-                ret.push((*tmp).to_owned());
-            }
-            ret
+            d.split('\0').map(|x| x.to_owned()).collect()
         },
         Err(_) => Vec::new()
     }

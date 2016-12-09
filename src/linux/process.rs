@@ -12,8 +12,8 @@ use libc::{c_int};
 pub struct Process {
     /// name of the program
     pub name: String,
-    /// command line
-    pub cmd: String,
+    /// command line, split into arguments
+    pub cmd: Vec<String>,
     /// path to the executable
     pub exe: String,
     /// pid of the process
@@ -45,7 +45,7 @@ impl Process {
             name: String::new(),
             pid: pid,
             parent: parent,
-            cmd: String::new(),
+            cmd: Vec::new(),
             environ: Vec::new(),
             exe: String::new(),
             cwd: String::new(),
@@ -78,7 +78,10 @@ impl Debug for Process {
                 write!(f, "\t{}\n", var);
             }
         }
-        write!(f, "command: {}\n", self.cmd);
+        write!(f, "command:\n");
+        for arg in &self.cmd {
+            write!(f, "\t{}\n", arg);
+        }
         write!(f, "executable path: {}\n", self.exe);
         write!(f, "current working directory: {}\n", self.cwd);
         write!(f, "memory usage: {} kB\n", self.memory);

@@ -451,16 +451,16 @@ impl System {
                         }
                         start = cp;
                         let mut c = 0;
+                        let mut cmd = Vec::new();
                         while c < n_args && cp < ptr.offset(size as isize) {
                             if *cp == 0 {
                                 c += 1;
-                                if c < n_args {
-                                    *cp = ' ' as u8;
-                                }
+                                cmd.push(get_unchecked_str(cp, start));
+                                start = cp.offset(1);
                             }
                             cp = cp.offset(1);
                         }
-                        p.cmd = get_unchecked_str(cp.offset(-1), start);
+                        p.cmd = cmd;
                         start = cp;
                         while cp < ptr.offset(size as isize) {
                             if *cp == 0 {
