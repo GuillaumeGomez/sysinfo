@@ -12,8 +12,8 @@ use sys::ffi;
 pub struct Process {
     /// name of the program
     pub name: String,
-    /// command line
-    pub cmd: String,
+    /// command line, split into arguments
+    pub cmd: Vec<String>,
     /// path to the executable
     pub exe: String,
     /// pid of the process
@@ -45,7 +45,7 @@ impl Process {
             name: String::new(),
             pid: pid,
             parent: parent,
-            cmd: String::new(),
+            cmd: Vec::new(),
             environ: Vec::new(),
             exe: String::new(),
             cwd: String::new(),
@@ -69,20 +69,23 @@ impl Process {
 #[allow(unused_must_use)]
 impl Debug for Process {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "pid: {}\n", self.pid);
-        write!(f, "parent: {:?}\n", self.parent);
-        write!(f, "name: {}\n", self.name);
-        write!(f, "environment:\n");
+        writeln!(f, "pid: {}", self.pid);
+        writeln!(f, "parent: {:?}", self.parent);
+        writeln!(f, "name: {}", self.name);
+        writeln!(f, "environment:");
         for var in self.environ.iter() {
         if var.len() > 0 {
-                write!(f, "\t{}\n", var);
+                writeln!(f, "\t{}", var);
             }
         }
-        write!(f, "command: {}\n", self.cmd);
-        write!(f, "executable path: {}\n", self.exe);
-        write!(f, "current working directory: {}\n", self.cwd);
-        write!(f, "memory usage: {} kB\n", self.memory);
-        write!(f, "cpu usage: {}%\n", self.cpu_usage);
+        writeln!(f, "command:");
+        for arg in &self.cmd {
+            writeln!(f, "\t{}", arg);
+        }
+        writeln!(f, "executable path: {}", self.exe);
+        writeln!(f, "current working directory: {}", self.cwd);
+        writeln!(f, "memory usage: {} kB", self.memory);
+        writeln!(f, "cpu usage: {}%", self.cpu_usage);
         write!(f, "root path: {}", self.root)
     }
 }
