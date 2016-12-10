@@ -397,6 +397,9 @@ impl System {
                                          task_info.pbsd.pbi_start_tvsec);
                 p.memory = task_info.ptinfo.pti_resident_size / 1024;
 
+                p.uid = task_info.pbsd.pbi_uid as i64;
+                p.gid = task_info.pbsd.pbi_gid as i64;
+
                 let ptr = proc_args.as_mut_slice().as_mut_ptr();
                 mib[0] = ffi::CTL_KERN;
                 mib[1] = ffi::KERN_PROCARGS2;

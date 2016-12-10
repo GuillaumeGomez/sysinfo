@@ -282,6 +282,37 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
                                      unsafe { sysconf(_SC_CLK_TCK) } as u64);
 
             tmp = PathBuf::from(path);
+            tmp.push("status");
+            let status_data = get_all_data(tmp.to_str().unwrap());
+
+            // We're only interested in the lines starting with Uid: and Gid:
+            // here. From these lines, we're looking at the second entry to get
+            // the effective u/gid.
+
+            let f = |h: &str, n: &str| -> Option<i64> {
+                if h.starts_with(n) {
+                    h.split_whitespace().nth(3).unwrap().parse().ok()
+                } else {
+                    None
+                }
+            };
+            let mut set_uid = false;
+            let mut set_gid = false;
+            for line in status_data.lines() {
+                if let Some(u) = f(line, "Uid:") {
+                    assert!(!set_uid);
+                    set_uid = true;
+                    p.uid = u;
+                }
+                if let Some(g) = f(line, "Gid:") {
+                    assert!(!set_gid);
+                    set_gid = true;
+                    p.gid = g;
+                }
+            }
+            assert!(set_uid && set_gid);
+
+            tmp = PathBuf::from(path);
             tmp.push("cmdline");
             p.cmd = copy_from_file(&tmp);
             p.name = p.cmd[0].split("/").last().unwrap().to_owned();

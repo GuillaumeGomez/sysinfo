@@ -37,6 +37,11 @@ pub struct Process {
     updated: bool,
     /// total cpu usage
     pub cpu_usage: f32,
+    /// user id of the process owner
+    pub uid: i64,
+    /// group id of the process owner
+    pub gid: i64,
+
 }
 
 impl Process {
@@ -58,6 +63,8 @@ impl Process {
             old_stime: 0,
             updated: true,
             start_time: start_time,
+            uid: 0,
+            gid: 0,
         }
     }
 
@@ -84,6 +91,7 @@ impl Debug for Process {
         }
         writeln!(f, "executable path: {}", self.exe);
         writeln!(f, "current working directory: {}", self.cwd);
+        writeln!(f, "owner/group: {}:{}", self.uid, self.gid);
         writeln!(f, "memory usage: {} kB", self.memory);
         writeln!(f, "cpu usage: {}%", self.cpu_usage);
         write!(f, "root path: {}", self.root)
