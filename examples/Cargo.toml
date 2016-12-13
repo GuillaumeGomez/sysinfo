@@ -6,5 +6,8 @@ authors = ["guillaume1.gomez@gmail.com"]
 [dependencies.sysinfo]
 path = ".."
 
+[dependencies]
+libc = "^0.2"
+
 [[bin]]
 name = "simple"
