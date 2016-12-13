@@ -291,7 +291,7 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
 
             let f = |h: &str, n: &str| -> Option<i64> {
                 if h.starts_with(n) {
-                    h.split_whitespace().nth(3).unwrap().parse().ok()
+                    h.split_whitespace().nth(2).unwrap().parse().ok()
                 } else {
                     None
                 }
