@@ -9,12 +9,12 @@ use sys::component::Component;
 use sys::processor::*;
 use sys::process::*;
 use std::collections::HashMap;
-use libc::{self, c_void, c_int, size_t, c_char, sysconf, _SC_PAGESIZE};
+use libc::{self, c_void, c_int, pid_t, size_t, c_char, sysconf, _SC_PAGESIZE};
 use std::rc::Rc;
 use sys::processor;
 
 pub struct System {
-    process_list: HashMap<usize, Process>,
+    process_list: HashMap<pid_t, Process>,
     mem_total: u64,
     mem_free: u64,
     swap_total: u64,
@@ -360,7 +360,7 @@ impl System {
                     user_time = thread_info.pth_user_time;
                     system_time = thread_info.pth_system_time;
                 }
-                if let Some(ref mut p) = self.process_list.get_mut(&(pid as usize)) {
+                if let Some(ref mut p) = self.process_list.get_mut(&pid) {
                     let mut task_info = ::std::mem::zeroed::<ffi::proc_taskinfo>();
                     if ffi::proc_pidinfo(pid,
                                          ffi::PROC_PIDTASKINFO,
@@ -387,18 +387,18 @@ impl System {
                     continue
                 }
 
-                let parent = match task_info.pbsd.pbi_ppid as i64 {
+                let parent = match task_info.pbsd.pbi_ppid as pid_t {
                     0 => None,
                     p => Some(p)
                 };
 
-                let mut p = Process::new(pid as i64,
+                let mut p = Process::new(pid,
                                          parent,
                                          task_info.pbsd.pbi_start_tvsec);
                 p.memory = task_info.ptinfo.pti_resident_size / 1024;
 
-                p.uid = task_info.pbsd.pbi_uid as i64;
-                p.gid = task_info.pbsd.pbi_gid as i64;
+                p.uid = task_info.pbsd.pbi_uid;
+                p.gid = task_info.pbsd.pbi_gid;
 
                 let ptr = proc_args.as_mut_slice().as_mut_ptr();
                 mib[0] = ffi::CTL_KERN;
@@ -480,7 +480,7 @@ impl System {
                     // we don't have enough priviledges to get access to these info
                     continue;
                 }
-                self.process_list.insert(pid as usize, p);
+                self.process_list.insert(pid, p);
             }
         }
     }
@@ -494,13 +494,13 @@ impl System {
         self.refresh_process();
     }
 
-    pub fn get_process_list<'a>(&'a self) -> &'a HashMap<usize, Process> {
+    pub fn get_process_list<'a>(&'a self) -> &'a HashMap<pid_t, Process> {
         &self.process_list
     }
 
     /// Return the process corresponding to the given pid or None if no such process exists.
-    pub fn get_process(&self, pid: i64) -> Option<&Process> {
-        self.process_list.get(&(pid as usize))
+    pub fn get_process(&self, pid: pid_t) -> Option<&Process> {
+        self.process_list.get(&pid)
     }
 
     /// Return a list of process starting with the given name.

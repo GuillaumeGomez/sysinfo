@@ -5,7 +5,6 @@
 //
 
 pub mod component;
-mod ffi;
 pub mod process;
 pub mod processor;
 pub mod system;
