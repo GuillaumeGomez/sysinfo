@@ -13,10 +13,10 @@ use std::str::FromStr;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
-use libc::{stat, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_IFMT};
+use libc::{pid_t, stat, uid_t, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_IFMT};
 
 pub struct System {
-    process_list: HashMap<usize, Process>,
+    process_list: HashMap<pid_t, Process>,
     mem_total: u64,
     mem_free: u64,
     swap_total: u64,
@@ -161,13 +161,13 @@ impl System {
         self.refresh_process();
     }
 
-    pub fn get_process_list<'a>(&'a self) -> &'a HashMap<usize, Process> {
+    pub fn get_process_list<'a>(&'a self) -> &'a HashMap<pid_t, Process> {
         &self.process_list
     }
 
     /// Return the process corresponding to the given pid or None if no such process exists.
-    pub fn get_process(&self, pid: i64) -> Option<&Process> {
-        self.process_list.get(&(pid as usize))
+    pub fn get_process(&self, pid: pid_t) -> Option<&Process> {
+        self.process_list.get(&pid)
     }
 
     /// Return a list of process starting with the given name.
@@ -235,13 +235,13 @@ fn update_time_and_memory(entry: &mut Process, parts: &[&str], page_size_kb: u64
              u64::from_str(parts[14]).unwrap());
 }
 
-fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_size_kb: u64) {
+fn _get_process_data(path: &Path, proc_list: &mut HashMap<pid_t, Process>, page_size_kb: u64) {
     if !path.exists() || !path.is_dir() {
         return;
     }
     let paths : Vec<&str> = path.as_os_str().to_str().unwrap().split("/").collect();
     let last = paths[paths.len() - 1];
-    match i64::from_str(last) {
+    match pid_t::from_str(last) {
         Ok(nb) => {
             let mut tmp = PathBuf::from(path);
 
@@ -266,12 +266,12 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
             let data = data_it.next().unwrap();
             parts.push(data_it.next().unwrap());
             parts.extend(data.split_whitespace());
-            if let Some(ref mut entry) = proc_list.get_mut(&(nb as usize)) {
+            if let Some(ref mut entry) = proc_list.get_mut(&nb) {
                 update_time_and_memory(entry, &parts, page_size_kb);
                 return;
             }
 
-            let parent = match i64::from_str(parts[3]).unwrap() {
+            let parent = match pid_t::from_str(parts[3]).unwrap() {
                 0 => None,
                 p => Some(p)
             };
@@ -289,7 +289,7 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
             // here. From these lines, we're looking at the second entry to get
             // the effective u/gid.
 
-            let f = |h: &str, n: &str| -> Option<i64> {
+            let f = |h: &str, n: &str| -> Option<uid_t> {
                 if h.starts_with(n) {
                     h.split_whitespace().nth(2).unwrap().parse().ok()
                 } else {
@@ -335,7 +335,7 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<usize, Process>, page_
             p.root = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
 
             update_time_and_memory(&mut p, &parts, page_size_kb);
-            proc_list.insert(nb as usize, p);
+            proc_list.insert(nb, p);
         }
         _ => {}
     }

@@ -4,9 +4,8 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use sys::ffi;
 use std::fmt::{self, Formatter, Debug};
-use libc::{c_int};
+use libc::{c_int, gid_t, kill, pid_t, uid_t};
 
 #[derive(Clone)]
 pub struct Process {
@@ -17,9 +16,9 @@ pub struct Process {
     /// path to the executable
     pub exe: String,
     /// pid of the process
-    pub pid: i64,
+    pub pid: pid_t,
     /// pid of the parent process
-    pub parent: Option<i64>,
+    pub parent: Option<pid_t>,
     /// environment of the process
     pub environ: Vec<String>,
     /// current working directory
@@ -38,14 +37,14 @@ pub struct Process {
     /// total cpu usage
     pub cpu_usage: f32,
     /// user id of the process owner
-    pub uid: i64,
+    pub uid: uid_t,
     /// group id of the process owner
-    pub gid: i64,
+    pub gid: gid_t,
 
 }
 
 impl Process {
-    pub fn new(pid: i64, parent: Option<i64>, start_time: u64) -> Process {
+    pub fn new(pid: pid_t, parent: Option<pid_t>, start_time: u64) -> Process {
         Process {
             name: String::new(),
             pid: pid,
@@ -69,7 +68,7 @@ impl Process {
     }
 
     pub fn kill(&self, signal: ::Signal) -> bool {
-        unsafe { ffi::kill(self.pid as c_int, signal as c_int) == 0 }
+        unsafe { kill(self.pid, signal as c_int) == 0 }
     }
 }
 

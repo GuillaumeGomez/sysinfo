@@ -7,8 +7,6 @@
 use libc::{c_int, c_char, c_void, gid_t, uid_t, c_uint, size_t};
 
 extern "C" {
-    pub fn kill(pid: c_int, signal: c_int) -> c_int;
-
     pub fn proc_pidinfo(pid: c_int, flavor: c_int, arg: u64, buffer: *mut c_void,
                         buffersize: c_int) -> c_int;
     pub fn proc_listallpids(buffer: *mut c_void, buffersize: c_int) -> c_int;
