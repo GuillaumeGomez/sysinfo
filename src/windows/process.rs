@@ -124,13 +124,26 @@ pub fn update_proc_info(p: &mut Process, handle: HANDLE) {
     p.updated = true;
 }
 
+macro_rules! auto_cast {
+    ($t:expr, $cast:ty) => {{
+        #[cfg(target_pointer_width = "32")]
+        {
+            $t as $cast
+        }
+        #[cfg(not(target_pointer_width = "32"))]
+        {
+            $t
+        }
+    }}
+}
+
 pub fn update_memory(p: &mut Process, handle: HANDLE) {
     unsafe {
         let mut pmc: PROCESS_MEMORY_COUNTERS_EX = zeroed();
         if K32GetProcessMemoryInfo(handle,
                                    &mut pmc as *mut PROCESS_MEMORY_COUNTERS_EX as *mut c_void as *mut PROCESS_MEMORY_COUNTERS,
                                    size_of::<PROCESS_MEMORY_COUNTERS_EX>() as DWORD) != 0 {
-            p.memory = pmc.PrivateUsage >> 10; // / 1024;
+            p.memory = auto_cast!(pmc.PrivateUsage, u64) >> 10; // / 1024;
         }
     }
 }
