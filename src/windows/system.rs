@@ -8,6 +8,7 @@ use sys::component::Component;
 use sys::processor::*;
 use sys::process::*;
 use std::collections::HashMap;
+use std::mem::{size_of, zeroed};
 
 use libc::c_char;
 
@@ -16,6 +17,7 @@ use winapi;
 use winapi::minwindef::{DWORD, MAX_PATH};
 use winapi::winnt::{PROCESS_QUERY_INFORMATION, PROCESS_VM_READ};
 use winapi::psapi::LIST_MODULES_ALL;
+use winapi::sysinfoapi::{MEMORYSTATUSEX, SYSTEM_INFO};
 
 pub struct System {
     process_list: HashMap<usize, Process>,
@@ -24,8 +26,20 @@ pub struct System {
     swap_total: u64,
     swap_free: u64,
     processors: Vec<Processor>,
-    page_size_kb: u64,
     temperatures: Vec<Component>,
+}
+
+fn init_processors() -> Vec<Processor> {
+    unsafe {
+        let mut sys_info: SYSTEM_INFO = zeroed();
+        let mut ret = Vec::new();
+        kernel32::GetSystemInfo(&mut sys_info);
+        for nb in 0..sys_info.dwNumberOfProcessors {
+            ret.push(create_processor(&format!("CPU {}", nb + 1)));
+        }
+        ret.insert(0, create_processor("Total CPU"));
+        ret
+    }
 }
 
 impl System {
@@ -36,8 +50,7 @@ impl System {
             mem_free: 0,
             swap_total: 0,
             swap_free: 0,
-            processors: Vec::new(),
-            page_size_kb: get_page_size(),
+            processors: init_processors(),
             temperatures: Component::get_components(),
         };
         s.refresh_all();
@@ -45,6 +58,15 @@ impl System {
     }
 
     pub fn refresh_system(&mut self) {
+        unsafe {
+            let mut mem_info: MEMORYSTATUSEX = zeroed();
+            mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
+            kernel32::GlobalMemoryStatusEx(&mut mem_info);
+            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64);
+            self.mem_free = auto_cast!(mem_info.ullAvailPhys, u64);
+            self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
+            self.mem_free = self.mem_total - auto_cast!(mem_info.ullAvailPageFile, u64);
+        }
     }
 
     pub fn refresh_process(&mut self) {
@@ -71,11 +93,10 @@ impl System {
                     continue
                 }
                 if let Some(ref mut entry) = self.process_list.get_mut(&(pid as usize)) {
-                    update_proc_info(entry, process_handler);
-                    kernel32::CloseHandle(process_handler);
+                    update_proc_info(entry);
                     continue
                 }
-                let mut p = Process::new(pid, 0); // TODO: should be start time, not 0
+                let mut p = Process::new(process_handler, pid, 0); // TODO: should be start time, not 0
                 let mut h_mod = ::std::ptr::null_mut();
                 let mut process_name = [0 as u8; MAX_PATH];
 
@@ -90,8 +111,7 @@ impl System {
                                                     MAX_PATH as DWORD);
                 }
                 p.name = String::from_utf8_unchecked(process_name.to_vec());
-                update_proc_info(&mut p, process_handler);
-                kernel32::CloseHandle(process_handler);
+                update_proc_info(&mut p);
                 self.process_list.insert(pid as usize, p);
             }
         }
@@ -100,16 +120,13 @@ impl System {
 
     fn clear_procs(&mut self) {
         if self.processors.len() > 0 {
-            let (new, old) = get_raw_times(&self.processors[0]);
-            let total_time = (new - old) as f32;
             let mut to_delete = Vec::new();
-            let nb_processors = self.processors.len() as u64 - 1;
 
             for (pid, proc_) in self.process_list.iter_mut() {
                 if has_been_updated(&proc_) == false {
                     to_delete.push(*pid);
                 } else {
-                    compute_cpu_usage(proc_, nb_processors, total_time);
+                    compute_cpu_usage(proc_, self.processors.len() as u64 - 1);
                 }
             }
             for pid in to_delete {
@@ -182,8 +199,8 @@ impl System {
     }
 }
 
-fn get_page_size() -> u64 {
+/*fn get_page_size() -> u64 {
     let mut system_info = unsafe { ::std::mem::zeroed() };
     unsafe { kernel32::GetSystemInfo(&mut system_info); }
     system_info.dwPageSize as u64
-}
+}*/

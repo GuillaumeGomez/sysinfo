@@ -5,6 +5,7 @@
 //
 
 pub mod component;
+#[macro_use] mod macros;
 pub mod process;
 pub mod processor;
 pub mod system;

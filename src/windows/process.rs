@@ -6,13 +6,13 @@
 
 use std::mem::{size_of, zeroed};
 use std::fmt::{self, Formatter, Debug};
-use libc::{c_uint, c_void};
+use libc::{c_uint, c_void, memcpy};
 
 use kernel32::{self, K32GetProcessMemoryInfo};
 use winapi;
-use winapi::winnt::HANDLE;
+use winapi::winnt::{HANDLE, ULARGE_INTEGER};
 use winapi::psapi::{PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX};
-use winapi::minwindef::DWORD;
+use winapi::minwindef::{DWORD, FILETIME};
 
 #[derive(Clone)]
 pub struct Process {
@@ -32,10 +32,10 @@ pub struct Process {
     pub root: String,
     /// memory usage (in kB)
     pub memory: u64,
-    utime: u64,
-    stime: u64,
-    old_utime: u64,
-    old_stime: u64,
+    handle: HANDLE,
+    old_cpu: u64,
+    old_sys_cpu: u64,
+    old_user_cpu: u64,
     /// time of process launch (in seconds)
     pub start_time: u64,
     updated: bool,
@@ -44,8 +44,10 @@ pub struct Process {
 }
 
 impl Process {
-    pub fn new(pid: u32, start_time: u64) -> Process {
+    #[doc(hidden)]
+    pub fn new(handle: HANDLE, pid: u32, start_time: u64) -> Process {
         Process {
+            handle: handle,
             name: String::new(),
             pid: pid,
             cmd: String::new(),
@@ -55,10 +57,9 @@ impl Process {
             root: String::new(),
             memory: 0,
             cpu_usage: 0.,
-            utime: 0,
-            stime: 0,
-            old_utime: 0,
-            old_stime: 0,
+            old_cpu: 0,
+            old_sys_cpu: 0,
+            old_user_cpu: 0,
             updated: true,
             start_time: start_time,
         }
@@ -74,6 +75,17 @@ impl Process {
                 kernel32::CloseHandle(handle);
                 killed
             }
+        }
+    }
+}
+
+impl Drop for Process {
+    fn drop(&mut self) {
+        unsafe {
+            if self.handle.is_null() {
+                return
+            }
+            kernel32::CloseHandle(self.handle);
         }
     }
 }
@@ -98,8 +110,37 @@ impl Debug for Process {
     }
 }
 
-pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64, total_time: f32) {
-    p.cpu_usage = ((p.utime - p.old_utime + p.stime - p.old_stime) * nb_processors * 100) as f32 / total_time;
+pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
+    let mut now: ULARGE_INTEGER = 0;
+    let mut sys: ULARGE_INTEGER = 0;
+    let mut user: ULARGE_INTEGER = 0;
+    unsafe {
+        let mut ftime: FILETIME = zeroed();
+        let mut fsys: FILETIME = zeroed();
+        let mut fuser: FILETIME = zeroed();
+
+        kernel32::GetSystemTimeAsFileTime(&mut ftime);
+        memcpy(&mut now as *mut ULARGE_INTEGER as *mut c_void,
+               &mut ftime as *mut FILETIME as *mut c_void,
+               size_of::<FILETIME>());
+
+        kernel32::GetProcessTimes(p.handle,
+                                  &mut ftime as *mut FILETIME,
+                                  &mut ftime as *mut FILETIME,
+                                  &mut fsys as *mut FILETIME,
+                                  &mut fuser as *mut FILETIME);
+        memcpy(&mut sys as *mut ULARGE_INTEGER as *mut c_void,
+               &mut fsys as *mut FILETIME as *mut c_void,
+               size_of::<FILETIME>());
+        memcpy(&mut user as *mut ULARGE_INTEGER as *mut c_void,
+               &mut fuser as *mut FILETIME as *mut c_void,
+               size_of::<FILETIME>());
+    }
+    p.cpu_usage = ((sys - p.old_sys_cpu) as f32 + (user - p.old_user_cpu) as f32)
+        / (now - p.old_cpu) as f32 / nb_processors as f32 * 100.;
+    p.old_cpu = now;
+    p.old_user_cpu = user;
+    p.old_sys_cpu = sys;
     p.updated = false;
 }
 
@@ -107,40 +148,19 @@ pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64, total_time: f32) {
 //
 // Need to be moved into a "common" file to avoid duplication.
 
-pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
-    p.old_utime = p.utime;
-    p.old_stime = p.stime;
-    p.utime = utime;
-    p.stime = stime;
-    p.updated = true;
-}
-
 pub fn has_been_updated(p: &Process) -> bool {
     p.updated
 }
 
-pub fn update_proc_info(p: &mut Process, handle: HANDLE) {
-    update_memory(p, handle);
+pub fn update_proc_info(p: &mut Process) {
+    update_memory(p);
     p.updated = true;
 }
 
-macro_rules! auto_cast {
-    ($t:expr, $cast:ty) => {{
-        #[cfg(target_pointer_width = "32")]
-        {
-            $t as $cast
-        }
-        #[cfg(not(target_pointer_width = "32"))]
-        {
-            $t
-        }
-    }}
-}
-
-pub fn update_memory(p: &mut Process, handle: HANDLE) {
+pub fn update_memory(p: &mut Process) {
     unsafe {
         let mut pmc: PROCESS_MEMORY_COUNTERS_EX = zeroed();
-        if K32GetProcessMemoryInfo(handle,
+        if K32GetProcessMemoryInfo(p.handle,
                                    &mut pmc as *mut PROCESS_MEMORY_COUNTERS_EX as *mut c_void as *mut PROCESS_MEMORY_COUNTERS,
                                    size_of::<PROCESS_MEMORY_COUNTERS_EX>() as DWORD) != 0 {
             p.memory = auto_cast!(pmc.PrivateUsage, u64) >> 10; // / 1024;
