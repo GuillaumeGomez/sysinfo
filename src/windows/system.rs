@@ -65,7 +65,7 @@ impl System {
             self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64);
             self.mem_free = auto_cast!(mem_info.ullAvailPhys, u64);
             self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
-            self.mem_free = self.mem_total - auto_cast!(mem_info.ullAvailPageFile, u64);
+            self.mem_free = auto_cast!(mem_info.ullAvailPageFile, u64);
         }
     }
 
@@ -96,7 +96,6 @@ impl System {
                     update_proc_info(entry);
                     continue
                 }
-                let mut p = Process::new(process_handler, pid, 0); // TODO: should be start time, not 0
                 let mut h_mod = ::std::ptr::null_mut();
                 let mut process_name = [0 as u8; MAX_PATH];
 
@@ -110,7 +109,8 @@ impl System {
                                                     process_name.as_mut_ptr() as *mut c_char,
                                                     MAX_PATH as DWORD);
                 }
-                p.name = String::from_utf8_unchecked(process_name.to_vec());
+                let mut p = Process::new(process_handler, pid, 0,
+                                         String::from_utf8_unchecked(process_name.to_vec())); // TODO: should be start time, not 0
                 update_proc_info(&mut p);
                 self.process_list.insert(pid as usize, p);
             }

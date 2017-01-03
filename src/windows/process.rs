@@ -6,13 +6,20 @@
 
 use std::mem::{size_of, zeroed};
 use std::fmt::{self, Formatter, Debug};
+use std::env;
 use libc::{c_uint, c_void, memcpy};
 
 use kernel32::{self, K32GetProcessMemoryInfo};
 use winapi;
-use winapi::winnt::{HANDLE, ULARGE_INTEGER};
+use winapi::winnt::{HANDLE, ULARGE_INTEGER, READ_CONTROL};
 use winapi::psapi::{PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX};
-use winapi::minwindef::{DWORD, FILETIME};
+use winapi::minwindef::{DWORD, FALSE, FILETIME, TRUE};
+use winapi::tlhelp32::{TH32CS_SNAPTHREAD, TH32CS_SNAPPROCESS, PROCESSENTRY32, THREADENTRY32};
+
+// https://msdn.microsoft.com/en-us/library/ms686769(v=vs.85).aspx
+const THREAD_SUSPEND_RESUME: DWORD = 0x0002;
+const THREAD_QUERY_INFORMATION: DWORD = 0x0040;
+const THREAD_GET_CONTEXT: DWORD = 0x0008;
 
 #[derive(Clone)]
 pub struct Process {
@@ -24,7 +31,9 @@ pub struct Process {
     pub exe: String,
     /// pid of the processus
     pub pid: u32,
-    /// environment of the processus
+    /// Environment of the process.
+    ///
+    /// Always empty except for current process.
     pub environ: Vec<String>,
     /// current working directory
     pub cwd: String,
@@ -45,13 +54,14 @@ pub struct Process {
 
 impl Process {
     #[doc(hidden)]
-    pub fn new(handle: HANDLE, pid: u32, start_time: u64) -> Process {
+    pub fn new(handle: HANDLE, pid: u32, start_time: u64, name: String) -> Process {
+        //let mut env = Vec::new();
         Process {
             handle: handle,
-            name: String::new(),
+            name: name.clone(),
             pid: pid,
             cmd: String::new(),
-            environ: Vec::new(),
+            environ: unsafe { get_proc_env(handle, pid, &name) },
             exe: String::new(),
             cwd: String::new(),
             root: String::new(),
@@ -108,6 +118,72 @@ impl Debug for Process {
         write!(f, "cpu usage: {}%\n", self.cpu_usage);
         write!(f, "root path: {}", self.root)
     }
+}
+
+unsafe fn get_proc_env(_handle: HANDLE, pid: u32, name: &str) -> Vec<String> {
+    let mut ret = Vec::new();
+    if name.starts_with("conhost.exe") {
+        return ret;
+    }
+    println!("current pid: {}", kernel32::GetCurrentProcessId());
+    if kernel32::GetCurrentProcessId() == pid {
+        println!("current proc!");
+        for (key, value) in env::vars() {
+            ret.push(format!("{}={}", key, value));
+        }
+        return ret;
+    }
+    /*println!("1");
+    let snapshot_handle = kernel32::CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if !snapshot_handle.is_null() {
+        println!("2");
+        let mut target_thread: THREADENTRY32 = zeroed();
+        target_thread.dwSize = size_of::<THREADENTRY32>() as DWORD;
+        if kernel32::Thread32First(snapshot_handle, &mut target_thread) == TRUE {
+            println!("3");
+            loop {
+                if target_thread.th32OwnerProcessID == pid {
+                    println!("4");
+                    let thread_handle = kernel32::OpenThread(THREAD_SUSPEND_RESUME | THREAD_QUERY_INFORMATION | THREAD_GET_CONTEXT,
+                                                             FALSE,
+                                                             target_thread.th32ThreadID);
+                    if !thread_handle.is_null() {
+                        println!("5 -> {}", pid);
+                        if kernel32::SuspendThread(thread_handle) != DWORD::max_value() {
+                            println!("6");
+                            let mut context = zeroed();
+                            if kernel32::GetThreadContext(thread_handle, &mut context) != 0 {
+                                println!("7 --> {:?}", context);
+                                let mut x = vec![0u8; 10];
+                                if kernel32::ReadProcessMemory(handle,
+                                                               context.MxCsr as usize as *mut winapi::c_void,
+                                                               x.as_mut_ptr() as *mut winapi::c_void,
+                                                               x.len() as u64,
+                                                               ::std::ptr::null_mut()) != 0 {
+                                    for y in x {
+                                        print!("{}", y as char);
+                                    }
+                                    println!("");
+                                } else {
+                                    println!("failure... {:?}", kernel32::GetLastError());
+                                }
+                            } else {
+                                println!("-> {:?}", kernel32::GetLastError());
+                            }
+                            kernel32::ResumeThread(thread_handle);
+                        }
+                        kernel32::CloseHandle(thread_handle);
+                    }
+                    break;
+                }
+                if kernel32::Thread32Next(snapshot_handle, &mut target_thread) != TRUE {
+                    break;
+                }
+            }
+        }
+        kernel32::CloseHandle(snapshot_handle);
+    }*/
+    ret
 }
 
 pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
