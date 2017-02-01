@@ -25,6 +25,11 @@ pub use sys::{
     Processor,
     System,
 };
+#[cfg(not(target_os = "macos"))]
+pub use sys::{
+    Disk,
+    DiskType,
+};
 
 mod component;
 mod process;

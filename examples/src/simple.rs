@@ -13,23 +13,29 @@ use std::str::FromStr;
 use std::io::Write;
 use libc::pid_t;
 
-const signals : [Signal; 31] = [Hangup, Interrupt, Quit, Illegal, Trap, Abort, Bus, FloatingPointException, Kill, User1,
-    Segv, User2, Pipe, Alarm, Term, Stklft, Child, Continue, Stop, TSTP, TTIN, TTOU, Urgent, XCPU, XFSZ, VirtualAlarm,
-    Profiling, Winch, IO, Power, Sys];
+const signals: [Signal; 31] = [Hangup, Interrupt, Quit, Illegal, Trap, Abort, Bus,
+                               FloatingPointException, Kill, User1, Segv, User2, Pipe, Alarm,
+                               Term, Stklft, Child, Continue, Stop, TSTP, TTIN, TTOU, Urgent,
+                               XCPU, XFSZ, VirtualAlarm, Profiling, Winch, IO, Power, Sys];
 
-fn print_help() -> bool {
+fn print_help() {
     writeln!(&mut io::stdout(), "== Help menu ==");
     writeln!(&mut io::stdout(), "help               : show this menu");
     writeln!(&mut io::stdout(), "signals            : show the available signals");
     writeln!(&mut io::stdout(), "refresh            : reloads processes' information");
-    writeln!(&mut io::stdout(), "show [pid | name]  : show information of the given process corresponding to [pid | name]");
-    writeln!(&mut io::stdout(), "kill [pid] [signal]: send [signal] to the process with this [pid]. 0 < [signal] < 32");
+    writeln!(&mut io::stdout(), "show [pid | name]  : show information of the given process \
+                                 corresponding to [pid | name]");
+    writeln!(&mut io::stdout(), "kill [pid] [signal]: send [signal] to the process with this \
+                                 [pid]. 0 < [signal] < 32");
     writeln!(&mut io::stdout(), "proc               : Displays proc state");
     writeln!(&mut io::stdout(), "memory             : Displays memory state");
     writeln!(&mut io::stdout(), "temperature        : Displays components' temperature");
+    #[cfg(not(target_os = "macos"))]
+    {
+        writeln!(&mut io::stdout(), "disks              : Displays disks' information");
+    }
     writeln!(&mut io::stdout(), "all                : Displays all process name and pid");
     writeln!(&mut io::stdout(), "quit               : exit the program");
-    false
 }
 
 fn interpret_input(input: &str, sys: &mut System) -> bool {
@@ -39,7 +45,6 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             writeln!(&mut io::stdout(), "Getting processus' information...");
             sys.refresh_all();
             writeln!(&mut io::stdout(), "Done.");
-            false
         }
         "signals" => {
             let mut nb = 1i32;
@@ -48,7 +53,6 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 writeln!(&mut io::stdout(), "{:2}:{:?}", nb, sig);
                 nb += 1;
             }
-            false
         }
         "proc" => {
             let procs = sys.get_processor_list();
@@ -57,21 +61,18 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             for proc_ in procs.iter().skip(1) {
                 writeln!(&mut io::stdout(), "{:?}", proc_);
             }
-            false
         }
         "memory" => {
             writeln!(&mut io::stdout(), "total memory: {} kB", sys.get_total_memory());
             writeln!(&mut io::stdout(), "used memory : {} kB", sys.get_used_memory());
             writeln!(&mut io::stdout(), "total swap  : {} kB", sys.get_total_swap());
-            writeln!(&mut io::stdout(), "used swap : {} kB", sys.get_used_swap());
-            false
+            writeln!(&mut io::stdout(), "used swap   : {} kB", sys.get_used_swap());
         }
-        "quit" | "exit" => true,
+        "quit" | "exit" => return true,
         "all" => {
             for (pid, proc_) in sys.get_process_list() {
                 writeln!(&mut io::stdout(), "{}:{}", pid, proc_.name);
             }
-            false
         }
         e if e.starts_with("show ") => {
             let tmp : Vec<&str> = e.split(" ").collect();
@@ -93,34 +94,35 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                     }
                 }
             }
-            false
         }
         "temperature" => {
             for component in sys.get_components_list() {
                 writeln!(&mut io::stdout(), "{:?}", component);
             }
-            false
         }
         "show" => {
             writeln!(&mut io::stdout(), "'show' command expects a pid number or a process name");
-            false
         }
         e if e.starts_with("kill ") => {
             let tmp : Vec<&str> = e.split(" ").collect();
 
             if tmp.len() != 3 {
-                writeln!(&mut io::stdout(), "kill command takes the pid and a signal number in parameter !");
+                writeln!(&mut io::stdout(),
+                         "kill command takes the pid and a signal number in parameter !");
                 writeln!(&mut io::stdout(), "example: kill 1254 9");
             } else {
                 let pid = pid_t::from_str(tmp.get(1).unwrap()).unwrap();
                 let signal = i32::from_str(tmp.get(2).unwrap()).unwrap();
 
                 if signal < 1 || signal > 31 {
-                    writeln!(&mut io::stdout(), "Signal must be between 0 and 32 ! See the signals list with the signals command");
+                    writeln!(&mut io::stdout(),
+                             "Signal must be between 0 and 32 ! See the signals list with the \
+                              signals command");
                 } else {
                     match sys.get_process(pid) {
                         Some(p) => {
-                            writeln!(&mut io::stdout(), "kill: {}", p.kill(*signals.get(signal as usize - 1).unwrap()));
+                            writeln!(&mut io::stdout(), "kill: {}",
+                                     p.kill(*signals.get(signal as usize - 1).unwrap()));
                         },
                         None => {
                             writeln!(&mut io::stdout(), "pid not found");
@@ -128,13 +130,20 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                     };
                 }
             }
-            false
+        }
+        #[cfg(not(target_os = "macos"))]
+        "disks" => {
+            for disk in sys.get_disks() {
+                writeln!(&mut io::stdout(), "{:?}", disk);
+            }
         }
         e => {
-            writeln!(&mut io::stdout(), "\"{}\": Unknown command. Enter 'help' if you want to get the commands' list.", e);
-            false
+            writeln!(&mut io::stdout(),
+                     "\"{}\": Unknown command. Enter 'help' if you want to get the commands' \
+                      list.", e);
         }
     }
+    false
 }
 
 fn main() {

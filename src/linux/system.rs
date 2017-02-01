@@ -7,6 +7,8 @@
 use sys::component::Component;
 use sys::processor::*;
 use sys::process::*;
+use sys::Disk;
+use super::disk;
 use std::fs::{File, read_link};
 use std::io::Read;
 use std::str::FromStr;
@@ -24,6 +26,7 @@ pub struct System {
     processors: Vec<Processor>,
     page_size_kb: u64,
     temperatures: Vec<Component>,
+    disks: Vec<Disk>,
 }
 
 impl System {
@@ -37,6 +40,7 @@ impl System {
             processors: Vec::new(),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
             temperatures: Component::get_components(),
+            disks: get_all_disks(),
         };
         s.refresh_all();
         s
@@ -132,6 +136,12 @@ impl System {
         }
     }
 
+    pub fn refresh_disks(&mut self) {
+        for disk in self.disks.iter_mut() {
+            disk.update();
+        }
+    }
+
     fn clear_procs(&mut self) {
         if self.processors.len() > 0 {
             let (new, old) = get_raw_times(&self.processors[0]);
@@ -159,9 +169,10 @@ impl System {
     pub fn refresh_all(&mut self) {
         self.refresh_system();
         self.refresh_process();
+        self.refresh_disks();
     }
 
-    pub fn get_process_list<'a>(&'a self) -> &'a HashMap<pid_t, Process> {
+    pub fn get_process_list(&self) -> &HashMap<pid_t, Process> {
         &self.process_list
     }
 
@@ -182,7 +193,7 @@ impl System {
     }
 
     /// The first process in the array is the "main" process
-    pub fn get_processor_list<'a>(&'a self) -> &'a [Processor] {
+    pub fn get_processor_list(&self) -> &[Processor] {
         &self.processors[..]
     }
 
@@ -211,12 +222,16 @@ impl System {
         self.swap_total - self.swap_free
     }
 
-    pub fn get_components_list<'a>(&'a self) -> &'a [Component] {
+    pub fn get_components_list(&self) -> &[Component] {
         &self.temperatures[..]
+    }
+
+    pub fn get_disks(&self) -> &[Disk] {
+        &self.disks[..]
     }
 }
 
-fn get_all_data(file_path: &str) -> String {
+pub fn get_all_data(file_path: &str) -> String {
     let mut file = File::open(file_path).unwrap();
     let mut data = String::new();
 
@@ -372,4 +387,30 @@ fn realpath(original: &Path) -> PathBuf {
         Err(_) => PathBuf::new(),
         }
     }
+}
+
+fn get_all_disks() -> Vec<Disk> {
+    let content = get_all_data("/proc/mounts");
+    let disks: Vec<_> = content.lines()
+                               .filter(|line| line.trim_left()
+                                                  .starts_with("/dev/sda"))
+                               .collect();
+    let mut ret = Vec::with_capacity(disks.len());
+
+    if disks.len() == 1 {
+        let info: Vec<_> = disks[0].split(" ").collect();
+        if info.len() < 3 {
+            return ret;
+        }
+        ret.push(disk::new_disk("sda", info[1], info[2]));
+    } else {
+        for line in disks {
+            let info: Vec<_> = line.split(" ").collect();
+            if info.len() < 3 {
+                continue
+            }
+            ret.push(disk::new_disk(&info[0][5..], info[1], info[2]));
+        }
+    }
+    ret
 }
