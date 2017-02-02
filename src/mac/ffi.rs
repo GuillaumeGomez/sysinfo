@@ -4,9 +4,11 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use libc::{c_int, c_char, c_void, gid_t, uid_t, c_uint, size_t};
+use libc::{c_int, c_char, c_void, gid_t, uid_t, c_uchar, c_uint, size_t};
 
 extern "C" {
+    pub static kCFAllocatorDefault: CFAllocatorRef;
+
     pub fn proc_pidinfo(pid: c_int, flavor: c_int, arg: u64, buffer: *mut c_void,
                         buffersize: c_int) -> c_int;
     pub fn proc_listallpids(buffer: *mut c_void, buffersize: c_int) -> c_int;
@@ -34,6 +36,18 @@ extern "C" {
                                      inputStructCnt: size_t, 
                                      outputStruct: *mut KeyData_t, 
                                      outputStructCnt: *mut size_t) -> i32;
+    pub fn IORegistryEntryCreateCFProperties(entry: io_registry_entry_t,
+                                             properties: *mut CFMutableDictionaryRef,
+                                             allocator: CFAllocatorRef,
+                                             options: IOOptionBits)
+                                             -> kern_return_t;
+    pub fn CFDictionaryContainsKey(d: CFDictionaryRef, key: *const c_void) -> Boolean;
+    pub fn CFDictionaryGetValue(d: CFDictionaryRef, key: *const c_void) -> *const c_void;
+    pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: *mut c_char) -> kern_return_t;
+    pub fn CFRelease(cf: CFTypeRef);
+    pub fn CFStringCreateWithCStringNoCopy(alloc: *mut c_void, cStr: *const c_char,
+                                           encoding: CFStringEncoding,
+                                           contentsDeallocator: *mut c_void) -> CFStringRef;
 
     pub fn mach_absolute_time() -> u64;
     //pub fn task_for_pid(host: u32, pid: pid_t, task: *mut task_t) -> u32;
@@ -132,20 +146,45 @@ pub struct proc_threadinfo {
     pub pth_name: [u8; MAXTHREADNAMESIZE], /* thread name, if any */
 }
 
+#[repr(C)]
+pub struct __CFAllocator {
+    __private: c_void,
+}
+
+#[repr(C)]
+pub struct __CFDictionary {
+    __private: c_void,
+}
+
+#[repr(C)]
+pub struct __CFString {
+    __private: c_void,
+}
+
+pub type CFAllocatorRef = *const __CFAllocator;
+pub type CFMutableDictionaryRef = *mut __CFDictionary;
+pub type CFDictionaryRef = *const __CFDictionary;
 #[allow(non_camel_case_types)]
-pub type policy_t = i32;
+pub type io_name_t = [u8; 128];
 #[allow(non_camel_case_types)]
-pub type integer_t = i32;
+pub type io_registry_entry_t = io_object_t;
+pub type CFTypeRef = *const c_void;
+pub type CFStringRef = *const __CFString;
+
+//#[allow(non_camel_case_types)]
+//pub type policy_t = i32;
 #[allow(non_camel_case_types)]
-pub type time_t = i64;
-#[allow(non_camel_case_types)]
-pub type suseconds_t = i32;
-#[allow(non_camel_case_types)]
-pub type mach_vm_size_t = u64;
-#[allow(non_camel_case_types)]
-pub type task_t = u32;
-#[allow(non_camel_case_types)]
-pub type pid_t = i32;
+//pub type integer_t = i32;
+//#[allow(non_camel_case_types)]
+//pub type time_t = i64;
+//#[allow(non_camel_case_types)]
+//pub type suseconds_t = i32;
+//#[allow(non_camel_case_types)]
+//pub type mach_vm_size_t = u64;
+//#[allow(non_camel_case_types)]
+//pub type task_t = u32;
+//#[allow(non_camel_case_types)]
+//pub type pid_t = i32;
 #[allow(non_camel_case_types)]
 pub type natural_t = u32;
 #[allow(non_camel_case_types)]
@@ -158,6 +197,11 @@ pub type io_iterator_t = io_object_t;
 pub type io_connect_t = io_object_t;
 #[allow(non_camel_case_types)]
 pub type boolean_t = c_uint;
+#[allow(non_camel_case_types)]
+pub type kern_return_t = c_int;
+pub type Boolean = c_uchar;
+pub type IOOptionBits = u32;
+pub type CFStringEncoding = u32;
 
 /*#[repr(C)]
 pub struct task_thread_times_info {
@@ -287,3 +331,5 @@ pub const SMC_CMD_READ_KEYINFO: u8 = 9;
 pub const SMC_CMD_READ_BYTES: u8 = 5;
 
 pub const KIO_RETURN_SUCCESS: i32 = 0;
+#[allow(non_upper_case_globals)]
+pub const kCFStringEncodingMacRoman: CFStringEncoding = 0;

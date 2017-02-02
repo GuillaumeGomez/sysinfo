@@ -11,22 +11,19 @@
 extern crate libc;
 
 #[cfg(target_os = "macos")]
-pub mod mac;
+mod mac;
 #[cfg(target_os = "macos")]
-pub use mac as sys;
+use mac as sys;
 #[cfg(not(target_os = "macos"))]
-pub mod linux;
+mod linux;
 #[cfg(not(target_os = "macos"))]
-pub use linux as sys;
+use linux as sys;
 
 pub use sys::{
     Component,
     Process,
     Processor,
     System,
-};
-#[cfg(not(target_os = "macos"))]
-pub use sys::{
     Disk,
     DiskType,
 };
@@ -35,6 +32,7 @@ mod component;
 mod process;
 mod processor;
 mod system;
+mod utils;
 
 #[repr(C)]
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]

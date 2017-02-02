@@ -8,10 +8,13 @@ use sys::ffi;
 use sys::component::Component;
 use sys::processor::*;
 use sys::process::*;
+use sys::disk::{self, Disk, DiskType};
 use std::collections::HashMap;
 use libc::{self, c_void, c_int, pid_t, size_t, c_char, sysconf, _SC_PAGESIZE};
 use std::rc::Rc;
 use sys::processor;
+use std::{fs, mem, ptr};
+use utils;
 
 pub struct System {
     process_list: HashMap<pid_t, Process>,
@@ -23,6 +26,7 @@ pub struct System {
     page_size_kb: u64,
     temperatures: Vec<Component>,
     connection: Option<ffi::io_connect_t>,
+    disks: Vec<Disk>,
 }
 
 impl Drop for System {
@@ -146,6 +150,103 @@ unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
     tmp
 }
 
+macro_rules! unwrapper {
+    ($b:expr, $ret:expr) => {{
+        match $b {
+            Ok(x) => x,
+            _ => return $ret, 
+        }
+    }}
+}
+
+unsafe fn check_value(dict: ffi::CFMutableDictionaryRef, key: &[u8]) -> bool {
+    // If I try to free key, the program crashes so let's keep it alive.
+    let key = ffi::CFStringCreateWithCStringNoCopy(ptr::null_mut(), key.as_ptr() as *const c_char,
+                                              ffi::kCFStringEncodingMacRoman, ptr::null_mut());
+    ffi::CFDictionaryContainsKey(dict as ffi::CFDictionaryRef,
+                                 key as *const c_void) != 0 &&
+    *(ffi::CFDictionaryGetValue(dict as ffi::CFDictionaryRef,
+                                key as *const c_void) as *const ffi::Boolean) != 0
+}
+
+fn make_name(v: &[u8]) -> Option<String> {
+    for (pos, x) in v.iter().enumerate() {
+        if *x == 0 {
+            return String::from_utf8(v[0..pos].to_vec()).ok()
+        }
+    }
+    String::from_utf8(v.to_vec()).ok()
+}
+
+fn get_disks_info() -> HashMap<String, DiskType> {
+    let mut master_port: ffi::mach_port_t = 0;
+    let mut media_iterator: ffi::io_iterator_t = 0;
+    let mut ret = HashMap::new();
+
+    unsafe {
+        ffi::IOMasterPort(ffi::MACH_PORT_NULL, &mut master_port);
+
+        let matching_dictionary = ffi::IOServiceMatching(b"IOMedia\0".as_ptr() as *const i8);
+        let result = ffi::IOServiceGetMatchingServices(master_port, matching_dictionary,
+                                                       &mut media_iterator);
+        if result != ffi::KERN_SUCCESS as i32 {
+            //println!("Error: IOServiceGetMatchingServices() = {}", result);
+            return ret;
+        }
+
+        loop {
+            let next_media = ffi::IOIteratorNext(media_iterator);
+            if next_media == 0 {
+                break;
+            }
+            let mut props = mem::uninitialized();
+            let result = ffi::IORegistryEntryCreateCFProperties(next_media, &mut props,
+                                                                ffi::kCFAllocatorDefault, 0);
+            if result == ffi::KERN_SUCCESS as i32 && check_value(props, b"Whole\0") == true {
+                let mut name: ffi::io_name_t = mem::zeroed();
+                if ffi::IORegistryEntryGetName(next_media,
+                                               name.as_mut_ptr() as *mut c_char) == ffi::KERN_SUCCESS as i32 {
+                    if let Some(name) = make_name(&name) {
+                        ret.insert(name,
+                                   if check_value(props, b"RAID\0") == true {
+                                       DiskType::Unknown(-1)
+                                   } else {
+                                       DiskType::SSD
+                                   });
+                    }
+                }
+                ffi::CFRelease(props as *mut c_void);
+            }
+            ffi::IOObjectRelease(next_media);
+        }
+        ffi::IOObjectRelease(media_iterator);
+    }
+    ret
+}
+
+fn get_disks() -> Vec<Disk> {
+    let infos = get_disks_info();
+    let mut ret = Vec::new();
+
+    for entry in unwrapper!(fs::read_dir("/Volumes"), ret) {
+        if let Ok(entry) = entry {
+            let mount_point = utils::realpath(&entry.path());
+            let mount_point = mount_point.to_str().unwrap_or("");
+            if mount_point.len() == 0 {
+                continue
+            }
+            let name = entry.path().file_name().unwrap().to_str().unwrap().to_owned();
+            let type_ = if let Some(info) = infos.get(&name) {
+                *info
+            } else {
+                DiskType::Unknown(-2)
+            };
+            ret.push(disk::new_disk(name, &mount_point, type_));
+        }
+    }
+    ret
+}
+
 impl System {
     pub fn new() -> System {
         let mut s = System {
@@ -158,6 +259,7 @@ impl System {
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
             temperatures: Vec::new(),
             connection: get_io_service_connection(),
+            disks: get_disks(),
         };
         s.refresh_all();
         s
@@ -494,7 +596,7 @@ impl System {
         self.refresh_process();
     }
 
-    pub fn get_process_list<'a>(&'a self) -> &'a HashMap<pid_t, Process> {
+    pub fn get_process_list(&self) -> &HashMap<pid_t, Process> {
         &self.process_list
     }
 
@@ -515,7 +617,7 @@ impl System {
     }
 
     /// The first process in the array is the "main" process
-    pub fn get_processor_list<'a>(&'a self) -> &'a [Processor] {
+    pub fn get_processor_list(&self) -> &[Processor] {
         &self.processors[..]
     }
 
@@ -544,7 +646,11 @@ impl System {
         self.swap_total - self.swap_free
     }
 
-    pub fn get_components_list<'a>(&'a self) -> &'a [Component] {
+    pub fn get_components_list(&self) -> &[Component] {
         &self.temperatures[..]
+    }
+
+    pub fn get_disks(&self) -> &[Disk] {
+        &self.disks[..]
     }
 }

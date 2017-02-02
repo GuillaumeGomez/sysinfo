@@ -15,7 +15,8 @@ use std::str::FromStr;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
-use libc::{pid_t, stat, uid_t, lstat, c_char, sysconf, _SC_CLK_TCK, _SC_PAGESIZE, S_IFLNK, S_IFMT};
+use libc::{pid_t, uid_t, sysconf, _SC_CLK_TCK, _SC_PAGESIZE};
+use utils::realpath;
 
 pub struct System {
     process_list: HashMap<pid_t, Process>,
@@ -366,26 +367,6 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
             d.split('\0').map(|x| x.to_owned()).collect()
         },
         Err(_) => Vec::new()
-    }
-}
-
-fn realpath(original: &Path) -> PathBuf {
-    let ori = Path::new(original.to_str().unwrap());
-
-    // Right now lstat on windows doesn't work quite well
-    if cfg!(windows) {
-        return PathBuf::from(ori);
-    }
-    let result = PathBuf::from(original);
-    let mut buf: stat = unsafe { ::std::mem::uninitialized() };
-    let res = unsafe { lstat(result.to_str().unwrap().as_ptr() as *const c_char, &mut buf as *mut stat) };
-    if res < 0 || (buf.st_mode & S_IFMT) != S_IFLNK {
-        PathBuf::new()
-    } else {
-        match fs::read_link(&result) {
-            Ok(f) => f,
-        Err(_) => PathBuf::new(),
-        }
     }
 }
 

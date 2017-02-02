@@ -30,10 +30,7 @@ fn print_help() {
     writeln!(&mut io::stdout(), "proc               : Displays proc state");
     writeln!(&mut io::stdout(), "memory             : Displays memory state");
     writeln!(&mut io::stdout(), "temperature        : Displays components' temperature");
-    #[cfg(not(target_os = "macos"))]
-    {
-        writeln!(&mut io::stdout(), "disks              : Displays disks' information");
-    }
+    writeln!(&mut io::stdout(), "disks              : Displays disks' information");
     writeln!(&mut io::stdout(), "all                : Displays all process name and pid");
     writeln!(&mut io::stdout(), "quit               : exit the program");
 }
@@ -131,7 +128,6 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 }
             }
         }
-        #[cfg(not(target_os = "macos"))]
         "disks" => {
             for disk in sys.get_disks() {
                 writeln!(&mut io::stdout(), "{:?}", disk);

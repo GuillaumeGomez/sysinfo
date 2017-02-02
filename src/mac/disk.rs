@@ -4,12 +4,9 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use super::system::get_all_data;
-
-use libc::statvfs;
+use libc::{statfs, statvfs};
 use std::{mem, str};
 use std::fmt::{Debug, Error, Formatter};
-use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum DiskType {
@@ -28,26 +25,31 @@ impl From<isize> for DiskType {
     }
 }
 
-pub fn new_disk(name: &str, mount_point: &str, file_system: &str) -> Disk {
-    let type_ =  isize::from_str(get_all_data(&format!("/sys/block/{}/queue/rotational",
-                                                       name)).lines()
-                                                             .next()
-                                                             .unwrap_or("-1")).unwrap_or(-1);
+pub fn new_disk(name: String, mount_point: &str, type_: DiskType) -> Disk {
     let mut mount_point = mount_point.as_bytes().to_vec();
     mount_point.push(0);
     let mut total_space = 0;
     let mut available_space = 0;
+    let mut file_system = None;
     unsafe {
-        let mut stat: statvfs = mem::zeroed();
-        if statvfs(mount_point.as_ptr() as *const i8, &mut stat) == 0 {
-            total_space = stat.f_bsize * stat.f_blocks;
-            available_space = stat.f_bsize * stat.f_bavail;
+        let mut stat: statfs = mem::zeroed();
+        if statfs(mount_point.as_ptr() as *const i8, &mut stat) == 0 {
+            total_space = stat.f_bsize as u64 * stat.f_blocks as u64;
+            available_space = stat.f_bsize as u64 * stat.f_bavail as u64;
+            let mut vec = Vec::with_capacity(stat.f_fstypename.len());
+            for x in stat.f_fstypename.iter() {
+                if *x == 0 {
+                    break
+                }
+                vec.push(*x as u8);
+            }
+            file_system = Some(String::from_utf8_unchecked(vec));
         }
     }
     Disk {
-        type_: DiskType::from(type_),
-        name: name.to_owned(),
-        file_system: file_system.to_owned(),
+        type_: type_,
+        name: name,
+        file_system: file_system.unwrap_or("<Unknown>".to_owned()),
         mount_point: mount_point,
         total_space: total_space,
         available_space: available_space,
@@ -103,7 +105,7 @@ impl Disk {
         unsafe {
             let mut stat: statvfs = mem::zeroed();
             if statvfs(self.mount_point.as_ptr() as *const i8, &mut stat) == 0 {
-                self.available_space = stat.f_bsize * stat.f_bavail;
+                self.available_space = stat.f_bsize as u64 * stat.f_bavail as u64;
                 true
             } else {
                 false

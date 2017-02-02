@@ -115,7 +115,7 @@ pub fn compute_cpu_usage(p: &mut Process, time: u64, task_time: u64) {
 //
 // Need to be moved into a "common" file to avoid duplication.
 
-pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
+/*pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
     p.old_utime = p.utime;
     p.old_stime = p.stime;
     p.utime = utime;
@@ -125,4 +125,4 @@ pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
 
 pub fn has_been_updated(p: &Process) -> bool {
     p.updated
-}
+}*/
