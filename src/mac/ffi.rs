@@ -49,6 +49,8 @@ extern "C" {
                                            encoding: CFStringEncoding,
                                            contentsDeallocator: *mut c_void) -> CFStringRef;
 
+    pub static kCFAllocatorNull: CFAllocatorRef;
+
     pub fn mach_absolute_time() -> u64;
     //pub fn task_for_pid(host: u32, pid: pid_t, task: *mut task_t) -> u32;
     pub fn mach_task_self() -> u32;
