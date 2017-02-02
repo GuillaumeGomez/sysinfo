@@ -586,6 +586,20 @@ impl System {
                 self.process_list.insert(pid, p);
             }
         }
+        self.clear_procs();
+    }
+
+    fn clear_procs(&mut self) {
+        let mut to_delete = Vec::new();
+
+        for (pid, mut proc_) in self.process_list.iter_mut() {
+            if has_been_updated(&mut proc_) == false {
+                to_delete.push(*pid);
+            }
+        }
+        for pid in to_delete {
+            self.process_list.remove(&pid);
+        }
     }
 
     // COMMON PART

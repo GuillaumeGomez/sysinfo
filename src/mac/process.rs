@@ -109,6 +109,7 @@ pub fn compute_cpu_usage(p: &mut Process, time: u64, task_time: u64) {
     if p.cpu_usage > 100f32 {
         p.cpu_usage = 100f32;
     }
+    p.updated = true;
 }
 
 // COMMON PART
@@ -121,8 +122,10 @@ pub fn compute_cpu_usage(p: &mut Process, time: u64, task_time: u64) {
     p.utime = utime;
     p.stime = stime;
     p.updated = true;
-}
-
-pub fn has_been_updated(p: &Process) -> bool {
-    p.updated
 }*/
+
+pub fn has_been_updated(p: &mut Process) -> bool {
+    let old = p.updated;
+    p.updated = false;
+    old
+}
