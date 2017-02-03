@@ -160,14 +160,15 @@ macro_rules! unwrapper {
 }
 
 unsafe fn check_value(dict: ffi::CFMutableDictionaryRef, key: &[u8]) -> bool {
-    // If I try to free key, the program crashes so let's keep it alive.
     let key = ffi::CFStringCreateWithCStringNoCopy(ptr::null_mut(), key.as_ptr() as *const c_char,
                                                    ffi::kCFStringEncodingMacRoman,
                                                    ffi::kCFAllocatorNull as *mut c_void);
-    ffi::CFDictionaryContainsKey(dict as ffi::CFDictionaryRef,
-                                 key as *const c_void) != 0 &&
+    let ret = ffi::CFDictionaryContainsKey(dict as ffi::CFDictionaryRef,
+                                           key as *const c_void) != 0 &&
     *(ffi::CFDictionaryGetValue(dict as ffi::CFDictionaryRef,
-                                key as *const c_void) as *const ffi::Boolean) != 0
+                                key as *const c_void) as *const ffi::Boolean) != 0;
+    ffi::CFRelease(key as *const c_void);
+    ret
 }
 
 fn make_name(v: &[u8]) -> Option<String> {
