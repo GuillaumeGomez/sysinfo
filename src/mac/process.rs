@@ -11,6 +11,51 @@ use ::ProcessExt;
 
 /// Struct containing a process' information.
 #[derive(Clone)]
+pub enum ProcessStatus {
+    /// Process being created by fork.
+    Idle,
+    /// Currently runnable.
+    Run,
+    /// Sleeping on an address.
+    Sleep,
+    /// Process debugging or suspension.
+    Stop,
+    /// Awaiting collection by parent.
+    Zombie,
+}
+
+impl ProcessStatus {
+
+    pub fn from(status:u32) -> Option<ProcessStatus> {
+        match status {
+            1 => Some(ProcessStatus::Idle),
+            2 => Some(ProcessStatus::Run),
+            3 => Some(ProcessStatus::Sleep),
+            4 => Some(ProcessStatus::Stop),
+            5 => Some(ProcessStatus::Zombie),
+            _ => None,
+        }
+    }
+
+    pub fn string(&self) -> &str {
+        match *self {
+            ProcessStatus::Idle   => "Idle",
+            ProcessStatus::Run    => "Runnable",
+            ProcessStatus::Sleep  => "Sleeping",
+            ProcessStatus::Stop   => "Stopped",
+            ProcessStatus::Zombie => "Zombie",
+        }
+    }
+
+}
+
+impl fmt::Display for ProcessStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.string())
+    }
+}
+
+#[derive(Clone)]
 pub struct Process {
     /// Name of the program.
     pub name: String,
@@ -43,6 +88,8 @@ pub struct Process {
     pub uid: uid_t,
     /// Group id of the process owner.
     pub gid: gid_t,
+    /// status of process (idle, run, zombie, etc)
+    pub status: Option<ProcessStatus>,
 }
 
 impl ProcessExt for Process {
@@ -66,6 +113,7 @@ impl ProcessExt for Process {
             start_time: start_time,
             uid: 0,
             gid: 0,
+            status: None,
         }
     }
 
@@ -95,6 +143,10 @@ impl Debug for Process {
         writeln!(f, "owner/group: {}:{}", self.uid, self.gid);
         writeln!(f, "memory usage: {} kB", self.memory);
         writeln!(f, "cpu usage: {}%", self.cpu_usage);
+        writeln!(f, "status: {}", match self.status {
+            Some(ref v) => v.string(),
+            None        => "None",
+        });
         write!(f, "root path: {}", self.root)
     }
 }

@@ -12,6 +12,6 @@ pub mod system;
 
 pub use self::component::Component;
 pub use self::disk::{Disk, DiskType};
-pub use self::process::Process;
+pub use self::process::{Process,ProcessStatus};
 pub use self::processor::Processor;
 pub use self::system::System;
