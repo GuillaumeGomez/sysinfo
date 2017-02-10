@@ -7,42 +7,44 @@
 use std::fmt::{self, Formatter, Debug};
 use libc::{c_int, gid_t, kill, pid_t, uid_t};
 
+/// Struct containing a process' information.
 #[derive(Clone)]
 pub struct Process {
-    /// name of the program
+    /// Name of the program.
     pub name: String,
-    /// command line, split into arguments
+    /// Command line, split into arguments.
     pub cmd: Vec<String>,
-    /// path to the executable
+    /// Path to the executable.
     pub exe: String,
-    /// pid of the process
+    /// Pid of the process.
     pub pid: pid_t,
-    /// pid of the parent process
+    /// Pid of the parent process.
     pub parent: Option<pid_t>,
-    /// environment of the process
+    /// Environment of the process.
     pub environ: Vec<String>,
-    /// current working directory
+    /// Current working directory.
     pub cwd: String,
-    /// path of the root directory
+    /// Path of the root directory.
     pub root: String,
-    /// memory usage (in kB)
+    /// Memory usage (in kB).
     pub memory: u64,
     utime: u64,
     stime: u64,
     old_utime: u64,
     old_stime: u64,
-    /// time of process launch (in seconds)
+    /// Time of process launch (in seconds).
     pub start_time: u64,
     updated: bool,
-    /// total cpu usage
+    /// Total cpu usage.
     pub cpu_usage: f32,
-    /// user id of the process owner
+    /// User id of the process owner.
     pub uid: uid_t,
-    /// group id of the process owner
+    /// Group id of the process owner.
     pub gid: gid_t,
 }
 
 impl Process {
+    /// Create a new process only containing the given information.
     pub fn new(pid: pid_t, parent: Option<pid_t>, start_time: u64) -> Process {
         Process {
             name: String::new(),
@@ -66,6 +68,7 @@ impl Process {
         }
     }
 
+    /// Sends the given `signal` to the process.
     pub fn kill(&self, signal: ::Signal) -> bool {
         unsafe { kill(self.pid, signal as c_int) == 0 }
     }
@@ -78,8 +81,8 @@ impl Debug for Process {
         writeln!(f, "parent: {:?}", self.parent);
         writeln!(f, "name: {}", self.name);
         writeln!(f, "environment:");
-        for var in self.environ.iter() {
-        if var.len() > 0 {
+        for var in &self.environ {
+            if !var.is_empty() {
                 writeln!(f, "\t{}", var);
             }
         }

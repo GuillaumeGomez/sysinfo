@@ -4,6 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+/// Struct containing values to compute a CPU usage.
 #[derive(Clone, Copy)]
 pub struct CpuValues {
     user: u64,
@@ -19,6 +20,7 @@ pub struct CpuValues {
 }
 
 impl CpuValues {
+    /// Creates a new instance of `CpuValues` with everything set to `0`.
     pub fn new() -> CpuValues {
         CpuValues {
             user: 0,
@@ -34,6 +36,7 @@ impl CpuValues {
         }
     }
 
+    /// Creates a new instance of `CpuValues` with everything set to the corresponding argument.
     pub fn new_with_values(user: u64, nice: u64, system: u64, idle: u64, iowait: u64,
                            irq: u64, softirq: u64, steal: u64, guest: u64,
                            guest_nice: u64) -> CpuValues {
@@ -57,6 +60,7 @@ impl CpuValues {
         self.guest == 0 && self.guest_nice == 0
     }*/
 
+    /// Sets the given argument to the corresponding fields.
     pub fn set(&mut self, user: u64, nice: u64, system: u64, idle: u64, iowait: u64,
                irq: u64, softirq: u64, steal: u64, guest: u64, guest_nice: u64) {
         self.user = user;
@@ -71,16 +75,19 @@ impl CpuValues {
         self.guest_nice = guest_nice;
     }
 
+    /// Returns work time.
     pub fn work_time(&self) -> u64 {
         self.user + self.nice + self.system
     }
 
+    /// Returns total time.
     pub fn total_time(&self) -> u64 {
         self.work_time() + self.idle + self.iowait + self.irq + self.softirq
             + self.steal + self.guest + self.guest_nice
     }
 }
 
+/// Struct containing a processor information.
 pub struct Processor {
     old_values: CpuValues,
     new_values: CpuValues,
@@ -130,11 +137,13 @@ impl Processor {
             self.total_time = self.new_values.total_time();
     }
 
+    /// Returns this processor's usage.
     pub fn get_cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    pub fn get_name<'a>(&'a self) -> &'a str {
+    /// Returns this processor's name.
+    pub fn get_name(&self) -> &str {
         &self.name
     }
 }

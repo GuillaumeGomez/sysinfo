@@ -16,6 +16,7 @@ use sys::processor;
 use std::{fs, mem, ptr};
 use utils;
 
+/// Structs containing system's information.
 pub struct System {
     process_list: HashMap<pid_t, Process>,
     mem_total: u64,
@@ -76,13 +77,13 @@ unsafe fn strtoul(s: *mut c_char, size: c_int, base: c_int) -> u32 {
     let mut total = 0u32;
 
     for i in 0..size {
-        if base == 16 {
-            total += (*s.offset(i as isize) as u32) << ((size - 1 - i) as u32) * 8;
+        total += if base == 16 {
+            (*s.offset(i as isize) as u32) << (((size - 1 - i) as u32) * 8)
         } else {
-            total += (*s.offset(i as isize) << (size - 1 - i) * 8) as u32;
-        }
+            (*s.offset(i as isize) as u32) << ((size - 1 - i) * 8) as u32
+        };
     }
-    return total;
+    total
 }
 
 unsafe fn ultostr(s: *mut c_char, val: u32) {
@@ -139,7 +140,7 @@ unsafe fn get_temperature(con: ffi::io_connect_t, key: *mut c_char) -> f32 {
             return x as f32 / 64f32;
         }
     }
-    return 0f32;
+    0f32
 }
 
 unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
@@ -203,13 +204,13 @@ fn get_disks_info() -> HashMap<String, DiskType> {
             let mut props = mem::uninitialized();
             let result = ffi::IORegistryEntryCreateCFProperties(next_media, &mut props,
                                                                 ffi::kCFAllocatorDefault, 0);
-            if result == ffi::KERN_SUCCESS as i32 && check_value(props, b"Whole\0") == true {
+            if result == ffi::KERN_SUCCESS as i32 && check_value(props, b"Whole\0") {
                 let mut name: ffi::io_name_t = mem::zeroed();
                 if ffi::IORegistryEntryGetName(next_media,
                                                name.as_mut_ptr() as *mut c_char) == ffi::KERN_SUCCESS as i32 {
                     if let Some(name) = make_name(&name) {
                         ret.insert(name,
-                                   if check_value(props, b"RAID\0") == true {
+                                   if check_value(props, b"RAID\0") {
                                        DiskType::Unknown(-1)
                                    } else {
                                        DiskType::SSD
@@ -233,7 +234,7 @@ fn get_disks() -> Vec<Disk> {
         if let Ok(entry) = entry {
             let mount_point = utils::realpath(&entry.path());
             let mount_point = mount_point.to_str().unwrap_or("");
-            if mount_point.len() == 0 {
+            if mount_point.is_empty() {
                 continue
             }
             let name = entry.path().file_name().unwrap().to_str().unwrap().to_owned();
@@ -242,13 +243,17 @@ fn get_disks() -> Vec<Disk> {
             } else {
                 DiskType::Unknown(-2)
             };
-            ret.push(disk::new_disk(name, &mount_point, type_));
+            ret.push(disk::new_disk(name, mount_point, type_));
         }
     }
     ret
 }
 
 impl System {
+    /// Creates a new `System` instance. It only contains the disks' list at this stage. Use the
+    /// [`refresh_all`] method to update its internal information (or any of the `refresh_` method).
+    ///
+    /// [`refresh_all`]: #method.refresh_all
     pub fn new() -> System {
         let mut s = System {
             process_list: HashMap::new(),
@@ -266,6 +271,7 @@ impl System {
         s
     }
 
+    /// Refresh system information (such as memory, swap, CPU usage and components' temperature).
     pub fn refresh_system(&mut self) {
         unsafe fn get_sys_value(high: u32, low: u32, mut len: usize, value: *mut c_void) -> bool {
             let mut mib = [high as i32, low as i32];
@@ -332,7 +338,7 @@ impl System {
                     }
                 } else {
                     let mut v = vec!('T' as i8, 'C' as i8, '0' as i8, 'P' as i8, 0);
-                    for comp in self.temperatures.iter_mut() {
+                    for comp in &mut self.temperatures {
                         match &*comp.label {
                             "CPU" => {
                                 v[1] = 'C' as i8;
@@ -358,11 +364,11 @@ impl System {
             let mut cpu_info: *mut i32 = ::std::ptr::null_mut();
             let mut num_cpu_info = 0u32;
 
-            if self.processors.len() == 0 {
+            if self.processors.is_empty() {
                 let mut num_cpu = 0;
 
-                if get_sys_value(ffi::CTL_HW, ffi::HW_NCPU, ::std::mem::size_of::<u32>(),
-                                 &mut num_cpu as *mut usize as *mut c_void) == false {
+                if !get_sys_value(ffi::CTL_HW, ffi::HW_NCPU, ::std::mem::size_of::<u32>(),
+                                  &mut num_cpu as *mut usize as *mut c_void) {
                     num_cpu = 1;
                 }
 
@@ -421,6 +427,7 @@ impl System {
         }
     }
 
+    /// Get all processes and update their information.
     pub fn refresh_process(&mut self) {
         let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
         if count < 1 {
@@ -453,16 +460,15 @@ impl System {
         for pid in pids {
             unsafe {
                 let mut thread_info = ::std::mem::zeroed::<ffi::proc_threadinfo>();
-                let mut user_time = 0;
-                let mut system_time = 0;
-                if ffi::proc_pidinfo(pid,
+                let (user_time, system_time) = if ffi::proc_pidinfo(pid,
                                      ffi::PROC_PIDTHREADINFO,
                                      0,
                                      &mut thread_info as *mut ffi::proc_threadinfo as *mut c_void,
                                      threadinfo_size) != 0 {
-                    user_time = thread_info.pth_user_time;
-                    system_time = thread_info.pth_system_time;
-                }
+                    (thread_info.pth_user_time, thread_info.pth_system_time)
+                } else {
+                    (0, 0)
+                };
                 if let Some(ref mut p) = self.process_list.get_mut(&pid) {
                     let mut task_info = ::std::mem::zeroed::<ffi::proc_taskinfo>();
                     if ffi::proc_pidinfo(pid,
@@ -549,7 +555,7 @@ impl System {
                             cp = cp.offset(1);
                         }
                         p.exe = get_unchecked_str(cp, start);
-                        if let Some(l) = p.exe.split("/").last() {
+                        if let Some(l) = p.exe.split('/').last() {
                             p.name = l.to_owned();
                         }
                         while cp < ptr.offset(size as isize) && *cp == 0 {
@@ -589,11 +595,18 @@ impl System {
         self.clear_procs();
     }
 
+    /// Refreshes the listed disks' information.
+    pub fn refresh_disks(&mut self) {
+        for disk in &mut self.disks {
+            disk.update();
+        }
+    }
+
     fn clear_procs(&mut self) {
         let mut to_delete = Vec::new();
 
-        for (pid, mut proc_) in self.process_list.iter_mut() {
-            if has_been_updated(&mut proc_) == false {
+        for (pid, mut proc_) in &mut self.process_list {
+            if !has_been_updated(&mut proc_) {
                 to_delete.push(*pid);
             }
         }
@@ -606,21 +619,24 @@ impl System {
     //
     // Need to be moved into a "common" file to avoid duplication.
 
+    /// Refreshes all system, processes and disks information.
     pub fn refresh_all(&mut self) {
         self.refresh_system();
         self.refresh_process();
+        self.refresh_disks();
     }
 
+    /// Returns the process list.
     pub fn get_process_list(&self) -> &HashMap<pid_t, Process> {
         &self.process_list
     }
 
-    /// Return the process corresponding to the given pid or None if no such process exists.
+    /// Returns the process corresponding to the given pid or None if no such process exists.
     pub fn get_process(&self, pid: pid_t) -> Option<&Process> {
         self.process_list.get(&pid)
     }
 
-    /// Return a list of process starting with the given name.
+    /// Returns a list of process starting with the given name.
     pub fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
         let mut ret = vec!();
         for val in self.process_list.values() {
@@ -636,36 +652,50 @@ impl System {
         &self.processors[..]
     }
 
+    /// Returns total RAM size.
     pub fn get_total_memory(&self) -> u64 {
         self.mem_total
     }
 
+    /// Returns free RAM size.
     pub fn get_free_memory(&self) -> u64 {
         self.mem_free
     }
 
+    /// Returns used RAM size.
     pub fn get_used_memory(&self) -> u64 {
         self.mem_total - self.mem_free
     }
 
+    /// Returns SWAP size.
     pub fn get_total_swap(&self) -> u64 {
         self.swap_total
     }
 
+    /// Returns free SWAP size.
     pub fn get_free_swap(&self) -> u64 {
         self.swap_free
     }
 
+    /// Returns used SWAP size.
     // need to be checked
     pub fn get_used_swap(&self) -> u64 {
         self.swap_total - self.swap_free
     }
 
+    /// Returns components list.
     pub fn get_components_list(&self) -> &[Component] {
         &self.temperatures[..]
     }
 
+    /// Returns disks' list.
     pub fn get_disks(&self) -> &[Disk] {
         &self.disks[..]
+    }
+}
+
+impl Default for System {
+    fn default() -> System {
+        System::new()
     }
 }
