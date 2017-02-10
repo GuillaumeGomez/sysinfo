@@ -33,6 +33,7 @@ impl Drop for ProcessorData {
     }
 }
 
+/// Struct containing a processor information.
 pub struct Processor {
     name: String,
     cpu_usage: f32,
@@ -48,11 +49,13 @@ impl Processor {
         }
     }
 
+    /// Returns this processor's usage.
     pub fn get_cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    pub fn get_name<'a>(&'a self) -> &'a str {
+    /// Returns this processor's name.
+    pub fn get_name(&self) -> &str {
         &self.name
     }
 }

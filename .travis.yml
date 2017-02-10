@@ -13,6 +13,8 @@ matrix:
       rust: nightly
 script:
   - rustc --version
+  - cargo +nightly install || touch clippy_failed
   - RUST_BACKTRACE=1 cargo build
+  - if [ ! -f clippy_failed ]; then cargo +nightly clippy; fi
   - cd examples
   - RUST_BACKTRACE=1 cargo build

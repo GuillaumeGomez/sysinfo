@@ -8,10 +8,14 @@ use libc::{statfs, statvfs};
 use std::{mem, str};
 use std::fmt::{Debug, Error, Formatter};
 
+/// Enum containing the different handled disks types.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum DiskType {
+    /// HDD type.
     HDD,
+    /// SSD type.
     SSD,
+    /// Unknown type.
     Unknown(isize),
 }
 
@@ -37,7 +41,7 @@ pub fn new_disk(name: String, mount_point: &str, type_: DiskType) -> Disk {
             total_space = stat.f_bsize as u64 * stat.f_blocks as u64;
             available_space = stat.f_bsize as u64 * stat.f_bavail as u64;
             let mut vec = Vec::with_capacity(stat.f_fstypename.len());
-            for x in stat.f_fstypename.iter() {
+            for x in &stat.f_fstypename {
                 if *x == 0 {
                     break
                 }
@@ -49,13 +53,14 @@ pub fn new_disk(name: String, mount_point: &str, type_: DiskType) -> Disk {
     Disk {
         type_: type_,
         name: name,
-        file_system: file_system.unwrap_or("<Unknown>".to_owned()),
+        file_system: file_system.unwrap_or_else(|| "<Unknown>".to_owned()),
         mount_point: mount_point,
         total_space: total_space,
         available_space: available_space,
     }
 }
 
+/// Struct containing a disk information.
 pub struct Disk {
     type_: DiskType,
     name: String,
@@ -75,18 +80,22 @@ impl Debug for Disk {
 }
 
 impl Disk {
+    /// Returns the disk type.
     pub fn get_type(&self) -> DiskType {
         self.type_
     }
 
+    /// Returns the disk name.
     pub fn get_name(&self) -> &str {
         &self.name
     }
 
+    /// Returns the file system used on this disk (so for example: `EXT4`, `NTFS`, etc...).
     pub fn get_file_system(&self) -> &str {
         &self.file_system
     }
 
+    /// Returns the mount point of the disk (`/` for example).
     pub fn get_mount_point(&self) -> &str {
         unsafe { str::from_utf8_unchecked(&self.mount_point[..self.mount_point.len() - 1]) }
     }
@@ -101,6 +110,7 @@ impl Disk {
         self.available_space
     }
 
+    /// Update the disk' information.
     pub fn update(&mut self) -> bool {
         unsafe {
             let mut stat: statvfs = mem::zeroed();

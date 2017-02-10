@@ -4,6 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+/// Struct containing a component information (temperature and name for the moment).
 pub struct Component {
     /// Temperature is in celsius.
     pub temperature: f32,
@@ -16,6 +17,7 @@ pub struct Component {
 }
 
 impl Component {
+    /// Creates a new `Component` with the given information.
     pub fn new(label: String, max: Option<f32>, critical: Option<f32>) -> Component {
         Component {
             temperature: 0f32,

@@ -11,10 +11,14 @@ use std::{mem, str};
 use std::fmt::{Debug, Error, Formatter};
 use std::str::FromStr;
 
+/// Enum containing the different handled disks types.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum DiskType {
+    /// HDD type.
     HDD,
+    /// SSD type.
     SSD,
+    /// Unknown type.
     Unknown(isize),
 }
 
@@ -54,6 +58,7 @@ pub fn new_disk(name: &str, mount_point: &str, file_system: &str) -> Disk {
     }
 }
 
+/// Struct containing a disk information.
 pub struct Disk {
     type_: DiskType,
     name: String,
@@ -73,18 +78,22 @@ impl Debug for Disk {
 }
 
 impl Disk {
+    /// Returns the disk type.
     pub fn get_type(&self) -> DiskType {
         self.type_
     }
 
+    /// Returns the disk name.
     pub fn get_name(&self) -> &str {
         &self.name
     }
 
+    /// Returns the file system used on this disk (so for example: `EXT4`, `NTFS`, etc...).
     pub fn get_file_system(&self) -> &str {
         &self.file_system
     }
 
+    /// Returns the mount point of the disk (`/` for example).
     pub fn get_mount_point(&self) -> &str {
         unsafe { str::from_utf8_unchecked(&self.mount_point[..self.mount_point.len() - 1]) }
     }
@@ -99,6 +108,7 @@ impl Disk {
         self.available_space
     }
 
+    /// Update the disk' information.
     pub fn update(&mut self) -> bool {
         unsafe {
             let mut stat: statvfs = mem::zeroed();
