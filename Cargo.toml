@@ -7,6 +7,8 @@ description = "Library to handle processes"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "LGPL-3.0+"
 
+categories = ["filesystem", "os", "os::macos-apis", "os::unix-apis"]
+
 build = "build.rs"
 
 [dependencies]
@@ -16,3 +18,7 @@ libc = "^0.2"
 name = "sysinfo"
 crate_type = ["rlib"]
 path = "src/sysinfo.rs"
+
+[badges]
+travis-ci = { repository = "GuillaumeGomez/sysinfo" }
+appveyor = { repository = "GuillaumeGomez/sysinfo", service = "github" }
