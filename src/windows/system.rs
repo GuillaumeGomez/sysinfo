@@ -1,24 +1,35 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use sys::component::Component;
+use sys::component::{self, Component};
+use sys::disk::{new_disk, Disk, DiskType};
 use sys::processor::*;
 use sys::process::*;
+use sys::ffi;
+
 use std::collections::HashMap;
 use std::mem::{size_of, zeroed};
+use std::str;
+use std::os::raw::c_void;
 
 use libc::c_char;
 
 use kernel32;
 use winapi;
-use winapi::minwindef::{DWORD, MAX_PATH};
-use winapi::winnt::{PROCESS_QUERY_INFORMATION, PROCESS_VM_READ};
+use winapi::fileapi::OPEN_EXISTING;
+use winapi::minwindef::{DWORD, MAX_PATH, TRUE};
+use winapi::shlobj::INVALID_HANDLE_VALUE;
+use winapi::winioctl::{IOCTL_STORAGE_QUERY_PROPERTY, IOCTL_DISK_GET_DRIVE_GEOMETRY};
+use winapi::winnt::{PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, GENERIC_READ, GENERIC_WRITE};
+use winapi::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE};
 use winapi::psapi::LIST_MODULES_ALL;
 use winapi::sysinfoapi::{MEMORYSTATUSEX, SYSTEM_INFO};
+use winapi::winbase::DRIVE_FIXED;
 
+/// Structs containing system's information.
 pub struct System {
     process_list: HashMap<usize, Process>,
     mem_total: u64,
@@ -27,13 +38,16 @@ pub struct System {
     swap_free: u64,
     processors: Vec<Processor>,
     temperatures: Vec<Component>,
+    disks: Vec<Disk>,
+    query: Option<Query>,
+    keys: Vec<String>,
 }
 
 fn init_processors() -> Vec<Processor> {
     unsafe {
         let mut sys_info: SYSTEM_INFO = zeroed();
-        let mut ret = Vec::new();
         kernel32::GetSystemInfo(&mut sys_info);
+        let mut ret = Vec::with_capacity(sys_info.dwNumberOfProcessors as usize + 1);
         for nb in 0..sys_info.dwNumberOfProcessors {
             ret.push(create_processor(&format!("CPU {}", nb + 1)));
         }
@@ -42,7 +56,121 @@ fn init_processors() -> Vec<Processor> {
     }
 }
 
+unsafe fn open_drive(drive_name: &[u8], open_rights: DWORD) -> winapi::HANDLE {
+    kernel32::CreateFileA(drive_name.as_ptr() as *const i8,
+                          open_rights,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE,
+                          ::std::ptr::null_mut(), OPEN_EXISTING,
+                          0, ::std::ptr::null_mut())
+}
+
+unsafe fn get_drive_size(drive_name: &[u8]) -> u64 {
+    let mut pdg: ffi::DISK_GEOMETRY = ::std::mem::zeroed();
+    let handle = open_drive(drive_name, 0);
+    if handle == INVALID_HANDLE_VALUE {
+        return 0;
+    }
+    let mut junk = 0;
+    let result = kernel32::DeviceIoControl(handle,
+                                           IOCTL_DISK_GET_DRIVE_GEOMETRY,
+                                           ::std::ptr::null_mut(),
+                                           0,
+                                           &mut pdg as *mut ffi::DISK_GEOMETRY as *mut c_void,
+                                           size_of::<ffi::DISK_GEOMETRY>() as DWORD,
+                                           &mut junk,
+                                           ::std::ptr::null_mut());
+    kernel32::CloseHandle(handle);
+    if result == TRUE {
+        pdg.Cylinders/*.QuadPart*/ as u64 * pdg.TracksPerCylinder as u64 * pdg.SectorsPerTrack as u64 * pdg.BytesPerSector as u64
+    } else {
+        0
+    }
+}
+
+unsafe fn get_disks() -> Vec<Disk> {
+    let mut disks = Vec::new();
+    let drives = kernel32::GetLogicalDrives();
+    if drives == 0 {
+        return disks;
+    }
+    for x in 0..size_of::<DWORD>() * 8 {
+        if (drives >> x) & 1 == 0 {
+            continue
+        }
+        let mount_point = [b'A' + x as u8, b':', b'\\', 0];
+        if kernel32::GetDriveTypeA(mount_point.as_ptr() as *const i8) != DRIVE_FIXED {
+            continue
+        }
+        let mut name = [0u8; MAX_PATH + 1];
+        let mut file_system = [0u8; 32];
+        if kernel32::GetVolumeInformationA(mount_point.as_ptr() as *const i8,
+                                           name.as_mut_ptr() as *mut i8,
+                                           name.len() as DWORD, ::std::ptr::null_mut(),
+                                           ::std::ptr::null_mut(),
+                                           ::std::ptr::null_mut(),
+                                           file_system.as_mut_ptr() as *mut i8,
+                                           file_system.len() as DWORD) == 0 {
+            continue
+        }
+        let mut pos = 0;
+        for x in name.iter() {
+            if *x == 0 {
+                break
+            }
+            pos += 1;
+        }
+        let name = str::from_utf8_unchecked(&name[..pos]);
+
+        pos = 0;
+        for x in file_system.iter() {
+            if *x == 0 {
+                break
+            }
+            pos += 1;
+        }
+        let file_system = str::from_utf8_unchecked(&file_system[..pos]);
+
+        let drive_name = [b'\\', b'\\', b'.', b'\\', b'a' + x as u8, b':', 0];
+        let handle = open_drive(&drive_name, GENERIC_READ | GENERIC_WRITE);
+        if handle == INVALID_HANDLE_VALUE {
+            disks.push(new_disk(name, &mount_point, file_system, DiskType::Unknown(-1), 0));
+            kernel32::CloseHandle(handle);
+            continue
+        }
+        let disk_size = get_drive_size(&drive_name);
+        let mut spq_trim: ffi::STORAGE_PROPERTY_QUERY = ::std::mem::zeroed();
+        spq_trim.PropertyId = ffi::StorageDeviceTrimProperty;
+        spq_trim.QueryType = ffi::PropertyStandardQuery;
+        let mut dtd: ffi::DEVICE_TRIM_DESCRIPTOR = ::std::mem::zeroed();
+
+        let mut dw_size = 0;
+        if kernel32::DeviceIoControl(handle, IOCTL_STORAGE_QUERY_PROPERTY,
+                                     &mut spq_trim as *mut ffi::STORAGE_PROPERTY_QUERY as *mut c_void,
+                                     size_of::<ffi::STORAGE_PROPERTY_QUERY>() as DWORD,
+                                     &mut dtd as *mut ffi::DEVICE_TRIM_DESCRIPTOR as *mut c_void,
+                                     size_of::<ffi::DEVICE_TRIM_DESCRIPTOR>() as DWORD,
+                                     &mut dw_size,
+                                     ::std::ptr::null_mut()) == 0 ||
+           dw_size != size_of::<ffi::DEVICE_TRIM_DESCRIPTOR>() as DWORD {
+            disks.push(new_disk(name, &mount_point as &[u8], file_system, DiskType::Unknown(-1),
+                                disk_size));
+            kernel32::CloseHandle(handle);
+            continue
+        }
+        let is_ssd = dtd.TrimEnabled != 0;
+        kernel32::CloseHandle(handle);
+        disks.push(new_disk(name, &mount_point as &[u8], file_system,
+                            if is_ssd { DiskType::SSD } else { DiskType::HDD },
+                            disk_size));
+    }
+    disks
+}
+
 impl System {
+    /// Creates a new `System` instance. It only contains the disks' list at this stage. Use the
+    /// [`refresh_all`] method to update its internal information (or any of the `refresh_` method).
+    ///
+    /// [`refresh_all`]: #method.refresh_all
     pub fn new() -> System {
         let mut s = System {
             process_list: HashMap::new(),
@@ -51,12 +179,35 @@ impl System {
             swap_total: 0,
             swap_free: 0,
             processors: init_processors(),
-            temperatures: Component::get_components(),
+            temperatures: component::get_components(),
+            disks: unsafe { get_disks() },
+            query: Query::new(),
+            keys: Vec::new(),
         };
+        if let Some(query) = s.query {
+            let tmp = "0_0".to_owned();
+            query.add_counter(&tmp, b"\\Processor(_Total)\\% Processor Time\0");
+            s.keys.push(tmp);
+            let tmp = "0_1".to_owned();
+            query.add_counter(&tmp, b"\\Processor(_Total)\\% Idle Time\0");
+            s.keys.push(tmp);
+            for (pos, _) in s.processors.iter().skip(1).enumerate() {
+                let tmp = format!("{}_0", pos);
+                query.add_counter(&tmp,
+                                  format!("\\Processor({})\\% Processor Time\0", pos).as_bytes());
+                s.keys.push(tmp);
+                let tmp = format!("{}_1", pos);
+                query.add_counter(&tmp,
+                                  format!("\\Processor({})\\% Idle Time\0", pos).as_bytes());
+                s.keys.push(tmp);
+            }
+            query.start();
+        }
         s.refresh_all();
         s
     }
 
+    /// Refresh system information (such as memory, swap, CPU usage and components' temperature).
     pub fn refresh_system(&mut self) {
         unsafe {
             let mut mem_info: MEMORYSTATUSEX = zeroed();
@@ -67,8 +218,20 @@ impl System {
             self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
             self.mem_free = auto_cast!(mem_info.ullAvailPageFile, u64);
         }
+        if let Some(query) = self.query {
+            for (keys, p) in self.keys.windows(2).zip(self.processors.iter_mut()) {
+                let proc_time = query.get(&keys[0]).unwrap_or(0.);
+                let idle_time = query.get(&keys[1]).unwrap_or(0.);
+                if proc_time != 0. {
+                    set_cpu_usage(p, (idle_time / proc_time * 100.) as f32);
+                } else {
+                    set_cpu_usage(p, 0.);
+                }
+            }
+        }
     }
 
+    /// Get all processes and update their information.
     pub fn refresh_process(&mut self) {
         let mut process_ids: [DWORD; 1024] = [0; 1024];
         let mut cb_needed = 0;
@@ -134,17 +297,27 @@ impl System {
             }
         }
     }
+
+    /// Refreshes the listed disks' information.
+    pub fn refresh_disks(&mut self) {
+        for disk in &mut self.disks {
+            disk.update();
+        }
+    }
     
     // COMMON PART
     //
     // Need to be moved into a "common" file to avoid duplication.
 
+    /// Refreshes all system, processes and disks information.
     pub fn refresh_all(&mut self) {
         self.refresh_system();
         self.refresh_process();
+        self.refresh_disks();
     }
 
-    pub fn get_process_list<'a>(&'a self) -> &'a HashMap<usize, Process> {
+    /// Returns the process list.
+    pub fn get_process_list(&self) -> &HashMap<usize, Process> {
         &self.process_list
     }
 
@@ -165,37 +338,48 @@ impl System {
     }
 
     /// The first process in the array is the "main" process
-    pub fn get_processor_list<'a>(&'a self) -> &'a [Processor] {
+    pub fn get_processor_list(&self) -> &[Processor] {
         &self.processors[..]
     }
 
+    /// Returns total RAM size (in kB).
     pub fn get_total_memory(&self) -> u64 {
-        self.mem_total
+        self.mem_total >> 10
     }
 
+    /// Returns free RAM size (in kB).
     pub fn get_free_memory(&self) -> u64 {
-        self.mem_free
+        self.mem_free >> 10
     }
 
+    /// Returns used RAM size (in kB).
     pub fn get_used_memory(&self) -> u64 {
-        self.mem_total - self.mem_free
+        (self.mem_total - self.mem_free) >> 10
     }
 
+    /// Returns SWAP size (in kB).
     pub fn get_total_swap(&self) -> u64 {
-        self.swap_total
+        self.swap_total >> 10
     }
 
+    /// Returns free SWAP size (in kB).
     pub fn get_free_swap(&self) -> u64 {
-        self.swap_free
+        self.swap_free >> 10
     }
 
-    // need to be checked
+    /// Returns used SWAP size (in kB).
     pub fn get_used_swap(&self) -> u64 {
-        self.swap_total - self.swap_free
+        (self.swap_total - self.swap_free) >> 10
     }
 
-    pub fn get_components_list<'a>(&'a self) -> &'a [Component] {
+    /// Returns components list.
+    pub fn get_components_list(&self) -> &[Component] {
         &self.temperatures[..]
+    }
+
+    /// Returns disks' list.
+    pub fn get_disks(&self) -> &[Disk] {
+        &self.disks[..]
     }
 }
 

@@ -6,21 +6,30 @@
 
 use std::mem::{size_of, zeroed};
 use std::fmt::{self, Formatter, Debug};
-use std::env;
+//use std::os::raw;
+use std::str;
+//use std::env;
+
 use libc::{c_uint, c_void, memcpy};
 
 use kernel32::{self, K32GetProcessMemoryInfo};
 use winapi;
-use winapi::winnt::{HANDLE, ULARGE_INTEGER, READ_CONTROL};
+//use winapi::basetsd::SIZE_T;
+use winapi::winnt::{HANDLE, ULARGE_INTEGER/*, PWSTR*/};
 use winapi::psapi::{PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX};
-use winapi::minwindef::{DWORD, FALSE, FILETIME, TRUE};
-use winapi::tlhelp32::{TH32CS_SNAPTHREAD, TH32CS_SNAPPROCESS, PROCESSENTRY32, THREADENTRY32};
+use winapi::minwindef::{DWORD, FILETIME/*, TRUE, USHORT*/};
+
+//use sys::ffi;
 
 // https://msdn.microsoft.com/en-us/library/ms686769(v=vs.85).aspx
+#[allow(dead_code)]
 const THREAD_SUSPEND_RESUME: DWORD = 0x0002;
+#[allow(dead_code)]
 const THREAD_QUERY_INFORMATION: DWORD = 0x0040;
+#[allow(dead_code)]
 const THREAD_GET_CONTEXT: DWORD = 0x0008;
 
+/// Struct containing a process' information.
 #[derive(Clone)]
 pub struct Process {
     /// name of the program
@@ -53,6 +62,7 @@ pub struct Process {
 }
 
 impl Process {
+    /// Create a new process only containing the given information.
     #[doc(hidden)]
     pub fn new(handle: HANDLE, pid: u32, start_time: u64, name: String) -> Process {
         //let mut env = Vec::new();
@@ -60,7 +70,7 @@ impl Process {
             handle: handle,
             name: name.clone(),
             pid: pid,
-            cmd: String::new(),
+            cmd: unsafe { get_cmd_line(handle) },
             environ: unsafe { get_proc_env(handle, pid, &name) },
             exe: String::new(),
             cwd: String::new(),
@@ -75,6 +85,7 @@ impl Process {
         }
     }
 
+    /// Sends the given `signal` to the process.
     pub fn kill(&self, signal: ::Signal) -> bool {
         unsafe {
             let handle = kernel32::OpenProcess(winapi::winnt::DELETE, winapi::minwindef::FALSE, self.pid);
@@ -120,9 +131,53 @@ impl Debug for Process {
     }
 }
 
-unsafe fn get_proc_env(_handle: HANDLE, pid: u32, name: &str) -> Vec<String> {
-    let mut ret = Vec::new();
-    if name.starts_with("conhost.exe") {
+unsafe fn get_cmd_line(_handle: HANDLE) -> String {
+    /*let mut pinfo: ffi::PROCESS_BASIC_INFORMATION = ::std::mem::zeroed();
+    if ffi::NtQueryInformationProcess(handle,
+                                           0, // ProcessBasicInformation
+                                           &mut pinfo,
+                                           size_of::<ffi::PROCESS_BASIC_INFORMATION>(),
+                                           ::std::ptr::null_mut()) <= 0x7FFFFFFF {
+        return String::new();
+    }
+    let ppeb: ffi::PPEB = pinfo.PebBaseAddress;
+    let mut ppeb_copy: ffi::PEB = ::std::mem::zeroed();
+    if kernel32::ReadProcessMemory(handle,
+                                   ppeb as *mut raw::c_void,
+                                   &mut ppeb_copy as *mut ffi::PEB as *mut raw::c_void,
+                                   size_of::<ffi::PPEB>() as SIZE_T,
+                                   ::std::ptr::null_mut()) != TRUE {
+        return String::new();
+    }
+
+    let proc_param: ffi::PRTL_USER_PROCESS_PARAMETERS = ppeb_copy.ProcessParameters;
+    let rtl_proc_param_copy: ffi::RTL_USER_PROCESS_PARAMETERS = ::std::mem::zeroed();
+    if kernel32::ReadProcessMemory(handle,
+                                   proc_param as *mut ffi::PRTL_USER_PROCESS_PARAMETERS *mut raw::c_void,
+                                   &mut rtl_proc_param_copy as *mut ffi::RTL_USER_PROCESS_PARAMETERS as *mut raw::c_void,
+                                   size_of::<ffi::RTL_USER_PROCESS_PARAMETERS>() as SIZE_T,
+                                   ::std::ptr::null_mut()) != TRUE {
+        return String::new();
+    }
+    let len: usize = rtl_proc_param_copy.CommandLine.Length as usize;
+    let mut buffer_copy: Vec<u8> = Vec::with_capacity(len);
+    buffer_copy.set_len(len);
+    if kernel32::ReadProcessMemory(handle,
+                                   rtl_proc_param_copy.CommandLine.Buffer as *mut raw::c_void,
+                                   buffer_copy.as_mut_ptr() as *mut raw::c_void,
+                                   len as SIZE_T,
+                                   ::std::ptr::null_mut()) == TRUE {
+        println!("{:?}", str::from_utf8_unchecked(buffer_copy.as_slice()));
+        str::from_utf8_unchecked(buffer_copy.as_slice()).to_owned()
+    } else {
+        String::new()
+    }*/
+    String::new()
+}
+
+unsafe fn get_proc_env(_handle: HANDLE, _pid: u32, _name: &str) -> Vec<String> {
+    let ret = Vec::new();
+    /*if name.starts_with("conhost.exe") {
         return ret;
     }
     println!("current pid: {}", kernel32::GetCurrentProcessId());
@@ -133,7 +188,7 @@ unsafe fn get_proc_env(_handle: HANDLE, pid: u32, name: &str) -> Vec<String> {
         }
         return ret;
     }
-    /*println!("1");
+    println!("1");
     let snapshot_handle = kernel32::CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
     if !snapshot_handle.is_null() {
         println!("2");

@@ -9,8 +9,7 @@ use std::fs::{File, read_dir};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-/// More information can be found at
-/// http://lxr.free-electrons.com/source/Documentation/hwmon/sysfs-interface
+/// Struct containing a component information (temperature and name for the moment).
 pub struct Component {
     /// Temperature is in celsius.
     pub temperature: f32,
@@ -94,24 +93,7 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
 }
 
 impl Component {
-    pub fn get_components() -> Vec<Component> {
-        let mut ret = Vec::new();
-        if let Ok(dir) = read_dir(&Path::new("/sys/class/hwmon/")) {
-            for entry in dir {
-                if let Ok(entry) = entry {
-                    let entry = entry.path();
-                    if !entry.is_dir() || !entry.file_name().unwrap().to_str()
-                                                .unwrap_or("").starts_with("hwmon") {
-                        continue;
-                    }
-                    append_files(&mut ret, &entry);
-                }
-            }
-        }
-        ret.sort_by(|c1, c2| c1.label.to_lowercase().cmp(&c2.label.to_lowercase()));
-        ret
-    }
-
+    /// Creates a new `Component` with the given information.
     pub fn new(label: String, input_path: &Path, max: Option<f32>,
                critical: Option<f32>) -> Component {
         let mut c = Component {
@@ -125,6 +107,7 @@ impl Component {
         c
     }
 
+    /// ...
     pub fn update(&mut self) {
         let content = get_file_line(self.input_file.as_path()).unwrap();
         self.temperature = content.replace("\n", "").parse::<f32>().unwrap() / 1000f32;
@@ -132,4 +115,22 @@ impl Component {
             self.max = self.temperature;
         }
     }
+}
+
+pub fn get_components() -> Vec<Component> {
+    let mut ret = Vec::new();
+    if let Ok(dir) = read_dir(&Path::new("/sys/class/hwmon/")) {
+        for entry in dir {
+            if let Ok(entry) = entry {
+                let entry = entry.path();
+                if !entry.is_dir() || !entry.file_name().unwrap().to_str()
+                                            .unwrap_or("").starts_with("hwmon") {
+                    continue;
+                }
+                append_files(&mut ret, &entry);
+            }
+        }
+    }
+    ret.sort_by(|c1, c2| c1.label.to_lowercase().cmp(&c2.label.to_lowercase()));
+    ret
 }

@@ -58,14 +58,14 @@ mod mac;
 use mac as sys;
 
 #[cfg(target_os = "linux")]
-pub mod linux;
+mod linux;
 #[cfg(target_os = "linux")]
 use linux as sys;
 
 #[cfg(target_os = "windows")]
-pub mod windows;
+mod windows;
 #[cfg(target_os = "windows")]
-pub use windows as sys;
+use windows as sys;
 #[cfg(target_os = "windows")]
 extern crate winapi;
 #[cfg(target_os = "windows")]

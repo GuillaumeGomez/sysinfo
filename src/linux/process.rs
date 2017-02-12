@@ -41,7 +41,6 @@ pub struct Process {
     pub uid: uid_t,
     /// Group id of the process owner.
     pub gid: gid_t,
-
 }
 
 impl Process {
