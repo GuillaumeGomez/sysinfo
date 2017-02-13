@@ -263,7 +263,7 @@ impl System {
             swap_total: 0,
             swap_free: 0,
             processors: Vec::new(),
-            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
+            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 >> 10 }, // / 1024
             temperatures: Vec::new(),
             connection: get_io_service_connection(),
             disks: get_disks(),
@@ -287,8 +287,8 @@ impl System {
             if get_sys_value(ffi::CTL_VM, ffi::VM_SWAPUSAGE,
                              ::std::mem::size_of::<ffi::xsw_usage>(),
                              &mut xs as *mut ffi::xsw_usage as *mut c_void) {
-                self.swap_total = xs.xsu_total / 1024;
-                self.swap_free = xs.xsu_avail / 1024;
+                self.swap_total = xs.xsu_total >> 10; // / 1024;
+                self.swap_free = xs.xsu_avail >> 10; // / 1024;
             }
             // get ram info
             if self.mem_total < 1 {
@@ -484,7 +484,7 @@ impl System {
                     let time = ffi::mach_absolute_time();
                     compute_cpu_usage(p, time, task_time);
 
-                    p.memory = task_info.pti_resident_size / 1024;
+                    p.memory = task_info.pti_resident_size >> 10; // / 1024;
                     continue
                 }
 
@@ -505,7 +505,7 @@ impl System {
                 let mut p = Process::new(pid,
                                          parent,
                                          task_info.pbsd.pbi_start_tvsec);
-                p.memory = task_info.ptinfo.pti_resident_size / 1024;
+                p.memory = task_info.ptinfo.pti_resident_size >> 10; // / 1024;
 
                 p.uid = task_info.pbsd.pbi_uid;
                 p.gid = task_info.pbsd.pbi_gid;
@@ -653,32 +653,32 @@ impl System {
         &self.processors[..]
     }
 
-    /// Returns total RAM size.
+    /// Returns total RAM size (in kB).
     pub fn get_total_memory(&self) -> u64 {
         self.mem_total
     }
 
-    /// Returns free RAM size.
+    /// Returns free RAM size (in kB).
     pub fn get_free_memory(&self) -> u64 {
         self.mem_free
     }
 
-    /// Returns used RAM size.
+    /// Returns used RAM size (in kB).
     pub fn get_used_memory(&self) -> u64 {
         self.mem_total - self.mem_free
     }
 
-    /// Returns SWAP size.
+    /// Returns SWAP size (in kB).
     pub fn get_total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    /// Returns free SWAP size.
+    /// Returns free SWAP size (in kB).
     pub fn get_free_swap(&self) -> u64 {
         self.swap_free
     }
 
-    /// Returns used SWAP size.
+    /// Returns used SWAP size (in kB).
     // need to be checked
     pub fn get_used_swap(&self) -> u64 {
         self.swap_total - self.swap_free

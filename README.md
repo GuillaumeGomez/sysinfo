@@ -6,3 +6,4 @@ Support the following platforms:
 
  * Linux
  * Mac OSX
+ * Windows

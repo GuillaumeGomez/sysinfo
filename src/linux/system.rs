@@ -44,7 +44,7 @@ impl System {
             swap_total: 0,
             swap_free: 0,
             processors: Vec::new(),
-            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
+            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 >> 10 },
             temperatures: component::get_components(),
             disks: get_all_disks(),
         };
@@ -205,32 +205,32 @@ impl System {
         &self.processors[..]
     }
 
-    /// Returns total RAM size.
+    /// Returns total RAM size (in kB).
     pub fn get_total_memory(&self) -> u64 {
         self.mem_total
     }
 
-    /// Returns free RAM size.
+    /// Returns free RAM size (in kB).
     pub fn get_free_memory(&self) -> u64 {
         self.mem_free
     }
 
-    /// Returns used RAM size.
+    /// Returns used RAM size (in kB).
     pub fn get_used_memory(&self) -> u64 {
         self.mem_total - self.mem_free
     }
 
-    /// Returns SWAP size.
+    /// Returns SWAP size (in kB).
     pub fn get_total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    /// Returns free SWAP size.
+    /// Returns free SWAP size (in kB).
     pub fn get_free_swap(&self) -> u64 {
         self.swap_free
     }
 
-    /// Returns used SWAP size.
+    /// Returns used SWAP size (in kB).
     // need to be checked
     pub fn get_used_swap(&self) -> u64 {
         self.swap_total - self.swap_free
@@ -266,7 +266,7 @@ fn update_time_and_memory(entry: &mut Process, parts: &[&str], page_size_kb: u64
     //entry.name.pop();
     // we get the rss then we add the vsize
     entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb +
-                   u64::from_str(parts[22]).unwrap() / 1024;
+                   u64::from_str(parts[22]).unwrap() >> 10; // / 1024;
     set_time(entry,
              u64::from_str(parts[13]).unwrap(),
              u64::from_str(parts[14]).unwrap());
@@ -375,7 +375,7 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<pid_t, Process>, page_
     }
 }
 
-#[allow(unused_must_use)] 
+#[allow(unused_must_use)]
 fn copy_from_file(entry: &Path) -> Vec<String> {
     match File::open(entry.to_str().unwrap()) {
         Ok(mut f) => {

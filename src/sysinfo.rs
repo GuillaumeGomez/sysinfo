@@ -56,10 +56,20 @@ extern crate libc;
 mod mac;
 #[cfg(target_os = "macos")]
 use mac as sys;
-#[cfg(not(target_os = "macos"))]
+
+#[cfg(target_os = "linux")]
 mod linux;
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
 use linux as sys;
+
+#[cfg(target_os = "windows")]
+mod windows;
+#[cfg(target_os = "windows")]
+use windows as sys;
+#[cfg(target_os = "windows")]
+extern crate winapi;
+#[cfg(target_os = "windows")]
+extern crate kernel32;
 
 pub use sys::{
     Component,

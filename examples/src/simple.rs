@@ -11,7 +11,11 @@ use sysinfo::Signal::*;
 use std::io::{self, BufRead};
 use std::str::FromStr;
 use std::io::Write;
+#[cfg(not(target_os = "windows"))]
 use libc::pid_t;
+#[cfg(target_os = "windows")]
+#[allow(non_camel_case_types)]
+type pid_t = i64;
 
 const signals: [Signal; 31] = [Hangup, Interrupt, Quit, Illegal, Trap, Abort, Bus,
                                FloatingPointException, Kill, User1, Segv, User2, Pipe, Alarm,
