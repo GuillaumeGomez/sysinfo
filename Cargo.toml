@@ -1,7 +1,7 @@
 [package]
 name = "sysinfo"
-version = "0.2.5"
-authors = ["guillaume1.gomez@gmail.com"]
+version = "0.2.6"
+authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 
 description = "Library to handle processes"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
