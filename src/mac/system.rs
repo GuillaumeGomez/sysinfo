@@ -9,6 +9,7 @@ use sys::component::Component;
 use sys::processor::*;
 use sys::process::*;
 use sys::disk::{self, Disk, DiskType};
+use ::{DiskExt, ProcessExt, ProcessorExt, SystemExt};
 use std::collections::HashMap;
 use libc::{self, c_void, c_int, pid_t, size_t, c_char, sysconf, _SC_PAGESIZE};
 use std::rc::Rc;
@@ -251,11 +252,22 @@ fn get_disks() -> Vec<Disk> {
 }
 
 impl System {
-    /// Creates a new `System` instance. It only contains the disks' list at this stage. Use the
-    /// [`refresh_all`] method to update its internal information (or any of the `refresh_` method).
-    ///
-    /// [`refresh_all`]: #method.refresh_all
-    pub fn new() -> System {
+    fn clear_procs(&mut self) {
+        let mut to_delete = Vec::new();
+
+        for (pid, mut proc_) in &mut self.process_list {
+            if !has_been_updated(&mut proc_) {
+                to_delete.push(*pid);
+            }
+        }
+        for pid in to_delete {
+            self.process_list.remove(&pid);
+        }
+    }
+}
+
+impl SystemExt for System {
+    fn new() -> System {
         let mut s = System {
             process_list: HashMap::new(),
             mem_total: 0,
@@ -272,8 +284,7 @@ impl System {
         s
     }
 
-    /// Refresh system information (such as memory, swap, CPU usage and components' temperature).
-    pub fn refresh_system(&mut self) {
+    fn refresh_system(&mut self) {
         unsafe fn get_sys_value(high: u32, low: u32, mut len: usize, value: *mut c_void) -> bool {
             let mut mib = [high as i32, low as i32];
             ffi::sysctl(mib.as_mut_ptr(), 2, value, &mut len as *mut usize,
@@ -428,8 +439,7 @@ impl System {
         }
     }
 
-    /// Get all processes and update their information.
-    pub fn refresh_process(&mut self) {
+    fn refresh_process(&mut self) {
         let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
         if count < 1 {
             return;
@@ -596,49 +606,29 @@ impl System {
         self.clear_procs();
     }
 
-    /// Refreshes the listed disks' information.
-    pub fn refresh_disks(&mut self) {
+    fn refresh_disks(&mut self) {
         for disk in &mut self.disks {
             disk.update();
         }
     }
 
-    fn clear_procs(&mut self) {
-        let mut to_delete = Vec::new();
-
-        for (pid, mut proc_) in &mut self.process_list {
-            if !has_been_updated(&mut proc_) {
-                to_delete.push(*pid);
-            }
-        }
-        for pid in to_delete {
-            self.process_list.remove(&pid);
-        }
+    fn refresh_disk_list(&mut self) {
+        self.disks = get_disks();
     }
 
     // COMMON PART
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    /// Refreshes all system, processes and disks information.
-    pub fn refresh_all(&mut self) {
-        self.refresh_system();
-        self.refresh_process();
-        self.refresh_disks();
-    }
-
-    /// Returns the process list.
-    pub fn get_process_list(&self) -> &HashMap<pid_t, Process> {
+    fn get_process_list(&self) -> &HashMap<pid_t, Process> {
         &self.process_list
     }
 
-    /// Returns the process corresponding to the given pid or None if no such process exists.
-    pub fn get_process(&self, pid: pid_t) -> Option<&Process> {
+    fn get_process(&self, pid: pid_t) -> Option<&Process> {
         self.process_list.get(&pid)
     }
 
-    /// Returns a list of process starting with the given name.
-    pub fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
+    fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
         let mut ret = vec!();
         for val in self.process_list.values() {
             if val.name.starts_with(name) {
@@ -648,49 +638,40 @@ impl System {
         ret
     }
 
-    /// The first process in the array is the "main" process
-    pub fn get_processor_list(&self) -> &[Processor] {
+    fn get_processor_list(&self) -> &[Processor] {
         &self.processors[..]
     }
 
-    /// Returns total RAM size.
-    pub fn get_total_memory(&self) -> u64 {
+    fn get_total_memory(&self) -> u64 {
         self.mem_total
     }
 
-    /// Returns free RAM size.
-    pub fn get_free_memory(&self) -> u64 {
+    fn get_free_memory(&self) -> u64 {
         self.mem_free
     }
 
-    /// Returns used RAM size.
-    pub fn get_used_memory(&self) -> u64 {
+    fn get_used_memory(&self) -> u64 {
         self.mem_total - self.mem_free
     }
 
-    /// Returns SWAP size.
-    pub fn get_total_swap(&self) -> u64 {
+    fn get_total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    /// Returns free SWAP size.
-    pub fn get_free_swap(&self) -> u64 {
+    fn get_free_swap(&self) -> u64 {
         self.swap_free
     }
 
-    /// Returns used SWAP size.
     // need to be checked
-    pub fn get_used_swap(&self) -> u64 {
+    fn get_used_swap(&self) -> u64 {
         self.swap_total - self.swap_free
     }
 
-    /// Returns components list.
-    pub fn get_components_list(&self) -> &[Component] {
+    fn get_components_list(&self) -> &[Component] {
         &self.temperatures[..]
     }
 
-    /// Returns disks' list.
-    pub fn get_disks(&self) -> &[Disk] {
+    fn get_disks(&self) -> &[Disk] {
         &self.disks[..]
     }
 }

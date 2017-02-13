@@ -6,7 +6,7 @@
 extern crate sysinfo;
 extern crate libc;
 
-use sysinfo::*;
+use sysinfo::{ProcessExt, ProcessorExt, Signal, System, SystemExt};
 use sysinfo::Signal::*;
 use std::io::{self, BufRead};
 use std::str::FromStr;
@@ -23,6 +23,7 @@ fn print_help() {
     writeln!(&mut io::stdout(), "help               : show this menu");
     writeln!(&mut io::stdout(), "signals            : show the available signals");
     writeln!(&mut io::stdout(), "refresh            : reloads processes' information");
+    writeln!(&mut io::stdout(), "refresh_disks      : reloads processes' information");
     writeln!(&mut io::stdout(), "show [pid | name]  : show information of the given process \
                                  corresponding to [pid | name]");
     writeln!(&mut io::stdout(), "kill [pid] [signal]: send [signal] to the process with this \
@@ -43,10 +44,15 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             sys.refresh_all();
             writeln!(&mut io::stdout(), "Done.");
         }
+        "refresh_disks" => {
+            writeln!(&mut io::stdout(), "Refreshing disk list...");
+            sys.refresh_disk_list();
+            writeln!(&mut io::stdout(), "Done.");
+        }
         "signals" => {
             let mut nb = 1i32;
 
-            for sig in signals.iter() {
+            for sig in &signals {
                 writeln!(&mut io::stdout(), "{:2}:{:?}", nb, sig);
                 nb += 1;
             }
@@ -72,23 +78,21 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         e if e.starts_with("show ") => {
-            let tmp : Vec<&str> = e.split(" ").collect();
+            let tmp : Vec<&str> = e.split(' ').collect();
 
             if tmp.len() != 2 {
                 writeln!(&mut io::stdout(), "show command takes a pid or a name in parameter!");
                 writeln!(&mut io::stdout(), "example: show 1254");
+            } else if let Ok(pid) = pid_t::from_str(tmp[1]) {
+                match sys.get_process(pid) {
+                    Some(p) => writeln!(&mut io::stdout(), "{:?}", *p),
+                    None => writeln!(&mut io::stdout(), "pid not found")
+                };
             } else {
-                if let Ok(pid) = pid_t::from_str(tmp.get(1).unwrap()) {
-                    match sys.get_process(pid) {
-                        Some(p) => writeln!(&mut io::stdout(), "{:?}", *p),
-                        None => writeln!(&mut io::stdout(), "pid not found")
-                    };
-                } else {
-                    let proc_name = tmp.get(1).unwrap();
-                    for proc_ in sys.get_process_by_name(proc_name) {
-                        writeln!(&mut io::stdout(), "==== {} ====", proc_.name);
-                        writeln!(&mut io::stdout(), "{:?}", proc_);
-                    }
+                let proc_name = tmp[1];
+                for proc_ in sys.get_process_by_name(proc_name) {
+                    writeln!(&mut io::stdout(), "==== {} ====", proc_.name);
+                    writeln!(&mut io::stdout(), "{:?}", proc_);
                 }
             }
         }
@@ -101,15 +105,15 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             writeln!(&mut io::stdout(), "'show' command expects a pid number or a process name");
         }
         e if e.starts_with("kill ") => {
-            let tmp : Vec<&str> = e.split(" ").collect();
+            let tmp : Vec<&str> = e.split(' ').collect();
 
             if tmp.len() != 3 {
                 writeln!(&mut io::stdout(),
                          "kill command takes the pid and a signal number in parameter !");
                 writeln!(&mut io::stdout(), "example: kill 1254 9");
             } else {
-                let pid = pid_t::from_str(tmp.get(1).unwrap()).unwrap();
-                let signal = i32::from_str(tmp.get(2).unwrap()).unwrap();
+                let pid = pid_t::from_str(tmp[1]).unwrap();
+                let signal = i32::from_str(tmp[2]).unwrap();
 
                 if signal < 1 || signal > 31 {
                     writeln!(&mut io::stdout(),
@@ -157,7 +161,7 @@ fn main() {
         io::stdout().flush();
 
         stin.read_line(&mut input);
-        if (&input as &str).ends_with("\n") {
+        if (&input as &str).ends_with('\n') {
             input.pop();
         }
         done = interpret_input(input.as_ref(), &mut t);

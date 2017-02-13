@@ -8,7 +8,8 @@ use sys::component::{self, Component};
 use sys::processor::*;
 use sys::process::*;
 use sys::Disk;
-use super::disk;
+use sys::disk;
+use ::{DiskExt, ProcessExt, SystemExt};
 use std::fs::{File, read_link};
 use std::io::Read;
 use std::str::FromStr;
@@ -32,11 +33,29 @@ pub struct System {
 }
 
 impl System {
-    /// Creates a new `System` instance. It only contains the disks' list at this stage. Use the
-    /// [`refresh_all`] method to update its internal information (or any of the `refresh_` method).
-    ///
-    /// [`refresh_all`]: #method.refresh_all
-    pub fn new() -> System {
+    fn clear_procs(&mut self) {
+        if !self.processors.is_empty() {
+            let (new, old) = get_raw_times(&self.processors[0]);
+            let total_time = (new - old) as f32;
+            let mut to_delete = Vec::new();
+            let nb_processors = self.processors.len() as u64 - 1;
+
+            for (pid, proc_) in &mut self.process_list {
+                if !has_been_updated(proc_) {
+                    to_delete.push(*pid);
+                } else {
+                    compute_cpu_usage(proc_, nb_processors, total_time);
+                }
+            }
+            for pid in to_delete {
+                self.process_list.remove(&pid);
+            }
+        }
+    }
+}
+
+impl SystemExt for System {
+    fn new() -> System {
         let mut s = System {
             process_list: HashMap::new(),
             mem_total: 0,
@@ -52,8 +71,7 @@ impl System {
         s
     }
 
-    /// Refresh system information (such as memory, swap, CPU usage and components' temperature).
-    pub fn refresh_system(&mut self) {
+    fn refresh_system(&mut self) {
         let data = get_all_data("/proc/meminfo");
         let lines: Vec<&str> = data.split('\n').collect();
 
@@ -123,8 +141,7 @@ impl System {
         }
     }
 
-    /// Get all processes and update their information.
-    pub fn refresh_process(&mut self) {
+    fn refresh_process(&mut self) {
         if let Ok(d) = fs::read_dir(&Path::new("/proc")) {
             for entry in d {
                 if !entry.is_ok() {
@@ -141,56 +158,29 @@ impl System {
         }
     }
 
-    /// Refreshes the listed disks' information.
-    pub fn refresh_disks(&mut self) {
+    fn refresh_disks(&mut self) {
         for disk in &mut self.disks {
             disk.update();
         }
     }
 
-    fn clear_procs(&mut self) {
-        if !self.processors.is_empty() {
-            let (new, old) = get_raw_times(&self.processors[0]);
-            let total_time = (new - old) as f32;
-            let mut to_delete = Vec::new();
-            let nb_processors = self.processors.len() as u64 - 1;
-
-            for (pid, proc_) in &mut self.process_list {
-                if !has_been_updated(proc_) {
-                    to_delete.push(*pid);
-                } else {
-                    compute_cpu_usage(proc_, nb_processors, total_time);
-                }
-            }
-            for pid in to_delete {
-                self.process_list.remove(&pid);
-            }
-        }
+    fn refresh_disk_list(&mut self) {
+        self.disks = get_all_disks();
     }
 
     // COMMON PART
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    /// Refreshes all system, processes and disks information.
-    pub fn refresh_all(&mut self) {
-        self.refresh_system();
-        self.refresh_process();
-        self.refresh_disks();
-    }
-
-    /// Returns the process list.
-    pub fn get_process_list(&self) -> &HashMap<pid_t, Process> {
+    fn get_process_list(&self) -> &HashMap<pid_t, Process> {
         &self.process_list
     }
 
-    /// Returns the process corresponding to the given pid or `None` if no such process exists.
-    pub fn get_process(&self, pid: pid_t) -> Option<&Process> {
+    fn get_process(&self, pid: pid_t) -> Option<&Process> {
         self.process_list.get(&pid)
     }
 
-    /// Returns a list of process starting with the given name.
-    pub fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
+    fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
         let mut ret = vec!();
         for val in self.process_list.values() {
             if val.name.starts_with(name) {
@@ -200,49 +190,40 @@ impl System {
         ret
     }
 
-    /// The first process in the array is the "main" process.
-    pub fn get_processor_list(&self) -> &[Processor] {
+    fn get_processor_list(&self) -> &[Processor] {
         &self.processors[..]
     }
 
-    /// Returns total RAM size.
-    pub fn get_total_memory(&self) -> u64 {
+    fn get_total_memory(&self) -> u64 {
         self.mem_total
     }
 
-    /// Returns free RAM size.
-    pub fn get_free_memory(&self) -> u64 {
+    fn get_free_memory(&self) -> u64 {
         self.mem_free
     }
 
-    /// Returns used RAM size.
-    pub fn get_used_memory(&self) -> u64 {
+    fn get_used_memory(&self) -> u64 {
         self.mem_total - self.mem_free
     }
 
-    /// Returns SWAP size.
-    pub fn get_total_swap(&self) -> u64 {
+    fn get_total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    /// Returns free SWAP size.
-    pub fn get_free_swap(&self) -> u64 {
+    fn get_free_swap(&self) -> u64 {
         self.swap_free
     }
 
-    /// Returns used SWAP size.
     // need to be checked
-    pub fn get_used_swap(&self) -> u64 {
+    fn get_used_swap(&self) -> u64 {
         self.swap_total - self.swap_free
     }
 
-    /// Returns components list.
-    pub fn get_components_list(&self) -> &[Component] {
+    fn get_components_list(&self) -> &[Component] {
         &self.temperatures[..]
     }
 
-    /// Returns disks' list.
-    pub fn get_disks(&self) -> &[Disk] {
+    fn get_disks(&self) -> &[Disk] {
         &self.disks[..]
     }
 }

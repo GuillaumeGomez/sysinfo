@@ -7,6 +7,8 @@
 use std::rc::Rc;
 use sys::ffi;
 
+use ::ProcessorExt;
+
 pub struct ProcessorData {
     pub cpu_info: *mut i32,
     pub num_cpu_info: u32,
@@ -48,14 +50,14 @@ impl Processor {
             processor_data: processor_data,
         }
     }
+}
 
-    /// Returns this processor's usage.
-    pub fn get_cpu_usage(&self) -> f32 {
+impl ProcessorExt for Processor {
+    fn get_cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    /// Returns this processor's name.
-    pub fn get_name(&self) -> &str {
+    fn get_name(&self) -> &str {
         &self.name
     }
 }
