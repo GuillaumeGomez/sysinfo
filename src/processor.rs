@@ -6,6 +6,7 @@
 
 use std::fmt::{self, Debug, Formatter};
 use sys::Processor;
+use ::ProcessorExt;
 
 impl Debug for Processor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {

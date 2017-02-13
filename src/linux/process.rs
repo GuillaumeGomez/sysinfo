@@ -7,6 +7,8 @@
 use std::fmt::{self, Formatter, Debug};
 use libc::{c_int, gid_t, kill, pid_t, uid_t};
 
+use ::ProcessExt;
+
 /// Struct containing a process' information.
 #[derive(Clone)]
 pub struct Process {
@@ -44,9 +46,8 @@ pub struct Process {
 
 }
 
-impl Process {
-    /// Create a new process only containing the given information.
-    pub fn new(pid: pid_t, parent: Option<pid_t>, start_time: u64) -> Process {
+impl ProcessExt for Process {
+    fn new(pid: pid_t, parent: Option<pid_t>, start_time: u64) -> Process {
         Process {
             name: String::new(),
             pid: pid,
@@ -69,8 +70,7 @@ impl Process {
         }
     }
 
-    /// Sends the given `signal` to the process.
-    pub fn kill(&self, signal: ::Signal) -> bool {
+    fn kill(&self, signal: ::Signal) -> bool {
         unsafe { kill(self.pid, signal as c_int) == 0 }
     }
 }
@@ -104,10 +104,6 @@ pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64, total_time: f32) {
     p.cpu_usage = ((p.utime - p.old_utime + p.stime - p.old_stime) * nb_processors * 100) as f32 / total_time;
     p.updated = false;
 }
-
-// COMMON PART
-//
-// Need to be moved into a "common" file to avoid duplication.
 
 pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
     p.old_utime = p.utime;

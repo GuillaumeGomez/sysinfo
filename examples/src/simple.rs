@@ -6,7 +6,7 @@
 extern crate sysinfo;
 extern crate libc;
 
-use sysinfo::*;
+use sysinfo::{ProcessExt, ProcessorExt, Signal, System, SystemExt};
 use sysinfo::Signal::*;
 use std::io::{self, BufRead};
 use std::str::FromStr;

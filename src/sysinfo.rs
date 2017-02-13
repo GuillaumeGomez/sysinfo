@@ -69,11 +69,18 @@ pub use sys::{
     Disk,
     DiskType,
 };
+pub use traits::{
+    DiskExt,
+    ProcessExt,
+    ProcessorExt,
+    SystemExt,
+};
 
 mod component;
 mod process;
 mod processor;
 mod system;
+mod traits;
 mod utils;
 
 /// An enum representing signal on UNIX-like systems.

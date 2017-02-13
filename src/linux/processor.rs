@@ -4,6 +4,8 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use ::ProcessorExt;
+
 /// Struct containing values to compute a CPU usage.
 #[derive(Clone, Copy)]
 pub struct CpuValues {
@@ -136,14 +138,14 @@ impl Processor {
             self.old_total_time = self.old_values.total_time();
             self.total_time = self.new_values.total_time();
     }
+}
 
-    /// Returns this processor's usage.
-    pub fn get_cpu_usage(&self) -> f32 {
+impl ProcessorExt for Processor {
+    fn get_cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    /// Returns this processor's name.
-    pub fn get_name(&self) -> &str {
+    fn get_name(&self) -> &str {
         &self.name
     }
 }
