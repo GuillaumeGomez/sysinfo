@@ -148,6 +148,11 @@ impl System {
         }
     }
 
+    /// The disk list will be emptied then completely recomputed.
+    pub fn refresh_disk_list(&mut self) {
+        self.disks = get_all_disks();
+    }
+
     fn clear_procs(&mut self) {
         if !self.processors.is_empty() {
             let (new, old) = get_raw_times(&self.processors[0]);

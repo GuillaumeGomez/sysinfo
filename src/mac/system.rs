@@ -603,6 +603,11 @@ impl System {
         }
     }
 
+    /// The disk list will be emptied then completely recomputed.
+    pub fn refresh_disk_list(&mut self) {
+        self.disks = get_disks();
+    }
+
     fn clear_procs(&mut self) {
         let mut to_delete = Vec::new();
 
