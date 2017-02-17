@@ -34,8 +34,10 @@ impl From<isize> for DiskType {
 }
 
 pub fn new_disk(name: &str, mount_point: &str, file_system: &str) -> Disk {
+    #[allow(or_fun_call)]
     let type_ =  isize::from_str(get_all_data(&format!("/sys/block/{}/queue/rotational",
-                                                       name)).lines()
+                                                       name)).unwrap_or(String::new())
+                                                             .lines()
                                                              .next()
                                                              .unwrap_or("-1")).unwrap_or(-1);
     let mut mount_point = mount_point.as_bytes().to_vec();

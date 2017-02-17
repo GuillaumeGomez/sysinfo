@@ -12,7 +12,7 @@
 //! # Examples
 //!
 //! ```
-//! extern crate sysinfo;
+//! use sysinfo::SystemExt;
 //!
 //! let mut system = sysinfo::System::new();
 //!
