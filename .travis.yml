@@ -16,6 +16,7 @@ script:
   - cargo install clippy || touch clippy_failed
   - RUST_BACKTRACE=1 cargo build
   - if [ ! -f clippy_failed ]; then cargo clippy; fi
+  - RUST_BACKTRACE=1 cargo test
   - cd examples
   - RUST_BACKTRACE=1 cargo build
   - if [ ! -f ../clippy_failed ]; then cargo clippy; fi

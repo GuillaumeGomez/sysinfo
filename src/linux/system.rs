@@ -11,7 +11,7 @@ use sys::Disk;
 use sys::disk;
 use ::{DiskExt, ProcessExt, SystemExt};
 use std::fs::{File, read_link};
-use std::io::Read;
+use std::io::{self, Read};
 use std::str::FromStr;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
@@ -72,7 +72,7 @@ impl SystemExt for System {
     }
 
     fn refresh_system(&mut self) {
-        let data = get_all_data("/proc/meminfo");
+        let data = get_all_data("/proc/meminfo").unwrap();
         let lines: Vec<&str> = data.split('\n').collect();
 
         for component in &mut self.temperatures {
@@ -103,7 +103,7 @@ impl SystemExt for System {
                 _ => continue,
             }
         }
-        let data = get_all_data("/proc/stat");
+        let data = get_all_data("/proc/stat").unwrap();
         let lines: Vec<&str> = data.split('\n').collect();
         let mut i = 0;
         let first = self.processors.is_empty();
@@ -234,12 +234,12 @@ impl Default for System {
     }
 }
 
-pub fn get_all_data(file_path: &str) -> String {
-    let mut file = File::open(file_path).unwrap();
+pub fn get_all_data(file_path: &str) -> io::Result<String> {
+    let mut file = File::open(file_path)?;
     let mut data = String::new();
 
     file.read_to_string(&mut data).unwrap();
-    data
+    Ok(data)
 }
 
 fn update_time_and_memory(entry: &mut Process, parts: &[&str], page_size_kb: u64) {
@@ -263,7 +263,7 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<pid_t, Process>, page_
         let mut tmp = PathBuf::from(path);
 
         tmp.push("stat");
-        let data = get_all_data(tmp.to_str().unwrap());
+        let data = get_all_data(tmp.to_str().unwrap()).unwrap();
 
         // The stat file is "interesting" to parse, because spaces cannot
         // be used as delimiters. The second field stores the command name
@@ -300,7 +300,7 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<pid_t, Process>, page_
 
         tmp = PathBuf::from(path);
         tmp.push("status");
-        let status_data = get_all_data(tmp.to_str().unwrap());
+        let status_data = get_all_data(tmp.to_str().unwrap()).unwrap();
 
         // We're only interested in the lines starting with Uid: and Gid:
         // here. From these lines, we're looking at the second entry to get
@@ -370,7 +370,8 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 }
 
 fn get_all_disks() -> Vec<Disk> {
-    let content = get_all_data("/proc/mounts");
+    #[allow(or_fun_call)]
+    let content = get_all_data("/proc/mounts").unwrap_or(String::new());
     let disks: Vec<_> = content.lines()
                                .filter(|line| line.trim_left()
                                                   .starts_with("/dev/sda"))
