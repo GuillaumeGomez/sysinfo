@@ -145,7 +145,7 @@ impl Debug for Process {
         writeln!(f, "cpu usage: {}%", self.cpu_usage);
         writeln!(f, "status: {}", match self.status {
             Some(ref v) => v.string(),
-            None        => "None",
+            None        => "Unknown",
         });
         write!(f, "root path: {}", self.root)
     }

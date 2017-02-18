@@ -298,6 +298,8 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<pid_t, Process>, page_
                                  u64::from_str(parts[21]).unwrap() /
                                  unsafe { sysconf(_SC_CLK_TCK) } as u64);
 
+            p.status = parts[2].chars().next().and_then(|c| ProcessStatus::new(c));
+
         tmp = PathBuf::from(path);
         tmp.push("status");
         let status_data = get_all_data(tmp.to_str().unwrap()).unwrap();

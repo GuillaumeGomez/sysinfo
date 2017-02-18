@@ -12,21 +12,34 @@ use ::ProcessExt;
 /// Struct containing a process' information.
 #[derive(Clone)]
 pub enum ProcessStatus {
-    /// Process being created by fork.
+    /// Waiting in uninterruptible disk sleep.
     Idle,
-    /// Currently runnable.
+    /// Running.
     Run,
-    /// Sleeping on an address.
+    /// Sleeping in an interruptible waiting.
     Sleep,
-    /// Process debugging or suspension.
+    /// Stopped (on a signal) or (before Linux 2.6.33) trace stopped.
     Stop,
-    /// Awaiting collection by parent.
+    /// Zombie.
     Zombie,
+    /// Tracing stop (Linux 2.6.33 onward).
+    Tracing,
+    /// Dead.
+    Dead,
+    /// Wakekill (Linux 2.6.33 to 3.13 only).
+    Wakekill,
+    /// Waking (Linux 2.6.33 to 3.13 only).
+    Waking,
+    /// Parked (Linux 3.9 to 3.13 only).
+    Parked,
 }
 
-impl ProcessStatus {
+pub trait ProcessStatusInput<T> : Clone {
+    fn new(status:T) -> Option<ProcessStatus>;
+}
 
-    pub fn from(status:u32) -> Option<ProcessStatus> {
+impl ProcessStatusInput<u32> for ProcessStatus { 
+    fn new(status:u32) -> Option<ProcessStatus> {
         match status {
             1 => Some(ProcessStatus::Idle),
             2 => Some(ProcessStatus::Run),
@@ -36,17 +49,42 @@ impl ProcessStatus {
             _ => None,
         }
     }
+}
 
-    pub fn string(&self) -> &str {
-        match *self {
-            ProcessStatus::Idle   => "Idle",
-            ProcessStatus::Run    => "Runnable",
-            ProcessStatus::Sleep  => "Sleeping",
-            ProcessStatus::Stop   => "Stopped",
-            ProcessStatus::Zombie => "Zombie",
+impl ProcessStatusInput<char> for ProcessStatus {
+    fn new(status:char) -> Option<ProcessStatus> {
+        match status {
+            'R' => Some(ProcessStatus::Run),
+            'S' => Some(ProcessStatus::Sleep),
+            'D' => Some(ProcessStatus::Idle),
+            'Z' => Some(ProcessStatus::Zombie),
+            'T' => Some(ProcessStatus::Stop),
+            't' => Some(ProcessStatus::Tracing),
+            'X' => Some(ProcessStatus::Dead),
+            'x' => Some(ProcessStatus::Dead),
+            'K' => Some(ProcessStatus::Wakekill),
+            'W' => Some(ProcessStatus::Waking),
+            'P' => Some(ProcessStatus::Parked),
+            _   => None,
         }
     }
+}
 
+impl ProcessStatus {
+    pub fn string(&self) -> &str {
+        match *self {
+            ProcessStatus::Idle     => "Idle",
+            ProcessStatus::Run      => "Runnable",
+            ProcessStatus::Sleep    => "Sleeping",
+            ProcessStatus::Stop     => "Stopped",
+            ProcessStatus::Zombie   => "Zombie",
+            ProcessStatus::Tracing  => "Tracing",
+            ProcessStatus::Dead     => "Dead",
+            ProcessStatus::Wakekill => "Wakekill",
+            ProcessStatus::Waking   => "Waking",
+            ProcessStatus::Parked   => "Parked",
+        }
+    }
 }
 
 impl fmt::Display for ProcessStatus {
@@ -145,7 +183,7 @@ impl Debug for Process {
         writeln!(f, "cpu usage: {}%", self.cpu_usage);
         writeln!(f, "status: {}", match self.status {
             Some(ref v) => v.string(),
-            None        => "None",
+            None        => "Unknown",
         });
         write!(f, "root path: {}", self.root)
     }
