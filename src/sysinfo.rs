@@ -21,7 +21,7 @@
 //!
 //! // Now let's print every process' id and name:
 //! for (pid, proc_) in system.get_process_list() {
-//!     println!("{}:{}", pid, proc_.name);
+//!     println!("{}:{} => status: {:?}", pid, proc_.name, proc_.status);
 //! }
 //!
 //! // Then let's print the temperature of the different components:
