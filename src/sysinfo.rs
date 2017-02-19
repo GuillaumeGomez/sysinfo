@@ -64,6 +64,7 @@ use linux as sys;
 pub use sys::{
     Component,
     Process,
+    ProcessStatus,
     Processor,
     System,
     Disk,
