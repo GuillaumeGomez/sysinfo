@@ -519,7 +519,7 @@ impl SystemExt for System {
 
                 p.uid = task_info.pbsd.pbi_uid;
                 p.gid = task_info.pbsd.pbi_gid;
-                p.status = ProcessStatus::from(task_info.pbsd.pbi_status);
+                p.status = Some(ProcessStatus::from(task_info.pbsd.pbi_status));
 
                 let ptr = proc_args.as_mut_slice().as_mut_ptr();
                 mib[0] = ffi::CTL_KERN;

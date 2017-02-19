@@ -9,8 +9,8 @@ use libc::{c_int, gid_t, kill, pid_t, uid_t};
 
 use ::ProcessExt;
 
-/// Struct containing a process' information.
-#[derive(Clone)]
+/// Enum describing the different status of a process.
+#[derive(Clone, Debug)]
 pub enum ProcessStatus {
     /// Process being created by fork.
     Idle,
@@ -22,39 +22,44 @@ pub enum ProcessStatus {
     Stop,
     /// Awaiting collection by parent.
     Zombie,
+    /// Unknown.
+    Unknown(u32),
+}
+
+impl From<u32> for ProcessStatus {
+    fn from(status: u32) -> ProcessStatus {
+        match status {
+            1 => ProcessStatus::Idle,
+            2 => ProcessStatus::Run,
+            3 => ProcessStatus::Sleep,
+            4 => ProcessStatus::Stop,
+            5 => ProcessStatus::Zombie,
+            x => ProcessStatus::Unknown(x),
+        }
+    }
 }
 
 impl ProcessStatus {
-
-    pub fn from(status:u32) -> Option<ProcessStatus> {
-        match status {
-            1 => Some(ProcessStatus::Idle),
-            2 => Some(ProcessStatus::Run),
-            3 => Some(ProcessStatus::Sleep),
-            4 => Some(ProcessStatus::Stop),
-            5 => Some(ProcessStatus::Zombie),
-            _ => None,
-        }
-    }
-
-    pub fn string(&self) -> &str {
+    /// Used to display `ProcessStatus`.
+    pub fn to_string(&self) -> &str {
         match *self {
-            ProcessStatus::Idle   => "Idle",
-            ProcessStatus::Run    => "Runnable",
-            ProcessStatus::Sleep  => "Sleeping",
-            ProcessStatus::Stop   => "Stopped",
-            ProcessStatus::Zombie => "Zombie",
+            ProcessStatus::Idle       => "Idle",
+            ProcessStatus::Run        => "Runnable",
+            ProcessStatus::Sleep      => "Sleeping",
+            ProcessStatus::Stop       => "Stopped",
+            ProcessStatus::Zombie     => "Zombie",
+            ProcessStatus::Unknown(_) => "Unknown",
         }
     }
-
 }
 
 impl fmt::Display for ProcessStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.string())
+        write!(f, "{}", self.to_string())
     }
 }
 
+/// Struct containing a process' information.
 #[derive(Clone)]
 pub struct Process {
     /// Name of the program.
@@ -144,7 +149,7 @@ impl Debug for Process {
         writeln!(f, "memory usage: {} kB", self.memory);
         writeln!(f, "cpu usage: {}%", self.cpu_usage);
         writeln!(f, "status: {}", match self.status {
-            Some(ref v) => v.string(),
+            Some(ref v) => v.to_string(),
             None        => "Unknown",
         });
         write!(f, "root path: {}", self.root)
