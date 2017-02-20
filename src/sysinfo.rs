@@ -83,6 +83,7 @@ mod processor;
 mod system;
 mod traits;
 mod utils;
+mod enums;
 
 /// An enum representing signal on UNIX-like systems.
 #[repr(C)]

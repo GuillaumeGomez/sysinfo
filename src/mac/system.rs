@@ -7,9 +7,9 @@
 use sys::ffi;
 use sys::component::Component;
 use sys::processor::*;
-use sys::process::*;
+use process::*;
 use sys::disk::{self, Disk, DiskType};
-use ::{DiskExt, ProcessExt, ProcessorExt, SystemExt};
+use ::{DiskExt, ProcessExt, ProcessorExt, SystemExt, ProcessStatus};
 use std::collections::HashMap;
 use libc::{self, c_void, c_int, pid_t, size_t, c_char, sysconf, _SC_PAGESIZE};
 use std::rc::Rc;
