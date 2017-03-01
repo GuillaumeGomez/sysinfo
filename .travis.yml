@@ -20,3 +20,6 @@ script:
   - cd examples
   - RUST_BACKTRACE=1 cargo build
   - if [ ! -f ../clippy_failed ]; then cargo clippy; fi
+  - cd ..
+  - make
+  - ./simple
