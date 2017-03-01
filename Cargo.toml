@@ -19,6 +19,9 @@ name = "sysinfo"
 crate_type = ["rlib"]
 path = "src/sysinfo.rs"
 
+[features]
+c-interface = []
+
 [badges]
 travis-ci = { repository = "GuillaumeGomez/sysinfo" }
 appveyor = { repository = "GuillaumeGomez/sysinfo", service = "github" }
