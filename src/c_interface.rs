@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
@@ -62,31 +62,23 @@ pub extern "C" fn sysinfo_get_used_swap() -> size_t {
 }
 
 /// Equivalent of `System.get_processors_usage()`.
+///
+/// * `length` will contain the number of cpu usage added into `procs`.
+/// * `procs` will be allocated if it's null and will contain of cpu usage.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_processors_usage(length: *mut c_uint) -> *const c_float {
-    static mut PROCS: *mut Vec<c_float> = 0 as *mut Vec<c_float>;
-
-    if length.is_null() {
-        return ::std::ptr::null();
-    }
-    unsafe {
-        if PROCS.is_null() {
-            PROCS = libc::malloc(::std::mem::size_of::<Vec<c_float>>()) as *mut Vec<c_float>;
-            *PROCS = Vec::new();
-        }
+pub extern "C" fn sysinfo_get_processors_usage(length: *mut c_uint,
+                                               procs: *mut *mut c_float) {
+    if procs.is_null() || length.is_null() {
+        return;
     }
     let processors = unsafe { (*get_system()).get_processor_list() };
-    if unsafe { (*PROCS).is_empty() } {
-        for processor in processors.iter().skip(1) {
-            unsafe { (*PROCS).push(processor.get_cpu_usage()); }
-        }
-    } else {
-        for (pos, processor) in processors.iter().skip(1).enumerate() {
-            unsafe { (*PROCS)[pos] = processor.get_cpu_usage(); }
-        }
-    }
     unsafe {
-        *length = (*PROCS).len() as c_uint;
-        (*PROCS).as_ptr()
+        if (*procs).is_null() {
+            (*procs) = libc::malloc(::std::mem::size_of::<c_float>() * processors.len()) as *mut c_float;
+        }
+        for (pos, processor) in processors.iter().skip(1).enumerate() {
+            (*(*procs).offset(pos as isize)) = processor.get_cpu_usage();
+        }
+        *length = processors.len() as c_uint - 1;
     }
 }

@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
@@ -13,4 +13,4 @@ size_t sysinfo_get_used_memory();
 size_t sysinfo_get_total_swap();
 size_t sysinfo_get_free_swap();
 size_t sysinfo_get_used_swap();
-const float *sysinfo_get_processors_usage(unsigned int *length);
+void sysinfo_get_processors_usage(unsigned int *length, float **procs);

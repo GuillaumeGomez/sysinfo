@@ -1,7 +1,12 @@
+// 
+// Sysinfo
+// 
+// Copyright (c) 2017 Guillaume Gomez
+//
 
 #![crate_type = "bin"]
 
- #![allow(unused_must_use, non_upper_case_globals)]
+#![allow(unused_must_use, non_upper_case_globals)]
 
 extern crate sysinfo;
 extern crate libc;
