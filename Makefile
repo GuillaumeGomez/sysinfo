@@ -26,12 +26,10 @@ OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 simple: $(OBJ)
 	@echo "Compiling sources..."
+	cargo build --features=c-interface
 	gcc -o $@ $^ $(CFLAGS) -L$(LDIR) $(LIBS)
 
-rust:
-	cargo build --features=c-interface
-
-$(ODIR)/%.o: %.c rust $(DEPS)
+$(ODIR)/%.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 .PHONY: simple
