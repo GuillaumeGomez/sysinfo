@@ -6,3 +6,14 @@ Support the following platforms:
 
  * Linux
  * Mac OSX
+
+## C interface
+
+It's possible to use this crate directly from C. Take a look at the `Makefile` and at the `examples/src/simple.c` files.
+
+To build the C example, just run:
+
+```bash
+> make
+> ./simple
+```

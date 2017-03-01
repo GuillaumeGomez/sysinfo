@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
@@ -76,6 +76,8 @@ pub use traits::{
     ProcessorExt,
     SystemExt,
 };
+#[cfg(feature = "c-interface")]
+pub use c_interface::*;
 
 mod component;
 mod process;
@@ -83,6 +85,8 @@ mod processor;
 mod system;
 mod traits;
 mod utils;
+#[cfg(feature = "c-interface")]
+mod c_interface;
 
 /// An enum representing signal on UNIX-like systems.
 #[repr(C)]
