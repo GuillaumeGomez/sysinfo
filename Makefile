@@ -8,12 +8,13 @@
 # Please note that this Makefile only generates the c example.
 #
 
-IDIR = ./src/
+IDIR = ./src
 CC = gcc
 CFLAGS = -I$(IDIR)
 
-ODIR = examples/src/
+ODIR = examples/src
 LDIR = ./target/debug/
+LDIR-RELEASE = ./target/release/
 
 LIBS = -lsysinfo
 
@@ -25,9 +26,14 @@ OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 
 simple: $(OBJ)
-	@echo "Compiling sources..."
+	@echo "Compiling in debug mode"
 	cargo build --features=c-interface
 	gcc -o $@ $^ $(CFLAGS) -L$(LDIR) $(LIBS)
+
+release: $(OBJ)
+	@echo "Compiling in release mode"
+	cargo build --features=c-interface --release
+	gcc -o $@ $^ $(CFLAGS) -L$(LDIR-RELEASE) $(LIBS)
 
 $(ODIR)/%.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
