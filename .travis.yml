@@ -22,4 +22,4 @@ script:
   - if [ ! -f ../clippy_failed ]; then cargo clippy; fi
   - cd ..
   - make
-  - ./simple
+  - LD_LIBRARY_PATH=./target/debug ./simple
