@@ -20,8 +20,10 @@ pub fn realpath(original: &Path) -> PathBuf {
         return PathBuf::from(ori);
     }
     let result = PathBuf::from(original);
+    let mut result_s = result.to_str().unwrap().as_bytes().to_vec();
+    result_s.push(0);
     let mut buf: stat = unsafe { ::std::mem::uninitialized() };
-    let res = unsafe { lstat(result.to_str().unwrap().as_ptr() as *const c_char,
+    let res = unsafe { lstat(result_s.as_ptr() as *const c_char,
                              &mut buf as *mut stat) };
     if res < 0 || (buf.st_mode & S_IFMT) != S_IFLNK {
         PathBuf::new()
