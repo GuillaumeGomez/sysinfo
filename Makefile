@@ -33,7 +33,7 @@ simple: $(OBJ)
 release: $(OBJ)
 	@echo "Compiling in release mode"
 	cargo build --features=c-interface --release
-	gcc -o $@ $^ $(CFLAGS) -L$(LDIR-RELEASE) $(LIBS)
+	gcc -o simple $^ $(CFLAGS) -L$(LDIR-RELEASE) $(LIBS)
 
 $(ODIR)/%.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)

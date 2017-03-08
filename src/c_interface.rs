@@ -4,61 +4,101 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use libc::{self, c_uint, c_float, size_t};
-use ::{ProcessorExt, System, SystemExt};
+use std::borrow::BorrowMut;
+use libc::{self, c_uint, c_float, c_void, pid_t, size_t};
+use ::{Process, ProcessorExt, System, SystemExt};
 
-fn get_system<'a>() -> *mut System {
-    static mut SYSTEM: *mut System = 0 as *mut System;
+/// Equivalent of `System` struct.
+pub type CSystem = *mut c_void;
+/// Equivalent of `Process` struct.
+pub type CProcess = *const c_void;
+/// Callback used by `get_process_list`.
+pub type ProcessLoop = extern "C" fn(pid: pid_t, process: CProcess, data: *mut c_void) -> bool;
 
-    unsafe {
-        if SYSTEM.is_null() {
-            SYSTEM = libc::malloc(::std::mem::size_of::<System>()) as *mut System;
-            *SYSTEM = System::new();
-        }
-        SYSTEM
-    }
+/// Equivalent of `System::new()`.
+#[no_mangle]
+pub extern "C" fn sysinfo_init() -> CSystem {
+    let system = Box::new(System::new());
+    Box::into_raw(system) as CSystem
+}
+
+/// Equivalent of `System::drop`. Important in C to cleanup memory.
+#[no_mangle]
+pub extern "C" fn sysinfo_destroy(system: CSystem) {
+    assert!(!system.is_null());
+    unsafe { Box::from_raw(system as *mut System); }
 }
 
 /// Equivalent of `System.refresh_system()`.
 #[no_mangle]
-pub extern "C" fn sysinfo_refresh_system() {
-    unsafe { (*get_system()).refresh_system(); }
+pub extern "C" fn sysinfo_refresh_system(system: CSystem) {
+    assert!(!system.is_null());
+    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    {
+        let system: &mut System = system.borrow_mut();
+        system.refresh_system();
+    }
+    Box::into_raw(system);
 }
 
 /// Equivalent of `System.get_total_memory()`.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_total_memory() -> size_t {
-    unsafe { (*get_system()).get_total_memory() as size_t }
+pub extern "C" fn sysinfo_get_total_memory(system: CSystem) -> size_t {
+    assert!(!system.is_null());
+    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    let ret = system.get_total_memory() as size_t;
+    Box::into_raw(system);
+    ret
 }
 
 /// Equivalent of `System.get_free_memory()`.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_free_memory() -> size_t {
-    unsafe { (*get_system()).get_free_memory() as size_t }
+pub extern "C" fn sysinfo_get_free_memory(system: CSystem) -> size_t {
+    assert!(!system.is_null());
+    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    let ret = system.get_free_memory() as size_t;
+    Box::into_raw(system);
+    ret
 }
 
 /// Equivalent of `System.get_used_memory()`.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_used_memory() -> size_t {
-    unsafe { (*get_system()).get_used_memory() as size_t }
+pub extern "C" fn sysinfo_get_used_memory(system: CSystem) -> size_t {
+    assert!(!system.is_null());
+    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    let ret = system.get_used_memory() as size_t;
+    Box::into_raw(system);
+    ret
 }
 
 /// Equivalent of `System.get_total_swap()`.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_total_swap() -> size_t {
-    unsafe { (*get_system()).get_total_swap() as size_t }
+pub extern "C" fn sysinfo_get_total_swap(system: CSystem) -> size_t {
+    assert!(!system.is_null());
+    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    let ret = system.get_total_swap() as size_t;
+    Box::into_raw(system);
+    ret
 }
 
 /// Equivalent of `System.get_free_swap()`.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_free_swap() -> size_t {
-    unsafe { (*get_system()).get_free_swap() as size_t }
+pub extern "C" fn sysinfo_get_free_swap(system: CSystem) -> size_t {
+    assert!(!system.is_null());
+    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    let ret = system.get_free_swap() as size_t;
+    Box::into_raw(system);
+    ret
 }
 
 /// Equivalent of `System.get_used_swap()`.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_used_swap() -> size_t {
-    unsafe { (*get_system()).get_used_swap() as size_t }
+pub extern "C" fn sysinfo_get_used_swap(system: CSystem) -> size_t {
+    assert!(!system.is_null());
+    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    let ret = system.get_used_swap() as size_t;
+    Box::into_raw(system);
+    ret
 }
 
 /// Equivalent of `System.get_processors_usage()`.
@@ -66,19 +106,86 @@ pub extern "C" fn sysinfo_get_used_swap() -> size_t {
 /// * `length` will contain the number of cpu usage added into `procs`.
 /// * `procs` will be allocated if it's null and will contain of cpu usage.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_processors_usage(length: *mut c_uint,
+pub extern "C" fn sysinfo_get_processors_usage(system: CSystem,
+                                               length: *mut c_uint,
                                                procs: *mut *mut c_float) {
+    assert!(!system.is_null());
     if procs.is_null() || length.is_null() {
         return;
     }
-    let processors = unsafe { (*get_system()).get_processor_list() };
-    unsafe {
-        if (*procs).is_null() {
-            (*procs) = libc::malloc(::std::mem::size_of::<c_float>() * processors.len()) as *mut c_float;
+    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    {
+        let processors = system.get_processor_list();
+        unsafe {
+            if (*procs).is_null() {
+                (*procs) = libc::malloc(::std::mem::size_of::<c_float>() * processors.len()) as *mut c_float;
+            }
+            for (pos, processor) in processors.iter().skip(1).enumerate() {
+                (*(*procs).offset(pos as isize)) = processor.get_cpu_usage();
+            }
+            *length = processors.len() as c_uint - 1;
         }
-        for (pos, processor) in processors.iter().skip(1).enumerate() {
-            (*(*procs).offset(pos as isize)) = processor.get_cpu_usage();
-        }
-        *length = processors.len() as c_uint - 1;
     }
+    Box::into_raw(system);
+}
+
+/// Equivalent of `System.get_process_list()`. Returns an array ended by a null pointer. Must be freed.
+///
+/// # /!\ WARNING /!\
+///
+/// While having this method processes, you should *never* call any refresh method!
+#[no_mangle]
+pub extern "C" fn sysinfo_get_processes(system: CSystem, fn_pointer: Option<ProcessLoop>,
+                                        data: *mut c_void) -> c_uint {
+    assert!(!system.is_null());
+    if let Some(fn_pointer) = fn_pointer {
+        let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+        let len = {
+            let entries = system.get_process_list();
+            for (pid, process) in entries {
+                if !fn_pointer(*pid, process as *const Process as CProcess, data) {
+                    break
+                }
+            }
+            entries.len() as c_uint
+        };
+        Box::into_raw(system);
+        len
+    } else {
+        0
+    }
+}
+
+/// Equivalent of `Process.pid`.
+#[no_mangle]
+pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> pid_t {
+    assert!(!process.is_null());
+    let process = process as *const Process;
+    unsafe { (*process).pid }
+}
+
+/// Equivalent of `Process.parent`.
+///
+/// In case there is no known parent, it returns `0`.
+#[no_mangle]
+pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> pid_t {
+    assert!(!process.is_null());
+    let process = process as *const Process;
+    unsafe { (*process).parent.unwrap_or(0) }
+}
+
+/// Equivalent of `Process.cpu_usage`.
+#[no_mangle]
+pub extern "C" fn sysinfo_process_get_cpu_usage(process: CProcess) -> c_float {
+    assert!(!process.is_null());
+    let process = process as *const Process;
+    unsafe { (*process).cpu_usage }
+}
+
+/// Equivalent of `Process.memory`.
+#[no_mangle]
+pub extern "C" fn sysinfo_process_get_memory(process: CProcess) -> size_t {
+    assert!(!process.is_null());
+    let process = process as *const Process;
+    unsafe { (*process).memory as usize }
 }

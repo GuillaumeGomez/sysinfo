@@ -16,4 +16,6 @@ To build the C example, just run:
 ```bash
 > make
 > ./simple
+# If needed:
+> LD_LIBRARY_PATH=target/release/ ./simple
 ```
