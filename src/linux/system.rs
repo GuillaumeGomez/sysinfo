@@ -21,7 +21,7 @@ use utils::realpath;
 
 /// Structs containing system's information.
 pub struct System {
-    process_list: HashMap<pid_t, Process>,
+    process_list: Process,
     mem_total: u64,
     mem_free: u64,
     swap_total: u64,
@@ -40,7 +40,7 @@ impl System {
             let mut to_delete = Vec::new();
             let nb_processors = self.processors.len() as u64 - 1;
 
-            for (pid, proc_) in &mut self.process_list {
+            for (pid, proc_) in &mut self.process_list.tasks {
                 if !has_been_updated(proc_) {
                     to_delete.push(*pid);
                 } else {
@@ -48,7 +48,7 @@ impl System {
                 }
             }
             for pid in to_delete {
-                self.process_list.remove(&pid);
+                self.process_list.tasks.remove(&pid);
             }
         }
     }
@@ -57,7 +57,7 @@ impl System {
 impl SystemExt for System {
     fn new() -> System {
         let mut s = System {
-            process_list: HashMap::new(),
+            process_list: Process::new(0, None, 0),
             mem_total: 0,
             mem_free: 0,
             swap_total: 0,
@@ -142,18 +142,7 @@ impl SystemExt for System {
     }
 
     fn refresh_process(&mut self) {
-        if let Ok(d) = fs::read_dir(&Path::new("/proc")) {
-            for entry in d {
-                if !entry.is_ok() {
-                    continue;
-                }
-                let entry = entry.unwrap();
-                let entry = entry.path();
-
-                if entry.is_dir() {
-                    _get_process_data(entry.as_path(), &mut self.process_list, self.page_size_kb);
-                }
-            }
+        if refresh_procs(&mut self.process_list, "/proc", self.page_size_kb) {
             self.clear_procs();
         }
     }
@@ -173,16 +162,16 @@ impl SystemExt for System {
     // Need to be moved into a "common" file to avoid duplication.
 
     fn get_process_list(&self) -> &HashMap<pid_t, Process> {
-        &self.process_list
+        &self.process_list.tasks
     }
 
     fn get_process(&self, pid: pid_t) -> Option<&Process> {
-        self.process_list.get(&pid)
+        self.process_list.tasks.get(&pid)
     }
 
     fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
         let mut ret = vec!();
-        for val in self.process_list.values() {
+        for val in self.process_list.tasks.values() {
             if val.name.starts_with(name) {
                 ret.push(val);
             }
@@ -242,24 +231,52 @@ pub fn get_all_data(file_path: &str) -> io::Result<String> {
     Ok(data)
 }
 
-fn update_time_and_memory(entry: &mut Process, parts: &[&str], page_size_kb: u64) {
+fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb: u64) -> bool {
+    if let Ok(d) = fs::read_dir(&Path::new(path.as_ref())) {
+        for entry in d {
+            if !entry.is_ok() {
+                continue;
+            }
+            let entry = entry.unwrap();
+            let entry = entry.path();
+
+            if entry.is_dir() {
+                _get_process_data(entry.as_path(), proc_list, page_size_kb);
+            }
+        }
+        true
+    } else {
+        false
+    }
+}
+
+fn update_time_and_memory(path: &Path, entry: &mut Process, parts: &[&str], page_size_kb: u64,
+                          parent_memory: u64) {
     //entry.name = parts[1][1..].to_owned();
     //entry.name.pop();
     // we get the rss then we add the vsize
-    entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb +
-                   u64::from_str(parts[22]).unwrap() / 1024;
-    set_time(entry,
-             u64::from_str(parts[13]).unwrap(),
-             u64::from_str(parts[14]).unwrap());
+    {
+        entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb +
+                       u64::from_str(parts[22]).unwrap() / 1024;
+        if entry.memory > parent_memory {
+            entry.memory -= parent_memory;
+        }
+        set_time(entry,
+                 u64::from_str(parts[13]).unwrap(),
+                 u64::from_str(parts[14]).unwrap());
+    }
+    refresh_procs(entry, path.join(Path::new("task")).as_path(), page_size_kb);
 }
 
-fn _get_process_data(path: &Path, proc_list: &mut HashMap<pid_t, Process>, page_size_kb: u64) {
+fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64) {
     if !path.exists() || !path.is_dir() {
-        return;
+        return
     }
-    let paths : Vec<&str> = path.as_os_str().to_str().unwrap().split('/').collect();
-    let last = paths[paths.len() - 1];
-    if let Ok(nb) = pid_t::from_str(last) {
+    let last = path.to_str().unwrap().split('/').last();
+    if last.is_none() {
+        return
+    }
+    if let Ok(nb) = pid_t::from_str(last.unwrap()) {
         let mut tmp = PathBuf::from(path);
 
         tmp.push("stat");
@@ -283,18 +300,23 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<pid_t, Process>, page_
         let data = data_it.next().unwrap();
         parts.push(data_it.next().unwrap());
         parts.extend(data.split_whitespace());
-        if let Some(ref mut entry) = proc_list.get_mut(&nb) {
-            update_time_and_memory(entry, &parts, page_size_kb);
+        let parent_memory = proc_list.memory;
+        if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
+            update_time_and_memory(path, entry, &parts, page_size_kb, parent_memory);
             return;
         }
 
-        let parent = match pid_t::from_str(parts[3]).unwrap() {
-            0 => None,
-            p => Some(p)
+        let parent_pid = if proc_list.pid != 0 {
+            Some(proc_list.pid)
+        } else {
+            match pid_t::from_str(parts[3]).unwrap() {
+                0 => None,
+                p => Some(p),
+            }
         };
 
         let mut p = Process::new(nb,
-                                 parent,
+                                 parent_pid,
                                  u64::from_str(parts[21]).unwrap() /
                                  unsafe { sysconf(_SC_CLK_TCK) } as u64);
 
@@ -331,30 +353,39 @@ fn _get_process_data(path: &Path, proc_list: &mut HashMap<pid_t, Process>, page_
         }
         assert!(set_uid && set_gid);
 
-        tmp = PathBuf::from(path);
-        tmp.push("cmdline");
-        p.cmd = copy_from_file(&tmp);
-        p.name = p.cmd[0].split('/').last().unwrap().to_owned();
-        tmp = PathBuf::from(path);
-        tmp.push("environ");
-        p.environ = copy_from_file(&tmp);
-        tmp = PathBuf::from(path);
-        tmp.push("exe");
+        if proc_list.pid != 0 {
+            p.cmd = proc_list.cmd.clone();
+            p.name = proc_list.name.clone();
+            p.environ = proc_list.environ.clone();
+            p.exe = proc_list.exe.clone();
+            p.cwd = proc_list.cwd.clone();
+            p.root = proc_list.root.clone();
+        } else {
+            tmp = PathBuf::from(path);
+            tmp.push("cmdline");
+            p.cmd = copy_from_file(&tmp);
+            p.name = p.cmd[0].split('/').last().unwrap().to_owned();
+            tmp = PathBuf::from(path);
+            tmp.push("environ");
+            p.environ = copy_from_file(&tmp);
+            tmp = PathBuf::from(path);
+            tmp.push("exe");
 
-        let s = read_link(tmp.to_str().unwrap());
+            let s = read_link(tmp.to_str().unwrap());
 
-        if s.is_ok() {
-            p.exe = s.unwrap().to_str().unwrap().to_owned();
+            if s.is_ok() {
+                p.exe = s.unwrap().to_str().unwrap().to_owned();
+            }
+            tmp = PathBuf::from(path);
+            tmp.push("cwd");
+            p.cwd = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
+            tmp = PathBuf::from(path);
+            tmp.push("root");
+            p.root = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
         }
-        tmp = PathBuf::from(path);
-        tmp.push("cwd");
-        p.cwd = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
-        tmp = PathBuf::from(path);
-        tmp.push("root");
-        p.root = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
 
-        update_time_and_memory(&mut p, &parts, page_size_kb);
-        proc_list.insert(nb, p);
+        update_time_and_memory(path, &mut p, &parts, page_size_kb, proc_list.memory);
+        proc_list.tasks.insert(nb, p);
     }
 }
 

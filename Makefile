@@ -16,7 +16,7 @@ ODIR = examples/src
 LDIR = ./target/debug/
 LDIR-RELEASE = ./target/release/
 
-LIBS = -lsysinfo
+LIBS = -lsysinfo -lpthread
 
 _DEPS = sysinfo.h
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))

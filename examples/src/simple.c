@@ -6,21 +6,50 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <pthread.h>
 #include "sysinfo.h"
 
-bool process_loop(pid_t pid, CProcess process, void *data) {
-    unsigned int *i = data;
-
+void print_process(CProcess process) {
     printf("process[%d]: parent: %d, cpu_usage: %f, memory: %ld\n",
            sysinfo_process_get_pid(process),
            sysinfo_process_get_parent_pid(process),
            sysinfo_process_get_cpu_usage(process),
            sysinfo_process_get_memory(process));
-    *i += 1;
-    if (*i >= 10) {
-        return false;
+}
+
+void check_tasks(CSystem system) {
+#ifdef __linux__
+    bool task_loop(pid_t pid, CProcess process, void *data) {
+        (void)data;
+        printf("  ");
+        print_process(process);
+        return true;
     }
-    return true;
+
+    void *sleeping_func(void *data) {
+        sleep(3);
+        return data;
+    }
+    pthread_t thread;
+    pthread_create(&thread, NULL, sleeping_func, NULL);
+    sysinfo_refresh_system(system);
+    CProcess process = sysinfo_get_process_by_pid(system, getpid());
+    printf("\n== Task(s) for current process: ==\n");
+    print_process(process);
+    printf("Got %ld task(s)\n", sysinfo_process_get_tasks(process, task_loop, NULL));
+#else
+    (void)system;
+#endif
+}
+
+bool process_loop(pid_t pid, CProcess process, void *data) {
+    unsigned int *i = data;
+
+    print_process(process);
+    *i += 1;
+    return *i < 10;
 }
 
 int main() {
@@ -43,7 +72,8 @@ int main() {
 
     // processes part
     i = 0;
-    printf("For a total of %d processes.\n", sysinfo_get_processes(system, process_loop, &i));
+    printf("For a total of %ld processes.\n", sysinfo_get_processes(system, process_loop, &i));
+    check_tasks(system);
     // we can now free the CSystem object.
     sysinfo_destroy(system);
     return 0;
