@@ -5,6 +5,7 @@
 //
 
 use std::fmt::{self, Formatter, Debug};
+use std::collections::HashMap;
 use libc::{c_int, gid_t, kill, pid_t, uid_t};
 
 use ::ProcessExt;
@@ -126,8 +127,10 @@ pub struct Process {
     pub uid: uid_t,
     /// Group id of the process owner.
     pub gid: gid_t,
-    /// status of process (idle, run, zombie, etc)
+    /// Status of process (idle, run, zombie, etc).
     pub status: Option<ProcessStatus>,
+    /// Tasks run by this process.
+    pub tasks: HashMap<pid_t, Process>,
 }
 
 impl ProcessExt for Process {
@@ -152,6 +155,7 @@ impl ProcessExt for Process {
             uid: 0,
             gid: 0,
             status: None,
+            tasks: HashMap::new(),
         }
     }
 

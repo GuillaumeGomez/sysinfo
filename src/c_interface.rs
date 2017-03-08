@@ -136,7 +136,7 @@ pub extern "C" fn sysinfo_get_processors_usage(system: CSystem,
 /// While having this method processes, you should *never* call any refresh method!
 #[no_mangle]
 pub extern "C" fn sysinfo_get_processes(system: CSystem, fn_pointer: Option<ProcessLoop>,
-                                        data: *mut c_void) -> c_uint {
+                                        data: *mut c_void) -> size_t {
     assert!(!system.is_null());
     if let Some(fn_pointer) = fn_pointer {
         let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
@@ -147,10 +147,52 @@ pub extern "C" fn sysinfo_get_processes(system: CSystem, fn_pointer: Option<Proc
                     break
                 }
             }
-            entries.len() as c_uint
+            entries.len() as size_t
         };
         Box::into_raw(system);
         len
+    } else {
+        0
+    }
+}
+
+/// Equivalent of `System.get_process`.
+///
+/// # /!\ WARNING /!\
+///
+/// While having this method returned process, you should *never* call any
+/// refresh method!
+#[no_mangle]
+pub extern "C" fn sysinfo_get_process_by_pid(system: CSystem, pid: pid_t) -> CProcess {
+    assert!(!system.is_null());
+    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    let ret = if let Some(process) = system.get_process(pid) {
+        process as *const Process as CProcess
+    } else {
+        ::std::ptr::null()
+    };
+    Box::into_raw(system);
+    ret
+}
+
+/// Equivalent of iterating over `Process.tasks`.
+///
+/// # /!\ WARNING /!\
+///
+/// While having this method processes, you should *never* call any refresh method!
+#[cfg(target_os = "linux")]
+#[no_mangle]
+pub extern "C" fn sysinfo_process_get_tasks(process: CProcess, fn_pointer: Option<ProcessLoop>,
+                                            data: *mut c_void) -> size_t {
+    assert!(!process.is_null());
+    if let Some(fn_pointer) = fn_pointer {
+        let process = process as *const Process;
+        for (pid, process) in unsafe { (*process).tasks.iter() } {
+            if !fn_pointer(*pid, process as *const Process as CProcess, data) {
+                break
+            }
+        }
+        unsafe { (*process).tasks.len() as size_t }
     } else {
         0
     }
