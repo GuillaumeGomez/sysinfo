@@ -65,6 +65,19 @@ pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
     Box::into_raw(system);
 }
 
+/// Equivalent of `System.refresh_process()`.
+#[cfg(target_os = "linux")]
+#[no_mangle]
+pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: pid_t) {
+    assert!(!system.is_null());
+    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    {
+        let system: &mut System = system.borrow_mut();
+        system.refresh_process(pid);
+    }
+    Box::into_raw(system);
+}
+
 /// Equivalent of `System.refresh_disks()`.
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_disks(system: CSystem) {

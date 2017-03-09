@@ -17,6 +17,9 @@ void     sysinfo_destroy(CSystem system);
 void     sysinfo_refresh_system(CSystem system);
 void     sysinfo_refresh_all(CSystem system);
 void     sysinfo_refresh_processes(CSystem system);
+#ifdef __linux__
+void     sysinfo_refresh_process(CSystem system, pid_t pid);
+#endif
 void     sysinfo_refresh_disks(CSystem system);
 void     sysinfo_refresh_disk_list(CSystem system);
 size_t   sysinfo_get_total_memory(CSystem system);
