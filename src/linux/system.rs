@@ -52,6 +52,18 @@ impl System {
             }
         }
     }
+
+    /// **WARNING**: This method is specific to Linux.
+    ///
+    /// Refresh *only* the process corresponding to `pid`.
+    pub fn refresh_process(&mut self, pid: pid_t) -> bool {
+        if let Some(proc_) = self.process_list.tasks.get_mut(&pid) {
+            _get_process_data(Path::new(&format!("/proc/{}", pid)), proc_, self.page_size_kb);
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl SystemExt for System {
@@ -141,7 +153,7 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_process(&mut self) {
+    fn refresh_processes(&mut self) {
         if refresh_procs(&mut self.process_list, "/proc", self.page_size_kb) {
             self.clear_procs();
         }

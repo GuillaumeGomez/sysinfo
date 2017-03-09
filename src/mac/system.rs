@@ -439,7 +439,7 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_process(&mut self) {
+    fn refresh_processes(&mut self) {
         let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
         if count < 1 {
             return;
