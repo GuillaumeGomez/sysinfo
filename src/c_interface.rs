@@ -41,6 +41,54 @@ pub extern "C" fn sysinfo_refresh_system(system: CSystem) {
     Box::into_raw(system);
 }
 
+/// Equivalent of `System.refresh_all()`.
+#[no_mangle]
+pub extern "C" fn sysinfo_refresh_all(system: CSystem) {
+    assert!(!system.is_null());
+    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    {
+        let system: &mut System = system.borrow_mut();
+        system.refresh_all();
+    }
+    Box::into_raw(system);
+}
+
+/// Equivalent of `System.refresh_processes()`.
+#[no_mangle]
+pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
+    assert!(!system.is_null());
+    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    {
+        let system: &mut System = system.borrow_mut();
+        system.refresh_processes();
+    }
+    Box::into_raw(system);
+}
+
+/// Equivalent of `System.refresh_disks()`.
+#[no_mangle]
+pub extern "C" fn sysinfo_refresh_disks(system: CSystem) {
+    assert!(!system.is_null());
+    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    {
+        let system: &mut System = system.borrow_mut();
+        system.refresh_disks();
+    }
+    Box::into_raw(system);
+}
+
+/// Equivalent of `System.refresh_disk_list()`.
+#[no_mangle]
+pub extern "C" fn sysinfo_refresh_disk_list(system: CSystem) {
+    assert!(!system.is_null());
+    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    {
+        let system: &mut System = system.borrow_mut();
+        system.refresh_disk_list();
+    }
+    Box::into_raw(system);
+}
+
 /// Equivalent of `System.get_total_memory()`.
 #[no_mangle]
 pub extern "C" fn sysinfo_get_total_memory(system: CSystem) -> size_t {

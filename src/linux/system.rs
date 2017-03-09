@@ -141,7 +141,7 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_process(&mut self) {
+    fn refresh_processes(&mut self) {
         if refresh_procs(&mut self.process_list, "/proc", self.page_size_kb) {
             self.clear_procs();
         }

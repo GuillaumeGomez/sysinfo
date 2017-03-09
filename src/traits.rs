@@ -63,7 +63,7 @@ pub trait SystemExt {
     fn refresh_system(&mut self);
 
     /// Get all processes and update their information.
-    fn refresh_process(&mut self);
+    fn refresh_processes(&mut self);
 
     /// Refreshes the listed disks' information.
     fn refresh_disks(&mut self);
@@ -74,7 +74,7 @@ pub trait SystemExt {
     /// Refreshes all system, processes and disks information.
     fn refresh_all(&mut self) {
         self.refresh_system();
-        self.refresh_process();
+        self.refresh_processes();
         self.refresh_disks();
     }
 
