@@ -1,6 +1,6 @@
 [package]
 name = "sysinfo"
-version = "0.2.9"
+version = "0.2.10"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 
 description = "Library to handle processes"
