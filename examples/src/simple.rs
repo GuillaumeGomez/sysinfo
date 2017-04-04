@@ -28,7 +28,7 @@ fn print_help() {
     writeln!(&mut io::stdout(), "help               : show this menu");
     writeln!(&mut io::stdout(), "signals            : show the available signals");
     writeln!(&mut io::stdout(), "refresh            : reloads processes' information");
-    writeln!(&mut io::stdout(), "refresh_disks      : reloads processes' information");
+    writeln!(&mut io::stdout(), "refresh_disks      : reloads only disks' information");
     writeln!(&mut io::stdout(), "show [pid | name]  : show information of the given process \
                                  corresponding to [pid | name]");
     writeln!(&mut io::stdout(), "kill [pid] [signal]: send [signal] to the process with this \

@@ -206,17 +206,20 @@ fn get_disks_info() -> HashMap<String, DiskType> {
             let mut props = mem::uninitialized();
             let result = ffi::IORegistryEntryCreateCFProperties(next_media, &mut props,
                                                                 ffi::kCFAllocatorDefault, 0);
-            if result == ffi::KERN_SUCCESS as i32 && check_value(props, b"Whole\0") {
-                let mut name: ffi::io_name_t = mem::zeroed();
-                if ffi::IORegistryEntryGetName(next_media,
-                                               name.as_mut_ptr() as *mut c_char) == ffi::KERN_SUCCESS as i32 {
-                    if let Some(name) = make_name(&name) {
-                        ret.insert(name,
-                                   if check_value(props, b"RAID\0") {
-                                       DiskType::Unknown(-1)
-                                   } else {
-                                       DiskType::SSD
-                                   });
+            if result == ffi::KERN_SUCCESS as i32 {
+                if check_value(props, b"Whole\0") {
+                    let mut name: ffi::io_name_t = mem::zeroed();
+                    if ffi::IORegistryEntryGetName(next_media,
+                                                   name.as_mut_ptr() as *mut c_char)
+                        == ffi::KERN_SUCCESS as i32 {
+                        if let Some(name) = make_name(&name) {
+                            ret.insert(name,
+                                       if check_value(props, b"RAID\0") {
+                                           DiskType::Unknown(-1)
+                                       } else {
+                                           DiskType::SSD
+                                       });
+                        }
                     }
                 }
                 ffi::CFRelease(props as *mut c_void);
@@ -442,7 +445,7 @@ impl SystemExt for System {
     fn refresh_processes(&mut self) {
         let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
         if count < 1 {
-            return;
+            return
         }
         let mut pids: Vec<libc::pid_t> = Vec::with_capacity(count as usize);
         unsafe { pids.set_len(count as usize); }
@@ -450,7 +453,7 @@ impl SystemExt for System {
         let x = unsafe { ffi::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
 
         if x < 1 || x as usize > pids.len() {
-            return;
+            return
         } else if pids.len() > x as usize {
             unsafe { pids.set_len(x as usize); }
         }
@@ -599,7 +602,7 @@ impl SystemExt for System {
                     }
                 } else {
                     // we don't have enough priviledges to get access to these info
-                    continue;
+                    continue
                 }
                 self.process_list.insert(pid, p);
             }
