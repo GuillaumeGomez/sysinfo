@@ -328,6 +328,7 @@ impl SystemExt for System {
                         None
                     };
                     // getting CPU temperature
+                    // "TC0P"
                     v[3] = 'P' as i8;
                     let temp = get_temperature(con, v.as_mut_ptr() as *mut i8);
                     if temp > 0f32 {
@@ -335,6 +336,7 @@ impl SystemExt for System {
                                                               None, critical_temp));
                     }
                     // getting GPU temperature
+                    // "TG0P"
                     v[1] = 'G' as i8;
                     let temp = get_temperature(con, v.as_mut_ptr() as *mut i8);
                     if temp > 0f32 {
@@ -342,6 +344,7 @@ impl SystemExt for System {
                                                               None, critical_temp));
                     }
                     // getting battery temperature
+                    // "TB0T"
                     v[1] = 'B' as i8;
                     v[3] = 'T' as i8;
                     let temp = get_temperature(con, v.as_mut_ptr() as *mut i8);
