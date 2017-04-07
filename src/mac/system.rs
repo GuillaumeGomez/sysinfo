@@ -472,16 +472,19 @@ impl SystemExt for System {
         for pid in pids {
             unsafe {
                 let mut thread_info = ::std::mem::zeroed::<ffi::proc_threadinfo>();
-                let (user_time, system_time) = if ffi::proc_pidinfo(pid,
+                let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(pid,
                                      ffi::PROC_PIDTHREADINFO,
                                      0,
                                      &mut thread_info as *mut ffi::proc_threadinfo as *mut c_void,
                                      threadinfo_size) != 0 {
-                    (thread_info.pth_user_time, thread_info.pth_system_time)
+                    (thread_info.pth_user_time,
+                     thread_info.pth_system_time,
+                     Some(ThreadStatus::from(thread_info.pth_run_state)))
                 } else {
-                    (0, 0)
+                    (0, 0, None)
                 };
                 if let Some(ref mut p) = self.process_list.get_mut(&pid) {
+                    p.status = thread_status;
                     let mut task_info = ::std::mem::zeroed::<ffi::proc_taskinfo>();
                     if ffi::proc_pidinfo(pid,
                                          ffi::PROC_PIDTASKINFO,
@@ -520,7 +523,7 @@ impl SystemExt for System {
 
                 p.uid = task_info.pbsd.pbi_uid;
                 p.gid = task_info.pbsd.pbi_gid;
-                p.status = Some(ProcessStatus::from(task_info.pbsd.pbi_status));
+                p.process_status = Some(ProcessStatus::from(task_info.pbsd.pbi_status));
 
                 let ptr = proc_args.as_mut_slice().as_mut_ptr();
                 mib[0] = ffi::CTL_KERN;
