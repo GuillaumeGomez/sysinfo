@@ -59,6 +59,56 @@ impl fmt::Display for ProcessStatus {
     }
 }
 
+/// Enum describing the different status of a thread.
+#[derive(Clone, Debug)]
+pub enum ThreadStatus {
+    /// Thread is running normally.
+    Running,
+    /// Thread is stopped.
+    Stopped,
+    /// Thread is waiting normally.
+    Waiting,
+    /// Thread is in an uninterruptible wait
+    Uninterruptible,
+    /// Thread is halted at a clean point.
+    Halted,
+    /// Unknown.
+    Unknown(i32),
+}
+
+impl From<i32> for ThreadStatus {
+    fn from(status: i32) -> ThreadStatus {
+        match status {
+            1 => ThreadStatus::Running,
+            2 => ThreadStatus::Stopped,
+            3 => ThreadStatus::Waiting,
+            4 => ThreadStatus::Uninterruptible,
+            5 => ThreadStatus::Halted,
+            x => ThreadStatus::Unknown(x),
+        }
+    }
+}
+
+impl ThreadStatus {
+    /// Used to display `ThreadStatus`.
+    pub fn to_string(&self) -> &str {
+        match *self {
+            ThreadStatus::Running         => "Running",
+            ThreadStatus::Stopped         => "Stopped",
+            ThreadStatus::Waiting         => "Waiting",
+            ThreadStatus::Uninterruptible => "Uninterruptible",
+            ThreadStatus::Halted          => "Halted",
+            ThreadStatus::Unknown(_)      => "Unknown",
+        }
+    }
+}
+
+impl fmt::Display for ThreadStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
 /// Struct containing a process' information.
 #[derive(Clone)]
 pub struct Process {
@@ -93,8 +143,12 @@ pub struct Process {
     pub uid: uid_t,
     /// Group id of the process owner.
     pub gid: gid_t,
-    /// status of process (idle, run, zombie, etc)
-    pub status: Option<ProcessStatus>,
+    /// Status of process (idle, run, zombie, etc).
+    pub process_status: Option<ProcessStatus>,
+    /// Status of process (running, stopped, waiting, etc).
+    ///
+    /// This is very likely this one that you want instead of `process_status`.
+    pub status: Option<ThreadStatus>,
 }
 
 impl ProcessExt for Process {
@@ -118,6 +172,7 @@ impl ProcessExt for Process {
             start_time: start_time,
             uid: 0,
             gid: 0,
+            process_status: None,
             status: None,
         }
     }
