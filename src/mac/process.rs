@@ -145,7 +145,8 @@ pub struct Process {
     pub gid: gid_t,
     /// Status of process (idle, run, zombie, etc).
     pub process_status: Option<ProcessStatus>,
-    /// Status of process (running, stopped, waiting, etc).
+    /// Status of process (running, stopped, waiting, etc). `None` means `sysinfo` doesn't have
+    /// enough rights to get this information.
     ///
     /// This is very likely this one that you want instead of `process_status`.
     pub status: Option<ThreadStatus>,
