@@ -127,7 +127,8 @@ pub struct Process {
     pub uid: uid_t,
     /// Group id of the process owner.
     pub gid: gid_t,
-    /// Status of process (idle, run, zombie, etc).
+    /// Status of process (idle, run, zombie, etc). `None` means `sysinfo` doesn't have
+    /// enough rights to get this information.
     pub status: Option<ProcessStatus>,
     /// Tasks run by this process.
     pub tasks: HashMap<pid_t, Process>,
