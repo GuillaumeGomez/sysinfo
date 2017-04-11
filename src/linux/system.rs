@@ -267,10 +267,9 @@ fn update_time_and_memory(path: &Path, entry: &mut Process, parts: &[&str], page
                           parent_memory: u64, pid: pid_t) {
     //entry.name = parts[1][1..].to_owned();
     //entry.name.pop();
-    // we get the rss then we add the vsize
+    // we get the rss
     {
-        entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb +
-                       u64::from_str(parts[22]).unwrap() / 1024;
+        entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb;
         if entry.memory >= parent_memory {
             entry.memory -= parent_memory;
         }
