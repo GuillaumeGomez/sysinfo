@@ -422,7 +422,7 @@ fn get_all_disks() -> Vec<Disk> {
     let content = get_all_data("/proc/mounts").unwrap_or(String::new());
     let disks: Vec<_> = content.lines()
                                .filter(|line| line.trim_left()
-                                                  .starts_with("/dev/sda"))
+                                                  .starts_with("/dev/sd"))
                                .collect();
     let mut ret = Vec::with_capacity(disks.len());
 
