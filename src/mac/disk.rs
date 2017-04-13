@@ -6,7 +6,7 @@
 
 use ::DiskExt;
 
-use libc::{statfs, statvfs};
+use libc::statfs;
 use std::{mem, str};
 use std::fmt::{Debug, Error, Formatter};
 
@@ -41,7 +41,7 @@ pub fn new_disk(name: String, mount_point: &str, type_: DiskType) -> Disk {
         let mut stat: statfs = mem::zeroed();
         if statfs(mount_point.as_ptr() as *const i8, &mut stat) == 0 {
             total_space = stat.f_bsize as u64 * stat.f_blocks as u64;
-            available_space = stat.f_bsize as u64 * stat.f_bavail as u64;
+            available_space = stat.f_bfree as u64  * stat.f_blocks as u64;
             let mut vec = Vec::with_capacity(stat.f_fstypename.len());
             for x in &stat.f_fstypename {
                 if *x == 0 {
@@ -108,8 +108,8 @@ impl DiskExt for Disk {
 
     fn update(&mut self) -> bool {
         unsafe {
-            let mut stat: statvfs = mem::zeroed();
-            if statvfs(self.mount_point.as_ptr() as *const i8, &mut stat) == 0 {
+            let mut stat: statfs = mem::zeroed();
+            if statfs(self.mount_point.as_ptr() as *const i8, &mut stat) == 0 {
                 self.available_space = stat.f_bsize as u64 * stat.f_bavail as u64;
                 true
             } else {
