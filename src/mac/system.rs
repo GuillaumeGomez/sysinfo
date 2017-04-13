@@ -12,7 +12,7 @@ use sys::disk::{self, Disk, DiskType};
 use ::{DiskExt, ProcessExt, ProcessorExt, SystemExt};
 use std::collections::HashMap;
 use libc::{self, c_void, c_int, pid_t, size_t, c_char, sysconf, _SC_PAGESIZE};
-use std::rc::Rc;
+use std::sync::Arc;
 use sys::processor;
 use std::{fs, mem, ptr};
 use utils;
@@ -390,12 +390,12 @@ impl SystemExt for System {
 
                 self.processors.push(
                     processor::create_proc("0".to_owned(),
-                                           Rc::new(ProcessorData::new(::std::ptr::null_mut(), 0))));
+                                           Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0))));
                 if ffi::host_processor_info(ffi::mach_host_self(), ffi::PROCESSOR_CPU_LOAD_INFO,
                                        &mut num_cpu_u as *mut u32,
                                        &mut cpu_info as *mut *mut i32,
                                        &mut num_cpu_info as *mut u32) == ffi::KERN_SUCCESS {
-                    let proc_data = Rc::new(ProcessorData::new(cpu_info, num_cpu_info));
+                    let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
                     for i in 0..num_cpu {
                         let mut p = processor::create_proc(format!("{}", i + 1), proc_data.clone());
                         let in_use = *cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize)
@@ -411,7 +411,7 @@ impl SystemExt for System {
                                                &mut cpu_info as *mut *mut i32,
                                                &mut num_cpu_info as *mut u32) == ffi::KERN_SUCCESS {
                 let mut pourcent = 0f32;
-                let proc_data = Rc::new(ProcessorData::new(cpu_info, num_cpu_info));
+                let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
                 for (i, proc_) in self.processors.iter_mut().skip(1).enumerate() {
                     let old_proc_data = &*processor::get_processor_data(proc_);
                     let in_use = (*cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
