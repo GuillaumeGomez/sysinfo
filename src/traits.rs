@@ -87,7 +87,7 @@ pub trait SystemExt {
     /// Returns a list of process starting with the given name.
     fn get_process_by_name(&self, name: &str) -> Vec<&Process>;
 
-    /// The first process in the array is the "main" process.
+    /// The first processor in the array is the "main" process.
     fn get_processor_list(&self) -> &[Processor];
 
     /// Returns total RAM size.
