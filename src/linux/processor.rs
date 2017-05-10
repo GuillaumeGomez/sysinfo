@@ -128,15 +128,18 @@ impl Processor {
 
     fn set(&mut self, user: u64, nice: u64, system: u64, idle: u64, iowait: u64,
            irq: u64, softirq: u64, steal: u64, guest: u64, guest_nice: u64) {
-            //if !self.new_values.is_zero() {
-                self.old_values = self.new_values;
-            //}
-            self.new_values.set(user, nice, system, idle, iowait, irq, softirq, steal,
-                guest, guest_nice);
-            self.cpu_usage = (self.new_values.work_time() - self.old_values.work_time()) as f32 /
-                (self.new_values.total_time() - self.old_values.total_time()) as f32;
-            self.old_total_time = self.old_values.total_time();
-            self.total_time = self.new_values.total_time();
+        fn min(a: u64, b: u64) -> f32 {
+            if a == b { 1 } else if a > b { a - b } else { b - a } as f32
+        }
+        //if !self.new_values.is_zero() {
+            self.old_values = self.new_values;
+        //}
+        self.new_values.set(user, nice, system, idle, iowait, irq, softirq, steal,
+            guest, guest_nice);
+        self.cpu_usage = min(self.new_values.work_time(), self.old_values.work_time()) /
+            min(self.new_values.total_time(), - self.old_values.total_time());
+        self.old_total_time = self.old_values.total_time();
+        self.total_time = self.new_values.total_time();
     }
 }
 
