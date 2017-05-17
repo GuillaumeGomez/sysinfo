@@ -36,7 +36,7 @@ impl System {
     fn clear_procs(&mut self) {
         if !self.processors.is_empty() {
             let (new, old) = get_raw_times(&self.processors[0]);
-            let total_time = (new - old) as f32;
+            let total_time = (if old > new { 1 } else { new - old }) as f32;
             let mut to_delete = Vec::new();
             let nb_processors = self.processors.len() as u64 - 1;
 
