@@ -239,7 +239,7 @@ pub fn get_all_data(file_path: &str) -> io::Result<String> {
     let mut file = File::open(file_path)?;
     let mut data = String::new();
 
-    file.read_to_string(&mut data).unwrap();
+    file.read_to_string(&mut data)?;
     Ok(data)
 }
 
