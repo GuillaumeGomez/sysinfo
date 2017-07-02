@@ -47,8 +47,8 @@ pub fn new_disk(name: &str, mount_point: &str, file_system: &str) -> Disk {
     unsafe {
         let mut stat: statvfs = mem::zeroed();
         if statvfs(mount_point.as_ptr() as *const i8, &mut stat) == 0 {
-            total_space = stat.f_bsize * stat.f_blocks;
-            available_space = stat.f_bsize * stat.f_bavail;
+            total_space = stat.f_bsize as u64 * stat.f_blocks as u64;
+            available_space = stat.f_bsize as u64 * stat.f_bavail as u64;
         }
     }
     Disk {
@@ -109,7 +109,7 @@ impl DiskExt for Disk {
         unsafe {
             let mut stat: statvfs = mem::zeroed();
             if statvfs(self.mount_point.as_ptr() as *const i8, &mut stat) == 0 {
-                self.available_space = stat.f_bsize * stat.f_bavail;
+                self.available_space = stat.f_bsize as u64 * stat.f_bavail as u64;
                 true
             } else {
                 false
