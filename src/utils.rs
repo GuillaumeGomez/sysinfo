@@ -9,7 +9,7 @@ use std::fs;
 #[cfg(not(target_os = "windows"))]
 use std::path::{Path, PathBuf};
 #[cfg(not(target_os = "windows"))]
-use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
+use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT, pid_t};
 
 #[cfg(not(target_os = "windows"))]
 pub fn realpath(original: &Path) -> PathBuf {
@@ -33,4 +33,14 @@ pub fn realpath(original: &Path) -> PathBuf {
             Err(_) => PathBuf::new(),
         }
     }
+}
+
+/// Returns the pid for the current process.
+#[cfg(not(target_os = "windows"))]
+pub fn get_current_pid() -> pid_t {
+    extern "C" {
+        fn getpid() -> pid_t;
+    }
+
+    unsafe { getpid() }
 }

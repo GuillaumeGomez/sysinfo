@@ -76,6 +76,8 @@ pub use traits::{
     ProcessorExt,
     SystemExt,
 };
+#[cfg(not(target_os = "windows"))]
+pub use utils::get_current_pid;
 #[cfg(feature = "c-interface")]
 pub use c_interface::*;
 
