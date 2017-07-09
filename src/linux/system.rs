@@ -85,41 +85,26 @@ impl SystemExt for System {
 
     fn refresh_system(&mut self) {
         let data = get_all_data("/proc/meminfo").unwrap();
-        let lines: Vec<&str> = data.split('\n').collect();
 
         for component in &mut self.temperatures {
             component.update();
         }
-        for line in &lines {
-            match *line {
-                l if l.starts_with("MemTotal:") => {
-                    let parts: Vec<&str> = line.split(' ').collect();
-
-                    self.mem_total = u64::from_str(parts[parts.len() - 2]).unwrap();
-                },
-                l if l.starts_with("MemAvailable:") => {
-                    let parts: Vec<&str> = line.split(' ').collect();
-
-                    self.mem_free = u64::from_str(parts[parts.len() - 2]).unwrap();
-                },
-                l if l.starts_with("SwapTotal:") => {
-                    let parts: Vec<&str> = line.split(' ').collect();
-
-                    self.swap_total = u64::from_str(parts[parts.len() - 2]).unwrap();
-                },
-                l if l.starts_with("SwapFree:") => {
-                    let parts: Vec<&str> = line.split(' ').collect();
-
-                    self.swap_free = u64::from_str(parts[parts.len() - 2]).unwrap();
-                },
+        for line in data.split('\n') {
+            let field = match line.split(':').next() {
+                Some("MemTotal") => &mut self.mem_total,
+                Some("MemAvailable") => &mut self.mem_free,
+                Some("SwapTotal") => &mut self.swap_total,
+                Some("SwapFree") => &mut self.swap_free,
                 _ => continue,
+            };
+            if let Some(val_str) = line.rsplit(' ').nth(1) {
+                *field = u64::from_str(val_str).unwrap();
             }
         }
         let data = get_all_data("/proc/stat").unwrap();
-        let lines: Vec<&str> = data.split('\n').collect();
         let mut i = 0;
         let first = self.processors.is_empty();
-        for line in &lines {
+        for line in data.split('\n') {
             if !line.starts_with("cpu") {
                 break;
             }
