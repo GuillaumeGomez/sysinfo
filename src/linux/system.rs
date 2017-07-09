@@ -220,11 +220,14 @@ impl Default for System {
     }
 }
 
-pub fn get_all_data(file_path: &str) -> io::Result<String> {
-    let mut file = File::open(file_path)?;
-    let mut data = String::new();
+pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
+    use std::error::Error;
+    let mut file = File::open(file_path.as_ref())?;
+    let mut data = vec![0; 16385];
 
-    file.read_to_string(&mut data)?;
+    let size = file.read(&mut data).unwrap();
+    data.truncate(size);
+    let data = String::from_utf8(data).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.description()))?;
     Ok(data)
 }
 
@@ -405,25 +408,15 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 fn get_all_disks() -> Vec<Disk> {
     #[allow(or_fun_call)]
     let content = get_all_data("/proc/mounts").unwrap_or(String::new());
-    let disks: Vec<_> = content.lines()
-                               .filter(|line| line.trim_left()
-                                                  .starts_with("/dev/sd"))
-                               .collect();
-    let mut ret = Vec::with_capacity(disks.len());
+    let disks = content.lines()
+        .filter(|line| line.trim_left().starts_with("/dev/sd"));
+    let mut ret = vec![];
 
-    if disks.len() == 1 {
-        let info: Vec<_> = disks[0].split(' ').collect();
-        if info.len() < 3 {
-            return ret;
-        }
-        ret.push(disk::new_disk("sda", info[1], info[2]));
-    } else {
-        for line in disks {
-            let info: Vec<_> = line.split(' ').collect();
-            if info.len() < 3 {
-                continue
-            }
-            ret.push(disk::new_disk(&info[0][5..], info[1], info[2]));
+    for line in disks {
+        let mut split = line.split(' ');
+        if let (Some(name), Some(mountpt), Some(fs)) = (split.next(), split.next(), split.next())
+        {
+            ret.push(disk::new(name[5..].as_ref(), Path::new(mountpt), fs.as_bytes()));
         }
     }
     ret
