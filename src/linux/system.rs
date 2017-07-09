@@ -20,6 +20,7 @@ use libc::{pid_t, uid_t, sysconf, _SC_CLK_TCK, _SC_PAGESIZE};
 use utils::realpath;
 
 /// Structs containing system's information.
+#[derive(Debug)]
 pub struct System {
     process_list: Process,
     mem_total: u64,
@@ -56,15 +57,29 @@ impl System {
     /// **WARNING**: This method is specific to Linux.
     ///
     /// Refresh *only* the process corresponding to `pid`.
+    /// Fails if this process is not yet in the process list.
     pub fn refresh_process(&mut self, pid: pid_t) -> bool {
         if let Some(proc_) = self.process_list.tasks.get_mut(&pid) {
-            _get_process_data(Path::new(&format!("/proc/{}", pid)), proc_, self.page_size_kb, pid);
+            _get_process_data(&Path::new("/proc/").join(pid.to_string()), proc_, self.page_size_kb, pid);
             true
         } else {
             false
         }
     }
 }
+
+#[test]
+fn test_refresh_system()
+{
+    let mut sys = System::new();
+    sys.refresh_system();
+    println!("{:?}", sys);
+    assert!(sys.mem_total != 0);
+    assert!(sys.mem_free != 0);
+    assert!(sys.mem_total >= sys.mem_free);
+    assert!(sys.swap_total >= sys.swap_free);
+}
+
 
 impl SystemExt for System {
     fn new() -> System {
@@ -85,41 +100,26 @@ impl SystemExt for System {
 
     fn refresh_system(&mut self) {
         let data = get_all_data("/proc/meminfo").unwrap();
-        let lines: Vec<&str> = data.split('\n').collect();
 
         for component in &mut self.temperatures {
             component.update();
         }
-        for line in &lines {
-            match *line {
-                l if l.starts_with("MemTotal:") => {
-                    let parts: Vec<&str> = line.split(' ').collect();
-
-                    self.mem_total = u64::from_str(parts[parts.len() - 2]).unwrap();
-                },
-                l if l.starts_with("MemAvailable:") => {
-                    let parts: Vec<&str> = line.split(' ').collect();
-
-                    self.mem_free = u64::from_str(parts[parts.len() - 2]).unwrap();
-                },
-                l if l.starts_with("SwapTotal:") => {
-                    let parts: Vec<&str> = line.split(' ').collect();
-
-                    self.swap_total = u64::from_str(parts[parts.len() - 2]).unwrap();
-                },
-                l if l.starts_with("SwapFree:") => {
-                    let parts: Vec<&str> = line.split(' ').collect();
-
-                    self.swap_free = u64::from_str(parts[parts.len() - 2]).unwrap();
-                },
+        for line in data.split('\n') {
+            let field = match line.split(':').next() {
+                Some("MemTotal") => &mut self.mem_total,
+                Some("MemAvailable") => &mut self.mem_free,
+                Some("SwapTotal") => &mut self.swap_total,
+                Some("SwapFree") => &mut self.swap_free,
                 _ => continue,
+            };
+            if let Some(val_str) = line.rsplit(' ').nth(1) {
+                *field = u64::from_str(val_str).unwrap();
             }
         }
         let data = get_all_data("/proc/stat").unwrap();
-        let lines: Vec<&str> = data.split('\n').collect();
         let mut i = 0;
         let first = self.processors.is_empty();
-        for line in &lines {
+        for line in data.split('\n') {
             if !line.starts_with("cpu") {
                 break;
             }
@@ -235,17 +235,20 @@ impl Default for System {
     }
 }
 
-pub fn get_all_data(file_path: &str) -> io::Result<String> {
-    let mut file = File::open(file_path)?;
-    let mut data = String::new();
+pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
+    use std::error::Error;
+    let mut file = File::open(file_path.as_ref())?;
+    let mut data = vec![0; 16385];
 
-    file.read_to_string(&mut data)?;
+    let size = file.read(&mut data).unwrap();
+    data.truncate(size);
+    let data = String::from_utf8(data).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.description()))?;
     Ok(data)
 }
 
 fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb: u64,
                                  pid: pid_t) -> bool {
-    if let Ok(d) = fs::read_dir(&Path::new(path.as_ref())) {
+    if let Ok(d) = fs::read_dir(path.as_ref()) {
         for entry in d {
             if !entry.is_ok() {
                 continue;
@@ -277,25 +280,18 @@ fn update_time_and_memory(path: &Path, entry: &mut Process, parts: &[&str], page
                  u64::from_str(parts[13]).unwrap(),
                  u64::from_str(parts[14]).unwrap());
     }
-    refresh_procs(entry, path.join(Path::new("task")).as_path(), page_size_kb, pid);
+    refresh_procs(entry, path.join(Path::new("task")), page_size_kb, pid);
 }
 
 fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pid: pid_t) {
-    if !path.exists() || !path.is_dir() {
-        return
-    }
-    let last = path.to_str().unwrap().split('/').last();
-    if last.is_none() {
-        return
-    }
-    if let Ok(nb) = pid_t::from_str(last.unwrap()) {
+    if let Some(Ok(nb)) = path.file_name().and_then(|x| x.to_str()).map(pid_t::from_str) {
         if nb == pid {
             return
         }
         let mut tmp = PathBuf::from(path);
 
         tmp.push("stat");
-        let data = get_all_data(tmp.to_str().unwrap()).unwrap();
+        let data = get_all_data(&tmp).unwrap();
 
         // The stat file is "interesting" to parse, because spaces cannot
         // be used as delimiters. The second field stores the command name
@@ -339,7 +335,7 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
 
         tmp = PathBuf::from(path);
         tmp.push("status");
-        let status_data = get_all_data(tmp.to_str().unwrap()).unwrap();
+        let status_data = get_all_data(&tmp).unwrap();
 
         // We're only interested in the lines starting with Uid: and Gid:
         // here. From these lines, we're looking at the second entry to get
@@ -393,10 +389,10 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
             }
             tmp = PathBuf::from(path);
             tmp.push("cwd");
-            p.cwd = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
+            p.cwd = realpath(&tmp).to_str().unwrap().to_owned();
             tmp = PathBuf::from(path);
             tmp.push("root");
-            p.root = realpath(Path::new(tmp.to_str().unwrap())).to_str().unwrap().to_owned();
+            p.root = realpath(&tmp).to_str().unwrap().to_owned();
         }
 
         update_time_and_memory(path, &mut p, &parts, page_size_kb, proc_list.memory, nb);
@@ -404,13 +400,14 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
     }
 }
 
-#[allow(unused_must_use)] 
 fn copy_from_file(entry: &Path) -> Vec<String> {
     match File::open(entry.to_str().unwrap()) {
         Ok(mut f) => {
-            let mut d = String::new();
+            let mut data = vec![0; 16384];
 
-            f.read_to_string(&mut d);
+            let size = f.read(&mut data).unwrap();
+            data.truncate(size);
+            let d = String::from_utf8(data).expect("not utf8?");
             d.split('\0').map(|x| x.to_owned()).collect()
         },
         Err(_) => Vec::new()
@@ -420,25 +417,15 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 fn get_all_disks() -> Vec<Disk> {
     #[allow(or_fun_call)]
     let content = get_all_data("/proc/mounts").unwrap_or(String::new());
-    let disks: Vec<_> = content.lines()
-                               .filter(|line| line.trim_left()
-                                                  .starts_with("/dev/sd"))
-                               .collect();
-    let mut ret = Vec::with_capacity(disks.len());
+    let disks = content.lines()
+        .filter(|line| line.trim_left().starts_with("/dev/sd"));
+    let mut ret = vec![];
 
-    if disks.len() == 1 {
-        let info: Vec<_> = disks[0].split(' ').collect();
-        if info.len() < 3 {
-            return ret;
-        }
-        ret.push(disk::new_disk("sda", info[1], info[2]));
-    } else {
-        for line in disks {
-            let info: Vec<_> = line.split(' ').collect();
-            if info.len() < 3 {
-                continue
-            }
-            ret.push(disk::new_disk(&info[0][5..], info[1], info[2]));
+    for line in disks {
+        let mut split = line.split(' ');
+        if let (Some(name), Some(mountpt), Some(fs)) = (split.next(), split.next(), split.next())
+        {
+            ret.push(disk::new(name[5..].as_ref(), Path::new(mountpt), fs.as_bytes()));
         }
     }
     ret

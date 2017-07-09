@@ -8,6 +8,8 @@ use sys::{Component, Disk, DiskType, Process, Processor};
 
 use libc::pid_t;
 use std::collections::HashMap;
+use std::ffi::OsStr;
+use std::path::Path;
 
 /// Contains all the methods of the `Disk` struct.
 pub trait DiskExt {
@@ -15,13 +17,13 @@ pub trait DiskExt {
     fn get_type(&self) -> DiskType;
 
     /// Returns the disk name.
-    fn get_name(&self) -> &str;
+    fn get_name(&self) -> &OsStr;
 
     /// Returns the file system used on this disk (so for example: `EXT4`, `NTFS`, etc...).
-    fn get_file_system(&self) -> &str;
+    fn get_file_system(&self) -> &[u8];
 
     /// Returns the mount point of the disk (`/` for example).
-    fn get_mount_point(&self) -> &str;
+    fn get_mount_point(&self) -> &Path;
 
     /// Returns the total disk size, in bytes.
     fn get_total_space(&self) -> u64;

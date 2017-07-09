@@ -5,10 +5,13 @@
 //
 
 use ::DiskExt;
+use ::utils;
 
 use libc::statfs;
 use std::{mem, str};
 use std::fmt::{Debug, Error, Formatter};
+use std::path::{Path, PathBuf};
+use std::ffi::{OsStr, OsString};
 
 /// Enum containing the different handled disks types.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -31,15 +34,14 @@ impl From<isize> for DiskType {
     }
 }
 
-pub fn new_disk(name: String, mount_point: &str, type_: DiskType) -> Disk {
-    let mut mount_point = mount_point.as_bytes().to_vec();
-    mount_point.push(0);
+pub fn new(name: OsString, mount_point: &Path, type_: DiskType) -> Disk {
+    let mount_point_cpath = utils::to_cpath(mount_point);
     let mut total_space = 0;
     let mut available_space = 0;
     let mut file_system = None;
     unsafe {
         let mut stat: statfs = mem::zeroed();
-        if statfs(mount_point.as_ptr() as *const i8, &mut stat) == 0 {
+        if statfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
             total_space = stat.f_bsize as u64 * stat.f_blocks as u64;
             available_space = stat.f_bfree as u64  * stat.f_blocks as u64;
             let mut vec = Vec::with_capacity(stat.f_fstypename.len());
@@ -49,14 +51,14 @@ pub fn new_disk(name: String, mount_point: &str, type_: DiskType) -> Disk {
                 }
                 vec.push(*x as u8);
             }
-            file_system = Some(String::from_utf8_unchecked(vec));
+            file_system = Some(vec);
         }
     }
     Disk {
         type_: type_,
         name: name,
-        file_system: file_system.unwrap_or_else(|| "<Unknown>".to_owned()),
-        mount_point: mount_point,
+        file_system: file_system.unwrap_or_else(|| b"<Unknown>".to_vec()),
+        mount_point: mount_point.to_owned(),
         total_space: total_space,
         available_space: available_space,
     }
@@ -65,9 +67,9 @@ pub fn new_disk(name: String, mount_point: &str, type_: DiskType) -> Disk {
 /// Struct containing a disk information.
 pub struct Disk {
     type_: DiskType,
-    name: String,
-    file_system: String,
-    mount_point: Vec<u8>,
+    name: OsString,
+    file_system: Vec<u8>,
+    mount_point: PathBuf,
     total_space: u64,
     available_space: u64,
 }
@@ -86,16 +88,16 @@ impl DiskExt for Disk {
         self.type_
     }
 
-    fn get_name(&self) -> &str {
+    fn get_name(&self) -> &OsStr {
         &self.name
     }
 
-    fn get_file_system(&self) -> &str {
+    fn get_file_system(&self) -> &[u8] {
         &self.file_system
     }
 
-    fn get_mount_point(&self) -> &str {
-        unsafe { str::from_utf8_unchecked(&self.mount_point[..self.mount_point.len() - 1]) }
+    fn get_mount_point(&self) -> &Path {
+        &self.mount_point
     }
 
     fn get_total_space(&self) -> u64 {
@@ -109,7 +111,8 @@ impl DiskExt for Disk {
     fn update(&mut self) -> bool {
         unsafe {
             let mut stat: statfs = mem::zeroed();
-            if statfs(self.mount_point.as_ptr() as *const i8, &mut stat) == 0 {
+            let mount_point_cpath = utils::to_cpath(&self.mount_point);
+            if statfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
                 self.available_space = stat.f_bsize as u64 * stat.f_bavail as u64;
                 true
             } else {

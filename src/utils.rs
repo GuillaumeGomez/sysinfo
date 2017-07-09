@@ -9,6 +9,10 @@ use std::fs;
 #[cfg(not(target_os = "windows"))]
 use std::path::{Path, PathBuf};
 #[cfg(not(target_os = "windows"))]
+use std::ffi::OsStr;
+#[cfg(not(target_os = "windows"))]
+use std::os::unix::ffi::OsStrExt;
+#[cfg(not(target_os = "windows"))]
 use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT, pid_t};
 
 #[cfg(not(target_os = "windows"))]
@@ -33,6 +37,16 @@ pub fn realpath(original: &Path) -> PathBuf {
             Err(_) => PathBuf::new(),
         }
     }
+}
+
+/* convert a path to a NUL-terminated Vec<u8> suitable for use with C functions */
+#[cfg(not(target_os = "windows"))]
+pub fn to_cpath(path: &Path) -> Vec<u8>
+{
+    let path_os: &OsStr = path.as_ref();
+    let mut cpath = path_os.as_bytes().to_vec();
+    cpath.push(0);
+    cpath
 }
 
 /// Returns the pid for the current process.
