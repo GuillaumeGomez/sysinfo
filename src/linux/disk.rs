@@ -37,10 +37,11 @@ impl From<isize> for DiskType {
 
 fn find_type_for_name(name: &OsStr) -> DiskType
 {
+    #![allow(or_fun_call)]
     /* turn "sda1" into "sda": */
     let mut trimmed: &[u8] = name.as_bytes();
     while trimmed.len() > 1 && trimmed[trimmed.len()-1] >= b'0' && trimmed[trimmed.len()-1] <= b'9' {
-	trimmed = &trimmed[..trimmed.len()-1]
+        trimmed = &trimmed[..trimmed.len()-1]
     }
     let trimmed: &OsStr = OsStrExt::from_bytes(trimmed);
 
@@ -61,7 +62,6 @@ fn to_cpath(path: &Path) -> Vec<u8>
 }
 
 pub fn new(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Disk {
-    #[allow(or_fun_call)]
     let mount_point_cpath = to_cpath(mount_point);
     let type_ = find_type_for_name(name);
     let mut total_space = 0;
