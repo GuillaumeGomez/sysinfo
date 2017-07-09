@@ -392,13 +392,14 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
     }
 }
 
-#[allow(unused_must_use)] 
 fn copy_from_file(entry: &Path) -> Vec<String> {
     match File::open(entry.to_str().unwrap()) {
         Ok(mut f) => {
-            let mut d = String::new();
+            let mut data = vec![0; 16384];
 
-            f.read_to_string(&mut d);
+            let size = f.read(&mut data).unwrap();
+            data.truncate(size);
+            let d = String::from_utf8(data).expect("not utf8?");
             d.split('\0').map(|x| x.to_owned()).collect()
         },
         Err(_) => Vec::new()
