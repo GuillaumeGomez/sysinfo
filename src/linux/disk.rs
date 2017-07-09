@@ -5,6 +5,7 @@
 //
 
 use ::DiskExt;
+use ::utils;
 use super::system::get_all_data;
 
 use libc::statvfs;
@@ -52,17 +53,8 @@ fn find_type_for_name(name: &OsStr) -> DiskType
     DiskType::from(rotational_int.unwrap_or(-1))
 }
 
-/* convert a path to a NUL-terminated Vec<u8> suitable for use with C functions */
-fn to_cpath(path: &Path) -> Vec<u8>
-{
-    let path_os: &OsStr = path.as_ref();
-    let mut cpath = path_os.as_bytes().to_vec();
-    cpath.push(0);
-    cpath
-}
-
 pub fn new(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Disk {
-    let mount_point_cpath = to_cpath(mount_point);
+    let mount_point_cpath = utils::to_cpath(mount_point);
     let type_ = find_type_for_name(name);
     let mut total_space = 0;
     let mut available_space = 0;
@@ -130,7 +122,7 @@ impl DiskExt for Disk {
     fn update(&mut self) -> bool {
         unsafe {
             let mut stat: statvfs = mem::zeroed();
-            let mount_point_cpath = to_cpath(&self.mount_point);
+            let mount_point_cpath = utils::to_cpath(&self.mount_point);
             if statvfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
                 self.available_space = stat.f_bsize * stat.f_bavail;
                 true
