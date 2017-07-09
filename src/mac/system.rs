@@ -11,6 +11,8 @@ use sys::process::*;
 use sys::disk::{self, Disk, DiskType};
 use ::{DiskExt, ProcessExt, ProcessorExt, SystemExt};
 use std::collections::HashMap;
+use std::os::unix::ffi::OsStringExt;
+use std::ffi::OsString;
 use libc::{self, c_void, c_int, pid_t, size_t, c_char, sysconf, _SC_PAGESIZE};
 use std::sync::Arc;
 use sys::processor;
@@ -173,16 +175,16 @@ unsafe fn check_value(dict: ffi::CFMutableDictionaryRef, key: &[u8]) -> bool {
     ret
 }
 
-fn make_name(v: &[u8]) -> Option<String> {
+fn make_name(v: &[u8]) -> OsString {
     for (pos, x) in v.iter().enumerate() {
         if *x == 0 {
-            return String::from_utf8(v[0..pos].to_vec()).ok()
+            return OsStringExt::from_vec(v[0..pos].to_vec())
         }
     }
-    String::from_utf8(v.to_vec()).ok()
+    OsStringExt::from_vec(v.to_vec())
 }
 
-fn get_disk_types() -> HashMap<String, DiskType> {
+fn get_disk_types() -> HashMap<OsString, DiskType> {
     let mut master_port: ffi::mach_port_t = 0;
     let mut media_iterator: ffi::io_iterator_t = 0;
     let mut ret = HashMap::new();
@@ -211,14 +213,12 @@ fn get_disk_types() -> HashMap<String, DiskType> {
                 if ffi::IORegistryEntryGetName(next_media,
                                                name.as_mut_ptr() as *mut c_char)
                     == ffi::KERN_SUCCESS as i32 {
-                    if let Some(name) = make_name(&name) {
-                        ret.insert(name,
-                                   if check_value(props, b"RAID\0") {
-                                       DiskType::Unknown(-1)
-                                   } else {
-                                       DiskType::SSD
-                                   });
-                    }
+                    ret.insert(make_name(&name),
+                               if check_value(props, b"RAID\0") {
+                                   DiskType::Unknown(-1)
+                               } else {
+                                   DiskType::SSD
+                               });
                 }
                 ffi::CFRelease(props as *mut c_void);
             }
@@ -236,13 +236,12 @@ fn get_disks() -> Vec<Disk> {
     for entry in unwrapper!(fs::read_dir("/Volumes"), ret) {
         if let Ok(entry) = entry {
             let mount_point = utils::realpath(&entry.path());
-            let mount_point = mount_point.to_str().unwrap_or("");
-            if mount_point.is_empty() {
+            if mount_point.as_os_str().is_empty() {
                 continue
             }
-            let name = entry.path().file_name().unwrap().to_str().unwrap().to_owned();
+            let name = entry.path().file_name().unwrap().to_owned();
             let type_ = disk_types.get(&name).cloned().unwrap_or(DiskType::Unknown(-2));
-            ret.push(disk::new(name, mount_point, type_));
+            ret.push(disk::new(name, &mount_point, type_));
         }
     }
     ret
