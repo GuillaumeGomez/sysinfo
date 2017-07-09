@@ -182,7 +182,7 @@ fn make_name(v: &[u8]) -> Option<String> {
     String::from_utf8(v.to_vec()).ok()
 }
 
-fn get_disks_info() -> HashMap<String, DiskType> {
+fn get_disk_types() -> HashMap<String, DiskType> {
     let mut master_port: ffi::mach_port_t = 0;
     let mut media_iterator: ffi::io_iterator_t = 0;
     let mut ret = HashMap::new();
@@ -230,7 +230,7 @@ fn get_disks_info() -> HashMap<String, DiskType> {
 }
 
 fn get_disks() -> Vec<Disk> {
-    let infos = get_disks_info();
+    let disk_types = get_disk_types();
     let mut ret = Vec::new();
 
     for entry in unwrapper!(fs::read_dir("/Volumes"), ret) {
@@ -241,12 +241,8 @@ fn get_disks() -> Vec<Disk> {
                 continue
             }
             let name = entry.path().file_name().unwrap().to_str().unwrap().to_owned();
-            let type_ = if let Some(info) = infos.get(&name) {
-                *info
-            } else {
-                DiskType::Unknown(-2)
-            };
-            ret.push(disk::new_disk(name, mount_point, type_));
+            let type_ = disk_types.get(&name).cloned().unwrap_or(DiskType::Unknown(-2));
+            ret.push(disk::new(name, mount_point, type_));
         }
     }
     ret
