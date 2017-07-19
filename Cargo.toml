@@ -12,7 +12,8 @@ categories = ["filesystem", "os", "os::macos-apis", "os::unix-apis"]
 build = "build.rs"
 
 [dependencies]
-libc = "^0.2"
+#libc = "^0.2"
+libc = { git = "https://github.com/rust-lang/libc" }
 
 [lib]
 name = "sysinfo"
