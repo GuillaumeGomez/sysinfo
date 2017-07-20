@@ -11,7 +11,7 @@
 extern crate sysinfo;
 extern crate libc;
 
-use sysinfo::{ProcessExt, ProcessorExt, Signal, System, SystemExt};
+use sysinfo::{NetworkExt, ProcessExt, ProcessorExt, Signal, System, SystemExt};
 use sysinfo::Signal::*;
 use std::io::{self, BufRead};
 use std::str::FromStr;
@@ -37,6 +37,7 @@ fn print_help() {
     writeln!(&mut io::stdout(), "memory             : Displays memory state");
     writeln!(&mut io::stdout(), "temperature        : Displays components' temperature");
     writeln!(&mut io::stdout(), "disks              : Displays disks' information");
+    writeln!(&mut io::stdout(), "network            : Displays network' information");
     writeln!(&mut io::stdout(), "all                : Displays all process name and pid");
     writeln!(&mut io::stdout(), "quit               : exit the program");
 }
@@ -105,6 +106,10 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             for component in sys.get_components_list() {
                 writeln!(&mut io::stdout(), "{:?}", component);
             }
+        }
+        "network" => {
+            writeln!(&mut io::stdout(), "input data : {} B", sys.get_network().get_income());
+            writeln!(&mut io::stdout(), "output data: {} B", sys.get_network().get_outcome());
         }
         "show" => {
             writeln!(&mut io::stdout(), "'show' command expects a pid number or a process name");
