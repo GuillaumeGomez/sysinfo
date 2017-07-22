@@ -461,11 +461,11 @@ impl SystemExt for System {
             unsafe { pids.set_len(x as usize); }
         }
 
-        let taskallinfo_size = ::std::mem::size_of::<ffi::proc_taskallinfo>() as i32;
-        let taskinfo_size = ::std::mem::size_of::<ffi::proc_taskinfo>() as i32;
-        let threadinfo_size = ::std::mem::size_of::<ffi::proc_threadinfo>() as i32;
+        let taskallinfo_size = ::std::mem::size_of::<libc::proc_taskallinfo>() as i32;
+        let taskinfo_size = ::std::mem::size_of::<libc::proc_taskinfo>() as i32;
+        let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
 
-        let mut mib: [c_int; 3] = [ffi::CTL_KERN, ffi::KERN_ARGMAX, 0];
+        let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
         let mut argmax = 0;
         let mut size = ::std::mem::size_of::<c_int>();
         unsafe {
@@ -476,11 +476,11 @@ impl SystemExt for System {
 
         for pid in pids {
             unsafe {
-                let mut thread_info = ::std::mem::zeroed::<ffi::proc_threadinfo>();
+                let mut thread_info = ::std::mem::zeroed::<libc::proc_threadinfo>();
                 let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(pid,
-                                     ffi::PROC_PIDTHREADINFO,
+                                     libc::PROC_PIDTHREADINFO,
                                      0,
-                                     &mut thread_info as *mut ffi::proc_threadinfo as *mut c_void,
+                                     &mut thread_info as *mut libc::proc_threadinfo as *mut c_void,
                                      threadinfo_size) != 0 {
                     (thread_info.pth_user_time,
                      thread_info.pth_system_time,
@@ -490,11 +490,11 @@ impl SystemExt for System {
                 };
                 if let Some(ref mut p) = self.process_list.get_mut(&pid) {
                     p.status = thread_status;
-                    let mut task_info = ::std::mem::zeroed::<ffi::proc_taskinfo>();
+                    let mut task_info = ::std::mem::zeroed::<libc::proc_taskinfo>();
                     if ffi::proc_pidinfo(pid,
-                                         ffi::PROC_PIDTASKINFO,
+                                         libc::PROC_PIDTASKINFO,
                                          0,
-                                         &mut task_info as *mut ffi::proc_taskinfo as *mut c_void,
+                                         &mut task_info as *mut libc::proc_taskinfo as *mut c_void,
                                          taskinfo_size) != taskinfo_size {
                         continue
                     }
@@ -507,11 +507,11 @@ impl SystemExt for System {
                     continue
                 }
 
-                let mut task_info = ::std::mem::zeroed::<ffi::proc_taskallinfo>();
+                let mut task_info = ::std::mem::zeroed::<libc::proc_taskallinfo>();
                 if ffi::proc_pidinfo(pid,
-                                     ffi::PROC_PIDTASKALLINFO,
+                                     libc::PROC_PIDTASKALLINFO,
                                      0,
-                                     &mut task_info as *mut ffi::proc_taskallinfo as *mut c_void,
+                                     &mut task_info as *mut libc::proc_taskallinfo as *mut c_void,
                                      taskallinfo_size as i32) != taskallinfo_size as i32 {
                     continue
                 }
@@ -531,8 +531,8 @@ impl SystemExt for System {
                 p.process_status = Some(ProcessStatus::from(task_info.pbsd.pbi_status));
 
                 let ptr = proc_args.as_mut_slice().as_mut_ptr();
-                mib[0] = ffi::CTL_KERN;
-                mib[1] = ffi::KERN_PROCARGS2;
+                mib[0] = libc::CTL_KERN;
+                mib[1] = libc::KERN_PROCARGS2;
                 mib[2] = pid as c_int;
                 size = argmax as size_t;
                 /*
