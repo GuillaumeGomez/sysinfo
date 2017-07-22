@@ -55,7 +55,7 @@ fn read_things() -> Result<(u64, u64), Error> {
                .filter(|l| l.split_whitespace().nth(2).map(|l| l != "00000000").unwrap_or(false))
                .last()
                .and_then(|l| l.split_whitespace().nth(0))
-               .ok_or(Error::new(ErrorKind::Other, "Default device not found"))?
+               .ok_or_else(|| Error::new(ErrorKind::Other, "Default device not found"))?
                .to_owned()
     };
 
