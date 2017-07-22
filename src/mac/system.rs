@@ -6,6 +6,7 @@
 
 use sys::ffi;
 use sys::component::Component;
+use sys::network::{self, NetworkData};
 use sys::processor::*;
 use sys::process::*;
 use sys::disk::{self, Disk, DiskType};
@@ -31,6 +32,7 @@ pub struct System {
     temperatures: Vec<Component>,
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
+    network: NetworkData,
 }
 
 impl Drop for System {
@@ -91,7 +93,7 @@ unsafe fn strtoul(s: *mut c_char, size: c_int, base: c_int) -> u32 {
 
 unsafe fn ultostr(s: *mut c_char, val: u32) {
     *s = 0;
-    ffi::sprintf(s, b"%c%c%c%c\0".as_ptr() as *const i8, val >> 24, val >> 16, val >> 8, val);
+    libc::sprintf(s, b"%c%c%c%c\0".as_ptr() as *const i8, val >> 24, val >> 16, val >> 8, val);
 }
 
 unsafe fn perform_call(conn: ffi::io_connect_t, index: c_int, input_structure: *mut ffi::KeyData_t,
@@ -127,9 +129,9 @@ unsafe fn read_key(con: ffi::io_connect_t, key: *mut c_char) -> Result<ffi::Val_
     if result != ffi::KIO_RETURN_SUCCESS {
         Err(result)
     } else {
-        ffi::memcpy(val.bytes.as_mut_ptr() as *mut c_void,
-                    output_structure.bytes.as_mut_ptr() as *mut c_void,
-                    ::std::mem::size_of::<[u8; 32]>());
+        libc::memcpy(val.bytes.as_mut_ptr() as *mut c_void,
+                     output_structure.bytes.as_mut_ptr() as *mut c_void,
+                     ::std::mem::size_of::<[u8; 32]>());
         Ok(val)
     }
 }
@@ -137,7 +139,7 @@ unsafe fn read_key(con: ffi::io_connect_t, key: *mut c_char) -> Result<ffi::Val_
 unsafe fn get_temperature(con: ffi::io_connect_t, key: *mut c_char) -> f32 {
     if let Ok(val) = read_key(con, key) {
         if val.data_size > 0 &&
-           ffi::strcmp(val.data_type.as_ptr(), b"sp78\0".as_ptr() as *const i8) == 0 {
+           libc::strcmp(val.data_type.as_ptr(), b"sp78\0".as_ptr() as *const i8) == 0 {
             // convert fp78 value to temperature
             let x = (val.bytes[0] as i32 * 256 + val.bytes[1] as i32) >> 2;
             return x as f32 / 64f32;
@@ -275,6 +277,7 @@ impl SystemExt for System {
             temperatures: Vec::new(),
             connection: get_io_service_connection(),
             disks: get_disks(),
+            network: network::new(),
         };
         s.refresh_all();
         s
@@ -283,8 +286,8 @@ impl SystemExt for System {
     fn refresh_system(&mut self) {
         unsafe fn get_sys_value(high: u32, low: u32, mut len: usize, value: *mut c_void) -> bool {
             let mut mib = [high as i32, low as i32];
-            ffi::sysctl(mib.as_mut_ptr(), 2, value, &mut len as *mut usize,
-                        ::std::ptr::null_mut(), 0) == 0
+            libc::sysctl(mib.as_mut_ptr(), 2, value, &mut len as *mut usize,
+                         ::std::ptr::null_mut(), 0) == 0
         }
 
         unsafe {
@@ -438,6 +441,10 @@ impl SystemExt for System {
         }
     }
 
+    fn refresh_network(&mut self) {
+        network::update_network(&mut self.network);
+    }
+
     fn refresh_processes(&mut self) {
         let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
         if count < 1 {
@@ -454,26 +461,26 @@ impl SystemExt for System {
             unsafe { pids.set_len(x as usize); }
         }
 
-        let taskallinfo_size = ::std::mem::size_of::<ffi::proc_taskallinfo>() as i32;
-        let taskinfo_size = ::std::mem::size_of::<ffi::proc_taskinfo>() as i32;
-        let threadinfo_size = ::std::mem::size_of::<ffi::proc_threadinfo>() as i32;
+        let taskallinfo_size = ::std::mem::size_of::<libc::proc_taskallinfo>() as i32;
+        let taskinfo_size = ::std::mem::size_of::<libc::proc_taskinfo>() as i32;
+        let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
 
-        let mut mib: [c_int; 3] = [ffi::CTL_KERN, ffi::KERN_ARGMAX, 0];
+        let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
         let mut argmax = 0;
         let mut size = ::std::mem::size_of::<c_int>();
         unsafe {
-            while ffi::sysctl(mib.as_mut_ptr(), 2, (&mut argmax) as *mut i32 as *mut c_void,
-                              &mut size, ::std::ptr::null_mut(), 0) == -1 {}
+            while libc::sysctl(mib.as_mut_ptr(), 2, (&mut argmax) as *mut i32 as *mut c_void,
+                               &mut size, ::std::ptr::null_mut(), 0) == -1 {}
         }
         let mut proc_args = Vec::with_capacity(argmax as usize);
 
         for pid in pids {
             unsafe {
-                let mut thread_info = ::std::mem::zeroed::<ffi::proc_threadinfo>();
+                let mut thread_info = ::std::mem::zeroed::<libc::proc_threadinfo>();
                 let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(pid,
-                                     ffi::PROC_PIDTHREADINFO,
+                                     libc::PROC_PIDTHREADINFO,
                                      0,
-                                     &mut thread_info as *mut ffi::proc_threadinfo as *mut c_void,
+                                     &mut thread_info as *mut libc::proc_threadinfo as *mut c_void,
                                      threadinfo_size) != 0 {
                     (thread_info.pth_user_time,
                      thread_info.pth_system_time,
@@ -483,11 +490,11 @@ impl SystemExt for System {
                 };
                 if let Some(ref mut p) = self.process_list.get_mut(&pid) {
                     p.status = thread_status;
-                    let mut task_info = ::std::mem::zeroed::<ffi::proc_taskinfo>();
+                    let mut task_info = ::std::mem::zeroed::<libc::proc_taskinfo>();
                     if ffi::proc_pidinfo(pid,
-                                         ffi::PROC_PIDTASKINFO,
+                                         libc::PROC_PIDTASKINFO,
                                          0,
-                                         &mut task_info as *mut ffi::proc_taskinfo as *mut c_void,
+                                         &mut task_info as *mut libc::proc_taskinfo as *mut c_void,
                                          taskinfo_size) != taskinfo_size {
                         continue
                     }
@@ -500,11 +507,11 @@ impl SystemExt for System {
                     continue
                 }
 
-                let mut task_info = ::std::mem::zeroed::<ffi::proc_taskallinfo>();
+                let mut task_info = ::std::mem::zeroed::<libc::proc_taskallinfo>();
                 if ffi::proc_pidinfo(pid,
-                                     ffi::PROC_PIDTASKALLINFO,
+                                     libc::PROC_PIDTASKALLINFO,
                                      0,
-                                     &mut task_info as *mut ffi::proc_taskallinfo as *mut c_void,
+                                     &mut task_info as *mut libc::proc_taskallinfo as *mut c_void,
                                      taskallinfo_size as i32) != taskallinfo_size as i32 {
                     continue
                 }
@@ -524,8 +531,8 @@ impl SystemExt for System {
                 p.process_status = Some(ProcessStatus::from(task_info.pbsd.pbi_status));
 
                 let ptr = proc_args.as_mut_slice().as_mut_ptr();
-                mib[0] = ffi::CTL_KERN;
-                mib[1] = ffi::KERN_PROCARGS2;
+                mib[0] = libc::CTL_KERN;
+                mib[1] = libc::KERN_PROCARGS2;
                 mib[2] = pid as c_int;
                 size = argmax as size_t;
                 /*
@@ -558,10 +565,11 @@ impl SystemExt for System {
                 * :               :
                 * \---------------/ 0xffffffff
                 */
-                if ffi::sysctl(mib.as_mut_ptr(), 3, ptr as *mut c_void,
-                               &mut size, ::std::ptr::null_mut(), 0) != -1 {
+                if libc::sysctl(mib.as_mut_ptr(), 3, ptr as *mut c_void,
+                                &mut size, ::std::ptr::null_mut(), 0) != -1 {
                     let mut n_args: c_int = 0;
-                    ffi::memcpy((&mut n_args) as *mut c_int as *mut c_void, ptr as *const c_void, ::std::mem::size_of::<c_int>());
+                    libc::memcpy((&mut n_args) as *mut c_int as *mut c_void, ptr as *const c_void,
+                                 ::std::mem::size_of::<c_int>());
                     let mut cp = ptr.offset(::std::mem::size_of::<c_int>() as isize);
                     let mut start = cp;
                     if cp < ptr.offset(size as isize) {
@@ -643,6 +651,10 @@ impl SystemExt for System {
 
     fn get_processor_list(&self) -> &[Processor] {
         &self.processors[..]
+    }
+
+    fn get_network(&self) -> &NetworkData {
+        &self.network
     }
 
     fn get_total_memory(&self) -> u64 {

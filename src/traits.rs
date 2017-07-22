@@ -4,7 +4,7 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use sys::{Component, Disk, DiskType, Process, Processor};
+use sys::{Component, Disk, DiskType, NetworkData, Process, Processor};
 
 use libc::pid_t;
 use std::collections::HashMap;
@@ -73,11 +73,15 @@ pub trait SystemExt {
     /// The disk list will be emptied then completely recomputed.
     fn refresh_disk_list(&mut self);
 
+    /// Refresh data network.
+    fn refresh_network(&mut self);
+
     /// Refreshes all system, processes and disks information.
     fn refresh_all(&mut self) {
         self.refresh_system();
         self.refresh_processes();
         self.refresh_disks();
+        self.refresh_network();
     }
 
     /// Returns the process list.
@@ -115,4 +119,16 @@ pub trait SystemExt {
 
     /// Returns disks' list.
     fn get_disks(&self) -> &[Disk];
+
+    /// Returns network data.
+    fn get_network(&self) -> &NetworkData;
+}
+
+/// Getting volume of incoming and outcoming data.
+pub trait NetworkExt {
+    /// Returns the number of incoming bytes.
+    fn get_income(&self) -> u64;
+
+    /// Returns the number of outcoming bytes.
+    fn get_outcome(&self) -> u64;
 }

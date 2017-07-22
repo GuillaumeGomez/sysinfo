@@ -4,7 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use libc::{c_int, c_char, c_void, gid_t, uid_t, c_uchar, c_uint, size_t};
+use libc::{c_int, c_char, c_void, c_uchar, c_uint, size_t, uint32_t, uint64_t, c_ushort};
 
 extern "C" {
     pub static kCFAllocatorDefault: CFAllocatorRef;
@@ -16,12 +16,6 @@ extern "C" {
     //pub fn proc_regionfilename(pid: c_int, address: u64, buffer: *mut c_void,
     //                           buffersize: u32) -> c_int;
     //pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
-    pub fn sysctl(name: *mut c_int, namelen: c_uint, oldp: *mut c_void, oldlenp: *mut size_t,
-                  newp: *mut c_void, newlen: size_t) -> c_int;
-
-    pub fn memcpy(dst: *mut c_void, src: *const c_void, n: size_t) -> *mut c_void;
-    pub fn strcmp(s1: *const c_char, s2: *const c_char) -> i32;
-    pub fn sprintf(s: *mut c_char, c: *const c_char, ...) -> i32;
 
     pub fn IOMasterPort(a: i32, b: *mut mach_port_t) -> i32;
     pub fn IOServiceMatching(a: *const c_char) -> *mut c_void;
@@ -64,88 +58,90 @@ extern "C" {
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> u32;
 }
 
-pub const CTL_KERN: c_int = 1;
-pub const KERN_ARGMAX: c_int = 8;
-//pub const KERN_PROC: c_int = 14;
-//pub const KERN_PROCARGS: c_int = 38;
-pub const KERN_PROCARGS2: c_int = 49;
-
-pub const PROC_PIDTASKALLINFO: i32 = 2;
-pub const PROC_PIDTASKINFO: i32 = 4;
-pub const PROC_PIDTHREADINFO: i32 = 5;
-
-pub const MAXCOMLEN: usize = 16; // MAXCOMLEN;
-//pub const MAXPATHLEN: usize = 4 * 1024;
-//pub const PROC_PIDPATHINFO_MAXSIZE: usize = 4 * MAXPATHLEN;
-const MAXTHREADNAMESIZE: usize = 64; // MAXTHREADNAMESIZE
-
-#[repr(C)]
-pub struct proc_taskinfo {
-    pub pti_virtual_size: u64, /* virtual memory size (bytes) */
-    pub pti_resident_size: u64, /* resident memory size (bytes) */
-    pub pti_total_user: u64, /* total time */
-    pub pti_total_system: u64,
-    pub pti_threads_user: u64, /* existing threads only */
-    pub pti_threads_system: u64,
-    pub pti_policy: i32, /* default policy for new threads */
-    pub pti_faults: i32, /* number of page faults */
-    pub pti_pageins: i32, /* number of actual pageins */
-    pub pti_cow_faults: i32, /* number of copy-on-write faults */
-    pub pti_messages_sent: i32, /* number of messages sent */
-    pub pti_messages_received: i32, /* number of messages received */
-    pub pti_syscalls_mach: i32, /* number of mach system calls */
-    pub pti_syscalls_unix: i32, /* number of unix system calls */
-    pub pti_csw: i32, /* number of context switches */
-    pub pti_threadnum: i32, /* number of threads in the task */
-    pub pti_numrunning: i32, /* number of running threads */
-    pub pti_priority: i32, /* task priority */
+// TODO: waiting for https://github.com/rust-lang/libc/pull/678
+macro_rules! cfg_if {
+    ($(
+        if #[cfg($($meta:meta),*)] { $($it:item)* }
+    ) else * else {
+        $($it2:item)*
+    }) => {
+        __cfg_if_items! {
+            () ;
+            $( ( ($($meta),*) ($($it)*) ), )*
+            ( () ($($it2)*) ),
+        }
+    }
 }
 
-#[repr(C)]
-pub struct proc_bsdinfo {
-    pub pbi_flags: u32,
-    pub pbi_status: u32,
-    pub pbi_xstatus: u32,
-    pub pbi_pid: u32,
-    pub pbi_ppid: u32,
-    pub pbi_uid: uid_t,
-    pub pbi_gid: gid_t,
-    pub pbi_ruid: uid_t,
-    pub pbi_rgid: gid_t,
-    pub pbi_svuid: uid_t,
-    pub pbi_svgid: gid_t,
-    pub rfu_1: u32,
-    pub pbi_comm: [u8; MAXCOMLEN],
-    pub pbi_name: [u8; 2 * MAXCOMLEN],
-    pub pbi_nfiles: u32,
-    pub pbi_pgid: u32,
-    pub pbi_pjobc: u32,
-    pub e_tdev: u32,
-    pub e_tpgid: u32,
-    pub pbi_nice: i32,
-    pub pbi_start_tvsec: u64,
-    pub pbi_start_tvusec: u64,
+// TODO: waiting for https://github.com/rust-lang/libc/pull/678
+macro_rules! __cfg_if_items {
+    (($($not:meta,)*) ; ) => {};
+    (($($not:meta,)*) ; ( ($($m:meta),*) ($($it:item)*) ), $($rest:tt)*) => {
+        __cfg_if_apply! { cfg(all(not(any($($not),*)), $($m,)*)), $($it)* }
+        __cfg_if_items! { ($($not,)* $($m,)*) ; $($rest)* }
+    }
 }
 
-#[repr(C)]
-pub struct proc_taskallinfo {
-    pub pbsd: proc_bsdinfo,
-    pub ptinfo: proc_taskinfo,
+// TODO: waiting for https://github.com/rust-lang/libc/pull/678
+macro_rules! __cfg_if_apply {
+    ($m:meta, $($it:item)*) => {
+        $(#[$m] $it)*
+    }
 }
 
+// TODO: waiting for https://github.com/rust-lang/libc/pull/678
+cfg_if! {
+    if #[cfg(any(target_arch = "arm", target_arch = "x86"))] {
+        pub type timeval32 = ::libc::timeval;
+    } else {
+        use libc::timeval32;
+    }
+}
+
+// TODO: waiting for https://github.com/rust-lang/libc/pull/678
 #[repr(C)]
-pub struct proc_threadinfo {
-    pub pth_user_time: u64, /* user run time */
-    pub pth_system_time: u64, /* system run time */
-    pub pth_cpu_usage: i32, /* scaled cpu usage percentage */
-    pub pth_policy: i32, /* scheduling policy in effect */
-    pub pth_run_state: i32, /* run state (see below) */
-    pub pth_flags: i32, /* various flags (see below) */
-    pub pth_sleep_time: i32, /* number of seconds that thread */
-    pub pth_curpri: i32, /* cur priority */
-    pub pth_priority: i32, /*  priority */
-    pub pth_maxpriority: i32, /* max priority */
-    pub pth_name: [u8; MAXTHREADNAMESIZE], /* thread name, if any */
+pub struct if_data64 {
+    pub ifi_type: c_uchar,
+    pub ifi_typelen: c_uchar,
+    pub ifi_physical: c_uchar,
+    pub ifi_addrlen: c_uchar,
+    pub ifi_hdrlen: c_uchar,
+    pub ifi_recvquota: c_uchar,
+    pub ifi_xmitquota: c_uchar,
+    pub ifi_unused1: c_uchar,
+    pub ifi_mtu: uint32_t,
+    pub ifi_metric: uint32_t,
+    pub ifi_baudrate: uint64_t,
+    pub ifi_ipackets: uint64_t,
+    pub ifi_ierrors: uint64_t,
+    pub ifi_opackets: uint64_t,
+    pub ifi_oerrors: uint64_t,
+    pub ifi_collisions: uint64_t,
+    pub ifi_ibytes: uint64_t,
+    pub ifi_obytes: uint64_t,
+    pub ifi_imcasts: uint64_t,
+    pub ifi_omcasts: uint64_t,
+    pub ifi_iqdrops: uint64_t,
+    pub ifi_noproto: uint64_t,
+    pub ifi_recvtiming: uint32_t,
+    pub ifi_xmittiming: uint32_t,
+    pub ifi_lastchange: timeval32,
+}
+
+// TODO: waiting for https://github.com/rust-lang/libc/pull/678
+#[repr(C)]
+pub struct if_msghdr2 {
+    pub ifm_msglen: c_ushort,
+    pub ifm_version: c_uchar,
+    pub ifm_type: c_uchar,
+    pub ifm_addrs: c_int,
+    pub ifm_flags: c_int,
+    pub ifm_index: c_ushort,
+    pub ifm_snd_len: c_int,
+    pub ifm_snd_maxlen: c_int,
+    pub ifm_snd_drops: c_int,
+    pub ifm_timer: c_int,
+    pub ifm_data: if_data64,
 }
 
 #[repr(C)]

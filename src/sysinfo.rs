@@ -63,18 +63,20 @@ use linux as sys;
 
 pub use sys::{
     Component,
+    Disk,
+    DiskType,
+    NetworkData,
     Process,
     ProcessStatus,
     Processor,
     System,
-    Disk,
-    DiskType,
 };
 pub use traits::{
     DiskExt,
     ProcessExt,
     ProcessorExt,
     SystemExt,
+    NetworkExt,
 };
 #[cfg(not(target_os = "windows"))]
 pub use utils::get_current_pid;

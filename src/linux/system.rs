@@ -9,6 +9,8 @@ use sys::processor::*;
 use sys::process::*;
 use sys::Disk;
 use sys::disk;
+use sys::network;
+use sys::NetworkData;
 use ::{DiskExt, ProcessExt, SystemExt};
 use std::fs::{File, read_link};
 use std::io::{self, Read};
@@ -31,6 +33,7 @@ pub struct System {
     page_size_kb: u64,
     temperatures: Vec<Component>,
     disks: Vec<Disk>,
+    network: NetworkData,
 }
 
 impl System {
@@ -69,8 +72,7 @@ impl System {
 }
 
 #[test]
-fn test_refresh_system()
-{
+fn test_refresh_system() {
     let mut sys = System::new();
     sys.refresh_system();
     println!("{:?}", sys);
@@ -93,6 +95,7 @@ impl SystemExt for System {
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
             temperatures: component::get_components(),
             disks: get_all_disks(),
+            network: network::new(),
         };
         s.refresh_all();
         s
@@ -169,6 +172,10 @@ impl SystemExt for System {
         self.disks = get_all_disks();
     }
 
+    fn refresh_network(&mut self) {
+        network::update_network(&mut self.network);
+    }
+
     // COMMON PART
     //
     // Need to be moved into a "common" file to avoid duplication.
@@ -189,6 +196,10 @@ impl SystemExt for System {
             }
         }
         ret
+    }
+
+    fn get_network(&self) -> &NetworkData {
+        &self.network
     }
 
     fn get_processor_list(&self) -> &[Processor] {
