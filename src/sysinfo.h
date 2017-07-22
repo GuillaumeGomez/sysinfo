@@ -28,6 +28,8 @@ size_t   sysinfo_get_used_memory(CSystem system);
 size_t   sysinfo_get_total_swap(CSystem system);
 size_t   sysinfo_get_free_swap(CSystem system);
 size_t   sysinfo_get_used_swap(CSystem system);
+size_t   sysinfo_get_network_income(CSystem system);
+size_t   sysinfo_get_network_outcome(CSystem system);
 void     sysinfo_get_processors_usage(CSystem system, unsigned int *length, float **procs);
 size_t   sysinfo_get_processes(CSystem system, bool (*fn_pointer)(pid_t, CProcess, void*),
                                void *data);
