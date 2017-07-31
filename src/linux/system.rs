@@ -298,11 +298,10 @@ fn update_time_and_memory(path: &Path, entry: &mut Process, parts: &[&str], page
 
 macro_rules! unwrap_or_return {
     ($data:expr) => {{
-        let x = $data;
-        if x.is_none() {
-            return
+        match $data {
+            Some(x) => x,
+            None => return,
         }
-        x.unwrap()
     }}
 }
 
