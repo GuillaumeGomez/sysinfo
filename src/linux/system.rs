@@ -102,56 +102,60 @@ impl SystemExt for System {
     }
 
     fn refresh_system(&mut self) {
-        let data = get_all_data("/proc/meminfo").unwrap();
-
         for component in &mut self.temperatures {
             component.update();
         }
-        for line in data.split('\n') {
-            let field = match line.split(':').next() {
-                Some("MemTotal") => &mut self.mem_total,
-                Some("MemAvailable") => &mut self.mem_free,
-                Some("SwapTotal") => &mut self.swap_total,
-                Some("SwapFree") => &mut self.swap_free,
-                _ => continue,
-            };
-            if let Some(val_str) = line.rsplit(' ').nth(1) {
-                *field = u64::from_str(val_str).unwrap();
+        if let Ok(data) = get_all_data("/proc/meminfo") {
+            for line in data.split('\n') {
+                let field = match line.split(':').next() {
+                    Some("MemTotal") => &mut self.mem_total,
+                    Some("MemAvailable") => &mut self.mem_free,
+                    Some("SwapTotal") => &mut self.swap_total,
+                    Some("SwapFree") => &mut self.swap_free,
+                    _ => continue,
+                };
+                if let Some(val_str) = line.rsplit(' ').nth(1) {
+                    if let Ok(value) = u64::from_str(val_str) {
+                        *field = value;
+                    }
+                }
             }
         }
-        let data = get_all_data("/proc/stat").unwrap();
-        let mut i = 0;
-        let first = self.processors.is_empty();
-        for line in data.split('\n') {
-            if !line.starts_with("cpu") {
-                break;
-            }
+        if let Ok(data) = get_all_data("/proc/stat") {
+            let mut i = 0;
+            let first = self.processors.is_empty();
+            for line in data.split('\n') {
+                if !line.starts_with("cpu") {
+                    break;
+                }
 
-            let (parts, _): (Vec<&str>, Vec<&str>) = line.split(' ').partition(|s| !s.is_empty());
-            if first {
-                self.processors.push(new_processor(parts[0], u64::from_str(parts[1]).unwrap(),
-                    u64::from_str(parts[2]).unwrap(),
-                    u64::from_str(parts[3]).unwrap(),
-                    u64::from_str(parts[4]).unwrap(),
-                    u64::from_str(parts[5]).unwrap(),
-                    u64::from_str(parts[6]).unwrap(),
-                    u64::from_str(parts[7]).unwrap(),
-                    u64::from_str(parts[8]).unwrap(),
-                    u64::from_str(parts[9]).unwrap(),
-                    u64::from_str(parts[10]).unwrap()));
-            } else {
-                set_processor(&mut self.processors[i],
-                    u64::from_str(parts[1]).unwrap(),
-                    u64::from_str(parts[2]).unwrap(),
-                    u64::from_str(parts[3]).unwrap(),
-                    u64::from_str(parts[4]).unwrap(),
-                    u64::from_str(parts[5]).unwrap(),
-                    u64::from_str(parts[6]).unwrap(),
-                    u64::from_str(parts[7]).unwrap(),
-                    u64::from_str(parts[8]).unwrap(),
-                    u64::from_str(parts[9]).unwrap(),
-                    u64::from_str(parts[10]).unwrap());
-                i += 1;
+                let (parts, _): (Vec<&str>, Vec<&str>) = line.split(' ').partition(|s| !s.is_empty());
+                if first {
+                    self.processors.push(new_processor(parts[0],
+                        u64::from_str(parts[1]).unwrap_or(0),
+                        u64::from_str(parts[2]).unwrap_or(0),
+                        u64::from_str(parts[3]).unwrap_or(0),
+                        u64::from_str(parts[4]).unwrap_or(0),
+                        u64::from_str(parts[5]).unwrap_or(0),
+                        u64::from_str(parts[6]).unwrap_or(0),
+                        u64::from_str(parts[7]).unwrap_or(0),
+                        u64::from_str(parts[8]).unwrap_or(0),
+                        u64::from_str(parts[9]).unwrap_or(0),
+                        u64::from_str(parts[10]).unwrap_or(0)));
+                } else {
+                    set_processor(&mut self.processors[i],
+                        u64::from_str(parts[1]).unwrap_or(0),
+                        u64::from_str(parts[2]).unwrap_or(0),
+                        u64::from_str(parts[3]).unwrap_or(0),
+                        u64::from_str(parts[4]).unwrap_or(0),
+                        u64::from_str(parts[5]).unwrap_or(0),
+                        u64::from_str(parts[6]).unwrap_or(0),
+                        u64::from_str(parts[7]).unwrap_or(0),
+                        u64::from_str(parts[8]).unwrap_or(0),
+                        u64::from_str(parts[9]).unwrap_or(0),
+                        u64::from_str(parts[10]).unwrap_or(0));
+                    i += 1;
+                }
             }
         }
     }
@@ -251,7 +255,7 @@ pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
     let mut file = File::open(file_path.as_ref())?;
     let mut data = vec![0; 16385];
 
-    let size = file.read(&mut data).unwrap();
+    let size = file.read(&mut data)?;
     data.truncate(size);
     let data = String::from_utf8(data).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.description()))?;
     Ok(data)
@@ -261,14 +265,12 @@ fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb:
                                  pid: pid_t) -> bool {
     if let Ok(d) = fs::read_dir(path.as_ref()) {
         for entry in d {
-            if !entry.is_ok() {
-                continue;
-            }
-            let entry = entry.unwrap();
-            let entry = entry.path();
+            if let Ok(entry) = entry {
+                let entry = entry.path();
 
-            if entry.is_dir() {
-                _get_process_data(entry.as_path(), proc_list, page_size_kb, pid);
+                if entry.is_dir() {
+                    _get_process_data(entry.as_path(), proc_list, page_size_kb, pid);
+                }
             }
         }
         true
@@ -283,15 +285,25 @@ fn update_time_and_memory(path: &Path, entry: &mut Process, parts: &[&str], page
     //entry.name.pop();
     // we get the rss
     {
-        entry.memory = u64::from_str(parts[23]).unwrap() * page_size_kb;
+        entry.memory = u64::from_str(parts[23]).unwrap_or(0) * page_size_kb;
         if entry.memory >= parent_memory {
             entry.memory -= parent_memory;
         }
         set_time(entry,
-                 u64::from_str(parts[13]).unwrap(),
-                 u64::from_str(parts[14]).unwrap());
+                 u64::from_str(parts[13]).unwrap_or(0),
+                 u64::from_str(parts[14]).unwrap_or(0));
     }
     refresh_procs(entry, path.join(Path::new("task")), page_size_kb, pid);
+}
+
+macro_rules! unwrap_or_return {
+    ($data:expr) => {{
+        let x = $data;
+        if x.is_none() {
+            return
+        }
+        x.unwrap()
+    }}
 }
 
 fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pid: pid_t) {
@@ -302,126 +314,130 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
         let mut tmp = PathBuf::from(path);
 
         tmp.push("stat");
-        let data = get_all_data(&tmp).unwrap();
+        if let Ok(data) = get_all_data(&tmp) {
 
-        // The stat file is "interesting" to parse, because spaces cannot
-        // be used as delimiters. The second field stores the command name
-        // sourrounded by parentheses. Unfortunately, whitespace and
-        // parentheses are legal parts of the command, so parsing has to
-        // proceed like this: The first field is delimited by the first
-        // whitespace, the second field is everything until the last ')'
-        // in the entire string. All other fields are delimited by
-        // whitespace.
+            // The stat file is "interesting" to parse, because spaces cannot
+            // be used as delimiters. The second field stores the command name
+            // sourrounded by parentheses. Unfortunately, whitespace and
+            // parentheses are legal parts of the command, so parsing has to
+            // proceed like this: The first field is delimited by the first
+            // whitespace, the second field is everything until the last ')'
+            // in the entire string. All other fields are delimited by
+            // whitespace.
 
-        let mut parts = Vec::new();
-        let mut data_it = data.splitn(2, ' ');
-        parts.push(data_it.next().unwrap());
-        // The following loses the ) from the input, but that's ok because
-        // we're not using it anyway.
-        let mut data_it = data_it.next().unwrap().rsplitn(2, ')');
-        let data = data_it.next().unwrap();
-        parts.push(data_it.next().unwrap());
-        parts.extend(data.split_whitespace());
-        let parent_memory = proc_list.memory;
-        if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
-            update_time_and_memory(path, entry, &parts, page_size_kb, parent_memory, nb);
-            return;
-        }
-
-        let parent_pid = if proc_list.pid != 0 {
-            Some(proc_list.pid)
-        } else {
-            match pid_t::from_str(parts[3]).unwrap() {
-                0 => None,
-                p => Some(p),
+            let mut parts = Vec::new();
+            let mut data_it = data.splitn(2, ' ');
+            parts.push(unwrap_or_return!(data_it.next()));
+            // The following loses the ) from the input, but that's ok because
+            // we're not using it anyway.
+            let mut data_it = unwrap_or_return!(data_it.next()).rsplitn(2, ')');
+            let data = unwrap_or_return!(data_it.next());
+            parts.push(unwrap_or_return!(data_it.next()));
+            parts.extend(data.split_whitespace());
+            let parent_memory = proc_list.memory;
+            if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
+                update_time_and_memory(path, entry, &parts, page_size_kb, parent_memory, nb);
+                return;
             }
-        };
 
-        let mut p = Process::new(nb,
-                                 parent_pid,
-                                 u64::from_str(parts[21]).unwrap() /
-                                 unsafe { sysconf(_SC_CLK_TCK) } as u64);
-
-        p.status = parts[2].chars().next().and_then(|c| Some(ProcessStatus::from(c)));
-
-        tmp = PathBuf::from(path);
-        tmp.push("status");
-        let status_data = get_all_data(&tmp).unwrap();
-
-        // We're only interested in the lines starting with Uid: and Gid:
-        // here. From these lines, we're looking at the second entry to get
-        // the effective u/gid.
-
-        let f = |h: &str, n: &str| -> Option<uid_t> {
-            if h.starts_with(n) {
-                h.split_whitespace().nth(2).unwrap().parse().ok()
+            let parent_pid = if proc_list.pid != 0 {
+                Some(proc_list.pid)
             } else {
-                None
+                match pid_t::from_str(parts[3]) {
+                    Ok(p) if p != 0 => Some(p),
+                    _ => None,
+                }
+            };
+
+            let mut p = Process::new(nb,
+                                     parent_pid,
+                                     u64::from_str(parts[21]).unwrap_or(0) /
+                                     unsafe { sysconf(_SC_CLK_TCK) } as u64);
+
+            p.status = parts[2].chars().next().and_then(|c| Some(ProcessStatus::from(c)));
+
+            tmp = PathBuf::from(path);
+            tmp.push("status");
+            if let Ok(status_data) = get_all_data(&tmp) {
+                // We're only interested in the lines starting with Uid: and Gid:
+                // here. From these lines, we're looking at the second entry to get
+                // the effective u/gid.
+
+                let f = |h: &str, n: &str| -> Option<uid_t> {
+                    if h.starts_with(n) {
+                        h.split_whitespace().nth(2).unwrap_or("0").parse().ok()
+                    } else {
+                        None
+                    }
+                };
+                let mut set_uid = false;
+                let mut set_gid = false;
+                for line in status_data.lines() {
+                    if let Some(u) = f(line, "Uid:") {
+                        assert!(!set_uid);
+                        set_uid = true;
+                        p.uid = u;
+                    }
+                    if let Some(g) = f(line, "Gid:") {
+                        assert!(!set_gid);
+                        set_gid = true;
+                        p.gid = g;
+                    }
+                }
+                assert!(set_uid && set_gid);
             }
-        };
-        let mut set_uid = false;
-        let mut set_gid = false;
-        for line in status_data.lines() {
-            if let Some(u) = f(line, "Uid:") {
-                assert!(!set_uid);
-                set_uid = true;
-                p.uid = u;
+
+            if proc_list.pid != 0 {
+                p.cmd = proc_list.cmd.clone();
+                p.name = proc_list.name.clone();
+                p.environ = proc_list.environ.clone();
+                p.exe = proc_list.exe.clone();
+                p.cwd = proc_list.cwd.clone();
+                p.root = proc_list.root.clone();
+            } else {
+                tmp = PathBuf::from(path);
+                tmp.push("cmdline");
+                p.cmd = copy_from_file(&tmp);
+                p.name = p.cmd[0].split('/').last().unwrap_or("").to_owned();
+                tmp = PathBuf::from(path);
+                tmp.push("environ");
+                p.environ = copy_from_file(&tmp);
+                tmp = PathBuf::from(path);
+                tmp.push("exe");
+
+                let s = read_link(tmp.to_str().unwrap_or(""));
+
+                if s.is_ok() {
+                    p.exe = s.unwrap_or(PathBuf::new()).to_str().unwrap_or("").to_owned();
+                }
+                tmp = PathBuf::from(path);
+                tmp.push("cwd");
+                p.cwd = realpath(&tmp).to_str().unwrap_or("").to_owned();
+                tmp = PathBuf::from(path);
+                tmp.push("root");
+                p.root = realpath(&tmp).to_str().unwrap_or("").to_owned();
             }
-            if let Some(g) = f(line, "Gid:") {
-                assert!(!set_gid);
-                set_gid = true;
-                p.gid = g;
-            }
+
+            update_time_and_memory(path, &mut p, &parts, page_size_kb, proc_list.memory, nb);
+            proc_list.tasks.insert(nb, p);
         }
-        assert!(set_uid && set_gid);
-
-        if proc_list.pid != 0 {
-            p.cmd = proc_list.cmd.clone();
-            p.name = proc_list.name.clone();
-            p.environ = proc_list.environ.clone();
-            p.exe = proc_list.exe.clone();
-            p.cwd = proc_list.cwd.clone();
-            p.root = proc_list.root.clone();
-        } else {
-            tmp = PathBuf::from(path);
-            tmp.push("cmdline");
-            p.cmd = copy_from_file(&tmp);
-            p.name = p.cmd[0].split('/').last().unwrap().to_owned();
-            tmp = PathBuf::from(path);
-            tmp.push("environ");
-            p.environ = copy_from_file(&tmp);
-            tmp = PathBuf::from(path);
-            tmp.push("exe");
-
-            let s = read_link(tmp.to_str().unwrap());
-
-            if s.is_ok() {
-                p.exe = s.unwrap().to_str().unwrap().to_owned();
-            }
-            tmp = PathBuf::from(path);
-            tmp.push("cwd");
-            p.cwd = realpath(&tmp).to_str().unwrap().to_owned();
-            tmp = PathBuf::from(path);
-            tmp.push("root");
-            p.root = realpath(&tmp).to_str().unwrap().to_owned();
-        }
-
-        update_time_and_memory(path, &mut p, &parts, page_size_kb, proc_list.memory, nb);
-        proc_list.tasks.insert(nb, p);
     }
 }
 
 fn copy_from_file(entry: &Path) -> Vec<String> {
-    match File::open(entry.to_str().unwrap()) {
+    match File::open(entry.to_str().unwrap_or("/")) {
         Ok(mut f) => {
             let mut data = vec![0; 16384];
 
-            let size = f.read(&mut data).unwrap();
-            data.truncate(size);
-            let d = String::from_utf8(data).expect("not utf8?");
-            d.split('\0').map(|x| x.to_owned()).collect()
-        },
-        Err(_) => Vec::new()
+            if let Ok(size) = f.read(&mut data) {
+                data.truncate(size);
+                let d = String::from_utf8(data).expect("not utf8?");
+                d.split('\0').map(|x| x.to_owned()).collect()
+            } else {
+                Vec::new()
+            }
+        }
+        Err(_) => Vec::new(),
     }
 }
 

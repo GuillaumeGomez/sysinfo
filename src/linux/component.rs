@@ -5,6 +5,7 @@
 //
 
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs::{File, read_dir};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -26,8 +27,11 @@ pub struct Component {
 fn get_file_line(file: &Path) -> Option<String> {
     let mut reader = String::new();
     if let Ok(mut f) = File::open(file) {
-        f.read_to_string(&mut reader).unwrap();
-        Some(reader)
+        if f.read_to_string(&mut reader).is_ok() {
+            Some(reader)
+        } else {
+            None
+        }
     } else {
         None
     }
@@ -39,15 +43,18 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
         for entry in dir {
             if let Ok(entry) = entry {
                 let entry = entry.path();
-                if entry.is_dir() || !entry.file_name().unwrap().to_str()
+                if entry.is_dir() || !entry.file_name().unwrap_or(OsStr::new("/")).to_str()
                                            .unwrap_or("").starts_with("temp") {
                     continue;
                 }
                 if let Some(entry) = entry.file_name() {
-                    let id = entry.to_str().unwrap()[4..5].parse::<u32>().unwrap();
-                    matchings.entry(id)
-                             .or_insert_with(|| Vec::with_capacity(1))
-                             .push(entry.to_str().unwrap()[6..].to_owned());
+                    if let Some(entry) = entry.to_str() {
+                        if let Ok(id) = entry[4..5].parse::<u32>() {
+                            matchings.entry(id)
+                                     .or_insert_with(|| Vec::with_capacity(1))
+                                     .push(entry[6..].to_owned());
+                        }
+                    }
                 }
             }
         }
@@ -70,20 +77,23 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                     p_input.push(&format!("temp{}_input", key));
                     p_max.push(&format!("temp{}_max", key));
                     p_crit.push(&format!("temp{}_crit", key));
-                    let content = get_file_line(p_label.as_path()).unwrap();
-                    let label = content.replace("\n", "");
-                    let max = if let Some(max) = get_file_line(p_max.as_path()) {
-                        Some(max.replace("\n", "").parse::<f32>().unwrap() / 1000f32)
-                    } else {
-                        None
-                    };
-                    let crit = if let Some(crit) = get_file_line(p_crit.as_path()) {
-                        Some(crit.replace("\n", "").parse::<f32>().unwrap() / 1000f32)
-                    } else {
-                        None
-                    };
-                    components.push(Component::new(label, p_input.as_path(), max, crit));
-                    break
+                    if let Some(content) = get_file_line(p_label.as_path()) {
+                        let label = content.replace("\n", "");
+                        let max = if let Some(max) = get_file_line(p_max.as_path()) {
+                            Some(max.replace("\n", "")
+                                    .parse::<f32>().unwrap_or(100_000f32) / 1000f32)
+                        } else {
+                            None
+                        };
+                        let crit = if let Some(crit) = get_file_line(p_crit.as_path()) {
+                            Some(crit.replace("\n", "")
+                                     .parse::<f32>().unwrap_or(100_000f32) / 1000f32)
+                        } else {
+                            None
+                        };
+                        components.push(Component::new(label, p_input.as_path(), max, crit));
+                        break
+                    }
                 }
             }
         }
@@ -107,10 +117,12 @@ impl Component {
 
     /// Updates the component.
     pub fn update(&mut self) {
-        let content = get_file_line(self.input_file.as_path()).unwrap();
-        self.temperature = content.replace("\n", "").parse::<f32>().unwrap() / 1000f32;
-        if self.temperature > self.max {
-            self.max = self.temperature;
+        if let Some(content) = get_file_line(self.input_file.as_path()) {
+            self.temperature = content.replace("\n", "")
+                                      .parse::<f32>().unwrap_or(100_000f32) / 1000f32;
+            if self.temperature > self.max {
+                self.max = self.temperature;
+            }
         }
     }
 }
@@ -121,7 +133,7 @@ pub fn get_components() -> Vec<Component> {
         for entry in dir {
             if let Ok(entry) = entry {
                 let entry = entry.path();
-                if !entry.is_dir() || !entry.file_name().unwrap().to_str()
+                if !entry.is_dir() || !entry.file_name().unwrap_or(OsStr::new("/")).to_str()
                                             .unwrap_or("").starts_with("hwmon") {
                     continue;
                 }
