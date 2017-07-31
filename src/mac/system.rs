@@ -12,8 +12,8 @@ use sys::process::*;
 use sys::disk::{self, Disk, DiskType};
 use ::{DiskExt, ProcessExt, ProcessorExt, SystemExt};
 use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStringExt;
-use std::ffi::OsString;
 use libc::{self, c_void, c_int, pid_t, size_t, c_char, sysconf, _SC_PAGESIZE};
 use std::sync::Arc;
 use sys::processor;
@@ -241,7 +241,7 @@ fn get_disks() -> Vec<Disk> {
             if mount_point.as_os_str().is_empty() {
                 continue
             }
-            let name = entry.path().file_name().unwrap().to_owned();
+            let name = entry.path().file_name().unwrap_or_else(|| OsStr::new("")).to_owned();
             let type_ = disk_types.get(&name).cloned().unwrap_or(DiskType::Unknown(-2));
             ret.push(disk::new(name, &mount_point, type_));
         }
