@@ -43,7 +43,7 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
         for entry in dir {
             if let Ok(entry) = entry {
                 let entry = entry.path();
-                if entry.is_dir() || !entry.file_name().unwrap_or(OsStr::new("/")).to_str()
+                if entry.is_dir() || !entry.file_name().unwrap_or_else(|| OsStr::new("/")).to_str()
                                            .unwrap_or("").starts_with("temp") {
                     continue;
                 }
@@ -133,7 +133,7 @@ pub fn get_components() -> Vec<Component> {
         for entry in dir {
             if let Ok(entry) = entry {
                 let entry = entry.path();
-                if !entry.is_dir() || !entry.file_name().unwrap_or(OsStr::new("/")).to_str()
+                if !entry.is_dir() || !entry.file_name().unwrap_or_else(|| OsStr::new("/")).to_str()
                                             .unwrap_or("").starts_with("hwmon") {
                     continue;
                 }

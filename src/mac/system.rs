@@ -241,7 +241,7 @@ fn get_disks() -> Vec<Disk> {
             if mount_point.as_os_str().is_empty() {
                 continue
             }
-            let name = entry.path().file_name().unwrap_or(OsStr::new("")).to_owned();
+            let name = entry.path().file_name().unwrap_or_else(|| OsStr::new("")).to_owned();
             let type_ = disk_types.get(&name).cloned().unwrap_or(DiskType::Unknown(-2));
             ret.push(disk::new(name, &mount_point, type_));
         }

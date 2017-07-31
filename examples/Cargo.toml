@@ -11,3 +11,4 @@ libc = "^0.2"
 
 [[bin]]
 name = "simple"
+path = "src/simple.rs"

@@ -407,7 +407,7 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
                 let s = read_link(tmp.to_str().unwrap_or(""));
 
                 if s.is_ok() {
-                    p.exe = s.unwrap_or(PathBuf::new()).to_str().unwrap_or("").to_owned();
+                    p.exe = s.unwrap_or_default().to_str().unwrap_or("").to_owned();
                 }
                 tmp = PathBuf::from(path);
                 tmp.push("cwd");
