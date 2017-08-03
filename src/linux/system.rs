@@ -253,11 +253,12 @@ impl Default for System {
 pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
     use std::error::Error;
     let mut file = File::open(file_path.as_ref())?;
-    let mut data = vec![0; 16385];
+    let mut data = vec![0; 16_385];
 
     let size = file.read(&mut data)?;
     data.truncate(size);
-    let data = String::from_utf8(data).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.description()))?;
+    let data = String::from_utf8(data).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
+                                                                  e.description()))?;
     Ok(data)
 }
 
@@ -336,7 +337,7 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
             let parent_memory = proc_list.memory;
             if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
                 update_time_and_memory(path, entry, &parts, page_size_kb, parent_memory, nb);
-                return;
+                return
             }
 
             let parent_pid = if proc_list.pid != 0 {
@@ -426,7 +427,7 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
 fn copy_from_file(entry: &Path) -> Vec<String> {
     match File::open(entry.to_str().unwrap_or("/")) {
         Ok(mut f) => {
-            let mut data = vec![0; 16384];
+            let mut data = vec![0; 16_384];
 
             if let Ok(size) = f.read(&mut data) {
                 data.truncate(size);
@@ -449,8 +450,7 @@ fn get_all_disks() -> Vec<Disk> {
 
     for line in disks {
         let mut split = line.split(' ');
-        if let (Some(name), Some(mountpt), Some(fs)) = (split.next(), split.next(), split.next())
-        {
+        if let (Some(name), Some(mountpt), Some(fs)) = (split.next(), split.next(), split.next()) {
             ret.push(disk::new(name[5..].as_ref(), Path::new(mountpt), fs.as_bytes()));
         }
     }
