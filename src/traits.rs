@@ -67,6 +67,10 @@ pub trait SystemExt {
     /// Get all processes and update their information.
     fn refresh_processes(&mut self);
 
+    /// Refresh *only* the process corresponding to `pid`. Returns `false` if the process doesn't
+    /// exist.
+    fn refresh_process(&mut self, pid: pid_t) -> bool;
+
     /// Refreshes the listed disks' information.
     fn refresh_disks(&mut self);
 

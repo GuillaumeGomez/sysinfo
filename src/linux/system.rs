@@ -56,32 +56,7 @@ impl System {
             }
         }
     }
-
-    /// **WARNING**: This method is specific to Linux.
-    ///
-    /// Refresh *only* the process corresponding to `pid`.
-    /// Fails if this process is not yet in the process list.
-    pub fn refresh_process(&mut self, pid: pid_t) -> bool {
-        if let Some(proc_) = self.process_list.tasks.get_mut(&pid) {
-            _get_process_data(&Path::new("/proc/").join(pid.to_string()), proc_, self.page_size_kb, pid);
-            true
-        } else {
-            false
-        }
-    }
 }
-
-#[test]
-fn test_refresh_system() {
-    let mut sys = System::new();
-    sys.refresh_system();
-    println!("{:?}", sys);
-    assert!(sys.mem_total != 0);
-    assert!(sys.mem_free != 0);
-    assert!(sys.mem_total >= sys.mem_free);
-    assert!(sys.swap_total >= sys.swap_free);
-}
-
 
 impl SystemExt for System {
     fn new() -> System {
@@ -164,6 +139,18 @@ impl SystemExt for System {
         if refresh_procs(&mut self.process_list, "/proc", self.page_size_kb, 0) {
             self.clear_procs();
         }
+    }
+
+    fn refresh_process(&mut self, pid: pid_t) -> bool {
+        if let Some(proc_) = self.process_list.tasks.get_mut(&pid) {
+            _get_process_data(&Path::new("/proc/").join(pid.to_string()), proc_,
+                              self.page_size_kb, pid);
+            return true;
+        }
+        let ppid = self.process_list.pid;
+        _get_process_data(&Path::new("/proc/").join(pid.to_string()), &mut self.process_list,
+                          self.page_size_kb, ppid);
+        self.get_process(pid).is_some()
     }
 
     fn refresh_disks(&mut self) {

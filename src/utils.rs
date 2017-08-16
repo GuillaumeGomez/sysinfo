@@ -55,9 +55,5 @@ pub fn to_cpath(path: &Path) -> Vec<u8> {
 /// Returns the pid for the current process.
 #[cfg(not(target_os = "windows"))]
 pub fn get_current_pid() -> pid_t {
-    extern "C" {
-        fn getpid() -> pid_t;
-    }
-
-    unsafe { getpid() }
+    unsafe { ::libc::getpid() }
 }

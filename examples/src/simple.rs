@@ -27,7 +27,8 @@ fn print_help() {
     writeln!(&mut io::stdout(), "== Help menu ==");
     writeln!(&mut io::stdout(), "help               : show this menu");
     writeln!(&mut io::stdout(), "signals            : show the available signals");
-    writeln!(&mut io::stdout(), "refresh            : reloads processes' information");
+    writeln!(&mut io::stdout(), "refresh            : reloads all processes' information");
+    writeln!(&mut io::stdout(), "refresh [pid]      : reloads corresponding process' information");
     writeln!(&mut io::stdout(), "refresh_disks      : reloads only disks' information");
     writeln!(&mut io::stdout(), "show [pid | name]  : show information of the given process \
                                  corresponding to [pid | name]");
@@ -45,11 +46,6 @@ fn print_help() {
 fn interpret_input(input: &str, sys: &mut System) -> bool {
     match input.trim() {
         "help" => print_help(),
-        "refresh" => {
-            writeln!(&mut io::stdout(), "Getting processus' information...");
-            sys.refresh_all();
-            writeln!(&mut io::stdout(), "Done.");
-        }
         "refresh_disks" => {
             writeln!(&mut io::stdout(), "Refreshing disk list...");
             sys.refresh_disk_list();
@@ -145,6 +141,28 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "disks" => {
             for disk in sys.get_disks() {
                 writeln!(&mut io::stdout(), "{:?}", disk);
+            }
+        }
+        x if x.starts_with("refresh") => {
+            if x == "refresh" {
+                writeln!(&mut io::stdout(), "Getting processes' information...");
+                sys.refresh_all();
+                writeln!(&mut io::stdout(), "Done.");
+            } else if x.starts_with("refresh ") {
+                writeln!(&mut io::stdout(), "Getting process' information...");
+                if let Some(pid) = x.split(' ').filter_map(|pid| pid.parse().ok()).take(1).next() {
+                    if sys.refresh_process(pid) {
+                        writeln!(&mut io::stdout(), "Process `{}` updated successfully", pid);
+                    } else {
+                        writeln!(&mut io::stdout(), "Process `{}` couldn't be updated...", pid);
+                    }
+                } else {
+                    writeln!(&mut io::stdout(), "Invalid [pid] received...");
+                }
+            } else {
+                writeln!(&mut io::stdout(),
+                     "\"{}\": Unknown command. Enter 'help' if you want to get the commands' \
+                      list.", x);
             }
         }
         e => {
