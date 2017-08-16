@@ -150,7 +150,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 writeln!(&mut io::stdout(), "Done.");
             } else if x.starts_with("refresh ") {
                 writeln!(&mut io::stdout(), "Getting process' information...");
-                if let Some(pid) = x.split(" ").filter_map(|pid| pid.parse().ok()).take(1).next() {
+                if let Some(pid) = x.split(' ').filter_map(|pid| pid.parse().ok()).take(1).next() {
                     if sys.refresh_process(pid) {
                         writeln!(&mut io::stdout(), "Process `{}` updated successfully", pid);
                     } else {
