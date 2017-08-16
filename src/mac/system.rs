@@ -262,6 +262,149 @@ impl System {
             self.process_list.remove(&pid);
         }
     }
+
+    fn update_process(&mut self, pid: pid_t, proc_args: &mut Vec<u8>,
+                      taskallinfo_size: i32, taskinfo_size: i32, threadinfo_size: i32,
+                      mib: &mut [c_int], mut size: size_t) -> bool {
+        unsafe {
+            let mut thread_info = ::std::mem::zeroed::<libc::proc_threadinfo>();
+            let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(pid,
+                                 libc::PROC_PIDTHREADINFO,
+                                 0,
+                                 &mut thread_info as *mut libc::proc_threadinfo as *mut c_void,
+                                 threadinfo_size) != 0 {
+                (thread_info.pth_user_time,
+                 thread_info.pth_system_time,
+                 Some(ThreadStatus::from(thread_info.pth_run_state)))
+            } else {
+                (0, 0, None)
+            };
+            if let Some(ref mut p) = self.process_list.get_mut(&pid) {
+                p.status = thread_status;
+                let mut task_info = ::std::mem::zeroed::<libc::proc_taskinfo>();
+                if ffi::proc_pidinfo(pid,
+                                     libc::PROC_PIDTASKINFO,
+                                     0,
+                                     &mut task_info as *mut libc::proc_taskinfo as *mut c_void,
+                                     taskinfo_size) != taskinfo_size {
+                    return false;
+                }
+                let task_time = user_time + system_time
+                    + task_info.pti_total_user + task_info.pti_total_system;
+                let time = ffi::mach_absolute_time();
+                compute_cpu_usage(p, time, task_time);
+
+                p.memory = task_info.pti_resident_size / 1024;
+                return true;
+            }
+
+            let mut task_info = ::std::mem::zeroed::<libc::proc_taskallinfo>();
+            if ffi::proc_pidinfo(pid,
+                                 libc::PROC_PIDTASKALLINFO,
+                                 0,
+                                 &mut task_info as *mut libc::proc_taskallinfo as *mut c_void,
+                                 taskallinfo_size as i32) != taskallinfo_size as i32 {
+                return false;
+            }
+
+            let parent = match task_info.pbsd.pbi_ppid as pid_t {
+                0 => None,
+                p => Some(p)
+            };
+
+            let mut p = Process::new(pid,
+                                     parent,
+                                     task_info.pbsd.pbi_start_tvsec);
+            p.memory = task_info.ptinfo.pti_resident_size / 1024;
+
+            p.uid = task_info.pbsd.pbi_uid;
+            p.gid = task_info.pbsd.pbi_gid;
+            p.process_status = Some(ProcessStatus::from(task_info.pbsd.pbi_status));
+
+            let ptr = proc_args.as_mut_slice().as_mut_ptr();
+            mib[0] = libc::CTL_KERN;
+            mib[1] = libc::KERN_PROCARGS2;
+            mib[2] = pid as c_int;
+            /*
+            * /---------------\ 0x00000000
+            * | ::::::::::::: |
+            * |---------------| <-- Beginning of data returned by sysctl() is here.
+            * | argc          |
+            * |---------------|
+            * | exec_path     |
+            * |---------------|
+            * | 0             |
+            * |---------------|
+            * | arg[0]        |
+            * |---------------|
+            * | 0             |
+            * |---------------|
+            * | arg[n]        |
+            * |---------------|
+            * | 0             |
+            * |---------------|
+            * | env[0]        |
+            * |---------------|
+            * | 0             |
+            * |---------------|
+            * | env[n]        |
+            * |---------------|
+            * | ::::::::::::: |
+            * |---------------| <-- Top of stack.
+            * :               :
+            * :               :
+            * \---------------/ 0xffffffff
+            */
+            if libc::sysctl(mib.as_mut_ptr(), 3, ptr as *mut c_void,
+                            &mut size, ::std::ptr::null_mut(), 0) != -1 {
+                let mut n_args: c_int = 0;
+                libc::memcpy((&mut n_args) as *mut c_int as *mut c_void, ptr as *const c_void,
+                             ::std::mem::size_of::<c_int>());
+                let mut cp = ptr.offset(::std::mem::size_of::<c_int>() as isize);
+                let mut start = cp;
+                if cp < ptr.offset(size as isize) {
+                    while cp < ptr.offset(size as isize) && *cp != 0 {
+                        cp = cp.offset(1);
+                    }
+                    p.exe = get_unchecked_str(cp, start);
+                    if let Some(l) = p.exe.split('/').last() {
+                        p.name = l.to_owned();
+                    }
+                    while cp < ptr.offset(size as isize) && *cp == 0 {
+                        cp = cp.offset(1);
+                    }
+                    start = cp;
+                    let mut c = 0;
+                    let mut cmd = Vec::new();
+                    while c < n_args && cp < ptr.offset(size as isize) {
+                        if *cp == 0 {
+                            c += 1;
+                            cmd.push(get_unchecked_str(cp, start));
+                            start = cp.offset(1);
+                        }
+                        cp = cp.offset(1);
+                    }
+                    p.cmd = cmd;
+                    start = cp;
+                    while cp < ptr.offset(size as isize) {
+                        if *cp == 0 {
+                            if cp == start {
+                                break;
+                            }
+                            p.environ.push(get_unchecked_str(cp, start));
+                            start = cp.offset(1);
+                        }
+                        cp = cp.offset(1);
+                    }
+                }
+            } else {
+                // we don't have enough priviledges to get access to these info
+                return false;
+            }
+            self.process_list.insert(pid, p);
+        }
+        true
+    }
 }
 
 impl SystemExt for System {
@@ -475,146 +618,27 @@ impl SystemExt for System {
         let mut proc_args = Vec::with_capacity(argmax as usize);
 
         for pid in pids {
-            unsafe {
-                let mut thread_info = ::std::mem::zeroed::<libc::proc_threadinfo>();
-                let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(pid,
-                                     libc::PROC_PIDTHREADINFO,
-                                     0,
-                                     &mut thread_info as *mut libc::proc_threadinfo as *mut c_void,
-                                     threadinfo_size) != 0 {
-                    (thread_info.pth_user_time,
-                     thread_info.pth_system_time,
-                     Some(ThreadStatus::from(thread_info.pth_run_state)))
-                } else {
-                    (0, 0, None)
-                };
-                if let Some(ref mut p) = self.process_list.get_mut(&pid) {
-                    p.status = thread_status;
-                    let mut task_info = ::std::mem::zeroed::<libc::proc_taskinfo>();
-                    if ffi::proc_pidinfo(pid,
-                                         libc::PROC_PIDTASKINFO,
-                                         0,
-                                         &mut task_info as *mut libc::proc_taskinfo as *mut c_void,
-                                         taskinfo_size) != taskinfo_size {
-                        continue
-                    }
-                    let task_time = user_time + system_time
-                        + task_info.pti_total_user + task_info.pti_total_system;
-                    let time = ffi::mach_absolute_time();
-                    compute_cpu_usage(p, time, task_time);
-
-                    p.memory = task_info.pti_resident_size / 1024;
-                    continue
-                }
-
-                let mut task_info = ::std::mem::zeroed::<libc::proc_taskallinfo>();
-                if ffi::proc_pidinfo(pid,
-                                     libc::PROC_PIDTASKALLINFO,
-                                     0,
-                                     &mut task_info as *mut libc::proc_taskallinfo as *mut c_void,
-                                     taskallinfo_size as i32) != taskallinfo_size as i32 {
-                    continue
-                }
-
-                let parent = match task_info.pbsd.pbi_ppid as pid_t {
-                    0 => None,
-                    p => Some(p)
-                };
-
-                let mut p = Process::new(pid,
-                                         parent,
-                                         task_info.pbsd.pbi_start_tvsec);
-                p.memory = task_info.ptinfo.pti_resident_size / 1024;
-
-                p.uid = task_info.pbsd.pbi_uid;
-                p.gid = task_info.pbsd.pbi_gid;
-                p.process_status = Some(ProcessStatus::from(task_info.pbsd.pbi_status));
-
-                let ptr = proc_args.as_mut_slice().as_mut_ptr();
-                mib[0] = libc::CTL_KERN;
-                mib[1] = libc::KERN_PROCARGS2;
-                mib[2] = pid as c_int;
-                size = argmax as size_t;
-                /*
-                * /---------------\ 0x00000000
-                * | ::::::::::::: |
-                * |---------------| <-- Beginning of data returned by sysctl() is here.
-                * | argc          |
-                * |---------------|
-                * | exec_path     |
-                * |---------------|
-                * | 0             |
-                * |---------------|
-                * | arg[0]        |
-                * |---------------|
-                * | 0             |
-                * |---------------|
-                * | arg[n]        |
-                * |---------------|
-                * | 0             |
-                * |---------------|
-                * | env[0]        |
-                * |---------------|
-                * | 0             |
-                * |---------------|
-                * | env[n]        |
-                * |---------------|
-                * | ::::::::::::: |
-                * |---------------| <-- Top of stack.
-                * :               :
-                * :               :
-                * \---------------/ 0xffffffff
-                */
-                if libc::sysctl(mib.as_mut_ptr(), 3, ptr as *mut c_void,
-                                &mut size, ::std::ptr::null_mut(), 0) != -1 {
-                    let mut n_args: c_int = 0;
-                    libc::memcpy((&mut n_args) as *mut c_int as *mut c_void, ptr as *const c_void,
-                                 ::std::mem::size_of::<c_int>());
-                    let mut cp = ptr.offset(::std::mem::size_of::<c_int>() as isize);
-                    let mut start = cp;
-                    if cp < ptr.offset(size as isize) {
-                        while cp < ptr.offset(size as isize) && *cp != 0 {
-                            cp = cp.offset(1);
-                        }
-                        p.exe = get_unchecked_str(cp, start);
-                        if let Some(l) = p.exe.split('/').last() {
-                            p.name = l.to_owned();
-                        }
-                        while cp < ptr.offset(size as isize) && *cp == 0 {
-                            cp = cp.offset(1);
-                        }
-                        start = cp;
-                        let mut c = 0;
-                        let mut cmd = Vec::new();
-                        while c < n_args && cp < ptr.offset(size as isize) {
-                            if *cp == 0 {
-                                c += 1;
-                                cmd.push(get_unchecked_str(cp, start));
-                                start = cp.offset(1);
-                            }
-                            cp = cp.offset(1);
-                        }
-                        p.cmd = cmd;
-                        start = cp;
-                        while cp < ptr.offset(size as isize) {
-                            if *cp == 0 {
-                                if cp == start {
-                                    break;
-                                }
-                                p.environ.push(get_unchecked_str(cp, start));
-                                start = cp.offset(1);
-                            }
-                            cp = cp.offset(1);
-                        }
-                    }
-                } else {
-                    // we don't have enough priviledges to get access to these info
-                    continue
-                }
-                self.process_list.insert(pid, p);
-            }
+            self.update_process(pid, &mut proc_args, taskallinfo_size, taskinfo_size,
+                                threadinfo_size, &mut mib, argmax as size_t);
         }
         self.clear_procs();
+    }
+
+    fn refresh_process(&mut self, pid: pid_t) -> bool {
+        let taskallinfo_size = ::std::mem::size_of::<libc::proc_taskallinfo>() as i32;
+        let taskinfo_size = ::std::mem::size_of::<libc::proc_taskinfo>() as i32;
+        let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
+
+        let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
+        let mut argmax = 0;
+        let mut size = ::std::mem::size_of::<c_int>();
+        unsafe {
+            while libc::sysctl(mib.as_mut_ptr(), 2, (&mut argmax) as *mut i32 as *mut c_void,
+                               &mut size, ::std::ptr::null_mut(), 0) == -1 {}
+        }
+        let mut proc_args = Vec::with_capacity(argmax as usize);
+        self.update_process(pid, &mut proc_args, taskallinfo_size, taskinfo_size,
+                            threadinfo_size, &mut mib, argmax as size_t)
     }
 
     fn refresh_disks(&mut self) {
