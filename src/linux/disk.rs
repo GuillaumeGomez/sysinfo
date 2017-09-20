@@ -9,7 +9,7 @@ use ::utils;
 use super::system::get_all_data;
 
 use libc::statvfs;
-use std::{mem, str};
+use std::mem;
 use std::fmt::{Debug, Error, Formatter};
 use std::path::{Path, PathBuf};
 use std::ffi::{OsStr, OsString};

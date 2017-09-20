@@ -106,29 +106,29 @@ impl SystemExt for System {
 
                 let (parts, _): (Vec<&str>, Vec<&str>) = line.split(' ').partition(|s| !s.is_empty());
                 if first {
-                    self.processors.push(new_processor(parts[0],
-                        u64::from_str(parts[1]).unwrap_or(0),
-                        u64::from_str(parts[2]).unwrap_or(0),
-                        u64::from_str(parts[3]).unwrap_or(0),
-                        u64::from_str(parts[4]).unwrap_or(0),
-                        u64::from_str(parts[5]).unwrap_or(0),
-                        u64::from_str(parts[6]).unwrap_or(0),
-                        u64::from_str(parts[7]).unwrap_or(0),
-                        u64::from_str(parts[8]).unwrap_or(0),
-                        u64::from_str(parts[9]).unwrap_or(0),
-                        u64::from_str(parts[10]).unwrap_or(0)));
+                    self.processors.push(new_processor(parts.get(0).unwrap_or(&""),
+                        parts.get(1).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(2).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(3).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(4).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(5).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(6).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(7).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(8).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(9).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(10).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0)));
                 } else {
                     set_processor(&mut self.processors[i],
-                        u64::from_str(parts[1]).unwrap_or(0),
-                        u64::from_str(parts[2]).unwrap_or(0),
-                        u64::from_str(parts[3]).unwrap_or(0),
-                        u64::from_str(parts[4]).unwrap_or(0),
-                        u64::from_str(parts[5]).unwrap_or(0),
-                        u64::from_str(parts[6]).unwrap_or(0),
-                        u64::from_str(parts[7]).unwrap_or(0),
-                        u64::from_str(parts[8]).unwrap_or(0),
-                        u64::from_str(parts[9]).unwrap_or(0),
-                        u64::from_str(parts[10]).unwrap_or(0));
+                        parts.get(1).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(2).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(3).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(4).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(5).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(6).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(7).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(8).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(9).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
+                        parts.get(10).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0));
                     i += 1;
                 }
             }
