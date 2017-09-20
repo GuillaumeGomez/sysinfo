@@ -8,7 +8,7 @@ use ::DiskExt;
 use ::utils;
 
 use libc::statfs;
-use std::{mem, str};
+use std::mem;
 use std::fmt::{Debug, Error, Formatter};
 use std::path::{Path, PathBuf};
 use std::ffi::{OsStr, OsString};
