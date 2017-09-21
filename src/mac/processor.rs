@@ -94,5 +94,5 @@ pub fn set_cpu_proc(p: &mut Processor, cpu_usage: f32) {
 }
 
 pub fn get_processor_data(p: &Processor) -> Arc<ProcessorData> {
-    p.processor_data.clone()
+    Arc::clone(&p.processor_data)
 }
