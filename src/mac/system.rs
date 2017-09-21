@@ -141,7 +141,7 @@ unsafe fn get_temperature(con: ffi::io_connect_t, key: *mut c_char) -> f32 {
         if val.data_size > 0 &&
            libc::strcmp(val.data_type.as_ptr(), b"sp78\0".as_ptr() as *const i8) == 0 {
             // convert fp78 value to temperature
-            let x = (val.bytes[0] as i32 * 256 + val.bytes[1] as i32) >> 2;
+            let x = (i32::from(val.bytes[0]) * 256 + i32::from(val.bytes[1])) >> 2;
             return x as f32 / 64f32;
         }
     }
@@ -454,8 +454,8 @@ impl SystemExt for System {
             if ffi::host_statistics64(ffi::mach_host_self(), ffi::HOST_VM_INFO64,
                                       &mut stat as *mut ffi::vm_statistics64 as *mut c_void,
                                       &count as *const u32) == ffi::KERN_SUCCESS {
-                self.mem_free = (stat.free_count + stat.inactive_count
-                    + stat.speculative_count) as u64 * self.page_size_kb;
+                self.mem_free = u64::from(stat.free_count + stat.inactive_count
+                                          + stat.speculative_count) * self.page_size_kb;
             }
 
             if let Some(con) = self.connection {
@@ -538,7 +538,7 @@ impl SystemExt for System {
                                        &mut num_cpu_info as *mut u32) == ffi::KERN_SUCCESS {
                     let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
                     for i in 0..num_cpu {
-                        let mut p = processor::create_proc(format!("{}", i + 1), proc_data.clone());
+                        let mut p = processor::create_proc(format!("{}", i + 1), Arc::clone(&proc_data));
                         let in_use = *cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize)
                             + *cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_SYSTEM as isize)
                             + *cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_NICE as isize);
@@ -571,7 +571,7 @@ impl SystemExt for System {
                             + ffi::CPU_STATE_IDLE as isize)
                         - *old_proc_data.cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
                             + ffi::CPU_STATE_IDLE as isize));
-                    processor::update_proc(proc_, in_use as f32 / total as f32, proc_data.clone());
+                    processor::update_proc(proc_, in_use as f32 / total as f32, Arc::clone(&proc_data));
                     pourcent += proc_.get_cpu_usage();
                 }
                 if self.processors.len() > 1 {

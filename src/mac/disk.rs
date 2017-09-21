@@ -42,8 +42,8 @@ pub fn new(name: OsString, mount_point: &Path, type_: DiskType) -> Disk {
     unsafe {
         let mut stat: statfs = mem::zeroed();
         if statfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
-            total_space = stat.f_bsize as u64 * stat.f_blocks as u64;
-            available_space = stat.f_bfree as u64  * stat.f_blocks as u64;
+            total_space = u64::from(stat.f_bsize) * u64::from(stat.f_blocks);
+            available_space = u64::from(stat.f_bfree) * u64::from(stat.f_blocks);
             let mut vec = Vec::with_capacity(stat.f_fstypename.len());
             for x in &stat.f_fstypename {
                 if *x == 0 {
@@ -113,7 +113,7 @@ impl DiskExt for Disk {
             let mut stat: statfs = mem::zeroed();
             let mount_point_cpath = utils::to_cpath(&self.mount_point);
             if statfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
-                self.available_space = stat.f_bsize as u64 * stat.f_bavail as u64;
+                self.available_space = u64::from(stat.f_bsize) * u64::from(stat.f_bavail);
                 true
             } else {
                 false
