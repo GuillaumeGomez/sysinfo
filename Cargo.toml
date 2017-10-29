@@ -17,7 +17,7 @@ libc = "^0.2"
 
 [lib]
 name = "sysinfo"
-crate_type = ["rlib", "dylib"]
+crate_type = ["rlib", "cdylib"]
 path = "src/sysinfo.rs"
 
 [features]
