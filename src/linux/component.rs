@@ -11,7 +11,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 /// More information can be found at
-/// http://lxr.free-electrons.com/source/Documentation/hwmon/sysfs-interface
+/// <http://lxr.free-electrons.com/source/Documentation/hwmon/sysfs-interface>
 pub struct Component {
     /// Temperature is in celsius.
     pub temperature: f32,

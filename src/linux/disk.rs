@@ -36,8 +36,7 @@ impl From<isize> for DiskType {
     }
 }
 
-fn find_type_for_name(name: &OsStr) -> DiskType
-{
+fn find_type_for_name(name: &OsStr) -> DiskType {
     #![allow(or_fun_call)]
     /* turn "sda1" into "sda": */
     let mut trimmed: &[u8] = name.as_bytes();
@@ -53,6 +52,16 @@ fn find_type_for_name(name: &OsStr) -> DiskType
     DiskType::from(rotational_int.unwrap_or(-1))
 }
 
+#[cfg(target_arch = "arm")]
+macro_rules! cast {
+    ($x:expr) => { $x as u64 }
+}
+
+#[cfg(not(target_arch = "arm"))]
+macro_rules! cast {
+    ($x:expr) => { $x }
+}
+
 pub fn new(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Disk {
     let mount_point_cpath = utils::to_cpath(mount_point);
     let type_ = find_type_for_name(name);
@@ -60,7 +69,7 @@ pub fn new(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Disk {
     let mut available_space = 0;
     unsafe {
         let mut stat: statvfs = mem::zeroed();
-        if statvfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
+        if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
             total_space = stat.f_bsize * stat.f_blocks;
             available_space = stat.f_bsize * stat.f_bavail;
         }
@@ -70,8 +79,8 @@ pub fn new(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Disk {
         name: name.to_owned(),
         file_system: file_system.to_owned(),
         mount_point: mount_point.to_owned(),
-        total_space: total_space,
-        available_space: available_space,
+        total_space: cast!(total_space),
+        available_space: cast!(available_space),
     }
 }
 
@@ -123,8 +132,9 @@ impl DiskExt for Disk {
         unsafe {
             let mut stat: statvfs = mem::zeroed();
             let mount_point_cpath = utils::to_cpath(&self.mount_point);
-            if statvfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
-                self.available_space = stat.f_bsize * stat.f_bavail;
+            if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
+                let tmp = stat.f_bsize * stat.f_bavail;
+                self.available_space = cast!(tmp);
                 true
             } else {
                 false
