@@ -5,6 +5,7 @@ A system handler to interact with processes.
 Support the following platforms:
 
  * Linux
+ * Raspberry
  * Mac OSX
 
 ## C interface
