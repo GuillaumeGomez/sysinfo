@@ -8,6 +8,15 @@ Support the following platforms:
  * Raspberry
  * Mac OSX
 
+### Running on Raspberry
+
+It'll be difficult to build on Raspberry. A good way-around is to be build on Linux before sending it to your Raspberry:
+
+```bash
+rustup target add armv7-unknown-linux-gnueabihf
+cargo build --target=armv7-unknown-linux-gnueabihf
+```
+
 ## C interface
 
 It's possible to use this crate directly from C. Take a look at the `Makefile` and at the `examples/src/simple.c` files.
