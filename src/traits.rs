@@ -6,7 +6,13 @@
 
 use sys::{Component, Disk, DiskType, NetworkData, Process, Processor};
 
-use libc::pid_t;
+cfg_if! {
+    if #[cfg(windows)] {
+        pub type pid_t = i32;
+    } else {
+        use libc::pid_t;
+    }
+}
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::Path;

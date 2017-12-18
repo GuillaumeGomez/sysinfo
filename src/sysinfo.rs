@@ -50,16 +50,23 @@
 #![allow(unknown_lints)]
 #![allow(too_many_arguments)]
 
+#[macro_use]
+extern crate cfg_if;
 extern crate libc;
 
-#[cfg(target_os = "macos")]
-mod mac;
-#[cfg(target_os = "macos")]
-use mac as sys;
-#[cfg(not(target_os = "macos"))]
-mod linux;
-#[cfg(not(target_os = "macos"))]
-use linux as sys;
+cfg_if! {
+    if #[cfg(target_os = "macos")] {
+        mod mac;
+        use mac as sys;
+    } else if #[cfg(windows)] {
+        mod windows;
+        use windows as sys;
+        extern crate winapi;
+    } else {
+        mod linux;
+        use linux as sys;
+    }
+}
 
 pub use sys::{
     Component,
