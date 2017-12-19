@@ -15,7 +15,7 @@ use libc::{c_uint, c_void, memcpy};
 use winapi::shared::minwindef::{DWORD, FALSE, FILETIME/*, TRUE, USHORT*/};
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::winnt::{
-    DELETE, HANDLE, ULARGE_INTEGER, THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,
+    DELETE, HANDLE, ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
     /*, PWSTR*/
 };
 use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess, TerminateProcess};

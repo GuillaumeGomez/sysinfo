@@ -6,7 +6,10 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+use std::thread::{self, sleep, JoinHandle};
+use std::time::Duration;
+
+use ProcessorExt;
 
 use winapi::shared::minwindef::{FALSE, ULONG};
 use winapi::shared::winerror::ERROR_SUCCESS;
@@ -40,7 +43,7 @@ impl InternalQuery {
                 if let Ok(ref mut data) = self.data.lock() {
                     let mut counter_type: ULONG = 0;
                     let mut display_value: PDH_FMT_COUNTERVALUE = ::std::mem::zeroed();
-                    for (name, x) in data.iter_mut() {
+                    for (_, x) in data.iter_mut() {
                         if PdhGetFormattedCounterValue(x.0, PDH_FMT_DOUBLE,
                                                             &mut counter_type,
                                                             &mut display_value) == ERROR_SUCCESS as i32 {
@@ -57,7 +60,7 @@ impl InternalQuery {
 }
 
 pub struct Query {
-    internal: Arc<InternalQuery>,
+    internal: Arc<Mutex<InternalQuery>>,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -71,11 +74,11 @@ impl Query {
                 if event.is_null() {
                     None
                 } else {
-                    let mut q = Arc::new(InternalQuery {
+                    let q = Arc::new(Mutex::new(InternalQuery {
                         query: query,
                         event: event,
                         data: Mutex::new(HashMap::new()),
-                    });
+                    }));
                     Some(Query {
                         internal: q,
                         thread: None,
@@ -88,34 +91,45 @@ impl Query {
     }
 
     pub fn get(&self, name: &String) -> Option<f32> {
-        if let Some(&(_, v)) = self.internal.data.lock().unwrap().get(name) {
-            Some(v)
-        } else {
-            None
+         if let Ok(internal) = self.internal.lock() {
+            if let Ok(data) = internal.data.lock() {
+                if let Some(&(_, v)) = data.get(name) {
+                    return Some(v);
+                }
+            }
         }
+        None
     }
 
     pub fn add_counter(&mut self, name: &String, getter: &[u8]) {
-        if self.internal.data.lock().unwrap().contains_key(name) {
-            return;
-        }
-        let mut counter = ::std::ptr::null_mut();
-        unsafe {
-            if PdhAddCounterA(self.internal.query,
-                              getter.as_ptr() as *const i8,
-                              0,
-                              &mut counter) == ERROR_SUCCESS as i32 {
-                self.internal.data.lock().unwrap().insert(name.clone(), (counter, 0f32));
+        if let Ok(internal) = self.internal.lock() {
+            if let Ok(data) = internal.data.lock() {
+                if data.contains_key(name) {
+                    return;
+                }
+            }
+            let mut counter = ::std::ptr::null_mut();
+            unsafe {
+                if PdhAddCounterA(internal.query,
+                                  getter.as_ptr() as *const i8,
+                                  0,
+                                  &mut counter) == ERROR_SUCCESS as i32 {
+                    internal.data.lock().expect("couldn't add counter...").insert(name.clone(), (counter, 0f32));
+                }
             }
         }
     }
 
     pub fn start(&mut self) {
-        let mut q_clone = self.internal.clone();
+        let q_clone = Arc::clone(&self.internal);
         self.thread = Some(
             thread::spawn(move || {
+                let d = Duration::new(1, 0);
                 loop {
-                    q_clone.record();
+                    if let Ok(ref mut q) = q_clone.lock() {
+                        q.record();
+                    }
+                    sleep(d);
                 }
             }));
     }
@@ -125,6 +139,16 @@ impl Query {
 pub struct Processor {
     name: String,
     cpu_usage: f32,
+}
+
+impl ProcessorExt for Processor {
+    fn get_cpu_usage(&self) -> f32 {
+        self.cpu_usage
+    }
+
+    fn get_name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl Processor {
@@ -141,16 +165,6 @@ impl Processor {
             name: name.to_owned(),
             cpu_usage: 0f32,
         }
-    }
-
-    /// Returns this processor's usage.
-    pub fn get_cpu_usage(&self) -> f32 {
-        self.cpu_usage
-    }
-
-    /// Returns this processor's name.
-    pub fn get_name(&self) -> &str {
-        &self.name
     }
 }
 

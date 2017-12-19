@@ -28,6 +28,7 @@ impl NetworkExt for NetworkData {
     }
 }
 
+#[allow(dead_code)]
 pub fn new() -> NetworkData {
     NetworkData {
         old_in: 0,

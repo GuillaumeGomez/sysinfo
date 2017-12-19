@@ -17,6 +17,8 @@ use winapi::ctypes::c_void;
 
 use libc::c_char;
 
+use Pid;
+
 use winapi::shared::minwindef::{BYTE, DWORD, FALSE, MAX_PATH, TRUE};
 use winapi::um::fileapi::{
     CreateFileA, GetDriveTypeA, GetLogicalDrives, GetVolumeInformationA, OPEN_EXISTING,
@@ -153,19 +155,21 @@ unsafe fn get_disks() -> Vec<Disk> {
         spq_trim.PropertyId = ffi::StorageDeviceTrimProperty;
         spq_trim.QueryType = ffi::PropertyStandardQuery;
         let mut dtd: ffi::DEVICE_TRIM_DESCRIPTOR = ::std::mem::zeroed();*/
+        #[allow(non_snake_case)]
         #[repr(C)]
         struct STORAGE_PROPERTY_QUERY {
             PropertyId: i32,
             QueryType: i32,
             AdditionalParameters: [BYTE; 1]
         }
+        #[allow(non_snake_case)]
         #[repr(C)]
         struct DEVICE_TRIM_DESCRIPTOR {
             Version: DWORD,
             Size: DWORD,
             TrimEnabled: BOOLEAN,
         }
-        let spq_trim = STORAGE_PROPERTY_QUERY {
+        let mut spq_trim = STORAGE_PROPERTY_QUERY {
             PropertyId: 8i32,
             QueryType: 0i32,
             AdditionalParameters: [0],
@@ -213,7 +217,7 @@ impl System {
             query: Query::new(),
             keys: Vec::new(),
         };
-        if let Some(query) = s.query {
+        if let Some(ref mut query) = s.query {
             let tmp = "0_0".to_owned();
             query.add_counter(&tmp, b"\\Processor(_Total)\\% Processor Time\0");
             s.keys.push(tmp);
@@ -247,7 +251,7 @@ impl System {
             self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
             self.mem_free = auto_cast!(mem_info.ullAvailPageFile, u64);
         }
-        if let Some(query) = self.query {
+        if let Some(ref mut query) = self.query {
             for (keys, p) in self.keys.windows(2).zip(self.processors.iter_mut()) {
                 let proc_time = query.get(&keys[0]).unwrap_or(0.);
                 let idle_time = query.get(&keys[1]).unwrap_or(0.);
@@ -351,7 +355,7 @@ impl System {
     }
 
     /// Return the process corresponding to the given pid or None if no such process exists.
-    pub fn get_process(&self, pid: i64) -> Option<&Process> {
+    pub fn get_process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.get(&(pid as usize))
     }
 

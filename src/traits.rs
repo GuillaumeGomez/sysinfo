@@ -5,14 +5,8 @@
 //
 
 use sys::{Component, Disk, DiskType, NetworkData, Process, Processor};
+use Pid;
 
-cfg_if! {
-    if #[cfg(windows)] {
-        pub type pid_t = i32;
-    } else {
-        use libc::pid_t;
-    }
-}
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -44,7 +38,7 @@ pub trait DiskExt {
 /// Contains all the methods of the `Process` struct.
 pub trait ProcessExt {
     /// Create a new process only containing the given information.
-    fn new(pid: pid_t, parent: Option<pid_t>, start_time: u64) -> Self;
+    fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Self;
 
     /// Sends the given `signal` to the process.
     fn kill(&self, signal: ::Signal) -> bool;
@@ -75,7 +69,7 @@ pub trait SystemExt {
 
     /// Refresh *only* the process corresponding to `pid`. Returns `false` if the process doesn't
     /// exist.
-    fn refresh_process(&mut self, pid: pid_t) -> bool;
+    fn refresh_process(&mut self, pid: Pid) -> bool;
 
     /// Refreshes the listed disks' information.
     fn refresh_disks(&mut self);
@@ -95,10 +89,10 @@ pub trait SystemExt {
     }
 
     /// Returns the process list.
-    fn get_process_list(&self) -> &HashMap<pid_t, Process>;
+    fn get_process_list(&self) -> &HashMap<Pid, Process>;
 
     /// Returns the process corresponding to the given pid or `None` if no such process exists.
-    fn get_process(&self, pid: pid_t) -> Option<&Process>;
+    fn get_process(&self, pid: Pid) -> Option<&Process>;
 
     /// Returns a list of process starting with the given name.
     fn get_process_by_name(&self, name: &str) -> Vec<&Process>;

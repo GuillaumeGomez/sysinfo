@@ -68,6 +68,7 @@ cfg_if! {
     }
 }
 
+pub use common::Pid;
 pub use sys::{
     Component,
     Disk,
@@ -85,11 +86,13 @@ pub use traits::{
     SystemExt,
     NetworkExt,
 };
-#[cfg(not(target_os = "windows"))]
+
+#[cfg(not(windows))]
 pub use utils::get_current_pid;
 #[cfg(feature = "c-interface")]
 pub use c_interface::*;
 
+mod common;
 mod component;
 mod process;
 mod processor;

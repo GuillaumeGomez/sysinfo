@@ -18,8 +18,9 @@ use std::str::FromStr;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
-use libc::{pid_t, uid_t, sysconf, _SC_CLK_TCK, _SC_PAGESIZE};
+use libc::{uid_t, sysconf, _SC_CLK_TCK, _SC_PAGESIZE};
 use utils::realpath;
+use Pid;
 
 /// Structs containing system's information.
 #[derive(Debug)]
@@ -141,7 +142,7 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_process(&mut self, pid: pid_t) -> bool {
+    fn refresh_process(&mut self, pid: Pid) -> bool {
         if let Some(proc_) = self.process_list.tasks.get_mut(&pid) {
             _get_process_data(&Path::new("/proc/").join(pid.to_string()), proc_,
                               self.page_size_kb, pid);
@@ -171,11 +172,11 @@ impl SystemExt for System {
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    fn get_process_list(&self) -> &HashMap<pid_t, Process> {
+    fn get_process_list(&self) -> &HashMap<Pid, Process> {
         &self.process_list.tasks
     }
 
-    fn get_process(&self, pid: pid_t) -> Option<&Process> {
+    fn get_process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.tasks.get(&pid)
     }
 
@@ -250,7 +251,7 @@ pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
 }
 
 fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb: u64,
-                                 pid: pid_t) -> bool {
+                                 pid: Pid) -> bool {
     if let Ok(d) = fs::read_dir(path.as_ref()) {
         for entry in d {
             if let Ok(entry) = entry {
@@ -268,7 +269,7 @@ fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb:
 }
 
 fn update_time_and_memory(path: &Path, entry: &mut Process, parts: &[&str], page_size_kb: u64,
-                          parent_memory: u64, pid: pid_t) {
+                          parent_memory: u64, pid: Pid) {
     //entry.name = parts[1][1..].to_owned();
     //entry.name.pop();
     // we get the rss
@@ -293,8 +294,8 @@ macro_rules! unwrap_or_return {
     }}
 }
 
-fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pid: pid_t) {
-    if let Some(Ok(nb)) = path.file_name().and_then(|x| x.to_str()).map(pid_t::from_str) {
+fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pid: Pid) {
+    if let Some(Ok(nb)) = path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
         if nb == pid {
             return
         }
@@ -330,7 +331,7 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
             let parent_pid = if proc_list.pid != 0 {
                 Some(proc_list.pid)
             } else {
-                match pid_t::from_str(parts[3]) {
+                match Pid::from_str(parts[3]) {
                     Ok(p) if p != 0 => Some(p),
                     _ => None,
                 }
