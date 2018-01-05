@@ -9,14 +9,12 @@
 #![allow(unused_must_use, non_upper_case_globals)]
 
 extern crate sysinfo;
-extern crate libc;
 
-use sysinfo::{NetworkExt, ProcessExt, ProcessorExt, Signal, System, SystemExt};
+use sysinfo::{NetworkExt, Pid, ProcessExt, ProcessorExt, Signal, System, SystemExt};
 use sysinfo::Signal::*;
 use std::io::{self, BufRead};
 use std::str::FromStr;
 use std::io::Write;
-use libc::pid_t;
 
 const signals: [Signal; 31] = [Hangup, Interrupt, Quit, Illegal, Trap, Abort, Bus,
                                FloatingPointException, Kill, User1, Segv, User2, Pipe, Alarm,
@@ -85,7 +83,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             if tmp.len() != 2 {
                 writeln!(&mut io::stdout(), "show command takes a pid or a name in parameter!");
                 writeln!(&mut io::stdout(), "example: show 1254");
-            } else if let Ok(pid) = pid_t::from_str(tmp[1]) {
+            } else if let Ok(pid) = Pid::from_str(tmp[1]) {
                 match sys.get_process(pid) {
                     Some(p) => writeln!(&mut io::stdout(), "{:?}", *p),
                     None => writeln!(&mut io::stdout(), "pid not found")
@@ -118,7 +116,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                          "kill command takes the pid and a signal number in parameter !");
                 writeln!(&mut io::stdout(), "example: kill 1254 9");
             } else {
-                let pid = pid_t::from_str(tmp[1]).unwrap();
+                let pid = Pid::from_str(tmp[1]).unwrap();
                 let signal = i32::from_str(tmp[2]).unwrap();
 
                 if signal < 1 || signal > 31 {

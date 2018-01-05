@@ -15,10 +15,15 @@ use std::str;
 
 use winapi::ctypes::c_void;
 
-use libc::c_char;
-
 use Pid;
+use ProcessExt;
+use SystemExt;
 
+use windows::tools::KeyHandler;
+use windows::network::{self, NetworkData};
+use windows::processor::CounterValue;
+
+use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::shared::minwindef::{BYTE, DWORD, FALSE, MAX_PATH, TRUE};
 use winapi::um::fileapi::{
     CreateFileA, GetDriveTypeA, GetLogicalDrives, GetVolumeInformationA, OPEN_EXISTING,
@@ -26,10 +31,10 @@ use winapi::um::fileapi::{
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::ioapiset::DeviceIoControl;
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
-use winapi::um::processthreadsapi::OpenProcess;
-use winapi::um::psapi::{
-    K32EnumProcesses, K32EnumProcessModulesEx, K32GetModuleBaseNameA, LIST_MODULES_ALL,
-};
+use winapi::um::pdh::PdhEnumObjectItemsW;
+use winapi::um::processthreadsapi::GetExitCodeProcess;
+use winapi::um::psapi::K32EnumProcesses;
+use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::sysinfoapi::{
     GetSystemInfo, GlobalMemoryStatusEx, MEMORYSTATUSEX, SYSTEM_INFO,
 };
@@ -38,23 +43,49 @@ use winapi::um::winioctl::{
 };
 use winapi::um::winnt::{
     BOOLEAN, FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE, HANDLE,
-    PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
 };
 use winapi::um::winbase::DRIVE_FIXED;
 
-/// Structs containing system's information.
-pub struct System {
-    process_list: HashMap<usize, Process>,
-    mem_total: u64,
-    mem_free: u64,
-    swap_total: u64,
-    swap_free: u64,
-    processors: Vec<Processor>,
-    temperatures: Vec<Component>,
-    disks: Vec<Disk>,
-    query: Option<Query>,
-    keys: Vec<String>,
-}
+/*#[allow(non_snake_case)]
+#[allow(unused)]
+unsafe fn browser() {
+    use winapi::um::pdh::{PdhBrowseCountersA, PDH_BROWSE_DLG_CONFIG_A};
+    use winapi::shared::winerror::ERROR_SUCCESS;
+
+    let mut BrowseDlgData: PDH_BROWSE_DLG_CONFIG_A = ::std::mem::zeroed();
+    let mut CounterPathBuffer: [i8; 255] = ::std::mem::zeroed();
+    const PERF_DETAIL_WIZARD: u32 = 400;
+    let text = b"Select a counter to monitor.\0";
+
+    BrowseDlgData.set_IncludeInstanceIndex(FALSE as u32);
+    BrowseDlgData.set_SingleCounterPerAdd(TRUE as u32);
+    BrowseDlgData.set_SingleCounterPerDialog(TRUE as u32);
+    BrowseDlgData.set_LocalCountersOnly(FALSE as u32);
+    BrowseDlgData.set_WildCardInstances(TRUE as u32);
+    BrowseDlgData.set_HideDetailBox(TRUE as u32);
+    BrowseDlgData.set_InitializePath(FALSE as u32);
+    BrowseDlgData.set_DisableMachineSelection(FALSE as u32);
+    BrowseDlgData.set_IncludeCostlyObjects(FALSE as u32);
+    BrowseDlgData.set_ShowObjectBrowser(FALSE as u32);
+    BrowseDlgData.hWndOwner = ::std::ptr::null_mut();
+    BrowseDlgData.szReturnPathBuffer = CounterPathBuffer.as_mut_ptr();
+    BrowseDlgData.cchReturnPathLength = 255;
+    BrowseDlgData.pCallBack = None;
+    BrowseDlgData.dwCallBackArg = 0;
+    BrowseDlgData.CallBackStatus = ERROR_SUCCESS as i32;
+    BrowseDlgData.dwDefaultDetailLevel = PERF_DETAIL_WIZARD;
+    BrowseDlgData.szDialogBoxCaption = text as *const _ as usize as *mut i8;
+    let ret = PdhBrowseCountersA(&mut BrowseDlgData as *mut _);
+    println!("browser: {:?}", ret);
+    for x in CounterPathBuffer.iter() {
+        print!("{:?} ", *x);
+    }
+    println!("");
+    for x in 0..256 {
+        print!("{:?} ", *BrowseDlgData.szReturnPathBuffer.offset(x));
+    }
+    println!("");
+}*/
 
 fn init_processors() -> Vec<Processor> {
     unsafe {
@@ -74,7 +105,8 @@ unsafe fn open_drive(drive_name: &[u8], open_rights: DWORD) -> HANDLE {
                 open_rights,
                 FILE_SHARE_READ | FILE_SHARE_WRITE,
                 ::std::ptr::null_mut(), OPEN_EXISTING,
-                0, ::std::ptr::null_mut())
+                0,
+                ::std::ptr::null_mut())
 }
 
 unsafe fn get_drive_size(drive_name: &[u8]) -> u64 {
@@ -199,127 +231,113 @@ unsafe fn get_disks() -> Vec<Disk> {
     disks
 }
 
+#[allow(non_snake_case)]
+unsafe fn load_symbols() -> HashMap<String, u32> {
+    use winapi::um::winreg::{HKEY_PERFORMANCE_DATA, RegQueryValueExA};
+
+    let mut cbCounters = 0;
+    let mut dwType = 0;
+    let mut ret = HashMap::new();
+
+    let _dwStatus = RegQueryValueExA(HKEY_PERFORMANCE_DATA,
+                                     b"Counter 009\0".as_ptr() as *const _,
+                                     ::std::ptr::null_mut(),
+                                     &mut dwType as *mut i32 as *mut _,
+                                     ::std::ptr::null_mut(),
+                                     &mut cbCounters as *mut i32 as *mut _);
+
+    let mut lpmszCounters = Vec::with_capacity(cbCounters as usize);
+    lpmszCounters.set_len(cbCounters as usize);
+    let _dwStatus = RegQueryValueExA(HKEY_PERFORMANCE_DATA,
+                                     b"Counter 009\0".as_ptr() as *const _,
+                                     ::std::ptr::null_mut(),
+                                     &mut dwType as *mut i32 as *mut _,
+                                     lpmszCounters.as_mut_ptr(),
+                                     &mut cbCounters as *mut i32 as *mut _);
+
+    for (pos, s) in lpmszCounters.split(|x| *x == 0)
+                                 .collect::<Vec<_>>()
+                                 .chunks(2)
+                                 .filter(|&x| x.len() == 2 && !x[0].is_empty() && !x[1].is_empty())
+                                 .map(|x| (u32::from_str_radix(String::from_utf8(x[0].to_vec()).unwrap().as_str(), 10).unwrap(), String::from_utf8(x[1].to_vec()).expect("invalid string"))) {
+        ret.insert(s, pos as u32);
+    }
+    ret
+}
+
+fn get_translation(s: &String, map: &HashMap<String, u32>) -> Option<String> {
+    use winapi::um::pdh::PdhLookupPerfNameByIndexW;
+
+    if let Some(index) = map.get(s) {
+        let mut size: usize = 0;
+        unsafe {
+            let _res = PdhLookupPerfNameByIndexW(::std::ptr::null(),
+                                                *index,
+                                                ::std::ptr::null_mut(),
+                                                &mut size as *mut usize as *mut _);
+            let mut v = Vec::with_capacity(size);
+            v.set_len(size);
+            let _res = PdhLookupPerfNameByIndexW(::std::ptr::null(),
+                                                *index,
+                                                v.as_mut_ptr() as *mut _,
+                                                &mut size as *mut usize as *mut _);
+            return Some(String::from_utf16(&v[..size - 1]).expect("invalid utf16"));
+        }
+    }
+    None
+}
+
+fn add_counter(s: String, query: &mut Query, keys: &mut Option<KeyHandler>, counter_name: String,
+               value: CounterValue) {
+    let mut full = s.encode_utf16().collect::<Vec<_>>();
+    full.push(0);
+    if query.add_counter(&counter_name, full.clone(), value) {
+        *keys = Some(KeyHandler::new(counter_name, full));
+    }
+}
+
+fn is_proc_running(handle: HANDLE) -> bool {
+    let mut exit_code = 0;
+    let ret = unsafe { GetExitCodeProcess(handle, &mut exit_code) };
+    !(ret == FALSE || exit_code != STILL_ACTIVE)
+}
+
+fn refresh_existing_process(s: &mut System, pid: Pid, compute_cpu: bool) -> bool {
+    if let Some(ref mut entry) = s.process_list.get_mut(&(pid as usize)) {
+        if !is_proc_running(get_handle(entry)) {
+            return false;
+        }
+        update_proc_info(entry);
+        if compute_cpu {
+            compute_cpu_usage(entry, s.processors.len() as u64 - 1);
+        }
+        true
+    } else {
+        false
+    }
+}
+
+/// Struct containing system's information.
+pub struct System {
+    process_list: HashMap<usize, Process>,
+    mem_total: u64,
+    mem_free: u64,
+    swap_total: u64,
+    swap_free: u64,
+    processors: Vec<Processor>,
+    temperatures: Vec<Component>,
+    disks: Vec<Disk>,
+    query: Option<Query>,
+    network: NetworkData,
+}
+
 impl System {
-    /// Creates a new `System` instance. It only contains the disks' list at this stage. Use the
-    /// [`refresh_all`] method to update its internal information (or any of the `refresh_` method).
-    ///
-    /// [`refresh_all`]: #method.refresh_all
-    pub fn new() -> System {
-        let mut s = System {
-            process_list: HashMap::new(),
-            mem_total: 0,
-            mem_free: 0,
-            swap_total: 0,
-            swap_free: 0,
-            processors: init_processors(),
-            temperatures: component::get_components(),
-            disks: unsafe { get_disks() },
-            query: Query::new(),
-            keys: Vec::new(),
-        };
-        if let Some(ref mut query) = s.query {
-            let tmp = "0_0".to_owned();
-            query.add_counter(&tmp, b"\\Processor(_Total)\\% Processor Time\0");
-            s.keys.push(tmp);
-            let tmp = "0_1".to_owned();
-            query.add_counter(&tmp, b"\\Processor(_Total)\\% Idle Time\0");
-            s.keys.push(tmp);
-            for (pos, _) in s.processors.iter().skip(1).enumerate() {
-                let tmp = format!("{}_0", pos);
-                query.add_counter(&tmp,
-                                  format!("\\Processor({})\\% Processor Time\0", pos).as_bytes());
-                s.keys.push(tmp);
-                let tmp = format!("{}_1", pos);
-                query.add_counter(&tmp,
-                                  format!("\\Processor({})\\% Idle Time\0", pos).as_bytes());
-                s.keys.push(tmp);
-            }
-            query.start();
-        }
-        s.refresh_all();
-        s
-    }
-
-    /// Refresh system information (such as memory, swap, CPU usage and components' temperature).
-    pub fn refresh_system(&mut self) {
-        unsafe {
-            let mut mem_info: MEMORYSTATUSEX = zeroed();
-            mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
-            GlobalMemoryStatusEx(&mut mem_info);
-            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64);
-            self.mem_free = auto_cast!(mem_info.ullAvailPhys, u64);
-            self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
-            self.mem_free = auto_cast!(mem_info.ullAvailPageFile, u64);
-        }
-        if let Some(ref mut query) = self.query {
-            for (keys, p) in self.keys.windows(2).zip(self.processors.iter_mut()) {
-                let proc_time = query.get(&keys[0]).unwrap_or(0.);
-                let idle_time = query.get(&keys[1]).unwrap_or(0.);
-                if proc_time != 0. {
-                    set_cpu_usage(p, (idle_time / proc_time * 100.) as f32);
-                } else {
-                    set_cpu_usage(p, 0.);
-                }
-            }
-        }
-    }
-
-    /// Get all processes and update their information.
-    pub fn refresh_process(&mut self) {
-        let mut process_ids: [DWORD; 1024] = [0; 1024];
-        let mut cb_needed = 0;
-
-        unsafe {
-            let size = ::std::mem::size_of::<DWORD>() * process_ids.len();
-            if K32EnumProcesses(process_ids.as_mut_ptr(),
-                                          size as DWORD,
-                                          &mut cb_needed) == 0 {
-                return
-            }
-            let nb_processes = cb_needed / ::std::mem::size_of::<DWORD>() as DWORD;
-
-            for i in 0..nb_processes as usize {
-                let pid = process_ids[i];
-                if pid == 0 {
-                    continue
-                }
-                let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
-                let process_handler = OpenProcess(options, FALSE, pid);
-                if process_handler.is_null() {
-                    continue
-                }
-                if let Some(ref mut entry) = self.process_list.get_mut(&(pid as usize)) {
-                    update_proc_info(entry);
-                    continue
-                }
-                let mut h_mod = ::std::ptr::null_mut();
-                let mut process_name = [0 as u8; MAX_PATH];
-
-                if K32EnumProcessModulesEx(process_handler,
-                                           &mut h_mod,
-                                           ::std::mem::size_of::<DWORD>() as DWORD,
-                                           &mut cb_needed,
-                                           LIST_MODULES_ALL) != 0 {
-                    K32GetModuleBaseNameA(process_handler,
-                                          h_mod,
-                                          process_name.as_mut_ptr() as *mut c_char,
-                                          MAX_PATH as DWORD);
-                }
-                let mut p = Process::new(process_handler, pid, 0,
-                                         String::from_utf8_unchecked(process_name.to_vec())); // TODO: should be start time, not 0
-                update_proc_info(&mut p);
-                self.process_list.insert(pid as usize, p);
-            }
-        }
-        self.clear_procs();
-    }
-
     fn clear_procs(&mut self) {
         if self.processors.len() > 0 {
             let mut to_delete = Vec::new();
 
             for (pid, proc_) in self.process_list.iter_mut() {
-                if has_been_updated(&proc_) == false {
+                if !is_proc_running(get_handle(proc_)) {
                     to_delete.push(*pid);
                 } else {
                     compute_cpu_usage(proc_, self.processors.len() as u64 - 1);
@@ -330,37 +348,209 @@ impl System {
             }
         }
     }
+}
 
-    /// Refreshes the listed disks' information.
-    pub fn refresh_disks(&mut self) {
+impl SystemExt for System {
+    #[allow(non_snake_case)]
+    fn new() -> System {
+        let mut s = System {
+            process_list: HashMap::new(),
+            mem_total: 0,
+            mem_free: 0,
+            swap_total: 0,
+            swap_free: 0,
+            processors: init_processors(),
+            temperatures: component::get_components(),
+            disks: unsafe { get_disks() },
+            query: Query::new(),
+            network: network::new(),
+        };
+        if let Some(ref mut query) = s.query {
+            let x = unsafe { load_symbols() };
+            let processor_trans = get_translation(&"Processor".to_owned(), &x).expect("translation failed");
+            let idle_time_trans = get_translation(&"% Idle Time".to_owned(), &x).expect("translation failed");
+            let proc_time_trans = get_translation(&"% Processor Time".to_owned(), &x).expect("translation failed");
+            add_counter(format!("\\{}(_Total)\\{}", processor_trans, proc_time_trans),
+                        query,
+                        get_key_used(&mut s.processors[0]),
+                        "tot_0".to_owned(),
+                        CounterValue::Float(0.));
+            add_counter(format!("\\{}(_Total)\\{}", processor_trans, idle_time_trans),
+                        query,
+                        get_key_idle(&mut s.processors[0]),
+                        "tot_1".to_owned(),
+                        CounterValue::Float(0.));
+            for (pos, proc_) in s.processors.iter_mut().skip(1).enumerate() {
+                add_counter(format!("\\{}({})\\{}", processor_trans, pos, proc_time_trans),
+                            query,
+                            get_key_used(proc_),
+                            format!("{}_0", pos),
+                            CounterValue::Float(0.));
+                add_counter(format!("\\{}({})\\{}", processor_trans, pos, idle_time_trans),
+                            query,
+                            get_key_idle(proc_),
+                            format!("{}_1", pos),
+                            CounterValue::Float(0.));
+            }
+
+            let network_trans = get_translation(&"Network Interface".to_owned(), &x).expect("translation failed");
+            let network_in_trans = get_translation(&"Bytes Received/Sec".to_owned(), &x).expect("translation failed");
+            let network_out_trans = get_translation(&"Bytes Sent/sec".to_owned(), &x).expect("translation failed");
+
+            const PERF_DETAIL_WIZARD: DWORD = 400;
+            const PDH_MORE_DATA: DWORD = 0x800007D2;
+
+            let mut network_trans_utf16: Vec<u16> = network_trans.encode_utf16().collect();
+            network_trans_utf16.push(0);
+            let mut dwCounterListSize: DWORD = 0;
+            let mut dwInstanceListSize: DWORD = 0;
+            let status = unsafe {
+                PdhEnumObjectItemsW(::std::ptr::null(),
+                                    ::std::ptr::null(),
+                                    network_trans_utf16.as_ptr(),
+                                    ::std::ptr::null_mut(),
+                                    &mut dwCounterListSize,
+                                    ::std::ptr::null_mut(),
+                                    &mut dwInstanceListSize,
+                                    PERF_DETAIL_WIZARD,
+                                    0)
+            };
+            if status != PDH_MORE_DATA as i32 {
+                panic!("got invalid status: {:x}", status);
+            }
+            let mut pwsCounterListBuffer: Vec<u16> = Vec::with_capacity(dwCounterListSize as usize);
+            let mut pwsInstanceListBuffer: Vec<u16> = Vec::with_capacity(dwInstanceListSize as usize);
+            unsafe {
+                pwsCounterListBuffer.set_len(dwCounterListSize as usize);
+                pwsInstanceListBuffer.set_len(dwInstanceListSize as usize);
+            }
+            let status = unsafe {
+                PdhEnumObjectItemsW(::std::ptr::null(),
+                                    ::std::ptr::null(),
+                                    network_trans_utf16.as_ptr(),
+                                    pwsCounterListBuffer.as_mut_ptr(),
+                                    &mut dwCounterListSize,
+                                    pwsInstanceListBuffer.as_mut_ptr(),
+                                    &mut dwInstanceListSize,
+                                    PERF_DETAIL_WIZARD,
+                                    0)
+            };
+            if status != ERROR_SUCCESS as i32 {
+                panic!("got invalid status: {:x}", status);
+            }
+
+            for (pos, x) in pwsInstanceListBuffer.split(|x| *x == 0)
+                                                 .filter(|x| x.len() > 0)
+                                                 .enumerate() {
+                let net_interface = String::from_utf16(x).expect("invalid utf16");
+                let mut key_in = None;
+                add_counter(format!("\\{}({})\\{}",
+                                    network_trans, net_interface, network_in_trans),
+                            query,
+                            &mut key_in,
+                            format!("net{}_in", pos),
+                            CounterValue::Integer(0));
+                if key_in.is_some() {
+                    network::get_keys_in(&mut s.network).push(key_in.unwrap());
+                }
+                let mut key_out = None;
+                add_counter(format!("\\{}({})\\{}",
+                                    network_trans, net_interface, network_out_trans),
+                            query,
+                            &mut key_out,
+                            format!("net{}_out", pos),
+                            CounterValue::Integer(0));
+                if key_out.is_some() {
+                    network::get_keys_out(&mut s.network).push(key_out.unwrap());
+                }
+            }
+            query.start();
+        }
+        s.refresh_all();
+        s
+    }
+
+    fn refresh_system(&mut self) {
+        unsafe {
+            let mut mem_info: MEMORYSTATUSEX = zeroed();
+            mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
+            GlobalMemoryStatusEx(&mut mem_info);
+            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64);
+            self.mem_free = auto_cast!(mem_info.ullAvailPhys, u64);
+            self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
+            self.mem_free = auto_cast!(mem_info.ullAvailPageFile, u64);
+        }
+        if let Some(ref mut query) = self.query {
+            for p in self.processors.iter_mut() {
+                let mut idle_time = None;
+                if let &mut Some(ref key_idle) = get_key_idle(p) {
+                    idle_time = Some(query.get(&key_idle.unique_id).expect("key disappeared"));
+                }
+                if let Some(idle_time) = idle_time {
+                    set_cpu_usage(p, 1. - idle_time);
+                }
+            }
+        }
+    }
+
+    fn refresh_network(&mut self) {
+        network::refresh(&mut self.network, &self.query);
+    }
+
+    fn refresh_process(&mut self, pid: Pid) -> bool {
+        if refresh_existing_process(self, pid, true) == false {
+            self.process_list.remove(&pid);
+            false
+        } else {
+            true
+        }
+    }
+
+    fn refresh_processes(&mut self) {
+        let mut process_ids: [DWORD; 1024] = [0; 1024];
+        let mut cb_needed = 0;
+
+        unsafe {
+            let size = ::std::mem::size_of::<DWORD>() * process_ids.len();
+            if K32EnumProcesses(process_ids.as_mut_ptr(),
+                                size as DWORD,
+                                &mut cb_needed) == 0 {
+                return
+            }
+            let nb_processes = cb_needed / ::std::mem::size_of::<DWORD>() as DWORD;
+
+            for i in 0..nb_processes as usize {
+                let pid = process_ids[i] as Pid;
+                if refresh_existing_process(self, pid, false) == true {
+                    continue
+                }
+                let mut p = Process::new(pid, get_parent_process_id(pid), 0);
+                update_proc_info(&mut p);
+                self.process_list.insert(pid, p);
+            }
+        }
+        self.clear_procs();
+    }
+
+    fn refresh_disks(&mut self) {
         for disk in &mut self.disks {
             disk.update();
         }
     }
-    
-    // COMMON PART
-    //
-    // Need to be moved into a "common" file to avoid duplication.
 
-    /// Refreshes all system, processes and disks information.
-    pub fn refresh_all(&mut self) {
-        self.refresh_system();
-        self.refresh_process();
-        self.refresh_disks();
+    fn refresh_disk_list(&mut self) {
+        self.disks = unsafe { get_disks() };
     }
 
-    /// Returns the process list.
-    pub fn get_process_list(&self) -> &HashMap<usize, Process> {
+    fn get_process_list(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
 
-    /// Return the process corresponding to the given pid or None if no such process exists.
-    pub fn get_process(&self, pid: Pid) -> Option<&Process> {
+    fn get_process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.get(&(pid as usize))
     }
 
-    /// Return a list of process starting with the given name.
-    pub fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
+    fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
         let mut ret = vec!();
         for val in self.process_list.values() {
             if val.name.starts_with(name) {
@@ -370,54 +560,43 @@ impl System {
         ret
     }
 
-    /// The first process in the array is the "main" process
-    pub fn get_processor_list(&self) -> &[Processor] {
+    fn get_processor_list(&self) -> &[Processor] {
         &self.processors[..]
     }
 
-    /// Returns total RAM size (in kB).
-    pub fn get_total_memory(&self) -> u64 {
+    fn get_total_memory(&self) -> u64 {
         self.mem_total >> 10
     }
 
-    /// Returns free RAM size (in kB).
-    pub fn get_free_memory(&self) -> u64 {
+    fn get_free_memory(&self) -> u64 {
         self.mem_free >> 10
     }
 
-    /// Returns used RAM size (in kB).
-    pub fn get_used_memory(&self) -> u64 {
+    fn get_used_memory(&self) -> u64 {
         (self.mem_total - self.mem_free) >> 10
     }
 
-    /// Returns SWAP size (in kB).
-    pub fn get_total_swap(&self) -> u64 {
+    fn get_total_swap(&self) -> u64 {
         self.swap_total >> 10
     }
 
-    /// Returns free SWAP size (in kB).
-    pub fn get_free_swap(&self) -> u64 {
+    fn get_free_swap(&self) -> u64 {
         self.swap_free >> 10
     }
 
-    /// Returns used SWAP size (in kB).
-    pub fn get_used_swap(&self) -> u64 {
+    fn get_used_swap(&self) -> u64 {
         (self.swap_total - self.swap_free) >> 10
     }
 
-    /// Returns components list.
-    pub fn get_components_list(&self) -> &[Component] {
+    fn get_components_list(&self) -> &[Component] {
         &self.temperatures[..]
     }
 
-    /// Returns disks' list.
-    pub fn get_disks(&self) -> &[Disk] {
+    fn get_disks(&self) -> &[Disk] {
         &self.disks[..]
     }
-}
 
-/*fn get_page_size() -> u64 {
-    let mut system_info = unsafe { ::std::mem::zeroed() };
-    unsafe { kernel32::GetSystemInfo(&mut system_info); }
-    system_info.dwPageSize as u64
-}*/
+    fn get_network(&self) -> &NetworkData {
+        &self.network
+    }
+}

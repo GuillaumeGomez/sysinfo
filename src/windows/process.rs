@@ -10,60 +10,39 @@ use std::fmt::{self, Formatter, Debug};
 use std::str;
 //use std::env;
 
-use libc::{c_uint, c_void, memcpy};
+use libc::{c_char, c_uint, c_void, memcpy};
 
-use winapi::shared::minwindef::{DWORD, FALSE, FILETIME/*, TRUE, USHORT*/};
+use Pid;
+use ProcessExt;
+
+use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH/*, TRUE, USHORT*/};
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::winnt::{
-    DELETE, HANDLE, ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
-    /*, PWSTR*/
+    HANDLE, ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
+    /*, PWSTR*/ PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
 };
 use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess, TerminateProcess};
 use winapi::um::psapi::{
     K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
+    K32EnumProcessModulesEx, K32GetModuleBaseNameA, LIST_MODULES_ALL,
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
+use winapi::um::tlhelp32::{
+    CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
+};
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Debug)]
 pub enum ProcessStatus {
-    /// Process being created by fork.
-    Idle,
     /// Currently runnable.
     Run,
-    /// Sleeping on an address.
-    Sleep,
-    /// Process debugging or suspension.
-    Stop,
-    /// Awaiting collection by parent.
-    Zombie,
-    /// Unknown.
-    Unknown(u32),
-}
-
-impl From<u32> for ProcessStatus {
-    fn from(status: u32) -> ProcessStatus {
-        match status {
-            1 => ProcessStatus::Idle,
-            2 => ProcessStatus::Run,
-            3 => ProcessStatus::Sleep,
-            4 => ProcessStatus::Stop,
-            5 => ProcessStatus::Zombie,
-            x => ProcessStatus::Unknown(x),
-        }
-    }
 }
 
 impl ProcessStatus {
     /// Used to display `ProcessStatus`.
     pub fn to_string(&self) -> &str {
         match *self {
-            ProcessStatus::Idle       => "Idle",
-            ProcessStatus::Run        => "Runnable",
-            ProcessStatus::Sleep      => "Sleeping",
-            ProcessStatus::Stop       => "Stopped",
-            ProcessStatus::Zombie     => "Zombie",
-            ProcessStatus::Unknown(_) => "Unknown",
+            ProcessStatus::Run => "Runnable",
         }
     }
 }
@@ -71,6 +50,19 @@ impl ProcessStatus {
 impl fmt::Display for ProcessStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.to_string())
+    }
+}
+
+fn get_process_handler(pid: Pid) -> Option<HANDLE> {
+    if pid == 0 {
+        return None;
+    }
+    let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
+    let process_handler = unsafe { OpenProcess(options, FALSE, pid as DWORD) };
+    if process_handler.is_null() {
+        None
+    } else {
+        Some(process_handler)
     }
 }
 
@@ -84,7 +76,7 @@ pub struct Process {
     /// path to the executable
     pub exe: String,
     /// pid of the processus
-    pub pid: u32,
+    pub pid: Pid,
     /// Environment of the process.
     ///
     /// Always empty except for current process.
@@ -95,53 +87,83 @@ pub struct Process {
     pub root: String,
     /// memory usage (in kB)
     pub memory: u64,
+    /// Parent pid.
+    pub parent: Option<Pid>,
+    /// Status of the Process.
+    pub status: ProcessStatus,
     handle: HANDLE,
     old_cpu: u64,
     old_sys_cpu: u64,
     old_user_cpu: u64,
     /// time of process launch (in seconds)
     pub start_time: u64,
-    updated: bool,
     /// total cpu usage
     pub cpu_usage: f32,
 }
 
-impl Process {
-    /// Create a new process only containing the given information.
-    #[doc(hidden)]
-    pub fn new(handle: HANDLE, pid: u32, start_time: u64, name: String) -> Process {
-        //let mut env = Vec::new();
-        Process {
-            handle: handle,
-            name: name.clone(),
-            pid: pid,
-            cmd: unsafe { get_cmd_line(handle) },
-            environ: unsafe { get_proc_env(handle, pid, &name) },
-            exe: String::new(),
-            cwd: String::new(),
-            root: String::new(),
-            memory: 0,
-            cpu_usage: 0.,
-            old_cpu: 0,
-            old_sys_cpu: 0,
-            old_user_cpu: 0,
-            updated: true,
-            start_time: start_time,
+impl ProcessExt for Process {
+    fn new(pid: Pid, parent: Option<Pid>, _: u64) -> Process {
+        if let Some(process_handler) = get_process_handler(pid) {
+            let mut h_mod = ::std::ptr::null_mut();
+            let mut process_name = [0 as u8; MAX_PATH];
+            let mut cb_needed = 0;
+
+            unsafe {
+                if K32EnumProcessModulesEx(process_handler,
+                                           &mut h_mod,
+                                           ::std::mem::size_of::<DWORD>() as DWORD,
+                                           &mut cb_needed,
+                                           LIST_MODULES_ALL) != 0 {
+                    K32GetModuleBaseNameA(process_handler,
+                                          h_mod,
+                                          process_name.as_mut_ptr() as *mut c_char,
+                                          MAX_PATH as DWORD);
+                }
+                let name = String::from_utf8_unchecked(process_name.to_vec());
+                let environ = get_proc_env(process_handler, pid as u32, &name);
+                Process {
+                    handle: process_handler,
+                    name: name,
+                    pid: pid,
+                    parent: parent,
+                    cmd: get_cmd_line(process_handler),
+                    environ: environ,
+                    exe: String::new(),
+                    cwd: String::new(),
+                    root: String::new(),
+                    status: ProcessStatus::Run,
+                    memory: 0,
+                    cpu_usage: 0.,
+                    old_cpu: 0,
+                    old_sys_cpu: 0,
+                    old_user_cpu: 0,
+                    start_time: get_start_time(process_handler),
+                }
+            }
+        } else {
+            Process {
+                handle: ::std::ptr::null_mut(),
+                name: String::new(),
+                pid: pid,
+                parent: parent,
+                cmd: String::new(),
+                environ: Vec::new(),
+                exe: String::new(),
+                cwd: String::new(),
+                root: String::new(),
+                status: ProcessStatus::Run,
+                memory: 0,
+                cpu_usage: 0.,
+                old_cpu: 0,
+                old_sys_cpu: 0,
+                old_user_cpu: 0,
+                start_time: 0,
+            }
         }
     }
 
-    /// Sends the given `signal` to the process.
-    pub fn kill(&self, signal: ::Signal) -> bool {
-        unsafe {
-            let handle = OpenProcess(DELETE, FALSE, self.pid);
-            if handle.is_null() {
-                false
-            } else {
-                let killed = TerminateProcess(handle, signal as c_uint) != 0;
-                CloseHandle(handle);
-                killed
-            }
-        }
+    fn kill(&self, signal: ::Signal) -> bool {
+        unsafe { TerminateProcess(self.handle, signal as c_uint) != 0 }
     }
 }
 
@@ -174,6 +196,40 @@ impl Debug for Process {
         write!(f, "cpu usage: {}%\n", self.cpu_usage);
         write!(f, "root path: {}", self.root)
     }
+}
+
+unsafe fn get_start_time(handle: HANDLE) -> u64 {
+    let mut start = 0u64;
+    let mut fstart = zeroed();
+    let mut x = zeroed();
+
+    GetProcessTimes(handle,
+                    &mut fstart as *mut FILETIME,
+                    &mut x as *mut FILETIME,
+                    &mut x as *mut FILETIME,
+                    &mut x as *mut FILETIME);
+    memcpy(&mut start as *mut u64 as *mut c_void,
+           &mut fstart as *mut FILETIME as *mut c_void,
+           size_of::<FILETIME>());
+    start
+}
+
+pub unsafe fn get_parent_process_id(pid: Pid) -> Option<Pid> {
+    let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    let mut entry: PROCESSENTRY32 = zeroed();
+    entry.dwSize = size_of::<PROCESSENTRY32>() as u32;
+    let mut not_the_end = Process32First(snapshot, &mut entry);
+    while not_the_end != 0 {
+        if pid == entry.th32ProcessID as usize {
+            // TODO: if some day I have the motivation to add threads:
+            // ListProcessThreads(entry.th32ProcessID);
+            CloseHandle(snapshot);
+            return Some(entry.th32ParentProcessID as usize);
+        }
+        not_the_end = Process32Next(snapshot, &mut entry);
+    }
+    CloseHandle(snapshot);
+    None
 }
 
 unsafe fn get_cmd_line(_handle: HANDLE) -> String {
@@ -222,9 +278,7 @@ unsafe fn get_cmd_line(_handle: HANDLE) -> String {
 
 unsafe fn get_proc_env(_handle: HANDLE, _pid: u32, _name: &str) -> Vec<String> {
     let ret = Vec::new();
-    /*if name.starts_with("conhost.exe") {
-        return ret;
-    }
+    /*
     println!("current pid: {}", kernel32::GetCurrentProcessId());
     if kernel32::GetCurrentProcessId() == pid {
         println!("current proc!");
@@ -317,20 +371,14 @@ pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
         p.old_user_cpu = *user.QuadPart();
         p.old_sys_cpu = *sys.QuadPart();
     }
-    p.updated = false;
 }
 
-// COMMON PART
-//
-// Need to be moved into a "common" file to avoid duplication.
-
-pub fn has_been_updated(p: &Process) -> bool {
-    p.updated
+pub fn get_handle(p: &Process) -> HANDLE {
+    p.handle
 }
 
 pub fn update_proc_info(p: &mut Process) {
     update_memory(p);
-    p.updated = true;
 }
 
 pub fn update_memory(p: &mut Process) {

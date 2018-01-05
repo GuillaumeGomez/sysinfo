@@ -7,6 +7,8 @@
 use std::fmt::{Debug, Error, Formatter};
 use std::str;
 
+use DiskExt;
+
 use winapi::um::fileapi::GetDiskFreeSpaceExA;
 use winapi::um::winnt::ULARGE_INTEGER;
 
@@ -64,39 +66,32 @@ impl Debug for Disk {
     }
 }
 
-impl Disk {
-    /// Returns the disk type.
-    pub fn get_type(&self) -> DiskType {
+impl DiskExt for Disk {
+    fn get_type(&self) -> DiskType {
         self.type_
     }
 
-    /// Returns the disk name.
-    pub fn get_name(&self) -> &str {
+    fn get_name(&self) -> &str {
         &self.name
     }
 
-    /// Returns the file system used on this disk (so for example: `EXT4`, `NTFS`, etc...).
-    pub fn get_file_system(&self) -> &str {
+    fn get_file_system(&self) -> &str {
         &self.file_system
     }
 
-    /// Returns the mount point of the disk (`/` for example).
-    pub fn get_mount_point(&self) -> &str {
+    fn get_mount_point(&self) -> &str {
         unsafe { str::from_utf8_unchecked(&self.mount_point[..self.mount_point.len() - 1]) }
     }
 
-    /// Returns the total disk size, in bytes.
-    pub fn get_total_space(&self) -> u64 {
+    fn get_total_space(&self) -> u64 {
         self.total_space
     }
 
-    /// Returns the available disk size, in bytes.
-    pub fn get_available_space(&self) -> u64 {
+    fn get_available_space(&self) -> u64 {
         self.available_space
     }
 
-    /// Update the disk' information.
-    pub fn update(&mut self) -> bool {
+    fn update(&mut self) -> bool {
         if self.total_space != 0 {
             unsafe {
                 let mut tmp: ULARGE_INTEGER = ::std::mem::zeroed();

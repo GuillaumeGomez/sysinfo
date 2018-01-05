@@ -27,6 +27,7 @@ mod network;
 mod process;
 mod processor;
 mod system;
+mod tools;
 
 pub use self::component::Component;
 pub use self::disk::{Disk, DiskType};

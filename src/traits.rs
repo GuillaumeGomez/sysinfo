@@ -38,6 +38,8 @@ pub trait DiskExt {
 /// Contains all the methods of the `Process` struct.
 pub trait ProcessExt {
     /// Create a new process only containing the given information.
+    ///
+    /// On windows, the `start_time` argument is ignored.
     fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Self;
 
     /// Sends the given `signal` to the process.
@@ -97,7 +99,7 @@ pub trait SystemExt {
     /// Returns a list of process starting with the given name.
     fn get_process_by_name(&self, name: &str) -> Vec<&Process>;
 
-    /// The first processor in the array is the "main" process.
+    /// The first processor in the array is the "main" one (aka the addition of all the others).
     fn get_processor_list(&self) -> &[Processor];
 
     /// Returns total RAM size.

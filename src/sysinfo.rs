@@ -68,7 +68,7 @@ cfg_if! {
     }
 }
 
-pub use common::Pid;
+pub use common::{AsU32, Pid};
 pub use sys::{
     Component,
     Disk,
