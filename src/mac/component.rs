@@ -1,19 +1,17 @@
 // 
 // Sysinfo
 // 
-// Copyright (c) 2015 Guillaume Gomez
+// Copyright (c) 2018 Guillaume Gomez
 //
+
+use ComponentExt;
 
 /// Struct containing a component information (temperature and name for the moment).
 pub struct Component {
-    /// Temperature is in celsius.
-    pub temperature: f32,
-    /// Temperature max value.
-    pub max: f32,
-    /// The highest temperature before the computer halts.
-    pub critical: Option<f32>,
-    /// Component's label.
-    pub label: String,
+    temperature: f32,
+    max: f32,
+    critical: Option<f32>,
+    label: String,
 }
 
 impl Component {
@@ -25,6 +23,24 @@ impl Component {
             max: max.unwrap_or(0.0),
             critical: critical,
         }
+    }
+}
+
+impl ComponentExt for Component {
+    fn get_temperature(&self) -> f32 {
+        self.temperature
+    }
+
+    fn get_max(&self) -> f32 {
+        self.max
+    }
+
+    fn get_critical(&self) -> Option<f32> {
+        self.critical
+    }
+
+    fn get_label(&self) -> &str {
+        &self.label
     }
 }
 

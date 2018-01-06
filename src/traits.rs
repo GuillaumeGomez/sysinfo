@@ -138,3 +138,15 @@ pub trait NetworkExt {
     /// Returns the number of outcoming bytes.
     fn get_outcome(&self) -> u64;
 }
+
+/// Getting a component temperature information.
+pub trait ComponentExt {
+    /// Returns the component's temperature (in celsius degree).
+    fn get_temperature(&self) -> f32;
+    /// Returns the maximum temperature of this component.
+    fn get_max(&self) -> f32;
+    /// Returns the highest temperature before the computer halts.
+    fn get_critical(&self) -> Option<f32>;
+    /// Returns component's label.
+    fn get_label(&self) -> &str;
+}

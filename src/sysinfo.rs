@@ -68,7 +68,10 @@ cfg_if! {
     }
 }
 
-pub use common::{AsU32, Pid};
+pub use common::{
+    AsU32,
+    Pid,
+};
 pub use sys::{
     Component,
     Disk,
@@ -80,6 +83,7 @@ pub use sys::{
     System,
 };
 pub use traits::{
+    ComponentExt,
     DiskExt,
     ProcessExt,
     ProcessorExt,
