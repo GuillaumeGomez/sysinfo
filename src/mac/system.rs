@@ -10,7 +10,7 @@ use sys::network::{self, NetworkData};
 use sys::processor::*;
 use sys::process::*;
 use sys::disk::{self, Disk, DiskType};
-use ::{DiskExt, ProcessExt, ProcessorExt, SystemExt};
+use ::{ComponentExt, DiskExt, ProcessExt, ProcessorExt, SystemExt};
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStringExt;
@@ -497,7 +497,7 @@ impl SystemExt for System {
                 } else {
                     let mut v = vec!('T' as i8, 'C' as i8, '0' as i8, 'P' as i8, 0);
                     for comp in &mut self.temperatures {
-                        match &*comp.label {
+                        match &*comp.get_label() {
                             "CPU" => {
                                 v[1] = 'C' as i8;
                                 v[3] = 'P' as i8;
