@@ -1,6 +1,6 @@
 [package]
 name = "sysinfo"
-version = "0.3.19"
+version = "0.4.0"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 
 description = "Library to handle processes"
@@ -8,12 +8,16 @@ repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "LGPL-3.0+"
 readme = "README.md"
 
-categories = ["filesystem", "os", "os::macos-apis", "os::unix-apis"]
+categories = ["filesystem", "os::macos-apis", "os::unix-apis", "os::windows-apis"]
 
 build = "build.rs"
 
 [dependencies]
 libc = "^0.2"
+cfg-if = "0.1"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["fileapi", "handleapi", "ioapiset", "minwindef", "pdh", "psapi", "synchapi", "sysinfoapi", "tlhelp32", "winbase", "winerror", "winioctl", "winnt"] }
 
 [lib]
 name = "sysinfo"

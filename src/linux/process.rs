@@ -6,7 +6,8 @@
 
 use std::fmt::{self, Formatter, Debug};
 use std::collections::HashMap;
-use libc::{c_int, gid_t, kill, pid_t, uid_t};
+use libc::{c_int, gid_t, kill, uid_t};
+use Pid;
 
 use ::ProcessExt;
 
@@ -103,9 +104,9 @@ pub struct Process {
     /// Path to the executable.
     pub exe: String,
     /// Pid of the process.
-    pub pid: pid_t,
+    pub pid: Pid,
     /// Pid of the parent process.
-    pub parent: Option<pid_t>,
+    pub parent: Option<Pid>,
     /// Environment of the process.
     pub environ: Vec<String>,
     /// Current working directory.
@@ -131,11 +132,11 @@ pub struct Process {
     /// enough rights to get this information.
     pub status: Option<ProcessStatus>,
     /// Tasks run by this process.
-    pub tasks: HashMap<pid_t, Process>,
+    pub tasks: HashMap<Pid, Process>,
 }
 
 impl ProcessExt for Process {
-    fn new(pid: pid_t, parent: Option<pid_t>, start_time: u64) -> Process {
+    fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Process {
         Process {
             name: String::new(),
             pid: pid,

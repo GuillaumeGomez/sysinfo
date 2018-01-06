@@ -50,17 +50,28 @@
 #![allow(unknown_lints)]
 #![allow(too_many_arguments)]
 
+#[macro_use]
+extern crate cfg_if;
 extern crate libc;
 
-#[cfg(target_os = "macos")]
-mod mac;
-#[cfg(target_os = "macos")]
-use mac as sys;
-#[cfg(not(target_os = "macos"))]
-mod linux;
-#[cfg(not(target_os = "macos"))]
-use linux as sys;
+cfg_if! {
+    if #[cfg(target_os = "macos")] {
+        mod mac;
+        use mac as sys;
+    } else if #[cfg(windows)] {
+        mod windows;
+        use windows as sys;
+        extern crate winapi;
+    } else {
+        mod linux;
+        use linux as sys;
+    }
+}
 
+pub use common::{
+    AsU32,
+    Pid,
+};
 pub use sys::{
     Component,
     Disk,
@@ -72,17 +83,20 @@ pub use sys::{
     System,
 };
 pub use traits::{
+    ComponentExt,
     DiskExt,
     ProcessExt,
     ProcessorExt,
     SystemExt,
     NetworkExt,
 };
-#[cfg(not(target_os = "windows"))]
+
+#[cfg(not(windows))]
 pub use utils::get_current_pid;
 #[cfg(feature = "c-interface")]
 pub use c_interface::*;
 
+mod common;
 mod component;
 mod process;
 mod processor;

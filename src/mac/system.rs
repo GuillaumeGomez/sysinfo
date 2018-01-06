@@ -10,19 +10,20 @@ use sys::network::{self, NetworkData};
 use sys::processor::*;
 use sys::process::*;
 use sys::disk::{self, Disk, DiskType};
-use ::{DiskExt, ProcessExt, ProcessorExt, SystemExt};
+use ::{ComponentExt, DiskExt, ProcessExt, ProcessorExt, SystemExt};
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStringExt;
-use libc::{self, c_void, c_int, pid_t, size_t, c_char, sysconf, _SC_PAGESIZE};
+use libc::{self, c_void, c_int, size_t, c_char, sysconf, _SC_PAGESIZE};
 use std::sync::Arc;
 use sys::processor;
 use std::{fs, mem, ptr};
 use utils;
+use Pid;
 
 /// Structs containing system's information.
 pub struct System {
-    process_list: HashMap<pid_t, Process>,
+    process_list: HashMap<Pid, Process>,
     mem_total: u64,
     mem_free: u64,
     swap_total: u64,
@@ -263,7 +264,7 @@ impl System {
         }
     }
 
-    fn update_process(&mut self, pid: pid_t, proc_args: &mut Vec<u8>,
+    fn update_process(&mut self, pid: Pid, proc_args: &mut Vec<u8>,
                       taskallinfo_size: i32, taskinfo_size: i32, threadinfo_size: i32,
                       mib: &mut [c_int], mut size: size_t) -> bool {
         unsafe {
@@ -307,7 +308,7 @@ impl System {
                 return false;
             }
 
-            let parent = match task_info.pbsd.pbi_ppid as pid_t {
+            let parent = match task_info.pbsd.pbi_ppid as Pid {
                 0 => None,
                 p => Some(p)
             };
@@ -496,7 +497,7 @@ impl SystemExt for System {
                 } else {
                     let mut v = vec!('T' as i8, 'C' as i8, '0' as i8, 'P' as i8, 0);
                     for comp in &mut self.temperatures {
-                        match &*comp.label {
+                        match &*comp.get_label() {
                             "CPU" => {
                                 v[1] = 'C' as i8;
                                 v[3] = 'P' as i8;
@@ -593,9 +594,9 @@ impl SystemExt for System {
         if count < 1 {
             return
         }
-        let mut pids: Vec<libc::pid_t> = Vec::with_capacity(count as usize);
+        let mut pids: Vec<Pid> = Vec::with_capacity(count as usize);
         unsafe { pids.set_len(count as usize); }
-        let count = count * ::std::mem::size_of::<libc::pid_t>() as i32;
+        let count = count * ::std::mem::size_of::<Pid>() as i32;
         let x = unsafe { ffi::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
 
         if x < 1 || x as usize > pids.len() {
@@ -624,7 +625,7 @@ impl SystemExt for System {
         self.clear_procs();
     }
 
-    fn refresh_process(&mut self, pid: pid_t) -> bool {
+    fn refresh_process(&mut self, pid: Pid) -> bool {
         let taskallinfo_size = ::std::mem::size_of::<libc::proc_taskallinfo>() as i32;
         let taskinfo_size = ::std::mem::size_of::<libc::proc_taskinfo>() as i32;
         let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
@@ -655,11 +656,11 @@ impl SystemExt for System {
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    fn get_process_list(&self) -> &HashMap<pid_t, Process> {
+    fn get_process_list(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
 
-    fn get_process(&self, pid: pid_t) -> Option<&Process> {
+    fn get_process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.get(&pid)
     }
 
