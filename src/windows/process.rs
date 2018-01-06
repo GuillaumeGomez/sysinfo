@@ -1,7 +1,7 @@
 // 
 // Sysinfo
 // 
-// Copyright (c) 2017 Guillaume Gomez
+// Copyright (c) 2018 Guillaume Gomez
 //
 
 use std::mem::{size_of, zeroed};

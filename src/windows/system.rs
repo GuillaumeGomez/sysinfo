@@ -1,7 +1,7 @@
 //
 // Sysinfo
 //
-// Copyright (c) 2017 Guillaume Gomez
+// Copyright (c) 2018 Guillaume Gomez
 //
 
 use sys::component::{self, Component};
@@ -10,11 +10,13 @@ use sys::processor::*;
 use sys::process::*;
 
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
 use std::str;
 
 use winapi::ctypes::c_void;
 
+use DiskExt;
 use Pid;
 use ProcessExt;
 use SystemExt;
@@ -26,7 +28,7 @@ use windows::processor::CounterValue;
 use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::shared::minwindef::{BYTE, DWORD, FALSE, MAX_PATH, TRUE};
 use winapi::um::fileapi::{
-    CreateFileA, GetDriveTypeA, GetLogicalDrives, GetVolumeInformationA, OPEN_EXISTING,
+    CreateFileW, GetDriveTypeW, GetLogicalDrives, GetVolumeInformationW, OPEN_EXISTING,
 };
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::ioapiset::DeviceIoControl;
@@ -42,7 +44,7 @@ use winapi::um::winioctl::{
     DISK_GEOMETRY, IOCTL_STORAGE_QUERY_PROPERTY, IOCTL_DISK_GET_DRIVE_GEOMETRY,
 };
 use winapi::um::winnt::{
-    BOOLEAN, FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE, HANDLE,
+    BOOLEAN, FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE,
 };
 use winapi::um::winbase::DRIVE_FIXED;
 
@@ -100,21 +102,18 @@ fn init_processors() -> Vec<Processor> {
     }
 }
 
-unsafe fn open_drive(drive_name: &[u8], open_rights: DWORD) -> HANDLE {
-    CreateFileA(drive_name.as_ptr() as *const i8,
+unsafe fn open_drive(drive_name: &[u16], open_rights: DWORD) -> HANDLE {
+    CreateFileW(drive_name.as_ptr(),
                 open_rights,
                 FILE_SHARE_READ | FILE_SHARE_WRITE,
-                ::std::ptr::null_mut(), OPEN_EXISTING,
+                ::std::ptr::null_mut(),
+                OPEN_EXISTING,
                 0,
                 ::std::ptr::null_mut())
 }
 
-unsafe fn get_drive_size(drive_name: &[u8]) -> u64 {
+unsafe fn get_drive_size(handle: HANDLE) -> u64 {
     let mut pdg: DISK_GEOMETRY = ::std::mem::zeroed();
-    let handle = open_drive(drive_name, 0);
-    if handle == INVALID_HANDLE_VALUE {
-        return 0;
-    }
     let mut junk = 0;
     let result = DeviceIoControl(handle,
                                  IOCTL_DISK_GET_DRIVE_GEOMETRY,
@@ -124,7 +123,6 @@ unsafe fn get_drive_size(drive_name: &[u8]) -> u64 {
                                  size_of::<DISK_GEOMETRY>() as DWORD,
                                  &mut junk,
                                  ::std::ptr::null_mut());
-    CloseHandle(handle);
     if result == TRUE {
         *pdg.Cylinders.QuadPart() as u64 * pdg.TracksPerCylinder as u64 * pdg.SectorsPerTrack as u64 * pdg.BytesPerSector as u64
     } else {
@@ -142,19 +140,20 @@ unsafe fn get_disks() -> Vec<Disk> {
         if (drives >> x) & 1 == 0 {
             continue
         }
-        let mount_point = [b'A' + x as u8, b':', b'\\', 0];
-        if GetDriveTypeA(mount_point.as_ptr() as *const i8) != DRIVE_FIXED {
+        let mount_point = [b'A' as u16 + x as u16, b':' as u16, b'\\' as u16, 0];
+        if GetDriveTypeW(mount_point.as_ptr()) != DRIVE_FIXED {
             continue
         }
-        let mut name = [0u8; MAX_PATH + 1];
-        let mut file_system = [0u8; 32];
-        if GetVolumeInformationA(mount_point.as_ptr() as *const i8,
-                                           name.as_mut_ptr() as *mut i8,
-                                           name.len() as DWORD, ::std::ptr::null_mut(),
-                                           ::std::ptr::null_mut(),
-                                           ::std::ptr::null_mut(),
-                                           file_system.as_mut_ptr() as *mut i8,
-                                           file_system.len() as DWORD) == 0 {
+        let mut name = [0u16; MAX_PATH + 1];
+        let mut file_system = [0u16; 32];
+        if GetVolumeInformationW(mount_point.as_ptr(),
+                                 name.as_mut_ptr(),
+                                 name.len() as DWORD,
+                                 ::std::ptr::null_mut(),
+                                 ::std::ptr::null_mut(),
+                                 ::std::ptr::null_mut(),
+                                 file_system.as_mut_ptr(),
+                                 file_system.len() as DWORD) == 0 {
             continue
         }
         let mut pos = 0;
@@ -164,7 +163,8 @@ unsafe fn get_disks() -> Vec<Disk> {
             }
             pos += 1;
         }
-        let name = str::from_utf8_unchecked(&name[..pos]);
+        let name = String::from_utf16_lossy(&name[..pos]);
+        let name = OsStr::new(&name);
 
         pos = 0;
         for x in file_system.iter() {
@@ -173,16 +173,16 @@ unsafe fn get_disks() -> Vec<Disk> {
             }
             pos += 1;
         }
-        let file_system = str::from_utf8_unchecked(&file_system[..pos]);
+        let file_system: Vec<u8> = file_system[..pos].iter().map(|x| *x as u8).collect();
 
-        let drive_name = [b'\\', b'\\', b'.', b'\\', b'a' + x as u8, b':', 0];
-        let handle = open_drive(&drive_name, GENERIC_READ | GENERIC_WRITE);
+        let drive_name = [b'\\' as u16, b'\\' as u16, b'.' as u16, b'\\' as u16, b'A' as u16 + x as u16, b':' as u16, 0];
+        let handle = open_drive(&drive_name, 0);
         if handle == INVALID_HANDLE_VALUE {
-            disks.push(new_disk(name, &mount_point, file_system, DiskType::Unknown(-1), 0));
+            disks.push(new_disk(name, &mount_point, &file_system, DiskType::Unknown(-1), 0));
             CloseHandle(handle);
             continue
         }
-        let disk_size = get_drive_size(&drive_name);
+        let disk_size = get_drive_size(handle);
         /*let mut spq_trim: ffi::STORAGE_PROPERTY_QUERY = ::std::mem::zeroed();
         spq_trim.PropertyId = ffi::StorageDeviceTrimProperty;
         spq_trim.QueryType = ffi::PropertyStandardQuery;
@@ -209,7 +209,8 @@ unsafe fn get_disks() -> Vec<Disk> {
         let mut dtd: DEVICE_TRIM_DESCRIPTOR = ::std::mem::zeroed();
 
         let mut dw_size = 0;
-        if DeviceIoControl(handle, IOCTL_STORAGE_QUERY_PROPERTY,
+        if DeviceIoControl(handle,
+                           IOCTL_STORAGE_QUERY_PROPERTY,
                            &mut spq_trim as *mut STORAGE_PROPERTY_QUERY as *mut c_void,
                            size_of::<STORAGE_PROPERTY_QUERY>() as DWORD,
                            &mut dtd as *mut DEVICE_TRIM_DESCRIPTOR as *mut c_void,
@@ -217,14 +218,14 @@ unsafe fn get_disks() -> Vec<Disk> {
                            &mut dw_size,
                            ::std::ptr::null_mut()) == 0 ||
            dw_size != size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD {
-            disks.push(new_disk(name, &mount_point as &[u8], file_system, DiskType::Unknown(-1),
+            disks.push(new_disk(name, &mount_point, &file_system, DiskType::Unknown(-1),
                                 disk_size));
             CloseHandle(handle);
             continue
         }
         let is_ssd = dtd.TrimEnabled != 0;
         CloseHandle(handle);
-        disks.push(new_disk(name, &mount_point as &[u8], file_system,
+        disks.push(new_disk(name, &mount_point, &file_system,
                             if is_ssd { DiskType::SSD } else { DiskType::HDD },
                             disk_size));
     }
