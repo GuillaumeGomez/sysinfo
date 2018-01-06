@@ -6,11 +6,9 @@
 
 use std::mem::{size_of, zeroed};
 use std::fmt::{self, Formatter, Debug};
-//use std::os::raw;
 use std::str;
-//use std::env;
 
-use libc::{c_char, c_uint, c_void, memcpy};
+use libc::{c_uint, c_void, memcpy};
 
 use Pid;
 use ProcessExt;
@@ -19,12 +17,12 @@ use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH/*, TRUE, USHORT
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::winnt::{
     HANDLE, ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
-    /*, PWSTR*/ PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
+    /*, PWSTR*/ PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ,
 };
 use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess, TerminateProcess};
 use winapi::um::psapi::{
-    K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
-    K32EnumProcessModulesEx, K32GetModuleBaseNameA, LIST_MODULES_ALL,
+    GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
+    EnumProcessModulesEx, GetModuleBaseNameW, LIST_MODULES_ALL,
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
 use winapi::um::tlhelp32::{
@@ -57,10 +55,16 @@ fn get_process_handler(pid: Pid) -> Option<HANDLE> {
     if pid == 0 {
         return None;
     }
-    let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
+    let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_TERMINATE;
     let process_handler = unsafe { OpenProcess(options, FALSE, pid as DWORD) };
     if process_handler.is_null() {
-        None
+        let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
+        let process_handler = unsafe { OpenProcess(options, FALSE, pid as DWORD) };
+        if process_handler.is_null() {
+            None
+        } else {
+            Some(process_handler)
+        }
     } else {
         Some(process_handler)
     }
@@ -105,21 +109,28 @@ impl ProcessExt for Process {
     fn new(pid: Pid, parent: Option<Pid>, _: u64) -> Process {
         if let Some(process_handler) = get_process_handler(pid) {
             let mut h_mod = ::std::ptr::null_mut();
-            let mut process_name = [0 as u8; MAX_PATH];
+            let mut process_name = [0u16; MAX_PATH + 1];
             let mut cb_needed = 0;
 
             unsafe {
-                if K32EnumProcessModulesEx(process_handler,
-                                           &mut h_mod,
-                                           ::std::mem::size_of::<DWORD>() as DWORD,
-                                           &mut cb_needed,
-                                           LIST_MODULES_ALL) != 0 {
-                    K32GetModuleBaseNameA(process_handler,
-                                          h_mod,
-                                          process_name.as_mut_ptr() as *mut c_char,
-                                          MAX_PATH as DWORD);
+                if EnumProcessModulesEx(process_handler,
+                                        &mut h_mod,
+                                        ::std::mem::size_of::<DWORD>() as DWORD,
+                                        &mut cb_needed,
+                                        LIST_MODULES_ALL) != 0 {
+                    GetModuleBaseNameW(process_handler,
+                                       h_mod,
+                                       process_name.as_mut_ptr(),
+                                       MAX_PATH as DWORD + 1);
                 }
-                let name = String::from_utf8_unchecked(process_name.to_vec());
+                let mut pos = 0;
+                for x in process_name.iter() {
+                    if *x == 0 {
+                        break
+                    }
+                    pos += 1;
+                }
+                let name = String::from_utf16_lossy(&process_name[..pos]);
                 let environ = get_proc_env(process_handler, pid as u32, &name);
                 Process {
                     handle: process_handler,
@@ -163,7 +174,9 @@ impl ProcessExt for Process {
     }
 
     fn kill(&self, signal: ::Signal) -> bool {
-        unsafe { TerminateProcess(self.handle, signal as c_uint) != 0 }
+        let x = unsafe { TerminateProcess(self.handle, signal as c_uint) };
+        println!("{:?} {:?} {:x}", self.handle, signal as c_uint, x);
+        x != 0
     }
 }
 
@@ -384,9 +397,9 @@ pub fn update_proc_info(p: &mut Process) {
 pub fn update_memory(p: &mut Process) {
     unsafe {
         let mut pmc: PROCESS_MEMORY_COUNTERS_EX = zeroed();
-        if K32GetProcessMemoryInfo(p.handle,
-                                   &mut pmc as *mut PROCESS_MEMORY_COUNTERS_EX as *mut c_void as *mut PROCESS_MEMORY_COUNTERS,
-                                   size_of::<PROCESS_MEMORY_COUNTERS_EX>() as DWORD) != 0 {
+        if GetProcessMemoryInfo(p.handle,
+                                &mut pmc as *mut PROCESS_MEMORY_COUNTERS_EX as *mut c_void as *mut PROCESS_MEMORY_COUNTERS,
+                                size_of::<PROCESS_MEMORY_COUNTERS_EX>() as DWORD) != 0 {
             p.memory = (pmc.PrivateUsage as u64) >> 10u64; // / 1024;
         }
     }
