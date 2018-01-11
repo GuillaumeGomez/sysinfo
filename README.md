@@ -7,6 +7,7 @@ Support the following platforms:
  * Linux
  * Raspberry
  * Mac OSX
+ * Windows
 
 ### Running on Raspberry
 
