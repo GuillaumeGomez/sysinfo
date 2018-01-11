@@ -212,8 +212,7 @@ impl Debug for Process {
 }
 
 unsafe fn get_start_time(handle: HANDLE) -> u64 {
-    let mut start = 0u64;
-    let mut fstart = zeroed();
+    let mut fstart: FILETIME = zeroed();
     let mut x = zeroed();
 
     GetProcessTimes(handle,
@@ -221,10 +220,8 @@ unsafe fn get_start_time(handle: HANDLE) -> u64 {
                     &mut x as *mut FILETIME,
                     &mut x as *mut FILETIME,
                     &mut x as *mut FILETIME);
-    memcpy(&mut start as *mut u64 as *mut c_void,
-           &mut fstart as *mut FILETIME as *mut c_void,
-           size_of::<FILETIME>());
-    start
+    let tmp = (fstart.dwHighDateTime as u64) << 32 | (fstart.dwLowDateTime as u64);
+    tmp / 10_000_000 - 11_644_473_600
 }
 
 pub unsafe fn get_parent_process_id(pid: Pid) -> Option<Pid> {
