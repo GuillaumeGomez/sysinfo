@@ -67,11 +67,6 @@ impl System {
             }
         }
     }
-
-    /// Returns the system uptime.
-    pub fn get_uptime(&self) -> u64 {
-        self.uptime
-    }
 }
 
 impl SystemExt for System {
@@ -276,16 +271,6 @@ impl SystemExt for System {
         self.process_list.get(&(pid as usize))
     }
 
-    fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
-        let mut ret = vec!();
-        for val in self.process_list.values() {
-            if val.name.starts_with(name) {
-                ret.push(val);
-            }
-        }
-        ret
-    }
-
     fn get_processor_list(&self) -> &[Processor] {
         &self.processors[..]
     }
@@ -324,6 +309,10 @@ impl SystemExt for System {
 
     fn get_network(&self) -> &NetworkData {
         &self.network
+    }
+
+    fn get_uptime(&self) -> u64 {
+        self.uptime
     }
 }
 

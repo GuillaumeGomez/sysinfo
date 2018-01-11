@@ -73,36 +73,22 @@ fn get_process_handler(pid: Pid) -> Option<HANDLE> {
 /// Struct containing a process' information.
 #[derive(Clone)]
 pub struct Process {
-    /// name of the program
-    pub name: String,
-    /// command line
-    pub cmd: String,
-    /// path to the executable
-    pub exe: String,
-    /// pid of the processus
-    pub pid: Pid,
-    /// Environment of the process.
-    ///
-    /// Always empty except for current process.
-    pub environ: Vec<String>,
-    /// current working directory
-    pub cwd: String,
-    /// path of the root directory
-    pub root: String,
-    /// memory usage (in kB)
-    pub memory: u64,
-    /// Parent pid.
-    pub parent: Option<Pid>,
-    /// Status of the Process.
-    pub status: ProcessStatus,
+    name: String,
+    cmd: String,
+    exe: String,
+    pid: Pid,
+    environ: Vec<String>,
+    cwd: String,
+    root: String,
+    memory: u64,
+    parent: Option<Pid>,
+    status: ProcessStatus,
     handle: HANDLE,
     old_cpu: u64,
     old_sys_cpu: u64,
     old_user_cpu: u64,
-    /// time of process launch (in seconds)
-    pub start_time: u64,
-    /// total cpu usage
-    pub cpu_usage: f32,
+    start_time: u64,
+    cpu_usage: f32,
 }
 
 impl ProcessExt for Process {
@@ -175,8 +161,55 @@ impl ProcessExt for Process {
 
     fn kill(&self, signal: ::Signal) -> bool {
         let x = unsafe { TerminateProcess(self.handle, signal as c_uint) };
-        println!("{:?} {:?} {:x}", self.handle, signal as c_uint, x);
         x != 0
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn cmd(&self) -> &[String] {
+        &[self.cmd]
+    }
+
+    fn exe(&self) -> &str {
+        &self.exe
+    }
+
+    fn pid(&self) -> Pid {
+        self.pid
+    }
+
+    fn environ(&self) -> &[String] {
+        &self.environ
+    }
+
+    fn cwd(&self) -> &str {
+        &self.cwd
+    }
+
+    fn root(&self) -> &str {
+        &self.root
+    }
+
+    fn memory(&self) -> u64 {
+        self.memory
+    }
+
+    fn parent(&self) -> Option<Pid> {
+        self.parent
+    }
+
+    fn status(&self) -> ProcessStatus {
+        self.status
+    }
+
+    fn start_time(&self) -> u64 {
+        self.start_time
+    }
+
+    fn cpu_usage(&self) -> f32 {
+        self.cpu_usage
     }
 }
 
