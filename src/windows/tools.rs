@@ -22,7 +22,7 @@ use winapi::um::handleapi::CloseHandle;
 use winapi::um::ioapiset::DeviceIoControl;
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::sysinfoapi::{
-    GetSystemInfo, SYSTEM_INFO,
+    GetSystemInfo, GetTickCount64, SYSTEM_INFO,
 };
 use winapi::um::winioctl::{
     DISK_GEOMETRY, IOCTL_STORAGE_QUERY_PROPERTY, IOCTL_DISK_GET_DRIVE_GEOMETRY,
@@ -293,4 +293,8 @@ pub fn add_counter(s: String, query: &mut Query, keys: &mut Option<KeyHandler>, 
     if query.add_counter(&counter_name, full.clone(), value) {
         *keys = Some(KeyHandler::new(counter_name, full));
     }
+}
+
+pub fn get_uptime() -> u64 {
+    unsafe { GetTickCount64() / 1000 }
 }

@@ -47,6 +47,7 @@ pub struct System {
     disks: Vec<Disk>,
     query: Option<Query>,
     network: NetworkData,
+    uptime: u64,
 }
 
 impl System {
@@ -66,6 +67,11 @@ impl System {
             }
         }
     }
+
+    /// Returns the system uptime.
+    pub fn get_uptime(&self) -> u64 {
+        self.uptime
+    }
 }
 
 impl SystemExt for System {
@@ -82,6 +88,7 @@ impl SystemExt for System {
             disks: unsafe { get_disks() },
             query: Query::new(),
             network: network::new(),
+            uptime: get_uptime(),
         };
         if let Some(ref mut query) = s.query {
             let x = unsafe { load_symbols() };
@@ -198,6 +205,7 @@ impl SystemExt for System {
             //self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
             //self.swap_free = auto_cast!(mem_info.ullAvailPageFile, u64);
         }
+        self.uptime = get_uptime();
         if let Some(ref mut query) = self.query {
             for p in self.processors.iter_mut() {
                 let mut idle_time = None;
