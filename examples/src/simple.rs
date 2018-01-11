@@ -74,7 +74,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "quit" | "exit" => return true,
         "all" => {
             for (pid, proc_) in sys.get_process_list() {
-                writeln!(&mut io::stdout(), "{}:{} status={:?}", pid, proc_.name, proc_.status);
+                writeln!(&mut io::stdout(), "{}:{} status={:?}", pid, proc_.name(), proc_.status());
             }
         }
         e if e.starts_with("show ") => {
@@ -91,7 +91,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             } else {
                 let proc_name = tmp[1];
                 for proc_ in sys.get_process_by_name(proc_name) {
-                    writeln!(&mut io::stdout(), "==== {} ====", proc_.name);
+                    writeln!(&mut io::stdout(), "==== {} ====", proc_.name());
                     writeln!(&mut io::stdout(), "{:?}", proc_);
                 }
             }

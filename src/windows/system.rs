@@ -10,7 +10,6 @@ use sys::processor::*;
 
 use std::collections::HashMap;
 use std::mem::{size_of, zeroed};
-use std::str;
 
 use DiskExt;
 use Pid;

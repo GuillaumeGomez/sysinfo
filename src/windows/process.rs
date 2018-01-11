@@ -30,7 +30,7 @@ use winapi::um::tlhelp32::{
 };
 
 /// Enum describing the different status of a process.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum ProcessStatus {
     /// Currently runnable.
     Run,
@@ -74,7 +74,7 @@ fn get_process_handler(pid: Pid) -> Option<HANDLE> {
 #[derive(Clone)]
 pub struct Process {
     name: String,
-    cmd: String,
+    cmd: Vec<String>,
     exe: String,
     pid: Pid,
     environ: Vec<String>,
@@ -143,7 +143,7 @@ impl ProcessExt for Process {
                 name: String::new(),
                 pid: pid,
                 parent: parent,
-                cmd: String::new(),
+                cmd: Vec::new(),
                 environ: Vec::new(),
                 exe: String::new(),
                 cwd: String::new(),
@@ -169,7 +169,7 @@ impl ProcessExt for Process {
     }
 
     fn cmd(&self) -> &[String] {
-        &[self.cmd]
+        &self.cmd
     }
 
     fn exe(&self) -> &str {
@@ -227,20 +227,23 @@ impl Drop for Process {
 #[allow(unused_must_use)]
 impl Debug for Process {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "pid: {}\n", self.pid);
-        write!(f, "name: {}\n", self.name);
-        write!(f, "environment:\n");
+        writeln!(f, "pid: {}", self.pid);
+        writeln!(f, "name: {}", self.name);
+        writeln!(f, "environment:");
         for var in self.environ.iter() {
         if var.len() > 0 {
-                write!(f, "\t{}\n", var);
+                writeln!(f, "\t{}", var);
             }
         }
-        write!(f, "command: {}\n", self.cmd);
-        write!(f, "executable path: {}\n", self.exe);
-        write!(f, "current working directory: {}\n", self.cwd);
-        write!(f, "memory usage: {} kB\n", self.memory);
-        write!(f, "cpu usage: {}%\n", self.cpu_usage);
-        write!(f, "root path: {}", self.root)
+        writeln!(f, "command:");
+        for arg in &self.cmd {
+            writeln!(f, "\t{}", arg);
+        }
+        writeln!(f, "executable path: {}", self.exe);
+        writeln!(f, "current working directory: {}", self.cwd);
+        writeln!(f, "memory usage: {} kB", self.memory);
+        writeln!(f, "cpu usage: {}", self.cpu_usage);
+        writeln!(f, "root path: {}", self.root)
     }
 }
 
@@ -275,7 +278,7 @@ pub unsafe fn get_parent_process_id(pid: Pid) -> Option<Pid> {
     None
 }
 
-unsafe fn get_cmd_line(_handle: HANDLE) -> String {
+unsafe fn get_cmd_line(_handle: HANDLE) -> Vec<String> {
     /*let mut pinfo: ffi::PROCESS_BASIC_INFORMATION = ::std::mem::zeroed();
     if ffi::NtQueryInformationProcess(handle,
                                            0, // ProcessBasicInformation
@@ -316,7 +319,7 @@ unsafe fn get_cmd_line(_handle: HANDLE) -> String {
     } else {
         String::new()
     }*/
-    String::new()
+    Vec::new()
 }
 
 unsafe fn get_proc_env(_handle: HANDLE, _pid: u32, _name: &str) -> Vec<String> {
