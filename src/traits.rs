@@ -6,6 +6,7 @@
 
 use sys::{Component, Disk, DiskType, NetworkData, Process, Processor};
 use Pid;
+use ProcessStatus;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -44,6 +45,44 @@ pub trait ProcessExt {
 
     /// Sends the given `signal` to the process.
     fn kill(&self, signal: ::Signal) -> bool;
+
+    /// Returns the name of the processus.
+    fn name(&self) -> &str;
+
+    /// Returns the command line.
+    fn cmd(&self) -> &[String];
+
+    /// Returns the path to the processus.
+    fn exe(&self) -> &str;
+
+    /// Returns the pid of the processus.
+    fn pid(&self) -> Pid;
+
+    /// Returns the environment of the process.
+    ///
+    /// On windows, always empty except for current processus.
+    fn environ(&self) -> &[String];
+
+    /// Returns the current working directory.
+    fn cwd(&self) -> &str;
+
+    /// Returns the path of the root directory.
+    fn root(&self) -> &str;
+
+    /// Returns the memory usage (in kB).
+    fn memory(&self) -> u64;
+
+    /// Returns the parent pid.
+    fn parent(&self) -> Option<Pid>;
+
+    /// Returns the status of the processus.
+    fn status(&self) -> ProcessStatus;
+
+    /// Returns the time of process launch (in seconds).
+    fn start_time(&self) -> u64;
+
+    /// Return the total CPU usage.
+    fn cpu_usage(&self) -> f32;
 }
 
 /// Contains all the methods of the `Processor` struct.
@@ -96,8 +135,16 @@ pub trait SystemExt {
     /// Returns the process corresponding to the given pid or `None` if no such process exists.
     fn get_process(&self, pid: Pid) -> Option<&Process>;
 
-    /// Returns a list of process starting with the given name.
-    fn get_process_by_name(&self, name: &str) -> Vec<&Process>;
+    /// Returns a list of process containing the given `name`.
+    fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
+        let mut ret = vec!();
+        for val in self.get_process_list().values() {
+            if val.name().contains(name) {
+                ret.push(val);
+            }
+        }
+        ret
+    }
 
     /// The first processor in the array is the "main" one (aka the addition of all the others).
     fn get_processor_list(&self) -> &[Processor];
@@ -128,6 +175,9 @@ pub trait SystemExt {
 
     /// Returns network data.
     fn get_network(&self) -> &NetworkData;
+
+    /// Returns system uptime.
+    fn get_uptime(&self) -> u64;
 }
 
 /// Getting volume of incoming and outcoming data.

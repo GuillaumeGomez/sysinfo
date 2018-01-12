@@ -35,6 +35,7 @@ pub struct System {
     temperatures: Vec<Component>,
     disks: Vec<Disk>,
     network: NetworkData,
+    uptime: u64,
 }
 
 impl System {
@@ -72,12 +73,14 @@ impl SystemExt for System {
             temperatures: component::get_components(),
             disks: get_all_disks(),
             network: network::new(),
+            uptime: get_uptime(),
         };
         s.refresh_all();
         s
     }
 
     fn refresh_system(&mut self) {
+        self.uptime = get_uptime();
         for component in &mut self.temperatures {
             component.update();
         }
@@ -180,16 +183,6 @@ impl SystemExt for System {
         self.process_list.tasks.get(&pid)
     }
 
-    fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
-        let mut ret = vec!();
-        for val in self.process_list.tasks.values() {
-            if val.name.starts_with(name) {
-                ret.push(val);
-            }
-        }
-        ret
-    }
-
     fn get_network(&self) -> &NetworkData {
         &self.network
     }
@@ -229,6 +222,10 @@ impl SystemExt for System {
 
     fn get_disks(&self) -> &[Disk] {
         &self.disks[..]
+    }
+
+    fn get_uptime(&self) -> u64 {
+        self.uptime
     }
 }
 
@@ -342,7 +339,10 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
                                      u64::from_str(parts[21]).unwrap_or(0) /
                                      unsafe { sysconf(_SC_CLK_TCK) } as u64);
 
-            p.status = parts[2].chars().next().and_then(|c| Some(ProcessStatus::from(c)));
+            p.status = parts[2].chars()
+                               .next()
+                               .and_then(|c| Some(ProcessStatus::from(c)))
+                               .unwrap_or(ProcessStatus::Unknown(0));
 
             tmp = PathBuf::from(path);
             tmp.push("status");
@@ -447,4 +447,10 @@ fn get_all_disks() -> Vec<Disk> {
         }
     }
     ret
+}
+
+#[allow(or_fun_call)]
+fn get_uptime() -> u64 {
+    let content = get_all_data("/proc/mounts").unwrap_or(String::new());
+    u64::from_str_radix(content.split('.').next().unwrap_or("0"), 10).unwrap_or(0)
 }

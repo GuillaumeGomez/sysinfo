@@ -34,6 +34,7 @@ pub struct System {
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
     network: NetworkData,
+    uptime: u64,
 }
 
 impl Drop for System {
@@ -250,6 +251,26 @@ fn get_disks() -> Vec<Disk> {
     ret
 }
 
+fn get_uptime() -> u64 {
+    let mut boottime: libc::timeval = unsafe { ::std::mem::zeroed() };
+    let mut len = ::std::mem::size_of::<libc::timeval>();
+    let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
+    unsafe {
+        if libc::sysctl(mib.as_mut_ptr(),
+
+                           2,
+                           &mut boottime as *mut libc::timeval as *mut _,
+                           &mut len,
+                           ::std::ptr::null_mut(), 0) < 0 {
+            return 0;
+        }
+    }
+    let bsec = boottime.tv_sec;
+    let csec = unsafe { libc::time(::std::ptr::null_mut()) };
+
+    unsafe { libc::difftime(csec, bsec) as u64 }
+}
+
 impl System {
     fn clear_procs(&mut self) {
         let mut to_delete = Vec::new();
@@ -320,7 +341,7 @@ impl System {
 
             p.uid = task_info.pbsd.pbi_uid;
             p.gid = task_info.pbsd.pbi_gid;
-            p.process_status = Some(ProcessStatus::from(task_info.pbsd.pbi_status));
+            p.process_status = ProcessStatus::from(task_info.pbsd.pbi_status);
 
             let ptr = proc_args.as_mut_slice().as_mut_ptr();
             mib[0] = libc::CTL_KERN;
@@ -422,12 +443,14 @@ impl SystemExt for System {
             connection: get_io_service_connection(),
             disks: get_disks(),
             network: network::new(),
+            uptime: get_uptime(),
         };
         s.refresh_all();
         s
     }
 
     fn refresh_system(&mut self) {
+        self.uptime = get_uptime();
         unsafe fn get_sys_value(high: u32, low: u32, mut len: usize, value: *mut c_void) -> bool {
             let mut mib = [high as i32, low as i32];
             libc::sysctl(mib.as_mut_ptr(), 2, value, &mut len as *mut usize,
@@ -664,16 +687,6 @@ impl SystemExt for System {
         self.process_list.get(&pid)
     }
 
-    fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
-        let mut ret = vec!();
-        for val in self.process_list.values() {
-            if val.name.starts_with(name) {
-                ret.push(val);
-            }
-        }
-        ret
-    }
-
     fn get_processor_list(&self) -> &[Processor] {
         &self.processors[..]
     }
@@ -713,6 +726,10 @@ impl SystemExt for System {
 
     fn get_disks(&self) -> &[Disk] {
         &self.disks[..]
+    }
+
+    fn get_uptime(&self) -> u64 {
+        self.uptime
     }
 }
 

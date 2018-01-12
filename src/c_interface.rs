@@ -6,7 +6,7 @@
 
 use std::borrow::BorrowMut;
 use libc::{self, c_uint, c_float, c_void, pid_t, size_t};
-use ::{NetworkExt, Process, ProcessorExt, System, SystemExt};
+use ::{NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 
 /// Equivalent of `System` struct.
 pub type CSystem = *mut c_void;
@@ -284,7 +284,7 @@ pub extern "C" fn sysinfo_process_get_tasks(process: CProcess, fn_pointer: Optio
 pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> pid_t {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).pid }
+    unsafe { (*process).pid() }
 }
 
 /// Equivalent of `Process.parent`.
@@ -294,7 +294,7 @@ pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> pid_t {
 pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> pid_t {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).parent.unwrap_or(0) }
+    unsafe { (*process).parent().unwrap_or(0) }
 }
 
 /// Equivalent of `Process.cpu_usage`.
@@ -302,7 +302,7 @@ pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> pid_t {
 pub extern "C" fn sysinfo_process_get_cpu_usage(process: CProcess) -> c_float {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).cpu_usage }
+    unsafe { (*process).cpu_usage() }
 }
 
 /// Equivalent of `Process.memory`.

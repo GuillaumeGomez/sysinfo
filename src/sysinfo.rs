@@ -12,7 +12,7 @@
 //! # Examples
 //!
 //! ```
-//! use sysinfo::SystemExt;
+//! use sysinfo::{ProcessExt, SystemExt};
 //!
 //! let mut system = sysinfo::System::new();
 //!
@@ -21,7 +21,7 @@
 //!
 //! // Now let's print every process' id and name:
 //! for (pid, proc_) in system.get_process_list() {
-//!     println!("{}:{} => status: {:?}", pid, proc_.name, proc_.status);
+//!     println!("{}:{} => status: {:?}", pid, proc_.name(), proc_.status());
 //! }
 //!
 //! // Then let's print the temperature of the different components:
@@ -91,7 +91,6 @@ pub use traits::{
     NetworkExt,
 };
 
-#[cfg(not(windows))]
 pub use utils::get_current_pid;
 #[cfg(feature = "c-interface")]
 pub use c_interface::*;

@@ -10,7 +10,6 @@ use sys::processor::*;
 
 use std::collections::HashMap;
 use std::mem::{size_of, zeroed};
-use std::str;
 
 use DiskExt;
 use Pid;
@@ -67,11 +66,6 @@ impl System {
             }
         }
     }
-
-    /// Returns the system uptime.
-    pub fn get_uptime(&self) -> u64 {
-        self.uptime
-    }
 }
 
 impl SystemExt for System {
@@ -90,103 +84,118 @@ impl SystemExt for System {
             network: network::new(),
             uptime: get_uptime(),
         };
+        // TODO: in case a translation fails, it might be nice to log it somewhere...
         if let Some(ref mut query) = s.query {
             let x = unsafe { load_symbols() };
-            let processor_trans = get_translation(&"Processor".to_owned(), &x).expect("translation failed");
-            let idle_time_trans = get_translation(&"% Idle Time".to_owned(), &x).expect("translation failed");
-            let proc_time_trans = get_translation(&"% Processor Time".to_owned(), &x).expect("translation failed");
-            add_counter(format!("\\{}(_Total)\\{}", processor_trans, proc_time_trans),
-                        query,
-                        get_key_used(&mut s.processors[0]),
-                        "tot_0".to_owned(),
-                        CounterValue::Float(0.));
-            add_counter(format!("\\{}(_Total)\\{}", processor_trans, idle_time_trans),
-                        query,
-                        get_key_idle(&mut s.processors[0]),
-                        "tot_1".to_owned(),
-                        CounterValue::Float(0.));
-            for (pos, proc_) in s.processors.iter_mut().skip(1).enumerate() {
-                add_counter(format!("\\{}({})\\{}", processor_trans, pos, proc_time_trans),
-                            query,
-                            get_key_used(proc_),
-                            format!("{}_0", pos),
-                            CounterValue::Float(0.));
-                add_counter(format!("\\{}({})\\{}", processor_trans, pos, idle_time_trans),
-                            query,
-                            get_key_idle(proc_),
-                            format!("{}_1", pos),
-                            CounterValue::Float(0.));
-            }
-
-            let network_trans = get_translation(&"Network Interface".to_owned(), &x).expect("translation failed");
-            let network_in_trans = get_translation(&"Bytes Received/Sec".to_owned(), &x).expect("translation failed");
-            let network_out_trans = get_translation(&"Bytes Sent/sec".to_owned(), &x).expect("translation failed");
-
-            const PERF_DETAIL_WIZARD: DWORD = 400;
-            const PDH_MORE_DATA: DWORD = 0x800007D2;
-
-            let mut network_trans_utf16: Vec<u16> = network_trans.encode_utf16().collect();
-            network_trans_utf16.push(0);
-            let mut dwCounterListSize: DWORD = 0;
-            let mut dwInstanceListSize: DWORD = 0;
-            let status = unsafe {
-                PdhEnumObjectItemsW(::std::ptr::null(),
-                                    ::std::ptr::null(),
-                                    network_trans_utf16.as_ptr(),
-                                    ::std::ptr::null_mut(),
-                                    &mut dwCounterListSize,
-                                    ::std::ptr::null_mut(),
-                                    &mut dwInstanceListSize,
-                                    PERF_DETAIL_WIZARD,
-                                    0)
-            };
-            if status != PDH_MORE_DATA as i32 {
-                panic!("got invalid status: {:x}", status);
-            }
-            let mut pwsCounterListBuffer: Vec<u16> = Vec::with_capacity(dwCounterListSize as usize);
-            let mut pwsInstanceListBuffer: Vec<u16> = Vec::with_capacity(dwInstanceListSize as usize);
-            unsafe {
-                pwsCounterListBuffer.set_len(dwCounterListSize as usize);
-                pwsInstanceListBuffer.set_len(dwInstanceListSize as usize);
-            }
-            let status = unsafe {
-                PdhEnumObjectItemsW(::std::ptr::null(),
-                                    ::std::ptr::null(),
-                                    network_trans_utf16.as_ptr(),
-                                    pwsCounterListBuffer.as_mut_ptr(),
-                                    &mut dwCounterListSize,
-                                    pwsInstanceListBuffer.as_mut_ptr(),
-                                    &mut dwInstanceListSize,
-                                    PERF_DETAIL_WIZARD,
-                                    0)
-            };
-            if status != ERROR_SUCCESS as i32 {
-                panic!("got invalid status: {:x}", status);
-            }
-
-            for (pos, x) in pwsInstanceListBuffer.split(|x| *x == 0)
-                                                 .filter(|x| x.len() > 0)
-                                                 .enumerate() {
-                let net_interface = String::from_utf16(x).expect("invalid utf16");
-                let mut key_in = None;
-                add_counter(format!("\\{}({})\\{}",
-                                    network_trans, net_interface, network_in_trans),
-                            query,
-                            &mut key_in,
-                            format!("net{}_in", pos),
-                            CounterValue::Integer(0));
-                if key_in.is_some() {
-                    network::get_keys_in(&mut s.network).push(key_in.unwrap());
+            if let Some(processor_trans) = get_translation(&"Processor".to_owned(), &x) {
+                let idle_time_trans = get_translation(&"% Idle Time".to_owned(), &x);
+                let proc_time_trans = get_translation(&"% Processor Time".to_owned(), &x);
+                if let Some(ref proc_time_trans) = proc_time_trans {
+                    add_counter(format!("\\{}(_Total)\\{}", processor_trans, proc_time_trans),
+                                query,
+                                get_key_used(&mut s.processors[0]),
+                                "tot_0".to_owned(),
+                                CounterValue::Float(0.));
                 }
-                let mut key_out = None;
-                add_counter(format!("\\{}({})\\{}",
-                                    network_trans, net_interface, network_out_trans),
-                            query,
-                            &mut key_out,
-                            format!("net{}_out", pos),
-                            CounterValue::Integer(0));
-                if key_out.is_some() {
-                    network::get_keys_out(&mut s.network).push(key_out.unwrap());
+                if let Some(ref idle_time_trans) = idle_time_trans {
+                    add_counter(format!("\\{}(_Total)\\{}", processor_trans, idle_time_trans),
+                                query,
+                                get_key_idle(&mut s.processors[0]),
+                                "tot_1".to_owned(),
+                                CounterValue::Float(0.));
+                }
+                for (pos, proc_) in s.processors.iter_mut().skip(1).enumerate() {
+                    if let Some(ref proc_time_trans) = proc_time_trans {
+                        add_counter(format!("\\{}({})\\{}", processor_trans, pos, proc_time_trans),
+                                    query,
+                                    get_key_used(proc_),
+                                    format!("{}_0", pos),
+                                    CounterValue::Float(0.));
+                    }
+                    if let Some(ref idle_time_trans) = idle_time_trans {
+                        add_counter(format!("\\{}({})\\{}", processor_trans, pos, idle_time_trans),
+                                    query,
+                                    get_key_idle(proc_),
+                                    format!("{}_1", pos),
+                                    CounterValue::Float(0.));
+                    }
+                }
+            }
+
+            if let Some(network_trans) = get_translation(&"Network Interface".to_owned(), &x) {
+                let network_in_trans = get_translation(&"Bytes Received/Sec".to_owned(), &x);
+                let network_out_trans = get_translation(&"Bytes Sent/sec".to_owned(), &x);
+
+                const PERF_DETAIL_WIZARD: DWORD = 400;
+                const PDH_MORE_DATA: DWORD = 0x800007D2;
+
+                let mut network_trans_utf16: Vec<u16> = network_trans.encode_utf16().collect();
+                network_trans_utf16.push(0);
+                let mut dwCounterListSize: DWORD = 0;
+                let mut dwInstanceListSize: DWORD = 0;
+                let status = unsafe {
+                    PdhEnumObjectItemsW(::std::ptr::null(),
+                                        ::std::ptr::null(),
+                                        network_trans_utf16.as_ptr(),
+                                        ::std::ptr::null_mut(),
+                                        &mut dwCounterListSize,
+                                        ::std::ptr::null_mut(),
+                                        &mut dwInstanceListSize,
+                                        PERF_DETAIL_WIZARD,
+                                        0)
+                };
+                if status != PDH_MORE_DATA as i32 {
+                    panic!("got invalid status: {:x}", status);
+                }
+                let mut pwsCounterListBuffer: Vec<u16> = Vec::with_capacity(dwCounterListSize as usize);
+                let mut pwsInstanceListBuffer: Vec<u16> = Vec::with_capacity(dwInstanceListSize as usize);
+                unsafe {
+                    pwsCounterListBuffer.set_len(dwCounterListSize as usize);
+                    pwsInstanceListBuffer.set_len(dwInstanceListSize as usize);
+                }
+                let status = unsafe {
+                    PdhEnumObjectItemsW(::std::ptr::null(),
+                                        ::std::ptr::null(),
+                                        network_trans_utf16.as_ptr(),
+                                        pwsCounterListBuffer.as_mut_ptr(),
+                                        &mut dwCounterListSize,
+                                        pwsInstanceListBuffer.as_mut_ptr(),
+                                        &mut dwInstanceListSize,
+                                        PERF_DETAIL_WIZARD,
+                                        0)
+                };
+                if status != ERROR_SUCCESS as i32 {
+                    panic!("got invalid status: {:x}", status);
+                }
+
+                for (pos, x) in pwsInstanceListBuffer.split(|x| *x == 0)
+                                                     .filter(|x| x.len() > 0)
+                                                     .enumerate() {
+                    let net_interface = String::from_utf16(x).expect("invalid utf16");
+                    if let Some(ref network_in_trans) = network_in_trans {
+                        let mut key_in = None;
+                        add_counter(format!("\\{}({})\\{}",
+                                            network_trans, net_interface, network_in_trans),
+                                    query,
+                                    &mut key_in,
+                                    format!("net{}_in", pos),
+                                    CounterValue::Integer(0));
+                        if key_in.is_some() {
+                            network::get_keys_in(&mut s.network).push(key_in.unwrap());
+                        }
+                    }
+                    if let Some(ref network_out_trans) = network_out_trans {
+                        let mut key_out = None;
+                        add_counter(format!("\\{}({})\\{}",
+                                            network_trans, net_interface, network_out_trans),
+                                    query,
+                                    &mut key_out,
+                                    format!("net{}_out", pos),
+                                    CounterValue::Integer(0));
+                        if key_out.is_some() {
+                            network::get_keys_out(&mut s.network).push(key_out.unwrap());
+                        }
+                    }
                 }
             }
             query.start();
@@ -276,16 +285,6 @@ impl SystemExt for System {
         self.process_list.get(&(pid as usize))
     }
 
-    fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
-        let mut ret = vec!();
-        for val in self.process_list.values() {
-            if val.name.starts_with(name) {
-                ret.push(val);
-            }
-        }
-        ret
-    }
-
     fn get_processor_list(&self) -> &[Processor] {
         &self.processors[..]
     }
@@ -324,6 +323,10 @@ impl SystemExt for System {
 
     fn get_network(&self) -> &NetworkData {
         &self.network
+    }
+
+    fn get_uptime(&self) -> u64 {
+        self.uptime
     }
 }
 

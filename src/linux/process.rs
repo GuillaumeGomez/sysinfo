@@ -12,7 +12,7 @@ use Pid;
 use ::ProcessExt;
 
 /// Enum describing the different status of a process.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum ProcessStatus {
     /// Waiting in uninterruptible disk sleep.
     Idle,
@@ -97,40 +97,27 @@ impl fmt::Display for ProcessStatus {
 /// Struct containing a process' information.
 #[derive(Clone)]
 pub struct Process {
-    /// Name of the program.
-    pub name: String,
-    /// Command line, split into arguments.
-    pub cmd: Vec<String>,
-    /// Path to the executable.
-    pub exe: String,
-    /// Pid of the process.
-    pub pid: Pid,
-    /// Pid of the parent process.
-    pub parent: Option<Pid>,
-    /// Environment of the process.
-    pub environ: Vec<String>,
-    /// Current working directory.
-    pub cwd: String,
-    /// Path of the root directory.
-    pub root: String,
-    /// Memory usage (in kB).
-    pub memory: u64,
+    pub(crate) name: String,
+    pub(crate) cmd: Vec<String>,
+    pub(crate) exe: String,
+    pub(crate) pid: Pid,
+    parent: Option<Pid>,
+    pub(crate) environ: Vec<String>,
+    pub(crate) cwd: String,
+    pub(crate) root: String,
+    pub(crate) memory: u64,
     utime: u64,
     stime: u64,
     old_utime: u64,
     old_stime: u64,
-    /// Time of process launch (in seconds).
-    pub start_time: u64,
+    start_time: u64,
     updated: bool,
-    /// Total cpu usage.
-    pub cpu_usage: f32,
+    cpu_usage: f32,
     /// User id of the process owner.
     pub uid: uid_t,
     /// Group id of the process owner.
     pub gid: gid_t,
-    /// Status of process (idle, run, zombie, etc). `None` means `sysinfo` doesn't have
-    /// enough rights to get this information.
-    pub status: Option<ProcessStatus>,
+    pub(crate) status: ProcessStatus,
     /// Tasks run by this process.
     pub tasks: HashMap<Pid, Process>,
 }
@@ -156,13 +143,63 @@ impl ProcessExt for Process {
             start_time: start_time,
             uid: 0,
             gid: 0,
-            status: None,
+            status: ProcessStatus::Unknown(0),
             tasks: HashMap::new(),
         }
     }
 
     fn kill(&self, signal: ::Signal) -> bool {
         unsafe { kill(self.pid, signal as c_int) == 0 }
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn cmd(&self) -> &[String] {
+        &self.cmd
+    }
+
+    fn exe(&self) -> &str {
+        &self.exe
+    }
+
+    fn pid(&self) -> Pid {
+        self.pid
+    }
+
+    fn environ(&self) -> &[String] {
+        &self.environ
+    }
+
+    fn cwd(&self) -> &str {
+        &self.cwd
+    }
+
+    fn root(&self) -> &str {
+        &self.root
+    }
+
+    fn memory(&self) -> u64 {
+        self.memory
+    }
+
+    fn parent(&self) -> Option<Pid> {
+        self.parent
+    }
+
+    /// Returns the status of the processus (idle, run, zombie, etc). `None` means that
+    /// `sysinfo` doesn't have enough rights to get this information.
+    fn status(&self) -> ProcessStatus {
+        self.status
+    }
+
+    fn start_time(&self) -> u64 {
+        self.start_time
+    }
+
+    fn cpu_usage(&self) -> f32 {
+        self.cpu_usage
     }
 }
 
@@ -187,10 +224,7 @@ impl Debug for Process {
         writeln!(f, "owner/group: {}:{}", self.uid, self.gid);
         writeln!(f, "memory usage: {} kB", self.memory);
         writeln!(f, "cpu usage: {}%", self.cpu_usage);
-        writeln!(f, "status: {}", match self.status {
-            Some(ref v) => v.to_string(),
-            None        => "Unknown",
-        });
+        writeln!(f, "status: {}", self.status);
         write!(f, "root path: {}", self.root)
     }
 }

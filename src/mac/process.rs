@@ -11,7 +11,7 @@ use Pid;
 use ::ProcessExt;
 
 /// Enum describing the different status of a process.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum ProcessStatus {
     /// Process being created by fork.
     Idle,
@@ -113,39 +113,27 @@ impl fmt::Display for ThreadStatus {
 /// Struct containing a process' information.
 #[derive(Clone)]
 pub struct Process {
-    /// Name of the program.
-    pub name: String,
-    /// Command line, split into arguments.
-    pub cmd: Vec<String>,
-    /// Path to the executable.
-    pub exe: String,
-    /// Pid of the process.
-    pub pid: Pid,
-    /// Pid of the parent process.
-    pub parent: Option<Pid>,
-    /// Environment of the process.
-    pub environ: Vec<String>,
-    /// Current working directory.
-    pub cwd: String,
-    /// Path of the root directory.
-    pub root: String,
-    /// Memory usage (in kB).
-    pub memory: u64,
+    pub(crate) name: String,
+    pub(crate) cmd: Vec<String>,
+    pub(crate) exe: String,
+    pid: Pid,
+    parent: Option<Pid>,
+    pub(crate) environ: Vec<String>,
+    cwd: String,
+    root: String,
+    pub(crate) memory: u64,
     utime: u64,
     stime: u64,
     old_utime: u64,
     old_stime: u64,
-    /// Time of process launch (in seconds).
-    pub start_time: u64,
+    start_time: u64,
     updated: bool,
-    /// Total cpu usage.
-    pub cpu_usage: f32,
+    cpu_usage: f32,
     /// User id of the process owner.
     pub uid: uid_t,
     /// Group id of the process owner.
     pub gid: gid_t,
-    /// Status of process (idle, run, zombie, etc).
-    pub process_status: Option<ProcessStatus>,
+    pub(crate) process_status: ProcessStatus,
     /// Status of process (running, stopped, waiting, etc). `None` means `sysinfo` doesn't have
     /// enough rights to get this information.
     ///
@@ -174,13 +162,61 @@ impl ProcessExt for Process {
             start_time: start_time,
             uid: 0,
             gid: 0,
-            process_status: None,
+            process_status: ProcessStatus::Unknown(0),
             status: None,
         }
     }
 
     fn kill(&self, signal: ::Signal) -> bool {
         unsafe { kill(self.pid, signal as c_int) == 0 }
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn cmd(&self) -> &[String] {
+        &self.cmd
+    }
+
+    fn exe(&self) -> &str {
+        &self.exe
+    }
+
+    fn pid(&self) -> Pid {
+        self.pid
+    }
+
+    fn environ(&self) -> &[String] {
+        &self.environ
+    }
+
+    fn cwd(&self) -> &str {
+        &self.cwd
+    }
+
+    fn root(&self) -> &str {
+        &self.root
+    }
+
+    fn memory(&self) -> u64 {
+        self.memory
+    }
+
+    fn parent(&self) -> Option<Pid> {
+        self.parent
+    }
+
+    fn status(&self) -> ProcessStatus {
+        self.process_status
+    }
+
+    fn start_time(&self) -> u64 {
+        self.start_time
+    }
+
+    fn cpu_usage(&self) -> f32 {
+        self.cpu_usage
     }
 }
 
