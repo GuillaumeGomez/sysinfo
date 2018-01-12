@@ -268,11 +268,7 @@ fn get_uptime() -> u64 {
     let bsec = boottime.tv_sec;
     let csec = unsafe { libc::time(::std::ptr::null_mut()) };
 
-    // TODO: remove this once libc new version is out.
-    extern {
-        fn difftime(time1: libc::time_t, time0: libc::time_t) -> libc::c_double;
-    }
-    unsafe { difftime(csec, bsec) as u64 }
+    unsafe { libc::difftime(csec, bsec) as u64 }
 }
 
 impl System {
