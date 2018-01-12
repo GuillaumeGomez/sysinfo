@@ -16,6 +16,7 @@ install:
 
 build_script:
   - cargo build
+  - cargo test
   - cd examples
   - cargo build
 

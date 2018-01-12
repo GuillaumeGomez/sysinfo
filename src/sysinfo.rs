@@ -12,7 +12,7 @@
 //! # Examples
 //!
 //! ```
-//! use sysinfo::SystemExt;
+//! use sysinfo::{ProcessExt, SystemExt};
 //!
 //! let mut system = sysinfo::System::new();
 //!
@@ -21,7 +21,7 @@
 //!
 //! // Now let's print every process' id and name:
 //! for (pid, proc_) in system.get_process_list() {
-//!     println!("{}:{} => status: {:?}", pid, proc_.name, proc_.status);
+//!     println!("{}:{} => status: {:?}", pid, proc_.name(), proc_.status());
 //! }
 //!
 //! // Then let's print the temperature of the different components:
