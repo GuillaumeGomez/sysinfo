@@ -13,7 +13,8 @@ use std::ffi::OsStr;
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::ffi::OsStrExt;
 #[cfg(not(target_os = "windows"))]
-use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT, pid_t};
+use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
+use Pid;
 
 #[cfg(not(target_os = "windows"))]
 pub fn realpath(original: &Path) -> PathBuf {
@@ -54,6 +55,14 @@ pub fn to_cpath(path: &Path) -> Vec<u8> {
 
 /// Returns the pid for the current process.
 #[cfg(not(target_os = "windows"))]
-pub fn get_current_pid() -> pid_t {
+pub fn get_current_pid() -> Pid {
     unsafe { ::libc::getpid() }
+}
+
+/// Returns the pid for the current process.
+#[cfg(target_os = "windows")]
+pub fn get_current_pid() -> Pid {
+    use winapi::um::processthreadsapi::GetCurrentProcessId;
+
+    unsafe { GetCurrentProcessId() as Pid }
 }

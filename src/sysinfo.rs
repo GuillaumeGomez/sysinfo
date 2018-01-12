@@ -91,7 +91,6 @@ pub use traits::{
     NetworkExt,
 };
 
-#[cfg(not(windows))]
 pub use utils::get_current_pid;
 #[cfg(feature = "c-interface")]
 pub use c_interface::*;

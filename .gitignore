@@ -44,3 +44,4 @@ Cargo.lock
 rusty-tags.vi
 tags
 
+**.o
