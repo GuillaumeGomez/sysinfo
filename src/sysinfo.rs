@@ -1,7 +1,7 @@
 //
 // Sysinfo
 //
-// Copyright (c) 2015 Guillaume Gomez
+// Copyright (c) 2018 Guillaume Gomez
 //
 
 //! `sysinfo` is a crate used to get a system's information.
@@ -58,6 +58,9 @@ cfg_if! {
     if #[cfg(target_os = "macos")] {
         mod mac;
         use mac as sys;
+    } else if #[cfg(target_os = "freebsd")] {
+        mod freebsd;
+        use freebsd as sys;
     } else if #[cfg(windows)] {
         mod windows;
         use windows as sys;
