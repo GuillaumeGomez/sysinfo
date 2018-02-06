@@ -1,4 +1,12 @@
-# system [![Build Status](https://api.travis-ci.org/GuillaumeGomez/sysinfo.png?branch=master)](https://travis-ci.org/GuillaumeGomez/sysinfo)
+# sysinfo [![][img_travis-ci]][travis-ci] [![][img_crates]][crates] [![][img_doc]][doc]
+
+[img_travis-ci]: https://api.travis-ci.org/GuillaumeGomez/sysinfo.png?branch=master
+[img_crates]: https://img.shields.io/crates/v/sysinfo.svg
+[img_doc]: https://img.shields.io/badge/rust-documentation-blue.svg
+
+[travis-ci]: https://travis-ci.org/GuillaumeGomez/sysinfo
+[crates]: https://crates.io/crates/sysinfo
+[doc]: https://docs.rs/sysinfo/
 
 A system handler to interact with processes.
 
