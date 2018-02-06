@@ -12,9 +12,9 @@ extern crate sysinfo;
 
 use sysinfo::{NetworkExt, Pid, ProcessExt, ProcessorExt, Signal, System, SystemExt};
 use sysinfo::Signal::*;
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Write};
 use std::str::FromStr;
-use std::io::Write;
+use std::time::Duration;
 
 const signals: [Signal; 31] = [Hangup, Interrupt, Quit, Illegal, Trap, Abort, Bus,
                                FloatingPointException, Kill, User1, Segv, User2, Pipe, Alarm,
@@ -38,6 +38,7 @@ fn print_help() {
     writeln!(&mut io::stdout(), "disks              : Displays disks' information");
     writeln!(&mut io::stdout(), "network            : Displays network' information");
     writeln!(&mut io::stdout(), "all                : Displays all process name and pid");
+    writeln!(&mut io::stdout(), "uptime             : Displays system uptime");
     writeln!(&mut io::stdout(), "quit               : exit the program");
 }
 
@@ -140,6 +141,19 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             for disk in sys.get_disks() {
                 writeln!(&mut io::stdout(), "{:?}", disk);
             }
+        }
+        "uptime" => {
+            let mut uptime = sys.get_uptime();
+            let days = uptime / 86400;
+            uptime -= days * 86400;
+            let hours = uptime / 3600;
+            uptime -= hours * 3600;
+            let minutes = uptime / 60;
+            writeln!(&mut io::stdout(),
+                     "{} days {} hours {} minutes",
+                     days,
+                     hours,
+                     minutes);
         }
         x if x.starts_with("refresh") => {
             if x == "refresh" {
