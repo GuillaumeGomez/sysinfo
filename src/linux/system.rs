@@ -451,6 +451,6 @@ fn get_all_disks() -> Vec<Disk> {
 
 #[allow(or_fun_call)]
 fn get_uptime() -> u64 {
-    let content = get_all_data("/proc/mounts").unwrap_or(String::new());
+    let content = get_all_data("/proc/uptime").unwrap_or(String::new());
     u64::from_str_radix(content.split('.').next().unwrap_or("0"), 10).unwrap_or(0)
 }
