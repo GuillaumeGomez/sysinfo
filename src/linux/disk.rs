@@ -52,12 +52,12 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
     DiskType::from(rotational_int.unwrap_or(-1))
 }
 
-#[cfg(target_arch = "arm")]
+#[cfg(target_pointer_width = "32")]
 macro_rules! cast {
     ($x:expr) => { $x as u64 }
 }
 
-#[cfg(not(target_arch = "arm"))]
+#[cfg(not(target_pointer_width = "32"))]
 macro_rules! cast {
     ($x:expr) => { $x }
 }
