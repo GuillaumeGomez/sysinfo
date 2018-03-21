@@ -1,4 +1,4 @@
-# sysinfo [![][img_travis-ci]][travis-ci] [![][img_crates]][crates] [![][img_doc]][doc]
+# sysinfo [![][img_travis-ci]][travis-ci] [![Build status](https://ci.appveyor.com/api/projects/status/nhep876b3legunwd/branch/master?svg=true)](https://ci.appveyor.com/project/GuillaumeGomez/sysinfo/branch/master) [![][img_crates]][crates] [![][img_doc]][doc]
 
 [img_travis-ci]: https://api.travis-ci.org/GuillaumeGomez/sysinfo.png?branch=master
 [img_crates]: https://img.shields.io/crates/v/sysinfo.svg
