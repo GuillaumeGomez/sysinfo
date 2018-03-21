@@ -43,16 +43,16 @@ impl CpuValues {
                            irq: u64, softirq: u64, steal: u64, guest: u64,
                            guest_nice: u64) -> CpuValues {
         CpuValues {
-            user: user,
-            nice: nice,
-            system: system,
-            idle: idle,
-            iowait: iowait,
-            irq: irq,
-            softirq: softirq,
-            steal: steal,
-            guest: guest,
-            guest_nice: guest_nice
+            user,
+            nice,
+            system,
+            idle,
+            iowait,
+            irq,
+            softirq,
+            steal,
+            guest,
+            guest_nice,
         }
     }
 

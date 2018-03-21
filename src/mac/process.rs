@@ -145,8 +145,8 @@ impl ProcessExt for Process {
     fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Process {
         Process {
             name: String::new(),
-            pid: pid,
-            parent: parent,
+            pid,
+            parent,
             cmd: Vec::new(),
             environ: Vec::new(),
             exe: String::new(),
@@ -159,7 +159,7 @@ impl ProcessExt for Process {
             old_utime: 0,
             old_stime: 0,
             updated: true,
-            start_time: start_time,
+            start_time,
             uid: 0,
             gid: 0,
             process_status: ProcessStatus::Unknown(0),

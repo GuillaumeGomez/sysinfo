@@ -104,10 +104,10 @@ impl Component {
                critical: Option<f32>) -> Component {
         let mut c = Component {
             temperature: 0f32,
-            label: label,
+            label,
             input_file: input_path.to_path_buf(),
             max: max.unwrap_or(0.0),
-            critical: critical,
+            critical,
         };
         c.update();
         c
