@@ -55,12 +55,12 @@ pub fn new(name: OsString, mount_point: &Path, type_: DiskType) -> Disk {
         }
     }
     Disk {
-        type_: type_,
-        name: name,
+        type_,
+        name,
         file_system: file_system.unwrap_or_else(|| b"<Unknown>".to_vec()),
         mount_point: mount_point.to_owned(),
-        total_space: total_space,
-        available_space: available_space,
+        total_space,
+        available_space,
     }
 }
 

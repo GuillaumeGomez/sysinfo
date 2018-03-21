@@ -52,12 +52,12 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
     DiskType::from(rotational_int.unwrap_or(-1))
 }
 
-#[cfg(target_arch = "arm")]
+#[cfg(target_pointer_width = "32")]
 macro_rules! cast {
     ($x:expr) => { $x as u64 }
 }
 
-#[cfg(not(target_arch = "arm"))]
+#[cfg(not(target_pointer_width = "32"))]
 macro_rules! cast {
     ($x:expr) => { $x }
 }
@@ -65,22 +65,22 @@ macro_rules! cast {
 pub fn new(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Disk {
     let mount_point_cpath = utils::to_cpath(mount_point);
     let type_ = find_type_for_name(name);
-    let mut total_space = 0;
-    let mut available_space = 0;
+    let mut total = 0;
+    let mut available = 0;
     unsafe {
         let mut stat: statvfs = mem::zeroed();
         if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
-            total_space = stat.f_bsize * stat.f_blocks;
-            available_space = stat.f_bsize * stat.f_bavail;
+            total = stat.f_bsize * stat.f_blocks;
+            available = stat.f_bsize * stat.f_bavail;
         }
     }
     Disk {
-        type_: type_,
+        type_,
         name: name.to_owned(),
         file_system: file_system.to_owned(),
         mount_point: mount_point.to_owned(),
-        total_space: cast!(total_space),
-        available_space: cast!(available_space),
+        total_space: cast!(total),
+        available_space: cast!(available),
     }
 }
 

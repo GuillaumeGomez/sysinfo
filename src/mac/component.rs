@@ -19,9 +19,9 @@ impl Component {
     pub fn new(label: String, max: Option<f32>, critical: Option<f32>) -> Component {
         Component {
             temperature: 0f32,
-            label: label,
+            label,
             max: max.unwrap_or(0.0),
-            critical: critical,
+            critical,
         }
     }
 }

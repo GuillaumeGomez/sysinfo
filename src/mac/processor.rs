@@ -32,7 +32,7 @@ impl ProcessorData {
     pub fn new(cpu_info: *mut i32, num_cpu_info: u32) -> ProcessorData {
         ProcessorData {
             cpu_info: UnsafePtr(cpu_info),
-            num_cpu_info: num_cpu_info,
+            num_cpu_info,
         }
     }
 }
@@ -59,9 +59,9 @@ pub struct Processor {
 impl Processor {
     fn new(name: String, processor_data: Arc<ProcessorData>) -> Processor {
         Processor {
-            name: name,
+            name,
             cpu_usage: 0f32,
-            processor_data: processor_data,
+            processor_data,
         }
     }
 }

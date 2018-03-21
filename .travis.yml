@@ -10,11 +10,27 @@ matrix:
       rust: stable
       dist: trusty
     - os: linux
+      env: TARGET=i686-unknown-linux-gnu
+      rust: stable
+      dist: trusty
+    - os: linux
+      env: TARGET=i686-unknown-linux-musl
+      rust: stable
+      dist: trusty
+    - os: linux
       env: TARGET=armv7-unknown-linux-gnueabihf
       rust: nightly
       dist: trusty
     - os: linux
       env: TARGET=x86_64-apple-darwin
+      rust: nightly
+      dist: trusty
+    - os: linux
+      env: TARGET=i686-unknown-linux-gnu
+      rust: nightly
+      dist: trusty
+    - os: linux
+      env: TARGET=i686-unknown-linux-musl
       rust: nightly
       dist: trusty
     - os: osx
