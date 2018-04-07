@@ -56,6 +56,7 @@ extern crate libc;
 
 cfg_if! {
     if #[cfg(target_os = "macos")] {
+        extern crate rayon;
         mod mac;
         use mac as sys;
     } else if #[cfg(windows)] {

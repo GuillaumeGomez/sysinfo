@@ -16,6 +16,9 @@ build = "build.rs"
 libc = "^0.2"
 cfg-if = "0.1"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+rayon = "^1.0"
+
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi", "handleapi", "ioapiset", "minwindef", "pdh", "psapi", "synchapi", "sysinfoapi", "tlhelp32", "winbase", "winerror", "winioctl", "winnt"] }
 
