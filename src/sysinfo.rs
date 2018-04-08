@@ -46,7 +46,7 @@
 #![crate_type = "rlib"]
 
 #![deny(missing_docs)]
-#![deny(warnings)]
+//#![deny(warnings)]
 #![allow(unknown_lints)]
 #![allow(too_many_arguments)]
 
@@ -64,6 +64,7 @@ cfg_if! {
         use windows as sys;
         extern crate winapi;
     } else {
+        extern crate rayon;
         mod linux;
         use linux as sys;
     }
