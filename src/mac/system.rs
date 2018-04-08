@@ -87,9 +87,9 @@ unsafe fn strtoul(s: *mut c_char, size: c_int, base: c_int) -> u32 {
 
     for i in 0..size {
         total += if base == 16 {
-            (*s.offset(i as isize) as u32) << (((size - 1 - i) as u32) * 8)
+            (*s.offset(i as isize) as u32) << (((size - 1 - i) as u32) << 3)
         } else {
-            (*s.offset(i as isize) as u32) << ((size - 1 - i) * 8) as u32
+            (*s.offset(i as isize) as u32) << ((size - 1 - i) << 3) as u32
         };
     }
     total
@@ -145,7 +145,7 @@ unsafe fn get_temperature(con: ffi::io_connect_t, key: *mut c_char) -> f32 {
         if val.data_size > 0 &&
            libc::strcmp(val.data_type.as_ptr(), b"sp78\0".as_ptr() as *const i8) == 0 {
             // convert fp78 value to temperature
-            let x = (i32::from(val.bytes[0]) * 256 + i32::from(val.bytes[1])) >> 2;
+            let x = (i32::from(val.bytes[0]) << 6) + (i32::from(val.bytes[1]) >> 2);
             return x as f32 / 64f32;
         }
     }
@@ -237,20 +237,26 @@ fn get_disk_types() -> HashMap<OsString, DiskType> {
 
 fn get_disks() -> Vec<Disk> {
     let disk_types = get_disk_types();
-    let mut ret = Vec::new();
 
-    for entry in unwrapper!(fs::read_dir("/Volumes"), ret) {
-        if let Ok(entry) = entry {
-            let mount_point = utils::realpath(&entry.path());
-            if mount_point.as_os_str().is_empty() {
-                continue
+    unwrapper!(fs::read_dir("/Volumes"), Vec::new())
+        .flat_map(|x| {
+            if let Ok(ref entry) = x {
+                let mount_point = utils::realpath(&entry.path());
+                if mount_point.as_os_str().is_empty() {
+                    None
+                } else {
+                    let name = entry.path()
+                                    .file_name()
+                                    .unwrap_or_else(|| OsStr::new(""))
+                                    .to_owned();
+                    let type_ = disk_types.get(&name).cloned().unwrap_or(DiskType::Unknown(-2));
+                    Some(disk::new(name, &mount_point, type_))
+                }
+            } else {
+                None
             }
-            let name = entry.path().file_name().unwrap_or_else(|| OsStr::new("")).to_owned();
-            let type_ = disk_types.get(&name).cloned().unwrap_or(DiskType::Unknown(-2));
-            ret.push(disk::new(name, &mount_point, type_));
-        }
-    }
-    ret
+        })
+        .collect()
 }
 
 fn get_uptime() -> u64 {
@@ -278,8 +284,6 @@ struct Wrap<'a>(&'a mut HashMap<Pid, Process>);
 unsafe impl<'a> Send for Wrap<'a> {}
 unsafe impl<'a> Sync for Wrap<'a> {}
 
-// TODO: change return value into Result so we can know if an error occurred or not
-// (important for refresh_process method).
 fn update_process(wrap: &mut Wrap, pid: Pid,
                   taskallinfo_size: i32, taskinfo_size: i32, threadinfo_size: i32,
                   mib: &mut [c_int], mut size: size_t) -> Result<Option<Process>, ()> {
@@ -312,7 +316,7 @@ fn update_process(wrap: &mut Wrap, pid: Pid,
             let time = ffi::mach_absolute_time();
             compute_cpu_usage(p, time, task_time);
 
-            p.memory = task_info.pti_resident_size / 1024;
+            p.memory = task_info.pti_resident_size >> 10; // divide by 1024
             return Ok(None);
         }
 
@@ -333,7 +337,7 @@ fn update_process(wrap: &mut Wrap, pid: Pid,
         let mut p = Process::new(pid,
                                  parent,
                                  task_info.pbsd.pbi_start_tvsec);
-        p.memory = task_info.ptinfo.pti_resident_size / 1024;
+        p.memory = task_info.ptinfo.pti_resident_size >> 10; // divide by 1024
 
         p.uid = task_info.pbsd.pbi_uid;
         p.gid = task_info.pbsd.pbi_gid;
@@ -447,7 +451,7 @@ impl SystemExt for System {
             swap_total: 0,
             swap_free: 0,
             processors: Vec::new(),
-            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
+            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 >> 10 }, // divide by 1024
             temperatures: Vec::new(),
             connection: get_io_service_connection(),
             disks: get_disks(),
@@ -460,27 +464,30 @@ impl SystemExt for System {
 
     fn refresh_system(&mut self) {
         self.uptime = get_uptime();
-        unsafe fn get_sys_value(high: u32, low: u32, mut len: usize, value: *mut c_void) -> bool {
-            let mut mib = [high as i32, low as i32];
+        unsafe fn get_sys_value(high: u32, low: u32, mut len: usize, value: *mut c_void,
+                                mib: &mut [i32; 2]) -> bool {
+            mib[0] = high as i32;
+            mib[1] = low as i32;
             libc::sysctl(mib.as_mut_ptr(), 2, value, &mut len as *mut usize,
                          ::std::ptr::null_mut(), 0) == 0
         }
 
+        let mut mib = [0, 0];
         unsafe {
             // get system values
             // get swap info
             let mut xs: ffi::xsw_usage = ::std::mem::zeroed::<ffi::xsw_usage>();
             if get_sys_value(ffi::CTL_VM, ffi::VM_SWAPUSAGE,
                              ::std::mem::size_of::<ffi::xsw_usage>(),
-                             &mut xs as *mut ffi::xsw_usage as *mut c_void) {
-                self.swap_total = xs.xsu_total / 1024;
-                self.swap_free = xs.xsu_avail / 1024;
+                             &mut xs as *mut ffi::xsw_usage as *mut c_void, &mut mib) {
+                self.swap_total = xs.xsu_total >> 10; // divide by 1024
+                self.swap_free = xs.xsu_avail >> 10; // divide by 1024
             }
             // get ram info
             if self.mem_total < 1 {
                 get_sys_value(ffi::CTL_HW, ffi::HW_MEMSIZE, ::std::mem::size_of::<u64>(),
-                              &mut self.mem_total as *mut u64 as *mut c_void);
-                self.mem_total /= 1024;
+                              &mut self.mem_total as *mut u64 as *mut c_void, &mut mib);
+                self.mem_total >>= 10; // divide by 1024
             }
             let count: u32 = ffi::HOST_VM_INFO64_COUNT;
             let mut stat = ::std::mem::zeroed::<ffi::vm_statistics64>();
@@ -558,7 +565,7 @@ impl SystemExt for System {
                 let mut num_cpu = 0;
 
                 if !get_sys_value(ffi::CTL_HW, ffi::HW_NCPU, ::std::mem::size_of::<u32>(),
-                                  &mut num_cpu as *mut usize as *mut c_void) {
+                                  &mut num_cpu as *mut usize as *mut c_void, &mut mib) {
                     num_cpu = 1;
                 }
 
@@ -654,7 +661,7 @@ impl SystemExt for System {
             pids.par_iter()
                 .flat_map(|pid| {
                     let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
-                    let mut wrap: &mut Wrap = unsafe { ::std::mem::transmute(p_wrap as *mut Wrap) };
+                    let mut wrap: &mut Wrap = unsafe { &mut *(p_wrap as *mut Wrap as *mut Wrap) };
                     match update_process(&mut wrap, *pid, taskallinfo_size, taskinfo_size,
                                          threadinfo_size, &mut mib, arg_max as size_t) {
                         Ok(x) => x,
@@ -663,9 +670,9 @@ impl SystemExt for System {
                 })
                 .collect()
         };
-        for entry in entries.into_iter() {
+        entries.into_iter().for_each(|entry| {
             self.process_list.insert(entry.pid(), entry);
-        }
+        });
         self.clear_procs();
     }
 
