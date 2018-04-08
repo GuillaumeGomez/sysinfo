@@ -40,6 +40,17 @@ fn bench_refresh_processes(b: &mut test::Bencher) {
 }
 
 #[bench]
+fn bench_refresh_process(b: &mut test::Bencher) {
+    let mut s = sysinfo::System::new();
+
+    s.refresh_all();
+    let pid = *s.get_process_list().iter().take(1).next().unwrap().0;
+    b.iter(move || {
+        s.refresh_process(pid);
+    });
+}
+
+#[bench]
 fn bench_refresh_disks(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
 
