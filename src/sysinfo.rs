@@ -46,13 +46,14 @@
 #![crate_type = "rlib"]
 
 #![deny(missing_docs)]
-#![deny(warnings)]
+//#![deny(warnings)]
 #![allow(unknown_lints)]
 #![allow(too_many_arguments)]
 
 #[macro_use]
 extern crate cfg_if;
 extern crate libc;
+extern crate rayon;
 
 cfg_if! {
     if #[cfg(target_os = "macos")] {

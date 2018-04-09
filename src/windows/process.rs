@@ -411,8 +411,10 @@ pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
         memcpy(&mut user as *mut ULARGE_INTEGER as *mut c_void,
                &mut fuser as *mut FILETIME as *mut c_void,
                size_of::<FILETIME>());
-        p.cpu_usage = ((*sys.QuadPart() - p.old_sys_cpu) as f32 + (*user.QuadPart() - p.old_user_cpu) as f32)
-            / (*now.QuadPart() - p.old_cpu) as f32 / nb_processors as f32 * 100.;
+        p.cpu_usage = ((*sys.QuadPart() - p.old_sys_cpu) as f32 +
+            (*user.QuadPart() - p.old_user_cpu) as f32)
+            / (*now.QuadPart() - p.old_cpu) as f32
+            / nb_processors as f32 * 100.;
         p.old_cpu = *now.QuadPart();
         p.old_user_cpu = *user.QuadPart();
         p.old_sys_cpu = *sys.QuadPart();

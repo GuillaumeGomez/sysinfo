@@ -13,7 +13,7 @@ use sys::network;
 use sys::NetworkData;
 use ::{DiskExt, ProcessExt, SystemExt};
 use std::fs::{File, read_link};
-use std::io::{self, Read};
+use std::io::{self, BufRead, BufReader, Read};
 use std::str::FromStr;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
@@ -21,6 +21,8 @@ use std::fs;
 use libc::{uid_t, sysconf, _SC_CLK_TCK, _SC_PAGESIZE};
 use utils::realpath;
 use Pid;
+
+use rayon::prelude::*;
 
 /// Structs containing system's information.
 #[derive(Debug)]
@@ -57,6 +59,12 @@ impl System {
                 self.process_list.tasks.remove(&pid);
             }
         }
+    }
+}
+
+macro_rules! to_str {
+    ($e:expr) => {
+        unsafe { ::std::str::from_utf8_unchecked($e) }
     }
 }
 
@@ -100,39 +108,44 @@ impl SystemExt for System {
                 }
             }
         }
-        if let Ok(data) = get_all_data("/proc/stat") {
+        if let Ok(f) = File::open("/proc/stat") {
+            let mut buf = BufReader::new(f);
             let mut i = 0;
             let first = self.processors.is_empty();
-            for line in data.split('\n') {
-                if !line.starts_with("cpu") {
+            let mut it = buf.split(b'\n');
+
+            while let Some(Ok(line)) = it.next() {
+                if &line[..3] != b"cpu" {
                     break;
                 }
 
-                let (parts, _): (Vec<&str>, Vec<&str>) = line.split(' ').partition(|s| !s.is_empty());
+                let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
                 if first {
-                    self.processors.push(new_processor(parts.get(0).unwrap_or(&""),
-                        parts.get(1).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(2).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(3).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(4).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(5).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(6).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(7).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(8).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(9).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(10).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0)));
+                    self.processors.push(new_processor(
+                        to_str!(parts.next().unwrap_or(&[])),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0)));
                 } else {
+                    parts.next(); // we don't want the name again
                     set_processor(&mut self.processors[i],
-                        parts.get(1).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(2).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(3).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(4).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(5).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(6).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(7).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(8).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(9).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0),
-                        parts.get(10).and_then(|v| {u64::from_str(v).ok()}).unwrap_or(0));
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0));
                     i += 1;
                 }
             }
@@ -146,15 +159,25 @@ impl SystemExt for System {
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
-        if let Some(proc_) = self.process_list.tasks.get_mut(&pid) {
-            _get_process_data(&Path::new("/proc/").join(pid.to_string()), proc_,
-                              self.page_size_kb, pid);
-            return true;
+        let found = match _get_process_data(&Path::new("/proc/").join(pid.to_string()), &mut self.process_list,
+                                self.page_size_kb, 0) {
+            Ok(Some(p)) => {
+                self.process_list.tasks.insert(p.pid(), p);
+                false
+            }
+            Ok(_) => true,
+            Err(_) => false,
+        };
+        if found && !self.processors.is_empty() {
+            let (new, old) = get_raw_times(&self.processors[0]);
+            let total_time = (if old > new { 1 } else { new - old }) as f32;
+            let nb_processors = self.processors.len() as u64 - 1;
+
+            if let Some(p) = self.process_list.tasks.get_mut(&pid) {
+                compute_cpu_usage(p, nb_processors, total_time);
+            }
         }
-        let ppid = self.process_list.pid;
-        _get_process_data(&Path::new("/proc/").join(pid.to_string()), &mut self.process_list,
-                          self.page_size_kb, ppid);
-        self.get_process(pid).is_some()
+        found
     }
 
     fn refresh_disks(&mut self) {
@@ -247,18 +270,57 @@ pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
     Ok(data)
 }
 
+fn to_u64(v: &[u8]) -> u64 {
+    let mut x = 0;
+
+    for c in v {
+        x *= 10;
+        x += (c - b'0') as u64;
+    }
+    x
+}
+
 fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb: u64,
                                  pid: Pid) -> bool {
     if let Ok(d) = fs::read_dir(path.as_ref()) {
-        for entry in d {
+        let mut folders = d.filter_map(|entry| {
             if let Ok(entry) = entry {
                 let entry = entry.path();
 
                 if entry.is_dir() {
-                    _get_process_data(entry.as_path(), proc_list, page_size_kb, pid);
+                    Some(entry)
+                } else {
+                    None
                 }
+            } else {
+                None
             }
-        }
+        }).collect::<Vec<_>>();
+        if pid == 0 {
+            let proc_list = proc_list as *mut Process as usize;
+            folders.par_iter()
+                   .filter_map(|e| {
+                       let proc_list = unsafe { &mut *(proc_list as *mut Process) };
+                       if let Ok(p) = _get_process_data(e.as_path(), proc_list, page_size_kb, pid) {
+                           p
+                       } else {
+                           None
+                       }
+                   })
+                   .collect::<Vec<_>>()
+        } else {
+            folders.iter()
+                   .filter_map(|e| {
+                       if let Ok(p) = _get_process_data(e.as_path(), proc_list, page_size_kb, pid) {
+                           p
+                       } else {
+                           None
+                       }
+                   })
+                   .collect::<Vec<_>>()
+        }.into_iter().for_each(|e| {
+            proc_list.tasks.insert(e.pid(), e);
+        });
         true
     } else {
         false
@@ -267,11 +329,8 @@ fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb:
 
 fn update_time_and_memory(path: &Path, entry: &mut Process, parts: &[&str], page_size_kb: u64,
                           parent_memory: u64, pid: Pid) {
-    //entry.name = parts[1][1..].to_owned();
-    //entry.name.pop();
     // we get the rss
     {
-        entry.memory = u64::from_str(parts[23]).unwrap_or(0) * page_size_kb;
         if entry.memory >= parent_memory {
             entry.memory -= parent_memory;
         }
@@ -286,15 +345,16 @@ macro_rules! unwrap_or_return {
     ($data:expr) => {{
         match $data {
             Some(x) => x,
-            None => return,
+            None => return Err(()),
         }
     }}
 }
 
-fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pid: Pid) {
+fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64,
+                     pid: Pid) -> Result<Option<Process>, ()> {
     if let Some(Ok(nb)) = path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
         if nb == pid {
-            return
+            return Err(());
         }
         let mut tmp = PathBuf::from(path);
 
@@ -322,7 +382,7 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
             let parent_memory = proc_list.memory;
             if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
                 update_time_and_memory(path, entry, &parts, page_size_kb, parent_memory, nb);
-                return
+                return Ok(None);
             }
 
             let parent_pid = if proc_list.pid != 0 {
@@ -386,7 +446,9 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
                 tmp = PathBuf::from(path);
                 tmp.push("cmdline");
                 p.cmd = copy_from_file(&tmp);
-                p.name = p.cmd[0].split('/').last().unwrap_or("").to_owned();
+                p.name = p.cmd.get(0)
+                              .map(|x| x.split('/').last().unwrap_or("").to_owned())
+                              .unwrap_or(String::new());
                 tmp = PathBuf::from(path);
                 tmp.push("environ");
                 p.environ = copy_from_file(&tmp);
@@ -411,9 +473,10 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64, pi
             }
 
             update_time_and_memory(path, &mut p, &parts, page_size_kb, proc_list.memory, nb);
-            proc_list.tasks.insert(nb, p);
+            return Ok(Some(p));
         }
     }
+    Err(())
 }
 
 fn copy_from_file(entry: &Path) -> Vec<String> {
@@ -423,8 +486,10 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 
             if let Ok(size) = f.read(&mut data) {
                 data.truncate(size);
-                let d = String::from_utf8(data).expect("not utf8?");
-                d.split('\0').map(|x| x.to_owned()).collect()
+                data.split(|x| *x == b'\0')
+                    .filter_map(|x| ::std::str::from_utf8(x).map(|x| x.trim().to_owned()).ok())
+                    .filter(|x| !x.is_empty())
+                    .collect()
             } else {
                 Vec::new()
             }

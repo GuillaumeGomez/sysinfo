@@ -14,7 +14,6 @@ use sysinfo::{NetworkExt, Pid, ProcessExt, ProcessorExt, Signal, System, SystemE
 use sysinfo::Signal::*;
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
-use std::time::Duration;
 
 const signals: [Signal; 31] = [Hangup, Interrupt, Quit, Illegal, Trap, Abort, Bus,
                                FloatingPointException, Kill, User1, Segv, User2, Pipe, Alarm,

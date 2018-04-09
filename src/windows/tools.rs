@@ -122,7 +122,8 @@ pub unsafe fn get_drive_size(handle: HANDLE) -> u64 {
                                  &mut junk,
                                  ::std::ptr::null_mut());
     if result == TRUE {
-        *pdg.Cylinders.QuadPart() as u64 * pdg.TracksPerCylinder as u64 * pdg.SectorsPerTrack as u64 * pdg.BytesPerSector as u64
+        *pdg.Cylinders.QuadPart() as u64 * pdg.TracksPerCylinder as u64
+        * pdg.SectorsPerTrack as u64 * pdg.BytesPerSector as u64
     } else {
         0
     }

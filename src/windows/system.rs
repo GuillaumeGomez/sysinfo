@@ -34,6 +34,10 @@ use winapi::um::sysinfoapi::{
 };
 use winapi::um::winnt::HANDLE;
 
+use rayon::prelude::*;
+
+const PROCESS_LEN: usize = 10192;
+
 /// Struct containing system's information.
 pub struct System {
     process_list: HashMap<usize, Process>,
@@ -67,6 +71,10 @@ impl System {
         }
     }
 }
+
+struct Wrap(Process);
+
+unsafe impl Send for Wrap {}
 
 impl SystemExt for System {
     #[allow(non_snake_case)]
@@ -242,10 +250,12 @@ impl SystemExt for System {
     }
 
     fn refresh_processes(&mut self) {
-        let mut process_ids: [DWORD; 1024] = [0; 1024];
+        // I think that 10192 as length will be enough to get all processes at once...
+        let mut process_ids: Vec<DWORD> = Vec::with_capacity(PROCESS_LEN);
         let mut cb_needed = 0;
 
         unsafe {
+            process_ids.set_len(PROCESS_LEN);
             let size = ::std::mem::size_of::<DWORD>() * process_ids.len();
             if K32EnumProcesses(process_ids.as_mut_ptr(),
                                 size as DWORD,
@@ -253,16 +263,26 @@ impl SystemExt for System {
                 return
             }
             let nb_processes = cb_needed / ::std::mem::size_of::<DWORD>() as DWORD;
+            process_ids.set_len(nb_processes as usize);
+            let this = self as *mut System as usize;
 
-            for i in 0..nb_processes as usize {
-                let pid = process_ids[i] as Pid;
-                if refresh_existing_process(self, pid, false) == true {
-                    continue
-                }
-                let mut p = Process::new(pid, get_parent_process_id(pid), 0);
-                update_proc_info(&mut p);
-                self.process_list.insert(pid, p);
-            }
+            process_ids.par_iter()
+                       .filter_map(|pid| {
+                           let this = &mut *(this as *mut System);
+                           let pid = *pid as usize;
+                           if !refresh_existing_process(this, pid, false) {
+                               let mut p = Process::new(pid, get_parent_process_id(pid), 0);
+                               update_proc_info(&mut p);
+                               Some(Wrap(p))
+                           } else {
+                               None
+                           }
+                       })
+                       .collect::<Vec<_>>()
+                       .into_iter()
+                       .for_each(|p| {
+                           self.process_list.insert(p.0.pid(), p.0);
+                       });
         }
         self.clear_procs();
     }

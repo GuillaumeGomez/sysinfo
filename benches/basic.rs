@@ -25,6 +25,7 @@ fn bench_refresh_all(b: &mut test::Bencher) {
 fn bench_refresh_system(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
 
+    s.refresh_system();
     b.iter(move || {
         s.refresh_system();
     });
