@@ -53,10 +53,10 @@
 #[macro_use]
 extern crate cfg_if;
 extern crate libc;
+extern crate rayon;
 
 cfg_if! {
     if #[cfg(target_os = "macos")] {
-        extern crate rayon;
         mod mac;
         use mac as sys;
     } else if #[cfg(windows)] {
@@ -64,7 +64,6 @@ cfg_if! {
         use windows as sys;
         extern crate winapi;
     } else {
-        extern crate rayon;
         mod linux;
         use linux as sys;
     }

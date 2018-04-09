@@ -15,8 +15,6 @@ build = "build.rs"
 [dependencies]
 libc = "^0.2"
 cfg-if = "0.1"
-
-[target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
 rayon = "^1.0"
 
 [target.'cfg(windows)'.dependencies]
