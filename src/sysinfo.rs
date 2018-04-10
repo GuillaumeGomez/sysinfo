@@ -46,7 +46,7 @@
 #![crate_type = "rlib"]
 
 #![deny(missing_docs)]
-//#![deny(warnings)]
+#![deny(warnings)]
 #![allow(unknown_lints)]
 #![allow(too_many_arguments)]
 
