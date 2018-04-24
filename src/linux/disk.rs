@@ -52,14 +52,8 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
     DiskType::from(rotational_int.unwrap_or(-1))
 }
 
-#[cfg(target_pointer_width = "32")]
 macro_rules! cast {
-    ($x:expr) => { $x as u64 }
-}
-
-#[cfg(not(target_pointer_width = "32"))]
-macro_rules! cast {
-    ($x:expr) => { $x }
+    ($x:expr) => { u64::from($x) }
 }
 
 pub fn new(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Disk {
@@ -70,8 +64,8 @@ pub fn new(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Disk {
     unsafe {
         let mut stat: statvfs = mem::zeroed();
         if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
-            total = cast!(stat.f_bsize) * stat.f_blocks;
-            available = cast!(stat.f_bsize) * stat.f_bavail;
+            total = cast!(stat.f_bsize) * cast!(stat.f_blocks);
+            available = cast!(stat.f_bsize) * cast!(stat.f_bavail);
         }
     }
     Disk {
@@ -133,7 +127,7 @@ impl DiskExt for Disk {
             let mut stat: statvfs = mem::zeroed();
             let mount_point_cpath = utils::to_cpath(&self.mount_point);
             if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
-                let tmp = cast!(stat.f_bsize) * stat.f_bavail;
+                let tmp = cast!(stat.f_bsize) * cast!(stat.f_bavail);
                 self.available_space = cast!(tmp);
                 true
             } else {
