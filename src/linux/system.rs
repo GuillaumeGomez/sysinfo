@@ -331,6 +331,7 @@ fn update_time_and_memory(path: &Path, entry: &mut Process, parts: &[&str], page
                           parent_memory: u64, pid: Pid) {
     // we get the rss
     {
+        entry.memory = u64::from_str(parts[23]).unwrap_or(0) * page_size_kb;
         if entry.memory >= parent_memory {
             entry.memory -= parent_memory;
         }
