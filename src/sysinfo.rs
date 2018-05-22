@@ -177,3 +177,16 @@ pub enum Signal {
     /// Bad argument to routine (SVr4).
     Sys = 31,
 }
+
+#[cfg(test)]
+mod test {
+    use traits::{ProcessExt, SystemExt};
+
+    #[test]
+    fn check_memory_usage() {
+        let mut s = ::System::new();
+
+        s.refresh_all();
+        assert_eq!(s.get_process_list().iter().all(|(_, proc_)| proc_.memory() == 0), false);
+    }
+}
