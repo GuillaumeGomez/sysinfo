@@ -50,6 +50,8 @@ pub trait ProcessExt {
     fn name(&self) -> &str;
 
     /// Returns the command line.
+    ///
+    /// On Windows, this is always a one element vector.
     fn cmd(&self) -> &[String];
 
     /// Returns the path to the processus.
@@ -60,13 +62,17 @@ pub trait ProcessExt {
 
     /// Returns the environment of the process.
     ///
-    /// On windows, always empty except for current processus.
+    /// Always empty on Windows except for current processus.
     fn environ(&self) -> &[String];
 
     /// Returns the current working directory.
+    ///
+    /// Always empty on Windows.
     fn cwd(&self) -> &str;
 
     /// Returns the path of the root directory.
+    ///
+    /// Always empty on Windows.
     fn root(&self) -> &str;
 
     /// Returns the memory usage (in kB).
@@ -81,7 +87,7 @@ pub trait ProcessExt {
     /// Returns the time of process launch (in seconds).
     fn start_time(&self) -> u64;
 
-    /// Return the total CPU usage.
+    /// Returns the total CPU usage.
     fn cpu_usage(&self) -> f32;
 }
 
