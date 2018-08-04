@@ -91,6 +91,11 @@ pub struct Process {
     cpu_usage: f32,
 }
 
+// TODO: it's possible to get environment variables like it's done in
+// https://github.com/processhacker/processhacker
+//
+// They have a very nice function called PhGetProcessEnvironment. Just very complicated as it
+// seems...
 impl ProcessExt for Process {
     fn new(pid: Pid, parent: Option<Pid>, _: u64) -> Process {
         if let Some(process_handler) = get_process_handler(pid) {
@@ -123,9 +128,9 @@ impl ProcessExt for Process {
                     name: name,
                     pid: pid,
                     parent: parent,
-                    cmd: get_cmd_line(process_handler),
+                    cmd: get_cmd_line(pid),
                     environ: environ,
-                    exe: String::new(),
+                    exe: get_executable_path(pid),
                     cwd: String::new(),
                     root: String::new(),
                     status: ProcessStatus::Run,
@@ -143,9 +148,9 @@ impl ProcessExt for Process {
                 name: String::new(),
                 pid: pid,
                 parent: parent,
-                cmd: Vec::new(),
+                cmd: get_cmd_line(pid),
                 environ: Vec::new(),
-                exe: String::new(),
+                exe: get_executable_path(pid),
                 cwd: String::new(),
                 root: String::new(),
                 status: ProcessStatus::Run,
@@ -278,46 +283,29 @@ pub unsafe fn get_parent_process_id(pid: Pid) -> Option<Pid> {
     None
 }
 
-unsafe fn get_cmd_line(_handle: HANDLE) -> Vec<String> {
-    /*let mut pinfo: ffi::PROCESS_BASIC_INFORMATION = ::std::mem::zeroed();
-    if ffi::NtQueryInformationProcess(handle,
-                                           0, // ProcessBasicInformation
-                                           &mut pinfo,
-                                           size_of::<ffi::PROCESS_BASIC_INFORMATION>(),
-                                           ::std::ptr::null_mut()) <= 0x7FFFFFFF {
-        return String::new();
-    }
-    let ppeb: ffi::PPEB = pinfo.PebBaseAddress;
-    let mut ppeb_copy: ffi::PEB = ::std::mem::zeroed();
-    if kernel32::ReadProcessMemory(handle,
-                                   ppeb as *mut raw::c_void,
-                                   &mut ppeb_copy as *mut ffi::PEB as *mut raw::c_void,
-                                   size_of::<ffi::PPEB>() as SIZE_T,
-                                   ::std::ptr::null_mut()) != TRUE {
-        return String::new();
-    }
+/*fn run_wmi(args: &[&str]) -> Option<String> {
+    use std::process::Command;
 
-    let proc_param: ffi::PRTL_USER_PROCESS_PARAMETERS = ppeb_copy.ProcessParameters;
-    let rtl_proc_param_copy: ffi::RTL_USER_PROCESS_PARAMETERS = ::std::mem::zeroed();
-    if kernel32::ReadProcessMemory(handle,
-                                   proc_param as *mut ffi::PRTL_USER_PROCESS_PARAMETERS *mut raw::c_void,
-                                   &mut rtl_proc_param_copy as *mut ffi::RTL_USER_PROCESS_PARAMETERS as *mut raw::c_void,
-                                   size_of::<ffi::RTL_USER_PROCESS_PARAMETERS>() as SIZE_T,
-                                   ::std::ptr::null_mut()) != TRUE {
-        return String::new();
+    if let Ok(out) = Command::new("wmic")
+                             .args(args)
+                             .output() {
+        if out.status.success() {
+            return Some(String::from_utf8_lossy(&out.stdout).into_owned());
+        }
     }
-    let len: usize = rtl_proc_param_copy.CommandLine.Length as usize;
-    let mut buffer_copy: Vec<u8> = Vec::with_capacity(len);
-    buffer_copy.set_len(len);
-    if kernel32::ReadProcessMemory(handle,
-                                   rtl_proc_param_copy.CommandLine.Buffer as *mut raw::c_void,
-                                   buffer_copy.as_mut_ptr() as *mut raw::c_void,
-                                   len as SIZE_T,
-                                   ::std::ptr::null_mut()) == TRUE {
-        println!("{:?}", str::from_utf8_unchecked(buffer_copy.as_slice()));
-        str::from_utf8_unchecked(buffer_copy.as_slice()).to_owned()
-    } else {
-        String::new()
+    None
+}*/
+
+fn get_cmd_line(_pid: Pid) -> Vec<String> {
+    /*let where_req = format!("ProcessId={}", pid);
+
+    if let Some(ret) = run_wmi(&["process", "where", &where_req, "get", "CommandLine"]) {
+        for line in ret.lines() {
+            if line.is_empty() || line == "CommandLine" {
+                continue
+            }
+            return vec![line.to_owned()];
+        }
     }*/
     Vec::new()
 }
@@ -384,6 +372,20 @@ unsafe fn get_proc_env(_handle: HANDLE, _pid: u32, _name: &str) -> Vec<String> {
         kernel32::CloseHandle(snapshot_handle);
     }*/
     ret
+}
+
+pub fn get_executable_path(_pid: Pid) -> String {
+    /*let where_req = format!("ProcessId={}", pid);
+
+    if let Some(ret) = run_wmi(&["process", "where", &where_req, "get", "ExecutablePath"]) {
+        for line in ret.lines() {
+            if line.is_empty() || line == "ExecutablePath" {
+                continue
+            }
+            return line.to_owned();
+        }
+    }*/
+    String::new()
 }
 
 pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
