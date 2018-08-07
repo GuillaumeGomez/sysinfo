@@ -26,9 +26,48 @@ rustup target add armv7-unknown-linux-gnueabihf
 cargo build --target=armv7-unknown-linux-gnueabihf
 ```
 
+## Code example
+
+You have an example into the `examples` folder. Just run `cargo run` inside the `examples` folder to start it. Otherwise, here is a little code sample:
+
+```rust
+extern crate sysinfo;
+
+use sysinfo::{NetworkExt, System, SystemExt};
+
+let mut sys = System::new();
+
+// We display the disks:
+println!("=> disk list:");
+for disk in sys.get_disks() {
+    println!("{:?}", disk);
+}
+
+// Network data:
+println!("input data : {} B", sys.get_network().get_income());
+println!("output data: {} B", sys.get_network().get_outcome());
+
+// Components temperature:
+for component in sys.get_components_list() {
+    println!("{:?}", component);
+}
+
+// Memory information:
+println!("total memory: {} kB", sys.get_total_memory());
+println!("used memory : {} kB", sys.get_used_memory());
+println!("total swap  : {} kB", sys.get_total_swap());
+println!("used swap   : {} kB", sys.get_used_swap());
+
+// Number of processes
+println!("NB processes: {}", sys.get_processor_list().len());
+
+// To refresh all system information:
+sys.refresh_all();
+```
+
 ## C interface
 
-It's possible to use this crate directly from C. Take a look at the `Makefile` and at the `examples/src/simple.c` files.
+It's possible to use this crate directly from C. Take a look at the `Makefile` and at the `examples/src/simple.c` file.
 
 To build the C example, just run:
 
