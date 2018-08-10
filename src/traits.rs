@@ -50,8 +50,8 @@ pub trait ProcessExt {
     fn name(&self) -> &str;
 
     /// Returns the command line.
-    ///
-    /// On Windows, this is always a one element vector.
+    // ///
+    // /// On Windows, this is always a one element vector.
     fn cmd(&self) -> &[String];
 
     /// Returns the path to the processus.
@@ -94,6 +94,9 @@ pub trait ProcessExt {
 /// Contains all the methods of the `Processor` struct.
 pub trait ProcessorExt {
     /// Returns this processor's usage.
+    ///
+    /// Note: You'll need to refresh it at least twice at first if you want to have a
+    /// non-zero value.
     fn get_cpu_usage(&self) -> f32;
 
     /// Returns this processor's name.
