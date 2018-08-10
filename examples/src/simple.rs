@@ -58,6 +58,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "proc" => {
+            // Note: you should refresh a few times before using this, so that usage statistics can be ascertained
             let procs = sys.get_processor_list();
 
             writeln!(&mut io::stdout(), "total process usage: {}%", procs[0].get_cpu_usage());
