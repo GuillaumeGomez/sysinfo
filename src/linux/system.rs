@@ -503,7 +503,14 @@ fn get_all_disks() -> Vec<Disk> {
     #[allow(or_fun_call)]
     let content = get_all_data("/proc/mounts").unwrap_or(String::new());
     let disks = content.lines()
-        .filter(|line| line.trim_left().starts_with("/dev/sd"));
+        .filter(|line| {
+            let line = line.trim_left();
+            // While the `sd` prefix is most common, some disks instead use the `nvme` prefix. This
+            // prefix refers to NVM (non-volatile memory) cabale SSDs. These disks run on the NVMe
+            // storage controller protocol (not the scsi protocol) and as a result use a different
+            // prefix to support NVMe namespaces.
+            line.starts_with("/dev/sd") || line.starts_with("/dev/nvme")
+        });
     let mut ret = vec![];
 
     for line in disks {
