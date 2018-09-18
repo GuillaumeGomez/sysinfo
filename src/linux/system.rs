@@ -503,7 +503,10 @@ fn get_all_disks() -> Vec<Disk> {
     #[allow(or_fun_call)]
     let content = get_all_data("/proc/mounts").unwrap_or(String::new());
     let disks = content.lines()
-        .filter(|line| line.trim_left().starts_with("/dev/sd"));
+        .filter(|line| {
+            let line = line.trim_left();
+            line.starts_with("/dev/sd") || line.starts_with("/dev/nvme")
+        });
     let mut ret = vec![];
 
     for line in disks {
