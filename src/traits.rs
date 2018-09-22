@@ -55,7 +55,7 @@ pub trait ProcessExt {
     fn cmd(&self) -> &[String];
 
     /// Returns the path to the processus.
-    fn exe(&self) -> &str;
+    fn exe(&self) -> &Path;
 
     /// Returns the pid of the processus.
     fn pid(&self) -> Pid;
@@ -68,12 +68,12 @@ pub trait ProcessExt {
     /// Returns the current working directory.
     ///
     /// Always empty on Windows.
-    fn cwd(&self) -> &str;
+    fn cwd(&self) -> &Path;
 
     /// Returns the path of the root directory.
     ///
     /// Always empty on Windows.
-    fn root(&self) -> &str;
+    fn root(&self) -> &Path;
 
     /// Returns the memory usage (in kB).
     fn memory(&self) -> u64;

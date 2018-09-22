@@ -4,11 +4,13 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use std::fmt::{self, Formatter, Debug};
 use std::collections::HashMap;
-use libc::{c_int, gid_t, kill, uid_t};
-use Pid;
+use std::fmt::{self, Formatter, Debug};
+use std::path::{Path, PathBuf};
 
+use libc::{c_int, gid_t, kill, uid_t};
+
+use Pid;
 use ::ProcessExt;
 
 /// Enum describing the different status of a process.
@@ -99,12 +101,12 @@ impl fmt::Display for ProcessStatus {
 pub struct Process {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
-    pub(crate) exe: String,
+    pub(crate) exe: PathBuf,
     pub(crate) pid: Pid,
     parent: Option<Pid>,
     pub(crate) environ: Vec<String>,
-    pub(crate) cwd: String,
-    pub(crate) root: String,
+    pub(crate) cwd: PathBuf,
+    pub(crate) root: PathBuf,
     pub(crate) memory: u64,
     utime: u64,
     stime: u64,
@@ -130,9 +132,9 @@ impl ProcessExt for Process {
             parent,
             cmd: Vec::new(),
             environ: Vec::new(),
-            exe: String::new(),
-            cwd: String::new(),
-            root: String::new(),
+            exe: PathBuf::new(),
+            cwd: PathBuf::new(),
+            root: PathBuf::new(),
             memory: 0,
             cpu_usage: 0.,
             utime: 0,
@@ -160,8 +162,8 @@ impl ProcessExt for Process {
         &self.cmd
     }
 
-    fn exe(&self) -> &str {
-        &self.exe
+    fn exe(&self) -> &Path {
+        self.exe.as_path()
     }
 
     fn pid(&self) -> Pid {
@@ -172,12 +174,12 @@ impl ProcessExt for Process {
         &self.environ
     }
 
-    fn cwd(&self) -> &str {
-        &self.cwd
+    fn cwd(&self) -> &Path {
+        self.cwd.as_path()
     }
 
-    fn root(&self) -> &str {
-        &self.root
+    fn root(&self) -> &Path {
+        self.root.as_path()
     }
 
     fn memory(&self) -> u64 {
@@ -219,13 +221,13 @@ impl Debug for Process {
         for arg in &self.cmd {
             writeln!(f, "\t{}", arg);
         }
-        writeln!(f, "executable path: {}", self.exe);
-        writeln!(f, "current working directory: {}", self.cwd);
+        writeln!(f, "executable path: {:?}", self.exe);
+        writeln!(f, "current working directory: {:?}", self.cwd);
         writeln!(f, "owner/group: {}:{}", self.uid, self.gid);
         writeln!(f, "memory usage: {} kB", self.memory);
         writeln!(f, "cpu usage: {}%", self.cpu_usage);
         writeln!(f, "status: {}", self.status);
-        write!(f, "root path: {}", self.root)
+        write!(f, "root path: {:?}", self.root)
     }
 }
 

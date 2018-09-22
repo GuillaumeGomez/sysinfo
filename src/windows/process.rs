@@ -4,8 +4,9 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use std::mem::{size_of, zeroed};
 use std::fmt::{self, Formatter, Debug};
+use std::mem::{size_of, zeroed};
+use std::path::{Path, PathBuf};
 use std::str;
 
 use libc::{c_uint, c_void, memcpy};
@@ -75,11 +76,11 @@ fn get_process_handler(pid: Pid) -> Option<HANDLE> {
 pub struct Process {
     name: String,
     cmd: Vec<String>,
-    exe: String,
+    exe: PathBuf,
     pid: Pid,
     environ: Vec<String>,
-    cwd: String,
-    root: String,
+    cwd: PathBuf,
+    root: PathBuf,
     memory: u64,
     parent: Option<Pid>,
     status: ProcessStatus,
@@ -131,8 +132,8 @@ impl ProcessExt for Process {
                     cmd: get_cmd_line(pid),
                     environ: environ,
                     exe: get_executable_path(pid),
-                    cwd: String::new(),
-                    root: String::new(),
+                    cwd: PathBuf::new(),
+                    root: PathBuf::new(),
                     status: ProcessStatus::Run,
                     memory: 0,
                     cpu_usage: 0.,
@@ -151,8 +152,8 @@ impl ProcessExt for Process {
                 cmd: get_cmd_line(pid),
                 environ: Vec::new(),
                 exe: get_executable_path(pid),
-                cwd: String::new(),
-                root: String::new(),
+                cwd: PathBuf::new(),
+                root: PathBuf::new(),
                 status: ProcessStatus::Run,
                 memory: 0,
                 cpu_usage: 0.,
@@ -177,8 +178,8 @@ impl ProcessExt for Process {
         &self.cmd
     }
 
-    fn exe(&self) -> &str {
-        &self.exe
+    fn exe(&self) -> &Path {
+        self.exe.as_path()
     }
 
     fn pid(&self) -> Pid {
@@ -189,12 +190,12 @@ impl ProcessExt for Process {
         &self.environ
     }
 
-    fn cwd(&self) -> &str {
-        &self.cwd
+    fn cwd(&self) -> &Path {
+        self.cwd.as_path()
     }
 
-    fn root(&self) -> &str {
-        &self.root
+    fn root(&self) -> &Path {
+        self.root.as_path()
     }
 
     fn memory(&self) -> u64 {
@@ -244,11 +245,11 @@ impl Debug for Process {
         for arg in &self.cmd {
             writeln!(f, "\t{}", arg);
         }
-        writeln!(f, "executable path: {}", self.exe);
-        writeln!(f, "current working directory: {}", self.cwd);
+        writeln!(f, "executable path: {:?}", self.exe);
+        writeln!(f, "current working directory: {:?}", self.cwd);
         writeln!(f, "memory usage: {} kB", self.memory);
         writeln!(f, "cpu usage: {}", self.cpu_usage);
-        writeln!(f, "root path: {}", self.root)
+        writeln!(f, "root path: {:?}", self.root)
     }
 }
 
@@ -374,7 +375,7 @@ unsafe fn get_proc_env(_handle: HANDLE, _pid: u32, _name: &str) -> Vec<String> {
     ret
 }
 
-pub fn get_executable_path(_pid: Pid) -> String {
+pub fn get_executable_path(_pid: Pid) -> PathBuf {
     /*let where_req = format!("ProcessId={}", pid);
 
     if let Some(ret) = run_wmi(&["process", "where", &where_req, "get", "ExecutablePath"]) {
@@ -385,7 +386,7 @@ pub fn get_executable_path(_pid: Pid) -> String {
             return line.to_owned();
         }
     }*/
-    String::new()
+    PathBuf::new()
 }
 
 pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
