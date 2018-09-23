@@ -10,14 +10,19 @@ use sys::network::{self, NetworkData};
 use sys::processor::*;
 use sys::process::*;
 use sys::disk::{self, Disk, DiskType};
+
 use ::{ComponentExt, DiskExt, ProcessExt, ProcessorExt, SystemExt};
+
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStringExt;
-use libc::{self, c_void, c_int, size_t, c_char, sysconf, _SC_PAGESIZE};
 use std::sync::Arc;
+use std::path::Path;
 use sys::processor;
 use std::{fs, mem, ptr};
+
+use libc::{self, c_void, c_int, size_t, c_char, sysconf, _SC_PAGESIZE};
+
 use utils;
 use Pid;
 
@@ -388,9 +393,18 @@ fn update_process(wrap: &mut Wrap, pid: Pid,
                 while cp < ptr.offset(size as isize) && *cp != 0 {
                     cp = cp.offset(1);
                 }
-                p.exe = get_unchecked_str(cp, start);
-                if let Some(l) = p.exe.split('/').last() {
-                    p.name = l.to_owned();
+                p.exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
+                p.name = p.exe.file_name()
+                              .unwrap_or_else(|| OsStr::new(""))
+                              .to_str()
+                              .unwrap_or_else(|| "")
+                              .to_owned();
+                let mut need_root = true;
+                if p.exe.is_absolute() {
+                    if let Some(parent) = p.exe.parent() {
+                        p.root = parent.to_path_buf();
+                        need_root = false;
+                    }
                 }
                 while cp < ptr.offset(size as isize) && *cp == 0 {
                     cp = cp.offset(1);
@@ -417,6 +431,14 @@ fn update_process(wrap: &mut Wrap, pid: Pid,
                         start = cp.offset(1);
                     }
                     cp = cp.offset(1);
+                }
+                if need_root == true {
+                    for env in p.environ.iter() {
+                        if env.starts_with("PATH=") {
+                            p.root = Path::new(&env[6..]).to_path_buf();
+                            break
+                        }
+                    }
                 }
             }
         } else {

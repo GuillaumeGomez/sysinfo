@@ -159,8 +159,8 @@ impl SystemExt for System {
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
-        let found = match _get_process_data(&Path::new("/proc/").join(pid.to_string()), &mut self.process_list,
-                                self.page_size_kb, 0) {
+        let found = match _get_process_data(&Path::new("/proc/").join(pid.to_string()),
+                                            &mut self.process_list, self.page_size_kb, 0) {
             Ok(Some(p)) => {
                 self.process_list.tasks.insert(p.pid(), p);
                 false
@@ -437,6 +437,8 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64,
             }
 
             if proc_list.pid != 0 {
+                // If we're getting information for a child, no need to get those info since we
+                // already have them...
                 p.cmd = proc_list.cmd.clone();
                 p.name = proc_list.name.clone();
                 p.environ = proc_list.environ.clone();
@@ -448,7 +450,7 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64,
                 tmp.push("cmdline");
                 p.cmd = copy_from_file(&tmp);
                 p.name = p.cmd.get(0)
-                              .map(|x| x.split('/').last().unwrap_or("").to_owned())
+                              .map(|x| x.split('/').last().unwrap_or_else(|| "").to_owned())
                               .unwrap_or(String::new());
                 tmp = PathBuf::from(path);
                 tmp.push("environ");
@@ -456,21 +458,15 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64,
                 tmp = PathBuf::from(path);
                 tmp.push("exe");
 
-                let s = read_link(tmp.to_str().unwrap_or(""));
+                p.exe = read_link(tmp.to_str()
+                                     .unwrap_or_else(|| "")).unwrap_or_else(|_| PathBuf::new());
 
-                if s.is_ok() {
-                    p.exe = if let Ok(s) = s {
-                        s.to_str().unwrap_or("").to_owned()
-                    } else {
-                        String::new()
-                    };
-                }
                 tmp = PathBuf::from(path);
                 tmp.push("cwd");
-                p.cwd = realpath(&tmp).to_str().unwrap_or("").to_owned();
+                p.cwd = realpath(&tmp);
                 tmp = PathBuf::from(path);
                 tmp.push("root");
-                p.root = realpath(&tmp).to_str().unwrap_or("").to_owned();
+                p.root = realpath(&tmp);
             }
 
             update_time_and_memory(path, &mut p, &parts, page_size_kb, proc_list.memory, nb);

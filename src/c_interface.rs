@@ -5,13 +5,16 @@
 //
 
 use std::borrow::BorrowMut;
-use libc::{self, c_uint, c_float, c_void, pid_t, size_t};
+use std::ffi::CString;
+use libc::{self, c_char, c_float, c_uint, c_void, pid_t, size_t};
 use ::{NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 
 /// Equivalent of `System` struct.
 pub type CSystem = *mut c_void;
 /// Equivalent of `Process` struct.
 pub type CProcess = *const c_void;
+/// C string returned from `CString::into_raw`.
+pub type RString = *const c_char;
 /// Callback used by `get_process_list`.
 pub type ProcessLoop = extern "C" fn(pid: pid_t, process: CProcess, data: *mut c_void) -> bool;
 
@@ -210,11 +213,12 @@ pub extern "C" fn sysinfo_get_processors_usage(system: CSystem,
     Box::into_raw(system);
 }
 
-/// Equivalent of `System.get_process_list()`. Returns an array ended by a null pointer. Must be freed.
+/// Equivalent of `System.get_process_list()`. Returns an array ended by a null pointer. Must
+/// be freed.
 ///
 /// # /!\ WARNING /!\
 ///
-/// While having this method processes, you should *never* call any refresh method!
+/// While having this method returned processes, you should *never* call any refresh method!
 #[no_mangle]
 pub extern "C" fn sysinfo_get_processes(system: CSystem, fn_pointer: Option<ProcessLoop>,
                                         data: *mut c_void) -> size_t {
@@ -294,7 +298,7 @@ pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> pid_t {
 pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> pid_t {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).parent().unwrap_or(0) }
+    unsafe { (*process).parent().unwrap_or_else(|| 0) }
 }
 
 /// Equivalent of `Process.cpu_usage`.
@@ -310,5 +314,58 @@ pub extern "C" fn sysinfo_process_get_cpu_usage(process: CProcess) -> c_float {
 pub extern "C" fn sysinfo_process_get_memory(process: CProcess) -> size_t {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).memory as usize }
+    unsafe { (*process).memory() as usize }
+}
+
+/// Equivalent of `Process.exe`.
+#[no_mangle]
+pub extern "C" fn sysinfo_process_get_executable_path(process: CProcess) -> RString {
+    assert!(!process.is_null());
+    let process = process as *const Process;
+    unsafe {
+        if let Some(p) = (*process).exe().to_str() {
+            if let Ok(c) = CString::new(p) {
+                return c.into_raw() as _;
+            }
+        }
+        ::std::ptr::null()
+    }
+}
+
+/// Equivalent of `Process.root`.
+#[no_mangle]
+pub extern "C" fn sysinfo_process_get_root_directory(process: CProcess) -> RString {
+    assert!(!process.is_null());
+    let process = process as *const Process;
+    unsafe {
+        if let Some(p) = (*process).root().to_str() {
+            if let Ok(c) = CString::new(p) {
+                return c.into_raw() as _;
+            }
+        }
+        ::std::ptr::null()
+    }
+}
+
+/// Equivalent of `Process.cwd`.
+#[no_mangle]
+pub extern "C" fn sysinfo_process_get_current_directory(process: CProcess) -> RString {
+    assert!(!process.is_null());
+    let process = process as *const Process;
+    unsafe {
+        if let Some(p) = (*process).cwd().to_str() {
+            if let Ok(c) = CString::new(p) {
+                return c.into_raw() as _;
+            }
+        }
+        ::std::ptr::null()
+    }
+}
+
+/// Frees a C string creating with `CString::into_raw`.
+#[no_mangle]
+pub extern "C" fn sysinfo_rstring_free(s: RString) {
+    if !s.is_null() {
+        unsafe { let _ = CString::from_raw(s as usize as *mut i8); }
+    }
 }
