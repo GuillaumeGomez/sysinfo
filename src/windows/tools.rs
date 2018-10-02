@@ -275,13 +275,18 @@ pub fn get_translation(s: &String, map: &HashMap<String, u32>) -> Option<String>
                                                 *index,
                                                 ::std::ptr::null_mut(),
                                                 &mut size as *mut usize as *mut _);
-            let mut v = Vec::with_capacity(size);
-            v.set_len(size);
-            let _res = PdhLookupPerfNameByIndexW(::std::ptr::null(),
-                                                *index,
-                                                v.as_mut_ptr() as *mut _,
-                                                &mut size as *mut usize as *mut _);
-            return Some(String::from_utf16(&v[..size - 1]).expect("invalid utf16"));
+            if size == 0 {
+                return Some(String::new());
+            }
+            else {
+                let mut v = Vec::with_capacity(size);
+                v.set_len(size);
+                let _res = PdhLookupPerfNameByIndexW(::std::ptr::null(),
+                                                    *index,
+                                                    v.as_mut_ptr() as *mut _,
+                                                    &mut size as *mut usize as *mut _);
+                return Some(String::from_utf16(&v[..size - 1]).expect("invalid utf16"));
+            }
         }
     }
     None
