@@ -516,8 +516,17 @@ impl SystemExt for System {
             if ffi::host_statistics64(ffi::mach_host_self(), ffi::HOST_VM_INFO64,
                                       &mut stat as *mut ffi::vm_statistics64 as *mut c_void,
                                       &count as *const u32) == ffi::KERN_SUCCESS {
-                self.mem_free = u64::from(stat.free_count + stat.inactive_count
-                                          + stat.speculative_count) * self.page_size_kb;
+                //self.mem_free = u64::from(stat.free_count + stat.inactive_count
+                //                          + stat.speculative_count) * self.page_size_kb;
+                // From the apple documentation:
+                //
+                // /*
+                //  * NB: speculative pages are already accounted for in "free_count",
+                //  * so "speculative_count" is the number of "free" pages that are
+                //  * used to hold data that was read speculatively from disk but
+                //  * haven't actually been used by anyone so far.
+                //  */
+                self.mem_free = u64::from(stat.free_count) * self.page_size_kb;
             }
 
             if let Some(con) = self.connection {
