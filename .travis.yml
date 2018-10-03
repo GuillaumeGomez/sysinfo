@@ -39,6 +39,7 @@ matrix:
       rust: nightly
 script:
   - rustc --version
+  - sysctl -a | grep mem
   - cargo install clippy || touch clippy_failed
   - RUST_BACKTRACE=1 cargo build
   - if [ ! -f clippy_failed ]; then cargo clippy; fi
