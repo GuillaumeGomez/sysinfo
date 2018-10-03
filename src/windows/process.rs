@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2018 Guillaume Gomez
 //
 
@@ -23,7 +23,7 @@ use winapi::um::winnt::{
 use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess, TerminateProcess};
 use winapi::um::psapi::{
     GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
-    EnumProcessModulesEx, GetModuleBaseNameW, LIST_MODULES_ALL,
+    EnumProcessModulesEx, GetModuleBaseNameW, GetModuleFileNameExW, LIST_MODULES_ALL,
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
 use winapi::um::tlhelp32::{
@@ -124,6 +124,22 @@ impl ProcessExt for Process {
                 }
                 let name = String::from_utf16_lossy(&process_name[..pos]);
                 let environ = get_proc_env(process_handler, pid as u32, &name);
+
+                let mut root_buf = [0u16; MAX_PATH + 1];
+                GetModuleFileNameExW(process_handler,
+                                     h_mod,
+                                     root_buf.as_mut_ptr(),
+                                     MAX_PATH as DWORD + 1);
+
+                pos = 0;
+                for x in root_buf.iter() {
+                    if *x == 0 {
+                        break
+                    }
+                    pos += 1;
+                }
+
+                let root = String::from_utf16_lossy(&root_buf[..pos]);
                 Process {
                     handle: process_handler,
                     name: name,
@@ -133,7 +149,7 @@ impl ProcessExt for Process {
                     environ: environ,
                     exe: get_executable_path(pid),
                     cwd: PathBuf::new(),
-                    root: PathBuf::new(),
+                    root: PathBuf::from(root),
                     status: ProcessStatus::Run,
                     memory: 0,
                     cpu_usage: 0.,
