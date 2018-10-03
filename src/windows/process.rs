@@ -125,21 +125,23 @@ impl ProcessExt for Process {
                 let name = String::from_utf16_lossy(&process_name[..pos]);
                 let environ = get_proc_env(process_handler, pid as u32, &name);
 
-                let mut root_buf = [0u16; MAX_PATH + 1];
+                let mut exe_buf = [0u16; MAX_PATH + 1];
                 GetModuleFileNameExW(process_handler,
                                      h_mod,
-                                     root_buf.as_mut_ptr(),
+                                     exe_buf.as_mut_ptr(),
                                      MAX_PATH as DWORD + 1);
 
                 pos = 0;
-                for x in root_buf.iter() {
+                for x in exe_buf.iter() {
                     if *x == 0 {
                         break
                     }
                     pos += 1;
                 }
 
-                let root = String::from_utf16_lossy(&root_buf[..pos]);
+                let exe = PathBuf::from(String::from_utf16_lossy(&exe_buf[..pos]));
+                let mut root = exe.clone();
+                root.pop();
                 Process {
                     handle: process_handler,
                     name: name,
@@ -147,9 +149,9 @@ impl ProcessExt for Process {
                     parent: parent,
                     cmd: get_cmd_line(pid),
                     environ: environ,
-                    exe: get_executable_path(pid),
+                    exe: exe,
                     cwd: PathBuf::new(),
-                    root: PathBuf::from(root),
+                    root: root,
                     status: ProcessStatus::Run,
                     memory: 0,
                     cpu_usage: 0.,
