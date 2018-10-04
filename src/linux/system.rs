@@ -24,6 +24,12 @@ use Pid;
 
 use rayon::prelude::*;
 
+macro_rules! to_str {
+    ($e:expr) => {
+        unsafe { ::std::str::from_utf8_unchecked($e) }
+    }
+}
+
 /// Structs containing system's information.
 #[derive(Debug)]
 pub struct System {
@@ -60,11 +66,57 @@ impl System {
             }
         }
     }
-}
 
-macro_rules! to_str {
-    ($e:expr) => {
-        unsafe { ::std::str::from_utf8_unchecked($e) }
+    fn refresh_processors(&mut self, limit: Option<u32>) {
+        if let Ok(f) = File::open("/proc/stat") {
+            let mut buf = BufReader::new(f);
+            let mut i = 0;
+            let first = self.processors.is_empty();
+            let mut it = buf.split(b'\n');
+            let mut count = 0;
+
+            while let Some(Ok(line)) = it.next() {
+                if &line[..3] != b"cpu" {
+                    break;
+                }
+
+                count += 1;
+                let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
+                if first {
+                    self.processors.push(new_processor(
+                        to_str!(parts.next().unwrap_or(&[])),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0)));
+                } else {
+                    parts.next(); // we don't want the name again
+                    set_processor(&mut self.processors[i],
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
+                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0));
+                    i += 1;
+                }
+                if let Some(limit) = limit {
+                    if count >= limit {
+                        break;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -108,48 +160,7 @@ impl SystemExt for System {
                 }
             }
         }
-        if let Ok(f) = File::open("/proc/stat") {
-            let mut buf = BufReader::new(f);
-            let mut i = 0;
-            let first = self.processors.is_empty();
-            let mut it = buf.split(b'\n');
-
-            while let Some(Ok(line)) = it.next() {
-                if &line[..3] != b"cpu" {
-                    break;
-                }
-
-                let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
-                if first {
-                    self.processors.push(new_processor(
-                        to_str!(parts.next().unwrap_or(&[])),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0)));
-                } else {
-                    parts.next(); // we don't want the name again
-                    set_processor(&mut self.processors[i],
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0));
-                    i += 1;
-                }
-            }
-        }
+        self.refresh_processors(None);
     }
 
     fn refresh_processes(&mut self) {
@@ -169,6 +180,7 @@ impl SystemExt for System {
             Err(_) => false,
         };
         if found && !self.processors.is_empty() {
+            self.refresh_processors(Some(1));
             let (new, old) = get_raw_times(&self.processors[0]);
             let total_time = (if old > new { 1 } else { new - old }) as f32;
             let nb_processors = self.processors.len() as u64 - 1;
