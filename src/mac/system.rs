@@ -13,6 +13,7 @@ use sys::disk::{self, Disk, DiskType};
 
 use ::{ComponentExt, DiskExt, ProcessExt, ProcessorExt, SystemExt};
 
+use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStringExt;
@@ -284,12 +285,12 @@ fn get_uptime() -> u64 {
     unsafe { libc::difftime(csec, bsec) as u64 }
 }
 
-struct Wrap<'a>(&'a mut HashMap<Pid, Process>);
+struct Wrap<'a>(UnsafeCell<&'a mut HashMap<Pid, Process>>);
 
 unsafe impl<'a> Send for Wrap<'a> {}
 unsafe impl<'a> Sync for Wrap<'a> {}
 
-fn update_process(wrap: &mut Wrap, pid: Pid,
+fn update_process(wrap: &Wrap, pid: Pid,
                   taskallinfo_size: i32, taskinfo_size: i32, threadinfo_size: i32,
                   mib: &mut [c_int], mut size: size_t) -> Result<Option<Process>, ()> {
     let mut proc_args = Vec::with_capacity(size as usize);
@@ -306,7 +307,7 @@ fn update_process(wrap: &mut Wrap, pid: Pid,
         } else {
             (0, 0, None)
         };
-        if let Some(ref mut p) = wrap.0.get_mut(&pid) {
+        if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
             p.status = thread_status;
             let mut task_info = ::std::mem::zeroed::<libc::proc_taskinfo>();
             if ffi::proc_pidinfo(pid,
@@ -687,13 +688,11 @@ impl SystemExt for System {
                                &mut size, ::std::ptr::null_mut(), 0) == -1 {}
         }
         let entries: Vec<Process> = {
-            let mut wrap = Wrap(&mut self.process_list);
-            let p_wrap = &mut wrap as *mut Wrap as usize;
+            let wrap = &Wrap(UnsafeCell::new(&mut self.process_list));
             pids.par_iter()
                 .flat_map(|pid| {
                     let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
-                    let mut wrap: &mut Wrap = unsafe { &mut *(p_wrap as *mut Wrap as *mut Wrap) };
-                    match update_process(&mut wrap, *pid, taskallinfo_size, taskinfo_size,
+                    match update_process(wrap, *pid, taskallinfo_size, taskinfo_size,
                                          threadinfo_size, &mut mib, arg_max as size_t) {
                         Ok(x) => x,
                         Err(_) => None,
@@ -720,8 +719,8 @@ impl SystemExt for System {
                                &mut size, ::std::ptr::null_mut(), 0) == -1 {}
         }
         match {
-            let mut wrap = Wrap(&mut self.process_list);
-            update_process(&mut wrap, pid, taskallinfo_size, taskinfo_size,
+            let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
+            update_process(&wrap, pid, taskallinfo_size, taskinfo_size,
                            threadinfo_size, &mut mib, arg_max as size_t)
         } {
             Ok(Some(p)) => {

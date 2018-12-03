@@ -12,6 +12,9 @@ use sys::disk;
 use sys::network;
 use sys::NetworkData;
 use ::{DiskExt, ProcessExt, SystemExt};
+use Pid;
+
+use std::cell::UnsafeCell;
 use std::fs::{File, read_link};
 use std::io::{self, BufRead, BufReader, Read};
 use std::str::FromStr;
@@ -19,8 +22,8 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::fs;
 use libc::{uid_t, sysconf, _SC_CLK_TCK, _SC_PAGESIZE};
+
 use utils::realpath;
-use Pid;
 
 use rayon::prelude::*;
 
@@ -280,6 +283,17 @@ fn to_u64(v: &[u8]) -> u64 {
     x
 }
 
+struct Wrap<'a>(UnsafeCell<&'a mut Process>);
+
+impl<'a> Wrap<'a> {
+    fn get(&self) -> &'a mut Process {
+        unsafe { *(self.0.get()) }
+    }
+}
+
+unsafe impl<'a> Send for Wrap<'a> {}
+unsafe impl<'a> Sync for Wrap<'a> {}
+
 fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb: u64,
                                  pid: Pid) -> bool {
     if let Ok(d) = fs::read_dir(path.as_ref()) {
@@ -297,11 +311,13 @@ fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb:
             }
         }).collect::<Vec<_>>();
         if pid == 0 {
-            let proc_list = proc_list as *mut Process as usize;
+            let proc_list = Wrap(UnsafeCell::new(proc_list));
             folders.par_iter()
                    .filter_map(|e| {
-                       let proc_list = unsafe { &mut *(proc_list as *mut Process) };
-                       if let Ok(p) = _get_process_data(e.as_path(), proc_list, page_size_kb, pid) {
+                       if let Ok(p) = _get_process_data(e.as_path(),
+                                                        proc_list.get(),
+                                                        page_size_kb,
+                                                        pid) {
                            p
                        } else {
                            None
