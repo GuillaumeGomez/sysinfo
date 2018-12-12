@@ -71,6 +71,20 @@ fn get_process_handler(pid: Pid) -> Option<HANDLE> {
     }
 }
 
+#[derive(Clone)]
+struct HandleWrapper(HANDLE);
+
+impl Deref for HandleWrapper {
+    type Target = HANDLE;
+
+    fn deref(&self) -> &HANDLE {
+        &self.0
+    }
+}
+
+unsafe impl Send for HandleWrapper {}
+unsafe impl Sync for HandleWrapper {}
+
 /// Struct containing a process' information.
 #[derive(Clone)]
 pub struct Process {
@@ -84,7 +98,7 @@ pub struct Process {
     memory: u64,
     parent: Option<Pid>,
     status: ProcessStatus,
-    handle: HANDLE,
+    handle: HandleWrapper,
     old_cpu: u64,
     old_sys_cpu: u64,
     old_user_cpu: u64,
@@ -143,7 +157,7 @@ impl ProcessExt for Process {
                 let mut root = exe.clone();
                 root.pop();
                 Process {
-                    handle: process_handler,
+                    handle: HandleWrapper(process_handler),
                     name: name,
                     pid: pid,
                     parent: parent,
@@ -163,7 +177,7 @@ impl ProcessExt for Process {
             }
         } else {
             Process {
-                handle: ::std::ptr::null_mut(),
+                handle: HandleWrapper(::std::ptr::null_mut()),
                 name: String::new(),
                 pid: pid,
                 parent: parent,
@@ -184,8 +198,11 @@ impl ProcessExt for Process {
     }
 
     fn kill(&self, signal: ::Signal) -> bool {
-        let x = unsafe { TerminateProcess(self.handle, signal as c_uint) };
-        x != 0
+        if self.handle.is_null() {
+            false
+        } else {
+            unsafe { TerminateProcess(self.handle, signal as c_uint) != 0 }
+        }
     }
 
     fn name(&self) -> &str {
