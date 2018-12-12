@@ -6,6 +6,7 @@
 
 use std::fmt::{self, Formatter, Debug};
 use std::mem::{size_of, zeroed};
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::str;
 
@@ -201,7 +202,7 @@ impl ProcessExt for Process {
         if self.handle.is_null() {
             false
         } else {
-            unsafe { TerminateProcess(self.handle, signal as c_uint) != 0 }
+            unsafe { TerminateProcess(*self.handle, signal as c_uint) != 0 }
         }
     }
 
@@ -260,7 +261,7 @@ impl Drop for Process {
             if self.handle.is_null() {
                 return
             }
-            CloseHandle(self.handle);
+            CloseHandle(*self.handle);
         }
     }
 }
@@ -438,7 +439,7 @@ pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
                &mut ftime as *mut FILETIME as *mut c_void,
                size_of::<FILETIME>());
 
-        GetProcessTimes(p.handle,
+        GetProcessTimes(*p.handle,
                         &mut ftime as *mut FILETIME,
                         &mut ftime as *mut FILETIME,
                         &mut fsys as *mut FILETIME,
@@ -460,7 +461,7 @@ pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
 }
 
 pub fn get_handle(p: &Process) -> HANDLE {
-    p.handle
+    *p.handle
 }
 
 pub fn update_proc_info(p: &mut Process) {
@@ -470,7 +471,7 @@ pub fn update_proc_info(p: &mut Process) {
 pub fn update_memory(p: &mut Process) {
     unsafe {
         let mut pmc: PROCESS_MEMORY_COUNTERS_EX = zeroed();
-        if GetProcessMemoryInfo(p.handle,
+        if GetProcessMemoryInfo(*p.handle,
                                 &mut pmc as *mut PROCESS_MEMORY_COUNTERS_EX as *mut c_void as *mut PROCESS_MEMORY_COUNTERS,
                                 size_of::<PROCESS_MEMORY_COUNTERS_EX>() as DWORD) != 0 {
             p.memory = (pmc.PrivateUsage as u64) >> 10u64; // / 1024;
