@@ -6,6 +6,7 @@
 
 use std::fmt::{self, Formatter, Debug};
 use std::mem::{size_of, zeroed};
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::str;
 
@@ -71,6 +72,20 @@ fn get_process_handler(pid: Pid) -> Option<HANDLE> {
     }
 }
 
+#[derive(Clone)]
+struct HandleWrapper(HANDLE);
+
+impl Deref for HandleWrapper {
+    type Target = HANDLE;
+
+    fn deref(&self) -> &HANDLE {
+        &self.0
+    }
+}
+
+unsafe impl Send for HandleWrapper {}
+unsafe impl Sync for HandleWrapper {}
+
 /// Struct containing a process' information.
 #[derive(Clone)]
 pub struct Process {
@@ -84,7 +99,7 @@ pub struct Process {
     memory: u64,
     parent: Option<Pid>,
     status: ProcessStatus,
-    handle: HANDLE,
+    handle: HandleWrapper,
     old_cpu: u64,
     old_sys_cpu: u64,
     old_user_cpu: u64,
@@ -143,7 +158,7 @@ impl ProcessExt for Process {
                 let mut root = exe.clone();
                 root.pop();
                 Process {
-                    handle: process_handler,
+                    handle: HandleWrapper(process_handler),
                     name: name,
                     pid: pid,
                     parent: parent,
@@ -163,7 +178,7 @@ impl ProcessExt for Process {
             }
         } else {
             Process {
-                handle: ::std::ptr::null_mut(),
+                handle: HandleWrapper(::std::ptr::null_mut()),
                 name: String::new(),
                 pid: pid,
                 parent: parent,
@@ -184,8 +199,11 @@ impl ProcessExt for Process {
     }
 
     fn kill(&self, signal: ::Signal) -> bool {
-        let x = unsafe { TerminateProcess(self.handle, signal as c_uint) };
-        x != 0
+        if self.handle.is_null() {
+            false
+        } else {
+            unsafe { TerminateProcess(*self.handle, signal as c_uint) != 0 }
+        }
     }
 
     fn name(&self) -> &str {
@@ -243,7 +261,7 @@ impl Drop for Process {
             if self.handle.is_null() {
                 return
             }
-            CloseHandle(self.handle);
+            CloseHandle(*self.handle);
         }
     }
 }
@@ -421,7 +439,7 @@ pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
                &mut ftime as *mut FILETIME as *mut c_void,
                size_of::<FILETIME>());
 
-        GetProcessTimes(p.handle,
+        GetProcessTimes(*p.handle,
                         &mut ftime as *mut FILETIME,
                         &mut ftime as *mut FILETIME,
                         &mut fsys as *mut FILETIME,
@@ -443,7 +461,7 @@ pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
 }
 
 pub fn get_handle(p: &Process) -> HANDLE {
-    p.handle
+    *p.handle
 }
 
 pub fn update_proc_info(p: &mut Process) {
@@ -453,7 +471,7 @@ pub fn update_proc_info(p: &mut Process) {
 pub fn update_memory(p: &mut Process) {
     unsafe {
         let mut pmc: PROCESS_MEMORY_COUNTERS_EX = zeroed();
-        if GetProcessMemoryInfo(p.handle,
+        if GetProcessMemoryInfo(*p.handle,
                                 &mut pmc as *mut PROCESS_MEMORY_COUNTERS_EX as *mut c_void as *mut PROCESS_MEMORY_COUNTERS,
                                 size_of::<PROCESS_MEMORY_COUNTERS_EX>() as DWORD) != 0 {
             p.memory = (pmc.PrivateUsage as u64) >> 10u64; // / 1024;

@@ -9,7 +9,7 @@
 
 #[cfg(test)]
 mod tests {
-    use ::{System, SystemExt};
+    use ::{ProcessExt, System, SystemExt};
     use ::utils;
 
     #[test]
@@ -26,5 +26,13 @@ mod tests {
     fn test_refresh_process() {
         let mut sys = System::new();
         assert!(sys.refresh_process(utils::get_current_pid()));
+    }
+
+    #[test]
+    fn test_get_process() {
+        let mut sys = System::new();
+        sys.refresh_processes();
+        let p = sys.get_process(utils::get_current_pid()).expect("didn't find process");
+        assert!(p.memory() > 0);
     }
 }
