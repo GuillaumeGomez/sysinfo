@@ -35,4 +35,26 @@ mod tests {
         let p = sys.get_process(utils::get_current_pid()).expect("didn't find process");
         assert!(p.memory() > 0);
     }
+
+    #[test]
+    fn check_if_send_and_sync() {
+        trait Foo {
+            fn foo(&self) {}
+        }
+        impl<T> Foo for T where T: Send {}
+
+        trait Bar {
+            fn bar(&self) {}
+        }
+
+        impl<T> Bar for T where T: Sync {}
+
+        let mut sys = System::new();
+        sys.refresh_processes();
+        let p = sys.get_process(utils::get_current_pid()).expect("didn't find process");
+        p.foo(); // If this doesn't compile, it'll simply mean that the Process type
+                 // doesn't implement the Send trait.
+        p.bar(); // If this doesn't compile, it'll simply mean that the Process type
+                 // doesn't implement the Sync trait.
+    }
 }
