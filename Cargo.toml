@@ -1,11 +1,11 @@
 [package]
 name = "sysinfo"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 
 description = "Library to handle processes"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
-license = "LGPL-3.0+"
+license = "MIT"
 readme = "README.md"
 
 categories = ["filesystem", "os::macos-apis", "os::unix-apis", "os::windows-apis"]
