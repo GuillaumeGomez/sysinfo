@@ -4,8 +4,6 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-#![allow(decimal_literal_representation)]
-
 pub mod component;
 pub mod disk;
 pub mod network;

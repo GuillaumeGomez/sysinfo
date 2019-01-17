@@ -290,7 +290,7 @@ fn to_u64(v: &[u8]) -> u64 {
 
     for c in v {
         x *= 10;
-        x += (c - b'0') as u64;
+        x += u64::from(c - b'0');
     }
     x
 }
@@ -479,7 +479,7 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64,
                 p.cmd = copy_from_file(&tmp);
                 p.name = p.cmd.get(0)
                               .map(|x| x.split('/').last().unwrap_or_else(|| "").to_owned())
-                              .unwrap_or(String::new());
+                              .unwrap_or_default();
                 tmp = PathBuf::from(path);
                 tmp.push("environ");
                 p.environ = copy_from_file(&tmp);
@@ -524,11 +524,10 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 }
 
 fn get_all_disks() -> Vec<Disk> {
-    #[allow(or_fun_call)]
-    let content = get_all_data("/proc/mounts").unwrap_or(String::new());
+    let content = get_all_data("/proc/mounts").unwrap_or_default();
     let disks = content.lines()
         .filter(|line| {
-            let line = line.trim_left();
+            let line = line.trim_start();
             // While the `sd` prefix is most common, some disks instead use the `nvme` prefix. This
             // prefix refers to NVM (non-volatile memory) cabale SSDs. These disks run on the NVMe
             // storage controller protocol (not the scsi protocol) and as a result use a different
@@ -546,8 +545,7 @@ fn get_all_disks() -> Vec<Disk> {
     ret
 }
 
-#[allow(or_fun_call)]
 fn get_uptime() -> u64 {
-    let content = get_all_data("/proc/uptime").unwrap_or(String::new());
-    u64::from_str_radix(content.split('.').next().unwrap_or("0"), 10).unwrap_or(0)
+    let content = get_all_data("/proc/uptime").unwrap_or_default();
+    u64::from_str_radix(content.split('.').next().unwrap_or_else(|| "0"), 10).unwrap_or_else(|_| 0)
 }

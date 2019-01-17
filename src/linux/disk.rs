@@ -37,7 +37,6 @@ impl From<isize> for DiskType {
 }
 
 fn find_type_for_name(name: &OsStr) -> DiskType {
-    #![allow(or_fun_call)]
     /* turn "sda1" into "sda": */
     let mut trimmed: &[u8] = name.as_bytes();
     while trimmed.len() > 1 && trimmed[trimmed.len()-1] >= b'0' && trimmed[trimmed.len()-1] <= b'9' {
@@ -48,7 +47,7 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
     let path = Path::new("/sys/block/").to_owned()
         .join(trimmed)
         .join("queue/rotational");
-    let rotational_int = get_all_data(path).unwrap_or(String::new()).trim().parse();
+    let rotational_int = get_all_data(path).unwrap_or_default().trim().parse();
     DiskType::from(rotational_int.unwrap_or(-1))
 }
 
