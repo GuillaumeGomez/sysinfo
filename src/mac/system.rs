@@ -388,10 +388,10 @@ fn update_process(wrap: &Wrap, pid: Pid,
             let mut n_args: c_int = 0;
             libc::memcpy((&mut n_args) as *mut c_int as *mut c_void, ptr as *const c_void,
                          ::std::mem::size_of::<c_int>());
-            let mut cp = ptr.offset(::std::mem::size_of::<c_int>() as isize);
+            let mut cp = ptr.add(::std::mem::size_of::<c_int>());
             let mut start = cp;
-            if cp < ptr.offset(size as isize) {
-                while cp < ptr.offset(size as isize) && *cp != 0 {
+            if cp < ptr.add(size) {
+                while cp < ptr.add(size) && *cp != 0 {
                     cp = cp.offset(1);
                 }
                 p.exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
@@ -407,13 +407,13 @@ fn update_process(wrap: &Wrap, pid: Pid,
                         need_root = false;
                     }
                 }
-                while cp < ptr.offset(size as isize) && *cp == 0 {
+                while cp < ptr.add(size) && *cp == 0 {
                     cp = cp.offset(1);
                 }
                 start = cp;
                 let mut c = 0;
                 let mut cmd = Vec::new();
-                while c < n_args && cp < ptr.offset(size as isize) {
+                while c < n_args && cp < ptr.add(size) {
                     if *cp == 0 {
                         c += 1;
                         cmd.push(get_unchecked_str(cp, start));
@@ -423,7 +423,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
                 }
                 p.cmd = cmd;
                 start = cp;
-                while cp < ptr.offset(size as isize) {
+                while cp < ptr.add(size) {
                     if *cp == 0 {
                         if cp == start {
                             break;
@@ -433,7 +433,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
                     }
                     cp = cp.offset(1);
                 }
-                if need_root == true {
+                if need_root {
                     for env in p.environ.iter() {
                         if env.starts_with("PATH=") {
                             p.root = Path::new(&env[6..]).to_path_buf();
@@ -531,7 +531,7 @@ impl SystemExt for System {
             }
 
             if let Some(con) = self.connection {
-                if self.temperatures.len() < 1 {
+                if self.temperatures.is_empty() {
                     // getting CPU critical temperature
                     let mut v = vec!('T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0);
                     let tmp = get_temperature(con, v.as_mut_ptr());

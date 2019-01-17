@@ -37,7 +37,7 @@ pub fn new() -> NetworkData {
     }
 }
 
-#[allow(cast_ptr_alignment)]
+#[allow(clippy::cast_ptr_alignment)]
 pub fn update_network(n: &mut NetworkData) {
     let mib = &mut [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0];
     let mut len = 0;
@@ -54,7 +54,7 @@ pub fn update_network(n: &mut NetworkData) {
         }
     }
     let buf = buf.as_ptr() as *const c_char;
-    let lim = unsafe { buf.offset(len as isize) };
+    let lim = unsafe { buf.add(len) };
     let mut next = buf;
     let mut totalibytes = 0u64;
     let mut totalobytes = 0u64;
