@@ -4,6 +4,8 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+#![allow(clippy::too_many_arguments)]
+
 use ::ProcessorExt;
 
 /// Struct containing values to compute a CPU usage.

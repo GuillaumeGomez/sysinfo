@@ -48,7 +48,6 @@
 #![deny(missing_docs)]
 //#![deny(warnings)]
 #![allow(unknown_lints)]
-#![allow(too_many_arguments)]
 
 #[macro_use]
 extern crate cfg_if;

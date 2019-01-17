@@ -4,8 +4,6 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-#![allow(empty_line_after_outer_attr)]
-
 use libc::{c_int, c_char, c_void, c_uchar, c_uint, size_t, uint32_t, uint64_t, c_ushort};
 
 extern "C" {
