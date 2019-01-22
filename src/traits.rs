@@ -46,7 +46,7 @@ pub trait ProcessExt {
     /// Sends the given `signal` to the process.
     fn kill(&self, signal: ::Signal) -> bool;
 
-    /// Returns the name of the processus.
+    /// Returns the name of the process.
     fn name(&self) -> &str;
 
     /// Returns the command line.
@@ -54,15 +54,15 @@ pub trait ProcessExt {
     // /// On Windows, this is always a one element vector.
     fn cmd(&self) -> &[String];
 
-    /// Returns the path to the processus.
+    /// Returns the path to the process.
     fn exe(&self) -> &Path;
 
-    /// Returns the pid of the processus.
+    /// Returns the pid of the process.
     fn pid(&self) -> Pid;
 
     /// Returns the environment of the process.
     ///
-    /// Always empty on Windows except for current processus.
+    /// Always empty on Windows except for current process.
     fn environ(&self) -> &[String];
 
     /// Returns the current working directory.
@@ -158,22 +158,22 @@ pub trait SystemExt {
     /// The first processor in the array is the "main" one (aka the addition of all the others).
     fn get_processor_list(&self) -> &[Processor];
 
-    /// Returns total RAM size.
+    /// Returns total RAM size in KiB.
     fn get_total_memory(&self) -> u64;
 
-    /// Returns free RAM size.
+    /// Returns free RAM size in KiB.
     fn get_free_memory(&self) -> u64;
 
-    /// Returns used RAM size.
+    /// Returns used RAM size in KiB.
     fn get_used_memory(&self) -> u64;
 
-    /// Returns SWAP size.
+    /// Returns SWAP size in KiB.
     fn get_total_swap(&self) -> u64;
 
-    /// Returns free SWAP size.
+    /// Returns free SWAP size in KiB.
     fn get_free_swap(&self) -> u64;
 
-    /// Returns used SWAP size.
+    /// Returns used SWAP size in KiB.
     fn get_used_swap(&self) -> u64;
 
     /// Returns components list.
@@ -189,12 +189,12 @@ pub trait SystemExt {
     fn get_uptime(&self) -> u64;
 }
 
-/// Getting volume of incoming and outcoming data.
+/// Getting volume of incoming and outgoing data.
 pub trait NetworkExt {
     /// Returns the number of incoming bytes.
     fn get_income(&self) -> u64;
 
-    /// Returns the number of outcoming bytes.
+    /// Returns the number of outgoing bytes.
     fn get_outcome(&self) -> u64;
 }
 
