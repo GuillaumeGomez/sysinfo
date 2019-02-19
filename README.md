@@ -58,8 +58,8 @@ println!("used memory : {} kB", sys.get_used_memory());
 println!("total swap  : {} kB", sys.get_total_swap());
 println!("used swap   : {} kB", sys.get_used_swap());
 
-// Number of processes
-println!("NB processes: {}", sys.get_processor_list().len());
+// Number of processors
+println!("NB processors: {}", sys.get_processor_list().len());
 
 // To refresh all system information:
 sys.refresh_all();
