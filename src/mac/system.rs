@@ -516,9 +516,7 @@ impl SystemExt for System {
             let mut stat = ::std::mem::zeroed::<ffi::vm_statistics64>();
             if ffi::host_statistics64(ffi::mach_host_self(), ffi::HOST_VM_INFO64,
                                       &mut stat as *mut ffi::vm_statistics64 as *mut c_void,
-                                      &count as *const u32) == ffi::KERN_SUCCESS {
-                //self.mem_free = u64::from(stat.free_count + stat.inactive_count
-                //                          + stat.speculative_count) * self.page_size_kb;
+                                      &count) == ffi::KERN_SUCCESS {
                 // From the apple documentation:
                 //
                 // /*
@@ -527,7 +525,12 @@ impl SystemExt for System {
                 //  * used to hold data that was read speculatively from disk but
                 //  * haven't actually been used by anyone so far.
                 //  */
-                self.mem_free = u64::from(stat.free_count) * self.page_size_kb;
+                // self.mem_free = u64::from(stat.free_count) * self.page_size_kb;
+                self.mem_free = self.mem_total - (u64::from(stat.active_count)
+                                 + u64::from(stat.inactive_count) + u64::from(stat.wire_count)
+                                 + u64::from(stat.speculative_count)
+                                 - u64::from(stat.purgeable_count))
+                                * self.page_size_kb;
             }
 
             if let Some(con) = self.connection {
