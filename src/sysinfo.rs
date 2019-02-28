@@ -53,6 +53,8 @@
 extern crate cfg_if;
 extern crate libc;
 extern crate rayon;
+#[cfg(target_os = "macos")]
+extern crate num_cpus;
 
 cfg_if! {
     if #[cfg(target_os = "macos")] {

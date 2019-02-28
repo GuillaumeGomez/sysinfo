@@ -20,6 +20,9 @@ rayon = "^1.0"
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi", "handleapi", "ioapiset", "minwindef", "pdh", "psapi", "synchapi", "sysinfoapi", "tlhelp32", "winbase", "winerror", "winioctl", "winnt"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+num_cpus = "1.0"
+
 [lib]
 name = "sysinfo"
 crate_type = ["rlib", "cdylib"]

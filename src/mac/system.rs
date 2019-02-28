@@ -27,6 +27,8 @@ use libc::{self, c_void, c_int, size_t, c_char, sysconf, _SC_PAGESIZE};
 use utils;
 use Pid;
 
+use num_cpus;
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use rayon::prelude::*;
 
 /// Structs containing system's information.
@@ -285,15 +287,14 @@ fn get_uptime() -> u64 {
     unsafe { libc::difftime(csec, bsec) as u64 }
 }
 
-struct Wrap<'a>(UnsafeCell<&'a mut HashMap<Pid, Process>>);
+struct Wrap<'a, T>(UnsafeCell<&'a mut T>);
 
-unsafe impl<'a> Send for Wrap<'a> {}
-unsafe impl<'a> Sync for Wrap<'a> {}
+unsafe impl<'a, T> Send for Wrap<'a, T> {}
+unsafe impl<'a, T> Sync for Wrap<'a, T> {}
 
-fn update_process(wrap: &Wrap, pid: Pid,
+fn update_process(wrap: &Wrap<HashMap<Pid, Process>>, pid: Pid,
                   taskallinfo_size: i32, taskinfo_size: i32, threadinfo_size: i32,
-                  mib: &mut [c_int], mut size: size_t) -> Result<Option<Process>, ()> {
-    let mut proc_args = Vec::with_capacity(size as usize);
+                  mib: &mut [c_int], proc_args: &mut Vec<u8>) -> Result<Option<Process>, ()> {
     unsafe {
         let mut thread_info = ::std::mem::zeroed::<libc::proc_threadinfo>();
         let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(pid,
@@ -383,6 +384,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
         * :               :
         * \---------------/ 0xffffffff
         */
+        let mut size: size_t = 0;
         if libc::sysctl(mib.as_mut_ptr(), 3, ptr as *mut c_void,
                         &mut size, ::std::ptr::null_mut(), 0) != -1 {
             let mut n_args: c_int = 0;
@@ -447,6 +449,38 @@ fn update_process(wrap: &Wrap, pid: Pid,
             return Err(());
         }
         Ok(Some(p))
+    }
+}
+
+fn get_proc_list() -> Option<Vec<Pid>> {
+    let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
+    if count < 1 {
+        return None;
+    }
+    let mut pids: Vec<Pid> = Vec::with_capacity(count as usize);
+    unsafe { pids.set_len(count as usize); }
+    let count = count * ::std::mem::size_of::<Pid>() as i32;
+    let x = unsafe { ffi::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
+
+    if x < 1 || x as usize >= pids.len() {
+        None
+    } else {
+        unsafe { pids.set_len(x as usize); }
+        Some(pids)
+    }
+}
+
+fn get_arg_max() -> usize {
+    let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
+    let mut arg_max = 0i32;
+    let mut size = ::std::mem::size_of::<c_int>();
+    unsafe {
+        if libc::sysctl(mib.as_mut_ptr(), 2, (&mut arg_max) as *mut i32 as *mut c_void,
+                           &mut size, ::std::ptr::null_mut(), 0) == -1 {
+            4096 // We default to this value
+        } else {
+            arg_max as usize
+        }
     }
 }
 
@@ -661,49 +695,46 @@ impl SystemExt for System {
     }
 
     fn refresh_processes(&mut self) {
-        let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
-        if count < 1 {
-            return
-        }
-        let mut pids: Vec<Pid> = Vec::with_capacity(count as usize);
-        unsafe { pids.set_len(count as usize); }
-        let count = count * ::std::mem::size_of::<Pid>() as i32;
-        let x = unsafe { ffi::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
+        let pids = get_proc_list();
+        if let Some(pids) = pids {
+            let taskallinfo_size = ::std::mem::size_of::<libc::proc_taskallinfo>() as i32;
+            let taskinfo_size = ::std::mem::size_of::<libc::proc_taskinfo>() as i32;
+            let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
+            let arg_max = get_arg_max();
 
-        if x < 1 || x as usize > pids.len() {
-            return
-        } else if pids.len() > x as usize {
-            unsafe { pids.set_len(x as usize); }
-        }
-
-        let taskallinfo_size = ::std::mem::size_of::<libc::proc_taskallinfo>() as i32;
-        let taskinfo_size = ::std::mem::size_of::<libc::proc_taskinfo>() as i32;
-        let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
-
-        let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
-        let mut arg_max = 0i32;
-        let mut size = ::std::mem::size_of::<c_int>();
-        unsafe {
-            while libc::sysctl(mib.as_mut_ptr(), 2, (&mut arg_max) as *mut i32 as *mut c_void,
-                               &mut size, ::std::ptr::null_mut(), 0) == -1 {}
-        }
-        let entries: Vec<Process> = {
-            let wrap = &Wrap(UnsafeCell::new(&mut self.process_list));
-            pids.par_iter()
-                .flat_map(|pid| {
-                    let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
-                    match update_process(wrap, *pid, taskallinfo_size, taskinfo_size,
-                                         threadinfo_size, &mut mib, arg_max as size_t) {
-                        Ok(x) => x,
-                        Err(_) => None,
-                    }
+            let entries: Vec<Process> = {
+                let nb_cpus = num_cpus::get();
+                let mut procs_args = ::std::iter::repeat(Vec::with_capacity(arg_max))
+                                                 .take(nb_cpus)
+                                                 .collect::<Vec<Vec<_>>>();
+                let pool = ThreadPoolBuilder::new()
+                                             .num_threads(nb_cpus)
+                                             .build()
+                                             .expect("failed to build thread pool");
+                let wrap = &Wrap(UnsafeCell::new(&mut self.process_list));
+                let wrap_procs_args = &Wrap(UnsafeCell::new(&mut procs_args));
+                pool.install(|| {
+                    let pool = &pool as *const _ as usize;
+                    pids.par_iter()
+                        .flat_map(move |pid| {
+                            let procs_args = unsafe { &mut *wrap_procs_args.0.get() };
+                            let pool: &ThreadPool = unsafe { &*(pool as *const ThreadPool) };
+                            let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
+                            match update_process(wrap, *pid, taskallinfo_size, taskinfo_size,
+                                                 threadinfo_size, &mut mib, 
+                                                 &mut procs_args[pool.current_thread_index().expect("failed to get thread number")]) {
+                                Ok(x) => x,
+                                Err(_) => None,
+                            }
+                        })
+                        .collect()
                 })
-                .collect()
-        };
-        entries.into_iter().for_each(|entry| {
-            self.process_list.insert(entry.pid(), entry);
-        });
-        self.clear_procs();
+            };
+            entries.into_iter().for_each(|entry| {
+                self.process_list.insert(entry.pid(), entry);
+            });
+            self.clear_procs();
+        }
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
@@ -712,16 +743,11 @@ impl SystemExt for System {
         let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
 
         let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
-        let mut arg_max = 0i32;
-        let mut size = ::std::mem::size_of::<c_int>();
-        unsafe {
-            while libc::sysctl(mib.as_mut_ptr(), 2, (&mut arg_max) as *mut i32 as *mut c_void,
-                               &mut size, ::std::ptr::null_mut(), 0) == -1 {}
-        }
+        let arg_max = get_arg_max();
         match {
             let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
             update_process(&wrap, pid, taskallinfo_size, taskinfo_size,
-                           threadinfo_size, &mut mib, arg_max as size_t)
+                           threadinfo_size, &mut mib, &mut Vec::with_capacity(arg_max))
         } {
             Ok(Some(p)) => {
                 self.process_list.insert(p.pid(), p);
