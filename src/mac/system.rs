@@ -15,10 +15,10 @@ use ::{ComponentExt, DiskExt, ProcessExt, ProcessorExt, SystemExt};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::ffi::{OsStr, OsString};
-use std::os::unix::ffi::OsStringExt;
+use std::ffi::{CStr, OsStr, OsString};
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::sync::Arc;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use sys::processor;
 use std::{fs, mem, ptr};
 
@@ -443,8 +443,31 @@ fn update_process(wrap: &Wrap, pid: Pid,
                 }
             }
         } else {
-            // we don't have enough priviledges to get access to these info
-            return Err(());
+            // I took this code from:
+            // https://github.com/mitsuhiko/mac-process-info/blob/master/src/lib.rs
+            let mut buf = [0i8; ffi::PROC_PIDPATHINFO_MAXSIZE];
+            if ffi::proc_name(pid, buf.as_mut_ptr(),
+                              ffi::PROC_PIDPATHINFO_MAXSIZE as u32) != 0 {
+                p.name = String::from_utf8_lossy(CStr::from_ptr(buf.as_ptr()).to_bytes())
+                                .to_string();
+            } else {
+                // Err(io::Error::last_os_error())
+                return Err(()); // not enough rights I assume?
+            }
+
+            for x in buf.iter_mut() {
+                *x = 0;
+            }
+
+            if ffi::proc_pidpath(pid, buf.as_mut_ptr(),
+                                 ffi::PROC_PIDPATHINFO_MAXSIZE as u32) != 0 {
+                p.exe = PathBuf::from(OsStr::from_bytes(
+                    CStr::from_ptr(buf.as_ptr()).to_bytes(),
+                ));
+            } else {
+                // Err(io::Error::last_os_error())
+                return Err(()); // not enough rights I assume?
+            }
         }
         Ok(Some(p))
     }
