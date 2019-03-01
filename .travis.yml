@@ -40,14 +40,22 @@ matrix:
 script:
   - rustc --version
   - sysctl -a | grep mem
-  - cargo install clippy || touch clippy_failed
+  - if [ "$TRAVIS_RUST_VERSION" == "nightly" ]; then
+    rustup component add clippy-preview && cargo clippy;
+    fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+    cargo build --features debug;
+    fi
   - RUST_BACKTRACE=1 cargo build
-  - if [ ! -f clippy_failed ]; then cargo clippy; fi
-  - if [ ! -f clippy_failed ]; then cargo bench; fi
+  - if [ "$TRAVIS_RUST_VERSION" == "nightly" ]; then
+    RUST_BACKTRACE=1 cargo bench;
+    fi
   - RUST_BACKTRACE=1 cargo test
   - cd examples
   - RUST_BACKTRACE=1 cargo build
-  - if [ ! -f ../clippy_failed ]; then cargo clippy; fi
+  - if [ "$TRAVIS_RUST_VERSION" == "nightly" ]; then
+    cargo clippy;
+    fi
   - cd ..
   - make
   - LD_LIBRARY_PATH=./target/debug ./simple
