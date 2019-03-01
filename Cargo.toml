@@ -15,10 +15,7 @@ build = "build.rs"
 [dependencies]
 cfg-if = "0.1"
 rayon = "^1.0"
-
-[dependencies.libc]
-version = "0.2"
-features = ["extra_traits"]
+libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi", "handleapi", "ioapiset", "minwindef", "pdh", "psapi", "synchapi", "sysinfoapi", "tlhelp32", "winbase", "winerror", "winioctl", "winnt"] }
@@ -30,6 +27,7 @@ path = "src/sysinfo.rs"
 
 [features]
 c-interface = []
+debug = ["libc/extra_traits"]
 
 [badges]
 travis-ci = { repository = "GuillaumeGomez/sysinfo" }

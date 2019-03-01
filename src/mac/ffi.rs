@@ -102,7 +102,7 @@ cfg_if! {
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct if_data64 {
     pub ifi_type: c_uchar,
@@ -133,7 +133,7 @@ pub struct if_data64 {
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct if_msghdr2 {
     pub ifm_msglen: c_ushort,
@@ -149,19 +149,19 @@ pub struct if_msghdr2 {
     pub ifm_data: if_data64,
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 #[repr(C)]
 pub struct __CFAllocator {
     __private: c_void,
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 #[repr(C)]
 pub struct __CFDictionary {
     __private: c_void,
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug))]
 #[repr(C)]
 pub struct __CFString {
     __private: c_void,
@@ -225,7 +225,7 @@ pub struct task_basic_info_64 {
     pub policy: policy_t,
 }*/
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct vm_statistics64 {
     pub free_count: natural_t,
@@ -254,7 +254,7 @@ pub struct vm_statistics64 {
     pub total_uncompressed_pages_in_compressor: u64,
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct Val_t {
     pub key: [i8; 5],
@@ -263,7 +263,7 @@ pub struct Val_t {
     pub bytes: [i8; 32], // SMCBytes_t
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_vers_t {
     pub major: u8,
@@ -273,7 +273,7 @@ pub struct KeyData_vers_t {
     pub release: u16,
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_pLimitData_t {
     pub version: u16,
@@ -283,7 +283,7 @@ pub struct KeyData_pLimitData_t {
     pub mem_plimit: u32,
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_keyInfo_t {
     pub data_size: u32,
@@ -291,7 +291,7 @@ pub struct KeyData_keyInfo_t {
     pub data_attributes: u8,
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_t {
     pub key: u32,
@@ -305,7 +305,7 @@ pub struct KeyData_t {
     pub bytes: [i8; 32], // SMCBytes_t
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct xsw_usage {
     pub xsu_total: u64,
