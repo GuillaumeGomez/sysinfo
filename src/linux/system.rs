@@ -151,7 +151,7 @@ impl SystemExt for System {
             for line in data.split('\n') {
                 let field = match line.split(':').next() {
                     Some("MemTotal") => &mut self.mem_total,
-                    Some("MemAvailable") => &mut self.mem_free,
+                    Some("MemAvailable") | Some("MemFree") => &mut self.mem_free,
                     Some("SwapTotal") => &mut self.swap_total,
                     Some("SwapFree") => &mut self.swap_free,
                     _ => continue,
