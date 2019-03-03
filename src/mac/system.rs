@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
@@ -13,12 +13,14 @@ use sys::disk::{self, Disk, DiskType};
 
 use ::{ComponentExt, DiskExt, ProcessExt, ProcessorExt, SystemExt};
 
+use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
+use std::ops::Deref;
 use std::os::unix::ffi::OsStringExt;
 use std::sync::Arc;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use sys::processor;
 use std::{fs, mem, ptr};
 
@@ -26,6 +28,8 @@ use libc::{self, c_void, c_int, size_t, c_char, sysconf, _SC_PAGESIZE};
 
 use utils;
 use Pid;
+
+use std::process::Command;
 
 use rayon::prelude::*;
 
@@ -43,6 +47,7 @@ pub struct System {
     disks: Vec<Disk>,
     network: NetworkData,
     uptime: u64,
+    port: ffi::mach_port_t,
 }
 
 impl Drop for System {
@@ -285,6 +290,30 @@ fn get_uptime() -> u64 {
     unsafe { libc::difftime(csec, bsec) as u64 }
 }
 
+fn parse_command_line<T: Deref<Target = str> + Borrow<str>>(cmd: &[T]) -> Vec<String> {
+    let mut x = 0;
+    let mut command = Vec::with_capacity(cmd.len());
+    while x < cmd.len() {
+        let mut y = x;
+        if cmd[y].starts_with('\'') || cmd[y].starts_with('"') {
+            let c = if cmd[y].starts_with('\'') {
+                '\''
+            } else {
+                '"'
+            };
+            while y < cmd.len() && !cmd[y].ends_with(c) {
+                y += 1;
+            }
+            command.push(cmd[x..y].join(" "));
+            x = y;
+        } else {
+            command.push(cmd[x].to_owned());
+        }
+        x += 1;
+    }
+    command
+}
+
 struct Wrap<'a>(UnsafeCell<&'a mut HashMap<Pid, Process>>);
 
 unsafe impl<'a> Send for Wrap<'a> {}
@@ -308,6 +337,10 @@ fn update_process(wrap: &Wrap, pid: Pid,
             (0, 0, None)
         };
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
+            if p.memory == 0 { // We don't have access to this process' information.
+                force_update(p);
+                return Ok(None);
+            }
             p.status = thread_status;
             let mut task_info = ::std::mem::zeroed::<libc::proc_taskinfo>();
             if ffi::proc_pidinfo(pid,
@@ -332,7 +365,39 @@ fn update_process(wrap: &Wrap, pid: Pid,
                              0,
                              &mut task_info as *mut libc::proc_taskallinfo as *mut c_void,
                              taskallinfo_size as i32) != taskallinfo_size as i32 {
-            return Err(());
+            match Command::new("/bin/ps") // not very nice, might be worth running a which first.
+                          .arg("wwwe")
+                          .arg("-o")
+                          .arg("ppid=,command=")
+                          .arg(pid.to_string().as_str())
+                          .output() {
+                Ok(o) => {
+                    let o = String::from_utf8(o.stdout).unwrap_or_else(|_| String::new());
+                    let mut o = o.split(' ').filter(|c| !c.is_empty()).collect::<Vec<_>>();
+                    if o.len() < 2 {
+                        return Err(());
+                    }
+                    let mut command = parse_command_line(&o[1..]);
+                    if let Some(ref mut x) = command.last_mut() {
+                        **x = x.replace("\n", "");
+                    }
+                    let p = match i32::from_str_radix(&o[0].replace("\n", ""), 10) {
+                        Ok(x) => x,
+                        _ => return Err(()),
+                    };
+                    let mut p = Process::new(pid, if p == 0 { None } else { Some(p) }, 0);
+                    p.exe = PathBuf::from(&command[0]);
+                    p.name = match p.exe.file_name() {
+                        Some(x) => x.to_str().unwrap_or_else(|| "").to_owned(),
+                        None => String::new(),
+                    };
+                    p.cmd = command;
+                    return Ok(Some(p));
+                }
+                _ => {
+                    return Err(());
+                }
+            }
         }
 
         let parent = match task_info.pbsd.pbi_ppid as Pid {
@@ -421,7 +486,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
                     }
                     cp = cp.offset(1);
                 }
-                p.cmd = cmd;
+                p.cmd = parse_command_line(&cmd);
                 start = cp;
                 while cp < ptr.add(size) {
                     if *cp == 0 {
@@ -443,10 +508,41 @@ fn update_process(wrap: &Wrap, pid: Pid,
                 }
             }
         } else {
-            // we don't have enough priviledges to get access to these info
-            return Err(());
+            return Err(()); // not enough rights I assume?
         }
         Ok(Some(p))
+    }
+}
+
+fn get_proc_list() -> Option<Vec<Pid>> {
+    let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
+    if count < 1 {
+        return None;
+    }
+    let mut pids: Vec<Pid> = Vec::with_capacity(count as usize);
+    unsafe { pids.set_len(count as usize); }
+    let count = count * ::std::mem::size_of::<Pid>() as i32;
+    let x = unsafe { ffi::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
+
+     if x < 1 || x as usize >= pids.len() {
+        None
+    } else {
+        unsafe { pids.set_len(x as usize); }
+        Some(pids)
+    }
+}
+
+fn get_arg_max() -> usize {
+    let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
+    let mut arg_max = 0i32;
+    let mut size = ::std::mem::size_of::<c_int>();
+    unsafe {
+        if libc::sysctl(mib.as_mut_ptr(), 2, (&mut arg_max) as *mut i32 as *mut c_void,
+                           &mut size, ::std::ptr::null_mut(), 0) == -1 {
+            4096 // We default to this value
+        } else {
+            arg_max as usize
+        }
     }
 }
 
@@ -480,6 +576,7 @@ impl SystemExt for System {
             disks: get_disks(),
             network: network::new(),
             uptime: get_uptime(),
+            port: unsafe { ffi::mach_host_self() },
         };
         s.refresh_all();
         s
@@ -514,11 +611,9 @@ impl SystemExt for System {
             }
             let count: u32 = ffi::HOST_VM_INFO64_COUNT;
             let mut stat = ::std::mem::zeroed::<ffi::vm_statistics64>();
-            if ffi::host_statistics64(ffi::mach_host_self(), ffi::HOST_VM_INFO64,
+            if ffi::host_statistics64(self.port, ffi::HOST_VM_INFO64,
                                       &mut stat as *mut ffi::vm_statistics64 as *mut c_void,
-                                      &count as *const u32) == ffi::KERN_SUCCESS {
-                //self.mem_free = u64::from(stat.free_count + stat.inactive_count
-                //                          + stat.speculative_count) * self.page_size_kb;
+                                      &count) == ffi::KERN_SUCCESS {
                 // From the apple documentation:
                 //
                 // /*
@@ -527,7 +622,12 @@ impl SystemExt for System {
                 //  * used to hold data that was read speculatively from disk but
                 //  * haven't actually been used by anyone so far.
                 //  */
-                self.mem_free = u64::from(stat.free_count) * self.page_size_kb;
+                // self.mem_free = u64::from(stat.free_count) * self.page_size_kb;
+                self.mem_free = self.mem_total - (u64::from(stat.active_count)
+                                 + u64::from(stat.inactive_count) + u64::from(stat.wire_count)
+                                 + u64::from(stat.speculative_count)
+                                 - u64::from(stat.purgeable_count))
+                                * self.page_size_kb;
             }
 
             if let Some(con) = self.connection {
@@ -604,7 +704,7 @@ impl SystemExt for System {
                 self.processors.push(
                     processor::create_proc("0".to_owned(),
                                            Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0))));
-                if ffi::host_processor_info(ffi::mach_host_self(), ffi::PROCESSOR_CPU_LOAD_INFO,
+                if ffi::host_processor_info(self.port, ffi::PROCESSOR_CPU_LOAD_INFO,
                                        &mut num_cpu_u as *mut u32,
                                        &mut cpu_info as *mut *mut i32,
                                        &mut num_cpu_info as *mut u32) == ffi::KERN_SUCCESS {
@@ -619,7 +719,7 @@ impl SystemExt for System {
                         self.processors.push(p);
                     }
                 }
-            } else if ffi::host_processor_info(ffi::mach_host_self(), ffi::PROCESSOR_CPU_LOAD_INFO,
+            } else if ffi::host_processor_info(self.port, ffi::PROCESSOR_CPU_LOAD_INFO,
                                                &mut num_cpu_u as *mut u32,
                                                &mut cpu_info as *mut *mut i32,
                                                &mut num_cpu_info as *mut u32) == ffi::KERN_SUCCESS {
@@ -665,45 +765,30 @@ impl SystemExt for System {
         if count < 1 {
             return
         }
-        let mut pids: Vec<Pid> = Vec::with_capacity(count as usize);
-        unsafe { pids.set_len(count as usize); }
-        let count = count * ::std::mem::size_of::<Pid>() as i32;
-        let x = unsafe { ffi::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
+        if let Some(pids) = get_proc_list() {
+            let taskallinfo_size = ::std::mem::size_of::<libc::proc_taskallinfo>() as i32;
+            let taskinfo_size = ::std::mem::size_of::<libc::proc_taskinfo>() as i32;
+            let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
+            let arg_max = get_arg_max();
 
-        if x < 1 || x as usize > pids.len() {
-            return
-        } else if pids.len() > x as usize {
-            unsafe { pids.set_len(x as usize); }
+            let entries: Vec<Process> = {
+                let wrap = &Wrap(UnsafeCell::new(&mut self.process_list));
+                pids.par_iter()
+                    .flat_map(|pid| {
+                        let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
+                        match update_process(wrap, *pid, taskallinfo_size, taskinfo_size,
+                                             threadinfo_size, &mut mib, arg_max as size_t) {
+                            Ok(x) => x,
+                            Err(_) => None,
+                        }
+                    })
+                    .collect()
+            };
+            entries.into_iter().for_each(|entry| {
+                self.process_list.insert(entry.pid(), entry);
+            });
+            self.clear_procs();
         }
-
-        let taskallinfo_size = ::std::mem::size_of::<libc::proc_taskallinfo>() as i32;
-        let taskinfo_size = ::std::mem::size_of::<libc::proc_taskinfo>() as i32;
-        let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
-
-        let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
-        let mut arg_max = 0i32;
-        let mut size = ::std::mem::size_of::<c_int>();
-        unsafe {
-            while libc::sysctl(mib.as_mut_ptr(), 2, (&mut arg_max) as *mut i32 as *mut c_void,
-                               &mut size, ::std::ptr::null_mut(), 0) == -1 {}
-        }
-        let entries: Vec<Process> = {
-            let wrap = &Wrap(UnsafeCell::new(&mut self.process_list));
-            pids.par_iter()
-                .flat_map(|pid| {
-                    let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
-                    match update_process(wrap, *pid, taskallinfo_size, taskinfo_size,
-                                         threadinfo_size, &mut mib, arg_max as size_t) {
-                        Ok(x) => x,
-                        Err(_) => None,
-                    }
-                })
-                .collect()
-        };
-        entries.into_iter().for_each(|entry| {
-            self.process_list.insert(entry.pid(), entry);
-        });
-        self.clear_procs();
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
@@ -712,12 +797,7 @@ impl SystemExt for System {
         let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
 
         let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
-        let mut arg_max = 0i32;
-        let mut size = ::std::mem::size_of::<c_int>();
-        unsafe {
-            while libc::sysctl(mib.as_mut_ptr(), 2, (&mut arg_max) as *mut i32 as *mut c_void,
-                               &mut size, ::std::ptr::null_mut(), 0) == -1 {}
-        }
+        let arg_max = get_arg_max();
         match {
             let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
             update_process(&wrap, pid, taskallinfo_size, taskinfo_size,

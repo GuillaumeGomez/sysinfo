@@ -50,12 +50,15 @@ extern "C" {
     pub fn mach_task_self() -> u32;
     pub fn mach_host_self() -> u32;
     //pub fn task_info(host_info: u32, t: u32, c: *mut c_void, x: *mut u32) -> u32;
-    pub fn host_statistics64(host_info: u32, x: u32, y: *mut c_void, z: *const u32) -> u32;
+    pub fn host_statistics64(host_info: u32, x: u32, y: *mut c_void, z: *const u32) -> kern_return_t;
     pub fn host_processor_info(host_info: u32, t: u32, num_cpu_u: *mut u32,
-                               cpu_info: *mut *mut i32, num_cpu_info: *mut u32) -> u32;
+                               cpu_info: *mut *mut i32, num_cpu_info: *mut u32) -> kern_return_t;
     //pub fn host_statistics(host_priv: u32, flavor: u32, host_info: *mut c_void,
     //                       host_count: *const u32) -> u32;
-    pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> u32;
+    pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
+
+    // pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
+    // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
@@ -99,6 +102,7 @@ cfg_if! {
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct if_data64 {
     pub ifi_type: c_uchar,
@@ -129,6 +133,7 @@ pub struct if_data64 {
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct if_msghdr2 {
     pub ifm_msglen: c_ushort,
@@ -144,16 +149,19 @@ pub struct if_msghdr2 {
     pub ifm_data: if_data64,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
 #[repr(C)]
 pub struct __CFAllocator {
     __private: c_void,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
 #[repr(C)]
 pub struct __CFDictionary {
     __private: c_void,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
 #[repr(C)]
 pub struct __CFString {
     __private: c_void,
@@ -217,6 +225,7 @@ pub struct task_basic_info_64 {
     pub policy: policy_t,
 }*/
 
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct vm_statistics64 {
     pub free_count: natural_t,
@@ -245,6 +254,7 @@ pub struct vm_statistics64 {
     pub total_uncompressed_pages_in_compressor: u64,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct Val_t {
     pub key: [i8; 5],
@@ -253,6 +263,7 @@ pub struct Val_t {
     pub bytes: [i8; 32], // SMCBytes_t
 }
 
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_vers_t {
     pub major: u8,
@@ -262,6 +273,7 @@ pub struct KeyData_vers_t {
     pub release: u16,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_pLimitData_t {
     pub version: u16,
@@ -271,6 +283,7 @@ pub struct KeyData_pLimitData_t {
     pub mem_plimit: u32,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_keyInfo_t {
     pub data_size: u32,
@@ -278,6 +291,7 @@ pub struct KeyData_keyInfo_t {
     pub data_attributes: u8,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_t {
     pub key: u32,
@@ -291,6 +305,7 @@ pub struct KeyData_t {
     pub bytes: [i8; 32], // SMCBytes_t
 }
 
+#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct xsw_usage {
     pub xsu_total: u64,
@@ -302,7 +317,7 @@ pub struct xsw_usage {
 
 //pub const HOST_CPU_LOAD_INFO_COUNT: usize = 4;
 //pub const HOST_CPU_LOAD_INFO: u32 = 3;
-pub const KERN_SUCCESS: u32 = 0;
+pub const KERN_SUCCESS: kern_return_t = 0;
 
 pub const HW_NCPU: u32 = 3;
 pub const CTL_HW: u32 = 6;
@@ -327,6 +342,8 @@ pub const MACH_PORT_NULL: i32 = 0;
 pub const KERNEL_INDEX_SMC: i32 = 2;
 pub const SMC_CMD_READ_KEYINFO: u8 = 9;
 pub const SMC_CMD_READ_BYTES: u8 = 5;
+
+// pub const PROC_PIDPATHINFO_MAXSIZE: usize = 4096;
 
 pub const KIO_RETURN_SUCCESS: i32 = 0;
 #[allow(non_upper_case_globals)]
