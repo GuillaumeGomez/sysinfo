@@ -57,8 +57,8 @@ extern "C" {
     //                       host_count: *const u32) -> u32;
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
 
-    pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
-    pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
+    // pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
+    // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
@@ -343,7 +343,7 @@ pub const KERNEL_INDEX_SMC: i32 = 2;
 pub const SMC_CMD_READ_KEYINFO: u8 = 9;
 pub const SMC_CMD_READ_BYTES: u8 = 5;
 
-pub const PROC_PIDPATHINFO_MAXSIZE: usize = 4096;
+// pub const PROC_PIDPATHINFO_MAXSIZE: usize = 4096;
 
 pub const KIO_RETURN_SUCCESS: i32 = 0;
 #[allow(non_upper_case_globals)]

@@ -13,10 +13,12 @@ use sys::disk::{self, Disk, DiskType};
 
 use ::{ComponentExt, DiskExt, ProcessExt, ProcessorExt, SystemExt};
 
+use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::ffi::{CStr, OsStr, OsString};
-use std::os::unix::ffi::{OsStrExt, OsStringExt};
+use std::ffi::{OsStr, OsString};
+use std::ops::Deref;
+use std::os::unix::ffi::OsStringExt;
 use std::sync::Arc;
 use std::path::{Path, PathBuf};
 use sys::processor;
@@ -288,6 +290,30 @@ fn get_uptime() -> u64 {
     unsafe { libc::difftime(csec, bsec) as u64 }
 }
 
+fn parse_command_line<T: Deref<Target = str> + Borrow<str>>(cmd: &[T]) -> Vec<String> {
+    let mut x = 0;
+    let mut command = Vec::with_capacity(cmd.len());
+    while x < cmd.len() {
+        let mut y = x;
+        if cmd[y].starts_with('\'') || cmd[y].starts_with('"') {
+            let c = if cmd[y].starts_with('\'') {
+                '\''
+            } else {
+                '"'
+            };
+            while y < cmd.len() && !cmd[y].ends_with(c) {
+                y += 1;
+            }
+            command.push(cmd[x..y].join(" "));
+            x = y;
+        } else {
+            command.push(cmd[x].to_owned());
+        }
+        x += 1;
+    }
+    command
+}
+
 struct Wrap<'a>(UnsafeCell<&'a mut HashMap<Pid, Process>>);
 
 unsafe impl<'a> Send for Wrap<'a> {}
@@ -351,26 +377,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
                     if o.len() < 2 {
                         return Err(());
                     }
-                    let mut command = Vec::with_capacity(o.len() - 1);
-                    let mut x = 1;
-                    while x < o.len() {
-                        let mut y = x;
-                        if o[y].starts_with('\'') || o[y].starts_with('"') {
-                            let c = if o[y].starts_with('\'') {
-                                '\''
-                            } else {
-                                '"'
-                            };
-                            while y < o.len() && !o[y].ends_with(c) {
-                                y += 1;
-                            }
-                            command.push(o[x..y].join(" "));
-                            x = y;
-                        } else {
-                            command.push(o[x].to_owned());
-                        }
-                        x += 1;
-                    }
+                    let mut command = parse_command_line(&o[1..]);
                     if let Some(ref mut x) = command.last_mut() {
                         **x = x.replace("\n", "");
                     }
@@ -479,7 +486,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
                     }
                     cp = cp.offset(1);
                 }
-                p.cmd = cmd;
+                p.cmd = parse_command_line(&cmd);
                 start = cp;
                 while cp < ptr.add(size) {
                     if *cp == 0 {
@@ -501,31 +508,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
                 }
             }
         } else {
-            // I took this code from:
-            // https://github.com/mitsuhiko/mac-process-info/blob/master/src/lib.rs
-            let mut buf = [0i8; ffi::PROC_PIDPATHINFO_MAXSIZE];
-            if ffi::proc_name(pid, buf.as_mut_ptr(),
-                              ffi::PROC_PIDPATHINFO_MAXSIZE as u32) != 0 {
-                p.name = String::from_utf8_lossy(CStr::from_ptr(buf.as_ptr()).to_bytes())
-                                .to_string();
-            } else {
-                // Err(io::Error::last_os_error())
-                return Err(()); // not enough rights I assume?
-            }
-
-            for x in buf.iter_mut() {
-                *x = 0;
-            }
-
-            if ffi::proc_pidpath(pid, buf.as_mut_ptr(),
-                                 ffi::PROC_PIDPATHINFO_MAXSIZE as u32) != 0 {
-                p.exe = PathBuf::from(OsStr::from_bytes(
-                    CStr::from_ptr(buf.as_ptr()).to_bytes(),
-                ));
-            } else {
-                // Err(io::Error::last_os_error())
-                return Err(()); // not enough rights I assume?
-            }
+            return Err(()); // not enough rights I assume?
         }
         Ok(Some(p))
     }
