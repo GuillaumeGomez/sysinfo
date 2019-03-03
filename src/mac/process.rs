@@ -277,3 +277,7 @@ pub fn has_been_updated(p: &mut Process) -> bool {
     p.updated = false;
     old
 }
+
+pub fn force_update(p: &mut Process) {
+    p.updated = true;
+}

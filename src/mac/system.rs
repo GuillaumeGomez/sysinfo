@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
@@ -27,6 +27,8 @@ use libc::{self, c_void, c_int, size_t, c_char, sysconf, _SC_PAGESIZE};
 use utils;
 use Pid;
 
+use std::process::Command;
+
 use rayon::prelude::*;
 
 /// Structs containing system's information.
@@ -43,6 +45,7 @@ pub struct System {
     disks: Vec<Disk>,
     network: NetworkData,
     uptime: u64,
+    port: ffi::mach_port_t,
 }
 
 impl Drop for System {
@@ -308,6 +311,10 @@ fn update_process(wrap: &Wrap, pid: Pid,
             (0, 0, None)
         };
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
+            if p.memory == 0 { // We don't have access to this process' information.
+                force_update(p);
+                return Ok(None);
+            }
             p.status = thread_status;
             let mut task_info = ::std::mem::zeroed::<libc::proc_taskinfo>();
             if ffi::proc_pidinfo(pid,
@@ -332,7 +339,58 @@ fn update_process(wrap: &Wrap, pid: Pid,
                              0,
                              &mut task_info as *mut libc::proc_taskallinfo as *mut c_void,
                              taskallinfo_size as i32) != taskallinfo_size as i32 {
-            return Err(());
+            match Command::new("/bin/ps") // not very nice, might be worth running a which first.
+                          .arg("wwwe")
+                          .arg("-o")
+                          .arg("ppid=,command=")
+                          .arg(pid.to_string().as_str())
+                          .output() {
+                Ok(o) => {
+                    let o = String::from_utf8(o.stdout).unwrap_or_else(|_| String::new());
+                    let mut o = o.split(' ').filter(|c| !c.is_empty()).collect::<Vec<_>>();
+                    if o.len() < 2 {
+                        return Err(());
+                    }
+                    let mut command = Vec::with_capacity(o.len() - 1);
+                    let mut x = 1;
+                    while x < o.len() {
+                        let mut y = x;
+                        if o[y].starts_with('\'') || o[y].starts_with('"') {
+                            let c = if o[y].starts_with('\'') {
+                                '\''
+                            } else {
+                                '"'
+                            };
+                            while y < o.len() && !o[y].ends_with(c) {
+                                y += 1;
+                            }
+                            command.push(o[x..y].join(" "));
+                            x = y;
+                        } else {
+                            command.push(o[x].to_owned());
+                        }
+                        x += 1;
+                    }
+                    if let Some(ref mut x) = command.last_mut() {
+                        **x = x.replace("\n", "");
+                    }
+                    let p = match i32::from_str_radix(&o[0].replace("\n", ""), 10) {
+                        Ok(x) => x,
+                        _ => return Err(()),
+                    };
+                    let mut p = Process::new(pid, if p == 0 { None } else { Some(p) }, 0);
+                    p.exe = PathBuf::from(&command[0]);
+                    p.name = match p.exe.file_name() {
+                        Some(x) => x.to_str().unwrap_or_else(|| "").to_owned(),
+                        None => String::new(),
+                    };
+                    p.cmd = command;
+                    return Ok(Some(p));
+                }
+                _ => {
+                    return Err(());
+                }
+            }
         }
 
         let parent = match task_info.pbsd.pbi_ppid as Pid {
@@ -535,6 +593,7 @@ impl SystemExt for System {
             disks: get_disks(),
             network: network::new(),
             uptime: get_uptime(),
+            port: unsafe { ffi::mach_host_self() },
         };
         s.refresh_all();
         s
@@ -569,7 +628,7 @@ impl SystemExt for System {
             }
             let count: u32 = ffi::HOST_VM_INFO64_COUNT;
             let mut stat = ::std::mem::zeroed::<ffi::vm_statistics64>();
-            if ffi::host_statistics64(ffi::mach_host_self(), ffi::HOST_VM_INFO64,
+            if ffi::host_statistics64(self.port, ffi::HOST_VM_INFO64,
                                       &mut stat as *mut ffi::vm_statistics64 as *mut c_void,
                                       &count) == ffi::KERN_SUCCESS {
                 // From the apple documentation:
@@ -662,7 +721,7 @@ impl SystemExt for System {
                 self.processors.push(
                     processor::create_proc("0".to_owned(),
                                            Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0))));
-                if ffi::host_processor_info(ffi::mach_host_self(), ffi::PROCESSOR_CPU_LOAD_INFO,
+                if ffi::host_processor_info(self.port, ffi::PROCESSOR_CPU_LOAD_INFO,
                                        &mut num_cpu_u as *mut u32,
                                        &mut cpu_info as *mut *mut i32,
                                        &mut num_cpu_info as *mut u32) == ffi::KERN_SUCCESS {
@@ -677,7 +736,7 @@ impl SystemExt for System {
                         self.processors.push(p);
                     }
                 }
-            } else if ffi::host_processor_info(ffi::mach_host_self(), ffi::PROCESSOR_CPU_LOAD_INFO,
+            } else if ffi::host_processor_info(self.port, ffi::PROCESSOR_CPU_LOAD_INFO,
                                                &mut num_cpu_u as *mut u32,
                                                &mut cpu_info as *mut *mut i32,
                                                &mut num_cpu_info as *mut u32) == ffi::KERN_SUCCESS {
