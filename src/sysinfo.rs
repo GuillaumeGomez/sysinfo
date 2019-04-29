@@ -54,6 +54,13 @@ extern crate cfg_if;
 extern crate libc;
 extern crate rayon;
 
+#[cfg(test)]
+#[macro_use]
+extern crate doc_comment;
+
+#[cfg(test)]
+doctest!("../README.md");
+
 cfg_if! {
     if #[cfg(target_os = "macos")] {
         mod mac;
