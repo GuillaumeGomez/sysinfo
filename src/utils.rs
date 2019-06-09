@@ -18,6 +18,10 @@ use Pid;
 
 #[cfg(not(target_os = "windows"))]
 pub fn realpath(original: &Path) -> PathBuf {
+    fn and(x: u32, y: u32) -> u32 {
+        x & y
+    }
+
     if let Some(original_str) = original.to_str() {
         let ori = Path::new(original_str);
 
@@ -31,7 +35,7 @@ pub fn realpath(original: &Path) -> PathBuf {
         let mut buf: stat = unsafe { ::std::mem::uninitialized() };
         let res = unsafe { lstat(result_s.as_ptr() as *const c_char,
                                  &mut buf as *mut stat) };
-        if res < 0 || (buf.st_mode & S_IFMT) != S_IFLNK {
+        if res < 0 || and(buf.st_mode.into(), S_IFMT.into()) != S_IFLNK.into() {
             PathBuf::new()
         } else {
             match fs::read_link(&result) {

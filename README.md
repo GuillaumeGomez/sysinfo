@@ -17,6 +17,8 @@ Support the following platforms:
  * Mac OSX
  * Windows
 
+It also compiles for Android but never been tested on it.
+
 ### Running on Raspberry
 
 It'll be difficult to build on Raspberry. A good way-around is to be build on Linux before sending it to your Raspberry:

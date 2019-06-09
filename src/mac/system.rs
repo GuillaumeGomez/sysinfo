@@ -373,7 +373,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
                           .output() {
                 Ok(o) => {
                     let o = String::from_utf8(o.stdout).unwrap_or_else(|_| String::new());
-                    let mut o = o.split(' ').filter(|c| !c.is_empty()).collect::<Vec<_>>();
+                    let o = o.split(' ').filter(|c| !c.is_empty()).collect::<Vec<_>>();
                     if o.len() < 2 {
                         return Err(());
                     }

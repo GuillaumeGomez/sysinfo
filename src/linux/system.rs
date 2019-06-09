@@ -72,7 +72,7 @@ impl System {
 
     fn refresh_processors(&mut self, limit: Option<u32>) {
         if let Ok(f) = File::open("/proc/stat") {
-            let mut buf = BufReader::new(f);
+            let buf = BufReader::new(f);
             let mut i = 0;
             let first = self.processors.is_empty();
             let mut it = buf.split(b'\n');
@@ -309,7 +309,7 @@ unsafe impl<'a> Sync for Wrap<'a> {}
 fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb: u64,
                                  pid: Pid) -> bool {
     if let Ok(d) = fs::read_dir(path.as_ref()) {
-        let mut folders = d.filter_map(|entry| {
+        let folders = d.filter_map(|entry| {
             if let Ok(entry) = entry {
                 let entry = entry.path();
 

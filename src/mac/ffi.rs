@@ -4,7 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use libc::{c_int, c_char, c_void, c_uchar, c_uint, size_t, uint32_t, uint64_t, c_ushort};
+use libc::{c_int, c_char, c_void, c_uchar, c_uint, size_t, c_ushort};
 
 extern "C" {
     pub static kCFAllocatorDefault: CFAllocatorRef;
@@ -113,22 +113,22 @@ pub struct if_data64 {
     pub ifi_recvquota: c_uchar,
     pub ifi_xmitquota: c_uchar,
     pub ifi_unused1: c_uchar,
-    pub ifi_mtu: uint32_t,
-    pub ifi_metric: uint32_t,
-    pub ifi_baudrate: uint64_t,
-    pub ifi_ipackets: uint64_t,
-    pub ifi_ierrors: uint64_t,
-    pub ifi_opackets: uint64_t,
-    pub ifi_oerrors: uint64_t,
-    pub ifi_collisions: uint64_t,
-    pub ifi_ibytes: uint64_t,
-    pub ifi_obytes: uint64_t,
-    pub ifi_imcasts: uint64_t,
-    pub ifi_omcasts: uint64_t,
-    pub ifi_iqdrops: uint64_t,
-    pub ifi_noproto: uint64_t,
-    pub ifi_recvtiming: uint32_t,
-    pub ifi_xmittiming: uint32_t,
+    pub ifi_mtu: u32,
+    pub ifi_metric: u32,
+    pub ifi_baudrate: u64,
+    pub ifi_ipackets: u64,
+    pub ifi_ierrors: u64,
+    pub ifi_opackets: u64,
+    pub ifi_oerrors: u64,
+    pub ifi_collisions: u64,
+    pub ifi_ibytes: u64,
+    pub ifi_obytes: u64,
+    pub ifi_imcasts: u64,
+    pub ifi_omcasts: u64,
+    pub ifi_iqdrops: u64,
+    pub ifi_noproto: u64,
+    pub ifi_recvtiming: u32,
+    pub ifi_xmittiming: u32,
     pub ifi_lastchange: timeval32,
 }
 
