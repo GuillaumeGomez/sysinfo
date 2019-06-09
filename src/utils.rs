@@ -31,7 +31,7 @@ pub fn realpath(original: &Path) -> PathBuf {
         let mut buf: stat = unsafe { ::std::mem::uninitialized() };
         let res = unsafe { lstat(result_s.as_ptr() as *const c_char,
                                  &mut buf as *mut stat) };
-        if res < 0 || (buf.st_mode & S_IFMT) != S_IFLNK {
+        if res < 0 || (buf.st_mode & (S_IFMT as u32)) != S_IFLNK as u32 {
             PathBuf::new()
         } else {
             match fs::read_link(&result) {
