@@ -6,6 +6,10 @@ matrix:
       rust: stable
       dist: trusty
     - os: linux
+      env: TARGET=arm-linux-androideabi
+      rust: stable
+      dist: trusty
+    - os: linux
       env: TARGET=x86_64-apple-darwin
       rust: stable
       dist: trusty
@@ -19,6 +23,10 @@ matrix:
       dist: trusty
     - os: linux
       env: TARGET=armv7-unknown-linux-gnueabihf
+      rust: nightly
+      dist: trusty
+    - os: linux
+      env: TARGET=arm-linux-androideabi
       rust: nightly
       dist: trusty
     - os: linux
