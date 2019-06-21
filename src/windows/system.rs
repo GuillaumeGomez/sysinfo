@@ -78,12 +78,14 @@ struct Wrap(Process);
 unsafe impl Send for Wrap {}
 
 struct WrapSystem<'a>(UnsafeCell<&'a mut System>);
- impl<'a> WrapSystem<'a> {
+
+impl<'a> WrapSystem<'a> {
     fn get(&self) -> &'a mut System {
         unsafe { *(self.0.get()) }
     }
 }
- unsafe impl<'a> Send for WrapSystem<'a> {}
+
+unsafe impl<'a> Send for WrapSystem<'a> {}
 unsafe impl<'a> Sync for WrapSystem<'a> {}
 
 impl SystemExt for System {
