@@ -11,7 +11,7 @@ use sys::processor::*;
 use sys::process::*;
 use sys::disk::{self, Disk, DiskType};
 
-use ::{ComponentExt, DiskExt, ProcessExt, ProcessorExt, SystemExt};
+use ::{ComponentExt, DiskExt, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
 
 use std::borrow::Borrow;
 use std::cell::UnsafeCell;
@@ -538,7 +538,7 @@ fn get_arg_max() -> usize {
     let mut size = ::std::mem::size_of::<c_int>();
     unsafe {
         if libc::sysctl(mib.as_mut_ptr(), 2, (&mut arg_max) as *mut i32 as *mut c_void,
-                           &mut size, ::std::ptr::null_mut(), 0) == -1 {
+                        &mut size, ::std::ptr::null_mut(), 0) == -1 {
             4096 // We default to this value
         } else {
             arg_max as usize
@@ -562,7 +562,7 @@ impl System {
 }
 
 impl SystemExt for System {
-    fn new() -> System {
+    fn new_with_specifics(refreshes: RefreshKind) -> System {
         let mut s = System {
             process_list: HashMap::new(),
             mem_total: 0,
@@ -573,12 +573,12 @@ impl SystemExt for System {
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 >> 10 }, // divide by 1024
             temperatures: Vec::new(),
             connection: get_io_service_connection(),
-            disks: get_disks(),
+            disks: Vec::new(),
             network: network::new(),
             uptime: get_uptime(),
             port: unsafe { ffi::mach_host_self() },
         };
-        s.refresh_all();
+        s.refresh_specifics(refreshes);
         s
     }
 

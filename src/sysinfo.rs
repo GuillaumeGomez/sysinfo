@@ -54,7 +54,6 @@ extern crate cfg_if;
 extern crate libc;
 extern crate rayon;
 
-#[cfg(test)]
 #[macro_use]
 extern crate doc_comment;
 
@@ -78,6 +77,7 @@ cfg_if! {
 pub use common::{
     AsU32,
     Pid,
+    RefreshKind,
 };
 pub use sys::{
     Component,

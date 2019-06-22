@@ -1,12 +1,13 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
 use sys::{Component, Disk, DiskType, NetworkData, Process, Processor};
 use Pid;
 use ProcessStatus;
+use RefreshKind;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -103,13 +104,70 @@ pub trait ProcessorExt {
     fn get_name(&self) -> &str;
 }
 
-/// Contains all the methods of the `System` struct.
-pub trait SystemExt {
-    /// Creates a new `System` instance. It only contains the disks' list at this stage. Use the
-    /// [`refresh_all`] method to update its internal information (or any of the `refresh_` method).
+/// Contains all the methods of the [`System`] type.
+pub trait SystemExt: Sized {
+    /// Creates a new [`System`] instance. It only contains the disks' list  and the processes list
+    /// at this stage. Use the [`refresh_all`] method to update its internal information (or any of
+    /// the `refresh_` method).
     ///
     /// [`refresh_all`]: #method.refresh_all
-    fn new() -> Self;
+    fn new() -> Self {
+        let mut s = Self::new_with_specifics(RefreshKind::new());
+        s.refresh_all();
+        s
+    }
+
+    /// Creates a new [`System`] instance and refresh the data corresponding to the
+    /// given [`RefreshKind`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use sysinfo::{RefreshKind, System, SystemExt};
+    ///
+    /// // We want everything except disks.
+    /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disk_list());
+    ///
+    /// assert_eq!(system.get_disks().len(), 0);
+    /// assert!(system.get_process_list().len() > 0);
+    ///
+    /// // If you want the disks list afterwards, just call the corresponding
+    /// // "refresh_disk_list":
+    /// system.refresh_disk_list();
+    /// assert!(system.get_disks().len() > 0);
+    /// ```
+    fn new_with_specifics(refreshes: RefreshKind) -> Self;
+
+    /// Refreshes according to the given [`RefreshKind`]. It calls the corresponding
+    /// "refresh_" methods.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sysinfo::{RefreshKind, System, SystemExt};
+    ///
+    /// let mut s = System::new();
+    ///
+    /// // Let's just update network data and processes:
+    /// s.refresh_specifics(RefreshKind::new().with_network().with_processes());
+    /// ```
+    fn refresh_specifics(&mut self, refreshes: RefreshKind) {
+        if refreshes.system() {
+            self.refresh_system();
+        }
+        if refreshes.network() {
+            self.refresh_network();
+        }
+        if refreshes.processes() {
+            self.refresh_processes();
+        }
+        if refreshes.disk_list() {
+            self.refresh_disk_list();
+        }
+        if refreshes.disks() {
+            self.refresh_disks();
+        }
+    }
 
     /// Refresh system information (such as memory, swap, CPU usage and components' temperature).
     fn refresh_system(&mut self);
