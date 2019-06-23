@@ -15,6 +15,7 @@ use std::mem::{size_of, zeroed};
 use DiskExt;
 use Pid;
 use ProcessExt;
+use RefreshKind;
 use SystemExt;
 
 use windows::network::{self, NetworkData};
@@ -90,7 +91,7 @@ unsafe impl<'a> Sync for WrapSystem<'a> {}
 
 impl SystemExt for System {
     #[allow(non_snake_case)]
-    fn new() -> System {
+    fn new_with_specifics(refreshes: RefreshKind) -> System {
         let mut s = System {
             process_list: HashMap::new(),
             mem_total: 0,
@@ -99,7 +100,7 @@ impl SystemExt for System {
             swap_free: 0,
             processors: init_processors(),
             temperatures: component::get_components(),
-            disks: unsafe { get_disks() },
+            disks: Vec::new(),
             query: Query::new(),
             network: network::new(),
             uptime: get_uptime(),
@@ -220,7 +221,7 @@ impl SystemExt for System {
             }
             query.start();
         }
-        s.refresh_all();
+        s.refresh_specifics(refreshes);
         s
     }
 

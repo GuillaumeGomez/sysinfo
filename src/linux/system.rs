@@ -11,7 +11,7 @@ use sys::Disk;
 use sys::disk;
 use sys::network;
 use sys::NetworkData;
-use ::{DiskExt, ProcessExt, SystemExt};
+use ::{DiskExt, ProcessExt, RefreshKind, SystemExt};
 use Pid;
 
 use std::cell::UnsafeCell;
@@ -124,7 +124,7 @@ impl System {
 }
 
 impl SystemExt for System {
-    fn new() -> System {
+    fn new_with_specifics(refreshes: RefreshKind) -> System {
         let mut s = System {
             process_list: Process::new(0, None, 0),
             mem_total: 0,
@@ -134,11 +134,11 @@ impl SystemExt for System {
             processors: Vec::new(),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
             temperatures: component::get_components(),
-            disks: get_all_disks(),
+            disks: Vec::new(),
             network: network::new(),
             uptime: get_uptime(),
         };
-        s.refresh_all();
+        s.refresh_specifics(refreshes);
         s
     }
 
