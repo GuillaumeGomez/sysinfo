@@ -51,6 +51,7 @@
 
 #[macro_use]
 extern crate cfg_if;
+#[cfg(not(target_os = "unknown"))]
 extern crate libc;
 extern crate rayon;
 
@@ -68,9 +69,12 @@ cfg_if! {
         mod windows;
         use windows as sys;
         extern crate winapi;
-    } else {
+    } else if #[cfg(unix)] {
         mod linux;
         use linux as sys;
+    } else {
+        mod unknown;
+        use unknown as sys;
     }
 }
 

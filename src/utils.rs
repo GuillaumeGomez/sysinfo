@@ -4,19 +4,19 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
 use std::fs;
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
 use std::path::{Path, PathBuf};
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
 use std::ffi::OsStr;
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
 use std::os::unix::ffi::OsStrExt;
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
 use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
 use Pid;
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
 pub fn realpath(original: &Path) -> PathBuf {
     fn and(x: u32, y: u32) -> u32 {
         x & y
@@ -49,7 +49,7 @@ pub fn realpath(original: &Path) -> PathBuf {
 }
 
 /* convert a path to a NUL-terminated Vec<u8> suitable for use with C functions */
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
 pub fn to_cpath(path: &Path) -> Vec<u8> {
     let path_os: &OsStr = path.as_ref();
     let mut cpath = path_os.as_bytes().to_vec();
@@ -58,7 +58,7 @@ pub fn to_cpath(path: &Path) -> Vec<u8> {
 }
 
 /// Returns the pid for the current process.
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
 pub fn get_current_pid() -> Pid {
     unsafe { ::libc::getpid() }
 }
@@ -69,4 +69,10 @@ pub fn get_current_pid() -> Pid {
     use winapi::um::processthreadsapi::GetCurrentProcessId;
 
     unsafe { GetCurrentProcessId() as Pid }
+}
+
+/// Returns the pid for the current process.
+#[cfg(target_os = "unknown")]
+pub fn get_current_pid() -> Pid {
+    panic!("Unavailable on this platform")
 }
