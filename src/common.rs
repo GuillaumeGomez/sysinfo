@@ -11,7 +11,7 @@ pub trait AsU32 {
 }
 
 cfg_if!{
-    if #[cfg(windows)] {
+    if #[cfg(any(windows, target_os = "unknown"))] {
         /// Process id.
         pub type Pid = usize;
 
