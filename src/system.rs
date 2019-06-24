@@ -25,14 +25,15 @@ mod tests {
     #[test]
     fn test_refresh_process() {
         let mut sys = System::new();
-        assert!(sys.refresh_process(utils::get_current_pid()));
+        assert!(sys.refresh_process(utils::get_current_pid().expect("failed to get current pid")));
     }
 
     #[test]
     fn test_get_process() {
         let mut sys = System::new();
         sys.refresh_processes();
-        let p = sys.get_process(utils::get_current_pid()).expect("didn't find process");
+        let p = sys.get_process(utils::get_current_pid().expect("failed to get current pid"))
+                   .expect("didn't find process");
         assert!(p.memory() > 0);
     }
 
@@ -51,7 +52,8 @@ mod tests {
 
         let mut sys = System::new();
         sys.refresh_processes();
-        let p = sys.get_process(utils::get_current_pid()).expect("didn't find process");
+        let p = sys.get_process(utils::get_current_pid().expect("failed to get current pid"))
+                   .expect("didn't find process");
         p.foo(); // If this doesn't compile, it'll simply mean that the Process type
                  // doesn't implement the Send trait.
         p.bar(); // If this doesn't compile, it'll simply mean that the Process type

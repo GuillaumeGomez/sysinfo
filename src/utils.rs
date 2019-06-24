@@ -58,21 +58,29 @@ pub fn to_cpath(path: &Path) -> Vec<u8> {
 }
 
 /// Returns the pid for the current process.
-#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
-pub fn get_current_pid() -> Pid {
-    unsafe { ::libc::getpid() }
-}
+///
+/// `Err` is returned in case the platform isn't supported.
+pub fn get_current_pid() -> Result<Pid, &'static str> {
+    cfg_if! {
+        if #[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))] {
+            fn inner() -> Result<Pid, &'static str> {
+                unsafe { Ok(::libc::getpid()) }
+            }
+        } else if #[cfg(target_os = "windows")] {
+            fn inner() -> Result<Pid, &'static str> {
+                use winapi::um::processthreadsapi::GetCurrentProcessId;
 
-/// Returns the pid for the current process.
-#[cfg(target_os = "windows")]
-pub fn get_current_pid() -> Pid {
-    use winapi::um::processthreadsapi::GetCurrentProcessId;
-
-    unsafe { GetCurrentProcessId() as Pid }
-}
-
-/// Returns the pid for the current process.
-#[cfg(target_os = "unknown")]
-pub fn get_current_pid() -> Pid {
-    panic!("Unavailable on this platform")
+                unsafe { Ok(GetCurrentProcessId() as Pid) }
+            }
+        } else if #[cfg(target_os = "unknown")] {
+            fn inner() -> Result<Pid, &'static str> {
+                Err("Unavailable on this platform")
+            }
+        } else {
+            fn inner() -> Result<Pid, &'static str> {
+                Err("Unknown platform")
+            }
+        }
+    }
+    inner()
 }
