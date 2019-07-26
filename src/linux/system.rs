@@ -532,7 +532,12 @@ fn get_all_disks() -> Vec<Disk> {
             // prefix refers to NVM (non-volatile memory) cabale SSDs. These disks run on the NVMe
             // storage controller protocol (not the scsi protocol) and as a result use a different
             // prefix to support NVMe namespaces.
-            line.starts_with("/dev/sd") || line.starts_with("/dev/nvme")
+            //
+            // In some other cases, it uses a device mapper to map physical block devices onto
+            // higher-level virtual block devices (on `/dev/mapper`).
+            line.starts_with("/dev/sd") ||
+            line.starts_with("/dev/nvme") ||
+            line.starts_with("/dev/mapper/")
         });
     let mut ret = vec![];
 

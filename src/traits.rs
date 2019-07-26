@@ -113,6 +113,7 @@ pub trait SystemExt: Sized {
     /// [`refresh_all`]: #method.refresh_all
     fn new() -> Self {
         let mut s = Self::new_with_specifics(RefreshKind::new());
+        s.refresh_disk_list();
         s.refresh_all();
         s
     }
