@@ -4,10 +4,10 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
+use libc::{self, c_char, c_float, c_uint, c_void, pid_t, size_t};
 use std::borrow::BorrowMut;
 use std::ffi::CString;
-use libc::{self, c_char, c_float, c_uint, c_void, pid_t, size_t};
-use ::{NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
+use {NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 
 /// Equivalent of `System` struct.
 pub type CSystem = *mut c_void;
@@ -29,7 +29,9 @@ pub extern "C" fn sysinfo_init() -> CSystem {
 #[no_mangle]
 pub extern "C" fn sysinfo_destroy(system: CSystem) {
     assert!(!system.is_null());
-    unsafe { Box::from_raw(system as *mut System); }
+    unsafe {
+        Box::from_raw(system as *mut System);
+    }
 }
 
 /// Equivalent of `System.refresh_system()`.
@@ -190,9 +192,11 @@ pub extern "C" fn sysinfo_get_network_outcome(system: CSystem) -> size_t {
 /// * `length` will contain the number of cpu usage added into `procs`.
 /// * `procs` will be allocated if it's null and will contain of cpu usage.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_processors_usage(system: CSystem,
-                                               length: *mut c_uint,
-                                               procs: *mut *mut c_float) {
+pub extern "C" fn sysinfo_get_processors_usage(
+    system: CSystem,
+    length: *mut c_uint,
+    procs: *mut *mut c_float,
+) {
     assert!(!system.is_null());
     if procs.is_null() || length.is_null() {
         return;
@@ -202,7 +206,8 @@ pub extern "C" fn sysinfo_get_processors_usage(system: CSystem,
         let processors = system.get_processor_list();
         unsafe {
             if (*procs).is_null() {
-                (*procs) = libc::malloc(::std::mem::size_of::<c_float>() * processors.len()) as *mut c_float;
+                (*procs) = libc::malloc(::std::mem::size_of::<c_float>() * processors.len())
+                    as *mut c_float;
             }
             for (pos, processor) in processors.iter().skip(1).enumerate() {
                 (*(*procs).offset(pos as isize)) = processor.get_cpu_usage();
@@ -220,8 +225,11 @@ pub extern "C" fn sysinfo_get_processors_usage(system: CSystem,
 ///
 /// While having this method returned processes, you should *never* call any refresh method!
 #[no_mangle]
-pub extern "C" fn sysinfo_get_processes(system: CSystem, fn_pointer: Option<ProcessLoop>,
-                                        data: *mut c_void) -> size_t {
+pub extern "C" fn sysinfo_get_processes(
+    system: CSystem,
+    fn_pointer: Option<ProcessLoop>,
+    data: *mut c_void,
+) -> size_t {
     assert!(!system.is_null());
     if let Some(fn_pointer) = fn_pointer {
         let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
@@ -229,7 +237,7 @@ pub extern "C" fn sysinfo_get_processes(system: CSystem, fn_pointer: Option<Proc
             let entries = system.get_process_list();
             for (pid, process) in entries {
                 if !fn_pointer(*pid, process as *const Process as CProcess, data) {
-                    break
+                    break;
                 }
             }
             entries.len() as size_t
@@ -267,14 +275,17 @@ pub extern "C" fn sysinfo_get_process_by_pid(system: CSystem, pid: pid_t) -> CPr
 /// While having this method processes, you should *never* call any refresh method!
 #[cfg(target_os = "linux")]
 #[no_mangle]
-pub extern "C" fn sysinfo_process_get_tasks(process: CProcess, fn_pointer: Option<ProcessLoop>,
-                                            data: *mut c_void) -> size_t {
+pub extern "C" fn sysinfo_process_get_tasks(
+    process: CProcess,
+    fn_pointer: Option<ProcessLoop>,
+    data: *mut c_void,
+) -> size_t {
     assert!(!process.is_null());
     if let Some(fn_pointer) = fn_pointer {
         let process = process as *const Process;
         for (pid, process) in unsafe { (*process).tasks.iter() } {
             if !fn_pointer(*pid, process as *const Process as CProcess, data) {
-                break
+                break;
             }
         }
         unsafe { (*process).tasks.len() as size_t }
@@ -366,6 +377,8 @@ pub extern "C" fn sysinfo_process_get_current_directory(process: CProcess) -> RS
 #[no_mangle]
 pub extern "C" fn sysinfo_rstring_free(s: RString) {
     if !s.is_null() {
-        unsafe { let _ = CString::from_raw(s as usize as *mut i8); }
+        unsafe {
+            let _ = CString::from_raw(s as usize as *mut i8);
+        }
     }
 }
