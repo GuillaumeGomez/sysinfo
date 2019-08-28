@@ -10,7 +10,7 @@ use sys::disk::{new_disk, Disk, DiskType};
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::mem::{size_of, zeroed};
+use std::mem::{self, size_of, zeroed};
 
 use winapi::ctypes::c_void;
 
@@ -255,12 +255,26 @@ pub unsafe fn load_symbols() -> HashMap<String, u32> {
                                      lpmszCounters.as_mut_ptr(),
                                      &mut cbCounters as *mut i32 as *mut _);
 
-    for (pos, s) in lpmszCounters.split(|x| *x == 0)
-                                 .collect::<Vec<_>>()
-                                 .chunks(2)
-                                 .filter(|&x| x.len() == 2 && !x[0].is_empty() && !x[1].is_empty())
-                                 .map(|x| (u32::from_str_radix(String::from_utf8(x[0].to_vec()).unwrap().as_str(), 10).unwrap(), String::from_utf8(x[1].to_vec()).expect("invalid string"))) {
-        ret.insert(s, pos as u32);
+    for x in lpmszCounters.split(|x| *x == 0)
+                          .collect::<Vec<_>>()
+                          .chunks(2)
+                          .filter(|&x| x.len() == 2 && !x[0].is_empty() && !x[1].is_empty()) {
+        let x1 = x[1].to_vec();
+        // transformation to UTF-16 for the symbol name
+        let len = x1.len();
+        let cap = x1.capacity();
+        let p = x1.as_mut_ptr();
+        mem::forget(x1); // To avoid a double free
+        let x1: Vec<u16> = Vec::from_raw_parts(p as *mut _, len / 2, cap / 2);
+        match (String::from_utf8(x[0].to_vec()), String::from_utf16(&x1)) {
+            (Ok(pos), Ok(s)) => {
+                if let Ok(pos) = u32::from_str_radix(pos.as_str(), 10) {
+                    ret.insert(s, pos);
+                }
+                continue
+            }
+            _ => {}
+        }
     }
     ret
 }
