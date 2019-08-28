@@ -255,7 +255,8 @@ pub unsafe fn load_symbols() -> HashMap<String, u32> {
                                      lpmszCounters.as_mut_ptr(),
                                      &mut cbCounters as *mut i32 as *mut _);
 
-    for x in lpmszCounters.split(|x| *x == 0)
+    println!("{:?}", String::from_utf8(lpmszCounters));
+    /*for x in lpmszCounters.split(|x| *x == 0)
                           .collect::<Vec<_>>()
                           .chunks(2)
                           .filter(|&x| x.len() == 2 && !x[0].is_empty() && !x[1].is_empty()) {
@@ -275,7 +276,7 @@ pub unsafe fn load_symbols() -> HashMap<String, u32> {
             }
             _ => {}
         }
-    }
+    }*/
     ret
 }
 
