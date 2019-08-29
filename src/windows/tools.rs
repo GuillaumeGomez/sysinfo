@@ -254,12 +254,23 @@ pub unsafe fn load_symbols() -> HashMap<String, u32> {
                                      &mut dwType as *mut i32 as *mut _,
                                      lpmszCounters.as_mut_ptr(),
                                      &mut cbCounters as *mut i32 as *mut _);
-
     for (pos, s) in lpmszCounters.split(|x| *x == 0)
+                                 .filter(|x| !x.is_empty())
                                  .collect::<Vec<_>>()
                                  .chunks(2)
-                                 .filter(|&x| x.len() == 2 && !x[0].is_empty() && !x[1].is_empty())
-                                 .map(|x| (u32::from_str_radix(String::from_utf8(x[0].to_vec()).unwrap().as_str(), 10).unwrap(), String::from_utf8(x[1].to_vec()).expect("invalid string"))) {
+                                 .filter(|&x| x.len() == 2)
+                                 .filter_map(|x| {
+        match (std::str::from_utf8(x[0]), String::from_utf8(x[1].to_vec())) {
+            (Ok(n), Ok(s)) => {
+                if let Ok(n) = u32::from_str_radix(n, 10) {
+                    Some((n, s))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }) {
         ret.insert(s, pos as u32);
     }
     ret
