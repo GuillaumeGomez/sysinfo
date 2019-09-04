@@ -15,12 +15,12 @@ use ::{DiskExt, ProcessExt, RefreshKind, SystemExt};
 use Pid;
 
 use std::cell::UnsafeCell;
-use std::fs::{File, read_link};
-use std::io::{self, BufRead, BufReader, Read};
-use std::str::FromStr;
-use std::path::{Path, PathBuf};
 use std::collections::HashMap;
-use std::fs;
+use std::fs::{self, File, read_link};
+use std::io::{self, BufRead, BufReader, Read};
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+use std::time::SystemTime;
 use libc::{uid_t, sysconf, _SC_CLK_TCK, _SC_PAGESIZE};
 
 use utils::realpath;
@@ -167,14 +167,18 @@ impl SystemExt for System {
     }
 
     fn refresh_processes(&mut self) {
-        if refresh_procs(&mut self.process_list, "/proc", self.page_size_kb, 0) {
+        self.uptime = get_uptime();
+        if refresh_procs(&mut self.process_list, "/proc", self.page_size_kb, 0, self.uptime,
+                         get_secs_since_epoch()) {
             self.clear_procs();
         }
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
+        self.uptime = get_uptime();
         let found = match _get_process_data(&Path::new("/proc/").join(pid.to_string()),
-                                            &mut self.process_list, self.page_size_kb, 0) {
+                                            &mut self.process_list, self.page_size_kb, 0,
+                                            self.uptime, get_secs_since_epoch()) {
             Ok(Some(p)) => {
                 self.process_list.tasks.insert(p.pid(), p);
                 false
@@ -306,8 +310,14 @@ impl<'a> Wrap<'a> {
 unsafe impl<'a> Send for Wrap<'a> {}
 unsafe impl<'a> Sync for Wrap<'a> {}
 
-fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb: u64,
-                                 pid: Pid) -> bool {
+fn refresh_procs<P: AsRef<Path>>(
+    proc_list: &mut Process,
+    path: P,
+    page_size_kb: u64,
+    pid: Pid,
+    uptime: u64,
+    now: u64,
+) -> bool {
     if let Ok(d) = fs::read_dir(path.as_ref()) {
         let folders = d.filter_map(|entry| {
             if let Ok(entry) = entry {
@@ -329,7 +339,9 @@ fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb:
                        if let Ok(p) = _get_process_data(e.as_path(),
                                                         proc_list.get(),
                                                         page_size_kb,
-                                                        pid) {
+                                                        pid,
+                                                        uptime,
+                                                        now) {
                            p
                        } else {
                            None
@@ -339,7 +351,8 @@ fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb:
         } else {
             folders.iter()
                    .filter_map(|e| {
-                       if let Ok(p) = _get_process_data(e.as_path(), proc_list, page_size_kb, pid) {
+                       if let Ok(p) = _get_process_data(e.as_path(), proc_list, page_size_kb, pid,
+                                                        uptime, now) {
                            p
                        } else {
                            None
@@ -355,8 +368,16 @@ fn refresh_procs<P: AsRef<Path>>(proc_list: &mut Process, path: P, page_size_kb:
     }
 }
 
-fn update_time_and_memory(path: &Path, entry: &mut Process, parts: &[&str], page_size_kb: u64,
-                          parent_memory: u64, pid: Pid) {
+fn update_time_and_memory(
+    path: &Path,
+    entry: &mut Process,
+    parts: &[&str],
+    page_size_kb: u64,
+    parent_memory: u64,
+    pid: Pid,
+    uptime: u64,
+    now: u64,
+) {
     // we get the rss
     {
         entry.memory = u64::from_str(parts[23]).unwrap_or(0) * page_size_kb;
@@ -367,7 +388,7 @@ fn update_time_and_memory(path: &Path, entry: &mut Process, parts: &[&str], page
                  u64::from_str(parts[13]).unwrap_or(0),
                  u64::from_str(parts[14]).unwrap_or(0));
     }
-    refresh_procs(entry, path.join(Path::new("task")), page_size_kb, pid);
+    refresh_procs(entry, path.join(Path::new("task")), page_size_kb, pid, uptime, now);
 }
 
 macro_rules! unwrap_or_return {
@@ -379,8 +400,14 @@ macro_rules! unwrap_or_return {
     }}
 }
 
-fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64,
-                     pid: Pid) -> Result<Option<Process>, ()> {
+fn _get_process_data(
+    path: &Path,
+    proc_list: &mut Process,
+    page_size_kb: u64,
+    pid: Pid,
+    uptime: u64,
+    now: u64,
+) -> Result<Option<Process>, ()> {
     if let Some(Ok(nb)) = path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
         if nb == pid {
             return Err(());
@@ -410,7 +437,8 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64,
             parts.extend(data.split_whitespace());
             let parent_memory = proc_list.memory;
             if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
-                update_time_and_memory(path, entry, &parts, page_size_kb, parent_memory, nb);
+                update_time_and_memory(path, entry, &parts, page_size_kb, parent_memory, nb, uptime,
+                                       now);
                 return Ok(None);
             }
 
@@ -423,10 +451,10 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64,
                 }
             };
 
-            let mut p = Process::new(nb,
-                                     parent_pid,
-                                     u64::from_str(parts[21]).unwrap_or(0) /
-                                     unsafe { sysconf(_SC_CLK_TCK) } as u64);
+            let clock_cycle = unsafe { sysconf(_SC_CLK_TCK) } as u64;
+            let since_boot = u64::from_str(parts[21]).unwrap_or(0) / clock_cycle;
+            let start_time = now - (since_boot - uptime);
+            let mut p = Process::new(nb, parent_pid, start_time);
 
             p.status = parts[2].chars()
                                .next()
@@ -497,7 +525,8 @@ fn _get_process_data(path: &Path, proc_list: &mut Process, page_size_kb: u64,
                 p.root = realpath(&tmp);
             }
 
-            update_time_and_memory(path, &mut p, &parts, page_size_kb, proc_list.memory, nb);
+            update_time_and_memory(path, &mut p, &parts, page_size_kb, proc_list.memory, nb, uptime,
+                                   now);
             return Ok(Some(p));
         }
     }
@@ -553,4 +582,11 @@ fn get_all_disks() -> Vec<Disk> {
 fn get_uptime() -> u64 {
     let content = get_all_data("/proc/uptime").unwrap_or_default();
     u64::from_str_radix(content.split('.').next().unwrap_or_else(|| "0"), 10).unwrap_or_else(|_| 0)
+}
+
+fn get_secs_since_epoch() -> u64 {
+    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(n) => n.as_secs(),
+        Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+    }
 }
