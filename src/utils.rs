@@ -18,6 +18,8 @@ use Pid;
 
 #[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
 pub fn realpath(original: &Path) -> PathBuf {
+    use std::mem::MaybeUninit;
+
     fn and(x: u32, y: u32) -> u32 {
         x & y
     }
@@ -32,9 +34,9 @@ pub fn realpath(original: &Path) -> PathBuf {
         let result = PathBuf::from(original);
         let mut result_s = result.to_str().unwrap_or("").as_bytes().to_vec();
         result_s.push(0);
-        let mut buf: stat = unsafe { ::std::mem::uninitialized() };
-        let res = unsafe { lstat(result_s.as_ptr() as *const c_char,
-                                 &mut buf as *mut stat) };
+        let mut buf = MaybeUninit::<stat>::uninit();
+        let res = unsafe { lstat(result_s.as_ptr() as *const c_char, buf.as_mut_ptr()) };
+        let buf = unsafe { buf.assume_init() };
         if res < 0 || and(buf.st_mode.into(), S_IFMT.into()) != S_IFLNK.into() {
             PathBuf::new()
         } else {
