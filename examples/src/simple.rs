@@ -87,7 +87,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             } else if let Ok(pid) = Pid::from_str(tmp[1]) {
                 match sys.get_process(pid) {
                     Some(p) => writeln!(&mut io::stdout(), "{:?}", *p),
-                    None => writeln!(&mut io::stdout(), "pid not found")
+                    None => writeln!(&mut io::stdout(), "pid \"{:?}\" not found", pid),
                 };
             } else {
                 let proc_name = tmp[1];
