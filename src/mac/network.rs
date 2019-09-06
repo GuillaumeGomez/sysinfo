@@ -69,8 +69,16 @@ pub fn update_network(n: &mut NetworkData) {
             }
         }
     }
-    n.old_in = n.current_in;
+    n.old_in = if n.current_in > totalibytes {
+        0
+    } else {
+        n.current_in
+    };
     n.current_in = totalibytes;
-    n.old_out = n.current_out;
+    n.old_out = if n.current_out > totalibytes {
+        0
+    } else {
+        n.current_out
+    };
     n.current_out = totalobytes;
 }
