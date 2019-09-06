@@ -17,6 +17,7 @@ use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
+use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::os::unix::ffi::OsStringExt;
 use std::sync::Arc;
@@ -113,17 +114,17 @@ unsafe fn ultostr(s: *mut c_char, val: u32) {
 
 unsafe fn perform_call(conn: ffi::io_connect_t, index: c_int, input_structure: *mut ffi::KeyData_t,
                        output_structure: *mut ffi::KeyData_t) -> i32 {
-    let mut structure_output_size = ::std::mem::size_of::<ffi::KeyData_t>();
+    let mut structure_output_size = mem::size_of::<ffi::KeyData_t>();
 
     ffi::IOConnectCallStructMethod(conn, index as u32,
-                                   input_structure, ::std::mem::size_of::<ffi::KeyData_t>(),
+                                   input_structure, mem::size_of::<ffi::KeyData_t>(),
                                    output_structure, &mut structure_output_size)
 }
 
 unsafe fn read_key(con: ffi::io_connect_t, key: *mut c_char) -> Result<ffi::Val_t, i32> {
-    let mut input_structure: ffi::KeyData_t = ::std::mem::zeroed::<ffi::KeyData_t>();
-    let mut output_structure: ffi::KeyData_t = ::std::mem::zeroed::<ffi::KeyData_t>();
-    let mut val: ffi::Val_t = ::std::mem::zeroed::<ffi::Val_t>();
+    let mut input_structure: ffi::KeyData_t = mem::zeroed::<ffi::KeyData_t>();
+    let mut output_structure: ffi::KeyData_t = mem::zeroed::<ffi::KeyData_t>();
+    let mut val: ffi::Val_t = mem::zeroed::<ffi::Val_t>();
 
     input_structure.key = strtoul(key, 4, 16);
     input_structure.data8 = ffi::SMC_CMD_READ_KEYINFO;
@@ -146,7 +147,7 @@ unsafe fn read_key(con: ffi::io_connect_t, key: *mut c_char) -> Result<ffi::Val_
     } else {
         libc::memcpy(val.bytes.as_mut_ptr() as *mut c_void,
                      output_structure.bytes.as_mut_ptr() as *mut c_void,
-                     ::std::mem::size_of::<[u8; 32]>());
+                     mem::size_of::<[u8; 32]>());
         Ok(val)
     }
 }
@@ -167,7 +168,7 @@ unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
     let len = cp as usize - start as usize;
     let part = Vec::from_raw_parts(start, len, len);
     let tmp = String::from_utf8_unchecked(part.clone());
-    ::std::mem::forget(part);
+    mem::forget(part);
     tmp
 }
 
@@ -222,9 +223,10 @@ fn get_disk_types() -> HashMap<OsString, DiskType> {
             if next_media == 0 {
                 break;
             }
-            let mut props = mem::uninitialized();
-            let result = ffi::IORegistryEntryCreateCFProperties(next_media, &mut props,
+            let mut props = MaybeUninit::<ffi::CFMutableDictionaryRef>::uninit();
+            let result = ffi::IORegistryEntryCreateCFProperties(next_media, props.as_mut_ptr(),
                                                                 ffi::kCFAllocatorDefault, 0);
+            let props = unsafe { props.assume_init() };
             if result == ffi::KERN_SUCCESS as i32 && check_value(props, b"Whole\0") {
                 let mut name: ffi::io_name_t = mem::zeroed();
                 if ffi::IORegistryEntryGetName(next_media,
@@ -237,7 +239,7 @@ fn get_disk_types() -> HashMap<OsString, DiskType> {
                                    DiskType::SSD
                                });
                 }
-                ffi::CFRelease(props as *mut c_void);
+                ffi::CFRelease(props as *mut _);
             }
             ffi::IOObjectRelease(next_media);
         }
@@ -271,8 +273,8 @@ fn get_disks() -> Vec<Disk> {
 }
 
 fn get_uptime() -> u64 {
-    let mut boottime: libc::timeval = unsafe { ::std::mem::zeroed() };
-    let mut len = ::std::mem::size_of::<libc::timeval>();
+    let mut boottime: libc::timeval = unsafe { mem::zeroed() };
+    let mut len = mem::size_of::<libc::timeval>();
     let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
     unsafe {
         if libc::sysctl(mib.as_mut_ptr(),
@@ -324,7 +326,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
                   mib: &mut [c_int], mut size: size_t) -> Result<Option<Process>, ()> {
     let mut proc_args = Vec::with_capacity(size as usize);
     unsafe {
-        let mut thread_info = ::std::mem::zeroed::<libc::proc_threadinfo>();
+        let mut thread_info = mem::zeroed::<libc::proc_threadinfo>();
         let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(pid,
                              libc::PROC_PIDTHREADINFO,
                              0,
@@ -342,7 +344,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
                 return Ok(None);
             }
             p.status = thread_status;
-            let mut task_info = ::std::mem::zeroed::<libc::proc_taskinfo>();
+            let mut task_info = mem::zeroed::<libc::proc_taskinfo>();
             if ffi::proc_pidinfo(pid,
                                  libc::PROC_PIDTASKINFO,
                                  0,
@@ -359,7 +361,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
             return Ok(None);
         }
 
-        let mut task_info = ::std::mem::zeroed::<libc::proc_taskallinfo>();
+        let mut task_info = mem::zeroed::<libc::proc_taskallinfo>();
         if ffi::proc_pidinfo(pid,
                              libc::PROC_PIDTASKALLINFO,
                              0,
@@ -452,8 +454,8 @@ fn update_process(wrap: &Wrap, pid: Pid,
                         &mut size, ::std::ptr::null_mut(), 0) != -1 {
             let mut n_args: c_int = 0;
             libc::memcpy((&mut n_args) as *mut c_int as *mut c_void, ptr as *const c_void,
-                         ::std::mem::size_of::<c_int>());
-            let mut cp = ptr.add(::std::mem::size_of::<c_int>());
+                         mem::size_of::<c_int>());
+            let mut cp = ptr.add(mem::size_of::<c_int>());
             let mut start = cp;
             if cp < ptr.add(size) {
                 while cp < ptr.add(size) && *cp != 0 {
@@ -521,7 +523,7 @@ fn get_proc_list() -> Option<Vec<Pid>> {
     }
     let mut pids: Vec<Pid> = Vec::with_capacity(count as usize);
     unsafe { pids.set_len(count as usize); }
-    let count = count * ::std::mem::size_of::<Pid>() as i32;
+    let count = count * mem::size_of::<Pid>() as i32;
     let x = unsafe { ffi::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
 
      if x < 1 || x as usize >= pids.len() {
@@ -535,7 +537,7 @@ fn get_proc_list() -> Option<Vec<Pid>> {
 fn get_arg_max() -> usize {
     let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
     let mut arg_max = 0i32;
-    let mut size = ::std::mem::size_of::<c_int>();
+    let mut size = mem::size_of::<c_int>();
     unsafe {
         if libc::sysctl(mib.as_mut_ptr(), 2, (&mut arg_max) as *mut i32 as *mut c_void,
                         &mut size, ::std::ptr::null_mut(), 0) == -1 {
@@ -596,21 +598,21 @@ impl SystemExt for System {
         unsafe {
             // get system values
             // get swap info
-            let mut xs: ffi::xsw_usage = ::std::mem::zeroed::<ffi::xsw_usage>();
+            let mut xs: ffi::xsw_usage = mem::zeroed::<ffi::xsw_usage>();
             if get_sys_value(ffi::CTL_VM, ffi::VM_SWAPUSAGE,
-                             ::std::mem::size_of::<ffi::xsw_usage>(),
+                             mem::size_of::<ffi::xsw_usage>(),
                              &mut xs as *mut ffi::xsw_usage as *mut c_void, &mut mib) {
                 self.swap_total = xs.xsu_total >> 10; // divide by 1024
                 self.swap_free = xs.xsu_avail >> 10; // divide by 1024
             }
             // get ram info
             if self.mem_total < 1 {
-                get_sys_value(ffi::CTL_HW, ffi::HW_MEMSIZE, ::std::mem::size_of::<u64>(),
+                get_sys_value(ffi::CTL_HW, ffi::HW_MEMSIZE, mem::size_of::<u64>(),
                               &mut self.mem_total as *mut u64 as *mut c_void, &mut mib);
                 self.mem_total >>= 10; // divide by 1024
             }
             let count: u32 = ffi::HOST_VM_INFO64_COUNT;
-            let mut stat = ::std::mem::zeroed::<ffi::vm_statistics64>();
+            let mut stat = mem::zeroed::<ffi::vm_statistics64>();
             if ffi::host_statistics64(self.port, ffi::HOST_VM_INFO64,
                                       &mut stat as *mut ffi::vm_statistics64 as *mut c_void,
                                       &count) == ffi::KERN_SUCCESS {
@@ -696,7 +698,7 @@ impl SystemExt for System {
             if self.processors.is_empty() {
                 let mut num_cpu = 0;
 
-                if !get_sys_value(ffi::CTL_HW, ffi::HW_NCPU, ::std::mem::size_of::<u32>(),
+                if !get_sys_value(ffi::CTL_HW, ffi::HW_NCPU, mem::size_of::<u32>(),
                                   &mut num_cpu as *mut usize as *mut c_void, &mut mib) {
                     num_cpu = 1;
                 }
@@ -766,9 +768,9 @@ impl SystemExt for System {
             return
         }
         if let Some(pids) = get_proc_list() {
-            let taskallinfo_size = ::std::mem::size_of::<libc::proc_taskallinfo>() as i32;
-            let taskinfo_size = ::std::mem::size_of::<libc::proc_taskinfo>() as i32;
-            let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
+            let taskallinfo_size = mem::size_of::<libc::proc_taskallinfo>() as i32;
+            let taskinfo_size = mem::size_of::<libc::proc_taskinfo>() as i32;
+            let threadinfo_size = mem::size_of::<libc::proc_threadinfo>() as i32;
             let arg_max = get_arg_max();
 
             let entries: Vec<Process> = {
@@ -792,9 +794,9 @@ impl SystemExt for System {
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
-        let taskallinfo_size = ::std::mem::size_of::<libc::proc_taskallinfo>() as i32;
-        let taskinfo_size = ::std::mem::size_of::<libc::proc_taskinfo>() as i32;
-        let threadinfo_size = ::std::mem::size_of::<libc::proc_threadinfo>() as i32;
+        let taskallinfo_size = mem::size_of::<libc::proc_taskallinfo>() as i32;
+        let taskinfo_size = mem::size_of::<libc::proc_taskinfo>() as i32;
+        let threadinfo_size = mem::size_of::<libc::proc_threadinfo>() as i32;
 
         let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
         let arg_max = get_arg_max();
