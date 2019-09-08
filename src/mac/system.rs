@@ -226,7 +226,7 @@ fn get_disk_types() -> HashMap<OsString, DiskType> {
             let mut props = MaybeUninit::<ffi::CFMutableDictionaryRef>::uninit();
             let result = ffi::IORegistryEntryCreateCFProperties(next_media, props.as_mut_ptr(),
                                                                 ffi::kCFAllocatorDefault, 0);
-            let props = unsafe { props.assume_init() };
+            let props = props.assume_init();
             if result == ffi::KERN_SUCCESS as i32 && check_value(props, b"Whole\0") {
                 let mut name: ffi::io_name_t = mem::zeroed();
                 if ffi::IORegistryEntryGetName(next_media,
