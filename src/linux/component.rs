@@ -12,8 +12,9 @@ use std::fs::{File, read_dir};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-/// More information can be found at
-/// <http://lxr.free-electrons.com/source/Documentation/hwmon/sysfs-interface>
+/// More information can be found at [kernel.org][k].
+///
+/// k: https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface
 pub struct Component {
     temperature: f32,
     max: f32,
