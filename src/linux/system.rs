@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
@@ -566,9 +566,13 @@ fn get_all_disks() -> Vec<Disk> {
             //
             // In some other cases, it uses a device mapper to map physical block devices onto
             // higher-level virtual block devices (on `/dev/mapper`).
+            //
+            // Raspbian uses root and mmcblk for physical disks
             line.starts_with("/dev/sd") ||
             line.starts_with("/dev/nvme") ||
             line.starts_with("/dev/mapper/")
+            line.starts_with("/dev/root") ||
+            line.starts_with("/dev/mmcblk")
         });
     let mut ret = vec![];
 
