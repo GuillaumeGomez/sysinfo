@@ -570,7 +570,7 @@ fn get_all_disks() -> Vec<Disk> {
             // Raspbian uses root and mmcblk for physical disks
             line.starts_with("/dev/sd") ||
             line.starts_with("/dev/nvme") ||
-            line.starts_with("/dev/mapper/")
+            line.starts_with("/dev/mapper/") ||
             line.starts_with("/dev/root") ||
             line.starts_with("/dev/mmcblk")
         });
