@@ -4,7 +4,7 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use std::fmt::{self, Formatter, Debug};
+use std::fmt::{self, Debug, Formatter};
 use std::mem::{size_of, zeroed};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -15,20 +15,20 @@ use libc::{c_uint, c_void, memcpy};
 use Pid;
 use ProcessExt;
 
-use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH/*, TRUE, USHORT*/};
+use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH /*, TRUE, USHORT*/};
 use winapi::um::handleapi::CloseHandle;
-use winapi::um::winnt::{
-    HANDLE, ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
-    /*, PWSTR*/ PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ,
-};
 use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess, TerminateProcess};
 use winapi::um::psapi::{
-    GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
-    EnumProcessModulesEx, GetModuleBaseNameW, GetModuleFileNameExW, LIST_MODULES_ALL,
+    EnumProcessModulesEx, GetModuleBaseNameW, GetModuleFileNameExW, GetProcessMemoryInfo,
+    LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
 use winapi::um::tlhelp32::{
     CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
+};
+use winapi::um::winnt::{
+    HANDLE, /*, PWSTR*/ PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ,
+    ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
 };
 
 /// Enum describing the different status of a process.
@@ -121,20 +121,25 @@ impl ProcessExt for Process {
             let mut cb_needed = 0;
 
             unsafe {
-                if EnumProcessModulesEx(process_handler,
-                                        &mut h_mod,
-                                        ::std::mem::size_of::<DWORD>() as DWORD,
-                                        &mut cb_needed,
-                                        LIST_MODULES_ALL) != 0 {
-                    GetModuleBaseNameW(process_handler,
-                                       h_mod,
-                                       process_name.as_mut_ptr(),
-                                       MAX_PATH as DWORD + 1);
+                if EnumProcessModulesEx(
+                    process_handler,
+                    &mut h_mod,
+                    ::std::mem::size_of::<DWORD>() as DWORD,
+                    &mut cb_needed,
+                    LIST_MODULES_ALL,
+                ) != 0
+                {
+                    GetModuleBaseNameW(
+                        process_handler,
+                        h_mod,
+                        process_name.as_mut_ptr(),
+                        MAX_PATH as DWORD + 1,
+                    );
                 }
                 let mut pos = 0;
                 for x in process_name.iter() {
                     if *x == 0 {
-                        break
+                        break;
                     }
                     pos += 1;
                 }
@@ -142,15 +147,17 @@ impl ProcessExt for Process {
                 let environ = get_proc_env(process_handler, pid as u32, &name);
 
                 let mut exe_buf = [0u16; MAX_PATH + 1];
-                GetModuleFileNameExW(process_handler,
-                                     h_mod,
-                                     exe_buf.as_mut_ptr(),
-                                     MAX_PATH as DWORD + 1);
+                GetModuleFileNameExW(
+                    process_handler,
+                    h_mod,
+                    exe_buf.as_mut_ptr(),
+                    MAX_PATH as DWORD + 1,
+                );
 
                 pos = 0;
                 for x in exe_buf.iter() {
                     if *x == 0 {
-                        break
+                        break;
                     }
                     pos += 1;
                 }
@@ -266,7 +273,7 @@ impl Drop for Process {
     fn drop(&mut self) {
         unsafe {
             if self.handle.is_null() {
-                return
+                return;
             }
             CloseHandle(*self.handle);
         }
@@ -280,7 +287,7 @@ impl Debug for Process {
         writeln!(f, "name: {}", self.name);
         writeln!(f, "environment:");
         for var in self.environ.iter() {
-        if var.len() > 0 {
+            if var.len() > 0 {
                 writeln!(f, "\t{}", var);
             }
         }
@@ -301,11 +308,13 @@ unsafe fn get_start_time(handle: HANDLE) -> u64 {
     let mut fstart: FILETIME = zeroed();
     let mut x = zeroed();
 
-    GetProcessTimes(handle,
-                    &mut fstart as *mut FILETIME,
-                    &mut x as *mut FILETIME,
-                    &mut x as *mut FILETIME,
-                    &mut x as *mut FILETIME);
+    GetProcessTimes(
+        handle,
+        &mut fstart as *mut FILETIME,
+        &mut x as *mut FILETIME,
+        &mut x as *mut FILETIME,
+        &mut x as *mut FILETIME,
+    );
     let tmp = (fstart.dwHighDateTime as u64) << 32 | (fstart.dwLowDateTime as u64);
     tmp / 10_000_000 - 11_644_473_600
 }
@@ -443,25 +452,34 @@ pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
         let mut fuser: FILETIME = zeroed();
 
         GetSystemTimeAsFileTime(&mut ftime);
-        memcpy(&mut now as *mut ULARGE_INTEGER as *mut c_void,
-               &mut ftime as *mut FILETIME as *mut c_void,
-               size_of::<FILETIME>());
+        memcpy(
+            &mut now as *mut ULARGE_INTEGER as *mut c_void,
+            &mut ftime as *mut FILETIME as *mut c_void,
+            size_of::<FILETIME>(),
+        );
 
-        GetProcessTimes(*p.handle,
-                        &mut ftime as *mut FILETIME,
-                        &mut ftime as *mut FILETIME,
-                        &mut fsys as *mut FILETIME,
-                        &mut fuser as *mut FILETIME);
-        memcpy(&mut sys as *mut ULARGE_INTEGER as *mut c_void,
-               &mut fsys as *mut FILETIME as *mut c_void,
-               size_of::<FILETIME>());
-        memcpy(&mut user as *mut ULARGE_INTEGER as *mut c_void,
-               &mut fuser as *mut FILETIME as *mut c_void,
-               size_of::<FILETIME>());
-        p.cpu_usage = ((*sys.QuadPart() - p.old_sys_cpu) as f32 +
-            (*user.QuadPart() - p.old_user_cpu) as f32)
+        GetProcessTimes(
+            *p.handle,
+            &mut ftime as *mut FILETIME,
+            &mut ftime as *mut FILETIME,
+            &mut fsys as *mut FILETIME,
+            &mut fuser as *mut FILETIME,
+        );
+        memcpy(
+            &mut sys as *mut ULARGE_INTEGER as *mut c_void,
+            &mut fsys as *mut FILETIME as *mut c_void,
+            size_of::<FILETIME>(),
+        );
+        memcpy(
+            &mut user as *mut ULARGE_INTEGER as *mut c_void,
+            &mut fuser as *mut FILETIME as *mut c_void,
+            size_of::<FILETIME>(),
+        );
+        p.cpu_usage = ((*sys.QuadPart() - p.old_sys_cpu) as f32
+            + (*user.QuadPart() - p.old_user_cpu) as f32)
             / (*now.QuadPart() - p.old_cpu) as f32
-            / nb_processors as f32 * 100.;
+            / nb_processors as f32
+            * 100.;
         p.old_cpu = *now.QuadPart();
         p.old_user_cpu = *user.QuadPart();
         p.old_sys_cpu = *sys.QuadPart();
@@ -479,10 +497,14 @@ pub fn update_proc_info(p: &mut Process) {
 pub fn update_memory(p: &mut Process) {
     unsafe {
         let mut pmc: PROCESS_MEMORY_COUNTERS_EX = zeroed();
-        if GetProcessMemoryInfo(*p.handle,
-                                &mut pmc as *mut PROCESS_MEMORY_COUNTERS_EX as *mut c_void as *mut PROCESS_MEMORY_COUNTERS,
-                                size_of::<PROCESS_MEMORY_COUNTERS_EX>() as DWORD) != 0 {
-            p.memory = (pmc.WorkingSetSize as u64) >> 10u64;       // / 1024;
+        if GetProcessMemoryInfo(
+            *p.handle,
+            &mut pmc as *mut PROCESS_MEMORY_COUNTERS_EX as *mut c_void
+                as *mut PROCESS_MEMORY_COUNTERS,
+            size_of::<PROCESS_MEMORY_COUNTERS_EX>() as DWORD,
+        ) != 0
+        {
+            p.memory = (pmc.WorkingSetSize as u64) >> 10u64; // / 1024;
             p.virtual_memory = (pmc.PrivateUsage as u64) >> 10u64; // / 1024;
         }
     }

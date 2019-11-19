@@ -4,14 +4,14 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use sys::ffi;
 use sys::component::Component;
-use sys::network::{self, NetworkData};
-use sys::processor::*;
-use sys::process::*;
 use sys::disk::{self, Disk, DiskType};
+use sys::ffi;
+use sys::network::{self, NetworkData};
+use sys::process::*;
+use sys::processor::*;
 
-use ::{ComponentExt, DiskExt, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
+use {ComponentExt, DiskExt, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
 
 use std::borrow::Borrow;
 use std::cell::UnsafeCell;
@@ -20,12 +20,12 @@ use std::ffi::{OsStr, OsString};
 use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::os::unix::ffi::OsStringExt;
-use std::sync::Arc;
 use std::path::{Path, PathBuf};
-use sys::processor;
+use std::sync::Arc;
 use std::{fs, mem, ptr};
+use sys::processor;
 
-use libc::{self, c_void, c_int, size_t, c_char, sysconf, _SC_PAGESIZE};
+use libc::{self, c_char, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
 use utils;
 use Pid;
@@ -54,7 +54,9 @@ pub struct System {
 impl Drop for System {
     fn drop(&mut self) {
         if let Some(conn) = self.connection {
-            unsafe { ffi::IOServiceClose(conn); }
+            unsafe {
+                ffi::IOServiceClose(conn);
+            }
         }
     }
 }
@@ -68,8 +70,8 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
         ffi::IOMasterPort(ffi::MACH_PORT_NULL, &mut master_port);
 
         let matching_dictionary = ffi::IOServiceMatching(b"AppleSMC\0".as_ptr() as *const i8);
-        let result = ffi::IOServiceGetMatchingServices(master_port, matching_dictionary,
-                                                       &mut iterator);
+        let result =
+            ffi::IOServiceGetMatchingServices(master_port, matching_dictionary, &mut iterator);
         if result != ffi::KIO_RETURN_SUCCESS {
             //println!("Error: IOServiceGetMatchingServices() = {}", result);
             return None;
@@ -109,16 +111,32 @@ unsafe fn strtoul(s: *mut c_char, size: c_int, base: c_int) -> u32 {
 
 unsafe fn ultostr(s: *mut c_char, val: u32) {
     *s = 0;
-    libc::sprintf(s, b"%c%c%c%c\0".as_ptr() as *const i8, val >> 24, val >> 16, val >> 8, val);
+    libc::sprintf(
+        s,
+        b"%c%c%c%c\0".as_ptr() as *const i8,
+        val >> 24,
+        val >> 16,
+        val >> 8,
+        val,
+    );
 }
 
-unsafe fn perform_call(conn: ffi::io_connect_t, index: c_int, input_structure: *mut ffi::KeyData_t,
-                       output_structure: *mut ffi::KeyData_t) -> i32 {
+unsafe fn perform_call(
+    conn: ffi::io_connect_t,
+    index: c_int,
+    input_structure: *mut ffi::KeyData_t,
+    output_structure: *mut ffi::KeyData_t,
+) -> i32 {
     let mut structure_output_size = mem::size_of::<ffi::KeyData_t>();
 
-    ffi::IOConnectCallStructMethod(conn, index as u32,
-                                   input_structure, mem::size_of::<ffi::KeyData_t>(),
-                                   output_structure, &mut structure_output_size)
+    ffi::IOConnectCallStructMethod(
+        conn,
+        index as u32,
+        input_structure,
+        mem::size_of::<ffi::KeyData_t>(),
+        output_structure,
+        &mut structure_output_size,
+    )
 }
 
 unsafe fn read_key(con: ffi::io_connect_t, key: *mut c_char) -> Result<ffi::Val_t, i32> {
@@ -129,33 +147,47 @@ unsafe fn read_key(con: ffi::io_connect_t, key: *mut c_char) -> Result<ffi::Val_
     input_structure.key = strtoul(key, 4, 16);
     input_structure.data8 = ffi::SMC_CMD_READ_KEYINFO;
 
-    let result = perform_call(con, ffi::KERNEL_INDEX_SMC, &mut input_structure,
-                              &mut output_structure);
+    let result = perform_call(
+        con,
+        ffi::KERNEL_INDEX_SMC,
+        &mut input_structure,
+        &mut output_structure,
+    );
     if result != ffi::KIO_RETURN_SUCCESS {
         return Err(result);
     }
 
     val.data_size = output_structure.key_info.data_size;
-    ultostr(val.data_type.as_mut_ptr(), output_structure.key_info.data_type);
+    ultostr(
+        val.data_type.as_mut_ptr(),
+        output_structure.key_info.data_type,
+    );
     input_structure.key_info.data_size = val.data_size;
     input_structure.data8 = ffi::SMC_CMD_READ_BYTES;
 
-    let result = perform_call(con, ffi::KERNEL_INDEX_SMC, &mut input_structure,
-                              &mut output_structure);
+    let result = perform_call(
+        con,
+        ffi::KERNEL_INDEX_SMC,
+        &mut input_structure,
+        &mut output_structure,
+    );
     if result != ffi::KIO_RETURN_SUCCESS {
         Err(result)
     } else {
-        libc::memcpy(val.bytes.as_mut_ptr() as *mut c_void,
-                     output_structure.bytes.as_mut_ptr() as *mut c_void,
-                     mem::size_of::<[u8; 32]>());
+        libc::memcpy(
+            val.bytes.as_mut_ptr() as *mut c_void,
+            output_structure.bytes.as_mut_ptr() as *mut c_void,
+            mem::size_of::<[u8; 32]>(),
+        );
         Ok(val)
     }
 }
 
 unsafe fn get_temperature(con: ffi::io_connect_t, key: *mut c_char) -> f32 {
     if let Ok(val) = read_key(con, key) {
-        if val.data_size > 0 &&
-           libc::strcmp(val.data_type.as_ptr(), b"sp78\0".as_ptr() as *const i8) == 0 {
+        if val.data_size > 0
+            && libc::strcmp(val.data_type.as_ptr(), b"sp78\0".as_ptr() as *const i8) == 0
+        {
             // convert fp78 value to temperature
             let x = (i32::from(val.bytes[0]) << 6) + (i32::from(val.bytes[1]) >> 2);
             return x as f32 / 64f32;
@@ -176,19 +208,22 @@ macro_rules! unwrapper {
     ($b:expr, $ret:expr) => {{
         match $b {
             Ok(x) => x,
-            _ => return $ret, 
+            _ => return $ret,
         }
-    }}
+    }};
 }
 
 unsafe fn check_value(dict: ffi::CFMutableDictionaryRef, key: &[u8]) -> bool {
-    let key = ffi::CFStringCreateWithCStringNoCopy(ptr::null_mut(), key.as_ptr() as *const c_char,
-                                                   ffi::kCFStringEncodingMacRoman,
-                                                   ffi::kCFAllocatorNull as *mut c_void);
-    let ret = ffi::CFDictionaryContainsKey(dict as ffi::CFDictionaryRef,
-                                           key as *const c_void) != 0 &&
-    *(ffi::CFDictionaryGetValue(dict as ffi::CFDictionaryRef,
-                                key as *const c_void) as *const ffi::Boolean) != 0;
+    let key = ffi::CFStringCreateWithCStringNoCopy(
+        ptr::null_mut(),
+        key.as_ptr() as *const c_char,
+        ffi::kCFStringEncodingMacRoman,
+        ffi::kCFAllocatorNull as *mut c_void,
+    );
+    let ret = ffi::CFDictionaryContainsKey(dict as ffi::CFDictionaryRef, key as *const c_void) != 0
+        && *(ffi::CFDictionaryGetValue(dict as ffi::CFDictionaryRef, key as *const c_void)
+            as *const ffi::Boolean)
+            != 0;
     ffi::CFRelease(key as *const c_void);
     ret
 }
@@ -196,7 +231,7 @@ unsafe fn check_value(dict: ffi::CFMutableDictionaryRef, key: &[u8]) -> bool {
 fn make_name(v: &[u8]) -> OsString {
     for (pos, x) in v.iter().enumerate() {
         if *x == 0 {
-            return OsStringExt::from_vec(v[0..pos].to_vec())
+            return OsStringExt::from_vec(v[0..pos].to_vec());
         }
     }
     OsStringExt::from_vec(v.to_vec())
@@ -211,8 +246,11 @@ fn get_disk_types() -> HashMap<OsString, DiskType> {
         ffi::IOMasterPort(ffi::MACH_PORT_NULL, &mut master_port);
 
         let matching_dictionary = ffi::IOServiceMatching(b"IOMedia\0".as_ptr() as *const i8);
-        let result = ffi::IOServiceGetMatchingServices(master_port, matching_dictionary,
-                                                       &mut media_iterator);
+        let result = ffi::IOServiceGetMatchingServices(
+            master_port,
+            matching_dictionary,
+            &mut media_iterator,
+        );
         if result != ffi::KERN_SUCCESS as i32 {
             //println!("Error: IOServiceGetMatchingServices() = {}", result);
             return ret;
@@ -224,20 +262,26 @@ fn get_disk_types() -> HashMap<OsString, DiskType> {
                 break;
             }
             let mut props = MaybeUninit::<ffi::CFMutableDictionaryRef>::uninit();
-            let result = ffi::IORegistryEntryCreateCFProperties(next_media, props.as_mut_ptr(),
-                                                                ffi::kCFAllocatorDefault, 0);
+            let result = ffi::IORegistryEntryCreateCFProperties(
+                next_media,
+                props.as_mut_ptr(),
+                ffi::kCFAllocatorDefault,
+                0,
+            );
             let props = props.assume_init();
             if result == ffi::KERN_SUCCESS as i32 && check_value(props, b"Whole\0") {
                 let mut name: ffi::io_name_t = mem::zeroed();
-                if ffi::IORegistryEntryGetName(next_media,
-                                               name.as_mut_ptr() as *mut c_char)
-                    == ffi::KERN_SUCCESS as i32 {
-                    ret.insert(make_name(&name),
-                               if check_value(props, b"RAID\0") {
-                                   DiskType::Unknown(-1)
-                               } else {
-                                   DiskType::SSD
-                               });
+                if ffi::IORegistryEntryGetName(next_media, name.as_mut_ptr() as *mut c_char)
+                    == ffi::KERN_SUCCESS as i32
+                {
+                    ret.insert(
+                        make_name(&name),
+                        if check_value(props, b"RAID\0") {
+                            DiskType::Unknown(-1)
+                        } else {
+                            DiskType::SSD
+                        },
+                    );
                 }
                 ffi::CFRelease(props as *mut _);
             }
@@ -258,11 +302,15 @@ fn get_disks() -> Vec<Disk> {
                 if mount_point.as_os_str().is_empty() {
                     None
                 } else {
-                    let name = entry.path()
-                                    .file_name()
-                                    .unwrap_or_else(|| OsStr::new(""))
-                                    .to_owned();
-                    let type_ = disk_types.get(&name).cloned().unwrap_or(DiskType::Unknown(-2));
+                    let name = entry
+                        .path()
+                        .file_name()
+                        .unwrap_or_else(|| OsStr::new(""))
+                        .to_owned();
+                    let type_ = disk_types
+                        .get(&name)
+                        .cloned()
+                        .unwrap_or(DiskType::Unknown(-2));
                     Some(disk::new(name, &mount_point, type_))
                 }
             } else {
@@ -277,12 +325,15 @@ fn get_uptime() -> u64 {
     let mut len = mem::size_of::<libc::timeval>();
     let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
     unsafe {
-        if libc::sysctl(mib.as_mut_ptr(),
-
-                           2,
-                           &mut boottime as *mut libc::timeval as *mut _,
-                           &mut len,
-                           ::std::ptr::null_mut(), 0) < 0 {
+        if libc::sysctl(
+            mib.as_mut_ptr(),
+            2,
+            &mut boottime as *mut libc::timeval as *mut _,
+            &mut len,
+            ::std::ptr::null_mut(),
+            0,
+        ) < 0
+        {
             return 0;
         }
     }
@@ -298,11 +349,7 @@ fn parse_command_line<T: Deref<Target = str> + Borrow<str>>(cmd: &[T]) -> Vec<St
     while x < cmd.len() {
         let mut y = x;
         if cmd[y].starts_with('\'') || cmd[y].starts_with('"') {
-            let c = if cmd[y].starts_with('\'') {
-                '\''
-            } else {
-                '"'
-            };
+            let c = if cmd[y].starts_with('\'') { '\'' } else { '"' };
             while y < cmd.len() && !cmd[y].ends_with(c) {
                 y += 1;
             }
@@ -321,59 +368,78 @@ struct Wrap<'a>(UnsafeCell<&'a mut HashMap<Pid, Process>>);
 unsafe impl<'a> Send for Wrap<'a> {}
 unsafe impl<'a> Sync for Wrap<'a> {}
 
-fn update_process(wrap: &Wrap, pid: Pid,
-                  taskallinfo_size: i32, taskinfo_size: i32, threadinfo_size: i32,
-                  mib: &mut [c_int], mut size: size_t) -> Result<Option<Process>, ()> {
+fn update_process(
+    wrap: &Wrap,
+    pid: Pid,
+    taskallinfo_size: i32,
+    taskinfo_size: i32,
+    threadinfo_size: i32,
+    mib: &mut [c_int],
+    mut size: size_t,
+) -> Result<Option<Process>, ()> {
     let mut proc_args = Vec::with_capacity(size as usize);
     unsafe {
         let mut thread_info = mem::zeroed::<libc::proc_threadinfo>();
-        let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(pid,
-                             libc::PROC_PIDTHREADINFO,
-                             0,
-                             &mut thread_info as *mut libc::proc_threadinfo as *mut c_void,
-                             threadinfo_size) != 0 {
-            (thread_info.pth_user_time,
-             thread_info.pth_system_time,
-             Some(ThreadStatus::from(thread_info.pth_run_state)))
+        let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTHREADINFO,
+            0,
+            &mut thread_info as *mut libc::proc_threadinfo as *mut c_void,
+            threadinfo_size,
+        ) != 0
+        {
+            (
+                thread_info.pth_user_time,
+                thread_info.pth_system_time,
+                Some(ThreadStatus::from(thread_info.pth_run_state)),
+            )
         } else {
             (0, 0, None)
         };
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
-            if p.memory == 0 { // We don't have access to this process' information.
+            if p.memory == 0 {
+                // We don't have access to this process' information.
                 force_update(p);
                 return Ok(None);
             }
             p.status = thread_status;
             let mut task_info = mem::zeroed::<libc::proc_taskinfo>();
-            if ffi::proc_pidinfo(pid,
-                                 libc::PROC_PIDTASKINFO,
-                                 0,
-                                 &mut task_info as *mut libc::proc_taskinfo as *mut c_void,
-                                 taskinfo_size) != taskinfo_size {
+            if ffi::proc_pidinfo(
+                pid,
+                libc::PROC_PIDTASKINFO,
+                0,
+                &mut task_info as *mut libc::proc_taskinfo as *mut c_void,
+                taskinfo_size,
+            ) != taskinfo_size
+            {
                 return Err(());
             }
-            let task_time = user_time + system_time
-                + task_info.pti_total_user + task_info.pti_total_system;
+            let task_time =
+                user_time + system_time + task_info.pti_total_user + task_info.pti_total_system;
             let time = ffi::mach_absolute_time();
             compute_cpu_usage(p, time, task_time);
 
-            p.memory = task_info.pti_resident_size >> 10;        // divide by 1024
+            p.memory = task_info.pti_resident_size >> 10; // divide by 1024
             p.virtual_memory = task_info.pti_virtual_size >> 10; // divide by 1024
             return Ok(None);
         }
 
         let mut task_info = mem::zeroed::<libc::proc_taskallinfo>();
-        if ffi::proc_pidinfo(pid,
-                             libc::PROC_PIDTASKALLINFO,
-                             0,
-                             &mut task_info as *mut libc::proc_taskallinfo as *mut c_void,
-                             taskallinfo_size as i32) != taskallinfo_size as i32 {
+        if ffi::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTASKALLINFO,
+            0,
+            &mut task_info as *mut libc::proc_taskallinfo as *mut c_void,
+            taskallinfo_size as i32,
+        ) != taskallinfo_size as i32
+        {
             match Command::new("/bin/ps") // not very nice, might be worth running a which first.
-                          .arg("wwwe")
-                          .arg("-o")
-                          .arg("ppid=,command=")
-                          .arg(pid.to_string().as_str())
-                          .output() {
+                .arg("wwwe")
+                .arg("-o")
+                .arg("ppid=,command=")
+                .arg(pid.to_string().as_str())
+                .output()
+            {
                 Ok(o) => {
                     let o = String::from_utf8(o.stdout).unwrap_or_else(|_| String::new());
                     let o = o.split(' ').filter(|c| !c.is_empty()).collect::<Vec<_>>();
@@ -405,13 +471,11 @@ fn update_process(wrap: &Wrap, pid: Pid,
 
         let parent = match task_info.pbsd.pbi_ppid as Pid {
             0 => None,
-            p => Some(p)
+            p => Some(p),
         };
 
-        let mut p = Process::new(pid,
-                                 parent,
-                                 task_info.pbsd.pbi_start_tvsec);
-        p.memory = task_info.ptinfo.pti_resident_size >> 10;        // divide by 1024
+        let mut p = Process::new(pid, parent, task_info.pbsd.pbi_start_tvsec);
+        p.memory = task_info.ptinfo.pti_resident_size >> 10; // divide by 1024
         p.virtual_memory = task_info.ptinfo.pti_virtual_size >> 10; // divide by 1024
 
         p.uid = task_info.pbsd.pbi_uid;
@@ -423,40 +487,50 @@ fn update_process(wrap: &Wrap, pid: Pid,
         mib[1] = libc::KERN_PROCARGS2;
         mib[2] = pid as c_int;
         /*
-        * /---------------\ 0x00000000
-        * | ::::::::::::: |
-        * |---------------| <-- Beginning of data returned by sysctl() is here.
-        * | argc          |
-        * |---------------|
-        * | exec_path     |
-        * |---------------|
-        * | 0             |
-        * |---------------|
-        * | arg[0]        |
-        * |---------------|
-        * | 0             |
-        * |---------------|
-        * | arg[n]        |
-        * |---------------|
-        * | 0             |
-        * |---------------|
-        * | env[0]        |
-        * |---------------|
-        * | 0             |
-        * |---------------|
-        * | env[n]        |
-        * |---------------|
-        * | ::::::::::::: |
-        * |---------------| <-- Top of stack.
-        * :               :
-        * :               :
-        * \---------------/ 0xffffffff
-        */
-        if libc::sysctl(mib.as_mut_ptr(), 3, ptr as *mut c_void,
-                        &mut size, ::std::ptr::null_mut(), 0) != -1 {
+         * /---------------\ 0x00000000
+         * | ::::::::::::: |
+         * |---------------| <-- Beginning of data returned by sysctl() is here.
+         * | argc          |
+         * |---------------|
+         * | exec_path     |
+         * |---------------|
+         * | 0             |
+         * |---------------|
+         * | arg[0]        |
+         * |---------------|
+         * | 0             |
+         * |---------------|
+         * | arg[n]        |
+         * |---------------|
+         * | 0             |
+         * |---------------|
+         * | env[0]        |
+         * |---------------|
+         * | 0             |
+         * |---------------|
+         * | env[n]        |
+         * |---------------|
+         * | ::::::::::::: |
+         * |---------------| <-- Top of stack.
+         * :               :
+         * :               :
+         * \---------------/ 0xffffffff
+         */
+        if libc::sysctl(
+            mib.as_mut_ptr(),
+            3,
+            ptr as *mut c_void,
+            &mut size,
+            ::std::ptr::null_mut(),
+            0,
+        ) != -1
+        {
             let mut n_args: c_int = 0;
-            libc::memcpy((&mut n_args) as *mut c_int as *mut c_void, ptr as *const c_void,
-                         mem::size_of::<c_int>());
+            libc::memcpy(
+                (&mut n_args) as *mut c_int as *mut c_void,
+                ptr as *const c_void,
+                mem::size_of::<c_int>(),
+            );
             let mut cp = ptr.add(mem::size_of::<c_int>());
             let mut start = cp;
             if cp < ptr.add(size) {
@@ -464,11 +538,13 @@ fn update_process(wrap: &Wrap, pid: Pid,
                     cp = cp.offset(1);
                 }
                 p.exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
-                p.name = p.exe.file_name()
-                              .unwrap_or_else(|| OsStr::new(""))
-                              .to_str()
-                              .unwrap_or_else(|| "")
-                              .to_owned();
+                p.name = p
+                    .exe
+                    .file_name()
+                    .unwrap_or_else(|| OsStr::new(""))
+                    .to_str()
+                    .unwrap_or_else(|| "")
+                    .to_owned();
                 let mut need_root = true;
                 if p.exe.is_absolute() {
                     if let Some(parent) = p.exe.parent() {
@@ -506,7 +582,7 @@ fn update_process(wrap: &Wrap, pid: Pid,
                     for env in p.environ.iter() {
                         if env.starts_with("PATH=") {
                             p.root = Path::new(&env[6..]).to_path_buf();
-                            break
+                            break;
                         }
                     }
                 }
@@ -524,14 +600,18 @@ fn get_proc_list() -> Option<Vec<Pid>> {
         return None;
     }
     let mut pids: Vec<Pid> = Vec::with_capacity(count as usize);
-    unsafe { pids.set_len(count as usize); }
+    unsafe {
+        pids.set_len(count as usize);
+    }
     let count = count * mem::size_of::<Pid>() as i32;
     let x = unsafe { ffi::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
 
-     if x < 1 || x as usize >= pids.len() {
+    if x < 1 || x as usize >= pids.len() {
         None
     } else {
-        unsafe { pids.set_len(x as usize); }
+        unsafe {
+            pids.set_len(x as usize);
+        }
         Some(pids)
     }
 }
@@ -541,8 +621,15 @@ fn get_arg_max() -> usize {
     let mut arg_max = 0i32;
     let mut size = mem::size_of::<c_int>();
     unsafe {
-        if libc::sysctl(mib.as_mut_ptr(), 2, (&mut arg_max) as *mut i32 as *mut c_void,
-                        &mut size, ::std::ptr::null_mut(), 0) == -1 {
+        if libc::sysctl(
+            mib.as_mut_ptr(),
+            2,
+            (&mut arg_max) as *mut i32 as *mut c_void,
+            &mut size,
+            ::std::ptr::null_mut(),
+            0,
+        ) == -1
+        {
             4096 // We default to this value
         } else {
             arg_max as usize
@@ -588,12 +675,23 @@ impl SystemExt for System {
 
     fn refresh_system(&mut self) {
         self.uptime = get_uptime();
-        unsafe fn get_sys_value(high: u32, low: u32, mut len: usize, value: *mut c_void,
-                                mib: &mut [i32; 2]) -> bool {
+        unsafe fn get_sys_value(
+            high: u32,
+            low: u32,
+            mut len: usize,
+            value: *mut c_void,
+            mib: &mut [i32; 2],
+        ) -> bool {
             mib[0] = high as i32;
             mib[1] = low as i32;
-            libc::sysctl(mib.as_mut_ptr(), 2, value, &mut len as *mut usize,
-                         ::std::ptr::null_mut(), 0) == 0
+            libc::sysctl(
+                mib.as_mut_ptr(),
+                2,
+                value,
+                &mut len as *mut usize,
+                ::std::ptr::null_mut(),
+                0,
+            ) == 0
         }
 
         let mut mib = [0, 0];
@@ -601,23 +699,36 @@ impl SystemExt for System {
             // get system values
             // get swap info
             let mut xs: ffi::xsw_usage = mem::zeroed::<ffi::xsw_usage>();
-            if get_sys_value(ffi::CTL_VM, ffi::VM_SWAPUSAGE,
-                             mem::size_of::<ffi::xsw_usage>(),
-                             &mut xs as *mut ffi::xsw_usage as *mut c_void, &mut mib) {
+            if get_sys_value(
+                ffi::CTL_VM,
+                ffi::VM_SWAPUSAGE,
+                mem::size_of::<ffi::xsw_usage>(),
+                &mut xs as *mut ffi::xsw_usage as *mut c_void,
+                &mut mib,
+            ) {
                 self.swap_total = xs.xsu_total >> 10; // divide by 1024
                 self.swap_free = xs.xsu_avail >> 10; // divide by 1024
             }
             // get ram info
             if self.mem_total < 1 {
-                get_sys_value(ffi::CTL_HW, ffi::HW_MEMSIZE, mem::size_of::<u64>(),
-                              &mut self.mem_total as *mut u64 as *mut c_void, &mut mib);
+                get_sys_value(
+                    ffi::CTL_HW,
+                    ffi::HW_MEMSIZE,
+                    mem::size_of::<u64>(),
+                    &mut self.mem_total as *mut u64 as *mut c_void,
+                    &mut mib,
+                );
                 self.mem_total >>= 10; // divide by 1024
             }
             let count: u32 = ffi::HOST_VM_INFO64_COUNT;
             let mut stat = mem::zeroed::<ffi::vm_statistics64>();
-            if ffi::host_statistics64(self.port, ffi::HOST_VM_INFO64,
-                                      &mut stat as *mut ffi::vm_statistics64 as *mut c_void,
-                                      &count) == ffi::KERN_SUCCESS {
+            if ffi::host_statistics64(
+                self.port,
+                ffi::HOST_VM_INFO64,
+                &mut stat as *mut ffi::vm_statistics64 as *mut c_void,
+                &count,
+            ) == ffi::KERN_SUCCESS
+            {
                 // From the apple documentation:
                 //
                 // /*
@@ -627,38 +738,42 @@ impl SystemExt for System {
                 //  * haven't actually been used by anyone so far.
                 //  */
                 // self.mem_free = u64::from(stat.free_count) * self.page_size_kb;
-                self.mem_free = self.mem_total - (u64::from(stat.active_count)
-                                 + u64::from(stat.inactive_count) + u64::from(stat.wire_count)
-                                 + u64::from(stat.speculative_count)
-                                 - u64::from(stat.purgeable_count))
-                                * self.page_size_kb;
+                self.mem_free = self.mem_total
+                    - (u64::from(stat.active_count)
+                        + u64::from(stat.inactive_count)
+                        + u64::from(stat.wire_count)
+                        + u64::from(stat.speculative_count)
+                        - u64::from(stat.purgeable_count))
+                        * self.page_size_kb;
             }
 
             if let Some(con) = self.connection {
                 if self.temperatures.is_empty() {
                     // getting CPU critical temperature
-                    let mut v = vec!('T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0);
+                    let mut v = vec!['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0];
                     let tmp = get_temperature(con, v.as_mut_ptr());
-                    let critical_temp = if tmp > 0f32 {
-                        Some(tmp)
-                    } else {
-                        None
-                    };
+                    let critical_temp = if tmp > 0f32 { Some(tmp) } else { None };
                     // getting CPU temperature
                     // "TC0P"
                     v[3] = 'P' as i8;
                     let temp = get_temperature(con, v.as_mut_ptr() as *mut i8);
                     if temp > 0f32 {
-                        self.temperatures.push(Component::new("CPU".to_owned(),
-                                                              None, critical_temp));
+                        self.temperatures.push(Component::new(
+                            "CPU".to_owned(),
+                            None,
+                            critical_temp,
+                        ));
                     }
                     // getting GPU temperature
                     // "TG0P"
                     v[1] = 'G' as i8;
                     let temp = get_temperature(con, v.as_mut_ptr() as *mut i8);
                     if temp > 0f32 {
-                        self.temperatures.push(Component::new("GPU".to_owned(),
-                                                              None, critical_temp));
+                        self.temperatures.push(Component::new(
+                            "GPU".to_owned(),
+                            None,
+                            critical_temp,
+                        ));
                     }
                     // getting battery temperature
                     // "TB0T"
@@ -666,11 +781,14 @@ impl SystemExt for System {
                     v[3] = 'T' as i8;
                     let temp = get_temperature(con, v.as_mut_ptr() as *mut i8);
                     if temp > 0f32 {
-                        self.temperatures.push(Component::new("Battery".to_owned(),
-                                                              None, critical_temp));
+                        self.temperatures.push(Component::new(
+                            "Battery".to_owned(),
+                            None,
+                            critical_temp,
+                        ));
                     }
                 } else {
-                    let mut v = vec!('T' as i8, 'C' as i8, '0' as i8, 'P' as i8, 0);
+                    let mut v = vec!['T' as i8, 'C' as i8, '0' as i8, 'P' as i8, 0];
                     for comp in &mut self.temperatures {
                         match &*comp.get_label() {
                             "CPU" => {
@@ -700,54 +818,84 @@ impl SystemExt for System {
             if self.processors.is_empty() {
                 let mut num_cpu = 0;
 
-                if !get_sys_value(ffi::CTL_HW, ffi::HW_NCPU, mem::size_of::<u32>(),
-                                  &mut num_cpu as *mut usize as *mut c_void, &mut mib) {
+                if !get_sys_value(
+                    ffi::CTL_HW,
+                    ffi::HW_NCPU,
+                    mem::size_of::<u32>(),
+                    &mut num_cpu as *mut usize as *mut c_void,
+                    &mut mib,
+                ) {
                     num_cpu = 1;
                 }
 
-                self.processors.push(
-                    processor::create_proc("0".to_owned(),
-                                           Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0))));
-                if ffi::host_processor_info(self.port, ffi::PROCESSOR_CPU_LOAD_INFO,
-                                       &mut num_cpu_u as *mut u32,
-                                       &mut cpu_info as *mut *mut i32,
-                                       &mut num_cpu_info as *mut u32) == ffi::KERN_SUCCESS {
+                self.processors.push(processor::create_proc(
+                    "0".to_owned(),
+                    Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0)),
+                ));
+                if ffi::host_processor_info(
+                    self.port,
+                    ffi::PROCESSOR_CPU_LOAD_INFO,
+                    &mut num_cpu_u as *mut u32,
+                    &mut cpu_info as *mut *mut i32,
+                    &mut num_cpu_info as *mut u32,
+                ) == ffi::KERN_SUCCESS
+                {
                     let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
                     for i in 0..num_cpu {
-                        let mut p = processor::create_proc(format!("{}", i + 1), Arc::clone(&proc_data));
-                        let in_use = *cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize)
-                            + *cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_SYSTEM as isize)
-                            + *cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_NICE as isize);
-                        let total = in_use + *cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize);
+                        let mut p =
+                            processor::create_proc(format!("{}", i + 1), Arc::clone(&proc_data));
+                        let in_use = *cpu_info.offset(
+                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize,
+                        ) + *cpu_info.offset(
+                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_SYSTEM as isize,
+                        ) + *cpu_info.offset(
+                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_NICE as isize,
+                        );
+                        let total = in_use
+                            + *cpu_info.offset(
+                                (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
+                            );
                         processor::set_cpu_proc(&mut p, in_use as f32 / total as f32);
                         self.processors.push(p);
                     }
                 }
-            } else if ffi::host_processor_info(self.port, ffi::PROCESSOR_CPU_LOAD_INFO,
-                                               &mut num_cpu_u as *mut u32,
-                                               &mut cpu_info as *mut *mut i32,
-                                               &mut num_cpu_info as *mut u32) == ffi::KERN_SUCCESS {
+            } else if ffi::host_processor_info(
+                self.port,
+                ffi::PROCESSOR_CPU_LOAD_INFO,
+                &mut num_cpu_u as *mut u32,
+                &mut cpu_info as *mut *mut i32,
+                &mut num_cpu_info as *mut u32,
+            ) == ffi::KERN_SUCCESS
+            {
                 let mut pourcent = 0f32;
                 let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
                 for (i, proc_) in self.processors.iter_mut().skip(1).enumerate() {
                     let old_proc_data = &*processor::get_processor_data(proc_);
-                    let in_use = (*cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
-                            + ffi::CPU_STATE_USER as isize)
-                            - *old_proc_data.cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
-                            + ffi::CPU_STATE_USER as isize))
-                        + (*cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
-                            + ffi::CPU_STATE_SYSTEM as isize)
-                            - *old_proc_data.cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
-                            + ffi::CPU_STATE_SYSTEM as isize))
-                        + (*cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
-                            + ffi::CPU_STATE_NICE as isize)
-                            - *old_proc_data.cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
-                            + ffi::CPU_STATE_NICE as isize));
-                    let total = in_use + (*cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
-                            + ffi::CPU_STATE_IDLE as isize)
-                        - *old_proc_data.cpu_info.offset((ffi::CPU_STATE_MAX * i) as isize
-                            + ffi::CPU_STATE_IDLE as isize));
-                    processor::update_proc(proc_, in_use as f32 / total as f32, Arc::clone(&proc_data));
+                    let in_use =
+                        (*cpu_info.offset(
+                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize,
+                        ) - *old_proc_data.cpu_info.offset(
+                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize,
+                        )) + (*cpu_info.offset(
+                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_SYSTEM as isize,
+                        ) - *old_proc_data.cpu_info.offset(
+                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_SYSTEM as isize,
+                        )) + (*cpu_info.offset(
+                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_NICE as isize,
+                        ) - *old_proc_data.cpu_info.offset(
+                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_NICE as isize,
+                        ));
+                    let total = in_use
+                        + (*cpu_info.offset(
+                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
+                        ) - *old_proc_data.cpu_info.offset(
+                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
+                        ));
+                    processor::update_proc(
+                        proc_,
+                        in_use as f32 / total as f32,
+                        Arc::clone(&proc_data),
+                    );
                     pourcent += proc_.get_cpu_usage();
                 }
                 if self.processors.len() > 1 {
@@ -767,7 +915,7 @@ impl SystemExt for System {
     fn refresh_processes(&mut self) {
         let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
         if count < 1 {
-            return
+            return;
         }
         if let Some(pids) = get_proc_list() {
             let taskallinfo_size = mem::size_of::<libc::proc_taskallinfo>() as i32;
@@ -780,8 +928,15 @@ impl SystemExt for System {
                 pids.par_iter()
                     .flat_map(|pid| {
                         let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
-                        match update_process(wrap, *pid, taskallinfo_size, taskinfo_size,
-                                             threadinfo_size, &mut mib, arg_max as size_t) {
+                        match update_process(
+                            wrap,
+                            *pid,
+                            taskallinfo_size,
+                            taskinfo_size,
+                            threadinfo_size,
+                            &mut mib,
+                            arg_max as size_t,
+                        ) {
                             Ok(x) => x,
                             Err(_) => None,
                         }
@@ -804,8 +959,15 @@ impl SystemExt for System {
         let arg_max = get_arg_max();
         match {
             let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
-            update_process(&wrap, pid, taskallinfo_size, taskinfo_size,
-                           threadinfo_size, &mut mib, arg_max as size_t)
+            update_process(
+                &wrap,
+                pid,
+                taskallinfo_size,
+                taskinfo_size,
+                threadinfo_size,
+                &mut mib,
+                arg_max as size_t,
+            )
         } {
             Ok(Some(p)) => {
                 self.process_list.insert(p.pid(), p);
