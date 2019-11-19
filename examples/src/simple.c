@@ -13,11 +13,16 @@
 
 void print_process(CProcess process) {
     RString exe = sysinfo_process_get_executable_path(process);
-    printf("process[%d]: parent: %d, cpu_usage: %f, memory: %ld, executable path: '%s'\n",
+    printf("process[%d]: parent: %d,\n"
+           "             cpu_usage: %f,\n"
+           "             memory: %ld,\n"
+           "             virtual memory: %ld,\n"
+           "             executable path: '%s'\n",
            sysinfo_process_get_pid(process),
            sysinfo_process_get_parent_pid(process),
            sysinfo_process_get_cpu_usage(process),
            sysinfo_process_get_memory(process),
+           sysinfo_process_get_virtual_memory(process),
            exe);
     sysinfo_rstring_free(exe);
 }
