@@ -108,6 +108,7 @@ pub struct Process {
     pub(crate) cwd: PathBuf,
     pub(crate) root: PathBuf,
     pub(crate) memory: u64,
+    pub(crate) virtual_memory: u64,
     utime: u64,
     stime: u64,
     old_utime: u64,
@@ -136,6 +137,7 @@ impl ProcessExt for Process {
             cwd: PathBuf::new(),
             root: PathBuf::new(),
             memory: 0,
+            virtual_memory: 0,
             cpu_usage: 0.,
             utime: 0,
             stime: 0,
@@ -186,6 +188,10 @@ impl ProcessExt for Process {
         self.memory
     }
 
+    fn virtual_memory(&self) -> u64 {
+        self.virtual_memory
+    }
+
     fn parent(&self) -> Option<Pid> {
         self.parent
     }
@@ -225,6 +231,7 @@ impl Debug for Process {
         writeln!(f, "current working directory: {:?}", self.cwd);
         writeln!(f, "owner/group: {}:{}", self.uid, self.gid);
         writeln!(f, "memory usage: {} kB", self.memory);
+        writeln!(f, "virtual memory usage: {} kB", self.virtual_memory);
         writeln!(f, "cpu usage: {}%", self.cpu_usage);
         writeln!(f, "status: {}", self.status);
         write!(f, "root path: {:?}", self.root)

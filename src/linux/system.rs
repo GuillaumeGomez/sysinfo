@@ -374,15 +374,21 @@ fn update_time_and_memory(
     parts: &[&str],
     page_size_kb: u64,
     parent_memory: u64,
+    parent_virtual_memory: u64,
     pid: Pid,
     uptime: u64,
     now: u64,
 ) {
-    // we get the rss
     {
+        // rss
         entry.memory = u64::from_str(parts[23]).unwrap_or(0) * page_size_kb;
         if entry.memory >= parent_memory {
             entry.memory -= parent_memory;
+        }
+        // vsz
+        entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0) * page_size_kb;
+        if entry.virtual_memory >= parent_virtual_memory {
+            entry.virtual_memory -= parent_virtual_memory;
         }
         set_time(entry,
                  u64::from_str(parts[13]).unwrap_or(0),
@@ -436,9 +442,10 @@ fn _get_process_data(
             parts.push(unwrap_or_return!(data_it.next()));
             parts.extend(data.split_whitespace());
             let parent_memory = proc_list.memory;
+            let parent_virtual_memory = proc_list.virtual_memory;
             if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
-                update_time_and_memory(path, entry, &parts, page_size_kb, parent_memory, nb, uptime,
-                                       now);
+                update_time_and_memory(path, entry, &parts, page_size_kb, parent_memory, parent_virtual_memory,
+                                       nb, uptime, now);
                 return Ok(None);
             }
 
@@ -527,8 +534,8 @@ fn _get_process_data(
                 p.root = realpath(&tmp);
             }
 
-            update_time_and_memory(path, &mut p, &parts, page_size_kb, proc_list.memory, nb, uptime,
-                                   now);
+            update_time_and_memory(path, &mut p, &parts, page_size_kb, proc_list.memory, proc_list.virtual_memory,
+                                   nb, uptime, now);
             return Ok(Some(p));
         }
     }

@@ -97,6 +97,7 @@ pub struct Process {
     cwd: PathBuf,
     root: PathBuf,
     memory: u64,
+    virtual_memory: u64,
     parent: Option<Pid>,
     status: ProcessStatus,
     handle: HandleWrapper,
@@ -169,6 +170,7 @@ impl ProcessExt for Process {
                     root: root,
                     status: ProcessStatus::Run,
                     memory: 0,
+                    virtual_memory: 0,
                     cpu_usage: 0.,
                     old_cpu: 0,
                     old_sys_cpu: 0,
@@ -189,6 +191,7 @@ impl ProcessExt for Process {
                 root: PathBuf::new(),
                 status: ProcessStatus::Run,
                 memory: 0,
+                virtual_memory: 0,
                 cpu_usage: 0.,
                 old_cpu: 0,
                 old_sys_cpu: 0,
@@ -238,6 +241,10 @@ impl ProcessExt for Process {
         self.memory
     }
 
+    fn virtual_memory(&self) -> u64 {
+        self.virtual_memory
+    }
+
     fn parent(&self) -> Option<Pid> {
         self.parent
     }
@@ -284,6 +291,7 @@ impl Debug for Process {
         writeln!(f, "executable path: {:?}", self.exe);
         writeln!(f, "current working directory: {:?}", self.cwd);
         writeln!(f, "memory usage: {} kB", self.memory);
+        writeln!(f, "virtual memory usage: {} kB", self.virtual_memory);
         writeln!(f, "cpu usage: {}", self.cpu_usage);
         writeln!(f, "root path: {:?}", self.root)
     }
@@ -474,7 +482,8 @@ pub fn update_memory(p: &mut Process) {
         if GetProcessMemoryInfo(*p.handle,
                                 &mut pmc as *mut PROCESS_MEMORY_COUNTERS_EX as *mut c_void as *mut PROCESS_MEMORY_COUNTERS,
                                 size_of::<PROCESS_MEMORY_COUNTERS_EX>() as DWORD) != 0 {
-            p.memory = (pmc.PrivateUsage as u64) >> 10u64; // / 1024;
+            p.memory = (pmc.WorkingSetSize as u64) >> 10u64;       // / 1024;
+            p.virtual_memory = (pmc.PrivateUsage as u64) >> 10u64; // / 1024;
         }
     }
 }

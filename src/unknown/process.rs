@@ -63,6 +63,10 @@ impl ProcessExt for Process {
         0
     }
 
+    fn virtual_memory(&self) -> u64 {
+        0
+    }
+
     fn parent(&self) -> Option<Pid> {
         self.parent
     }
