@@ -1,13 +1,13 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2018 Guillaume Gomez
 //
 
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Debug, Error, Formatter};
-use std::str;
 use std::path::Path;
+use std::str;
 
 use DiskExt;
 
@@ -35,8 +35,13 @@ impl From<isize> for DiskType {
     }
 }
 
-pub fn new_disk(name: &OsStr, mount_point: &[u16], file_system: &[u8], type_: DiskType,
-                total_space: u64) -> Disk {
+pub fn new_disk(
+    name: &OsStr,
+    mount_point: &[u16],
+    file_system: &[u8],
+    type_: DiskType,
+    total_space: u64,
+) -> Disk {
     let mut d = Disk {
         type_: type_,
         name: name.to_owned(),
@@ -63,10 +68,16 @@ pub struct Disk {
 
 impl Debug for Disk {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        write!(fmt,
-               "Disk({:?})[FS: {:?}][Type: {:?}] mounted on {:?}: {}/{} B",
-               self.get_name(), str::from_utf8(self.get_file_system()).unwrap(), self.get_type(),
-               self.get_mount_point(), self.get_available_space(), self.get_total_space())
+        write!(
+            fmt,
+            "Disk({:?})[FS: {:?}][Type: {:?}] mounted on {:?}: {}/{} B",
+            self.get_name(),
+            str::from_utf8(self.get_file_system()).unwrap(),
+            self.get_type(),
+            self.get_mount_point(),
+            self.get_available_space(),
+            self.get_total_space()
+        )
     }
 }
 
@@ -99,10 +110,13 @@ impl DiskExt for Disk {
         if self.total_space != 0 {
             unsafe {
                 let mut tmp: ULARGE_INTEGER = ::std::mem::zeroed();
-                if GetDiskFreeSpaceExW(self.mount_point.as_ptr(),
-                                       ::std::ptr::null_mut(),
-                                       ::std::ptr::null_mut(),
-                                       &mut tmp) != 0 {
+                if GetDiskFreeSpaceExW(
+                    self.mount_point.as_ptr(),
+                    ::std::ptr::null_mut(),
+                    ::std::ptr::null_mut(),
+                    &mut tmp,
+                ) != 0
+                {
                     self.available_space = *tmp.QuadPart();
                     return true;
                 }

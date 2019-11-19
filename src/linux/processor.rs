@@ -1,12 +1,12 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
 #![allow(clippy::too_many_arguments)]
 
-use ::ProcessorExt;
+use ProcessorExt;
 
 /// Struct containing values to compute a CPU usage.
 #[derive(Clone, Copy)]
@@ -41,9 +41,18 @@ impl CpuValues {
     }
 
     /// Creates a new instance of `CpuValues` with everything set to the corresponding argument.
-    pub fn new_with_values(user: u64, nice: u64, system: u64, idle: u64, iowait: u64,
-                           irq: u64, softirq: u64, steal: u64, guest: u64,
-                           guest_nice: u64) -> CpuValues {
+    pub fn new_with_values(
+        user: u64,
+        nice: u64,
+        system: u64,
+        idle: u64,
+        iowait: u64,
+        irq: u64,
+        softirq: u64,
+        steal: u64,
+        guest: u64,
+        guest_nice: u64,
+    ) -> CpuValues {
         CpuValues {
             user,
             nice,
@@ -65,8 +74,19 @@ impl CpuValues {
     }*/
 
     /// Sets the given argument to the corresponding fields.
-    pub fn set(&mut self, user: u64, nice: u64, system: u64, idle: u64, iowait: u64,
-               irq: u64, softirq: u64, steal: u64, guest: u64, guest_nice: u64) {
+    pub fn set(
+        &mut self,
+        user: u64,
+        nice: u64,
+        system: u64,
+        idle: u64,
+        iowait: u64,
+        irq: u64,
+        softirq: u64,
+        steal: u64,
+        guest: u64,
+        guest_nice: u64,
+    ) {
         self.user = user;
         self.nice = nice;
         self.system = system;
@@ -86,8 +106,14 @@ impl CpuValues {
 
     /// Returns total time.
     pub fn total_time(&self) -> u64 {
-        self.work_time() + self.idle + self.iowait + self.irq + self.softirq
-            + self.steal + self.guest + self.guest_nice
+        self.work_time()
+            + self.idle
+            + self.iowait
+            + self.irq
+            + self.softirq
+            + self.steal
+            + self.guest
+            + self.guest_nice
     }
 }
 
@@ -114,32 +140,61 @@ impl Processor {
         }
     }
 
-    fn new_with_values(name: &str, user: u64, nice: u64, system: u64, idle: u64, iowait: u64,
-                       irq: u64, softirq: u64, steal: u64, guest: u64,
-                       guest_nice: u64) -> Processor {
+    fn new_with_values(
+        name: &str,
+        user: u64,
+        nice: u64,
+        system: u64,
+        idle: u64,
+        iowait: u64,
+        irq: u64,
+        softirq: u64,
+        steal: u64,
+        guest: u64,
+        guest_nice: u64,
+    ) -> Processor {
         Processor {
             name: name.to_owned(),
             old_values: CpuValues::new(),
-            new_values: CpuValues::new_with_values(user, nice, system, idle, iowait, irq,
-                softirq, steal, guest, guest_nice),
+            new_values: CpuValues::new_with_values(
+                user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
+            ),
             cpu_usage: 0f32,
             total_time: 0,
             old_total_time: 0,
         }
     }
 
-    fn set(&mut self, user: u64, nice: u64, system: u64, idle: u64, iowait: u64,
-           irq: u64, softirq: u64, steal: u64, guest: u64, guest_nice: u64) {
+    fn set(
+        &mut self,
+        user: u64,
+        nice: u64,
+        system: u64,
+        idle: u64,
+        iowait: u64,
+        irq: u64,
+        softirq: u64,
+        steal: u64,
+        guest: u64,
+        guest_nice: u64,
+    ) {
         fn min(a: u64, b: u64) -> f32 {
-            (if a == b { 1 } else if a > b { a - b } else { b - a }) as f32
+            (if a == b {
+                1
+            } else if a > b {
+                a - b
+            } else {
+                b - a
+            }) as f32
         }
         //if !self.new_values.is_zero() {
-            self.old_values = self.new_values;
+        self.old_values = self.new_values;
         //}
-        self.new_values.set(user, nice, system, idle, iowait, irq, softirq, steal,
-            guest, guest_nice);
-        self.cpu_usage = min(self.new_values.work_time(), self.old_values.work_time()) /
-            min(self.new_values.total_time(), self.old_values.total_time());
+        self.new_values.set(
+            user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
+        );
+        self.cpu_usage = min(self.new_values.work_time(), self.old_values.work_time())
+            / min(self.new_values.total_time(), self.old_values.total_time());
         self.old_total_time = self.old_values.total_time();
         self.total_time = self.new_values.total_time();
     }
@@ -155,16 +210,40 @@ impl ProcessorExt for Processor {
     }
 }
 
-pub fn new_processor(name: &str, user: u64, nice: u64, system: u64, idle: u64, iowait: u64,
-                     irq: u64, softirq: u64, steal: u64, guest: u64, guest_nice: u64) -> Processor {
-    Processor::new_with_values(name, user, nice, system, idle, iowait, irq, softirq, steal,
-        guest, guest_nice)
+pub fn new_processor(
+    name: &str,
+    user: u64,
+    nice: u64,
+    system: u64,
+    idle: u64,
+    iowait: u64,
+    irq: u64,
+    softirq: u64,
+    steal: u64,
+    guest: u64,
+    guest_nice: u64,
+) -> Processor {
+    Processor::new_with_values(
+        name, user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
+    )
 }
 
-pub fn set_processor(p: &mut Processor, user: u64, nice: u64, system: u64, idle: u64, iowait: u64,
-                     irq: u64, softirq: u64, steal: u64, guest: u64, guest_nice: u64) {
-    p.set(user, nice, system, idle, iowait, irq, softirq, steal,
-        guest, guest_nice)
+pub fn set_processor(
+    p: &mut Processor,
+    user: u64,
+    nice: u64,
+    system: u64,
+    idle: u64,
+    iowait: u64,
+    irq: u64,
+    softirq: u64,
+    steal: u64,
+    guest: u64,
+    guest_nice: u64,
+) {
+    p.set(
+        user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
+    )
 }
 
 pub fn get_raw_times(p: &Processor) -> (u64, u64) {

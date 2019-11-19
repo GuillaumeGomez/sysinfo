@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
@@ -16,5 +16,5 @@ macro_rules! auto_cast {
         {
             $t
         }
-    }}
+    }};
 }

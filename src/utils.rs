@@ -1,19 +1,19 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
 #[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
-use std::fs;
-#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
-use std::path::{Path, PathBuf};
+use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
 #[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
 use std::ffi::OsStr;
 #[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
+use std::fs;
+#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
 use std::os::unix::ffi::OsStrExt;
 #[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
-use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
+use std::path::{Path, PathBuf};
 use Pid;
 
 #[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]

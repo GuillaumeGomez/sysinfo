@@ -1,16 +1,16 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use std::fmt::{self, Formatter, Debug};
+use std::fmt::{self, Debug, Formatter};
 use std::path::{Path, PathBuf};
 
 use libc::{c_int, gid_t, kill, uid_t};
 
 use Pid;
-use ::ProcessExt;
+use ProcessExt;
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -46,11 +46,11 @@ impl ProcessStatus {
     /// Used to display `ProcessStatus`.
     pub fn to_string(&self) -> &str {
         match *self {
-            ProcessStatus::Idle       => "Idle",
-            ProcessStatus::Run        => "Runnable",
-            ProcessStatus::Sleep      => "Sleeping",
-            ProcessStatus::Stop       => "Stopped",
-            ProcessStatus::Zombie     => "Zombie",
+            ProcessStatus::Idle => "Idle",
+            ProcessStatus::Run => "Runnable",
+            ProcessStatus::Sleep => "Sleeping",
+            ProcessStatus::Stop => "Stopped",
+            ProcessStatus::Zombie => "Zombie",
             ProcessStatus::Unknown(_) => "Unknown",
         }
     }
@@ -96,12 +96,12 @@ impl ThreadStatus {
     /// Used to display `ThreadStatus`.
     pub fn to_string(&self) -> &str {
         match *self {
-            ThreadStatus::Running         => "Running",
-            ThreadStatus::Stopped         => "Stopped",
-            ThreadStatus::Waiting         => "Waiting",
+            ThreadStatus::Running => "Running",
+            ThreadStatus::Stopped => "Stopped",
+            ThreadStatus::Waiting => "Waiting",
             ThreadStatus::Uninterruptible => "Uninterruptible",
-            ThreadStatus::Halted          => "Halted",
-            ThreadStatus::Unknown(_)      => "Unknown",
+            ThreadStatus::Halted => "Halted",
+            ThreadStatus::Unknown(_) => "Unknown",
         }
     }
 }
@@ -250,10 +250,14 @@ impl Debug for Process {
         writeln!(f, "memory usage: {} kB", self.memory);
         writeln!(f, "virtual memory usage: {} kB", self.virtual_memory);
         writeln!(f, "cpu usage: {}%", self.cpu_usage);
-        writeln!(f, "status: {}", match self.status {
-            Some(ref v) => v.to_string(),
-            None        => "Unknown",
-        });
+        writeln!(
+            f,
+            "status: {}",
+            match self.status {
+                Some(ref v) => v.to_string(),
+                None => "Unknown",
+            }
+        );
         write!(f, "root path: {:?}", self.root)
     }
 }

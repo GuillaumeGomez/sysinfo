@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
@@ -43,14 +43,22 @@ pub fn update_network(n: &mut NetworkData) {
     let mut len = 0;
     if unsafe { libc::sysctl(mib.as_mut_ptr(), 6, null_mut(), &mut len, null_mut(), 0) } < 0 {
         // TODO: might be nice to put an error in here...
-        return
+        return;
     }
     let mut buf = Vec::with_capacity(len);
     unsafe {
         buf.set_len(len);
-        if libc::sysctl(mib.as_mut_ptr(), 6, buf.as_mut_ptr(), &mut len, null_mut(), 0) < 0 {
+        if libc::sysctl(
+            mib.as_mut_ptr(),
+            6,
+            buf.as_mut_ptr(),
+            &mut len,
+            null_mut(),
+            0,
+        ) < 0
+        {
             // TODO: might be nice to put an error in here...
-            return
+            return;
         }
     }
     let buf = buf.as_ptr() as *const c_char;

@@ -1,14 +1,13 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use ::ProcessorExt;
+use ProcessorExt;
 
 /// Dummy struct that represents a processor.
-pub struct Processor {
-}
+pub struct Processor {}
 
 impl ProcessorExt for Processor {
     fn get_cpu_usage(&self) -> f32 {

@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
@@ -15,6 +15,6 @@ pub mod system;
 pub use self::component::Component;
 pub use self::disk::{Disk, DiskType};
 pub use self::network::NetworkData;
-pub use self::process::{Process,ProcessStatus};
+pub use self::process::{Process, ProcessStatus};
 pub use self::processor::Processor;
 pub use self::system::System;

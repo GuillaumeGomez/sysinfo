@@ -1,17 +1,17 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
 use std::collections::HashMap;
-use std::fmt::{self, Formatter, Debug};
+use std::fmt::{self, Debug, Formatter};
 use std::path::{Path, PathBuf};
 
 use libc::{c_int, gid_t, kill, uid_t};
 
 use Pid;
-use ::ProcessExt;
+use ProcessExt;
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -40,7 +40,7 @@ pub enum ProcessStatus {
     Unknown(u32),
 }
 
-impl From<u32> for ProcessStatus { 
+impl From<u32> for ProcessStatus {
     fn from(status: u32) -> ProcessStatus {
         match status {
             1 => ProcessStatus::Idle,
@@ -66,7 +66,7 @@ impl From<char> for ProcessStatus {
             'K' => ProcessStatus::Wakekill,
             'W' => ProcessStatus::Waking,
             'P' => ProcessStatus::Parked,
-            x   => ProcessStatus::Unknown(x as u32),
+            x => ProcessStatus::Unknown(x as u32),
         }
     }
 }
@@ -75,16 +75,16 @@ impl ProcessStatus {
     /// Used to display `ProcessStatus`.
     pub fn to_string(&self) -> &str {
         match *self {
-            ProcessStatus::Idle       => "Idle",
-            ProcessStatus::Run        => "Runnable",
-            ProcessStatus::Sleep      => "Sleeping",
-            ProcessStatus::Stop       => "Stopped",
-            ProcessStatus::Zombie     => "Zombie",
-            ProcessStatus::Tracing    => "Tracing",
-            ProcessStatus::Dead       => "Dead",
-            ProcessStatus::Wakekill   => "Wakekill",
-            ProcessStatus::Waking     => "Waking",
-            ProcessStatus::Parked     => "Parked",
+            ProcessStatus::Idle => "Idle",
+            ProcessStatus::Run => "Runnable",
+            ProcessStatus::Sleep => "Sleeping",
+            ProcessStatus::Stop => "Stopped",
+            ProcessStatus::Zombie => "Zombie",
+            ProcessStatus::Tracing => "Tracing",
+            ProcessStatus::Dead => "Dead",
+            ProcessStatus::Wakekill => "Wakekill",
+            ProcessStatus::Waking => "Waking",
+            ProcessStatus::Parked => "Parked",
             ProcessStatus::Unknown(_) => "Unknown",
         }
     }
@@ -239,7 +239,8 @@ impl Debug for Process {
 }
 
 pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64, total_time: f32) {
-    p.cpu_usage = ((p.utime - p.old_utime + p.stime - p.old_stime) * nb_processors * 100) as f32 / total_time;
+    p.cpu_usage =
+        ((p.utime - p.old_utime + p.stime - p.old_stime) * nb_processors * 100) as f32 / total_time;
     p.updated = false;
 }
 

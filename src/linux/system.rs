@@ -5,23 +5,23 @@
 //
 
 use sys::component::{self, Component};
-use sys::processor::*;
-use sys::process::*;
-use sys::Disk;
 use sys::disk;
 use sys::network;
+use sys::process::*;
+use sys::processor::*;
+use sys::Disk;
 use sys::NetworkData;
-use ::{DiskExt, ProcessExt, RefreshKind, SystemExt};
 use Pid;
+use {DiskExt, ProcessExt, RefreshKind, SystemExt};
 
+use libc::{sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::fs::{self, File, read_link};
+use std::fs::{self, read_link, File};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::SystemTime;
-use libc::{uid_t, sysconf, _SC_CLK_TCK, _SC_PAGESIZE};
 
 use utils::realpath;
 
@@ -30,7 +30,7 @@ use rayon::prelude::*;
 macro_rules! to_str {
     ($e:expr) => {
         unsafe { ::std::str::from_utf8_unchecked($e) }
-    }
+    };
 }
 
 /// Structs containing system's information.
@@ -88,29 +88,32 @@ impl System {
                 if first {
                     self.processors.push(new_processor(
                         to_str!(parts.next().unwrap_or(&[])),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0)));
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    ));
                 } else {
                     parts.next(); // we don't want the name again
-                    set_processor(&mut self.processors[i],
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0),
-                        parts.next().map(|v| {to_u64(v)}).unwrap_or(0));
+                    set_processor(
+                        &mut self.processors[i],
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    );
                     i += 1;
                 }
                 if let Some(limit) = limit {
@@ -168,17 +171,28 @@ impl SystemExt for System {
 
     fn refresh_processes(&mut self) {
         self.uptime = get_uptime();
-        if refresh_procs(&mut self.process_list, "/proc", self.page_size_kb, 0, self.uptime,
-                         get_secs_since_epoch()) {
+        if refresh_procs(
+            &mut self.process_list,
+            "/proc",
+            self.page_size_kb,
+            0,
+            self.uptime,
+            get_secs_since_epoch(),
+        ) {
             self.clear_procs();
         }
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
         self.uptime = get_uptime();
-        let found = match _get_process_data(&Path::new("/proc/").join(pid.to_string()),
-                                            &mut self.process_list, self.page_size_kb, 0,
-                                            self.uptime, get_secs_since_epoch()) {
+        let found = match _get_process_data(
+            &Path::new("/proc/").join(pid.to_string()),
+            &mut self.process_list,
+            self.page_size_kb,
+            0,
+            self.uptime,
+            get_secs_since_epoch(),
+        ) {
             Ok(Some(p)) => {
                 self.process_list.tasks.insert(p.pid(), p);
                 false
@@ -284,8 +298,8 @@ pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
 
     let size = file.read(&mut data)?;
     data.truncate(size);
-    let data = String::from_utf8(data).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
-                                                                  e.description()))?;
+    let data = String::from_utf8(data)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.description()))?;
     Ok(data)
 }
 
@@ -319,47 +333,56 @@ fn refresh_procs<P: AsRef<Path>>(
     now: u64,
 ) -> bool {
     if let Ok(d) = fs::read_dir(path.as_ref()) {
-        let folders = d.filter_map(|entry| {
-            if let Ok(entry) = entry {
-                let entry = entry.path();
+        let folders = d
+            .filter_map(|entry| {
+                if let Ok(entry) = entry {
+                    let entry = entry.path();
 
-                if entry.is_dir() {
-                    Some(entry)
+                    if entry.is_dir() {
+                        Some(entry)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
-            } else {
-                None
-            }
-        }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
         if pid == 0 {
             let proc_list = Wrap(UnsafeCell::new(proc_list));
-            folders.par_iter()
-                   .filter_map(|e| {
-                       if let Ok(p) = _get_process_data(e.as_path(),
-                                                        proc_list.get(),
-                                                        page_size_kb,
-                                                        pid,
-                                                        uptime,
-                                                        now) {
-                           p
-                       } else {
-                           None
-                       }
-                   })
-                   .collect::<Vec<_>>()
+            folders
+                .par_iter()
+                .filter_map(|e| {
+                    if let Ok(p) = _get_process_data(
+                        e.as_path(),
+                        proc_list.get(),
+                        page_size_kb,
+                        pid,
+                        uptime,
+                        now,
+                    ) {
+                        p
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
         } else {
-            folders.iter()
-                   .filter_map(|e| {
-                       if let Ok(p) = _get_process_data(e.as_path(), proc_list, page_size_kb, pid,
-                                                        uptime, now) {
-                           p
-                       } else {
-                           None
-                       }
-                   })
-                   .collect::<Vec<_>>()
-        }.into_iter().for_each(|e| {
+            folders
+                .iter()
+                .filter_map(|e| {
+                    if let Ok(p) =
+                        _get_process_data(e.as_path(), proc_list, page_size_kb, pid, uptime, now)
+                    {
+                        p
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+        }
+        .into_iter()
+        .for_each(|e| {
             proc_list.tasks.insert(e.pid(), e);
         });
         true
@@ -390,11 +413,20 @@ fn update_time_and_memory(
         if entry.virtual_memory >= parent_virtual_memory {
             entry.virtual_memory -= parent_virtual_memory;
         }
-        set_time(entry,
-                 u64::from_str(parts[13]).unwrap_or(0),
-                 u64::from_str(parts[14]).unwrap_or(0));
+        set_time(
+            entry,
+            u64::from_str(parts[13]).unwrap_or(0),
+            u64::from_str(parts[14]).unwrap_or(0),
+        );
     }
-    refresh_procs(entry, path.join(Path::new("task")), page_size_kb, pid, uptime, now);
+    refresh_procs(
+        entry,
+        path.join(Path::new("task")),
+        page_size_kb,
+        pid,
+        uptime,
+        now,
+    );
 }
 
 macro_rules! unwrap_or_return {
@@ -403,7 +435,7 @@ macro_rules! unwrap_or_return {
             Some(x) => x,
             None => return Err(()),
         }
-    }}
+    }};
 }
 
 fn _get_process_data(
@@ -422,7 +454,6 @@ fn _get_process_data(
 
         tmp.push("stat");
         if let Ok(data) = get_all_data(&tmp) {
-
             // The stat file is "interesting" to parse, because spaces cannot
             // be used as delimiters. The second field stores the command name
             // sourrounded by parentheses. Unfortunately, whitespace and
@@ -444,8 +475,17 @@ fn _get_process_data(
             let parent_memory = proc_list.memory;
             let parent_virtual_memory = proc_list.virtual_memory;
             if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
-                update_time_and_memory(path, entry, &parts, page_size_kb, parent_memory, parent_virtual_memory,
-                                       nb, uptime, now);
+                update_time_and_memory(
+                    path,
+                    entry,
+                    &parts,
+                    page_size_kb,
+                    parent_memory,
+                    parent_virtual_memory,
+                    nb,
+                    uptime,
+                    now,
+                );
                 return Ok(None);
             }
 
@@ -460,15 +500,16 @@ fn _get_process_data(
 
             let clock_cycle = unsafe { sysconf(_SC_CLK_TCK) } as u64;
             let since_boot = u64::from_str(parts[21]).unwrap_or(0) / clock_cycle;
-            let start_time = now.checked_sub(
-                uptime.checked_sub(since_boot).unwrap_or_else(|| 0),
-            ).unwrap_or_else(|| 0);
+            let start_time = now
+                .checked_sub(uptime.checked_sub(since_boot).unwrap_or_else(|| 0))
+                .unwrap_or_else(|| 0);
             let mut p = Process::new(nb, parent_pid, start_time);
 
-            p.status = parts[2].chars()
-                               .next()
-                               .and_then(|c| Some(ProcessStatus::from(c)))
-                               .unwrap_or(ProcessStatus::Unknown(0));
+            p.status = parts[2]
+                .chars()
+                .next()
+                .and_then(|c| Some(ProcessStatus::from(c)))
+                .unwrap_or(ProcessStatus::Unknown(0));
 
             tmp = PathBuf::from(path);
             tmp.push("status");
@@ -514,17 +555,19 @@ fn _get_process_data(
                 tmp = PathBuf::from(path);
                 tmp.push("cmdline");
                 p.cmd = copy_from_file(&tmp);
-                p.name = p.cmd.get(0)
-                              .map(|x| x.split('/').last().unwrap_or_else(|| "").to_owned())
-                              .unwrap_or_default();
+                p.name = p
+                    .cmd
+                    .get(0)
+                    .map(|x| x.split('/').last().unwrap_or_else(|| "").to_owned())
+                    .unwrap_or_default();
                 tmp = PathBuf::from(path);
                 tmp.push("environ");
                 p.environ = copy_from_file(&tmp);
                 tmp = PathBuf::from(path);
                 tmp.push("exe");
 
-                p.exe = read_link(tmp.to_str()
-                                     .unwrap_or_else(|| "")).unwrap_or_else(|_| PathBuf::new());
+                p.exe = read_link(tmp.to_str().unwrap_or_else(|| ""))
+                    .unwrap_or_else(|_| PathBuf::new());
 
                 tmp = PathBuf::from(path);
                 tmp.push("cwd");
@@ -534,8 +577,17 @@ fn _get_process_data(
                 p.root = realpath(&tmp);
             }
 
-            update_time_and_memory(path, &mut p, &parts, page_size_kb, proc_list.memory, proc_list.virtual_memory,
-                                   nb, uptime, now);
+            update_time_and_memory(
+                path,
+                &mut p,
+                &parts,
+                page_size_kb,
+                proc_list.memory,
+                proc_list.virtual_memory,
+                nb,
+                uptime,
+                now,
+            );
             return Ok(Some(p));
         }
     }
@@ -563,30 +615,33 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 
 fn get_all_disks() -> Vec<Disk> {
     let content = get_all_data("/proc/mounts").unwrap_or_default();
-    let disks = content.lines()
-        .filter(|line| {
-            let line = line.trim_start();
-            // While the `sd` prefix is most common, some disks instead use the `nvme` prefix. This
-            // prefix refers to NVM (non-volatile memory) cabale SSDs. These disks run on the NVMe
-            // storage controller protocol (not the scsi protocol) and as a result use a different
-            // prefix to support NVMe namespaces.
-            //
-            // In some other cases, it uses a device mapper to map physical block devices onto
-            // higher-level virtual block devices (on `/dev/mapper`).
-            //
-            // Raspbian uses root and mmcblk for physical disks
-            line.starts_with("/dev/sd") ||
-            line.starts_with("/dev/nvme") ||
-            line.starts_with("/dev/mapper/") ||
-            line.starts_with("/dev/root") ||
-            line.starts_with("/dev/mmcblk")
-        });
+    let disks = content.lines().filter(|line| {
+        let line = line.trim_start();
+        // While the `sd` prefix is most common, some disks instead use the `nvme` prefix. This
+        // prefix refers to NVM (non-volatile memory) cabale SSDs. These disks run on the NVMe
+        // storage controller protocol (not the scsi protocol) and as a result use a different
+        // prefix to support NVMe namespaces.
+        //
+        // In some other cases, it uses a device mapper to map physical block devices onto
+        // higher-level virtual block devices (on `/dev/mapper`).
+        //
+        // Raspbian uses root and mmcblk for physical disks
+        line.starts_with("/dev/sd")
+            || line.starts_with("/dev/nvme")
+            || line.starts_with("/dev/mapper/")
+            || line.starts_with("/dev/root")
+            || line.starts_with("/dev/mmcblk")
+    });
     let mut ret = vec![];
 
     for line in disks {
         let mut split = line.split(' ');
         if let (Some(name), Some(mountpt), Some(fs)) = (split.next(), split.next(), split.next()) {
-            ret.push(disk::new(name[5..].as_ref(), Path::new(mountpt), fs.as_bytes()));
+            ret.push(disk::new(
+                name[5..].as_ref(),
+                Path::new(mountpt),
+                fs.as_bytes(),
+            ));
         }
     }
     ret
