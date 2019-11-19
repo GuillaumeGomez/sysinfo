@@ -317,6 +317,14 @@ pub extern "C" fn sysinfo_process_get_memory(process: CProcess) -> size_t {
     unsafe { (*process).memory() as usize }
 }
 
+/// Equivalent of `Process::virtual_memory()`.
+#[no_mangle]
+pub extern "C" fn sysinfo_process_get_virtual_memory(process: CProcess) -> size_t {
+    assert!(!process.is_null());
+    let process = process as *const Process;
+    unsafe { (*process).virtual_memory() as usize }
+}
+
 /// Equivalent of `Process::exe()`.
 #[no_mangle]
 pub extern "C" fn sysinfo_process_get_executable_path(process: CProcess) -> RString {
