@@ -79,6 +79,9 @@ pub trait ProcessExt {
     /// Returns the memory usage (in kB).
     fn memory(&self) -> u64;
 
+    /// Returns the virtual memory usage (in kB).
+    fn virtual_memory(&self) -> u64;
+
     /// Returns the parent pid.
     fn parent(&self) -> Option<Pid>;
 

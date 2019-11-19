@@ -357,7 +357,8 @@ fn update_process(wrap: &Wrap, pid: Pid,
             let time = ffi::mach_absolute_time();
             compute_cpu_usage(p, time, task_time);
 
-            p.memory = task_info.pti_resident_size >> 10; // divide by 1024
+            p.memory = task_info.pti_resident_size >> 10;        // divide by 1024
+            p.virtual_memory = task_info.pti_virtual_size >> 10; // divide by 1024
             return Ok(None);
         }
 
@@ -410,7 +411,8 @@ fn update_process(wrap: &Wrap, pid: Pid,
         let mut p = Process::new(pid,
                                  parent,
                                  task_info.pbsd.pbi_start_tvsec);
-        p.memory = task_info.ptinfo.pti_resident_size >> 10; // divide by 1024
+        p.memory = task_info.ptinfo.pti_resident_size >> 10;        // divide by 1024
+        p.virtual_memory = task_info.ptinfo.pti_virtual_size >> 10; // divide by 1024
 
         p.uid = task_info.pbsd.pbi_uid;
         p.gid = task_info.pbsd.pbi_gid;
