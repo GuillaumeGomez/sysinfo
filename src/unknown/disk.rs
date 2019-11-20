@@ -1,22 +1,20 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use ::DiskExt;
+use DiskExt;
 
-use std::path::Path;
 use std::ffi::OsStr;
+use std::path::Path;
 
 /// Enum containing the different handled disks types.
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum DiskType {
-}
+pub enum DiskType {}
 
 /// Struct containing a disk information.
-pub struct Disk {
-}
+pub struct Disk {}
 
 impl DiskExt for Disk {
     fn get_type(&self) -> DiskType {

@@ -1,16 +1,21 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use libc::{c_int, c_char, c_void, c_uchar, c_uint, size_t, c_ushort};
+use libc::{c_char, c_int, c_uchar, c_uint, c_ushort, c_void, size_t};
 
 extern "C" {
     pub static kCFAllocatorDefault: CFAllocatorRef;
 
-    pub fn proc_pidinfo(pid: c_int, flavor: c_int, arg: u64, buffer: *mut c_void,
-                        buffersize: c_int) -> c_int;
+    pub fn proc_pidinfo(
+        pid: c_int,
+        flavor: c_int,
+        arg: u64,
+        buffer: *mut c_void,
+        buffersize: c_int,
+    ) -> c_int;
     pub fn proc_listallpids(buffer: *mut c_void, buffersize: c_int) -> c_int;
     //pub fn proc_name(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
     //pub fn proc_regionfilename(pid: c_int, address: u64, buffer: *mut c_void,
@@ -19,29 +24,39 @@ extern "C" {
 
     pub fn IOMasterPort(a: i32, b: *mut mach_port_t) -> i32;
     pub fn IOServiceMatching(a: *const c_char) -> *mut c_void;
-    pub fn IOServiceGetMatchingServices(a: mach_port_t, b: *mut c_void, c: *mut io_iterator_t) -> i32;
+    pub fn IOServiceGetMatchingServices(
+        a: mach_port_t,
+        b: *mut c_void,
+        c: *mut io_iterator_t,
+    ) -> i32;
     pub fn IOIteratorNext(iterator: io_iterator_t) -> io_object_t;
     pub fn IOObjectRelease(obj: io_object_t) -> i32;
     pub fn IOServiceOpen(device: io_object_t, a: u32, t: u32, x: *mut io_connect_t) -> i32;
     pub fn IOServiceClose(a: io_connect_t) -> i32;
-    pub fn IOConnectCallStructMethod(connection: mach_port_t, 
-                                     selector: u32, 
-                                     inputStruct: *mut KeyData_t, 
-                                     inputStructCnt: size_t, 
-                                     outputStruct: *mut KeyData_t, 
-                                     outputStructCnt: *mut size_t) -> i32;
-    pub fn IORegistryEntryCreateCFProperties(entry: io_registry_entry_t,
-                                             properties: *mut CFMutableDictionaryRef,
-                                             allocator: CFAllocatorRef,
-                                             options: IOOptionBits)
-                                             -> kern_return_t;
+    pub fn IOConnectCallStructMethod(
+        connection: mach_port_t,
+        selector: u32,
+        inputStruct: *mut KeyData_t,
+        inputStructCnt: size_t,
+        outputStruct: *mut KeyData_t,
+        outputStructCnt: *mut size_t,
+    ) -> i32;
+    pub fn IORegistryEntryCreateCFProperties(
+        entry: io_registry_entry_t,
+        properties: *mut CFMutableDictionaryRef,
+        allocator: CFAllocatorRef,
+        options: IOOptionBits,
+    ) -> kern_return_t;
     pub fn CFDictionaryContainsKey(d: CFDictionaryRef, key: *const c_void) -> Boolean;
     pub fn CFDictionaryGetValue(d: CFDictionaryRef, key: *const c_void) -> *const c_void;
     pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: *mut c_char) -> kern_return_t;
     pub fn CFRelease(cf: CFTypeRef);
-    pub fn CFStringCreateWithCStringNoCopy(alloc: *mut c_void, cStr: *const c_char,
-                                           encoding: CFStringEncoding,
-                                           contentsDeallocator: *mut c_void) -> CFStringRef;
+    pub fn CFStringCreateWithCStringNoCopy(
+        alloc: *mut c_void,
+        cStr: *const c_char,
+        encoding: CFStringEncoding,
+        contentsDeallocator: *mut c_void,
+    ) -> CFStringRef;
 
     pub static kCFAllocatorNull: CFAllocatorRef;
 
@@ -50,15 +65,25 @@ extern "C" {
     pub fn mach_task_self() -> u32;
     pub fn mach_host_self() -> u32;
     //pub fn task_info(host_info: u32, t: u32, c: *mut c_void, x: *mut u32) -> u32;
-    pub fn host_statistics64(host_info: u32, x: u32, y: *mut c_void, z: *const u32) -> kern_return_t;
-    pub fn host_processor_info(host_info: u32, t: u32, num_cpu_u: *mut u32,
-                               cpu_info: *mut *mut i32, num_cpu_info: *mut u32) -> kern_return_t;
+    pub fn host_statistics64(
+        host_info: u32,
+        x: u32,
+        y: *mut c_void,
+        z: *const u32,
+    ) -> kern_return_t;
+    pub fn host_processor_info(
+        host_info: u32,
+        t: u32,
+        num_cpu_u: *mut u32,
+        cpu_info: *mut *mut i32,
+        num_cpu_info: *mut u32,
+    ) -> kern_return_t;
     //pub fn host_statistics(host_priv: u32, flavor: u32, host_info: *mut c_void,
     //                       host_count: *const u32) -> u32;
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
 
-    // pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
-    // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
+// pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
+// pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
@@ -260,7 +285,7 @@ pub struct Val_t {
     pub key: [i8; 5],
     pub data_size: u32,
     pub data_type: [i8; 5], // UInt32Char_t
-    pub bytes: [i8; 32], // SMCBytes_t
+    pub bytes: [i8; 32],    // SMCBytes_t
 }
 
 #[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]

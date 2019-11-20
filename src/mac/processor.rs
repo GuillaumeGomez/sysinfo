@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
@@ -8,7 +8,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 use sys::ffi;
 
-use ::ProcessorExt;
+use ProcessorExt;
 
 pub struct UnsafePtr<T>(*mut T);
 

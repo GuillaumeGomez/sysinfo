@@ -1,19 +1,19 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use ::DiskExt;
-use ::utils;
 use super::system::get_all_data;
+use utils;
+use DiskExt;
 
 use libc::statvfs;
-use std::mem;
-use std::fmt::{Debug, Error, Formatter};
-use std::path::{Path, PathBuf};
 use std::ffi::{OsStr, OsString};
+use std::fmt::{Debug, Error, Formatter};
+use std::mem;
 use std::os::unix::ffi::OsStrExt;
+use std::path::{Path, PathBuf};
 
 /// Enum containing the different handled disks types.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -39,12 +39,16 @@ impl From<isize> for DiskType {
 fn find_type_for_name(name: &OsStr) -> DiskType {
     /* turn "sda1" into "sda": */
     let mut trimmed: &[u8] = name.as_bytes();
-    while trimmed.len() > 1 && trimmed[trimmed.len()-1] >= b'0' && trimmed[trimmed.len()-1] <= b'9' {
-        trimmed = &trimmed[..trimmed.len()-1]
+    while trimmed.len() > 1
+        && trimmed[trimmed.len() - 1] >= b'0'
+        && trimmed[trimmed.len() - 1] <= b'9'
+    {
+        trimmed = &trimmed[..trimmed.len() - 1]
     }
     let trimmed: &OsStr = OsStrExt::from_bytes(trimmed);
 
-    let path = Path::new("/sys/block/").to_owned()
+    let path = Path::new("/sys/block/")
+        .to_owned()
         .join(trimmed)
         .join("queue/rotational");
     let rotational_int = get_all_data(path).unwrap_or_default().trim().parse();
@@ -52,7 +56,9 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
 }
 
 macro_rules! cast {
-    ($x:expr) => { u64::from($x) }
+    ($x:expr) => {
+        u64::from($x)
+    };
 }
 
 pub fn new(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Disk {
@@ -89,10 +95,16 @@ pub struct Disk {
 
 impl Debug for Disk {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        write!(fmt,
-               "Disk({:?})[FS: {:?}][Type: {:?}] mounted on {:?}: {}/{} B",
-               self.get_name(), self.get_file_system(), self.get_type(), self.get_mount_point(),
-               self.get_available_space(), self.get_total_space())
+        write!(
+            fmt,
+            "Disk({:?})[FS: {:?}][Type: {:?}] mounted on {:?}: {}/{} B",
+            self.get_name(),
+            self.get_file_system(),
+            self.get_type(),
+            self.get_mount_point(),
+            self.get_available_space(),
+            self.get_total_space()
+        )
     }
 }
 

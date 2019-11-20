@@ -1,16 +1,16 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
 use sys::component::Component;
-use sys::processor::*;
 use sys::process::*;
+use sys::processor::*;
 use sys::Disk;
 use sys::NetworkData;
-use ::{RefreshKind, SystemExt};
 use Pid;
+use {RefreshKind, SystemExt};
 
 use std::collections::HashMap;
 
@@ -29,24 +29,19 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_system(&mut self) {
-    }
+    fn refresh_system(&mut self) {}
 
-    fn refresh_processes(&mut self) {
-    }
+    fn refresh_processes(&mut self) {}
 
     fn refresh_process(&mut self, _pid: Pid) -> bool {
         false
     }
 
-    fn refresh_disks(&mut self) {
-    }
+    fn refresh_disks(&mut self) {}
 
-    fn refresh_disk_list(&mut self) {
-    }
+    fn refresh_disk_list(&mut self) {}
 
-    fn refresh_network(&mut self) {
-    }
+    fn refresh_network(&mut self) {}
 
     // COMMON PART
     //

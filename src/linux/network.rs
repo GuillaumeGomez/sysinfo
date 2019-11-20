@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
@@ -42,25 +42,34 @@ fn read_things() -> Result<(u64, u64), Error> {
         let mut file = File::open(format!("/sys/class/net/{}/statistics/{}_bytes", iface, typ))?;
         let mut content = String::new();
         file.read_to_string(&mut content)?;
-        content.trim()
-               .parse()
-               .map_err(|_| Error::new(ErrorKind::Other, "Failed to parse network stat"))
+        content
+            .trim()
+            .parse()
+            .map_err(|_| Error::new(ErrorKind::Other, "Failed to parse network stat"))
     }
 
     let default_interface = {
         let mut file = File::open("/proc/net/route")?;
         let mut content = String::new();
         file.read_to_string(&mut content)?;
-        content.lines()
-               .filter(|l| l.split_whitespace().nth(2).map(|l| l != "00000000").unwrap_or(false))
-               .last()
-               .and_then(|l| l.split_whitespace().nth(0))
-               .ok_or_else(|| Error::new(ErrorKind::Other, "Default device not found"))?
-               .to_owned()
+        content
+            .lines()
+            .filter(|l| {
+                l.split_whitespace()
+                    .nth(2)
+                    .map(|l| l != "00000000")
+                    .unwrap_or(false)
+            })
+            .last()
+            .and_then(|l| l.split_whitespace().nth(0))
+            .ok_or_else(|| Error::new(ErrorKind::Other, "Default device not found"))?
+            .to_owned()
     };
 
-    Ok((read_interface_stat(&default_interface, "rx")?,
-        read_interface_stat(&default_interface, "tx")?))
+    Ok((
+        read_interface_stat(&default_interface, "rx")?,
+        read_interface_stat(&default_interface, "tx")?,
+    ))
 }
 
 pub fn update_network(n: &mut NetworkData) {

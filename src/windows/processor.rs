@@ -1,23 +1,23 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::thread::{self/*, sleep*/, JoinHandle};
+use std::thread::{self /*, sleep*/, JoinHandle};
 //use std::time::Duration;
 
-use ProcessorExt;
 use windows::tools::KeyHandler;
+use ProcessorExt;
 
 use winapi::shared::minwindef::{FALSE, ULONG};
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::{
-    PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_FMT_LARGE, PDH_HCOUNTER, PDH_HQUERY, PdhAddCounterW, PdhRemoveCounter,
-    PdhCollectQueryData, PdhCollectQueryDataEx, PdhGetFormattedCounterValue, PdhOpenQueryA, PdhCloseQuery,
+    PdhAddCounterW, PdhRemoveCounter, PdhCollectQueryData, PdhCollectQueryDataEx, PdhGetFormattedCounterValue,
+    PdhOpenQueryA, PdhCloseQuery, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_FMT_LARGE, PDH_HCOUNTER, PDH_HQUERY,
 };
 use winapi::um::synchapi::{CreateEventA, WaitForSingleObject};
 use winapi::um::winbase::{INFINITE, WAIT_OBJECT_0};
@@ -98,18 +98,24 @@ impl InternalQuery {
                     for (_, x) in data.iter_mut() {
                         match x.value {
                             CounterValue::Float(ref mut value) => {
-                                if PdhGetFormattedCounterValue(x.counter,
-                                                               PDH_FMT_DOUBLE,
-                                                               &mut counter_type,
-                                                               &mut display_value) == ERROR_SUCCESS as i32 {
+                                if PdhGetFormattedCounterValue(
+                                    x.counter,
+                                    PDH_FMT_DOUBLE,
+                                    &mut counter_type,
+                                    &mut display_value,
+                                ) == ERROR_SUCCESS as i32
+                                {
                                     *value = *display_value.u.doubleValue() as f32 / 100f32;
                                 }
                             }
                             CounterValue::Integer(ref mut value) => {
-                                if PdhGetFormattedCounterValue(x.counter,
-                                                               PDH_FMT_LARGE,
-                                                               &mut counter_type,
-                                                               &mut display_value) == ERROR_SUCCESS as i32 {
+                                if PdhGetFormattedCounterValue(
+                                    x.counter,
+                                    PDH_FMT_LARGE,
+                                    &mut counter_type,
+                                    &mut display_value,
+                                ) == ERROR_SUCCESS as i32
+                                {
                                     *value = *display_value.u.largeValue() as u64;
                                 }
                             }
@@ -154,8 +160,12 @@ impl Query {
         let mut query = ::std::ptr::null_mut();
         unsafe {
             if PdhOpenQueryA(::std::ptr::null_mut(), 0, &mut query) == ERROR_SUCCESS as i32 {
-                let event = CreateEventA(::std::ptr::null_mut(), FALSE, FALSE,
-                                         b"some_ev\0".as_ptr() as *const i8);
+                let event = CreateEventA(
+                    ::std::ptr::null_mut(),
+                    FALSE,
+                    FALSE,
+                    b"some_ev\0".as_ptr() as *const i8,
+                );
                 if event.is_null() {
                     PdhCloseQuery(query);
                     None
@@ -165,11 +175,10 @@ impl Query {
                         event: event,
                         data: Mutex::new(HashMap::new()),
                     });
-                    Some(
-                        Query {
-                            internal: q,
-                            thread: None,
-                        })
+                    Some(Query {
+                        internal: q,
+                        thread: None,
+                    })
                 }
             } else {
                 None
@@ -203,18 +212,19 @@ impl Query {
         }
         unsafe {
             let mut counter: PDH_HCOUNTER = ::std::mem::zeroed();
-            let ret = PdhAddCounterW(self.internal.query,
-                                     getter.as_ptr(),
-                                     0,
-                                     &mut counter);
+            let ret = PdhAddCounterW(self.internal.query, getter.as_ptr(), 0, &mut counter);
             if ret == ERROR_SUCCESS as i32 {
-                self.internal.data.lock()
-                                  .expect("couldn't add counter...")
-                                  .insert(name.clone(),
-                                          match value {
-                                              CounterValue::Float(v) => Counter::new_f32(counter, v, getter),
-                                              CounterValue::Integer(v) => Counter::new_u64(counter, v, getter),
-                                          });
+                self.internal
+                    .data
+                    .lock()
+                    .expect("couldn't add counter...")
+                    .insert(
+                        name.clone(),
+                        match value {
+                            CounterValue::Float(v) => Counter::new_f32(counter, v, getter),
+                            CounterValue::Integer(v) => Counter::new_u64(counter, v, getter),
+                        },
+                    );
             } else {
                 eprintln!("failed to add counter '{}': {:x}...", name, ret);
                 return false;
@@ -225,12 +235,9 @@ impl Query {
 
     pub fn start(&mut self) {
         let internal = Arc::clone(&self.internal);
-        self.thread = Some(
-            thread::spawn(move || {
-                loop {
-                    internal.record();
-                }
-            }));
+        self.thread = Some(thread::spawn(move || loop {
+            internal.record();
+        }));
     }
 }
 

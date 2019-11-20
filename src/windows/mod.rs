@@ -1,6 +1,6 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
@@ -22,7 +22,8 @@ pub use self::system::System;*/
 mod component;
 mod disk;
 //mod ffi;
-#[macro_use] mod macros;
+#[macro_use]
+mod macros;
 mod network;
 mod process;
 mod processor;

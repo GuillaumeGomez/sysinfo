@@ -1,12 +1,12 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use NetworkExt;
-use windows::tools::KeyHandler;
 use windows::processor::Query;
+use windows::tools::KeyHandler;
+use NetworkExt;
 
 /// Contains network information.
 pub struct NetworkData {

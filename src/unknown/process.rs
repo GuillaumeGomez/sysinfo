@@ -1,12 +1,12 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2015 Guillaume Gomez
 //
 
 use std::path::Path;
 use Pid;
-use ::ProcessExt;
+use ProcessExt;
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -21,10 +21,7 @@ pub struct Process {
 
 impl ProcessExt for Process {
     fn new(pid: Pid, parent: Option<Pid>, _start_time: u64) -> Process {
-        Process {
-            pid,
-            parent,
-        }
+        Process { pid, parent }
     }
 
     fn kill(&self, _signal: ::Signal) -> bool {

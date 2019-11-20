@@ -1,17 +1,17 @@
-// 
+//
 // Sysinfo
-// 
+//
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use ::DiskExt;
-use ::utils;
+use utils;
+use DiskExt;
 
 use libc::statfs;
-use std::mem;
-use std::fmt::{Debug, Error, Formatter};
-use std::path::{Path, PathBuf};
 use std::ffi::{OsStr, OsString};
+use std::fmt::{Debug, Error, Formatter};
+use std::mem;
+use std::path::{Path, PathBuf};
 
 /// Enum containing the different handled disks types.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -47,7 +47,7 @@ pub fn new(name: OsString, mount_point: &Path, type_: DiskType) -> Disk {
             let mut vec = Vec::with_capacity(stat.f_fstypename.len());
             for x in &stat.f_fstypename {
                 if *x == 0 {
-                    break
+                    break;
                 }
                 vec.push(*x as u8);
             }
@@ -76,10 +76,16 @@ pub struct Disk {
 
 impl Debug for Disk {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        write!(fmt,
-               "Disk({:?})[FS: {:?}][Type: {:?}] mounted on {:?}: {}/{} B",
-               self.get_name(), self.get_file_system(), self.get_type(), self.get_mount_point(),
-               self.get_available_space(), self.get_total_space())
+        write!(
+            fmt,
+            "Disk({:?})[FS: {:?}][Type: {:?}] mounted on {:?}: {}/{} B",
+            self.get_name(),
+            self.get_file_system(),
+            self.get_type(),
+            self.get_mount_point(),
+            self.get_available_space(),
+            self.get_total_space()
+        )
     }
 }
 
