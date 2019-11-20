@@ -174,69 +174,70 @@ impl SystemExt for System {
                     )
                 };
                 if status != PDH_MORE_DATA as i32 {
-                    panic!("got invalid status: {:x}", status);
-                }
-                let mut pwsCounterListBuffer: Vec<u16> =
-                    Vec::with_capacity(dwCounterListSize as usize);
-                let mut pwsInstanceListBuffer: Vec<u16> =
-                    Vec::with_capacity(dwInstanceListSize as usize);
-                unsafe {
-                    pwsCounterListBuffer.set_len(dwCounterListSize as usize);
-                    pwsInstanceListBuffer.set_len(dwInstanceListSize as usize);
-                }
-                let status = unsafe {
-                    PdhEnumObjectItemsW(
-                        ::std::ptr::null(),
-                        ::std::ptr::null(),
-                        network_trans_utf16.as_ptr(),
-                        pwsCounterListBuffer.as_mut_ptr(),
-                        &mut dwCounterListSize,
-                        pwsInstanceListBuffer.as_mut_ptr(),
-                        &mut dwInstanceListSize,
-                        PERF_DETAIL_WIZARD,
-                        0,
-                    )
-                };
-                if status != ERROR_SUCCESS as i32 {
-                    panic!("got invalid status: {:x}", status);
-                }
-
-                for (pos, x) in pwsInstanceListBuffer
-                    .split(|x| *x == 0)
-                    .filter(|x| x.len() > 0)
-                    .enumerate()
-                {
-                    let net_interface = String::from_utf16(x).expect("invalid utf16");
-                    if let Some(ref network_in_trans) = network_in_trans {
-                        let mut key_in = None;
-                        add_counter(
-                            format!(
-                                "\\{}({})\\{}",
-                                network_trans, net_interface, network_in_trans
-                            ),
-                            query,
-                            &mut key_in,
-                            format!("net{}_in", pos),
-                            CounterValue::Integer(0),
-                        );
-                        if key_in.is_some() {
-                            network::get_keys_in(&mut s.network).push(key_in.unwrap());
-                        }
+                    eprintln!("PdhEnumObjectItems invalid status: {:x}", status);
+                } else {
+                    let mut pwsCounterListBuffer: Vec<u16> =
+                        Vec::with_capacity(dwCounterListSize as usize);
+                    let mut pwsInstanceListBuffer: Vec<u16> =
+                        Vec::with_capacity(dwInstanceListSize as usize);
+                    unsafe {
+                        pwsCounterListBuffer.set_len(dwCounterListSize as usize);
+                        pwsInstanceListBuffer.set_len(dwInstanceListSize as usize);
                     }
-                    if let Some(ref network_out_trans) = network_out_trans {
-                        let mut key_out = None;
-                        add_counter(
-                            format!(
-                                "\\{}({})\\{}",
-                                network_trans, net_interface, network_out_trans
-                            ),
-                            query,
-                            &mut key_out,
-                            format!("net{}_out", pos),
-                            CounterValue::Integer(0),
-                        );
-                        if key_out.is_some() {
-                            network::get_keys_out(&mut s.network).push(key_out.unwrap());
+                    let status = unsafe {
+                        PdhEnumObjectItemsW(
+                            ::std::ptr::null(),
+                            ::std::ptr::null(),
+                            network_trans_utf16.as_ptr(),
+                            pwsCounterListBuffer.as_mut_ptr(),
+                            &mut dwCounterListSize,
+                            pwsInstanceListBuffer.as_mut_ptr(),
+                            &mut dwInstanceListSize,
+                            PERF_DETAIL_WIZARD,
+                            0,
+                        )
+                    };
+                    if status != ERROR_SUCCESS as i32 {
+                        eprintln!("PdhEnumObjectItems invalid status: {:x}", status);
+                    } else {
+                        for (pos, x) in pwsInstanceListBuffer
+                            .split(|x| *x == 0)
+                            .filter(|x| x.len() > 0)
+                            .enumerate()
+                        {
+                            let net_interface = String::from_utf16(x).expect("invalid utf16");
+                            if let Some(ref network_in_trans) = network_in_trans {
+                                let mut key_in = None;
+                                add_counter(
+                                    format!(
+                                        "\\{}({})\\{}",
+                                        network_trans, net_interface, network_in_trans
+                                    ),
+                                    query,
+                                    &mut key_in,
+                                    format!("net{}_in", pos),
+                                    CounterValue::Integer(0),
+                                );
+                                if key_in.is_some() {
+                                    network::get_keys_in(&mut s.network).push(key_in.unwrap());
+                                }
+                            }
+                            if let Some(ref network_out_trans) = network_out_trans {
+                                let mut key_out = None;
+                                add_counter(
+                                    format!(
+                                        "\\{}({})\\{}",
+                                        network_trans, net_interface, network_out_trans
+                                    ),
+                                    query,
+                                    &mut key_out,
+                                    format!("net{}_out", pos),
+                                    CounterValue::Integer(0),
+                                );
+                                if key_out.is_some() {
+                                    network::get_keys_out(&mut s.network).push(key_out.unwrap());
+                                }
+                            }
                         }
                     }
                 }

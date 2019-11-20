@@ -14,9 +14,10 @@ use ProcessorExt;
 
 use winapi::shared::minwindef::{FALSE, ULONG};
 use winapi::shared::winerror::ERROR_SUCCESS;
+use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::{
-    PdhAddCounterW, PdhCollectQueryData, PdhCollectQueryDataEx, PdhGetFormattedCounterValue,
-    PdhOpenQueryA, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_FMT_LARGE, PDH_HCOUNTER, PDH_HQUERY,
+    PdhAddCounterW, PdhRemoveCounter, PdhCollectQueryData, PdhCollectQueryDataEx, PdhGetFormattedCounterValue,
+    PdhOpenQueryA, PdhCloseQuery, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_FMT_LARGE, PDH_HCOUNTER, PDH_HQUERY,
 };
 use winapi::um::synchapi::{CreateEventA, WaitForSingleObject};
 use winapi::um::winbase::{INFINITE, WAIT_OBJECT_0};
@@ -84,7 +85,7 @@ impl InternalQuery {
         unsafe {
             let status = PdhCollectQueryData(self.query);
             if status != ERROR_SUCCESS as i32 {
-                println!("error: {:?} {} {:?}", status, ERROR_SUCCESS, self.query);
+                eprintln!("PdhCollectQueryData error: {:x} {:?}", status, self.query);
                 return false;
             }
             if PdhCollectQueryDataEx(self.query, 1, self.event) != ERROR_SUCCESS as i32 {
@@ -129,6 +130,26 @@ impl InternalQuery {
     }
 }
 
+impl Drop for InternalQuery {
+    fn drop(&mut self) {
+        unsafe {
+            if let Ok(ref data) = self.data.lock() {
+                for (_, counter) in data.iter() {
+                    PdhRemoveCounter(counter.counter);
+                }
+            }
+
+            if !self.event.is_null() {
+                CloseHandle(self.event);
+            }
+
+            if !self.query.is_null() {
+                PdhCloseQuery(self.query);
+            }
+        }
+    }
+}
+
 pub struct Query {
     internal: Arc<InternalQuery>,
     thread: Option<JoinHandle<()>>,
@@ -146,6 +167,7 @@ impl Query {
                     b"some_ev\0".as_ptr() as *const i8,
                 );
                 if event.is_null() {
+                    PdhCloseQuery(query);
                     None
                 } else {
                     let q = Arc::new(InternalQuery {
