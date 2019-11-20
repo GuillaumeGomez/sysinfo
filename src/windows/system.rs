@@ -166,7 +166,7 @@ impl SystemExt for System {
                                         0)
                 };
                 if status != PDH_MORE_DATA as i32 {
-                    panic!("got invalid status: {:x}", status);
+                    eprintln!("PdhEnumObjectItems invalid status: {:x}", status);
                 }
                 let mut pwsCounterListBuffer: Vec<u16> = Vec::with_capacity(dwCounterListSize as usize);
                 let mut pwsInstanceListBuffer: Vec<u16> = Vec::with_capacity(dwInstanceListSize as usize);
@@ -186,7 +186,7 @@ impl SystemExt for System {
                                         0)
                 };
                 if status != ERROR_SUCCESS as i32 {
-                    panic!("got invalid status: {:x}", status);
+                    eprintln!("PdhEnumObjectItems invalid status: {:x}", status);
                 }
 
                 for (pos, x) in pwsInstanceListBuffer.split(|x| *x == 0)
