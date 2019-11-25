@@ -1,7 +1,7 @@
 //
 // Sysinfo
 //
-// Copyright (c) 2017 Guillaume Gomez
+// Copyright (c) 2019 Guillaume Gomez
 //
 
 use std::fs::File;
@@ -40,7 +40,7 @@ pub fn new() -> NetworkData {
 fn read_things() -> Result<(u64, u64), Error> {
     fn read_interface_stat(iface: &str, typ: &str) -> Result<u64, Error> {
         let mut file = File::open(format!("/sys/class/net/{}/statistics/{}_bytes", iface, typ))?;
-        let mut content = String::new();
+        let mut content = String::with_capacity(20);
         file.read_to_string(&mut content)?;
         content
             .trim()
@@ -50,7 +50,7 @@ fn read_things() -> Result<(u64, u64), Error> {
 
     let default_interface = {
         let mut file = File::open("/proc/net/route")?;
-        let mut content = String::new();
+        let mut content = String::with_capacity(800);
         file.read_to_string(&mut content)?;
         content
             .lines()

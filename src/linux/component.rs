@@ -23,8 +23,8 @@ pub struct Component {
     input_file: PathBuf,
 }
 
-fn get_file_line(file: &Path) -> Option<String> {
-    let mut reader = String::new();
+fn get_file_line(file: &Path, capacity: usize) -> Option<String> {
+    let mut reader = String::with_capacity(capacity);
     if let Ok(mut f) = File::open(file) {
         if f.read_to_string(&mut reader).is_ok() {
             Some(reader)
@@ -87,9 +87,9 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                     p_input.push(&format!("temp{}_input", key));
                     p_max.push(&format!("temp{}_max", key));
                     p_crit.push(&format!("temp{}_crit", key));
-                    if let Some(content) = get_file_line(p_label.as_path()) {
+                    if let Some(content) = get_file_line(p_label.as_path(), 10) {
                         let label = content.replace("\n", "");
-                        let max = if let Some(max) = get_file_line(p_max.as_path()) {
+                        let max = if let Some(max) = get_file_line(p_max.as_path(), 10) {
                             Some(
                                 max.replace("\n", "").parse::<f32>().unwrap_or(100_000f32)
                                     / 1000f32,
@@ -97,7 +97,7 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                         } else {
                             None
                         };
-                        let crit = if let Some(crit) = get_file_line(p_crit.as_path()) {
+                        let crit = if let Some(crit) = get_file_line(p_crit.as_path(), 10) {
                             Some(
                                 crit.replace("\n", "").parse::<f32>().unwrap_or(100_000f32)
                                     / 1000f32,
@@ -135,7 +135,7 @@ impl Component {
 
     /// Updates the component.
     pub fn update(&mut self) {
-        if let Some(content) = get_file_line(self.input_file.as_path()) {
+        if let Some(content) = get_file_line(self.input_file.as_path(), 10) {
             self.temperature = content
                 .replace("\n", "")
                 .parse::<f32>()
