@@ -4,10 +4,12 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use libc::c_char;
 use std::ops::Deref;
 use std::sync::Arc;
 use sys::ffi;
 
+use LoadAvg;
 use ProcessorExt;
 
 pub struct UnsafePtr<T>(*mut T);
@@ -95,4 +97,34 @@ pub fn set_cpu_proc(p: &mut Processor, cpu_usage: f32) {
 
 pub fn get_processor_data(p: &Processor) -> Arc<ProcessorData> {
     Arc::clone(&p.processor_data)
+}
+
+/// get_cpu_frequency returns the CPU frequency in MHz
+pub fn get_cpu_frequency() -> u64 {
+    let mut speed: u64 = 0;
+    let mut len = std::mem::size_of::<u64>();
+    unsafe {
+        ffi::sysctlbyname(
+            "hw.cpufrequency".as_ptr() as *const c_char,
+            &mut speed,
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        );
+    }
+    speed /= 1000000;
+    speed
+}
+
+/// get_avg_load returns the system load average value.
+pub fn get_avg_load() -> LoadAvg {
+    let loads = vec![0f64; 3];
+    unsafe {
+        ffi::getloadavg(loads.as_ptr() as *const f64, 3);
+    }
+    LoadAvg {
+        one: loads[0],
+        five: loads[1],
+        fifteen: loads[2],
+    }
 }

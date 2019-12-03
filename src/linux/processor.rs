@@ -6,6 +6,11 @@
 
 #![allow(clippy::too_many_arguments)]
 
+use std::default::Default;
+use std::fs::File;
+use std::io::Read;
+
+use LoadAvg;
 use ProcessorExt;
 
 /// Struct containing values to compute a CPU usage.
@@ -248,4 +253,45 @@ pub fn set_processor(
 
 pub fn get_raw_times(p: &Processor) -> (u64, u64) {
     (p.new_values.total_time(), p.old_values.total_time())
+}
+
+/// get_cpu_frequency returns the CPU frequency in MHz
+pub fn get_cpu_frequency() -> u64 {
+    // /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq
+    let mut s = String::new();
+    if let Err(_) = File::open("/proc/cpuinfo").and_then(|mut f| f.read_to_string(&mut s)) {
+        return 0;
+    }
+
+    let find_cpu_mhz = s.split('\n').find(|line| {
+        line.starts_with("cpu MHz\t")
+            || line.starts_with("BogoMIPS")
+            || line.starts_with("clock\t")
+            || line.starts_with("bogomips per cpu")
+    });
+
+    find_cpu_mhz
+        .and_then(|line| line.split(':').last())
+        .and_then(|val| val.replace("MHz", "").trim().parse::<f64>().ok())
+        .map(|speed| speed as u64)
+        .unwrap_or_default()
+}
+
+/// get_avg_load returns the system load average value.
+pub fn get_avg_load() -> LoadAvg {
+    let mut s = String::new();
+    if let Err(_) = File::open("/proc/loadavg").and_then(|mut f| f.read_to_string(&mut s)) {
+        return LoadAvg::default();
+    }
+    let loads = s
+        .trim()
+        .split(' ')
+        .take(3)
+        .map(|val| val.parse::<f64>().unwrap())
+        .collect::<Vec<f64>>();
+    LoadAvg {
+        one: loads[0],
+        five: loads[1],
+        fifteen: loads[2],
+    }
 }
