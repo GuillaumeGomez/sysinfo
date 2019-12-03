@@ -34,13 +34,13 @@ impl NICLoad {
     ///
     /// Current don't support non-unix operating system
     #[cfg(not(unix))]
-    pub fn current() -> HashMap<String, NICLoad> {
+    pub fn snapshot() -> HashMap<String, NICLoad> {
         HashMap::new()
     }
 
     /// Returns the current network interfaces card statistics
     #[cfg(unix)]
-    pub fn current() -> HashMap<String, NICLoad> {
+    pub fn snapshot() -> HashMap<String, NICLoad> {
         let mut result = HashMap::new();
         if let Ok(dir) = std::fs::read_dir("/sys/class/net/") {
             for entry in dir {

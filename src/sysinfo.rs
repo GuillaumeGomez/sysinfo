@@ -79,6 +79,7 @@ cfg_if! {
 }
 
 pub use common::{AsU32, Pid, RefreshKind};
+pub use io::IOLoad;
 pub use net::NICLoad;
 pub use sys::{
     get_avg_load, get_cpu_frequency, Component, Disk, DiskType, NetworkData, Process,
@@ -94,6 +95,7 @@ pub use utils::get_current_pid;
 mod c_interface;
 mod common;
 mod component;
+mod io;
 mod net;
 mod process;
 mod processor;
@@ -251,6 +253,11 @@ mod test {
 
     #[test]
     fn test_nic_load() {
-        println!("test test_nic_load: {:?}", ::NICLoad::current());
+        println!("test test_nic_load: {:?}", ::NICLoad::snapshot());
+    }
+
+    #[test]
+    fn test_io_load() {
+        println!("test test_io_load: {:?}", ::IOLoad::snapshot());
     }
 }
