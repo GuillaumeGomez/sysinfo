@@ -48,6 +48,8 @@
 //#![deny(warnings)]
 #![allow(unknown_lints)]
 
+extern crate num_cpus;
+
 #[macro_use]
 extern crate cfg_if;
 #[cfg(not(any(target_os = "unknown", target_arch = "wasm32")))]
@@ -78,9 +80,14 @@ cfg_if! {
     }
 }
 
+pub extern crate cache_size;
+pub extern crate pnet_datalink as datalink;
+
 pub use common::{AsU32, Pid, RefreshKind};
 pub use io::IOLoad;
 pub use net::NICLoad;
+pub use num_cpus::{get as get_logical_cores, get_physical as get_physical_cores};
+
 pub use sys::{
     get_avg_load, get_cpu_frequency, Component, Disk, DiskType, NetworkData, Process,
     ProcessStatus, Processor, System,
@@ -228,7 +235,7 @@ pub struct LoadAvg {
 
 /// Returns system wide configuration
 ///
-/// # Note
+/// # Notes
 ///
 /// Current only can be used in operating system mounted `procfs`
 pub fn get_sysctl_list() -> HashMap<String, String> {
@@ -290,5 +297,26 @@ mod test {
     #[test]
     fn test_io_load() {
         println!("test test_io_load: {:?}", ::IOLoad::snapshot());
+    }
+
+    #[test]
+    fn test_get_cores() {
+        assert_ne!(::get_logical_cores(), 0, "expect none-zero logical core");
+        assert_ne!(::get_physical_cores(), 0, "expect none-zero physical core");
+    }
+
+    #[test]
+    fn test_cache_size() {
+        let caches = vec![
+            ("l1-cache-size", ::cache_size::l1_cache_size()),
+            ("l1-cache-line-size", ::cache_size::l1_cache_line_size()),
+            ("l2-cache-size", ::cache_size::l2_cache_size()),
+            ("l2-cache-line-size", ::cache_size::l2_cache_line_size()),
+            ("l3-cache-size", ::cache_size::l3_cache_size()),
+            ("l3-cache-line-size", ::cache_size::l3_cache_line_size()),
+        ];
+        for c in caches {
+            assert_ne!(c.1.unwrap(), 0, "{} expect non-zero", c.0)
+        }
     }
 }
