@@ -156,8 +156,14 @@ pub trait SystemExt: Sized {
     /// s.refresh_specifics(RefreshKind::new().with_network().with_processes());
     /// ```
     fn refresh_specifics(&mut self, refreshes: RefreshKind) {
-        if refreshes.system() {
-            self.refresh_system();
+        if refreshes.memory() {
+            self.refresh_memory();
+        }
+        if refreshes.cpu() {
+            self.refresh_cpu();
+        }
+        if refreshes.temperatures() {
+            self.refresh_temperatures();
         }
         if refreshes.network() {
             self.refresh_network();
@@ -174,7 +180,27 @@ pub trait SystemExt: Sized {
     }
 
     /// Refresh system information (such as memory, swap, CPU usage and components' temperature).
-    fn refresh_system(&mut self);
+    ///
+    /// If you want some more specific refresh, you might be interested into looking at
+    /// [`refresh_memory`], [`refresh_cpu`] and [`refresh_temperatures`].
+    ///
+    /// [`refresh_memory`]: SystemExt::refresh_memory
+    /// [`refresh_cpu`]: SystemExt::refresh_memory
+    /// [`refresh_temperatures`]: SystemExt::refresh_temperatures
+    fn refresh_system(&mut self) {
+        self.refresh_memory();
+        self.refresh_cpu();
+        self.refresh_temperatures();
+    }
+
+    /// Refresh RAM and SWAP usage.
+    fn refresh_memory(&mut self);
+
+    /// Refresh CPU usage.
+    fn refresh_cpu(&mut self);
+
+    /// Refresh components' temperature.
+    fn refresh_temperatures(&mut self);
 
     /// Get all processes and update their information.
     fn refresh_processes(&mut self);
