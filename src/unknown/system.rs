@@ -29,7 +29,11 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_system(&mut self) {}
+    fn refresh_memory(&mut self) {}
+
+    fn refresh_cpu(&mut self) {}
+
+    fn refresh_temperatures(&mut self) {}
 
     fn refresh_processes(&mut self) {}
 
