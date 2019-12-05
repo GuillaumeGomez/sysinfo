@@ -131,11 +131,13 @@ impl RefreshKind {
     ///
     /// let r = RefreshKind::new();
     ///
-    /// assert_eq!(r.system(), false);
     /// assert_eq!(r.network(), false);
     /// assert_eq!(r.processes(), false);
     /// assert_eq!(r.disk_list(), false);
     /// assert_eq!(r.disks(), false);
+    /// assert_eq!(r.memory(), false);
+    /// assert_eq!(r.cpu(), false);
+    /// assert_eq!(r.temperatures(), false);
     /// ```
     pub fn new() -> RefreshKind {
         RefreshKind {
@@ -158,11 +160,13 @@ impl RefreshKind {
     ///
     /// let r = RefreshKind::everything();
     ///
-    /// assert_eq!(r.system(), true);
     /// assert_eq!(r.network(), true);
     /// assert_eq!(r.processes(), true);
     /// assert_eq!(r.disk_list(), true);
     /// assert_eq!(r.disks(), true);
+    /// assert_eq!(r.memory(), true);
+    /// assert_eq!(r.cpu(), true);
+    /// assert_eq!(r.temperatures(), true);
     /// ```
     pub fn everything() -> RefreshKind {
         RefreshKind {
