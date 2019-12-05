@@ -46,6 +46,42 @@ pub extern "C" fn sysinfo_refresh_system(system: CSystem) {
     Box::into_raw(system);
 }
 
+/// Equivalent of `System::refresh_memory()`.
+#[no_mangle]
+pub extern "C" fn sysinfo_refresh_memory(system: CSystem) {
+    assert!(!system.is_null());
+    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    {
+        let system: &mut System = system.borrow_mut();
+        system.refresh_memory();
+    }
+    Box::into_raw(system);
+}
+
+/// Equivalent of `System::refresh_cpu()`.
+#[no_mangle]
+pub extern "C" fn sysinfo_refresh_cpu(system: CSystem) {
+    assert!(!system.is_null());
+    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    {
+        let system: &mut System = system.borrow_mut();
+        system.refresh_cpu();
+    }
+    Box::into_raw(system);
+}
+
+/// Equivalent of `System::refresh_cpu()`.
+#[no_mangle]
+pub extern "C" fn sysinfo_refresh_temperatures(system: CSystem) {
+    assert!(!system.is_null());
+    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
+    {
+        let system: &mut System = system.borrow_mut();
+        system.refresh_temperatures();
+    }
+    Box::into_raw(system);
+}
+
 /// Equivalent of `System::refresh_all()`.
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_all(system: CSystem) {
