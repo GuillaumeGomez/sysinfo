@@ -8,7 +8,7 @@ use ComponentExt;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::fs::{read_dir, File};
+use std::fs::{metadata, read_dir, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
@@ -36,8 +36,16 @@ fn get_file_line(file: &Path, capacity: usize) -> Option<String> {
     }
 }
 
+fn is_file<T: AsRef<Path>>(path: T) -> bool {
+    metadata(path)
+        .ok()
+        .map(|m| m.is_file())
+        .unwrap_or_else(|| false)
+}
+
 fn append_files(components: &mut Vec<Component>, folder: &Path) {
-    let mut matchings = HashMap::new();
+    let mut matchings: HashMap<u32, Vec<String>> = HashMap::new();
+
     if let Ok(dir) = read_dir(folder) {
         for entry in dir {
             if let Ok(entry) = entry {
@@ -54,11 +62,17 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                 }
                 if let Some(entry) = entry.file_name() {
                     if let Some(entry) = entry.to_str() {
-                        if let Ok(id) = entry[4..5].parse::<u32>() {
+                        let mut parts = entry.split('_');
+                        if let Some(Some(id)) = parts.next().map(|s| s[4..].parse::<u32>().ok()) {
                             matchings
                                 .entry(id)
-                                .or_insert_with(|| Vec::with_capacity(1))
-                                .push(entry[6..].to_owned());
+                                .or_insert_with(|| Vec::with_capacity(5))
+                                .push(
+                                    parts
+                                        .next()
+                                        .map(|s| format!("_{}", s))
+                                        .unwrap_or_else(|| String::new()),
+                                );
                         }
                     }
                 }
@@ -69,45 +83,41 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
             let mut found_label = None;
             for (pos, v) in val.iter().enumerate() {
                 match v.as_str() {
-                    "input" => {
+                    // raspberry has empty string for temperature input
+                    "_input" | "" => {
                         found_input = Some(pos);
                     }
-                    "label" => {
+                    "_label" => {
                         found_label = Some(pos);
                     }
                     _ => {}
                 }
-                if found_label.is_some() && found_input.is_some() {
-                    let mut p_label = folder.to_path_buf();
-                    let mut p_input = folder.to_path_buf();
-                    let mut p_crit = folder.to_path_buf();
-                    let mut p_max = folder.to_path_buf();
+            }
+            if found_label.is_some() && found_input.is_some() {
+                let mut p_label = folder.to_path_buf();
+                let mut p_input = folder.to_path_buf();
+                let mut p_crit = folder.to_path_buf();
+                let mut p_max = folder.to_path_buf();
 
-                    p_label.push(&format!("temp{}_label", key));
-                    p_input.push(&format!("temp{}_input", key));
-                    p_max.push(&format!("temp{}_max", key));
-                    p_crit.push(&format!("temp{}_crit", key));
-                    if let Some(content) = get_file_line(p_label.as_path(), 10) {
-                        let label = content.replace("\n", "");
-                        let max = if let Some(max) = get_file_line(p_max.as_path(), 10) {
-                            Some(
-                                max.replace("\n", "").parse::<f32>().unwrap_or(100_000f32)
-                                    / 1000f32,
-                            )
-                        } else {
-                            None
-                        };
-                        let crit = if let Some(crit) = get_file_line(p_crit.as_path(), 10) {
-                            Some(
-                                crit.replace("\n", "").parse::<f32>().unwrap_or(100_000f32)
-                                    / 1000f32,
-                            )
-                        } else {
-                            None
-                        };
-                        components.push(Component::new(label, p_input.as_path(), max, crit));
-                        break;
-                    }
+                p_label.push(&format!("temp{}_label", key));
+                p_input.push(&format!("temp{}{}", key, val[found_input.unwrap()]));
+                p_max.push(&format!("temp{}_max", key));
+                p_crit.push(&format!("temp{}_crit", key));
+                if is_file(&p_input) {
+                    let label = get_file_line(p_label.as_path(), 10)
+                        .unwrap_or_else(|| format!("Component {}", key)) // needed for raspberry pi
+                        .replace("\n", "");
+                    let max = if let Some(max) = get_file_line(p_max.as_path(), 10) {
+                        Some(max.replace("\n", "").parse::<f32>().unwrap_or(100_000f32) / 1000f32)
+                    } else {
+                        None
+                    };
+                    let crit = if let Some(crit) = get_file_line(p_crit.as_path(), 10) {
+                        Some(crit.replace("\n", "").parse::<f32>().unwrap_or(100_000f32) / 1000f32)
+                    } else {
+                        None
+                    };
+                    components.push(Component::new(label, p_input.as_path(), max, crit));
                 }
             }
         }
@@ -167,7 +177,8 @@ impl ComponentExt for Component {
 }
 
 pub fn get_components() -> Vec<Component> {
-    let mut ret = Vec::new();
+    let mut components = Vec::new();
+
     if let Ok(dir) = read_dir(&Path::new("/sys/class/hwmon/")) {
         for entry in dir {
             if let Ok(entry) = entry {
@@ -182,10 +193,18 @@ pub fn get_components() -> Vec<Component> {
                 {
                     continue;
                 }
-                append_files(&mut ret, &entry);
+                append_files(&mut components, &entry);
             }
         }
+    } else if is_file("/sys/class/thermal/thermal_zone0/temp") {
+        // Specfic to raspberry pi.
+        components.push(Component::new(
+            "CPU".to_owned(),
+            Path::new("/sys/class/thermal/thermal_zone0/temp"),
+            None,
+            None,
+        ));
     }
-    ret.sort_by(|c1, c2| c1.label.to_lowercase().cmp(&c2.label.to_lowercase()));
-    ret
+    components.sort_by(|c1, c2| c1.label.to_lowercase().cmp(&c2.label.to_lowercase()));
+    components
 }
