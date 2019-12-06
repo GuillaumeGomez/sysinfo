@@ -637,6 +637,25 @@ fn get_arg_max() -> usize {
     }
 }
 
+unsafe fn get_sys_value(
+    high: u32,
+    low: u32,
+    mut len: usize,
+    value: *mut c_void,
+    mib: &mut [i32; 2],
+) -> bool {
+    mib[0] = high as i32;
+    mib[1] = low as i32;
+    libc::sysctl(
+        mib.as_mut_ptr(),
+        2,
+        value,
+        &mut len as *mut usize,
+        ::std::ptr::null_mut(),
+        0,
+    ) == 0
+}
+
 impl System {
     fn clear_procs(&mut self) {
         let mut to_delete = Vec::new();
@@ -673,28 +692,10 @@ impl SystemExt for System {
         s
     }
 
-    fn refresh_system(&mut self) {
-        self.uptime = get_uptime();
-        unsafe fn get_sys_value(
-            high: u32,
-            low: u32,
-            mut len: usize,
-            value: *mut c_void,
-            mib: &mut [i32; 2],
-        ) -> bool {
-            mib[0] = high as i32;
-            mib[1] = low as i32;
-            libc::sysctl(
-                mib.as_mut_ptr(),
-                2,
-                value,
-                &mut len as *mut usize,
-                ::std::ptr::null_mut(),
-                0,
-            ) == 0
-        }
-
+    fn refresh_memory(&mut self) {
         let mut mib = [0, 0];
+
+        self.uptime = get_uptime();
         unsafe {
             // get system values
             // get swap info
@@ -746,7 +747,11 @@ impl SystemExt for System {
                         - u64::from(stat.purgeable_count))
                         * self.page_size_kb;
             }
+        }
+    }
 
+    fn refresh_temperatures(&mut self) {
+        unsafe {
             if let Some(con) = self.connection {
                 if self.temperatures.is_empty() {
                     // getting CPU critical temperature
@@ -809,7 +814,14 @@ impl SystemExt for System {
                     }
                 }
             }
+        }
+    }
 
+    fn refresh_cpu(&mut self) {
+        self.uptime = get_uptime();
+
+        let mut mib = [0, 0];
+        unsafe {
             // get processor values
             let mut num_cpu_u = 0u32;
             let mut cpu_info: *mut i32 = ::std::ptr::null_mut();

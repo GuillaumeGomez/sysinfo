@@ -112,11 +112,13 @@ assert_eq!(r.", stringify!($name), "(), false);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RefreshKind {
-    system: bool,
     network: bool,
     processes: bool,
     disk_list: bool,
     disks: bool,
+    memory: bool,
+    cpu: bool,
+    temperatures: bool,
 }
 
 impl RefreshKind {
@@ -129,19 +131,23 @@ impl RefreshKind {
     ///
     /// let r = RefreshKind::new();
     ///
-    /// assert_eq!(r.system(), false);
     /// assert_eq!(r.network(), false);
     /// assert_eq!(r.processes(), false);
     /// assert_eq!(r.disk_list(), false);
     /// assert_eq!(r.disks(), false);
+    /// assert_eq!(r.memory(), false);
+    /// assert_eq!(r.cpu(), false);
+    /// assert_eq!(r.temperatures(), false);
     /// ```
     pub fn new() -> RefreshKind {
         RefreshKind {
-            system: false,
             network: false,
             processes: false,
             disks: false,
             disk_list: false,
+            memory: false,
+            cpu: false,
+            temperatures: false,
         }
     }
 
@@ -154,25 +160,31 @@ impl RefreshKind {
     ///
     /// let r = RefreshKind::everything();
     ///
-    /// assert_eq!(r.system(), true);
     /// assert_eq!(r.network(), true);
     /// assert_eq!(r.processes(), true);
     /// assert_eq!(r.disk_list(), true);
     /// assert_eq!(r.disks(), true);
+    /// assert_eq!(r.memory(), true);
+    /// assert_eq!(r.cpu(), true);
+    /// assert_eq!(r.temperatures(), true);
     /// ```
     pub fn everything() -> RefreshKind {
         RefreshKind {
-            system: true,
             network: true,
             processes: true,
             disks: true,
             disk_list: true,
+            memory: true,
+            cpu: true,
+            temperatures: true,
         }
     }
 
-    impl_get_set!(system, with_system, without_system);
     impl_get_set!(network, with_network, without_network);
     impl_get_set!(processes, with_processes, without_processes);
     impl_get_set!(disks, with_disks, without_disks);
     impl_get_set!(disk_list, with_disk_list, without_disk_list);
+    impl_get_set!(memory, with_memory, without_memory);
+    impl_get_set!(cpu, with_cpu, without_cpu);
+    impl_get_set!(temperatures, with_temperatures, without_temperatures);
 }

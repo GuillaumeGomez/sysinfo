@@ -248,16 +248,7 @@ impl SystemExt for System {
         s
     }
 
-    fn refresh_system(&mut self) {
-        unsafe {
-            let mut mem_info: MEMORYSTATUSEX = zeroed();
-            mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
-            GlobalMemoryStatusEx(&mut mem_info);
-            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64);
-            self.mem_free = auto_cast!(mem_info.ullAvailPhys, u64);
-            //self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
-            //self.swap_free = auto_cast!(mem_info.ullAvailPageFile, u64);
-        }
+    fn refresh_cpu(&mut self) {
         self.uptime = get_uptime();
         if let Some(ref mut query) = self.query {
             for p in self.processors.iter_mut() {
@@ -270,6 +261,23 @@ impl SystemExt for System {
                 }
             }
         }
+    }
+
+    fn refresh_memory(&mut self) {
+        self.uptime = get_uptime();
+        unsafe {
+            let mut mem_info: MEMORYSTATUSEX = zeroed();
+            mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
+            GlobalMemoryStatusEx(&mut mem_info);
+            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64);
+            self.mem_free = auto_cast!(mem_info.ullAvailPhys, u64);
+            //self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
+            //self.swap_free = auto_cast!(mem_info.ullAvailPageFile, u64);
+        }
+    }
+
+    fn refresh_temperatures(&mut self) {
+        // does nothing for the moment...
     }
 
     fn refresh_network(&mut self) {

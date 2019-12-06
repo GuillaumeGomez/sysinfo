@@ -145,11 +145,8 @@ impl SystemExt for System {
         s
     }
 
-    fn refresh_system(&mut self) {
+    fn refresh_memory(&mut self) {
         self.uptime = get_uptime();
-        for component in &mut self.temperatures {
-            component.update();
-        }
         if let Ok(data) = get_all_data("/proc/meminfo") {
             for line in data.split('\n') {
                 let field = match line.split(':').next() {
@@ -166,7 +163,17 @@ impl SystemExt for System {
                 }
             }
         }
+    }
+
+    fn refresh_cpu(&mut self) {
+        self.uptime = get_uptime();
         self.refresh_processors(None);
+    }
+
+    fn refresh_temperatures(&mut self) {
+        for component in &mut self.temperatures {
+            component.update();
+        }
     }
 
     fn refresh_processes(&mut self) {
