@@ -509,7 +509,7 @@ unsafe fn get_proc_env(_handle: HANDLE, _pid: u32, _name: &str) -> Vec<String> {
     ret
 }
 
-pub fn get_executable_path(_pid: Pid) -> PathBuf {
+pub(crate) fn get_executable_path(_pid: Pid) -> PathBuf {
     /*let where_req = format!("ProcessId={}", pid);
 
     if let Some(ret) = run_wmi(&["process", "where", &where_req, "get", "ExecutablePath"]) {
@@ -523,14 +523,10 @@ pub fn get_executable_path(_pid: Pid) -> PathBuf {
     PathBuf::new()
 }
 
-pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
+pub(crate) fn get_system_computation_time() -> ULARGE_INTEGER {
     unsafe {
         let mut now: ULARGE_INTEGER = ::std::mem::zeroed();
-        let mut sys: ULARGE_INTEGER = ::std::mem::zeroed();
-        let mut user: ULARGE_INTEGER = ::std::mem::zeroed();
         let mut ftime: FILETIME = zeroed();
-        let mut fsys: FILETIME = zeroed();
-        let mut fuser: FILETIME = zeroed();
 
         GetSystemTimeAsFileTime(&mut ftime);
         memcpy(
@@ -538,6 +534,17 @@ pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
             &mut ftime as *mut FILETIME as *mut c_void,
             size_of::<FILETIME>(),
         );
+        now
+    }
+}
+
+pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, now: ULARGE_INTEGER) {
+    unsafe {
+        let mut sys: ULARGE_INTEGER = ::std::mem::zeroed();
+        let mut user: ULARGE_INTEGER = ::std::mem::zeroed();
+        let mut ftime: FILETIME = zeroed();
+        let mut fsys: FILETIME = zeroed();
+        let mut fuser: FILETIME = zeroed();
 
         GetProcessTimes(
             *p.handle,
