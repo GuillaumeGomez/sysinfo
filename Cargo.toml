@@ -19,6 +19,7 @@ doc-comment = "0.3"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi", "handleapi", "ioapiset", "minwindef", "pdh", "psapi", "synchapi", "sysinfoapi", "tlhelp32", "winbase", "winerror", "winioctl", "winnt"] }
+ntapi = "0.3"
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]
 libc = "0.2"

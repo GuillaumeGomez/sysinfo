@@ -23,9 +23,6 @@ use winapi::um::psapi::{
     LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
-use winapi::um::tlhelp32::{
-    CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
-};
 use winapi::um::winnt::{
     HANDLE, /*, PWSTR*/ PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ,
     ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
@@ -96,8 +93,8 @@ pub struct Process {
     environ: Vec<String>,
     cwd: PathBuf,
     root: PathBuf,
-    memory: u64,
-    virtual_memory: u64,
+    pub(crate) memory: u64,
+    pub(crate) virtual_memory: u64,
     parent: Option<Pid>,
     status: ProcessStatus,
     handle: HandleWrapper,
@@ -106,6 +103,120 @@ pub struct Process {
     old_user_cpu: u64,
     start_time: u64,
     cpu_usage: f32,
+    pub(crate) updated: bool,
+}
+
+unsafe fn get_process_name(process_handler: HANDLE, h_mod: *mut c_void) -> String {
+    let mut process_name = [0u16; MAX_PATH + 1];
+
+    GetModuleBaseNameW(
+        process_handler,
+        h_mod as _,
+        process_name.as_mut_ptr(),
+        MAX_PATH as DWORD + 1,
+    );
+    let mut pos = 0;
+    for x in process_name.iter() {
+        if *x == 0 {
+            break;
+        }
+        pos += 1;
+    }
+    String::from_utf16_lossy(&process_name[..pos])
+}
+
+unsafe fn get_h_mod(process_handler: HANDLE, h_mod: &mut *mut c_void) -> bool {
+    let mut cb_needed = 0;
+    EnumProcessModulesEx(
+        process_handler,
+        h_mod as *mut *mut c_void as _,
+        ::std::mem::size_of::<DWORD>() as DWORD,
+        &mut cb_needed,
+        LIST_MODULES_ALL,
+    ) != 0
+}
+
+unsafe fn get_exe(process_handler: HANDLE, h_mod: *mut c_void) -> PathBuf {
+    let mut exe_buf = [0u16; MAX_PATH + 1];
+    GetModuleFileNameExW(
+        process_handler,
+        h_mod as _,
+        exe_buf.as_mut_ptr(),
+        MAX_PATH as DWORD + 1,
+    );
+
+    let mut pos = 0;
+    for x in exe_buf.iter() {
+        if *x == 0 {
+            break;
+        }
+        pos += 1;
+    }
+
+    PathBuf::from(String::from_utf16_lossy(&exe_buf[..pos]))
+}
+
+impl Process {
+    pub(crate) fn new_full(
+        pid: Pid,
+        parent: Option<Pid>,
+        memory: u64,
+        virtual_memory: u64,
+        name: String,
+    ) -> Process {
+        if let Some(process_handler) = get_process_handler(pid) {
+            unsafe {
+                let mut h_mod = ::std::ptr::null_mut();
+                get_h_mod(process_handler, &mut h_mod);
+                let environ = get_proc_env(process_handler, pid as u32, &name);
+
+                let exe = get_exe(process_handler, h_mod);
+                let mut root = exe.clone();
+                root.pop();
+                Process {
+                    handle: HandleWrapper(process_handler),
+                    name,
+                    pid,
+                    parent,
+                    cmd: get_cmd_line(pid),
+                    environ,
+                    exe,
+                    cwd: PathBuf::new(),
+                    root,
+                    status: ProcessStatus::Run,
+                    memory,
+                    virtual_memory,
+                    cpu_usage: 0.,
+                    old_cpu: 0,
+                    old_sys_cpu: 0,
+                    old_user_cpu: 0,
+                    start_time: get_start_time(process_handler),
+                    updated: true,
+                }
+            }
+        } else {
+            Process {
+                handle: HandleWrapper(::std::ptr::null_mut()),
+                name,
+                pid,
+                parent,
+                cmd: get_cmd_line(pid),
+                environ: Vec::new(),
+                exe: get_executable_path(pid),
+                cwd: PathBuf::new(),
+                root: PathBuf::new(),
+                status: ProcessStatus::Run,
+                memory,
+                virtual_memory,
+                cpu_usage: 0.,
+                old_cpu: 0,
+                old_sys_cpu: 0,
+                old_user_cpu: 0,
+                start_time: 0,
+                updated: true,
+            }
+        }
+    }
 }
 
 // TODO: it's possible to get environment variables like it's done in
@@ -117,64 +228,28 @@ impl ProcessExt for Process {
     fn new(pid: Pid, parent: Option<Pid>, _: u64) -> Process {
         if let Some(process_handler) = get_process_handler(pid) {
             let mut h_mod = ::std::ptr::null_mut();
-            let mut process_name = [0u16; MAX_PATH + 1];
-            let mut cb_needed = 0;
 
             unsafe {
-                if EnumProcessModulesEx(
-                    process_handler,
-                    &mut h_mod,
-                    ::std::mem::size_of::<DWORD>() as DWORD,
-                    &mut cb_needed,
-                    LIST_MODULES_ALL,
-                ) != 0
-                {
-                    GetModuleBaseNameW(
-                        process_handler,
-                        h_mod,
-                        process_name.as_mut_ptr(),
-                        MAX_PATH as DWORD + 1,
-                    );
-                }
-                let mut pos = 0;
-                for x in process_name.iter() {
-                    if *x == 0 {
-                        break;
-                    }
-                    pos += 1;
-                }
-                let name = String::from_utf16_lossy(&process_name[..pos]);
+                let name = if get_h_mod(process_handler, &mut h_mod) {
+                    get_process_name(process_handler, h_mod)
+                } else {
+                    String::new()
+                };
                 let environ = get_proc_env(process_handler, pid as u32, &name);
 
-                let mut exe_buf = [0u16; MAX_PATH + 1];
-                GetModuleFileNameExW(
-                    process_handler,
-                    h_mod,
-                    exe_buf.as_mut_ptr(),
-                    MAX_PATH as DWORD + 1,
-                );
-
-                pos = 0;
-                for x in exe_buf.iter() {
-                    if *x == 0 {
-                        break;
-                    }
-                    pos += 1;
-                }
-
-                let exe = PathBuf::from(String::from_utf16_lossy(&exe_buf[..pos]));
+                let exe = get_exe(process_handler, h_mod);
                 let mut root = exe.clone();
                 root.pop();
                 Process {
                     handle: HandleWrapper(process_handler),
-                    name: name,
-                    pid: pid,
-                    parent: parent,
+                    name,
+                    pid,
+                    parent,
                     cmd: get_cmd_line(pid),
-                    environ: environ,
-                    exe: exe,
+                    environ,
+                    exe,
                     cwd: PathBuf::new(),
-                    root: root,
+                    root,
                     status: ProcessStatus::Run,
                     memory: 0,
                     virtual_memory: 0,
@@ -183,14 +258,15 @@ impl ProcessExt for Process {
                     old_sys_cpu: 0,
                     old_user_cpu: 0,
                     start_time: get_start_time(process_handler),
+                    updated: true,
                 }
             }
         } else {
             Process {
                 handle: HandleWrapper(::std::ptr::null_mut()),
                 name: String::new(),
-                pid: pid,
-                parent: parent,
+                pid,
+                parent,
                 cmd: get_cmd_line(pid),
                 environ: Vec::new(),
                 exe: get_executable_path(pid),
@@ -204,6 +280,7 @@ impl ProcessExt for Process {
                 old_sys_cpu: 0,
                 old_user_cpu: 0,
                 start_time: 0,
+                updated: true,
             }
         }
     }
@@ -319,7 +396,11 @@ unsafe fn get_start_time(handle: HANDLE) -> u64 {
     tmp / 10_000_000 - 11_644_473_600
 }
 
-pub unsafe fn get_parent_process_id(pid: Pid) -> Option<Pid> {
+/*pub unsafe fn get_parent_process_id(pid: Pid) -> Option<Pid> {
+    use winapi::um::tlhelp32::{
+        CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
+    };
+
     let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     let mut entry: PROCESSENTRY32 = zeroed();
     entry.dwSize = size_of::<PROCESSENTRY32>() as u32;
@@ -335,7 +416,7 @@ pub unsafe fn get_parent_process_id(pid: Pid) -> Option<Pid> {
     }
     CloseHandle(snapshot);
     None
-}
+}*/
 
 /*fn run_wmi(args: &[&str]) -> Option<String> {
     use std::process::Command;

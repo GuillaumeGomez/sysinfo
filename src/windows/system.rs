@@ -19,24 +19,24 @@ use RefreshKind;
 use SystemExt;
 
 use windows::network::{self, NetworkData};
-use windows::process::{
-    compute_cpu_usage, get_handle, get_parent_process_id, update_proc_info, Process,
-};
+use windows::process::{compute_cpu_usage, get_handle, update_proc_info, Process};
 use windows::processor::CounterValue;
 use windows::tools::*;
 
+use ntapi::ntexapi::{
+    NtQuerySystemInformation, SystemProcessInformation, SYSTEM_PROCESS_INFORMATION,
+};
 use winapi::shared::minwindef::{DWORD, FALSE};
+use winapi::shared::ntdef::{PVOID, ULONG};
+use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::pdh::PdhEnumObjectItemsW;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
-use winapi::um::psapi::K32EnumProcesses;
 use winapi::um::sysinfoapi::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
 use winapi::um::winnt::HANDLE;
 
 use rayon::prelude::*;
-
-const PROCESS_LEN: usize = 10192;
 
 /// Struct containing system's information.
 pub struct System {
@@ -53,52 +53,24 @@ pub struct System {
     uptime: u64,
 }
 
-impl System {
-    fn clear_procs(&mut self) {
-        if self.processors.len() > 0 {
-            let mut to_delete = Vec::new();
+// Useful for parallel iterations.
+struct Wrap<T>(T);
 
-            for (pid, proc_) in self.process_list.iter_mut() {
-                if !is_proc_running(get_handle(proc_)) {
-                    to_delete.push(*pid);
-                } else {
-                    compute_cpu_usage(proc_, self.processors.len() as u64 - 1);
-                }
-            }
-            for pid in to_delete {
-                self.process_list.remove(&pid);
-            }
-        }
-    }
-}
-
-struct Wrap(Process);
-
-unsafe impl Send for Wrap {}
-
-struct WrapSystem<'a>(UnsafeCell<&'a mut System>);
-
-impl<'a> WrapSystem<'a> {
-    fn get(&self) -> &'a mut System {
-        unsafe { *(self.0.get()) }
-    }
-}
-
-unsafe impl<'a> Send for WrapSystem<'a> {}
-unsafe impl<'a> Sync for WrapSystem<'a> {}
+unsafe impl<T> Send for Wrap<T> {}
+unsafe impl<T> Sync for Wrap<T> {}
 
 impl SystemExt for System {
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let mut s = System {
-            process_list: HashMap::new(),
+            process_list: HashMap::with_capacity(500),
             mem_total: 0,
             mem_free: 0,
             swap_total: 0,
             swap_free: 0,
             processors: init_processors(),
             temperatures: component::get_components(),
-            disks: Vec::new(),
+            disks: Vec::with_capacity(2),
             query: Query::new(),
             network: network::new(),
             uptime: get_uptime(),
@@ -294,47 +266,111 @@ impl SystemExt for System {
     }
 
     fn refresh_processes(&mut self) {
-        // I think that 10192 as length will be enough to get all processes at once...
-        let mut process_ids: Vec<DWORD> = Vec::with_capacity(PROCESS_LEN);
-        let mut cb_needed = 0;
+        // Windows 10 notebook requires at least 512kb of memory to make it in one go
+        let mut buffer_size: usize = 512 * 1024;
+        loop {
+            let mut process_information: Vec<u8> = Vec::with_capacity(buffer_size);
 
-        unsafe {
-            process_ids.set_len(PROCESS_LEN);
-        }
-        let size = ::std::mem::size_of::<DWORD>() * process_ids.len();
-        unsafe {
-            if K32EnumProcesses(process_ids.as_mut_ptr(), size as DWORD, &mut cb_needed) == 0 {
-                return;
-            }
-        }
-        let nb_processes = cb_needed / ::std::mem::size_of::<DWORD>() as DWORD;
-        unsafe {
-            process_ids.set_len(nb_processes as usize);
-        }
+            let mut cb_needed = 0;
+            let ntstatus = unsafe {
+                process_information.set_len(buffer_size);
+                NtQuerySystemInformation(
+                    SystemProcessInformation,
+                    process_information.as_mut_ptr() as PVOID,
+                    buffer_size as ULONG,
+                    &mut cb_needed,
+                )
+            };
 
-        {
-            let this = WrapSystem(UnsafeCell::new(self));
+            if ntstatus != STATUS_INFO_LENGTH_MISMATCH {
+                if ntstatus < 0 {
+                    eprintln!(
+                        "Couldn't get process infos: NtQuerySystemInformation returned {}",
+                        ntstatus
+                    );
+                }
 
-            process_ids
-                .par_iter()
-                .filter_map(|pid| {
-                    let pid = *pid as usize;
-                    if !refresh_existing_process(this.get(), pid, false) {
-                        let ppid = unsafe { get_parent_process_id(pid) };
-                        let mut p = Process::new(pid, ppid, 0);
-                        update_proc_info(&mut p);
-                        Some(Wrap(p))
-                    } else {
-                        None
+                // Parse the data block to get process information
+                let mut process_ids = Vec::with_capacity(500);
+                let mut process_information_offset = 0;
+                loop {
+                    let p = unsafe {
+                        process_information
+                            .as_ptr()
+                            .offset(process_information_offset)
+                            as *const SYSTEM_PROCESS_INFORMATION
+                    };
+                    let pi = unsafe { &*p };
+
+                    process_ids.push(Wrap(p));
+
+                    if pi.NextEntryOffset == 0 {
+                        break;
                     }
-                })
-                .collect::<Vec<_>>()
+
+                    process_information_offset += pi.NextEntryOffset as isize;
+                }
+                let nb_processors = self.processors.len() as u64;
+                let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
+                // TODO: instead of using parallel iterator only here, would be better to be able
+                //       to run it over `process_information` directly!
+                let processes = process_ids
+                    .into_par_iter()
+                    .filter_map(|pi| unsafe {
+                        let pi = *pi.0;
+                        let pid = pi.UniqueProcessId as usize;
+                        if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
+                            proc_.memory = (pi.WorkingSetSize as u64) >> 10u64;
+                            proc_.virtual_memory = (pi.VirtualSize as u64) >> 10u64;
+                            compute_cpu_usage(proc_, nb_processors);
+                            proc_.updated = true;
+                            return None;
+                        }
+                        let mut real_len = 0;
+                        while real_len < pi.ImageName.Length as usize
+                            && *pi.ImageName.Buffer.offset(real_len as isize) != 0
+                        {
+                            real_len += 1;
+                        }
+                        let name: &[u16] =
+                            ::std::slice::from_raw_parts(pi.ImageName.Buffer, real_len);
+                        let mut p = Process::new_full(
+                            pid,
+                            if pi.InheritedFromUniqueProcessId as usize != 0 {
+                                Some(pi.InheritedFromUniqueProcessId as usize)
+                            } else {
+                                None
+                            },
+                            (pi.WorkingSetSize as u64) >> 10u64,
+                            (pi.VirtualSize as u64) >> 10u64,
+                            String::from_utf16_lossy(name),
+                        );
+                        compute_cpu_usage(&mut p, nb_processors);
+                        Some(p)
+                    })
+                    .collect::<Vec<_>>();
+                self.process_list.retain(|_, v| {
+                    let x = v.updated;
+                    v.updated = false;
+                    x
+                });
+                for p in processes.into_iter() {
+                    self.process_list.insert(p.pid(), p);
+                }
+
+                break;
+            }
+
+            // GetNewBufferSize
+            if cb_needed == 0 {
+                buffer_size *= 2;
+                continue;
+            }
+            // allocating a few more kilo bytes just in case there are some new process
+            // kicked in since new call to NtQuerySystemInformation
+            buffer_size = (cb_needed + (1024 * 10)) as usize;
         }
-        .into_iter()
-        .for_each(|p| {
-            self.process_list.insert(p.0.pid(), p.0);
-        });
-        self.clear_procs();
+        //;
     }
 
     fn refresh_disks(&mut self) {
@@ -413,7 +449,7 @@ fn refresh_existing_process(s: &mut System, pid: Pid, compute_cpu: bool) -> bool
         }
         update_proc_info(entry);
         if compute_cpu {
-            compute_cpu_usage(entry, s.processors.len() as u64 - 1);
+            compute_cpu_usage(entry, s.processors.len() as u64);
         }
         true
     } else {
