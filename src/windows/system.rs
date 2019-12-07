@@ -368,9 +368,9 @@ impl SystemExt for System {
     }
 
     fn refresh_disks(&mut self) {
-        for disk in &mut self.disks {
+        self.disks.par_iter_mut().for_each(|disk| {
             disk.update();
-        }
+        });
     }
 
     fn refresh_disk_list(&mut self) {

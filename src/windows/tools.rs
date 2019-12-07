@@ -12,6 +12,8 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
 
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
 use winapi::ctypes::c_void;
 
 use winapi::shared::minwindef::{BYTE, DWORD, MAX_PATH, TRUE};
@@ -132,134 +134,132 @@ pub unsafe fn get_drive_size(handle: HANDLE) -> u64 {
 }
 
 pub unsafe fn get_disks() -> Vec<Disk> {
-    let mut disks = Vec::new();
     let drives = GetLogicalDrives();
     if drives == 0 {
-        return disks;
+        return Vec::new();
     }
-    for x in 0..size_of::<DWORD>() * 8 {
-        if (drives >> x) & 1 == 0 {
-            continue;
-        }
-        let mount_point = [b'A' as u16 + x as u16, b':' as u16, b'\\' as u16, 0];
-        if GetDriveTypeW(mount_point.as_ptr()) != DRIVE_FIXED {
-            continue;
-        }
-        let mut name = [0u16; MAX_PATH + 1];
-        let mut file_system = [0u16; 32];
-        if GetVolumeInformationW(
-            mount_point.as_ptr(),
-            name.as_mut_ptr(),
-            name.len() as DWORD,
-            ::std::ptr::null_mut(),
-            ::std::ptr::null_mut(),
-            ::std::ptr::null_mut(),
-            file_system.as_mut_ptr(),
-            file_system.len() as DWORD,
-        ) == 0
-        {
-            continue;
-        }
-        let mut pos = 0;
-        for x in name.iter() {
-            if *x == 0 {
-                break;
+    (0..size_of::<DWORD>() * 8).into_par_iter()
+        .filter_map(|x| {
+            if (drives >> x) & 1 == 0 {
+                return None;
             }
-            pos += 1;
-        }
-        let name = String::from_utf16_lossy(&name[..pos]);
-        let name = OsStr::new(&name);
-
-        pos = 0;
-        for x in file_system.iter() {
-            if *x == 0 {
-                break;
+            let mount_point = [b'A' as u16 + x as u16, b':' as u16, b'\\' as u16, 0];
+            if GetDriveTypeW(mount_point.as_ptr()) != DRIVE_FIXED {
+                return None;
             }
-            pos += 1;
-        }
-        let file_system: Vec<u8> = file_system[..pos].iter().map(|x| *x as u8).collect();
+            let mut name = [0u16; MAX_PATH + 1];
+            let mut file_system = [0u16; 32];
+            if GetVolumeInformationW(
+                mount_point.as_ptr(),
+                name.as_mut_ptr(),
+                name.len() as DWORD,
+                ::std::ptr::null_mut(),
+                ::std::ptr::null_mut(),
+                ::std::ptr::null_mut(),
+                file_system.as_mut_ptr(),
+                file_system.len() as DWORD,
+            ) == 0
+            {
+                return None;
+            }
+            let mut pos = 0;
+            for x in name.iter() {
+                if *x == 0 {
+                    break;
+                }
+                pos += 1;
+            }
+            let name = String::from_utf16_lossy(&name[..pos]);
+            let name = OsStr::new(&name);
 
-        let drive_name = [
-            b'\\' as u16,
-            b'\\' as u16,
-            b'.' as u16,
-            b'\\' as u16,
-            b'A' as u16 + x as u16,
-            b':' as u16,
-            0,
-        ];
-        let handle = open_drive(&drive_name, 0);
-        if handle == INVALID_HANDLE_VALUE {
-            disks.push(new_disk(
-                name,
-                &mount_point,
-                &file_system,
-                DiskType::Unknown(-1),
+            pos = 0;
+            for x in file_system.iter() {
+                if *x == 0 {
+                    break;
+                }
+                pos += 1;
+            }
+            let file_system: Vec<u8> = file_system[..pos].iter().map(|x| *x as u8).collect();
+
+            let drive_name = [
+                b'\\' as u16,
+                b'\\' as u16,
+                b'.' as u16,
+                b'\\' as u16,
+                b'A' as u16 + x as u16,
+                b':' as u16,
                 0,
-            ));
-            CloseHandle(handle);
-            continue;
-        }
-        let disk_size = get_drive_size(handle);
-        /*let mut spq_trim: ffi::STORAGE_PROPERTY_QUERY = ::std::mem::zeroed();
-        spq_trim.PropertyId = ffi::StorageDeviceTrimProperty;
-        spq_trim.QueryType = ffi::PropertyStandardQuery;
-        let mut dtd: ffi::DEVICE_TRIM_DESCRIPTOR = ::std::mem::zeroed();*/
-        #[allow(non_snake_case)]
-        #[repr(C)]
-        struct STORAGE_PROPERTY_QUERY {
-            PropertyId: i32,
-            QueryType: i32,
-            AdditionalParameters: [BYTE; 1],
-        }
-        #[allow(non_snake_case)]
-        #[repr(C)]
-        struct DEVICE_TRIM_DESCRIPTOR {
-            Version: DWORD,
-            Size: DWORD,
-            TrimEnabled: BOOLEAN,
-        }
-        let mut spq_trim = STORAGE_PROPERTY_QUERY {
-            PropertyId: 8i32,
-            QueryType: 0i32,
-            AdditionalParameters: [0],
-        };
-        let mut dtd: DEVICE_TRIM_DESCRIPTOR = ::std::mem::zeroed();
+            ];
+            let handle = open_drive(&drive_name, 0);
+            if handle == INVALID_HANDLE_VALUE {
+                CloseHandle(handle);
+                return Some(new_disk(
+                    name,
+                    &mount_point,
+                    &file_system,
+                    DiskType::Unknown(-1),
+                    0,
+                ));
+            }
+            let disk_size = get_drive_size(handle);
+            /*let mut spq_trim: ffi::STORAGE_PROPERTY_QUERY = ::std::mem::zeroed();
+            spq_trim.PropertyId = ffi::StorageDeviceTrimProperty;
+            spq_trim.QueryType = ffi::PropertyStandardQuery;
+            let mut dtd: ffi::DEVICE_TRIM_DESCRIPTOR = ::std::mem::zeroed();*/
+            #[allow(non_snake_case)]
+            #[repr(C)]
+            struct STORAGE_PROPERTY_QUERY {
+                PropertyId: i32,
+                QueryType: i32,
+                AdditionalParameters: [BYTE; 1],
+            }
+            #[allow(non_snake_case)]
+            #[repr(C)]
+            struct DEVICE_TRIM_DESCRIPTOR {
+                Version: DWORD,
+                Size: DWORD,
+                TrimEnabled: BOOLEAN,
+            }
+            let mut spq_trim = STORAGE_PROPERTY_QUERY {
+                PropertyId: 8i32,
+                QueryType: 0i32,
+                AdditionalParameters: [0],
+            };
+            let mut dtd: DEVICE_TRIM_DESCRIPTOR = ::std::mem::zeroed();
 
-        let mut dw_size = 0;
-        if DeviceIoControl(
-            handle,
-            IOCTL_STORAGE_QUERY_PROPERTY,
-            &mut spq_trim as *mut STORAGE_PROPERTY_QUERY as *mut c_void,
-            size_of::<STORAGE_PROPERTY_QUERY>() as DWORD,
-            &mut dtd as *mut DEVICE_TRIM_DESCRIPTOR as *mut c_void,
-            size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD,
-            &mut dw_size,
-            ::std::ptr::null_mut(),
-        ) == 0
-            || dw_size != size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD
-        {
-            disks.push(new_disk(
+            let mut dw_size = 0;
+            if DeviceIoControl(
+                handle,
+                IOCTL_STORAGE_QUERY_PROPERTY,
+                &mut spq_trim as *mut STORAGE_PROPERTY_QUERY as *mut c_void,
+                size_of::<STORAGE_PROPERTY_QUERY>() as DWORD,
+                &mut dtd as *mut DEVICE_TRIM_DESCRIPTOR as *mut c_void,
+                size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD,
+                &mut dw_size,
+                ::std::ptr::null_mut(),
+            ) == 0
+                || dw_size != size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD
+            {
+                CloseHandle(handle);
+                return Some(new_disk(
+                    name,
+                    &mount_point,
+                    &file_system,
+                    DiskType::Unknown(-1),
+                    disk_size,
+                ));
+            }
+            let is_ssd = dtd.TrimEnabled != 0;
+            CloseHandle(handle);
+            Some(new_disk(
                 name,
                 &mount_point,
                 &file_system,
-                DiskType::Unknown(-1),
+                if is_ssd { DiskType::SSD } else { DiskType::HDD },
                 disk_size,
-            ));
-            CloseHandle(handle);
-            continue;
-        }
-        let is_ssd = dtd.TrimEnabled != 0;
-        CloseHandle(handle);
-        disks.push(new_disk(
-            name,
-            &mount_point,
-            &file_system,
-            if is_ssd { DiskType::SSD } else { DiskType::HDD },
-            disk_size,
-        ));
-    }
-    disks
+            ))
+        })
+        .collect::<Vec<_>>()
 }
 
 #[allow(non_snake_case)]
