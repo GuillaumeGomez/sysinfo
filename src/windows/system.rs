@@ -328,14 +328,7 @@ impl SystemExt for System {
                             proc_.updated = true;
                             return None;
                         }
-                        let mut real_len = 0;
-                        while real_len < pi.ImageName.Length as usize
-                            && *pi.ImageName.Buffer.offset(real_len as isize) != 0
-                        {
-                            real_len += 1;
-                        }
-                        let name: &[u16] =
-                            ::std::slice::from_raw_parts(pi.ImageName.Buffer, real_len);
+                        let name = get_process_name(&pi, pid);
                         let mut p = Process::new_full(
                             pid,
                             if pi.InheritedFromUniqueProcessId as usize != 0 {
@@ -345,7 +338,7 @@ impl SystemExt for System {
                             },
                             (pi.WorkingSetSize as u64) >> 10u64,
                             (pi.VirtualSize as u64) >> 10u64,
-                            String::from_utf16_lossy(name),
+                            name,
                         );
                         compute_cpu_usage(&mut p, nb_processors, system_time);
                         Some(p)
@@ -455,5 +448,26 @@ fn refresh_existing_process(s: &mut System, pid: Pid, compute_cpu: bool) -> bool
         true
     } else {
         false
+    }
+}
+
+fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: usize) -> String {
+    let name = &process.ImageName;
+    if name.Buffer.is_null() {
+        match process_id {
+            0 => "Idle".to_owned(),
+            4 => "System".to_owned(),
+            _ => format!("<no name> Process {}", process_id),
+        }
+    } else {
+        let slice = unsafe {
+            std::slice::from_raw_parts(
+                name.Buffer,
+                //The length is in bytes, not the length of string
+                name.Length as usize / std::mem::size_of::<u16>(),
+            )
+        };
+
+        String::from_utf16_lossy(slice)
     }
 }
