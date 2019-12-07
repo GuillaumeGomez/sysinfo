@@ -19,7 +19,9 @@ use RefreshKind;
 use SystemExt;
 
 use windows::network::{self, NetworkData};
-use windows::process::{compute_cpu_usage, get_handle, update_proc_info, Process};
+use windows::process::{
+    compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process,
+};
 use windows::processor::CounterValue;
 use windows::tools::*;
 
@@ -268,6 +270,7 @@ impl SystemExt for System {
     fn refresh_processes(&mut self) {
         // Windows 10 notebook requires at least 512kb of memory to make it in one go
         let mut buffer_size: usize = 512 * 1024;
+
         loop {
             let mut process_information: Vec<u8> = Vec::with_capacity(buffer_size);
 
@@ -312,6 +315,7 @@ impl SystemExt for System {
                 }
                 let nb_processors = self.processors.len() as u64;
                 let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
+                let system_time = get_system_computation_time();
                 // TODO: instead of using parallel iterator only here, would be better to be able
                 //       to run it over `process_information` directly!
                 let processes = process_ids
@@ -322,18 +326,11 @@ impl SystemExt for System {
                         if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
                             proc_.memory = (pi.WorkingSetSize as u64) >> 10u64;
                             proc_.virtual_memory = (pi.VirtualSize as u64) >> 10u64;
-                            compute_cpu_usage(proc_, nb_processors);
+                            compute_cpu_usage(proc_, nb_processors, system_time);
                             proc_.updated = true;
                             return None;
                         }
-                        let mut real_len = 0;
-                        while real_len < pi.ImageName.Length as usize
-                            && *pi.ImageName.Buffer.offset(real_len as isize) != 0
-                        {
-                            real_len += 1;
-                        }
-                        let name: &[u16] =
-                            ::std::slice::from_raw_parts(pi.ImageName.Buffer, real_len);
+                        let name = get_process_name(&pi, pid);
                         let mut p = Process::new_full(
                             pid,
                             if pi.InheritedFromUniqueProcessId as usize != 0 {
@@ -343,9 +340,9 @@ impl SystemExt for System {
                             },
                             (pi.WorkingSetSize as u64) >> 10u64,
                             (pi.VirtualSize as u64) >> 10u64,
-                            String::from_utf16_lossy(name),
+                            name,
                         );
-                        compute_cpu_usage(&mut p, nb_processors);
+                        compute_cpu_usage(&mut p, nb_processors, system_time);
                         Some(p)
                     })
                     .collect::<Vec<_>>();
@@ -370,13 +367,12 @@ impl SystemExt for System {
             // kicked in since new call to NtQuerySystemInformation
             buffer_size = (cb_needed + (1024 * 10)) as usize;
         }
-        //;
     }
 
     fn refresh_disks(&mut self) {
-        for disk in &mut self.disks {
+        self.disks.par_iter_mut().for_each(|disk| {
             disk.update();
-        }
+        });
     }
 
     fn refresh_disk_list(&mut self) {
@@ -449,10 +445,35 @@ fn refresh_existing_process(s: &mut System, pid: Pid, compute_cpu: bool) -> bool
         }
         update_proc_info(entry);
         if compute_cpu {
-            compute_cpu_usage(entry, s.processors.len() as u64);
+            compute_cpu_usage(
+                entry,
+                s.processors.len() as u64,
+                get_system_computation_time(),
+            );
         }
         true
     } else {
         false
+    }
+}
+
+fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: usize) -> String {
+    let name = &process.ImageName;
+    if name.Buffer.is_null() {
+        match process_id {
+            0 => "Idle".to_owned(),
+            4 => "System".to_owned(),
+            _ => format!("<no name> Process {}", process_id),
+        }
+    } else {
+        let slice = unsafe {
+            std::slice::from_raw_parts(
+                name.Buffer,
+                //The length is in bytes, not the length of string
+                name.Length as usize / std::mem::size_of::<u16>(),
+            )
+        };
+
+        String::from_utf16_lossy(slice)
     }
 }
