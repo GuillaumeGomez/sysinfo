@@ -16,8 +16,9 @@ use winapi::shared::minwindef::{FALSE, ULONG};
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::{
-    PdhAddCounterW, PdhRemoveCounter, PdhCollectQueryData, PdhCollectQueryDataEx, PdhGetFormattedCounterValue,
-    PdhOpenQueryA, PdhCloseQuery, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_FMT_LARGE, PDH_HCOUNTER, PDH_HQUERY,
+    PdhAddCounterW, PdhCloseQuery, PdhCollectQueryData, PdhCollectQueryDataEx,
+    PdhGetFormattedCounterValue, PdhOpenQueryA, PdhRemoveCounter, PDH_FMT_COUNTERVALUE,
+    PDH_FMT_DOUBLE, PDH_FMT_LARGE, PDH_HCOUNTER, PDH_HQUERY,
 };
 use winapi::um::synchapi::{CreateEventA, WaitForSingleObject};
 use winapi::um::winbase::{INFINITE, WAIT_OBJECT_0};
