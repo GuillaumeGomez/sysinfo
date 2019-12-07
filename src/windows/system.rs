@@ -19,7 +19,9 @@ use RefreshKind;
 use SystemExt;
 
 use windows::network::{self, NetworkData};
-use windows::process::{compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process};
+use windows::process::{
+    compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process,
+};
 use windows::processor::CounterValue;
 use windows::tools::*;
 
@@ -443,7 +445,11 @@ fn refresh_existing_process(s: &mut System, pid: Pid, compute_cpu: bool) -> bool
         }
         update_proc_info(entry);
         if compute_cpu {
-            compute_cpu_usage(entry, s.processors.len() as u64, get_system_computation_time());
+            compute_cpu_usage(
+                entry,
+                s.processors.len() as u64,
+                get_system_computation_time(),
+            );
         }
         true
     } else {

@@ -138,7 +138,8 @@ pub unsafe fn get_disks() -> Vec<Disk> {
     if drives == 0 {
         return Vec::new();
     }
-    (0..size_of::<DWORD>() * 8).into_par_iter()
+    (0..size_of::<DWORD>() * 8)
+        .into_par_iter()
         .filter_map(|x| {
             if (drives >> x) & 1 == 0 {
                 return None;
