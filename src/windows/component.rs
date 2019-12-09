@@ -67,17 +67,18 @@ use winapi::um::combaseapi::{CoCreateInstance, CoInitializeEx, CoUninitialize, C
 use winapi::um::objbase::COINIT_MULTITHREADED;
 use winapi::um::objidl::EOAC_NONE;
 use winapi::um::oleauto::SysAllocString;
-use winapi::um::oleauto::VariantClear;
+use winapi::um::oleauto::{VariantClear, VariantInit};
 use winapi::um::wbemcli::{CLSID_WbemLocator, IEnumWbemClassObject, IID_IWbemLocator, IWbemLocator, IWbemServices, WBEM_S_NO_ERROR, WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY, WBEM_FLAG_FORWARD_ONLY};
 use winapi::shared::wtypes::BSTR;
 use winapi::um::oleauto::SysFreeString;
 use winapi::um::wbemcli::IWbemClassObject;
- use winapi::um::oaidl::VARIANT_n3;
+ use winapi::um::oaidl::{VARIANT, VARIANT_n3};
 
 struct Instance(*mut IWbemLocator);
 
 impl Drop for Instance {
     fn drop(&mut self) {
+        println!("Instance::drop");
         if !self.0.is_null() {
             unsafe { (*self.0).Release(); }
         }
@@ -88,6 +89,7 @@ struct ServerConnection(*mut IWbemServices);
 
 impl Drop for ServerConnection {
     fn drop(&mut self) {
+        println!("ServerConnection::drop");
         if !self.0.is_null() {
             unsafe { (*self.0).Release(); }
         }
@@ -98,6 +100,7 @@ struct Enumerator(*mut IEnumWbemClassObject);
 
 impl Drop for Enumerator {
     fn drop(&mut self) {
+        println!("Enumerator::drop");
         if !self.0.is_null() {
             unsafe { (*self.0).Release(); }
         }
@@ -106,7 +109,7 @@ impl Drop for Enumerator {
 
 macro_rules! bstr {
     ($($x:expr),*) => {{
-        let x: &[u16] = &[$($x as u16),*];
+        let x: &[u16] = &[$($x as u16),*, 0];
         SysAllocString(x.as_ptr())
     }}
 }
@@ -119,20 +122,18 @@ struct Connection {
 
 impl Connection {
     fn new() -> Option<Connection> {
-        let x = unsafe { CoInitializeEx(null_mut(), 0) };
-        if FAILED(x) {
-            eprintln!("1 => {}", x);
-            None
-        } else {
-            Some(Connection {
-                instance: None,
-                server_connection: None,
-                enumerator: None,
-            })
-        }
+        // "Funnily", this function returns ok, false or "this function has already been called".
+        // So whatever, let's just ignore whatever it might return then!
+        unsafe { CoInitializeEx(null_mut(), 0) };
+         Some(Connection {
+            instance: None,
+            server_connection: None,
+            enumerator: None,
+        })
     }
 
     fn initialize_security(self) -> Option<Connection> {
+        println!("initialize_security");
         if FAILED(unsafe {
             CoInitializeSecurity(
                 null_mut(),
@@ -154,14 +155,15 @@ impl Connection {
     }
 
     fn create_instance(mut self) -> Option<Connection> {
+        println!("create_instance");
         let mut pLoc = null_mut();
 
         if FAILED(unsafe {
             CoCreateInstance(
-                *(&CLSID_WbemLocator as *const _ as *const usize) as *mut _,
+                &CLSID_WbemLocator as *const _,
                 null_mut(),
                 CLSCTX_INPROC_SERVER,
-                *(&IID_IWbemLocator as *const _ as *const usize) as *mut _,
+                &IID_IWbemLocator as *const _,
                 &mut pLoc as *mut _ as *mut _,
             )
         }) {
@@ -174,11 +176,12 @@ impl Connection {
     }
 
     fn connect_server(mut self) -> Option<Connection> {
+        println!("connect_server");
         let mut pSvc = null_mut();
 
         if let Some(ref instance) = self.instance {
             unsafe {
-                let s = bstr!('R', 'O', 'O', 'T', '\\', 'W', 'M', 'I');
+                let s = bstr!('r', 'o', 'o', 't', '\\', 'W', 'M', 'I');
                 let res = (*instance.0).ConnectServer(
                     s,
                     null_mut(),
@@ -191,7 +194,7 @@ impl Connection {
                 );
                 SysFreeString(s);
                 if FAILED(res) {
-                    eprintln!("4");
+                    eprintln!("4 => {}", res);
                     return None;
                 }
             }
@@ -204,6 +207,7 @@ impl Connection {
     }
 
     fn set_proxy_blanket(self) -> Option<Connection> {
+        println!("set_proxy_blanket");
         if let Some(ref server_connection) = self.server_connection {
             unsafe {
                 if FAILED(CoSetProxyBlanket(
@@ -233,6 +237,7 @@ impl Connection {
         if let Some(ref server_connection) = self.server_connection {
             unsafe {
                 let s = bstr!('W', 'Q', 'L'); // query kind
+                // SELECT * FROM MSAcpi_ThermalZoneTemperature
                 let query = bstr!('S','E','L','E','C','T',' ','*',' ','F','R','O','M',' ','M','S','A','c','p','i','_','T','h','e','r','m','a','l','Z','o','n','e','T','e','m','p','e','r','a','t','u','r','e');
                 let hres = (*server_connection.0).ExecQuery(
                     s,
@@ -241,6 +246,7 @@ impl Connection {
                     null_mut(),
                     &mut pEnumerator as *mut _,
                 );
+                println!("xa");
                 SysFreeString(s);
                 SysFreeString(query);
                 if FAILED(hres) {
@@ -269,13 +275,19 @@ impl Connection {
             let mut uReturned = 0;
 
             let hRes = unsafe {
-                (*pEnum.0).Next(
-                    0,                  // Time out
+                println!("foo {:?}", (*pEnum.0).lpVtbl as *const _ as usize);
+                use winapi::um::wbemcli::WBEM_INFINITE;
+                let x = (*(*pEnum.0).lpVtbl).Next;
+                x(
+                    pEnum.0,
+                    WBEM_INFINITE as _, // Time out
                     1,                  // One object
                     &mut pObj as *mut _,
                     &mut uReturned,
                 )
             };
+
+            println!("-> {:?}", hRes);
 
             if uReturned == 0 {
                 eprintln!("and done!");
@@ -285,22 +297,31 @@ impl Connection {
             unsafe {
                 (*pObj).BeginEnumeration(WBEM_FLAG_NONSYSTEM_ONLY as _);
 
-                let mut pVal: VARIANT_n3 = ::std::mem::uninitialized();
+                let mut pVal: VARIANT = ::std::mem::uninitialized();
                 let mut pstrName: BSTR = null_mut();
 
+                //VariantInit(&mut pVal as *mut _ as *mut _);
                 while (*pObj).Next(0, &mut pstrName, &mut pVal as *mut _ as *mut _, null_mut(), null_mut()) == WBEM_S_NO_ERROR as _ {
                     {
+                        println!("c");
                         let mut i = 0;
                         while (*pstrName.offset(i)) != 0 {
                             i += 1;
                         }
-                        let bytes = ::std::slice::from_raw_parts(pstrName as *const u16, i as usize + 1);
+                        let bytes = ::std::slice::from_raw_parts(pstrName as *const u16, i as usize);
+                        println!("a");
                         i = 0;
-                        while (*pVal.bstrVal().offset(i)) != 0 {
+                        let pVal = &pVal.n1;
+                        let x = pVal.decVal();
+                        println!("x {:?} {}", x.Hi32, x.Lo64);
+                        /*while *x.offset(i) != 0 {
+                            println!("a");
                             i += 1;
                         }
-                        let bytes2 = ::std::slice::from_raw_parts(*pVal.bstrVal() as *const u16, i as usize + 1);
-                        println!("==> {}::{}", String::from_utf16_lossy(bytes), String::from_utf16_lossy(bytes2));
+                        println!("b {:?}", x);
+                        let bytes2 = ::std::slice::from_raw_parts(*x as *const u16, i as usize);
+                        println!("==> {}::{}", String::from_utf16_lossy(bytes), String::from_utf16_lossy(bytes2));*/
+                        println!("==> {}::{}", String::from_utf16_lossy(bytes), x.Hi32);
                     }
                     SysFreeString(pstrName);
                     VariantClear(&mut pVal as *mut _ as *mut _);
@@ -314,6 +335,11 @@ impl Connection {
 
 impl Drop for Connection {
     fn drop(&mut self) {
+        // Those three calls are here to enforce that they get dropped in the good order.
+        self.enumerator.take();
+        self.server_connection.take();
+        self.instance.take();
+        println!("Connection::drop");
         unsafe { CoUninitialize(); }
     }
 }
