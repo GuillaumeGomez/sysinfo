@@ -6,13 +6,21 @@
 
 use std::ptr::null_mut;
 
-use winapi::shared::rpcdce::{RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, RPC_C_AUTHN_LEVEL_CALL};
+use winapi::shared::rpcdce::{
+    RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE,
+    RPC_C_AUTHN_LEVEL_CALL,
+};
 use winapi::shared::winerror::{FAILED, SUCCEEDED};
 use winapi::shared::wtypesbase::CLSCTX_INPROC_SERVER;
-use winapi::um::combaseapi::{CoCreateInstance, CoInitializeEx, CoUninitialize, CoInitializeSecurity, CoSetProxyBlanket};
+use winapi::um::combaseapi::{
+    CoCreateInstance, CoInitializeEx, CoUninitialize, CoInitializeSecurity, CoSetProxyBlanket,
+};
 use winapi::um::objidl::EOAC_NONE;
 use winapi::um::oleauto::{SysAllocString, SysFreeString, VariantClear};
-use winapi::um::wbemcli::{CLSID_WbemLocator, IEnumWbemClassObject, IID_IWbemLocator, IWbemClassObject, IWbemLocator, IWbemServices, WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY, WBEM_FLAG_FORWARD_ONLY};
+use winapi::um::wbemcli::{
+    CLSID_WbemLocator, IEnumWbemClassObject, IID_IWbemLocator, IWbemClassObject, IWbemLocator,
+    IWbemServices, WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY, WBEM_FLAG_FORWARD_ONLY,
+};
 use winapi::um::oaidl::VARIANT;
 
 use ComponentExt;
