@@ -250,8 +250,12 @@ impl SystemExt for System {
         }
     }
 
+    /// Please note that on Windows, you need to have Administrator priviledges to get this
+    /// information.
     fn refresh_temperatures(&mut self) {
-        // does nothing for the moment...
+        for component in &mut self.temperatures {
+            component.refresh();
+        }
     }
 
     fn refresh_network(&mut self) {
