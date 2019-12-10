@@ -77,3 +77,30 @@ fn bench_refresh_network(b: &mut test::Bencher) {
         s.refresh_network();
     });
 }
+
+#[bench]
+fn bench_refresh_memory(b: &mut test::Bencher) {
+    let mut s = sysinfo::System::new();
+
+    b.iter(move || {
+        s.refresh_memory();
+    });
+}
+
+#[bench]
+fn bench_refresh_cpu(b: &mut test::Bencher) {
+    let mut s = sysinfo::System::new();
+
+    b.iter(move || {
+        s.refresh_cpu();
+    });
+}
+
+#[bench]
+fn bench_refresh_temperatures(b: &mut test::Bencher) {
+    let mut s = sysinfo::System::new();
+
+    b.iter(move || {
+        s.refresh_temperatures();
+    });
+}

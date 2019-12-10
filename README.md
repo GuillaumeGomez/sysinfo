@@ -80,6 +80,73 @@ To build the C example, just run:
 > LD_LIBRARY_PATH=target/release/ ./simple
 ```
 
+### Benchmarks
+
+You can run the benchmarks locally with rust **nightly** by doing:
+
+```bash
+> cargo bench
+```
+
+Here are the current results:
+
+**Linux**
+
+<details>
+
+```text
+test bench_new                  ... bench:  12,950,615 ns/iter (+/- 1,054,683)
+test bench_refresh_all          ... bench:   5,412,422 ns/iter (+/- 1,839,554)
+test bench_refresh_cpu          ... bench:      12,967 ns/iter (+/- 618)
+test bench_refresh_disk_lists   ... bench:      50,005 ns/iter (+/- 7,639)
+test bench_refresh_disks        ... bench:       2,314 ns/iter (+/- 45)
+test bench_refresh_memory       ... bench:      11,037 ns/iter (+/- 1,172)
+test bench_refresh_network      ... bench:      53,703 ns/iter (+/- 1,396)
+test bench_refresh_process      ... bench:      43,730 ns/iter (+/- 3,936)
+test bench_refresh_processes    ... bench:   4,673,568 ns/iter (+/- 494,504)
+test bench_refresh_system       ... bench:      48,861 ns/iter (+/- 3,433)
+test bench_refresh_temperatures ... bench:      23,046 ns/iter (+/- 2,131)
+```
+</details>
+
+**Windows**
+
+<details>
+
+```text
+test bench_new                  ... bench:  61,548,071 ns/iter (+/- 196,093,742)
+test bench_refresh_all          ... bench:   2,541,951 ns/iter (+/- 482,285)
+test bench_refresh_cpu          ... bench:         460 ns/iter (+/- 478)
+test bench_refresh_disk_lists   ... bench:     152,940 ns/iter (+/- 8,330)
+test bench_refresh_disks        ... bench:      55,597 ns/iter (+/- 9,629)
+test bench_refresh_memory       ... bench:       2,130 ns/iter (+/- 486)
+test bench_refresh_network      ... bench:         212 ns/iter (+/- 216)
+test bench_refresh_process      ... bench:          38 ns/iter (+/- 33)
+test bench_refresh_processes    ... bench:   2,175,034 ns/iter (+/- 315,585)
+test bench_refresh_system       ... bench:       2,508 ns/iter (+/- 224)
+test bench_refresh_temperatures ... bench:           1 ns/iter (+/- 0)
+```
+</details>
+
+**OSX**
+
+<details>
+
+```text
+test bench_new                  ... bench:  64,062,254 ns/iter (+/- 8,845,126)
+test bench_refresh_all          ... bench:   4,285,670 ns/iter (+/- 467,963)
+test bench_refresh_cpu          ... bench:      10,712 ns/iter (+/- 1,493)
+test bench_refresh_disk_lists   ... bench:     837,489 ns/iter (+/- 48,593)
+test bench_refresh_disks        ... bench:         956 ns/iter (+/- 128)
+test bench_refresh_memory       ... bench:       3,327 ns/iter (+/- 462)
+test bench_refresh_network      ... bench:      34,465 ns/iter (+/- 5,228)
+test bench_refresh_process      ... bench:       3,935 ns/iter (+/- 1,135)
+test bench_refresh_processes    ... bench:   2,489,203 ns/iter (+/- 140,567)
+test bench_refresh_system       ... bench:     741,774 ns/iter (+/- 335,431)
+test bench_refresh_temperatures ... bench:     680,362 ns/iter (+/- 167,343)
+```
+</details>
+
 ## Donations
 
 If you appreciate my work and want to support me, you can do it here:
