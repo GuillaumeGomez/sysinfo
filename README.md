@@ -122,6 +122,17 @@ test bench_refresh_temperatures ... bench:      23,046 ns/iter (+/- 2,131)
 <details>
 
 ```text
+test bench_new                  ... bench:  64,062,254 ns/iter (+/- 8,845,126)
+test bench_refresh_all          ... bench:   4,285,670 ns/iter (+/- 467,963)
+test bench_refresh_cpu          ... bench:      10,712 ns/iter (+/- 1,493)
+test bench_refresh_disk_lists   ... bench:     837,489 ns/iter (+/- 48,593)
+test bench_refresh_disks        ... bench:         956 ns/iter (+/- 128)
+test bench_refresh_memory       ... bench:       3,327 ns/iter (+/- 462)
+test bench_refresh_network      ... bench:      34,465 ns/iter (+/- 5,228)
+test bench_refresh_process      ... bench:       3,935 ns/iter (+/- 1,135)
+test bench_refresh_processes    ... bench:   2,489,203 ns/iter (+/- 140,567)
+test bench_refresh_system       ... bench:     741,774 ns/iter (+/- 335,431)
+test bench_refresh_temperatures ... bench:     680,362 ns/iter (+/- 167,343)
 ```
 </details>
 
