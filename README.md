@@ -80,6 +80,51 @@ To build the C example, just run:
 > LD_LIBRARY_PATH=target/release/ ./simple
 ```
 
+### Benchmarks
+
+You can run the benchmarks locally with rust **nightly** by doing:
+
+```bash
+> cargo bench
+```
+
+Here are the current results:
+
+**Linux**
+
+<details>
+
+```text
+test bench_new                  ... bench:  12,950,615 ns/iter (+/- 1,054,683)
+test bench_refresh_all          ... bench:   5,412,422 ns/iter (+/- 1,839,554)
+test bench_refresh_cpu          ... bench:      12,967 ns/iter (+/- 618)
+test bench_refresh_disk_lists   ... bench:      50,005 ns/iter (+/- 7,639)
+test bench_refresh_disks        ... bench:       2,314 ns/iter (+/- 45)
+test bench_refresh_memory       ... bench:      11,037 ns/iter (+/- 1,172)
+test bench_refresh_network      ... bench:      53,703 ns/iter (+/- 1,396)
+test bench_refresh_process      ... bench:      43,730 ns/iter (+/- 3,936)
+test bench_refresh_processes    ... bench:   4,673,568 ns/iter (+/- 494,504)
+test bench_refresh_system       ... bench:      48,861 ns/iter (+/- 3,433)
+test bench_refresh_temperatures ... bench:      23,046 ns/iter (+/- 2,131)
+```
+</details>
+
+**Windows**
+
+<details>
+
+```text
+```
+</details>
+
+**OSX**
+
+<details>
+
+```text
+```
+</details>
+
 ## Donations
 
 If you appreciate my work and want to support me, you can do it here:
