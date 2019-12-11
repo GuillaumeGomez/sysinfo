@@ -14,7 +14,7 @@ use sys::NetworkData;
 use Pid;
 use {DiskExt, ProcessExt, RefreshKind, SystemExt};
 
-use libc::{sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
+use libc::{sysconf, gid_t, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::fs::{self, read_link, File};
@@ -320,16 +320,16 @@ fn to_u64(v: &[u8]) -> u64 {
     x
 }
 
-struct Wrap<'a>(UnsafeCell<&'a mut Process>);
+struct Wrap<'a, T>(UnsafeCell<&'a mut T>);
 
-impl<'a> Wrap<'a> {
-    fn get(&self) -> &'a mut Process {
+impl<'a, T> Wrap<'a, T> {
+    fn get(&self) -> &'a mut T {
         unsafe { *(self.0.get()) }
     }
 }
 
-unsafe impl<'a> Send for Wrap<'a> {}
-unsafe impl<'a> Sync for Wrap<'a> {}
+unsafe impl<'a, T> Send for Wrap<'a, T> {}
+unsafe impl<'a, T> Sync for Wrap<'a, T> {}
 
 fn refresh_procs<P: AsRef<Path>>(
     proc_list: &mut Process,
@@ -445,6 +445,38 @@ macro_rules! unwrap_or_return {
     }};
 }
 
+fn _get_uid_and_gid(status_data: String) -> Option<(uid_t, gid_t)> {
+    // We're only interested in the lines starting with Uid: and Gid:
+    // here. From these lines, we're looking at the second entry to get
+    // the effective u/gid.
+
+    let f = |h: &str, n: &str| -> Option<uid_t> {
+        if h.starts_with(n) {
+            h.split_whitespace().nth(2).unwrap_or("0").parse().ok()
+        } else {
+            None
+        }
+    };
+    let mut uid = None;
+    let mut gid = None;
+    for line in status_data.lines() {
+        if let Some(u) = f(line, "Uid:") {
+            assert!(uid.is_none());
+            uid = Some(u);
+        } else if let Some(g) = f(line, "Gid:") {
+            assert!(gid.is_none());
+            gid = Some(g);
+        } else {
+            continue
+        }
+        if uid.is_some() && gid.is_some() {
+            break
+        }
+    }
+    assert!(uid.is_some() && gid.is_some());
+    Some((uid.unwrap(), gid.unwrap()))
+}
+
 fn _get_process_data(
     path: &Path,
     proc_list: &mut Process,
@@ -518,38 +550,10 @@ fn _get_process_data(
         .and_then(|c| Some(ProcessStatus::from(c)))
         .unwrap_or(ProcessStatus::Unknown(0));
 
-    tmp = PathBuf::from(path);
-    tmp.push("status");
-    if let Ok(status_data) = get_all_data(&tmp) {
-        // We're only interested in the lines starting with Uid: and Gid:
-        // here. From these lines, we're looking at the second entry to get
-        // the effective u/gid.
-
-        let f = |h: &str, n: &str| -> Option<uid_t> {
-            if h.starts_with(n) {
-                h.split_whitespace().nth(2).unwrap_or("0").parse().ok()
-            } else {
-                None
-            }
-        };
-        let mut set_uid = false;
-        let mut set_gid = false;
-        for line in status_data.lines() {
-            if let Some(u) = f(line, "Uid:") {
-                assert!(!set_uid);
-                set_uid = true;
-                p.uid = u;
-            }
-            if let Some(g) = f(line, "Gid:") {
-                assert!(!set_gid);
-                set_gid = true;
-                p.gid = g;
-            }
-        }
-        assert!(set_uid && set_gid);
-    }
-
     if proc_list.pid != 0 {
+        tmp.pop();
+        tmp.push("status");
+
         // If we're getting information for a child, no need to get those info since we
         // already have them...
         p.cmd = proc_list.cmd.clone();
@@ -558,28 +562,65 @@ fn _get_process_data(
         p.exe = proc_list.exe.clone();
         p.cwd = proc_list.cwd.clone();
         p.root = proc_list.root.clone();
+        if let Ok(d) = get_all_data(&tmp) {
+            if let Some((uid, gid)) = _get_uid_and_gid(d) {
+                p.uid = uid;
+                p.gid = gid;
+            }
+        }
     } else {
-        tmp = PathBuf::from(path);
-        tmp.push("cmdline");
-        p.cmd = copy_from_file(&tmp);
-        p.name = p
-            .cmd
-            .get(0)
-            .map(|x| x.split('/').last().unwrap_or_else(|| "").to_owned())
-            .unwrap_or_default();
-        tmp = PathBuf::from(path);
-        tmp.push("environ");
-        p.environ = copy_from_file(&tmp);
-        tmp = PathBuf::from(path);
-        tmp.push("exe");
+        #[derive(Clone, Copy)]
+        enum Kind {
+            Status,
+            Cmdline,
+            Environ,
+            Link,
+        }
+        {
+            let up = Wrap(UnsafeCell::new(&mut p));
+            [
+                (Kind::Status, "status"),
+                (Kind::Cmdline, "cmdline"),
+                (Kind::Environ, "environ"),
+                (Kind::Link, "exe"),
+            ].par_iter()
+                .for_each(|(k, s)| {
+                    let mut tmp = PathBuf::from(path);
+                    tmp.push(s);
+                    match k {
+                        Kind::Status => {
+                            if let Ok(data) = get_all_data(&tmp) {
+                                if let Some((uid, gid)) = _get_uid_and_gid(data) {
+                                    let p = up.get();
+                                    p.uid = uid;
+                                    p.gid = gid;
+                                }
+                            }
+                        }
+                        Kind::Cmdline => {
+                            let p = up.get();
+                            p.cmd = copy_from_file(&tmp);
+                            p.name = p
+                                .cmd
+                                .get(0)
+                                .map(|x| x.split('/').last().unwrap_or_else(|| "").to_owned())
+                                .unwrap_or_default();(k, copy_from_file(&tmp));
+                        }
+                        Kind::Environ => {
+                            up.get().environ = copy_from_file(&tmp);
+                        }
+                        Kind::Link => {
+                            up.get().exe = read_link(tmp.to_str().unwrap_or_else(|| ""))
+                                .unwrap_or_else(|_| PathBuf::new());
+                        }
+                    }
+                });
+        }
 
-        p.exe = read_link(tmp.to_str().unwrap_or_else(|| ""))
-            .unwrap_or_else(|_| PathBuf::new());
-
-        tmp = PathBuf::from(path);
+        tmp.pop();
         tmp.push("cwd");
         p.cwd = realpath(&tmp);
-        tmp = PathBuf::from(path);
+        tmp.pop();
         tmp.push("root");
         p.root = realpath(&tmp);
     }
