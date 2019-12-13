@@ -138,7 +138,7 @@ pub trait SystemExt: Sized {
     /// // If you want the disks list afterwards, just call the corresponding
     /// // "refresh_disk_list":
     /// system.refresh_disk_list();
-    /// assert!(system.get_disks().len() > 0);
+    /// let disks = system.get_disks();
     /// ```
     fn new_with_specifics(refreshes: RefreshKind) -> Self;
 
