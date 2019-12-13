@@ -298,18 +298,6 @@ impl Default for System {
     }
 }
 
-pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
-    use std::error::Error;
-    let mut file = File::open(file_path.as_ref())?;
-    let mut data = vec![0; 16_385];
-
-    let size = file.read(&mut data)?;
-    data.truncate(size);
-    let data = String::from_utf8(data)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.description()))?;
-    Ok(data)
-}
-
 fn to_u64(v: &[u8]) -> u64 {
     let mut x = 0;
 
@@ -550,10 +538,16 @@ fn _get_process_data(
         .and_then(|c| Some(ProcessStatus::from(c)))
         .unwrap_or(ProcessStatus::Unknown(0));
 
-    if proc_list.pid != 0 {
-        tmp.pop();
-        tmp.push("status");
+    tmp.pop();
+    tmp.push("status");
+    if let Ok(data) = get_all_data(&tmp) {
+        if let Some((uid, gid)) = _get_uid_and_gid(data) {
+            p.uid = uid;
+            p.gid = gid;
+        }
+    }
 
+    if proc_list.pid != 0 {
         // If we're getting information for a child, no need to get those info since we
         // already have them...
         p.cmd = proc_list.cmd.clone();
@@ -562,60 +556,22 @@ fn _get_process_data(
         p.exe = proc_list.exe.clone();
         p.cwd = proc_list.cwd.clone();
         p.root = proc_list.root.clone();
-        if let Ok(d) = get_all_data(&tmp) {
-            if let Some((uid, gid)) = _get_uid_and_gid(d) {
-                p.uid = uid;
-                p.gid = gid;
-            }
-        }
     } else {
-        #[derive(Clone, Copy)]
-        enum Kind {
-            Status,
-            Cmdline,
-            Environ,
-            Link,
-        }
-        {
-            let up = Wrap(UnsafeCell::new(&mut p));
-            [
-                (Kind::Status, "status"),
-                (Kind::Cmdline, "cmdline"),
-                (Kind::Environ, "environ"),
-                (Kind::Link, "exe"),
-            ].par_iter()
-                .for_each(|(k, s)| {
-                    let mut tmp = PathBuf::from(path);
-                    tmp.push(s);
-                    match k {
-                        Kind::Status => {
-                            if let Ok(data) = get_all_data(&tmp) {
-                                if let Some((uid, gid)) = _get_uid_and_gid(data) {
-                                    let p = up.get();
-                                    p.uid = uid;
-                                    p.gid = gid;
-                                }
-                            }
-                        }
-                        Kind::Cmdline => {
-                            let p = up.get();
-                            p.cmd = copy_from_file(&tmp);
-                            p.name = p
-                                .cmd
-                                .get(0)
-                                .map(|x| x.split('/').last().unwrap_or_else(|| "").to_owned())
-                                .unwrap_or_default();(k, copy_from_file(&tmp));
-                        }
-                        Kind::Environ => {
-                            up.get().environ = copy_from_file(&tmp);
-                        }
-                        Kind::Link => {
-                            up.get().exe = read_link(tmp.to_str().unwrap_or_else(|| ""))
-                                .unwrap_or_else(|_| PathBuf::new());
-                        }
-                    }
-                });
-        }
+        tmp.pop();
+        tmp.push("cmdline");
+        p.cmd = copy_from_file(&tmp);
+        p.name = p
+            .cmd
+            .get(0)
+            .map(|x| x.split('/').last().unwrap_or_else(|| "").to_owned())
+            .unwrap_or_default();
+        tmp.pop();
+        tmp.push("environ");
+        p.environ = copy_from_file(&tmp);
+        tmp.pop();
+        tmp.push("exe");
+        p.exe = read_link(tmp.to_str().unwrap_or_else(|| ""))
+            .unwrap_or_else(|_| PathBuf::new());
 
         tmp.pop();
         tmp.push("cwd");
@@ -639,6 +595,70 @@ fn _get_process_data(
     Ok(Some(p))
 }
 
+#[bench]
+fn bench_copy_from_file(b: &mut bench::Bencher) {
+    extern { fn getpid() -> ::libc::pid_t; }
+    let pid = unsafe { getpid() };
+    let x = format!("/proc/{}/environ", pid);
+    let path = Path::new(&x);
+    b.iter(move || {
+        copy_from_file(path);
+    });
+}
+#[bench]
+fn bench_get_all_data(b: &mut bench::Bencher) {
+    extern { fn getpid() -> ::libc::pid_t; }
+    let pid = unsafe { getpid() };
+    let x = format!("/proc/{}/status", pid);
+    let path = Path::new(&x);
+    b.iter(move || {
+        get_all_data(path);
+    });
+}
+#[bench]
+fn bench_read_file(b: &mut bench::Bencher) {
+    extern { fn getpid() -> ::libc::pid_t; }
+    let pid = unsafe { getpid() };
+    let x = format!("/proc/{}/status", pid);
+    let path = Path::new(&x);
+    b.iter(move || {
+        if let Ok(mut file) = File::open(path) {
+            let mut data = vec![0; 16_385];
+            file.read(&mut data);
+        }
+    });
+}
+#[bench]
+fn bench_read_file_no_reopen(b: &mut bench::Bencher) {
+    use std::io::Seek;
+    extern { fn getpid() -> ::libc::pid_t; }
+    let pid = unsafe { getpid() };
+    let x = format!("/proc/{}/status", pid);
+    let path = Path::new(&x);
+    let mut file = File::open(path).expect("file");
+    b.iter(move || {
+        file.seek(::std::io::SeekFrom::Start(0)).expect("seek begin");
+        let mut data = vec![0; 16_385];
+        file.read(&mut data);
+    });
+}
+#[bench]
+fn bench_read_file_seek(b: &mut bench::Bencher) {
+    use std::io::Seek;
+    extern { fn getpid() -> ::libc::pid_t; }
+    let pid = unsafe { getpid() };
+    let x = format!("/proc/{}/status", pid);
+    let path = Path::new(&x);
+    b.iter(move || {
+        if let Ok(mut file) = File::open(path) {
+            let pos = file.seek(::std::io::SeekFrom::End(0)).expect("seek end");
+            file.seek(::std::io::SeekFrom::Start(0)).expect("seek begin");
+            let mut data = Vec::with_capacity(pos as _);
+            file.read_exact(&mut data);
+        }
+    });
+}
+
 fn copy_from_file(entry: &Path) -> Vec<String> {
     match File::open(entry.to_str().unwrap_or("/")) {
         Ok(mut f) => {
@@ -646,16 +666,41 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 
             if let Ok(size) = f.read(&mut data) {
                 data.truncate(size);
-                data.split(|x| *x == b'\0')
+                let mut out = Vec::with_capacity(20);
+                let mut start = 0;
+                for (pos, x) in data.iter().enumerate() {
+                    if *x == 0 {
+                        if pos - start > 1 {
+                            if let Ok(s) = ::std::str::from_utf8(&data[start..pos])
+                                .map(|x| x.trim().to_owned()) {
+                                out.push(s);
+                            }
+                        }
+                        start = pos;
+                    }
+                }
+                out
+                /*data.split(|x| *x == b'\0')
                     .filter_map(|x| ::std::str::from_utf8(x).map(|x| x.trim().to_owned()).ok())
                     .filter(|x| !x.is_empty())
-                    .collect()
+                    .collect()*/
             } else {
                 Vec::new()
             }
         }
         Err(_) => Vec::new(),
     }
+}
+
+pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
+    use std::error::Error;
+    let mut file = File::open(file_path.as_ref())?;
+    let mut data = vec![0; 16_385];
+
+    let size = file.read(&mut data)?;
+    data.truncate(size);
+    Ok(String::from_utf8(data)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.description()))?)
 }
 
 fn get_all_disks() -> Vec<Disk> {

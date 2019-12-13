@@ -41,6 +41,7 @@
 //! println!("used swap   : {} kB", system.get_used_swap());
 //! ```
 
+#![feature(test)]
 #![crate_name = "sysinfo"]
 #![crate_type = "lib"]
 #![crate_type = "rlib"]
@@ -53,6 +54,7 @@ extern crate cfg_if;
 #[cfg(not(any(target_os = "unknown", target_arch = "wasm32")))]
 extern crate libc;
 extern crate rayon;
+extern crate test as bench;
 
 #[macro_use]
 extern crate doc_comment;
