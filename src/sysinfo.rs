@@ -50,7 +50,7 @@
 
 #[macro_use]
 extern crate cfg_if;
-#[cfg(not(target_os = "unknown"))]
+#[cfg(not(any(target_os = "unknown", target_arch = "wasm32")))]
 extern crate libc;
 extern crate rayon;
 
