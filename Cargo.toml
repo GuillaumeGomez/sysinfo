@@ -21,7 +21,7 @@ doc-comment = "0.3"
 winapi = { version = "0.3", features = ["fileapi", "handleapi", "ioapiset", "minwindef", "pdh", "psapi", "synchapi", "sysinfoapi", "winbase", "winerror", "winioctl", "winnt", "oleauto", "wbemcli", "rpcdce", "combaseapi", "objidl", "objbase"] }
 ntapi = "0.3"
 
-[target.'cfg(not(target_os = "unknown"))'.dependencies]
+[target.'cfg(not(any(target_os = "unknown", target_arch = "wasm32")))'.dependencies]
 libc = "0.2"
 
 [lib]

@@ -4,19 +4,19 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
+#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
-#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
+#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 use std::ffi::OsStr;
-#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
+#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 use std::fs;
-#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
+#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 use std::os::unix::ffi::OsStrExt;
-#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
+#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 use std::path::{Path, PathBuf};
 use Pid;
 
-#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
+#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 pub fn realpath(original: &Path) -> PathBuf {
     use std::mem::MaybeUninit;
 
@@ -51,7 +51,7 @@ pub fn realpath(original: &Path) -> PathBuf {
 }
 
 /* convert a path to a NUL-terminated Vec<u8> suitable for use with C functions */
-#[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))]
+#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 pub fn to_cpath(path: &Path) -> Vec<u8> {
     let path_os: &OsStr = path.as_ref();
     let mut cpath = path_os.as_bytes().to_vec();
@@ -64,7 +64,7 @@ pub fn to_cpath(path: &Path) -> Vec<u8> {
 /// `Err` is returned in case the platform isn't supported.
 pub fn get_current_pid() -> Result<Pid, &'static str> {
     cfg_if! {
-        if #[cfg(all(not(target_os = "windows"), not(target_os = "unknown")))] {
+        if #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))] {
             fn inner() -> Result<Pid, &'static str> {
                 unsafe { Ok(::libc::getpid()) }
             }
