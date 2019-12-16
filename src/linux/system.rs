@@ -17,6 +17,7 @@ use {DiskExt, ProcessExt, RefreshKind, SystemExt};
 use libc::{sysconf, gid_t, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
+use std::error::Error;
 use std::fs::{self, read_link, File};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -191,8 +192,6 @@ impl SystemExt for System {
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
-        use std::io::Write;
-        let mut f= ::std::fs::OpenOptions::new().append(true).create(true).open("/home/imperio/rust/fuck-me").expect("fuck");
         self.uptime = get_uptime();
         let found = match _get_process_data(
             &Path::new("/proc/").join(pid.to_string()),
@@ -203,27 +202,20 @@ impl SystemExt for System {
             get_secs_since_epoch(),
         ) {
             Ok(Some(p)) => {
-                write!(f, "1").unwrap();
                 self.process_list.tasks.insert(p.pid(), p);
                 false
             }
             Ok(_) => true,
             Err(_) => false,
         };
-        write!(f, "2").unwrap();
         if found && !self.processors.is_empty() {
-            write!(f, "3").unwrap();
             self.refresh_processors(Some(1));
-            write!(f, "4").unwrap();
             let (new, old) = get_raw_times(&self.processors[0]);
             let total_time = (if old > new { 1 } else { new - old }) as f32;
             let nb_processors = self.processors.len() as u64 - 1;
-            write!(f, "5").unwrap();
 
             if let Some(p) = self.process_list.tasks.get_mut(&pid) {
-            write!(f, "6").unwrap();
                 compute_cpu_usage(p, nb_processors, total_time);
-            write!(f, "7").unwrap();
             }
         }
         found
@@ -471,9 +463,31 @@ fn _get_uid_and_gid(status_data: String) -> Option<(uid_t, gid_t)> {
         }
     }
     match (uid, gid) {
-        (Some(u), Some(g)) => Some(u, g),
+        (Some(u), Some(g)) => Some((u, g)),
         _ => None,
     }
+}
+
+fn parse_stat_file(data: &str) -> Result<Vec<&str>, ()> {
+    // The stat file is "interesting" to parse, because spaces cannot
+    // be used as delimiters. The second field stores the command name
+    // surrounded by parentheses. Unfortunately, whitespace and
+    // parentheses are legal parts of the command, so parsing has to
+    // proceed like this: The first field is delimited by the first
+    // whitespace, the second field is everything until the last ')'
+    // in the entire string. All other fields are delimited by
+    // whitespace.
+
+    let mut parts = Vec::with_capacity(52);
+    let mut data_it = data.splitn(2, ' ');
+    parts.push(unwrap_or_return!(data_it.next()));
+    // The following loses the ) from the input, but that's ok because
+    // we're not using it anyway.
+    let mut data_it = unwrap_or_return!(data_it.next()).rsplitn(2, ')');
+    let data = unwrap_or_return!(data_it.next());
+    parts.push(unwrap_or_return!(data_it.next()));
+    parts.extend(data.split_whitespace());
+    Ok(parts)
 }
 
 fn _get_process_data(
@@ -496,32 +510,20 @@ fn _get_process_data(
             .and_then(|c| Some(ProcessStatus::from(c)))
             .unwrap_or_else(|| ProcessStatus::Unknown(0));
     };
-
-    let mut tmp = PathBuf::from(path);
-
-    tmp.push("stat");
-    let data = get_all_data(&tmp, 1024).map_err(|_| ())?;
-    // The stat file is "interesting" to parse, because spaces cannot
-    // be used as delimiters. The second field stores the command name
-    // surrounded by parentheses. Unfortunately, whitespace and
-    // parentheses are legal parts of the command, so parsing has to
-    // proceed like this: The first field is delimited by the first
-    // whitespace, the second field is everything until the last ')'
-    // in the entire string. All other fields are delimited by
-    // whitespace.
-
-    let mut parts = Vec::with_capacity(20);
-    let mut data_it = data.splitn(2, ' ');
-    parts.push(unwrap_or_return!(data_it.next()));
-    // The following loses the ) from the input, but that's ok because
-    // we're not using it anyway.
-    let mut data_it = unwrap_or_return!(data_it.next()).rsplitn(2, ')');
-    let data = unwrap_or_return!(data_it.next());
-    parts.push(unwrap_or_return!(data_it.next()));
-    parts.extend(data.split_whitespace());
     let parent_memory = proc_list.memory;
     let parent_virtual_memory = proc_list.virtual_memory;
     if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
+        let data = if let Some(ref mut f) = entry.stat_file {
+            get_all_data_from_file(f, 1024).map_err(|_| ())?
+        } else {
+            let mut tmp = PathBuf::from(path);
+            tmp.push("stat");
+            let mut file = ::std::fs::File::open(tmp).map_err(|_| ())?;
+            let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
+            entry.stat_file = Some(file);
+            data
+        };
+        let parts = parse_stat_file(&data)?;
         get_status(entry, parts[2]);
         update_time_and_memory(
             path,
@@ -536,6 +538,13 @@ fn _get_process_data(
         );
         return Ok(None);
     }
+
+    let mut tmp = PathBuf::from(path);
+
+    tmp.push("stat");
+    let mut file = ::std::fs::File::open(&tmp).map_err(|_| ())?;
+    let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
+    let parts = parse_stat_file(&data)?;
 
     let parent_pid = if proc_list.pid != 0 {
         Some(proc_list.pid)
@@ -553,6 +562,7 @@ fn _get_process_data(
         .unwrap_or_else(|| 0);
     let mut p = Process::new(nb, parent_pid, start_time);
 
+    p.stat_file = Some(file);
     get_status(&mut p, parts[2]);
 
     tmp.pop();
@@ -587,8 +597,7 @@ fn _get_process_data(
         p.environ = copy_from_file(&tmp);
         tmp.pop();
         tmp.push("exe");
-        p.exe = read_link(tmp.to_str().unwrap_or_else(|| ""))
-            .unwrap_or_else(|_| PathBuf::new());
+        p.exe = read_link(tmp.to_str().unwrap_or_else(|| "")).unwrap_or_else(|_| PathBuf::new());
 
         tmp.pop();
         tmp.push("cwd");
@@ -612,54 +621,6 @@ fn _get_process_data(
     Ok(Some(p))
 }
 
-#[bench]
-fn bench_copy_from_file(b: &mut bench::Bencher) {
-    extern { fn getpid() -> ::libc::pid_t; }
-    let pid = unsafe { getpid() };
-    let x = format!("/proc/{}/environ", pid);
-    let path = Path::new(&x);
-    b.iter(move || {
-        copy_from_file(path);
-    });
-}
-#[bench]
-fn bench_get_all_data(b: &mut bench::Bencher) {
-    extern { fn getpid() -> ::libc::pid_t; }
-    let pid = unsafe { getpid() };
-    let x = format!("/proc/{}/stat", pid);
-    let path = Path::new(&x);
-    b.iter(move || {
-        get_all_data(path, 1024);
-    });
-}
-#[bench]
-fn bench_read_file(b: &mut bench::Bencher) {
-    extern { fn getpid() -> ::libc::pid_t; }
-    let pid = unsafe { getpid() };
-    let x = format!("/proc/{}/stat", pid);
-    let path = Path::new(&x);
-    b.iter(move || {
-        if let Ok(mut file) = File::open(path) {
-            let mut data = Vec::with_capacity(1024);
-            file.read(&mut data);
-        }
-    });
-}
-#[bench]
-fn bench_read_file_no_reopen(b: &mut bench::Bencher) {
-    use std::io::Seek;
-    extern { fn getpid() -> ::libc::pid_t; }
-    let pid = unsafe { getpid() };
-    let x = format!("/proc/{}/status", pid);
-    let path = Path::new(&x);
-    let mut file = File::open(path).expect("file");
-    b.iter(move || {
-        file.seek(::std::io::SeekFrom::Start(0)).expect("seek begin");
-        let mut data = vec![0; 16_385];
-        file.read(&mut data);
-    });
-}
-
 fn copy_from_file(entry: &Path) -> Vec<String> {
     match File::open(entry.to_str().unwrap_or("/")) {
         Ok(mut f) => {
@@ -677,7 +638,7 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
                                 out.push(s);
                             }
                         }
-                        start = pos;
+                        start = pos + 1; // to keeping prevent '\0'
                     }
                 }
                 out
@@ -693,16 +654,22 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
     }
 }
 
-pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
-    use std::error::Error;
-    let mut file = File::open(file_path.as_ref())?;
-    let mut data = Vec::with_capacity(size);
-    //unsafe { data.set_len(size); }
+fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
+    use std::io::Seek;
 
+    let mut data = Vec::with_capacity(size);
+    unsafe { data.set_len(size); }
+
+    file.seek(::std::io::SeekFrom::Start(0))?;
     let size = file.read(&mut data)?;
     data.truncate(size);
     Ok(String::from_utf8(data)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.description()))?)
+}
+
+pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
+    let mut file = File::open(file_path.as_ref())?;
+    get_all_data_from_file(&mut file, size)
 }
 
 fn get_all_disks() -> Vec<Disk> {
