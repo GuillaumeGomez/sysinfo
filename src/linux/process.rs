@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use libc::{c_int, gid_t, kill, uid_t};
@@ -123,6 +124,7 @@ pub struct Process {
     pub(crate) status: ProcessStatus,
     /// Tasks run by this process.
     pub tasks: HashMap<Pid, Process>,
+    // pub(crate) stat_file: Option<File>,
 }
 
 impl ProcessExt for Process {
@@ -149,6 +151,7 @@ impl ProcessExt for Process {
             gid: 0,
             status: ProcessStatus::Unknown(0),
             tasks: HashMap::new(),
+            // stat_file: None,
         }
     }
 

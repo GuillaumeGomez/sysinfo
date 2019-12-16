@@ -147,7 +147,7 @@ impl SystemExt for System {
 
     fn refresh_memory(&mut self) {
         self.uptime = get_uptime();
-        if let Ok(data) = get_all_data("/proc/meminfo") {
+        if let Ok(data) = get_all_data("/proc/meminfo", 16_385) {
             for line in data.split('\n') {
                 let field = match line.split(':').next() {
                     Some("MemTotal") => &mut self.mem_total,
@@ -191,6 +191,8 @@ impl SystemExt for System {
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
+        use std::io::Write;
+        let mut f= ::std::fs::OpenOptions::new().append(true).create(true).open("/home/imperio/rust/fuck-me").expect("fuck");
         self.uptime = get_uptime();
         let found = match _get_process_data(
             &Path::new("/proc/").join(pid.to_string()),
@@ -201,20 +203,27 @@ impl SystemExt for System {
             get_secs_since_epoch(),
         ) {
             Ok(Some(p)) => {
+                write!(f, "1").unwrap();
                 self.process_list.tasks.insert(p.pid(), p);
                 false
             }
             Ok(_) => true,
             Err(_) => false,
         };
+        write!(f, "2").unwrap();
         if found && !self.processors.is_empty() {
+            write!(f, "3").unwrap();
             self.refresh_processors(Some(1));
+            write!(f, "4").unwrap();
             let (new, old) = get_raw_times(&self.processors[0]);
             let total_time = (if old > new { 1 } else { new - old }) as f32;
             let nb_processors = self.processors.len() as u64 - 1;
+            write!(f, "5").unwrap();
 
             if let Some(p) = self.process_list.tasks.get_mut(&pid) {
+            write!(f, "6").unwrap();
                 compute_cpu_usage(p, nb_processors, total_time);
+            write!(f, "7").unwrap();
             }
         }
         found
@@ -461,8 +470,10 @@ fn _get_uid_and_gid(status_data: String) -> Option<(uid_t, gid_t)> {
             break
         }
     }
-    assert!(uid.is_some() && gid.is_some());
-    Some((uid.unwrap(), gid.unwrap()))
+    match (uid, gid) {
+        (Some(u), Some(g)) => Some(u, g),
+        _ => None,
+    }
 }
 
 fn _get_process_data(
@@ -489,7 +500,7 @@ fn _get_process_data(
     let mut tmp = PathBuf::from(path);
 
     tmp.push("stat");
-    let data = get_all_data(&tmp).map_err(|_| ())?;
+    let data = get_all_data(&tmp, 1024).map_err(|_| ())?;
     // The stat file is "interesting" to parse, because spaces cannot
     // be used as delimiters. The second field stores the command name
     // surrounded by parentheses. Unfortunately, whitespace and
@@ -546,7 +557,7 @@ fn _get_process_data(
 
     tmp.pop();
     tmp.push("status");
-    if let Ok(data) = get_all_data(&tmp) {
+    if let Ok(data) = get_all_data(&tmp, 16_385) {
         if let Some((uid, gid)) = _get_uid_and_gid(data) {
             p.uid = uid;
             p.gid = gid;
@@ -615,21 +626,21 @@ fn bench_copy_from_file(b: &mut bench::Bencher) {
 fn bench_get_all_data(b: &mut bench::Bencher) {
     extern { fn getpid() -> ::libc::pid_t; }
     let pid = unsafe { getpid() };
-    let x = format!("/proc/{}/status", pid);
+    let x = format!("/proc/{}/stat", pid);
     let path = Path::new(&x);
     b.iter(move || {
-        get_all_data(path);
+        get_all_data(path, 1024);
     });
 }
 #[bench]
 fn bench_read_file(b: &mut bench::Bencher) {
     extern { fn getpid() -> ::libc::pid_t; }
     let pid = unsafe { getpid() };
-    let x = format!("/proc/{}/status", pid);
+    let x = format!("/proc/{}/stat", pid);
     let path = Path::new(&x);
     b.iter(move || {
         if let Ok(mut file) = File::open(path) {
-            let mut data = vec![0; 16_385];
+            let mut data = Vec::with_capacity(1024);
             file.read(&mut data);
         }
     });
@@ -646,22 +657,6 @@ fn bench_read_file_no_reopen(b: &mut bench::Bencher) {
         file.seek(::std::io::SeekFrom::Start(0)).expect("seek begin");
         let mut data = vec![0; 16_385];
         file.read(&mut data);
-    });
-}
-#[bench]
-fn bench_read_file_seek(b: &mut bench::Bencher) {
-    use std::io::Seek;
-    extern { fn getpid() -> ::libc::pid_t; }
-    let pid = unsafe { getpid() };
-    let x = format!("/proc/{}/status", pid);
-    let path = Path::new(&x);
-    b.iter(move || {
-        if let Ok(mut file) = File::open(path) {
-            let pos = file.seek(::std::io::SeekFrom::End(0)).expect("seek end");
-            file.seek(::std::io::SeekFrom::Start(0)).expect("seek begin");
-            let mut data = Vec::with_capacity(pos as _);
-            file.read_exact(&mut data);
-        }
     });
 }
 
@@ -698,10 +693,11 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
     }
 }
 
-pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
+pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
     use std::error::Error;
     let mut file = File::open(file_path.as_ref())?;
-    let mut data = vec![0; 16_385];
+    let mut data = Vec::with_capacity(size);
+    //unsafe { data.set_len(size); }
 
     let size = file.read(&mut data)?;
     data.truncate(size);
@@ -710,7 +706,7 @@ pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
 }
 
 fn get_all_disks() -> Vec<Disk> {
-    let content = get_all_data("/proc/mounts").unwrap_or_default();
+    let content = get_all_data("/proc/mounts", 16_385).unwrap_or_default();
     let disks = content.lines().filter(|line| {
         let line = line.trim_start();
         // While the `sd` prefix is most common, some disks instead use the `nvme` prefix. This
@@ -744,7 +740,7 @@ fn get_all_disks() -> Vec<Disk> {
 }
 
 fn get_uptime() -> u64 {
-    let content = get_all_data("/proc/uptime").unwrap_or_default();
+    let content = get_all_data("/proc/uptime", 50).unwrap_or_default();
     u64::from_str_radix(content.split('.').next().unwrap_or_else(|| "0"), 10).unwrap_or_else(|_| 0)
 }
 
