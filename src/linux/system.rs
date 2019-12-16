@@ -642,10 +642,6 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
                     }
                 }
                 out
-                /*data.split(|x| *x == b'\0')
-                    .filter_map(|x| ::std::str::from_utf8(x).map(|x| x.trim().to_owned()).ok())
-                    .filter(|x| !x.is_empty())
-                    .collect()*/
             } else {
                 Vec::new()
             }
