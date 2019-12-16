@@ -14,9 +14,10 @@ use sys::NetworkData;
 use Pid;
 use {DiskExt, ProcessExt, RefreshKind, SystemExt};
 
-use libc::{sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
+use libc::{sysconf, gid_t, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
+use std::error::Error;
 use std::fs::{self, read_link, File};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -54,7 +55,7 @@ impl System {
         if !self.processors.is_empty() {
             let (new, old) = get_raw_times(&self.processors[0]);
             let total_time = (if old > new { 1 } else { new - old }) as f32;
-            let mut to_delete = Vec::new();
+            let mut to_delete = Vec::with_capacity(20);
             let nb_processors = self.processors.len() as u64 - 1;
 
             for (pid, proc_) in &mut self.process_list.tasks {
@@ -134,10 +135,10 @@ impl SystemExt for System {
             mem_free: 0,
             swap_total: 0,
             swap_free: 0,
-            processors: Vec::new(),
+            processors: Vec::with_capacity(4),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
             temperatures: component::get_components(),
-            disks: Vec::new(),
+            disks: Vec::with_capacity(2),
             network: network::new(),
             uptime: get_uptime(),
         };
@@ -147,7 +148,7 @@ impl SystemExt for System {
 
     fn refresh_memory(&mut self) {
         self.uptime = get_uptime();
-        if let Ok(data) = get_all_data("/proc/meminfo") {
+        if let Ok(data) = get_all_data("/proc/meminfo", 16_385) {
             for line in data.split('\n') {
                 let field = match line.split(':').next() {
                     Some("MemTotal") => &mut self.mem_total,
@@ -298,18 +299,6 @@ impl Default for System {
     }
 }
 
-pub fn get_all_data<P: AsRef<Path>>(file_path: P) -> io::Result<String> {
-    use std::error::Error;
-    let mut file = File::open(file_path.as_ref())?;
-    let mut data = vec![0; 16_385];
-
-    let size = file.read(&mut data)?;
-    data.truncate(size);
-    let data = String::from_utf8(data)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.description()))?;
-    Ok(data)
-}
-
 fn to_u64(v: &[u8]) -> u64 {
     let mut x = 0;
 
@@ -320,16 +309,16 @@ fn to_u64(v: &[u8]) -> u64 {
     x
 }
 
-struct Wrap<'a>(UnsafeCell<&'a mut Process>);
+struct Wrap<'a, T>(UnsafeCell<&'a mut T>);
 
-impl<'a> Wrap<'a> {
-    fn get(&self) -> &'a mut Process {
+impl<'a, T> Wrap<'a, T> {
+    fn get(&self) -> &'a mut T {
         unsafe { *(self.0.get()) }
     }
 }
 
-unsafe impl<'a> Send for Wrap<'a> {}
-unsafe impl<'a> Sync for Wrap<'a> {}
+unsafe impl<'a, T> Send for Wrap<'a, T> {}
+unsafe impl<'a, T> Sync for Wrap<'a, T> {}
 
 fn refresh_procs<P: AsRef<Path>>(
     proc_list: &mut Process,
@@ -445,6 +434,62 @@ macro_rules! unwrap_or_return {
     }};
 }
 
+fn _get_uid_and_gid(status_data: String) -> Option<(uid_t, gid_t)> {
+    // We're only interested in the lines starting with Uid: and Gid:
+    // here. From these lines, we're looking at the second entry to get
+    // the effective u/gid.
+
+    let f = |h: &str, n: &str| -> Option<uid_t> {
+        if h.starts_with(n) {
+            h.split_whitespace().nth(2).unwrap_or("0").parse().ok()
+        } else {
+            None
+        }
+    };
+    let mut uid = None;
+    let mut gid = None;
+    for line in status_data.lines() {
+        if let Some(u) = f(line, "Uid:") {
+            assert!(uid.is_none());
+            uid = Some(u);
+        } else if let Some(g) = f(line, "Gid:") {
+            assert!(gid.is_none());
+            gid = Some(g);
+        } else {
+            continue
+        }
+        if uid.is_some() && gid.is_some() {
+            break
+        }
+    }
+    match (uid, gid) {
+        (Some(u), Some(g)) => Some((u, g)),
+        _ => None,
+    }
+}
+
+fn parse_stat_file(data: &str) -> Result<Vec<&str>, ()> {
+    // The stat file is "interesting" to parse, because spaces cannot
+    // be used as delimiters. The second field stores the command name
+    // surrounded by parentheses. Unfortunately, whitespace and
+    // parentheses are legal parts of the command, so parsing has to
+    // proceed like this: The first field is delimited by the first
+    // whitespace, the second field is everything until the last ')'
+    // in the entire string. All other fields are delimited by
+    // whitespace.
+
+    let mut parts = Vec::with_capacity(52);
+    let mut data_it = data.splitn(2, ' ');
+    parts.push(unwrap_or_return!(data_it.next()));
+    // The following loses the ) from the input, but that's ok because
+    // we're not using it anyway.
+    let mut data_it = unwrap_or_return!(data_it.next()).rsplitn(2, ')');
+    let data = unwrap_or_return!(data_it.next());
+    parts.push(unwrap_or_return!(data_it.next()));
+    parts.extend(data.split_whitespace());
+    Ok(parts)
+}
+
 fn _get_process_data(
     path: &Path,
     proc_list: &mut Process,
@@ -453,152 +498,127 @@ fn _get_process_data(
     uptime: u64,
     now: u64,
 ) -> Result<Option<Process>, ()> {
-    if let Some(Ok(nb)) = path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
-        if nb == pid {
-            return Err(());
+    let nb = match path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
+        Some(Ok(nb)) if nb != pid => nb,
+        _ => return Err(()),
+    };
+
+    let get_status = |p: &mut Process, part: &str| {
+        p.status = part
+            .chars()
+            .next()
+            .and_then(|c| Some(ProcessStatus::from(c)))
+            .unwrap_or_else(|| ProcessStatus::Unknown(0));
+    };
+    let parent_memory = proc_list.memory;
+    let parent_virtual_memory = proc_list.virtual_memory;
+    if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
+        let data = if let Some(ref mut f) = entry.stat_file {
+            get_all_data_from_file(f, 1024).map_err(|_| ())?
+        } else {
+            let mut tmp = PathBuf::from(path);
+            tmp.push("stat");
+            let mut file = ::std::fs::File::open(tmp).map_err(|_| ())?;
+            let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
+            entry.stat_file = Some(file);
+            data
+        };
+        let parts = parse_stat_file(&data)?;
+        get_status(entry, parts[2]);
+        update_time_and_memory(
+            path,
+            entry,
+            &parts,
+            page_size_kb,
+            parent_memory,
+            parent_virtual_memory,
+            nb,
+            uptime,
+            now,
+        );
+        return Ok(None);
+    }
+
+    let mut tmp = PathBuf::from(path);
+
+    tmp.push("stat");
+    let mut file = ::std::fs::File::open(&tmp).map_err(|_| ())?;
+    let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
+    let parts = parse_stat_file(&data)?;
+
+    let parent_pid = if proc_list.pid != 0 {
+        Some(proc_list.pid)
+    } else {
+        match Pid::from_str(parts[3]) {
+            Ok(p) if p != 0 => Some(p),
+            _ => None,
         }
-        let mut tmp = PathBuf::from(path);
+    };
 
-        tmp.push("stat");
-        if let Ok(data) = get_all_data(&tmp) {
-            // The stat file is "interesting" to parse, because spaces cannot
-            // be used as delimiters. The second field stores the command name
-            // sourrounded by parentheses. Unfortunately, whitespace and
-            // parentheses are legal parts of the command, so parsing has to
-            // proceed like this: The first field is delimited by the first
-            // whitespace, the second field is everything until the last ')'
-            // in the entire string. All other fields are delimited by
-            // whitespace.
+    let clock_cycle = unsafe { sysconf(_SC_CLK_TCK) } as u64;
+    let since_boot = u64::from_str(parts[21]).unwrap_or(0) / clock_cycle;
+    let start_time = now
+        .checked_sub(uptime.checked_sub(since_boot).unwrap_or_else(|| 0))
+        .unwrap_or_else(|| 0);
+    let mut p = Process::new(nb, parent_pid, start_time);
 
-            let mut parts = Vec::new();
-            let mut data_it = data.splitn(2, ' ');
-            parts.push(unwrap_or_return!(data_it.next()));
-            // The following loses the ) from the input, but that's ok because
-            // we're not using it anyway.
-            let mut data_it = unwrap_or_return!(data_it.next()).rsplitn(2, ')');
-            let data = unwrap_or_return!(data_it.next());
-            parts.push(unwrap_or_return!(data_it.next()));
-            parts.extend(data.split_whitespace());
-            let parent_memory = proc_list.memory;
-            let parent_virtual_memory = proc_list.virtual_memory;
-            if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
-                update_time_and_memory(
-                    path,
-                    entry,
-                    &parts,
-                    page_size_kb,
-                    parent_memory,
-                    parent_virtual_memory,
-                    nb,
-                    uptime,
-                    now,
-                );
-                return Ok(None);
-            }
+    p.stat_file = Some(file);
+    get_status(&mut p, parts[2]);
 
-            let parent_pid = if proc_list.pid != 0 {
-                Some(proc_list.pid)
-            } else {
-                match Pid::from_str(parts[3]) {
-                    Ok(p) if p != 0 => Some(p),
-                    _ => None,
-                }
-            };
-
-            let clock_cycle = unsafe { sysconf(_SC_CLK_TCK) } as u64;
-            let since_boot = u64::from_str(parts[21]).unwrap_or(0) / clock_cycle;
-            let start_time = now
-                .checked_sub(uptime.checked_sub(since_boot).unwrap_or_else(|| 0))
-                .unwrap_or_else(|| 0);
-            let mut p = Process::new(nb, parent_pid, start_time);
-
-            p.status = parts[2]
-                .chars()
-                .next()
-                .and_then(|c| Some(ProcessStatus::from(c)))
-                .unwrap_or(ProcessStatus::Unknown(0));
-
-            tmp = PathBuf::from(path);
-            tmp.push("status");
-            if let Ok(status_data) = get_all_data(&tmp) {
-                // We're only interested in the lines starting with Uid: and Gid:
-                // here. From these lines, we're looking at the second entry to get
-                // the effective u/gid.
-
-                let f = |h: &str, n: &str| -> Option<uid_t> {
-                    if h.starts_with(n) {
-                        h.split_whitespace().nth(2).unwrap_or("0").parse().ok()
-                    } else {
-                        None
-                    }
-                };
-                let mut set_uid = false;
-                let mut set_gid = false;
-                for line in status_data.lines() {
-                    if let Some(u) = f(line, "Uid:") {
-                        assert!(!set_uid);
-                        set_uid = true;
-                        p.uid = u;
-                    }
-                    if let Some(g) = f(line, "Gid:") {
-                        assert!(!set_gid);
-                        set_gid = true;
-                        p.gid = g;
-                    }
-                }
-                assert!(set_uid && set_gid);
-            }
-
-            if proc_list.pid != 0 {
-                // If we're getting information for a child, no need to get those info since we
-                // already have them...
-                p.cmd = proc_list.cmd.clone();
-                p.name = proc_list.name.clone();
-                p.environ = proc_list.environ.clone();
-                p.exe = proc_list.exe.clone();
-                p.cwd = proc_list.cwd.clone();
-                p.root = proc_list.root.clone();
-            } else {
-                tmp = PathBuf::from(path);
-                tmp.push("cmdline");
-                p.cmd = copy_from_file(&tmp);
-                p.name = p
-                    .cmd
-                    .get(0)
-                    .map(|x| x.split('/').last().unwrap_or_else(|| "").to_owned())
-                    .unwrap_or_default();
-                tmp = PathBuf::from(path);
-                tmp.push("environ");
-                p.environ = copy_from_file(&tmp);
-                tmp = PathBuf::from(path);
-                tmp.push("exe");
-
-                p.exe = read_link(tmp.to_str().unwrap_or_else(|| ""))
-                    .unwrap_or_else(|_| PathBuf::new());
-
-                tmp = PathBuf::from(path);
-                tmp.push("cwd");
-                p.cwd = realpath(&tmp);
-                tmp = PathBuf::from(path);
-                tmp.push("root");
-                p.root = realpath(&tmp);
-            }
-
-            update_time_and_memory(
-                path,
-                &mut p,
-                &parts,
-                page_size_kb,
-                proc_list.memory,
-                proc_list.virtual_memory,
-                nb,
-                uptime,
-                now,
-            );
-            return Ok(Some(p));
+    tmp.pop();
+    tmp.push("status");
+    if let Ok(data) = get_all_data(&tmp, 16_385) {
+        if let Some((uid, gid)) = _get_uid_and_gid(data) {
+            p.uid = uid;
+            p.gid = gid;
         }
     }
-    Err(())
+
+    if proc_list.pid != 0 {
+        // If we're getting information for a child, no need to get those info since we
+        // already have them...
+        p.cmd = proc_list.cmd.clone();
+        p.name = proc_list.name.clone();
+        p.environ = proc_list.environ.clone();
+        p.exe = proc_list.exe.clone();
+        p.cwd = proc_list.cwd.clone();
+        p.root = proc_list.root.clone();
+    } else {
+        tmp.pop();
+        tmp.push("cmdline");
+        p.cmd = copy_from_file(&tmp);
+        p.name = p
+            .cmd
+            .get(0)
+            .map(|x| x.split('/').last().unwrap_or_else(|| "").to_owned())
+            .unwrap_or_default();
+        tmp.pop();
+        tmp.push("environ");
+        p.environ = copy_from_file(&tmp);
+        tmp.pop();
+        tmp.push("exe");
+        p.exe = read_link(tmp.to_str().unwrap_or_else(|| "")).unwrap_or_else(|_| PathBuf::new());
+
+        tmp.pop();
+        tmp.push("cwd");
+        p.cwd = realpath(&tmp);
+        tmp.pop();
+        tmp.push("root");
+        p.root = realpath(&tmp);
+    }
+
+    update_time_and_memory(
+        path,
+        &mut p,
+        &parts,
+        page_size_kb,
+        proc_list.memory,
+        proc_list.virtual_memory,
+        nb,
+        uptime,
+        now,
+    );
+    Ok(Some(p))
 }
 
 fn copy_from_file(entry: &Path) -> Vec<String> {
@@ -608,10 +628,20 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 
             if let Ok(size) = f.read(&mut data) {
                 data.truncate(size);
-                data.split(|x| *x == b'\0')
-                    .filter_map(|x| ::std::str::from_utf8(x).map(|x| x.trim().to_owned()).ok())
-                    .filter(|x| !x.is_empty())
-                    .collect()
+                let mut out = Vec::with_capacity(20);
+                let mut start = 0;
+                for (pos, x) in data.iter().enumerate() {
+                    if *x == 0 {
+                        if pos - start > 1 {
+                            if let Ok(s) = ::std::str::from_utf8(&data[start..pos])
+                                .map(|x| x.trim().to_owned()) {
+                                out.push(s);
+                            }
+                        }
+                        start = pos + 1; // to keeping prevent '\0'
+                    }
+                }
+                out
             } else {
                 Vec::new()
             }
@@ -620,8 +650,26 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
     }
 }
 
+fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
+    use std::io::Seek;
+
+    let mut data = Vec::with_capacity(size);
+    unsafe { data.set_len(size); }
+
+    file.seek(::std::io::SeekFrom::Start(0))?;
+    let size = file.read(&mut data)?;
+    data.truncate(size);
+    Ok(String::from_utf8(data)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.description()))?)
+}
+
+pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
+    let mut file = File::open(file_path.as_ref())?;
+    get_all_data_from_file(&mut file, size)
+}
+
 fn get_all_disks() -> Vec<Disk> {
-    let content = get_all_data("/proc/mounts").unwrap_or_default();
+    let content = get_all_data("/proc/mounts", 16_385).unwrap_or_default();
     let disks = content.lines().filter(|line| {
         let line = line.trim_start();
         // While the `sd` prefix is most common, some disks instead use the `nvme` prefix. This
@@ -655,7 +703,7 @@ fn get_all_disks() -> Vec<Disk> {
 }
 
 fn get_uptime() -> u64 {
-    let content = get_all_data("/proc/uptime").unwrap_or_default();
+    let content = get_all_data("/proc/uptime", 50).unwrap_or_default();
     u64::from_str_radix(content.split('.').next().unwrap_or_else(|| "0"), 10).unwrap_or_else(|_| 0)
 }
 

@@ -51,7 +51,8 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
         .to_owned()
         .join(trimmed)
         .join("queue/rotational");
-    let rotational_int = get_all_data(path).unwrap_or_default().trim().parse();
+    // Normally, this file only contains '0' or '1' but just in case, we get 8 bytes...
+    let rotational_int = get_all_data(path, 8).unwrap_or_default().trim().parse();
     DiskType::from(rotational_int.unwrap_or(-1))
 }
 
