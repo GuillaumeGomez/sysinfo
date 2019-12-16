@@ -477,6 +477,15 @@ fn _get_process_data(
         Some(Ok(nb)) if nb != pid => nb,
         _ => return Err(()),
     };
+
+    let get_status = |p: &mut Process, part: &str| {
+        p.status = part
+            .chars()
+            .next()
+            .and_then(|c| Some(ProcessStatus::from(c)))
+            .unwrap_or_else(|| ProcessStatus::Unknown(0));
+    };
+
     let mut tmp = PathBuf::from(path);
 
     tmp.push("stat");
@@ -502,6 +511,7 @@ fn _get_process_data(
     let parent_memory = proc_list.memory;
     let parent_virtual_memory = proc_list.virtual_memory;
     if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
+        get_status(entry, parts[2]);
         update_time_and_memory(
             path,
             entry,
@@ -532,11 +542,7 @@ fn _get_process_data(
         .unwrap_or_else(|| 0);
     let mut p = Process::new(nb, parent_pid, start_time);
 
-    p.status = parts[2]
-        .chars()
-        .next()
-        .and_then(|c| Some(ProcessStatus::from(c)))
-        .unwrap_or(ProcessStatus::Unknown(0));
+    get_status(&mut p, parts[2]);
 
     tmp.pop();
     tmp.push("status");
