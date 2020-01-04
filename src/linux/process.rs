@@ -129,11 +129,11 @@ pub struct Process {
 impl ProcessExt for Process {
     fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Process {
         Process {
-            name: String::new(),
+            name: String::with_capacity(20),
             pid,
             parent,
-            cmd: Vec::new(),
-            environ: Vec::new(),
+            cmd: Vec::with_capacity(2),
+            environ: Vec::with_capacity(10),
             exe: PathBuf::new(),
             cwd: PathBuf::new(),
             root: PathBuf::new(),
@@ -149,7 +149,7 @@ impl ProcessExt for Process {
             uid: 0,
             gid: 0,
             status: ProcessStatus::Unknown(0),
-            tasks: HashMap::new(),
+            tasks: if pid == 0 { HashMap::with_capacity(1000) } else { HashMap::new() },
             stat_file: None,
         }
     }
