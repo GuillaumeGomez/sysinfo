@@ -14,7 +14,7 @@ use sys::NetworkData;
 use Pid;
 use {DiskExt, ProcessExt, RefreshKind, SystemExt};
 
-use libc::{sysconf, gid_t, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
+use libc::{self, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::error::Error;
@@ -22,11 +22,38 @@ use std::fs::{self, read_link, File};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 use utils::realpath;
 
 use rayon::prelude::*;
+
+// This whole thing is to prevent having too much files open at once. It could be problematic
+// for processes using a lot of files and using sysinfo at the same time.
+pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<usize>>> =
+    once_cell::sync::Lazy::new(|| unsafe {
+        let mut limits = libc::rlimit {
+            rlim_cur: 0,
+            rlim_max: 0,
+        };
+        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
+            // Most linux system now defaults to 1024.
+            return Arc::new(Mutex::new(1024 - 1024 / 10));
+        }
+        // We save the value in case the update fails.
+        let current = limits.rlim_cur;
+
+        // The set the soft limit to the hard one.
+        limits.rlim_cur = limits.rlim_max;
+        // In this part, we leave minimum 10% of the available file descriptors to the process
+        // using sysinfo.
+        Arc::new(Mutex::new(if libc::setrlimit(libc::RLIMIT_NOFILE, &limits) == 0 {
+            limits.rlim_cur - limits.rlim_cur / 10
+        } else {
+            current - current / 10
+        } as _))
+    });
 
 macro_rules! to_str {
     ($e:expr) => {
@@ -456,10 +483,10 @@ fn _get_uid_and_gid(status_data: String) -> Option<(uid_t, gid_t)> {
             assert!(gid.is_none());
             gid = Some(g);
         } else {
-            continue
+            continue;
         }
         if uid.is_some() && gid.is_some() {
-            break
+            break;
         }
     }
     match (uid, gid) {
@@ -488,6 +515,17 @@ fn parse_stat_file(data: &str) -> Result<Vec<&str>, ()> {
     parts.push(unwrap_or_return!(data_it.next()));
     parts.extend(data.split_whitespace());
     Ok(parts)
+}
+
+fn check_nb_open_files(f: File) -> Option<File> {
+    if let Ok(ref mut x) = unsafe { REMAINING_FILES.lock() } {
+        if **x > 0 {
+            **x += 1;
+            return Some(f);
+        }
+    }
+    // Something bad happened...
+    return None;
 }
 
 fn _get_process_data(
@@ -520,7 +558,7 @@ fn _get_process_data(
             tmp.push("stat");
             let mut file = ::std::fs::File::open(tmp).map_err(|_| ())?;
             let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
-            entry.stat_file = Some(file);
+            entry.stat_file = check_nb_open_files(file);
             data
         };
         let parts = parse_stat_file(&data)?;
@@ -634,7 +672,8 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
                     if *x == 0 {
                         if pos - start > 1 {
                             if let Ok(s) = ::std::str::from_utf8(&data[start..pos])
-                                .map(|x| x.trim().to_owned()) {
+                                .map(|x| x.trim().to_owned())
+                            {
                                 out.push(s);
                             }
                         }
@@ -654,7 +693,9 @@ fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
     use std::io::Seek;
 
     let mut data = Vec::with_capacity(size);
-    unsafe { data.set_len(size); }
+    unsafe {
+        data.set_len(size);
+    }
 
     file.seek(::std::io::SeekFrom::Start(0))?;
     let size = file.read(&mut data)?;

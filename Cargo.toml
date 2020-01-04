@@ -24,6 +24,9 @@ ntapi = "0.3"
 [target.'cfg(not(any(target_os = "unknown", target_arch = "wasm32")))'.dependencies]
 libc = "0.2"
 
+[target.'cfg(unix)'.dependencies]
+once_cell = "1.0"
+
 [lib]
 name = "sysinfo"
 crate_type = ["rlib", "cdylib"]

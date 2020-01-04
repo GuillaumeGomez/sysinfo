@@ -7,21 +7,21 @@
 use std::ptr::null_mut;
 
 use winapi::shared::rpcdce::{
-    RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE,
-    RPC_C_AUTHN_LEVEL_CALL,
+    RPC_C_AUTHN_LEVEL_CALL, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE,
+    RPC_C_IMP_LEVEL_IMPERSONATE,
 };
 use winapi::shared::winerror::{FAILED, SUCCEEDED};
 use winapi::shared::wtypesbase::CLSCTX_INPROC_SERVER;
 use winapi::um::combaseapi::{
-    CoCreateInstance, CoInitializeEx, CoUninitialize, CoInitializeSecurity, CoSetProxyBlanket,
+    CoCreateInstance, CoInitializeEx, CoInitializeSecurity, CoSetProxyBlanket, CoUninitialize,
 };
+use winapi::um::oaidl::VARIANT;
 use winapi::um::objidl::EOAC_NONE;
 use winapi::um::oleauto::{SysAllocString, SysFreeString, VariantClear};
 use winapi::um::wbemcli::{
     CLSID_WbemLocator, IEnumWbemClassObject, IID_IWbemLocator, IWbemClassObject, IWbemLocator,
-    IWbemServices, WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY, WBEM_FLAG_FORWARD_ONLY,
+    IWbemServices, WBEM_FLAG_FORWARD_ONLY, WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY,
 };
-use winapi::um::oaidl::VARIANT;
 
 use ComponentExt;
 
@@ -45,15 +45,16 @@ impl Component {
             .and_then(|x| x.create_instance())
             .and_then(|x| x.connect_server())
             .and_then(|x| x.set_proxy_blanket())
-            .and_then(|x| x.exec_query()) {
+            .and_then(|x| x.exec_query())
+        {
             Some(mut c) => match c.get_temperature(true) {
                 Some((temperature, critical)) => Some(Component {
-                        temperature,
-                        label: "Computer".to_owned(),
-                        max: temperature,
-                        critical,
-                        connection: Some(c),
-                    }),
+                    temperature,
+                    label: "Computer".to_owned(),
+                    max: temperature,
+                    critical,
+                    connection: Some(c),
+                }),
                 None => None,
             },
             None => None,
@@ -114,7 +115,9 @@ struct Instance(*mut IWbemLocator);
 impl Drop for Instance {
     fn drop(&mut self) {
         if !self.0.is_null() {
-            unsafe { (*self.0).Release(); }
+            unsafe {
+                (*self.0).Release();
+            }
         }
     }
 }
@@ -124,7 +127,9 @@ struct ServerConnection(*mut IWbemServices);
 impl Drop for ServerConnection {
     fn drop(&mut self) {
         if !self.0.is_null() {
-            unsafe { (*self.0).Release(); }
+            unsafe {
+                (*self.0).Release();
+            }
         }
     }
 }
@@ -134,7 +139,9 @@ struct Enumerator(*mut IEnumWbemClassObject);
 impl Drop for Enumerator {
     fn drop(&mut self) {
         if !self.0.is_null() {
-            unsafe { (*self.0).Release(); }
+            unsafe {
+                (*self.0).Release();
+            }
         }
     }
 }
@@ -157,7 +164,7 @@ impl Connection {
         // "Funnily", this function returns ok, false or "this function has already been called".
         // So whatever, let's just ignore whatever it might return then!
         unsafe { CoInitializeEx(null_mut(), 0) };
-         Some(Connection {
+        Some(Connection {
             instance: None,
             server_connection: None,
             enumerator: None,
@@ -236,14 +243,14 @@ impl Connection {
         if let Some(ref server_connection) = self.server_connection {
             unsafe {
                 if FAILED(CoSetProxyBlanket(
-                   server_connection.0 as *mut _,
-                   RPC_C_AUTHN_WINNT,
-                   RPC_C_AUTHZ_NONE,
-                   null_mut(),
-                   RPC_C_AUTHN_LEVEL_CALL,
-                   RPC_C_IMP_LEVEL_IMPERSONATE,
-                   null_mut(),
-                   EOAC_NONE,
+                    server_connection.0 as *mut _,
+                    RPC_C_AUTHN_WINNT,
+                    RPC_C_AUTHZ_NONE,
+                    null_mut(),
+                    RPC_C_AUTHN_LEVEL_CALL,
+                    RPC_C_IMP_LEVEL_IMPERSONATE,
+                    null_mut(),
+                    EOAC_NONE,
                 )) {
                     return None;
                 }
@@ -261,11 +268,12 @@ impl Connection {
             unsafe {
                 // "WQL"
                 let s = bstr!('W', 'Q', 'L'); // query kind
-                // "SELECT * FROM MSAcpi_ThermalZoneTemperature"
-                let query = bstr!('S','E','L','E','C','T',' ',
-                                  '*',' ',
-                                  'F','R','O','M',' ',
-                                  'M','S','A','c','p','i','_','T','h','e','r','m','a','l','Z','o','n','e','T','e','m','p','e','r','a','t','u','r','e');
+                                              // "SELECT * FROM MSAcpi_ThermalZoneTemperature"
+                let query = bstr!(
+                    'S', 'E', 'L', 'E', 'C', 'T', ' ', '*', ' ', 'F', 'R', 'O', 'M', ' ', 'M', 'S',
+                    'A', 'c', 'p', 'i', '_', 'T', 'h', 'e', 'r', 'm', 'a', 'l', 'Z', 'o', 'n', 'e',
+                    'T', 'e', 'm', 'p', 'e', 'r', 'a', 't', 'u', 'r', 'e'
+                );
                 let hres = (*server_connection.0).ExecQuery(
                     s,
                     query,
@@ -315,7 +323,10 @@ impl Connection {
 
             let mut p_val: VARIANT = ::std::mem::MaybeUninit::uninit().assume_init();
             // "CurrentTemperature"
-            let temp = bstr!('C','u','r','r','e','n','t','T','e','m','p','e','r','a','t','u','r','e');
+            let temp = bstr!(
+                'C', 'u', 'r', 'r', 'e', 'n', 't', 'T', 'e', 'm', 'p', 'e', 'r', 'a', 't', 'u',
+                'r', 'e'
+            );
             let res = (*p_obj).Get(temp, 0, &mut p_val, null_mut(), null_mut());
 
             SysFreeString(temp);
@@ -332,7 +343,10 @@ impl Connection {
             let mut critical = None;
             if get_critical {
                 // "CriticalPoint"
-                let crit = bstr!('C','r','i','t','i','c','a','l','T','r','i','p','P','o','i','n','t');
+                let crit = bstr!(
+                    'C', 'r', 'i', 't', 'i', 'c', 'a', 'l', 'T', 'r', 'i', 'p', 'P', 'o', 'i', 'n',
+                    't'
+                );
                 let res = (*p_obj).Get(crit, 0, &mut p_val, null_mut(), null_mut());
 
                 SysFreeString(crit);
@@ -355,6 +369,8 @@ impl Drop for Connection {
         self.enumerator.take();
         self.server_connection.take();
         self.instance.take();
-        unsafe { CoUninitialize(); }
+        unsafe {
+            CoUninitialize();
+        }
     }
 }

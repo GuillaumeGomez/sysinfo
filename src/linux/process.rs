@@ -213,6 +213,16 @@ impl ProcessExt for Process {
     }
 }
 
+impl Drop for Process {
+    fn drop(&mut self) {
+        if self.stat_file.is_some() {
+            if let Ok(ref mut x) = unsafe { ::linux::system::REMAINING_FILES.lock() } {
+                **x += 1;
+            }
+        }
+    }
+}
+
 #[allow(unused_must_use)]
 impl Debug for Process {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
