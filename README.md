@@ -95,17 +95,17 @@ Here are the current results:
 <details>
 
 ```text
-test bench_new                  ... bench:  12,610,204 ns/iter (+/- 453,957)
-test bench_refresh_all          ... bench:   3,339,360 ns/iter (+/- 400,590)
-test bench_refresh_cpu          ... bench:      12,785 ns/iter (+/- 603)
-test bench_refresh_disk_lists   ... bench:      49,465 ns/iter (+/- 3,516)
-test bench_refresh_disks        ... bench:       2,288 ns/iter (+/- 21)
-test bench_refresh_memory       ... bench:      11,252 ns/iter (+/- 801)
-test bench_refresh_network      ... bench:      21,960 ns/iter (+/- 3,423)
-test bench_refresh_process      ... bench:      20,526 ns/iter (+/- 703)
-test bench_refresh_processes    ... bench:   3,069,889 ns/iter (+/- 324,993)
-test bench_refresh_system       ... bench:      48,788 ns/iter (+/- 1,500)
-test bench_refresh_temperatures ... bench:      23,076 ns/iter (+/- 1,371)
+test bench_new                  ... bench:  10,437,759 ns/iter (+/- 531,424)
+test bench_refresh_all          ... bench:   2,658,946 ns/iter (+/- 189,612)
+test bench_refresh_cpu          ... bench:      13,429 ns/iter (+/- 537)
+test bench_refresh_disk_lists   ... bench:      50,688 ns/iter (+/- 8,032)
+test bench_refresh_disks        ... bench:       2,582 ns/iter (+/- 226)
+test bench_refresh_memory       ... bench:      12,015 ns/iter (+/- 537)
+test bench_refresh_network      ... bench:      23,661 ns/iter (+/- 617)
+test bench_refresh_process      ... bench:      56,157 ns/iter (+/- 2,445)
+test bench_refresh_processes    ... bench:   2,486,534 ns/iter (+/- 121,187)
+test bench_refresh_system       ... bench:      53,739 ns/iter (+/- 6,793)
+test bench_refresh_temperatures ... bench:      25,770 ns/iter (+/- 1,164)
 ```
 </details>
 
