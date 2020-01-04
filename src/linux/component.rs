@@ -44,7 +44,7 @@ fn is_file<T: AsRef<Path>>(path: T) -> bool {
 }
 
 fn append_files(components: &mut Vec<Component>, folder: &Path) {
-    let mut matchings: HashMap<u32, Vec<String>> = HashMap::new();
+    let mut matchings: HashMap<u32, Vec<String>> = HashMap::with_capacity(10);
 
     if let Ok(dir) = read_dir(folder) {
         for entry in dir {
@@ -177,9 +177,9 @@ impl ComponentExt for Component {
 }
 
 pub fn get_components() -> Vec<Component> {
-    let mut components = Vec::new();
-
     if let Ok(dir) = read_dir(&Path::new("/sys/class/hwmon/")) {
+        let mut components = Vec::with_capacity(10);
+
         for entry in dir {
             if let Ok(entry) = entry {
                 let entry = entry.path();
@@ -196,15 +196,17 @@ pub fn get_components() -> Vec<Component> {
                 append_files(&mut components, &entry);
             }
         }
+        components.sort_by(|c1, c2| c1.label.to_lowercase().cmp(&c2.label.to_lowercase()));
+        components
     } else if is_file("/sys/class/thermal/thermal_zone0/temp") {
         // Specfic to raspberry pi.
-        components.push(Component::new(
+        vec![Component::new(
             "CPU".to_owned(),
             Path::new("/sys/class/thermal/thermal_zone0/temp"),
             None,
             None,
-        ));
+        )]
+    } else {
+        Vec::new()
     }
-    components.sort_by(|c1, c2| c1.label.to_lowercase().cmp(&c2.label.to_lowercase()));
-    components
 }
