@@ -32,27 +32,36 @@ use rayon::prelude::*;
 // This whole thing is to prevent having too much files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
 pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<usize>>> =
-    once_cell::sync::Lazy::new(|| unsafe {
-        let mut limits = libc::rlimit {
-            rlim_cur: 0,
-            rlim_max: 0,
-        };
-        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
-            // Most linux system now defaults to 1024.
-            return Arc::new(Mutex::new(1024 - 1024 / 10));
+    once_cell::sync::Lazy::new(|| {
+        #[cfg(target_os = "android")]
+        {
+            // The constant "RLIMIT_NOFILE" doesn't exist on Android so we have to return a value.
+            // The default value seems to be 1024 so let's return 90% of it...
+            Arc::new(Mutex::new(1024 - 1024 / 10))
         }
-        // We save the value in case the update fails.
-        let current = limits.rlim_cur;
+        #[cfg(not(target_os = "android"))]
+        unsafe {
+            let mut limits = libc::rlimit {
+                rlim_cur: 0,
+                rlim_max: 0,
+            };
+            if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
+                // Most linux system now defaults to 1024.
+                return Arc::new(Mutex::new(1024 - 1024 / 10));
+            }
+            // We save the value in case the update fails.
+            let current = limits.rlim_cur;
 
-        // The set the soft limit to the hard one.
-        limits.rlim_cur = limits.rlim_max;
-        // In this part, we leave minimum 10% of the available file descriptors to the process
-        // using sysinfo.
-        Arc::new(Mutex::new(if libc::setrlimit(libc::RLIMIT_NOFILE, &limits) == 0 {
-            limits.rlim_cur - limits.rlim_cur / 10
-        } else {
-            current - current / 10
-        } as _))
+            // The set the soft limit to the hard one.
+            limits.rlim_cur = limits.rlim_max;
+            // In this part, we leave minimum 10% of the available file descriptors to the process
+            // using sysinfo.
+            Arc::new(Mutex::new(if libc::setrlimit(libc::RLIMIT_NOFILE, &limits) == 0 {
+                limits.rlim_cur - limits.rlim_cur / 10
+            } else {
+                current - current / 10
+            } as _))
+        }
     });
 
 macro_rules! to_str {
