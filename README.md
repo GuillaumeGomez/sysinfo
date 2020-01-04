@@ -14,6 +14,7 @@ Support the following platforms:
 
  * Linux
  * Raspberry
+ * Android
  * Mac OSX
  * Windows
 
