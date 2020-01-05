@@ -14,7 +14,7 @@ use sys::processor::*;
 use {ComponentExt, DiskExt, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
 
 use std::borrow::Borrow;
-use std::cell::UnsafeCell;
+use std::cell::{UnsafeCell, RefCell};
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::mem::MaybeUninit;
@@ -33,6 +33,79 @@ use Pid;
 use std::process::Command;
 
 use rayon::prelude::*;
+
+struct Syncer(RefCell<Option<HashMap<OsString, DiskType>>>);
+
+impl Syncer {
+    fn get_disk_types<F: Fn(&HashMap<OsString, DiskType>) -> Vec<Disk>>(&self, callback: F) -> Vec<Disk> {
+        if self.0.borrow().is_none() {
+            *self.0.borrow_mut() = Some(get_disk_types());
+        }
+        match &*self.0.borrow() {
+            Some(x) => callback(x),
+            None => Vec::new(),
+        }
+    }
+}
+
+unsafe impl Sync for Syncer {}
+
+static DISK_TYPES: Syncer = Syncer(RefCell::new(None));
+
+fn get_disk_types() -> HashMap<OsString, DiskType> {
+    let mut master_port: ffi::mach_port_t = 0;
+    let mut media_iterator: ffi::io_iterator_t = 0;
+    let mut ret = HashMap::with_capacity(1);
+
+    unsafe {
+        ffi::IOMasterPort(ffi::MACH_PORT_NULL, &mut master_port);
+
+        let matching_dictionary = ffi::IOServiceMatching(b"IOMedia\0".as_ptr() as *const i8);
+        let result = ffi::IOServiceGetMatchingServices(
+            master_port,
+            matching_dictionary,
+            &mut media_iterator,
+        );
+        if result != ffi::KERN_SUCCESS as i32 {
+            //println!("Error: IOServiceGetMatchingServices() = {}", result);
+            return ret;
+        }
+
+        loop {
+            let next_media = ffi::IOIteratorNext(media_iterator);
+            if next_media == 0 {
+                break;
+            }
+            let mut props = MaybeUninit::<ffi::CFMutableDictionaryRef>::uninit();
+            let result = ffi::IORegistryEntryCreateCFProperties(
+                next_media,
+                props.as_mut_ptr(),
+                ffi::kCFAllocatorDefault,
+                0,
+            );
+            let props = props.assume_init();
+            if result == ffi::KERN_SUCCESS as i32 && check_value(props, b"Whole\0") {
+                let mut name: ffi::io_name_t = mem::zeroed();
+                if ffi::IORegistryEntryGetName(next_media, name.as_mut_ptr() as *mut c_char)
+                    == ffi::KERN_SUCCESS as i32
+                {
+                    ret.insert(
+                        make_name(&name),
+                        if check_value(props, b"RAID\0") {
+                            DiskType::Unknown(-1)
+                        } else {
+                            DiskType::SSD
+                        },
+                    );
+                }
+                ffi::CFRelease(props as *mut _);
+            }
+            ffi::IOObjectRelease(next_media);
+        }
+        ffi::IOObjectRelease(media_iterator);
+    }
+    ret
+}
 
 /// Structs containing system's information.
 pub struct System {
@@ -237,87 +310,31 @@ fn make_name(v: &[u8]) -> OsString {
     OsStringExt::from_vec(v.to_vec())
 }
 
-fn get_disk_types() -> HashMap<OsString, DiskType> {
-    let mut master_port: ffi::mach_port_t = 0;
-    let mut media_iterator: ffi::io_iterator_t = 0;
-    let mut ret = HashMap::new();
-
-    unsafe {
-        ffi::IOMasterPort(ffi::MACH_PORT_NULL, &mut master_port);
-
-        let matching_dictionary = ffi::IOServiceMatching(b"IOMedia\0".as_ptr() as *const i8);
-        let result = ffi::IOServiceGetMatchingServices(
-            master_port,
-            matching_dictionary,
-            &mut media_iterator,
-        );
-        if result != ffi::KERN_SUCCESS as i32 {
-            //println!("Error: IOServiceGetMatchingServices() = {}", result);
-            return ret;
-        }
-
-        loop {
-            let next_media = ffi::IOIteratorNext(media_iterator);
-            if next_media == 0 {
-                break;
-            }
-            let mut props = MaybeUninit::<ffi::CFMutableDictionaryRef>::uninit();
-            let result = ffi::IORegistryEntryCreateCFProperties(
-                next_media,
-                props.as_mut_ptr(),
-                ffi::kCFAllocatorDefault,
-                0,
-            );
-            let props = props.assume_init();
-            if result == ffi::KERN_SUCCESS as i32 && check_value(props, b"Whole\0") {
-                let mut name: ffi::io_name_t = mem::zeroed();
-                if ffi::IORegistryEntryGetName(next_media, name.as_mut_ptr() as *mut c_char)
-                    == ffi::KERN_SUCCESS as i32
-                {
-                    ret.insert(
-                        make_name(&name),
-                        if check_value(props, b"RAID\0") {
-                            DiskType::Unknown(-1)
-                        } else {
-                            DiskType::SSD
-                        },
-                    );
-                }
-                ffi::CFRelease(props as *mut _);
-            }
-            ffi::IOObjectRelease(next_media);
-        }
-        ffi::IOObjectRelease(media_iterator);
-    }
-    ret
-}
-
 fn get_disks() -> Vec<Disk> {
-    let disk_types = get_disk_types();
-
-    unwrapper!(fs::read_dir("/Volumes"), Vec::new())
-        .flat_map(|x| {
-            if let Ok(ref entry) = x {
-                let mount_point = utils::realpath(&entry.path());
-                if mount_point.as_os_str().is_empty() {
-                    None
+    DISK_TYPES.get_disk_types(|disk_types| {
+        unwrapper!(fs::read_dir("/Volumes"), Vec::new())
+            .flat_map(|x| {
+                if let Ok(ref entry) = x {
+                    let mount_point = utils::realpath(&entry.path());
+                    if mount_point.as_os_str().is_empty() {
+                        None
+                    } else {
+                        let name = entry
+                            .path()
+                            .file_name()?
+                            .to_owned();
+                        let type_ = disk_types
+                            .get(&name)
+                            .cloned()
+                            .unwrap_or(DiskType::Unknown(-2));
+                        Some(disk::new(name, &mount_point, type_))
+                    }
                 } else {
-                    let name = entry
-                        .path()
-                        .file_name()
-                        .unwrap_or_else(|| OsStr::new(""))
-                        .to_owned();
-                    let type_ = disk_types
-                        .get(&name)
-                        .cloned()
-                        .unwrap_or(DiskType::Unknown(-2));
-                    Some(disk::new(name, &mount_point, type_))
+                    None
                 }
-            } else {
-                None
-            }
-        })
-        .collect()
+            })
+            .collect()
+    })
 }
 
 fn get_uptime() -> u64 {
@@ -454,14 +471,19 @@ fn update_process(
                         Ok(x) => x,
                         _ => return Err(()),
                     };
-                    let mut p = Process::new(pid, if p == 0 { None } else { Some(p) }, 0);
-                    p.exe = PathBuf::from(&command[0]);
-                    p.name = match p.exe.file_name() {
+                    let exe = PathBuf::from(&command[0]);
+                    let name = match exe.file_name() {
                         Some(x) => x.to_str().unwrap_or_else(|| "").to_owned(),
                         None => String::new(),
                     };
-                    p.cmd = command;
-                    return Ok(Some(p));
+                    return Ok(Some(Process::new_with(
+                        pid,
+                        if p == 0 { None } else { Some(p) },
+                        0,
+                        exe,
+                        name,
+                        command,
+                    )));
                 }
                 _ => {
                     return Err(());
@@ -473,14 +495,6 @@ fn update_process(
             0 => None,
             p => Some(p),
         };
-
-        let mut p = Process::new(pid, parent, task_info.pbsd.pbi_start_tvsec);
-        p.memory = task_info.ptinfo.pti_resident_size >> 10; // divide by 1024
-        p.virtual_memory = task_info.ptinfo.pti_virtual_size >> 10; // divide by 1024
-
-        p.uid = task_info.pbsd.pbi_uid;
-        p.gid = task_info.pbsd.pbi_gid;
-        p.process_status = ProcessStatus::from(task_info.pbsd.pbi_status);
 
         let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
         mib[0] = libc::CTL_KERN;
@@ -523,73 +537,113 @@ fn update_process(
             &mut size,
             ::std::ptr::null_mut(),
             0,
-        ) != -1
+        ) == -1
         {
-            let mut n_args: c_int = 0;
-            libc::memcpy(
-                (&mut n_args) as *mut c_int as *mut c_void,
-                ptr as *const c_void,
-                mem::size_of::<c_int>(),
-            );
-            let mut cp = ptr.add(mem::size_of::<c_int>());
-            let mut start = cp;
-            if cp < ptr.add(size) {
-                while cp < ptr.add(size) && *cp != 0 {
-                    cp = cp.offset(1);
+            return Err(()); // not enough rights I assume?
+        }
+        let mut n_args: c_int = 0;
+        libc::memcpy(
+            (&mut n_args) as *mut c_int as *mut c_void,
+            ptr as *const c_void,
+            mem::size_of::<c_int>(),
+        );
+
+        let mut cp = ptr.add(mem::size_of::<c_int>());
+        let mut start = cp;
+
+        let mut p = if cp < ptr.add(size) {
+            while cp < ptr.add(size) && *cp != 0 {
+                cp = cp.offset(1);
+            }
+            let exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
+            let name = exe
+                .file_name()
+                .unwrap_or_else(|| OsStr::new(""))
+                .to_str()
+                .unwrap_or_else(|| "")
+                .to_owned();
+            while cp < ptr.add(size) && *cp == 0 {
+                cp = cp.offset(1);
+            }
+            start = cp;
+            let mut c = 0;
+            let mut cmd = Vec::with_capacity(n_args as usize);
+            while c < n_args && cp < ptr.add(size) {
+                if *cp == 0 {
+                    c += 1;
+                    cmd.push(get_unchecked_str(cp, start));
+                    start = cp.offset(1);
                 }
-                p.exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
-                p.name = p
-                    .exe
-                    .file_name()
-                    .unwrap_or_else(|| OsStr::new(""))
-                    .to_str()
-                    .unwrap_or_else(|| "")
-                    .to_owned();
-                let mut need_root = true;
-                if p.exe.is_absolute() {
-                    if let Some(parent) = p.exe.parent() {
-                        p.root = parent.to_path_buf();
-                        need_root = false;
-                    }
+                cp = cp.offset(1);
+            }
+
+            #[inline]
+            fn do_nothing(_: &str, _: &mut PathBuf, _: &mut bool) {}
+            #[inline]
+            fn do_something(env: &str, root: &mut PathBuf, check: &mut bool) {
+                if *check && env.starts_with("PATH=") {
+                    *check = false;
+                    *root = Path::new(&env[6..]).to_path_buf();
                 }
-                while cp < ptr.add(size) && *cp == 0 {
-                    cp = cp.offset(1);
-                }
-                start = cp;
-                let mut c = 0;
-                let mut cmd = Vec::new();
-                while c < n_args && cp < ptr.add(size) {
-                    if *cp == 0 {
-                        c += 1;
-                        cmd.push(get_unchecked_str(cp, start));
-                        start = cp.offset(1);
-                    }
-                    cp = cp.offset(1);
-                }
-                p.cmd = parse_command_line(&cmd);
-                start = cp;
+            }
+
+            #[inline]
+            unsafe fn get_environ<F: Fn(&str, &mut PathBuf, &mut bool)>(
+                ptr: *mut u8,
+                mut cp: *mut u8,
+                size: size_t,
+                mut root: PathBuf,
+                callback: F,
+            ) -> (Vec<String>, PathBuf) {
+                let mut environ = Vec::with_capacity(10);
+                let mut start = cp;
+                let mut check = true;
                 while cp < ptr.add(size) {
                     if *cp == 0 {
                         if cp == start {
                             break;
                         }
-                        p.environ.push(get_unchecked_str(cp, start));
+                        let e = get_unchecked_str(cp, start);
+                        callback(&e, &mut root, &mut check);
+                        environ.push(e);
                         start = cp.offset(1);
                     }
                     cp = cp.offset(1);
                 }
-                if need_root {
-                    for env in p.environ.iter() {
-                        if env.starts_with("PATH=") {
-                            p.root = Path::new(&env[6..]).to_path_buf();
-                            break;
-                        }
-                    }
-                }
+                (environ, root)
             }
+
+            let (environ, root) = if exe.is_absolute() {
+                if let Some(parent) = exe.parent() {
+                    get_environ(ptr, cp, size, parent.to_path_buf(), do_nothing)
+                } else {
+                    get_environ(ptr, cp, size, PathBuf::new(), do_something)
+                }
+            } else {
+                get_environ(ptr, cp, size, PathBuf::new(), do_something)
+            };
+
+            Process::new_with2(
+                pid,
+                parent,
+                task_info.pbsd.pbi_start_tvsec,
+                exe,
+                name,
+                parse_command_line(&cmd),
+                environ,
+                root,
+            )
         } else {
-            return Err(()); // not enough rights I assume?
-        }
+            Process::new(pid, parent, task_info.pbsd.pbi_start_tvsec)
+        };
+
+        p.memory = task_info.ptinfo.pti_resident_size >> 10; // divide by 1024
+        p.virtual_memory = task_info.ptinfo.pti_virtual_size >> 10; // divide by 1024
+
+        p.uid = task_info.pbsd.pbi_uid;
+        p.gid = task_info.pbsd.pbi_gid;
+        p.process_status = ProcessStatus::from(task_info.pbsd.pbi_status);
+
         Ok(Some(p))
     }
 }
@@ -674,16 +728,16 @@ impl System {
 impl SystemExt for System {
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let mut s = System {
-            process_list: HashMap::new(),
+            process_list: HashMap::with_capacity(200),
             mem_total: 0,
             mem_free: 0,
             swap_total: 0,
             swap_free: 0,
-            processors: Vec::new(),
+            processors: Vec::with_capacity(4),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 >> 10 }, // divide by 1024
-            temperatures: Vec::new(),
+            temperatures: Vec::with_capacity(2),
             connection: get_io_service_connection(),
-            disks: Vec::new(),
+            disks: Vec::with_capacity(1),
             network: network::new(),
             uptime: get_uptime(),
             port: unsafe { ffi::mach_host_self() },

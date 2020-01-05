@@ -149,7 +149,11 @@ impl ProcessExt for Process {
             uid: 0,
             gid: 0,
             status: ProcessStatus::Unknown(0),
-            tasks: if pid == 0 { HashMap::with_capacity(1000) } else { HashMap::new() },
+            tasks: if pid == 0 {
+                HashMap::with_capacity(1000)
+            } else {
+                HashMap::new()
+            },
             stat_file: None,
         }
     }

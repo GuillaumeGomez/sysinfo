@@ -144,6 +144,76 @@ pub struct Process {
     pub status: Option<ThreadStatus>,
 }
 
+impl Process {
+    pub(crate) fn new_with(
+        pid: Pid,
+        parent: Option<Pid>,
+        start_time: u64,
+        exe: PathBuf,
+        name: String,
+        cmd: Vec<String>,
+    ) -> Process {
+        Process {
+            name,
+            pid,
+            parent,
+            cmd,
+            environ: Vec::new(),
+            exe,
+            cwd: PathBuf::new(),
+            root: PathBuf::new(),
+            memory: 0,
+            virtual_memory: 0,
+            cpu_usage: 0.,
+            utime: 0,
+            stime: 0,
+            old_utime: 0,
+            old_stime: 0,
+            updated: true,
+            start_time,
+            uid: 0,
+            gid: 0,
+            process_status: ProcessStatus::Unknown(0),
+            status: None,
+        }
+    }
+
+    pub(crate) fn new_with2(
+        pid: Pid,
+        parent: Option<Pid>,
+        start_time: u64,
+        exe: PathBuf,
+        name: String,
+        cmd: Vec<String>,
+        environ: Vec<String>,
+        root: PathBuf,
+    ) -> Process {
+        Process {
+            name,
+            pid,
+            parent,
+            cmd,
+            environ,
+            exe,
+            cwd: PathBuf::new(),
+            root,
+            memory: 0,
+            virtual_memory: 0,
+            cpu_usage: 0.,
+            utime: 0,
+            stime: 0,
+            old_utime: 0,
+            old_stime: 0,
+            updated: true,
+            start_time,
+            uid: 0,
+            gid: 0,
+            process_status: ProcessStatus::Unknown(0),
+            status: None,
+        }
+    }
+}
+
 impl ProcessExt for Process {
     fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Process {
         Process {
