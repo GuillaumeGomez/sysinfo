@@ -15,14 +15,33 @@ pub(crate) const COMPONENTS_TEMPERATURE_IDS: &[(&str, &[i8])] = &[
     ("Battery", &['T' as i8, 'B' as i8, '0' as i8, 'T' as i8]), // Battery "TB0T"
 ];
 
+pub struct ComponentFFI {
+    input_structure: ffi::KeyData_t,
+    val: ffi::Val_t,
+}
+
+impl ComponentFFI {
+    fn new(key: &[i8], con: ffi::io_connect_t) -> Option<ComponentFFI> {
+        unsafe { get_key_size(con, key) }
+            .ok()
+            .map(|(input_structure, val)| ComponentFFI {
+                input_structure,
+                val,
+            })
+    }
+
+    fn get_temperature(&self, con: ffi::io_connect_t) -> Option<f32> {
+        get_temperature_inner(con, &self.input_structure, &self.val)
+    }
+}
+
 /// Struct containing a component information (temperature and name for the moment).
 pub struct Component {
     temperature: f32,
     max: f32,
     critical: Option<f32>,
     label: String,
-    input_structure: ffi::KeyData_t,
-    val: ffi::Val_t,
+    ffi_part: ComponentFFI,
 }
 
 impl Component {
@@ -34,19 +53,18 @@ impl Component {
         key: &[i8],
         con: ffi::io_connect_t,
     ) -> Option<Component> {
-        let (input_structure, val) = unsafe { get_key_size(con, key) }.ok()?;
-        get_temperature_inner(con, &input_structure, &val).map(|temperature| Component {
+        let ffi_part = ComponentFFI::new(key, con)?;
+        ffi_part.get_temperature(con).map(|temperature| Component {
             temperature,
             label,
             max: max.unwrap_or(0.0),
             critical,
-            input_structure,
-            val,
+            ffi_part,
         })
     }
 
     pub(crate) fn update(&mut self, con: ffi::io_connect_t) {
-        if let Some(temp) = get_temperature_inner(con, &self.input_structure, &self.val) {
+        if let Some(temp) = self.ffi_part.get_temperature(con) {
             self.temperature = temp;
             if self.temperature > self.max {
                 self.max = self.temperature;
@@ -109,7 +127,10 @@ unsafe fn ultostr(s: *mut c_char, val: u32) {
     *s.offset(4) = 0;
 }
 
-unsafe fn get_key_size(con: ffi::io_connect_t, key: &[i8]) -> Result<(ffi::KeyData_t, ffi::Val_t), i32> {
+unsafe fn get_key_size(
+    con: ffi::io_connect_t,
+    key: &[i8],
+) -> Result<(ffi::KeyData_t, ffi::Val_t), i32> {
     let mut input_structure: ffi::KeyData_t = mem::zeroed::<ffi::KeyData_t>();
     let mut output_structure: ffi::KeyData_t = mem::zeroed::<ffi::KeyData_t>();
     let mut val: ffi::Val_t = mem::zeroed::<ffi::Val_t>();
