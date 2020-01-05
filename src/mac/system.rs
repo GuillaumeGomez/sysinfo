@@ -5,110 +5,28 @@
 //
 
 use sys::component::Component;
-use sys::disk::{self, Disk, DiskType};
+use sys::disk::Disk;
 use sys::ffi;
 use sys::network::{self, NetworkData};
 use sys::process::*;
 use sys::processor::*;
 
-use {DiskExt, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
+use {DiskExt, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
 
 use std::borrow::Borrow;
-use std::cell::{RefCell, UnsafeCell};
+use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::ffi::{OsStr, OsString};
-use std::mem::MaybeUninit;
+use std::ffi::OsStr;
+use std::mem;
 use std::ops::Deref;
-use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::Arc;
-use std::{fs, mem, ptr};
 use sys::processor;
 
-use libc::{self, c_char, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
-
-use utils;
-use Pid;
-
-use std::process::Command;
+use libc::{self, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
 use rayon::prelude::*;
-
-struct Syncer(RefCell<Option<HashMap<OsString, DiskType>>>);
-
-impl Syncer {
-    fn get_disk_types<F: Fn(&HashMap<OsString, DiskType>) -> Vec<Disk>>(
-        &self,
-        callback: F,
-    ) -> Vec<Disk> {
-        if self.0.borrow().is_none() {
-            *self.0.borrow_mut() = Some(get_disk_types());
-        }
-        match &*self.0.borrow() {
-            Some(x) => callback(x),
-            None => Vec::new(),
-        }
-    }
-}
-
-unsafe impl Sync for Syncer {}
-
-static DISK_TYPES: Syncer = Syncer(RefCell::new(None));
-
-fn get_disk_types() -> HashMap<OsString, DiskType> {
-    let mut master_port: ffi::mach_port_t = 0;
-    let mut media_iterator: ffi::io_iterator_t = 0;
-    let mut ret = HashMap::with_capacity(1);
-
-    unsafe {
-        ffi::IOMasterPort(ffi::MACH_PORT_NULL, &mut master_port);
-
-        let matching_dictionary = ffi::IOServiceMatching(b"IOMedia\0".as_ptr() as *const i8);
-        let result = ffi::IOServiceGetMatchingServices(
-            master_port,
-            matching_dictionary,
-            &mut media_iterator,
-        );
-        if result != ffi::KERN_SUCCESS as i32 {
-            //println!("Error: IOServiceGetMatchingServices() = {}", result);
-            return ret;
-        }
-
-        loop {
-            let next_media = ffi::IOIteratorNext(media_iterator);
-            if next_media == 0 {
-                break;
-            }
-            let mut props = MaybeUninit::<ffi::CFMutableDictionaryRef>::uninit();
-            let result = ffi::IORegistryEntryCreateCFProperties(
-                next_media,
-                props.as_mut_ptr(),
-                ffi::kCFAllocatorDefault,
-                0,
-            );
-            let props = props.assume_init();
-            if result == ffi::KERN_SUCCESS as i32 && check_value(props, b"Whole\0") {
-                let mut name: ffi::io_name_t = mem::zeroed();
-                if ffi::IORegistryEntryGetName(next_media, name.as_mut_ptr() as *mut c_char)
-                    == ffi::KERN_SUCCESS as i32
-                {
-                    ret.insert(
-                        make_name(&name),
-                        if check_value(props, b"RAID\0") {
-                            DiskType::Unknown(-1)
-                        } else {
-                            DiskType::SSD
-                        },
-                    );
-                }
-                ffi::CFRelease(props as *mut _);
-            }
-            ffi::IOObjectRelease(next_media);
-        }
-        ffi::IOObjectRelease(media_iterator);
-    }
-    ret
-}
 
 /// Structs containing system's information.
 pub struct System {
@@ -178,63 +96,6 @@ unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
     let tmp = String::from_utf8_unchecked(part.clone());
     mem::forget(part);
     tmp
-}
-
-macro_rules! unwrapper {
-    ($b:expr, $ret:expr) => {{
-        match $b {
-            Ok(x) => x,
-            _ => return $ret,
-        }
-    }};
-}
-
-unsafe fn check_value(dict: ffi::CFMutableDictionaryRef, key: &[u8]) -> bool {
-    let key = ffi::CFStringCreateWithCStringNoCopy(
-        ptr::null_mut(),
-        key.as_ptr() as *const c_char,
-        ffi::kCFStringEncodingMacRoman,
-        ffi::kCFAllocatorNull as *mut c_void,
-    );
-    let ret = ffi::CFDictionaryContainsKey(dict as ffi::CFDictionaryRef, key as *const c_void) != 0
-        && *(ffi::CFDictionaryGetValue(dict as ffi::CFDictionaryRef, key as *const c_void)
-            as *const ffi::Boolean)
-            != 0;
-    ffi::CFRelease(key as *const c_void);
-    ret
-}
-
-fn make_name(v: &[u8]) -> OsString {
-    for (pos, x) in v.iter().enumerate() {
-        if *x == 0 {
-            return OsStringExt::from_vec(v[0..pos].to_vec());
-        }
-    }
-    OsStringExt::from_vec(v.to_vec())
-}
-
-fn get_disks() -> Vec<Disk> {
-    DISK_TYPES.get_disk_types(|disk_types| {
-        unwrapper!(fs::read_dir("/Volumes"), Vec::new())
-            .flat_map(|x| {
-                if let Ok(ref entry) = x {
-                    let mount_point = utils::realpath(&entry.path());
-                    if mount_point.as_os_str().is_empty() {
-                        None
-                    } else {
-                        let name = entry.path().file_name()?.to_owned();
-                        let type_ = disk_types
-                            .get(&name)
-                            .cloned()
-                            .unwrap_or(DiskType::Unknown(-2));
-                        Some(disk::new(name, &mount_point, type_))
-                    }
-                } else {
-                    None
-                }
-            })
-            .collect()
-    })
 }
 
 fn get_uptime() -> u64 {
@@ -906,7 +767,7 @@ impl SystemExt for System {
     }
 
     fn refresh_disk_list(&mut self) {
-        self.disks = get_disks();
+        self.disks = crate::mac::disk::get_disks();
     }
 
     // COMMON PART
