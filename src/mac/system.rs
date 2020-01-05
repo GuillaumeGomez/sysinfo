@@ -50,108 +50,10 @@ impl Drop for System {
     }
 }
 
-// code from https://github.com/Chris911/iStats
-fn get_io_service_connection() -> Option<ffi::io_connect_t> {
-    let mut master_port: ffi::mach_port_t = 0;
-    let mut iterator: ffi::io_iterator_t = 0;
-
-    unsafe {
-        ffi::IOMasterPort(ffi::MACH_PORT_NULL, &mut master_port);
-
-        let matching_dictionary = ffi::IOServiceMatching(b"AppleSMC\0".as_ptr() as *const i8);
-        let result =
-            ffi::IOServiceGetMatchingServices(master_port, matching_dictionary, &mut iterator);
-        if result != ffi::KIO_RETURN_SUCCESS {
-            //println!("Error: IOServiceGetMatchingServices() = {}", result);
-            return None;
-        }
-
-        let device = ffi::IOIteratorNext(iterator);
-        ffi::IOObjectRelease(iterator);
-        if device == 0 {
-            //println!("Error: no SMC found");
-            return None;
-        }
-
-        let mut conn = 0;
-        let result = ffi::IOServiceOpen(device, ffi::mach_task_self(), 0, &mut conn);
-        ffi::IOObjectRelease(device);
-        if result != ffi::KIO_RETURN_SUCCESS {
-            //println!("Error: IOServiceOpen() = {}", result);
-            return None;
-        }
-
-        Some(conn)
-    }
-}
-
-fn get_uptime() -> u64 {
-    let mut boottime: libc::timeval = unsafe { mem::zeroed() };
-    let mut len = mem::size_of::<libc::timeval>();
-    let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
-    unsafe {
-        if libc::sysctl(
-            mib.as_mut_ptr(),
-            2,
-            &mut boottime as *mut libc::timeval as *mut _,
-            &mut len,
-            ::std::ptr::null_mut(),
-            0,
-        ) < 0
-        {
-            return 0;
-        }
-    }
-    let bsec = boottime.tv_sec;
-    let csec = unsafe { libc::time(::std::ptr::null_mut()) };
-
-    unsafe { libc::difftime(csec, bsec) as u64 }
-}
-
 pub(crate) struct Wrap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
 
 unsafe impl<'a> Send for Wrap<'a> {}
 unsafe impl<'a> Sync for Wrap<'a> {}
-
-fn get_arg_max() -> usize {
-    let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
-    let mut arg_max = 0i32;
-    let mut size = mem::size_of::<c_int>();
-    unsafe {
-        if libc::sysctl(
-            mib.as_mut_ptr(),
-            2,
-            (&mut arg_max) as *mut i32 as *mut c_void,
-            &mut size,
-            ::std::ptr::null_mut(),
-            0,
-        ) == -1
-        {
-            4096 // We default to this value
-        } else {
-            arg_max as usize
-        }
-    }
-}
-
-unsafe fn get_sys_value(
-    high: u32,
-    low: u32,
-    mut len: usize,
-    value: *mut c_void,
-    mib: &mut [i32; 2],
-) -> bool {
-    mib[0] = high as i32;
-    mib[1] = low as i32;
-    libc::sysctl(
-        mib.as_mut_ptr(),
-        2,
-        value,
-        &mut len as *mut usize,
-        ::std::ptr::null_mut(),
-        0,
-    ) == 0
-}
 
 impl System {
     fn clear_procs(&mut self) {
@@ -514,4 +416,102 @@ impl Default for System {
     fn default() -> System {
         System::new()
     }
+}
+
+// code from https://github.com/Chris911/iStats
+fn get_io_service_connection() -> Option<ffi::io_connect_t> {
+    let mut master_port: ffi::mach_port_t = 0;
+    let mut iterator: ffi::io_iterator_t = 0;
+
+    unsafe {
+        ffi::IOMasterPort(ffi::MACH_PORT_NULL, &mut master_port);
+
+        let matching_dictionary = ffi::IOServiceMatching(b"AppleSMC\0".as_ptr() as *const i8);
+        let result =
+            ffi::IOServiceGetMatchingServices(master_port, matching_dictionary, &mut iterator);
+        if result != ffi::KIO_RETURN_SUCCESS {
+            //println!("Error: IOServiceGetMatchingServices() = {}", result);
+            return None;
+        }
+
+        let device = ffi::IOIteratorNext(iterator);
+        ffi::IOObjectRelease(iterator);
+        if device == 0 {
+            //println!("Error: no SMC found");
+            return None;
+        }
+
+        let mut conn = 0;
+        let result = ffi::IOServiceOpen(device, ffi::mach_task_self(), 0, &mut conn);
+        ffi::IOObjectRelease(device);
+        if result != ffi::KIO_RETURN_SUCCESS {
+            //println!("Error: IOServiceOpen() = {}", result);
+            return None;
+        }
+
+        Some(conn)
+    }
+}
+
+fn get_uptime() -> u64 {
+    let mut boottime: libc::timeval = unsafe { mem::zeroed() };
+    let mut len = mem::size_of::<libc::timeval>();
+    let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
+    unsafe {
+        if libc::sysctl(
+            mib.as_mut_ptr(),
+            2,
+            &mut boottime as *mut libc::timeval as *mut _,
+            &mut len,
+            ::std::ptr::null_mut(),
+            0,
+        ) < 0
+        {
+            return 0;
+        }
+    }
+    let bsec = boottime.tv_sec;
+    let csec = unsafe { libc::time(::std::ptr::null_mut()) };
+
+    unsafe { libc::difftime(csec, bsec) as u64 }
+}
+
+fn get_arg_max() -> usize {
+    let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
+    let mut arg_max = 0i32;
+    let mut size = mem::size_of::<c_int>();
+    unsafe {
+        if libc::sysctl(
+            mib.as_mut_ptr(),
+            2,
+            (&mut arg_max) as *mut i32 as *mut c_void,
+            &mut size,
+            ::std::ptr::null_mut(),
+            0,
+        ) == -1
+        {
+            4096 // We default to this value
+        } else {
+            arg_max as usize
+        }
+    }
+}
+
+unsafe fn get_sys_value(
+    high: u32,
+    low: u32,
+    mut len: usize,
+    value: *mut c_void,
+    mib: &mut [i32; 2],
+) -> bool {
+    mib[0] = high as i32;
+    mib[1] = low as i32;
+    libc::sysctl(
+        mib.as_mut_ptr(),
+        2,
+        value,
+        &mut len as *mut usize,
+        ::std::ptr::null_mut(),
+        0,
+    ) == 0
 }

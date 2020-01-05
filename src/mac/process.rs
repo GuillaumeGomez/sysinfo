@@ -17,8 +17,8 @@ use libc::{c_int, c_void, gid_t, kill, size_t, uid_t};
 use Pid;
 use ProcessExt;
 
-use sys::system::Wrap;
 use sys::ffi;
+use sys::system::Wrap;
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
