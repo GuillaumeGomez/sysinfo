@@ -279,7 +279,8 @@ pub struct vm_statistics64 {
     pub total_uncompressed_pages_in_compressor: u64,
 }
 
-#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
+#[cfg_attr(feature = "debug", derive(Eq, Hash, PartialEq))]
+#[derive(Debug)]
 #[repr(C)]
 pub struct Val_t {
     pub key: [i8; 5],

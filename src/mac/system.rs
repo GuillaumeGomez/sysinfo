@@ -11,10 +11,10 @@ use sys::network::{self, NetworkData};
 use sys::process::*;
 use sys::processor::*;
 
-use {ComponentExt, DiskExt, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
+use {DiskExt, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
 
 use std::borrow::Borrow;
-use std::cell::{UnsafeCell, RefCell};
+use std::cell::{RefCell, UnsafeCell};
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::mem::MaybeUninit;
@@ -37,7 +37,10 @@ use rayon::prelude::*;
 struct Syncer(RefCell<Option<HashMap<OsString, DiskType>>>);
 
 impl Syncer {
-    fn get_disk_types<F: Fn(&HashMap<OsString, DiskType>) -> Vec<Disk>>(&self, callback: F) -> Vec<Disk> {
+    fn get_disk_types<F: Fn(&HashMap<OsString, DiskType>) -> Vec<Disk>>(
+        &self,
+        callback: F,
+    ) -> Vec<Disk> {
         if self.0.borrow().is_none() {
             *self.0.borrow_mut() = Some(get_disk_types());
         }
@@ -169,106 +172,6 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
     }
 }
 
-unsafe fn strtoul(s: *mut c_char, size: c_int, base: c_int) -> u32 {
-    let mut total = 0u32;
-
-    for i in 0..size {
-        total += if base == 16 {
-            (*s.offset(i as isize) as u32) << (((size - 1 - i) as u32) << 3)
-        } else {
-            (*s.offset(i as isize) as u32) << ((size - 1 - i) << 3) as u32
-        };
-    }
-    total
-}
-
-unsafe fn ultostr(s: *mut c_char, val: u32) {
-    *s = 0;
-    libc::sprintf(
-        s,
-        b"%c%c%c%c\0".as_ptr() as *const i8,
-        val >> 24,
-        val >> 16,
-        val >> 8,
-        val,
-    );
-}
-
-unsafe fn perform_call(
-    conn: ffi::io_connect_t,
-    index: c_int,
-    input_structure: *mut ffi::KeyData_t,
-    output_structure: *mut ffi::KeyData_t,
-) -> i32 {
-    let mut structure_output_size = mem::size_of::<ffi::KeyData_t>();
-
-    ffi::IOConnectCallStructMethod(
-        conn,
-        index as u32,
-        input_structure,
-        mem::size_of::<ffi::KeyData_t>(),
-        output_structure,
-        &mut structure_output_size,
-    )
-}
-
-unsafe fn read_key(con: ffi::io_connect_t, key: *mut c_char) -> Result<ffi::Val_t, i32> {
-    let mut input_structure: ffi::KeyData_t = mem::zeroed::<ffi::KeyData_t>();
-    let mut output_structure: ffi::KeyData_t = mem::zeroed::<ffi::KeyData_t>();
-    let mut val: ffi::Val_t = mem::zeroed::<ffi::Val_t>();
-
-    input_structure.key = strtoul(key, 4, 16);
-    input_structure.data8 = ffi::SMC_CMD_READ_KEYINFO;
-
-    let result = perform_call(
-        con,
-        ffi::KERNEL_INDEX_SMC,
-        &mut input_structure,
-        &mut output_structure,
-    );
-    if result != ffi::KIO_RETURN_SUCCESS {
-        return Err(result);
-    }
-
-    val.data_size = output_structure.key_info.data_size;
-    ultostr(
-        val.data_type.as_mut_ptr(),
-        output_structure.key_info.data_type,
-    );
-    input_structure.key_info.data_size = val.data_size;
-    input_structure.data8 = ffi::SMC_CMD_READ_BYTES;
-
-    let result = perform_call(
-        con,
-        ffi::KERNEL_INDEX_SMC,
-        &mut input_structure,
-        &mut output_structure,
-    );
-    if result != ffi::KIO_RETURN_SUCCESS {
-        Err(result)
-    } else {
-        libc::memcpy(
-            val.bytes.as_mut_ptr() as *mut c_void,
-            output_structure.bytes.as_mut_ptr() as *mut c_void,
-            mem::size_of::<[u8; 32]>(),
-        );
-        Ok(val)
-    }
-}
-
-unsafe fn get_temperature(con: ffi::io_connect_t, key: *mut c_char) -> f32 {
-    if let Ok(val) = read_key(con, key) {
-        if val.data_size > 0
-            && libc::strcmp(val.data_type.as_ptr(), b"sp78\0".as_ptr() as *const i8) == 0
-        {
-            // convert fp78 value to temperature
-            let x = (i32::from(val.bytes[0]) << 6) + (i32::from(val.bytes[1]) >> 2);
-            return x as f32 / 64f32;
-        }
-    }
-    0f32
-}
-
 unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
     let len = cp as usize - start as usize;
     let part = Vec::from_raw_parts(start, len, len);
@@ -319,10 +222,7 @@ fn get_disks() -> Vec<Disk> {
                     if mount_point.as_os_str().is_empty() {
                         None
                     } else {
-                        let name = entry
-                            .path()
-                            .file_name()?
-                            .to_owned();
+                        let name = entry.path().file_name()?.to_owned();
                         let type_ = disk_types
                             .get(&name)
                             .cloned()
@@ -805,67 +705,24 @@ impl SystemExt for System {
     }
 
     fn refresh_temperatures(&mut self) {
-        unsafe {
-            if let Some(con) = self.connection {
-                if self.temperatures.is_empty() {
-                    // getting CPU critical temperature
-                    let mut v = vec!['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0];
-                    let tmp = get_temperature(con, v.as_mut_ptr());
-                    let critical_temp = if tmp > 0f32 { Some(tmp) } else { None };
-                    // getting CPU temperature
-                    // "TC0P"
-                    v[3] = 'P' as i8;
-                    let temp = get_temperature(con, v.as_mut_ptr() as *mut i8);
-                    if temp > 0f32 {
-                        self.temperatures.push(Component::new(
-                            "CPU".to_owned(),
-                            None,
-                            critical_temp,
-                        ));
+        if let Some(con) = self.connection {
+            if self.temperatures.is_empty() {
+                // getting CPU critical temperature
+                let critical_temp = crate::mac::component::get_temperature(
+                    con,
+                    &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0],
+                );
+
+                for (id, v) in crate::mac::component::COMPONENTS_TEMPERATURE_IDS.iter() {
+                    if let Some(c) =
+                        Component::new(id.to_string(), None, critical_temp, (*v).into(), con)
+                    {
+                        self.temperatures.push(c);
                     }
-                    // getting GPU temperature
-                    // "TG0P"
-                    v[1] = 'G' as i8;
-                    let temp = get_temperature(con, v.as_mut_ptr() as *mut i8);
-                    if temp > 0f32 {
-                        self.temperatures.push(Component::new(
-                            "GPU".to_owned(),
-                            None,
-                            critical_temp,
-                        ));
-                    }
-                    // getting battery temperature
-                    // "TB0T"
-                    v[1] = 'B' as i8;
-                    v[3] = 'T' as i8;
-                    let temp = get_temperature(con, v.as_mut_ptr() as *mut i8);
-                    if temp > 0f32 {
-                        self.temperatures.push(Component::new(
-                            "Battery".to_owned(),
-                            None,
-                            critical_temp,
-                        ));
-                    }
-                } else {
-                    let mut v = vec!['T' as i8, 'C' as i8, '0' as i8, 'P' as i8, 0];
-                    for comp in &mut self.temperatures {
-                        match &*comp.get_label() {
-                            "CPU" => {
-                                v[1] = 'C' as i8;
-                                v[3] = 'P' as i8;
-                            }
-                            "GPU" => {
-                                v[1] = 'G' as i8;
-                                v[3] = 'P' as i8;
-                            }
-                            _ => {
-                                v[1] = 'B' as i8;
-                                v[3] = 'T' as i8;
-                            }
-                        };
-                        let temp = get_temperature(con, v.as_mut_ptr() as *mut i8);
-                        ::sys::component::update_component(comp, temp);
-                    }
+                }
+            } else {
+                for comp in &mut self.temperatures {
+                    comp.update(con);
                 }
             }
         }
