@@ -715,7 +715,7 @@ impl SystemExt for System {
 
                 for (id, v) in crate::mac::component::COMPONENTS_TEMPERATURE_IDS.iter() {
                     if let Some(c) =
-                        Component::new(id.to_string(), None, critical_temp, (*v).into(), con)
+                        Component::new(id.to_string(), None, critical_temp, v, con)
                     {
                         self.temperatures.push(c);
                     }

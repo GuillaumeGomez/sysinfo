@@ -36,7 +36,7 @@ extern "C" {
     pub fn IOConnectCallStructMethod(
         connection: mach_port_t,
         selector: u32,
-        inputStruct: *mut KeyData_t,
+        inputStruct: *const KeyData_t,
         inputStructCnt: size_t,
         outputStruct: *mut KeyData_t,
         outputStructCnt: *mut size_t,
@@ -280,7 +280,7 @@ pub struct vm_statistics64 {
 }
 
 #[cfg_attr(feature = "debug", derive(Eq, Hash, PartialEq))]
-#[derive(Debug)]
+#[derive(Clone)]
 #[repr(C)]
 pub struct Val_t {
     pub key: [i8; 5],
