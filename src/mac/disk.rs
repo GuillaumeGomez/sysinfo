@@ -8,7 +8,6 @@ use utils;
 use DiskExt;
 
 use libc::{c_char, c_void, statfs};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Debug, Error, Formatter};
@@ -114,26 +113,8 @@ macro_rules! unwrapper {
     }};
 }
 
-struct Syncer(RefCell<Option<HashMap<OsString, DiskType>>>);
-
-impl Syncer {
-    fn get_disk_types<F: Fn(&HashMap<OsString, DiskType>) -> Vec<Disk>>(
-        &self,
-        callback: F,
-    ) -> Vec<Disk> {
-        if self.0.borrow().is_none() {
-            *self.0.borrow_mut() = Some(get_disk_types());
-        }
-        match &*self.0.borrow() {
-            Some(x) => callback(x),
-            None => Vec::new(),
-        }
-    }
-}
-
-unsafe impl Sync for Syncer {}
-
-static DISK_TYPES: Syncer = Syncer(RefCell::new(None));
+static DISK_TYPES: once_cell::sync::Lazy<HashMap<OsString, DiskType>> =
+    once_cell::sync::Lazy::new(|| get_disk_types());
 
 fn get_disk_types() -> HashMap<OsString, DiskType> {
     let mut master_port: ffi::mach_port_t = 0;
@@ -200,27 +181,25 @@ fn make_name(v: &[u8]) -> OsString {
 }
 
 pub(crate) fn get_disks() -> Vec<Disk> {
-    DISK_TYPES.get_disk_types(|disk_types| {
-        unwrapper!(fs::read_dir("/Volumes"), Vec::new())
-            .flat_map(|x| {
-                if let Ok(ref entry) = x {
-                    let mount_point = utils::realpath(&entry.path());
-                    if mount_point.as_os_str().is_empty() {
-                        None
-                    } else {
-                        let name = entry.path().file_name()?.to_owned();
-                        let type_ = disk_types
-                            .get(&name)
-                            .cloned()
-                            .unwrap_or(DiskType::Unknown(-2));
-                        Some(new_disk(name, &mount_point, type_))
-                    }
-                } else {
+    unwrapper!(fs::read_dir("/Volumes"), Vec::new())
+        .flat_map(|x| {
+            if let Ok(ref entry) = x {
+                let mount_point = utils::realpath(&entry.path());
+                if mount_point.as_os_str().is_empty() {
                     None
+                } else {
+                    let name = entry.path().file_name()?.to_owned();
+                    let type_ = DISK_TYPES
+                        .get(&name)
+                        .cloned()
+                        .unwrap_or(DiskType::Unknown(-2));
+                    Some(new_disk(name, &mount_point, type_))
                 }
-            })
-            .collect()
-    })
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 unsafe fn check_value(dict: ffi::CFMutableDictionaryRef, key: &[u8]) -> bool {
