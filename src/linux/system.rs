@@ -56,11 +56,13 @@ pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<usize>>> 
             limits.rlim_cur = limits.rlim_max;
             // In this part, we leave minimum 10% of the available file descriptors to the process
             // using sysinfo.
-            Arc::new(Mutex::new(if libc::setrlimit(libc::RLIMIT_NOFILE, &limits) == 0 {
-                limits.rlim_cur - limits.rlim_cur / 10
-            } else {
-                current - current / 10
-            } as _))
+            Arc::new(Mutex::new(
+                if libc::setrlimit(libc::RLIMIT_NOFILE, &limits) == 0 {
+                    limits.rlim_cur - limits.rlim_cur / 10
+                } else {
+                    current - current / 10
+                } as _,
+            ))
         }
     });
 
