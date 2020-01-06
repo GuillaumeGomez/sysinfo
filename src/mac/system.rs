@@ -284,23 +284,14 @@ impl SystemExt for System {
             return;
         }
         if let Some(pids) = get_proc_list() {
-            let taskallinfo_size = mem::size_of::<libc::proc_taskallinfo>() as i32;
-            let taskinfo_size = mem::size_of::<libc::proc_taskinfo>() as i32;
-            let threadinfo_size = mem::size_of::<libc::proc_threadinfo>() as i32;
             let arg_max = get_arg_max();
-
             let entries: Vec<Process> = {
                 let wrap = &Wrap(UnsafeCell::new(&mut self.process_list));
                 pids.par_iter()
                     .flat_map(|pid| {
-                        let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
                         match update_process(
                             wrap,
                             *pid,
-                            taskallinfo_size,
-                            taskinfo_size,
-                            threadinfo_size,
-                            &mut mib,
                             arg_max as size_t,
                         ) {
                             Ok(x) => x,
@@ -317,21 +308,12 @@ impl SystemExt for System {
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
-        let taskallinfo_size = mem::size_of::<libc::proc_taskallinfo>() as i32;
-        let taskinfo_size = mem::size_of::<libc::proc_taskinfo>() as i32;
-        let threadinfo_size = mem::size_of::<libc::proc_threadinfo>() as i32;
-
-        let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
         let arg_max = get_arg_max();
         match {
             let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
             update_process(
                 &wrap,
                 pid,
-                taskallinfo_size,
-                taskinfo_size,
-                threadinfo_size,
-                &mut mib,
                 arg_max as size_t,
             )
         } {

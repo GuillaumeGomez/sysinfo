@@ -10,7 +10,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::mem;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use libc::{c_int, c_void, gid_t, kill, size_t, uid_t};
 
@@ -153,19 +152,16 @@ pub struct Process {
 }
 
 impl Process {
-    pub(crate) fn new_with(
+    pub(crate) fn new_empty(
         pid: Pid,
-        parent: Option<Pid>,
-        start_time: u64,
         exe: PathBuf,
         name: String,
-        cmd: Vec<String>,
     ) -> Process {
         Process {
             name,
             pid,
-            parent,
-            cmd,
+            parent: None,
+            cmd: Vec::new(),
             environ: Vec::new(),
             exe,
             cwd: PathBuf::new(),
@@ -178,7 +174,7 @@ impl Process {
             old_utime: 0,
             old_stime: 0,
             updated: true,
-            start_time,
+            start_time: 0,
             uid: 0,
             gid: 0,
             process_status: ProcessStatus::Unknown(0),
@@ -186,7 +182,7 @@ impl Process {
         }
     }
 
-    pub(crate) fn new_with2(
+    pub(crate) fn new_with(
         pid: Pid,
         parent: Option<Pid>,
         start_time: u64,
@@ -371,52 +367,54 @@ pub(crate) fn force_update(p: &mut Process) {
     p.updated = true;
 }
 
+unsafe fn get_task_info(pid: Pid) -> libc::proc_taskinfo {
+    let mut task_info = mem::zeroed::<libc::proc_taskinfo>();
+    // If it doesn't work, we just don't have memory information for this process
+    // so it's "fine".
+    ffi::proc_pidinfo(
+        pid,
+        libc::PROC_PIDTASKINFO,
+        0,
+        &mut task_info as *mut libc::proc_taskinfo as *mut c_void,
+        mem::size_of::<libc::proc_taskinfo>() as _,
+    );
+    task_info
+}
+
 pub(crate) fn update_process(
     wrap: &Wrap,
     pid: Pid,
-    taskallinfo_size: i32,
-    taskinfo_size: i32,
-    threadinfo_size: i32,
-    mib: &mut [c_int],
     mut size: size_t,
 ) -> Result<Option<Process>, ()> {
+    let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
     let mut proc_args = Vec::with_capacity(size as usize);
+
     unsafe {
-        let mut thread_info = mem::zeroed::<libc::proc_threadinfo>();
-        let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(
-            pid,
-            libc::PROC_PIDTHREADINFO,
-            0,
-            &mut thread_info as *mut libc::proc_threadinfo as *mut c_void,
-            threadinfo_size,
-        ) != 0
-        {
-            (
-                thread_info.pth_user_time,
-                thread_info.pth_system_time,
-                Some(ThreadStatus::from(thread_info.pth_run_state)),
-            )
-        } else {
-            (0, 0, None)
-        };
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
             if p.memory == 0 {
                 // We don't have access to this process' information.
                 force_update(p);
                 return Ok(None);
             }
-            p.status = thread_status;
-            let mut task_info = mem::zeroed::<libc::proc_taskinfo>();
-            if ffi::proc_pidinfo(
+            let task_info = get_task_info(pid);
+            let mut thread_info = mem::zeroed::<libc::proc_threadinfo>();
+            let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(
                 pid,
-                libc::PROC_PIDTASKINFO,
+                libc::PROC_PIDTHREADINFO,
                 0,
-                &mut task_info as *mut libc::proc_taskinfo as *mut c_void,
-                taskinfo_size,
-            ) != taskinfo_size
+                &mut thread_info as *mut libc::proc_threadinfo as *mut c_void,
+                mem::size_of::<libc::proc_threadinfo>() as _,
+            ) != 0
             {
-                return Err(());
-            }
+                (
+                    thread_info.pth_user_time,
+                    thread_info.pth_system_time,
+                    Some(ThreadStatus::from(thread_info.pth_run_state)),
+                )
+            } else {
+                (0, 0, None)
+            };
+            p.status = thread_status;
             let task_time =
                 user_time + system_time + task_info.pti_total_user + task_info.pti_total_system;
             let time = ffi::mach_absolute_time();
@@ -427,57 +425,34 @@ pub(crate) fn update_process(
             return Ok(None);
         }
 
-        let mut task_info = mem::zeroed::<libc::proc_taskallinfo>();
+        let mut info = mem::zeroed::<libc::proc_bsdinfo>();
         if ffi::proc_pidinfo(
             pid,
-            libc::PROC_PIDTASKALLINFO,
+            ffi::PROC_PIDTBSDINFO,
             0,
-            &mut task_info as *mut libc::proc_taskallinfo as *mut c_void,
-            taskallinfo_size as i32,
-        ) != taskallinfo_size as i32
+            &mut info as *mut _ as *mut _,
+            mem::size_of::<libc::proc_bsdinfo>() as _,
+        ) != mem::size_of::<libc::proc_bsdinfo>() as _
         {
-            match Command::new("/bin/ps") // not very nice, might be worth running a which first.
-                .arg("wwwe")
-                .arg("-o")
-                .arg("ppid=,command=")
-                .arg(pid.to_string().as_str())
-                .output()
-            {
-                Ok(o) => {
-                    let o = String::from_utf8(o.stdout).unwrap_or_else(|_| String::new());
-                    let o = o.split(' ').filter(|c| !c.is_empty()).collect::<Vec<_>>();
-                    if o.len() < 2 {
-                        return Err(());
-                    }
-                    let mut command = parse_command_line(&o[1..]);
-                    if let Some(ref mut x) = command.last_mut() {
-                        **x = x.replace("\n", "");
-                    }
-                    let p = match i32::from_str_radix(&o[0].replace("\n", ""), 10) {
-                        Ok(x) => x,
-                        _ => return Err(()),
-                    };
-                    let exe = PathBuf::from(&command[0]);
-                    let name = match exe.file_name() {
-                        Some(x) => x.to_str().unwrap_or_else(|| "").to_owned(),
-                        None => String::new(),
-                    };
-                    return Ok(Some(Process::new_with(
-                        pid,
-                        if p == 0 { None } else { Some(p) },
-                        0,
-                        exe,
-                        name,
-                        command,
-                    )));
+            let mut buffer: Vec<u8> = Vec::with_capacity(ffi::PROC_PIDPATHINFO_MAXSIZE as _);
+            match ffi::proc_pidpath(pid, buffer.as_mut_ptr() as *mut _, ffi::PROC_PIDPATHINFO_MAXSIZE) {
+                x if x > 0 => {
+                    buffer.set_len(x as _);
+                    let tmp = String::from_utf8_unchecked(buffer);
+                    let exe = PathBuf::from(tmp);
+                    let name = exe
+                        .file_name()
+                        .unwrap_or_else(|| OsStr::new(""))
+                        .to_str()
+                        .unwrap_or_else(|| "")
+                        .to_owned();
+                    return Ok(Some(Process::new_empty(pid, exe, name)));
                 }
-                _ => {
-                    return Err(());
-                }
+                _ => {}
             }
+            return Err(());
         }
-
-        let parent = match task_info.pbsd.pbi_ppid as Pid {
+        let parent = match info.pbi_ppid as i32 {
             0 => None,
             p => Some(p),
         };
@@ -609,10 +584,10 @@ pub(crate) fn update_process(
                 get_environ(ptr, cp, size, PathBuf::new(), do_something)
             };
 
-            Process::new_with2(
+            Process::new_with(
                 pid,
                 parent,
-                task_info.pbsd.pbi_start_tvsec,
+                info.pbi_start_tvsec,
                 exe,
                 name,
                 parse_command_line(&cmd),
@@ -620,15 +595,17 @@ pub(crate) fn update_process(
                 root,
             )
         } else {
-            Process::new(pid, parent, task_info.pbsd.pbi_start_tvsec)
+            Process::new(pid, parent, info.pbi_start_tvsec)
         };
 
-        p.memory = task_info.ptinfo.pti_resident_size >> 10; // divide by 1024
-        p.virtual_memory = task_info.ptinfo.pti_virtual_size >> 10; // divide by 1024
+        let task_info = get_task_info(pid);
 
-        p.uid = task_info.pbsd.pbi_uid;
-        p.gid = task_info.pbsd.pbi_gid;
-        p.process_status = ProcessStatus::from(task_info.pbsd.pbi_status);
+        p.memory = task_info.pti_resident_size >> 10; // divide by 1024
+        p.virtual_memory = task_info.pti_virtual_size >> 10; // divide by 1024
+
+        p.uid = info.pbi_uid;
+        p.gid = info.pbi_gid;
+        p.process_status = ProcessStatus::from(info.pbi_status);
 
         Ok(Some(p))
     }

@@ -17,10 +17,11 @@ extern "C" {
         buffersize: c_int,
     ) -> c_int;
     pub fn proc_listallpids(buffer: *mut c_void, buffersize: c_int) -> c_int;
+    //pub fn proc_listpids(kind: u32, x: u32, buffer: *mut c_void, buffersize: c_int) -> c_int;
     //pub fn proc_name(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
     //pub fn proc_regionfilename(pid: c_int, address: u64, buffer: *mut c_void,
     //                           buffersize: u32) -> c_int;
-    //pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
+    pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
 
     pub fn IOMasterPort(a: i32, b: *mut mach_port_t) -> i32;
     pub fn IOServiceMatching(a: *const c_char) -> *mut c_void;
@@ -357,6 +358,9 @@ pub const CPU_STATE_NICE: u32 = 3;
 pub const CPU_STATE_MAX: usize = 4;
 pub const HW_MEMSIZE: u32 = 24;
 
+//pub const PROC_ALL_PIDS: c_uint = 1;
+pub const PROC_PIDTBSDINFO: c_int = 3;
+
 //pub const TASK_THREAD_TIMES_INFO: u32 = 3;
 //pub const TASK_THREAD_TIMES_INFO_COUNT: u32 = 4;
 //pub const TASK_BASIC_INFO_64: u32 = 5;
@@ -369,7 +373,7 @@ pub const KERNEL_INDEX_SMC: i32 = 2;
 pub const SMC_CMD_READ_KEYINFO: u8 = 9;
 pub const SMC_CMD_READ_BYTES: u8 = 5;
 
-// pub const PROC_PIDPATHINFO_MAXSIZE: usize = 4096;
+pub const PROC_PIDPATHINFO_MAXSIZE: u32 = 4096;
 
 pub const KIO_RETURN_SUCCESS: i32 = 0;
 #[allow(non_upper_case_globals)]
