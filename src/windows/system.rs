@@ -272,7 +272,7 @@ impl SystemExt for System {
     }
 
     fn refresh_processes(&mut self) {
-        // Windows 10 notebook requires at least 512kb of memory to make it in one go
+        // Windows 10 notebook requires at least 512KiB of memory to make it in one go
         let mut buffer_size: usize = 512 * 1024;
 
         loop {

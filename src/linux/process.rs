@@ -246,8 +246,8 @@ impl Debug for Process {
         writeln!(f, "executable path: {:?}", self.exe);
         writeln!(f, "current working directory: {:?}", self.cwd);
         writeln!(f, "owner/group: {}:{}", self.uid, self.gid);
-        writeln!(f, "memory usage: {} kB", self.memory);
-        writeln!(f, "virtual memory usage: {} kB", self.virtual_memory);
+        writeln!(f, "memory usage: {} KiB", self.memory);
+        writeln!(f, "virtual memory usage: {} KiB", self.virtual_memory);
         writeln!(f, "cpu usage: {}%", self.cpu_usage);
         writeln!(f, "status: {}", self.status);
         write!(f, "root path: {:?}", self.root)
