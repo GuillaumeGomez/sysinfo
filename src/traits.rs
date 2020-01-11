@@ -76,10 +76,10 @@ pub trait ProcessExt {
     /// Always empty on Windows.
     fn root(&self) -> &Path;
 
-    /// Returns the memory usage (in kB).
+    /// Returns the memory usage (in KiB).
     fn memory(&self) -> u64;
 
-    /// Returns the virtual memory usage (in kB).
+    /// Returns the virtual memory usage (in KiB).
     fn virtual_memory(&self) -> u64;
 
     /// Returns the parent pid.
