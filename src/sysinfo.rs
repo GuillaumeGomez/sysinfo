@@ -96,6 +96,43 @@ mod system;
 mod traits;
 mod utils;
 
+/// This function is only used on linux targets, on the other platforms it does nothing.
+///
+/// On linux, to improve performance, we keep a `/proc` file open for each process we index with
+/// a maximum number of files open equivalent to half of the system limit.
+///
+/// The problem is that some users might need all the available file descriptors so we need to
+/// allow them to change this limit. Reducing 
+///
+/// Note that if you set a limit bigger than the system limit, the system limit will be set.
+///
+/// Returns `true` if the new value has been set.
+pub fn set_open_files_limit(mut new_limit: isize) -> bool {
+    #[cfg(all(not(target_os = "macos"), unix))]
+    {
+        if new_limit < 0 {
+            new_limit = 0;
+        }
+        let max = sys::system::get_max_nb_fds();
+        if new_limit > max {
+            new_limit = max;
+        }
+        return if let Ok(ref mut x) = unsafe { sys::system::REMAINING_FILES.lock() } {
+            // If files are already open, to be sure that the number won't be bigger when those
+            // files are closed, we subtract the current number of opened files to the new limit.
+            let diff = max - **x;
+            **x = new_limit - diff;
+            true
+        } else {
+            false
+        };
+    }
+    #[cfg(any(not(unix), target_os = "macos"))]
+    {
+        return false;
+    }
+}
+
 /// An enum representing signal on UNIX-like systems.
 #[repr(C)]
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]

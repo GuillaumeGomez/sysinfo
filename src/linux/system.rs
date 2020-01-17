@@ -31,13 +31,13 @@ use rayon::prelude::*;
 
 // This whole thing is to prevent having too much files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
-pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<usize>>> =
+pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<isize>>> =
     once_cell::sync::Lazy::new(|| {
         #[cfg(target_os = "android")]
         {
             // The constant "RLIMIT_NOFILE" doesn't exist on Android so we have to return a value.
-            // The default value seems to be 1024 so let's return 90% of it...
-            Arc::new(Mutex::new(1024 - 1024 / 10))
+            // The default value seems to be 1024 so let's return 50% of it...
+            Arc::new(Mutex::new(1024 / 2))
         }
         #[cfg(not(target_os = "android"))]
         unsafe {
@@ -47,24 +47,46 @@ pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<usize>>> 
             };
             if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
                 // Most linux system now defaults to 1024.
-                return Arc::new(Mutex::new(1024 - 1024 / 10));
+                return Arc::new(Mutex::new(1024 / 2));
             }
             // We save the value in case the update fails.
             let current = limits.rlim_cur;
 
             // The set the soft limit to the hard one.
             limits.rlim_cur = limits.rlim_max;
-            // In this part, we leave minimum 10% of the available file descriptors to the process
+            // In this part, we leave minimum 50% of the available file descriptors to the process
             // using sysinfo.
             Arc::new(Mutex::new(
                 if libc::setrlimit(libc::RLIMIT_NOFILE, &limits) == 0 {
-                    limits.rlim_cur - limits.rlim_cur / 10
+                    limits.rlim_cur / 2
                 } else {
-                    current - current / 10
+                    current / 2
                 } as _,
             ))
         }
     });
+
+pub(crate) fn get_max_nb_fds() -> isize {
+    #[cfg(target_os = "android")]
+    {
+        // The constant "RLIMIT_NOFILE" doesn't exist on Android so we have to return a value.
+        // The default value seems to be 1024...
+        1024 / 2
+    }
+    #[cfg(not(target_os = "android"))]
+    unsafe {
+        let mut limits = libc::rlimit {
+            rlim_cur: 0,
+            rlim_max: 0,
+        };
+        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
+            // Most linux system now defaults to 1024.
+            1024 / 2
+        } else {
+            limits.rlim_max as isize / 2
+        }
+    }
+}
 
 macro_rules! to_str {
     ($e:expr) => {
@@ -531,7 +553,7 @@ fn parse_stat_file(data: &str) -> Result<Vec<&str>, ()> {
 fn check_nb_open_files(f: File) -> Option<File> {
     if let Ok(ref mut x) = unsafe { REMAINING_FILES.lock() } {
         if **x > 0 {
-            **x += 1;
+            **x -= 1;
             return Some(f);
         }
     }
@@ -593,6 +615,7 @@ fn _get_process_data(
     tmp.push("stat");
     let mut file = ::std::fs::File::open(&tmp).map_err(|_| ())?;
     let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
+    let stat_file = check_nb_open_files(file);
     let parts = parse_stat_file(&data)?;
 
     let parent_pid = if proc_list.pid != 0 {
@@ -611,7 +634,7 @@ fn _get_process_data(
         .unwrap_or_else(|| 0);
     let mut p = Process::new(nb, parent_pid, start_time);
 
-    p.stat_file = Some(file);
+    p.stat_file = stat_file;
     get_status(&mut p, parts[2]);
 
     tmp.pop();
