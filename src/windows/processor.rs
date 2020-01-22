@@ -294,6 +294,12 @@ pub fn get_cpu_frequency() -> u64 {
     0
 }
 
+/// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
+pub fn get_vendor_id() -> String {
+    // TODO: support windows
+    "".to_owned()
+}
+
 /// get_avg_load returns the system load average value.
 pub fn get_avg_load() -> LoadAvg {
     LoadAvg::default()

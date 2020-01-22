@@ -277,6 +277,19 @@ pub fn get_cpu_frequency() -> u64 {
         .unwrap_or_default()
 }
 
+/// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
+pub fn get_vendor_id() -> String {
+    let mut s = String::new();
+    if let Err(_) = File::open("/proc/cpuinfo").and_then(|mut f| f.read_to_string(&mut s)) {
+        return String::new();
+    }
+
+    s.split('\n').find(|line| line.starts_with("vendor_id\t"))
+        .and_then(|line| line.split(':').last())
+        .map(|s| s.trim().to_owned())
+        .unwrap_or_default()
+}
+
 /// get_avg_load returns the system load average value.
 pub fn get_avg_load() -> LoadAvg {
     let mut s = String::new();

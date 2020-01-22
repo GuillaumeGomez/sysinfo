@@ -89,7 +89,7 @@ pub use net::NICLoad;
 pub use num_cpus::{get as get_logical_cores, get_physical as get_physical_cores};
 
 pub use sys::{
-    get_avg_load, get_cpu_frequency, Component, Disk, DiskType, NetworkData, Process,
+    get_avg_load, get_cpu_frequency, get_vendor_id, Component, Disk, DiskType, NetworkData, Process,
     ProcessStatus, Processor, System,
 };
 pub use traits::{ComponentExt, DiskExt, NetworkExt, ProcessExt, ProcessorExt, SystemExt};
@@ -264,7 +264,7 @@ pub fn get_sysctl_list() -> HashMap<String, String> {
 
 #[cfg(test)]
 mod test {
-    use traits::{ProcessExt, SystemExt};
+    use super::*;
 
     #[test]
     fn check_memory_usage() {
@@ -307,6 +307,10 @@ mod test {
 
     #[test]
     fn test_cache_size() {
+        if get_vendor_id() == "AuthenticAMD" {
+            return;
+        }
+
         let caches = vec![
             ("l1-cache-size", ::cache_size::l1_cache_size()),
             ("l1-cache-line-size", ::cache_size::l1_cache_line_size()),

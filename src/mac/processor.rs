@@ -116,6 +116,12 @@ pub fn get_cpu_frequency() -> u64 {
     speed
 }
 
+/// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
+pub fn get_vendor_id() -> String {
+    // TODO: support Mac
+    "".to_owned()
+}
+
 /// get_avg_load returns the system load average value.
 pub fn get_avg_load() -> LoadAvg {
     let loads = vec![0f64; 3];
