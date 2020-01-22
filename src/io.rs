@@ -68,7 +68,7 @@ impl IOLoad {
                         .split_whitespace()
                         .map(|w| w.parse().unwrap_or_default())
                         .collect::<Vec<f64>>();
-                    if parts.len() != 11 {
+                    if parts.len() < 11 {
                         continue;
                     }
                     let load = IOLoad {
