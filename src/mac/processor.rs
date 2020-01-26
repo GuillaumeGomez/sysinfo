@@ -74,6 +74,19 @@ impl Processor {
             vendor_id,
         }
     }
+
+    pub(crate) fn set_cpu_usage(&mut self, cpu_usage: f32) {
+        self.cpu_usage = cpu_usage;
+    }
+
+    pub(crate) fn update(&mut self, cpu_usage: f32, processor_data: Arc<ProcessorData>) {
+        self.cpu_usage = cpu_usage;
+        self.processor_data = processor_data;
+    }
+
+    pub(crate) fn get_data(&self) -> Arc<ProcessorData> {
+        Arc::clone(&self.processor_data)
+    }
 }
 
 impl ProcessorExt for Processor {
@@ -85,6 +98,7 @@ impl ProcessorExt for Processor {
         &self.name
     }
 
+    /// Returns the processor frequency in MHz.
     fn get_frequency(&self) -> u64 {
         self.frequency
     }
@@ -94,24 +108,6 @@ impl ProcessorExt for Processor {
     }
 }
 
-pub fn set_cpu_usage(p: &mut Processor, usage: f32) {
-    p.cpu_usage = usage;
-}
-
-pub fn update_proc(p: &mut Processor, cpu_usage: f32, processor_data: Arc<ProcessorData>) {
-    p.cpu_usage = cpu_usage;
-    p.processor_data = processor_data;
-}
-
-pub fn set_cpu_proc(p: &mut Processor, cpu_usage: f32) {
-    p.cpu_usage = cpu_usage;
-}
-
-pub fn get_processor_data(p: &Processor) -> Arc<ProcessorData> {
-    Arc::clone(&p.processor_data)
-}
-
-/// get_cpu_frequency returns the CPU frequency in MHz
 pub fn get_cpu_frequency() -> u64 {
     let mut speed: u64 = 0;
     let mut len = std::mem::size_of::<u64>();
@@ -128,7 +124,6 @@ pub fn get_cpu_frequency() -> u64 {
     speed
 }
 
-/// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
 pub fn get_vendor_id() -> String {
     let mut len = 0;
 

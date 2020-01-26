@@ -11,13 +11,12 @@ use sys::network::{self, NetworkData};
 use sys::process::*;
 use sys::processor::*;
 
-use {DiskExt, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
+use {DiskExt, LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
-use sys::processor;
 
 use libc::{self, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
@@ -229,7 +228,7 @@ impl SystemExt for System {
                             + *cpu_info.offset(
                                 (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
                             );
-                        processor::set_cpu_proc(&mut p, in_use as f32 / total as f32);
+                        p.set_cpu_usage(in_use as f32 / total as f32);
                         self.processors.push(p);
                     }
                 }
@@ -244,7 +243,7 @@ impl SystemExt for System {
                 let mut pourcent = 0f32;
                 let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
                 for (i, proc_) in self.processors.iter_mut().skip(1).enumerate() {
-                    let old_proc_data = &*processor::get_processor_data(proc_);
+                    let old_proc_data = &*proc_.get_data();
                     let in_use =
                         (*cpu_info.offset(
                             (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize,
@@ -265,8 +264,7 @@ impl SystemExt for System {
                         ) - *old_proc_data.cpu_info.offset(
                             (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
                         ));
-                    processor::update_proc(
-                        proc_,
+                    proc_.update(
                         in_use as f32 / total as f32,
                         Arc::clone(&proc_data),
                     );
@@ -275,7 +273,7 @@ impl SystemExt for System {
                 if self.processors.len() > 1 {
                     let len = self.processors.len() - 1;
                     if let Some(p) = self.processors.get_mut(0) {
-                        processor::set_cpu_usage(p, pourcent / len as f32);
+                        p.set_cpu_usage(pourcent / len as f32);
                     }
                 }
             }
@@ -389,6 +387,18 @@ impl SystemExt for System {
 
     fn get_uptime(&self) -> u64 {
         self.uptime
+    }
+
+    fn get_avg_load(&self) -> LoadAvg {
+        let loads = vec![0f64; 3];
+        unsafe {
+            ffi::getloadavg(loads.as_ptr() as *const f64, 3);
+        }
+        LoadAvg {
+            one: loads[0],
+            five: loads[1],
+            fifteen: loads[2],
+        }
     }
 }
 
