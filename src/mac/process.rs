@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 
 use libc::{c_int, c_void, gid_t, kill, size_t, uid_t};
 
+use LoadAvg;
 use Pid;
 use ProcessExt;
 
@@ -295,6 +296,18 @@ impl ProcessExt for Process {
 
     fn cpu_usage(&self) -> f32 {
         self.cpu_usage
+    }
+
+    fn get_avg_load(&self) -> LoadAvg {
+        let loads = vec![0f64; 3];
+        unsafe {
+            ffi::getloadavg(loads.as_ptr() as *const f64, 3);
+        }
+        LoadAvg {
+            one: loads[0],
+            five: loads[1],
+            fifteen: loads[2],
+        }
     }
 }
 

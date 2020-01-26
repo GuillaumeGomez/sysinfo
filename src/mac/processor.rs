@@ -9,7 +9,6 @@ use std::ops::Deref;
 use std::sync::Arc;
 use sys::ffi;
 
-use LoadAvg;
 use ProcessorExt;
 
 pub struct UnsafePtr<T>(*mut T);
@@ -56,14 +55,23 @@ pub struct Processor {
     name: String,
     cpu_usage: f32,
     processor_data: Arc<ProcessorData>,
+    frequency: u64,
+    vendor_id: String,
 }
 
 impl Processor {
-    fn new(name: String, processor_data: Arc<ProcessorData>) -> Processor {
+    pub(crate) fn new(
+        name: String,
+        processor_data: Arc<ProcessorData>,
+        frequency: u64,
+        vendor_id: String,
+    ) -> Processor {
         Processor {
             name,
             cpu_usage: 0f32,
             processor_data,
+            frequency,
+            vendor_id,
         }
     }
 }
@@ -76,14 +84,18 @@ impl ProcessorExt for Processor {
     fn get_name(&self) -> &str {
         &self.name
     }
+
+    fn get_frequency(&self) -> u64 {
+        self.frequency
+    }
+
+    fn get_vendor_id(&self) -> &str {
+        &self.vendor_id
+    }
 }
 
 pub fn set_cpu_usage(p: &mut Processor, usage: f32) {
     p.cpu_usage = usage;
-}
-
-pub fn create_proc(name: String, processor_data: Arc<ProcessorData>) -> Processor {
-    Processor::new(name, processor_data)
 }
 
 pub fn update_proc(p: &mut Processor, cpu_usage: f32, processor_data: Arc<ProcessorData>) {
@@ -105,8 +117,8 @@ pub fn get_cpu_frequency() -> u64 {
     let mut len = std::mem::size_of::<u64>();
     unsafe {
         ffi::sysctlbyname(
-            "hw.cpufrequency".as_ptr() as *const c_char,
-            &mut speed,
+            b"hw.cpufrequency\0".as_ptr() as *const c_char,
+            &mut speed as *mut _ as _,
             &mut len,
             std::ptr::null_mut(),
             0,
@@ -118,19 +130,36 @@ pub fn get_cpu_frequency() -> u64 {
 
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
 pub fn get_vendor_id() -> String {
-    // TODO: support Mac
-    "".to_owned()
-}
+    let mut len = 0;
 
-/// get_avg_load returns the system load average value.
-pub fn get_avg_load() -> LoadAvg {
-    let loads = vec![0f64; 3];
     unsafe {
-        ffi::getloadavg(loads.as_ptr() as *const f64, 3);
+        ffi::sysctlbyname(
+            b"machdep.cpu.brand_string\0".as_ptr() as *const c_char,
+            std::ptr::null_mut(),
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        );
     }
-    LoadAvg {
-        one: loads[0],
-        five: loads[1],
-        fifteen: loads[2],
+    if len < 1 {
+        return String::new();
+    }
+    let mut buf = Vec::with_capacity(len);
+    unsafe {
+        ffi::sysctlbyname(
+            b"machdep.cpu.brand_string\0".as_ptr() as *const c_char,
+            buf.as_mut_ptr() as _,
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        );
+    }
+    if len > 0 {
+        unsafe {
+            buf.set_len(len);
+        }
+        String::from_utf8(buf).unwrap_or_else(|_| String::new())
+    } else {
+        String::new()
     }
 }

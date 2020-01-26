@@ -84,7 +84,7 @@ extern "C" {
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
     pub fn sysctlbyname(
         name: *const c_char,
-        oldp: *mut u64,
+        oldp: *mut c_void,
         oldlenp: *mut usize,
         newp: *mut c_void,
         newlen: usize,
