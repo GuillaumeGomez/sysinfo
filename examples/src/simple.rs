@@ -38,6 +38,9 @@ fn print_help() {
     writeln!(&mut io::stdout(), "network            : Displays network' information");
     writeln!(&mut io::stdout(), "all                : Displays all process name and pid");
     writeln!(&mut io::stdout(), "uptime             : Displays system uptime");
+    writeln!(&mut io::stdout(), "vendor_id          : Displays processor vendor id");
+    writeln!(&mut io::stdout(), "load_avg           : Displays system load average");
+    writeln!(&mut io::stdout(), "frequency          : Displays processor frequency");
     writeln!(&mut io::stdout(), "quit               : exit the program");
 }
 
@@ -77,6 +80,18 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             for (pid, proc_) in sys.get_process_list() {
                 writeln!(&mut io::stdout(), "{}:{} status={:?}", pid, proc_.name(), proc_.status());
             }
+        }
+        "frequency" => {
+            writeln!(&mut io::stdout(), "{} MHz", sys.get_processor_list()[0].get_frequency());
+        }
+        "vendor_id" => {
+            writeln!(&mut io::stdout(), "vendor ID: {}", sys.get_processor_list()[0].get_vendor_id());
+        }
+        "load_avg" => {
+            let load_avg = sys.get_load_average();
+            writeln!(&mut io::stdout(), "one minute     : {}%", load_avg.one);
+            writeln!(&mut io::stdout(), "five minutes   : {}%", load_avg.five);
+            writeln!(&mut io::stdout(), "fifteen minutes: {}%", load_avg.fifteen);
         }
         e if e.starts_with("show ") => {
             let tmp : Vec<&str> = e.split(' ').collect();
