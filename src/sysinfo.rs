@@ -48,8 +48,6 @@
 //#![deny(warnings)]
 #![allow(unknown_lints)]
 
-extern crate num_cpus;
-
 #[macro_use]
 extern crate cfg_if;
 #[cfg(not(any(target_os = "unknown", target_arch = "wasm32")))]
@@ -80,13 +78,9 @@ cfg_if! {
     }
 }
 
-pub extern crate cache_size;
-pub extern crate pnet_datalink as datalink;
-
 pub use common::{AsU32, Pid, RefreshKind};
 pub use io::IOLoad;
 pub use net::NICLoad;
-pub use num_cpus::{get as get_logical_cores, get_physical as get_physical_cores};
 
 pub use sys::{Component, Disk, DiskType, NetworkData, Process, ProcessStatus, Processor, System};
 pub use traits::{ComponentExt, DiskExt, NetworkExt, ProcessExt, ProcessorExt, SystemExt};
@@ -94,8 +88,6 @@ pub use traits::{ComponentExt, DiskExt, NetworkExt, ProcessExt, ProcessorExt, Sy
 #[cfg(feature = "c-interface")]
 pub use c_interface::*;
 pub use utils::get_current_pid;
-
-use std::collections::HashMap;
 
 #[cfg(feature = "c-interface")]
 mod c_interface;
@@ -230,35 +222,6 @@ pub struct LoadAvg {
     pub fifteen: f64,
 }
 
-/// Returns system wide configuration
-///
-/// # Notes
-///
-/// Current only can be used in operating system mounted `procfs`
-pub fn get_sysctl_list() -> HashMap<String, String> {
-    const DIR: &str = "/proc/sys/";
-    let mut result = HashMap::new();
-    for entry in walkdir::WalkDir::new(DIR) {
-        let entry = match entry {
-            Ok(entry) => entry,
-            _ => continue,
-        };
-
-        let content = match std::fs::read_to_string(entry.path()) {
-            Ok(c) => c,
-            _ => continue,
-        };
-
-        let path = match entry.path().to_str() {
-            Some(p) => p,
-            _ => continue,
-        };
-        let name = path.trim_start_matches(DIR).replace("/", ".");
-        result.insert(name, content.trim().to_string());
-    }
-    result
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -274,50 +237,5 @@ mod test {
                 .all(|(_, proc_)| proc_.memory() == 0),
             false
         );
-    }
-
-    #[test]
-    fn test_get_cpu_frequency() {
-        println!("test get_cpu_frequency: {}", ::get_cpu_frequency());
-    }
-
-    #[test]
-    fn test_get_avg_load() {
-        println!("test get_avg_load: {:?}", ::get_avg_load());
-    }
-
-    #[test]
-    fn test_nic_load() {
-        println!("test test_nic_load: {:?}", ::NICLoad::snapshot());
-    }
-
-    #[test]
-    fn test_io_load() {
-        println!("test test_io_load: {:?}", ::IOLoad::snapshot());
-    }
-
-    #[test]
-    fn test_get_cores() {
-        assert_ne!(::get_logical_cores(), 0, "expect none-zero logical core");
-        assert_ne!(::get_physical_cores(), 0, "expect none-zero physical core");
-    }
-
-    #[test]
-    fn test_cache_size() {
-        if get_vendor_id() == "AuthenticAMD" {
-            return;
-        }
-
-        let caches = vec![
-            ("l1-cache-size", ::cache_size::l1_cache_size()),
-            ("l1-cache-line-size", ::cache_size::l1_cache_line_size()),
-            ("l2-cache-size", ::cache_size::l2_cache_size()),
-            ("l2-cache-line-size", ::cache_size::l2_cache_line_size()),
-            ("l3-cache-size", ::cache_size::l3_cache_size()),
-            ("l3-cache-line-size", ::cache_size::l3_cache_line_size()),
-        ];
-        for c in caches {
-            assert_ne!(c.1.unwrap(), 0, "{} expect non-zero", c.0)
-        }
     }
 }

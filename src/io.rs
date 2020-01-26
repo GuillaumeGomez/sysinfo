@@ -1,6 +1,10 @@
 use std::collections::HashMap;
+#[cfg(unix)]
 use std::fs::File;
+#[cfg(unix)]
 use std::io::Read;
+
+use NICLoad;
 
 /// IOLoad represents current system block devices IO statistics
 #[derive(Debug)]

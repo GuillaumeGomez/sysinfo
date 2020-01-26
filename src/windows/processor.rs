@@ -5,13 +5,11 @@
 //
 
 use std::collections::HashMap;
-use std::default::Default;
 use std::sync::{Arc, Mutex};
 use std::thread::{self /*, sleep*/, JoinHandle};
 //use std::time::Duration;
 
 use windows::tools::KeyHandler;
-use LoadAvg;
 use ProcessorExt;
 
 use winapi::shared::minwindef::{FALSE, ULONG};
@@ -297,20 +295,4 @@ pub fn get_key_idle(p: &mut Processor) -> &mut Option<KeyHandler> {
 
 pub fn get_key_used(p: &mut Processor) -> &mut Option<KeyHandler> {
     &mut p.key_used
-}
-
-pub fn get_cpu_frequency() -> u64 {
-    // TODO: support windows
-    0
-}
-
-/// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
-pub fn get_vendor_id() -> String {
-    // TODO: support windows
-    "".to_owned()
-}
-
-/// get_avg_load returns the system load average value.
-pub fn get_load_average() -> LoadAvg {
-    LoadAvg::default()
 }
