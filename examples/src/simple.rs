@@ -216,6 +216,12 @@ fn main() {
         io::stdout().flush();
 
         stin.read_line(&mut input);
+        if input.is_empty() {
+            // The string is empty, meaning there is no '\n', meaning
+            // that the user used CTRL+D so we can just quit!
+            println!("\nLeaving, bye!");
+            break;
+        }
         if (&input as &str).ends_with('\n') {
             input.pop();
         }
