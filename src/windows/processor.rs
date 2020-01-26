@@ -260,6 +260,16 @@ impl ProcessorExt for Processor {
     fn get_name(&self) -> &str {
         &self.name
     }
+
+    // Not yet implemented.
+    fn get_frequency(&self) -> u64 {
+        0
+    }
+
+    // Not yet implemented.
+    fn get_vendor_id(&self) -> &str {
+        ""
+    }
 }
 
 impl Processor {

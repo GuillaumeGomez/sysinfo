@@ -434,6 +434,15 @@ impl SystemExt for System {
     fn get_uptime(&self) -> u64 {
         self.uptime
     }
+
+    /// Not yet implemented.
+    fn get_avg_load(&self) -> LoadAvg {
+        LoadAvg {
+            one: 0.,
+            five: 0.,
+            fifteen: 0.,
+        }
+    }
 }
 
 fn is_proc_running(handle: HANDLE) -> bool {
