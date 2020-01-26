@@ -151,7 +151,6 @@ pub struct Process {
     pub status: Option<ThreadStatus>,
     pub read_bytes: u64,
     pub write_bytes: u64
- }
 }
 
 impl Process {
@@ -215,6 +214,8 @@ impl Process {
             gid: 0,
             process_status: ProcessStatus::Unknown(0),
             status: None,
+            read_bytes: 0,
+            write_bytes: 0
         }
     }
 }
@@ -243,6 +244,8 @@ impl ProcessExt for Process {
             gid: 0,
             process_status: ProcessStatus::Unknown(0),
             status: None,
+            read_bytes: 0,
+            write_bytes: 0
         }
     }
 
@@ -389,7 +392,7 @@ pub(crate) fn update_process(
 
             p.memory = task_info.pti_resident_size >> 10; // divide by 1024
             p.virtual_memory = task_info.pti_virtual_size >> 10; // divide by 1024
-            update_proc_disk_activity(&mut p);
+            update_proc_disk_activity(p);
             return Ok(None);
         }
 
@@ -578,7 +581,7 @@ pub(crate) fn update_process(
         p.uid = info.pbi_uid;
         p.gid = info.pbi_gid;
         p.process_status = ProcessStatus::from(info.pbi_status);
-        update_proc_disk_activity(p);
+        update_proc_disk_activity(&mut p);
         Ok(Some(p))
     }
 }
