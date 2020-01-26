@@ -88,10 +88,7 @@ pub use io::IOLoad;
 pub use net::NICLoad;
 pub use num_cpus::{get as get_logical_cores, get_physical as get_physical_cores};
 
-pub use sys::{
-    get_avg_load, get_cpu_frequency, get_vendor_id, Component, Disk, DiskType, NetworkData, Process,
-    ProcessStatus, Processor, System,
-};
+pub use sys::{Component, Disk, DiskType, NetworkData, Process, ProcessStatus, Processor, System};
 pub use traits::{ComponentExt, DiskExt, NetworkExt, ProcessExt, ProcessorExt, SystemExt};
 
 #[cfg(feature = "c-interface")]
@@ -118,7 +115,7 @@ mod utils;
 /// a maximum number of files open equivalent to half of the system limit.
 ///
 /// The problem is that some users might need all the available file descriptors so we need to
-/// allow them to change this limit. Reducing 
+/// allow them to change this limit. Reducing
 ///
 /// Note that if you set a limit bigger than the system limit, the system limit will be set.
 ///
@@ -223,13 +220,13 @@ pub enum Signal {
 
 /// A struct represents system load average value.
 #[repr(C)]
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct LoadAvg {
-    /// Average load within one minite.
+    /// Average load within one minute.
     pub one: f64,
-    /// Average load within five minites.
+    /// Average load within five minutes.
     pub five: f64,
-    /// Average load within fifteen minites.
+    /// Average load within fifteen minutes.
     pub fifteen: f64,
 }
 

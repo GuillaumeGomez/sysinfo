@@ -11,6 +11,7 @@ use sys::process::*;
 use sys::processor::*;
 use sys::Disk;
 use sys::NetworkData;
+use LoadAvg;
 use Pid;
 use {DiskExt, ProcessExt, RefreshKind, SystemExt};
 
@@ -132,12 +133,63 @@ impl System {
     }
 
     fn refresh_processors(&mut self, limit: Option<u32>) {
+        fn get_callbacks(
+            first: bool,
+        ) -> Box<dyn Fn(&mut dyn Iterator<Item = &[u8]>, &mut Vec<Processor>, &mut usize)> {
+            if first {
+                let frequency = get_cpu_frequency();
+                let vendor_id = get_vendor_id();
+                Box::new(
+                    move |parts: &mut dyn Iterator<Item = &[u8]>,
+                          processors: &mut Vec<Processor>,
+                          _| {
+                        processors.push(Processor::new_with_values(
+                            to_str!(parts.next().unwrap_or(&[])),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            frequency,
+                            vendor_id.clone(),
+                        ));
+                    },
+                )
+            } else {
+                Box::new(
+                    |parts: &mut dyn Iterator<Item = &[u8]>,
+                     processors: &mut Vec<Processor>,
+                     i: &mut usize| {
+                        parts.next(); // we don't want the name again
+                        processors[*i].set(
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        );
+                        *i += 1;
+                    },
+                )
+            }
+        }
         if let Ok(f) = File::open("/proc/stat") {
             let buf = BufReader::new(f);
             let mut i = 0;
             let first = self.processors.is_empty();
             let mut it = buf.split(b'\n');
             let mut count = 0;
+            let callback = get_callbacks(first);
 
             while let Some(Ok(line)) = it.next() {
                 if &line[..3] != b"cpu" {
@@ -146,37 +198,7 @@ impl System {
 
                 count += 1;
                 let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
-                if first {
-                    self.processors.push(new_processor(
-                        to_str!(parts.next().unwrap_or(&[])),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    ));
-                } else {
-                    parts.next(); // we don't want the name again
-                    set_processor(
-                        &mut self.processors[i],
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    );
-                    i += 1;
-                }
+                callback(&mut parts, &mut self.processors, &mut i);
                 if let Some(limit) = limit {
                     if count >= limit {
                         break;
@@ -350,6 +372,24 @@ impl SystemExt for System {
 
     fn get_uptime(&self) -> u64 {
         self.uptime
+    }
+
+    fn get_avg_load(&self) -> LoadAvg {
+        let mut s = String::new();
+        if let Err(_) = File::open("/proc/loadavg").and_then(|mut f| f.read_to_string(&mut s)) {
+            return LoadAvg::default();
+        }
+        let loads = s
+            .trim()
+            .split(' ')
+            .take(3)
+            .map(|val| val.parse::<f64>().unwrap())
+            .collect::<Vec<f64>>();
+        LoadAvg {
+            one: loads[0],
+            five: loads[1],
+            fifteen: loads[2],
+        }
     }
 }
 

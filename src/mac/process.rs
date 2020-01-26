@@ -152,11 +152,7 @@ pub struct Process {
 }
 
 impl Process {
-    pub(crate) fn new_empty(
-        pid: Pid,
-        exe: PathBuf,
-        name: String,
-    ) -> Process {
+    pub(crate) fn new_empty(pid: Pid, exe: PathBuf, name: String) -> Process {
         Process {
             name,
             pid,
@@ -435,7 +431,11 @@ pub(crate) fn update_process(
         ) != mem::size_of::<libc::proc_bsdinfo>() as _
         {
             let mut buffer: Vec<u8> = Vec::with_capacity(ffi::PROC_PIDPATHINFO_MAXSIZE as _);
-            match ffi::proc_pidpath(pid, buffer.as_mut_ptr() as *mut _, ffi::PROC_PIDPATHINFO_MAXSIZE) {
+            match ffi::proc_pidpath(
+                pid,
+                buffer.as_mut_ptr() as *mut _,
+                ffi::PROC_PIDPATHINFO_MAXSIZE,
+            ) {
                 x if x > 0 => {
                     buffer.set_len(x as _);
                     let tmp = String::from_utf8_unchecked(buffer);

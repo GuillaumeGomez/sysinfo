@@ -5,6 +5,7 @@
 //
 
 use sys::{Component, Disk, DiskType, NetworkData, Process, Processor};
+use LoadAvg;
 use Pid;
 use ProcessStatus;
 use RefreshKind;
@@ -105,6 +106,12 @@ pub trait ProcessorExt {
 
     /// Returns this processor's name.
     fn get_name(&self) -> &str;
+
+    /// Returns the processor's vendor id.
+    fn get_vendor_id(&self) -> &str;
+
+    /// Returns the processor's frequency.
+    fn get_frequency(&self) -> u64;
 }
 
 /// Contains all the methods of the [`System`] type.
@@ -275,6 +282,9 @@ pub trait SystemExt: Sized {
 
     /// Returns system uptime.
     fn get_uptime(&self) -> u64;
+
+    /// Returns the system load average value.
+    fn get_avg_load(&self) -> LoadAvg;
 }
 
 /// Getting volume of incoming and outgoing data.

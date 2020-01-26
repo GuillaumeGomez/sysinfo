@@ -6,11 +6,9 @@
 
 #![allow(clippy::too_many_arguments)]
 
-use std::default::Default;
 use std::fs::File;
 use std::io::Read;
 
-use LoadAvg;
 use ProcessorExt;
 
 /// Struct containing values to compute a CPU usage.
@@ -130,22 +128,12 @@ pub struct Processor {
     cpu_usage: f32,
     total_time: u64,
     old_total_time: u64,
+    frequency: u64,
+    vendor_id: String,
 }
 
 impl Processor {
-    #[allow(dead_code)]
-    fn new() -> Processor {
-        Processor {
-            name: String::new(),
-            old_values: CpuValues::new(),
-            new_values: CpuValues::new(),
-            cpu_usage: 0f32,
-            total_time: 0,
-            old_total_time: 0,
-        }
-    }
-
-    fn new_with_values(
+    pub(crate) fn new_with_values(
         name: &str,
         user: u64,
         nice: u64,
@@ -157,6 +145,8 @@ impl Processor {
         steal: u64,
         guest: u64,
         guest_nice: u64,
+        frequency: u64,
+        vendor_id: String,
     ) -> Processor {
         Processor {
             name: name.to_owned(),
@@ -167,10 +157,12 @@ impl Processor {
             cpu_usage: 0f32,
             total_time: 0,
             old_total_time: 0,
+            frequency,
+            vendor_id,
         }
     }
 
-    fn set(
+    pub(crate) fn set(
         &mut self,
         user: u64,
         nice: u64,
@@ -213,49 +205,21 @@ impl ProcessorExt for Processor {
     fn get_name(&self) -> &str {
         &self.name
     }
-}
 
-pub fn new_processor(
-    name: &str,
-    user: u64,
-    nice: u64,
-    system: u64,
-    idle: u64,
-    iowait: u64,
-    irq: u64,
-    softirq: u64,
-    steal: u64,
-    guest: u64,
-    guest_nice: u64,
-) -> Processor {
-    Processor::new_with_values(
-        name, user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
-    )
-}
+    /// Returns the CPU frequency in MHz.
+    fn get_frequency(&self) -> u64 {
+        self.frequency
+    }
 
-pub fn set_processor(
-    p: &mut Processor,
-    user: u64,
-    nice: u64,
-    system: u64,
-    idle: u64,
-    iowait: u64,
-    irq: u64,
-    softirq: u64,
-    steal: u64,
-    guest: u64,
-    guest_nice: u64,
-) {
-    p.set(
-        user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
-    )
+    fn get_vendor_id(&self) -> &str {
+        &self.vendor_id
+    }
 }
 
 pub fn get_raw_times(p: &Processor) -> (u64, u64) {
     (p.new_values.total_time(), p.old_values.total_time())
 }
 
-/// get_cpu_frequency returns the CPU frequency in MHz
 pub fn get_cpu_frequency() -> u64 {
     // /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq
     let mut s = String::new();
@@ -284,27 +248,9 @@ pub fn get_vendor_id() -> String {
         return String::new();
     }
 
-    s.split('\n').find(|line| line.starts_with("vendor_id\t"))
+    s.split('\n')
+        .find(|line| line.starts_with("vendor_id\t"))
         .and_then(|line| line.split(':').last())
         .map(|s| s.trim().to_owned())
         .unwrap_or_default()
-}
-
-/// get_avg_load returns the system load average value.
-pub fn get_avg_load() -> LoadAvg {
-    let mut s = String::new();
-    if let Err(_) = File::open("/proc/loadavg").and_then(|mut f| f.read_to_string(&mut s)) {
-        return LoadAvg::default();
-    }
-    let loads = s
-        .trim()
-        .split(' ')
-        .take(3)
-        .map(|val| val.parse::<f64>().unwrap())
-        .collect::<Vec<f64>>();
-    LoadAvg {
-        one: loads[0],
-        five: loads[1],
-        fifteen: loads[2],
-    }
 }

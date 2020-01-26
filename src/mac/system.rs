@@ -288,15 +288,9 @@ impl SystemExt for System {
             let entries: Vec<Process> = {
                 let wrap = &Wrap(UnsafeCell::new(&mut self.process_list));
                 pids.par_iter()
-                    .flat_map(|pid| {
-                        match update_process(
-                            wrap,
-                            *pid,
-                            arg_max as size_t,
-                        ) {
-                            Ok(x) => x,
-                            Err(_) => None,
-                        }
+                    .flat_map(|pid| match update_process(wrap, *pid, arg_max as size_t) {
+                        Ok(x) => x,
+                        Err(_) => None,
                     })
                     .collect()
             };
@@ -311,11 +305,7 @@ impl SystemExt for System {
         let arg_max = get_arg_max();
         match {
             let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
-            update_process(
-                &wrap,
-                pid,
-                arg_max as size_t,
-            )
+            update_process(&wrap, pid, arg_max as size_t)
         } {
             Ok(Some(p)) => {
                 self.process_list.insert(p.pid(), p);
