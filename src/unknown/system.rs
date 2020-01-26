@@ -102,6 +102,14 @@ impl SystemExt for System {
     fn get_uptime(&self) -> u64 {
         0
     }
+
+    fn get_avg_load(&self) -> LoadAvg {
+        LoadAvg {
+            one: 0.,
+            five: 0.,
+            fifteen: 0.,
+        }
+    }
 }
 
 impl Default for System {

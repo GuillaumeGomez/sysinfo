@@ -20,18 +20,12 @@ impl ProcessorExt for Processor {
     fn get_name(&self) -> &str {
         ""
     }
-}
 
-pub fn get_cpu_frequency() -> u64 {
-    0
-}
+    fn get_frequency(&self) -> u64 {
+        0
+    }
 
-/// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
-pub fn get_vendor_id() -> String {
-    "".to_owned()
-}
-
-/// get_avg_load returns the system load average value.
-pub fn get_avg_load() -> LoadAvg {
-    LoadAvg::default()
+    fn get_vendor_id(&self) -> &str {
+        ""
+    }
 }
