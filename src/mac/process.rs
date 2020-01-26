@@ -149,6 +149,9 @@ pub struct Process {
     ///
     /// This is very likely this one that you want instead of `process_status`.
     pub status: Option<ThreadStatus>,
+    pub read_bytes: u64,
+    pub write_bytes: u64
+ }
 }
 
 impl Process {
@@ -175,6 +178,8 @@ impl Process {
             gid: 0,
             process_status: ProcessStatus::Unknown(0),
             status: None,
+            read_bytes: 0,
+            write_bytes: 0
         }
     }
 
@@ -384,6 +389,7 @@ pub(crate) fn update_process(
 
             p.memory = task_info.pti_resident_size >> 10; // divide by 1024
             p.virtual_memory = task_info.pti_virtual_size >> 10; // divide by 1024
+            update_proc_disk_activity(&mut p);
             return Ok(None);
         }
 
@@ -572,8 +578,25 @@ pub(crate) fn update_process(
         p.uid = info.pbi_uid;
         p.gid = info.pbi_gid;
         p.process_status = ProcessStatus::from(info.pbi_status);
-
+        update_proc_disk_activity(p);
         Ok(Some(p))
+    }
+}
+
+fn update_proc_disk_activity(p: &mut Process){
+    let mut pidrusage = ffi::RUsageInfoV2::default();
+    let ptr = &mut pidrusage as *mut _ as *mut c_void;
+    let retval: i32;
+    unsafe{
+        retval = ffi::proc_pid_rusage(p.pid() as c_int, 2, ptr);
+    }
+
+    if retval < 0{
+        panic!("proc_pid_rusage failed: {:?}", retval);
+    }
+    else{
+        p.read_bytes = pidrusage.ri_diskio_bytesread;
+        p.write_bytes = pidrusage.ri_diskio_byteswritten;
     }
 }
 
