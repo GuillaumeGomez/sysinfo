@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::mem::{size_of, zeroed};
 
 use DiskExt;
+use LoadAvg;
 use Pid;
 use ProcessExt;
 use RefreshKind;
