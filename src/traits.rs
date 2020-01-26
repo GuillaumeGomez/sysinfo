@@ -15,6 +15,15 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 /// Contains all the methods of the `Disk` struct.
+///
+/// ```no_run
+/// use sysinfo::{DiskExt, System, SystemExt};
+///
+/// let s = System::new();
+/// for disk in s.get_disks() {
+///     println!("{:?}: {:?}", disk.get_name(), disk.get_type());
+/// }
+/// ```
 pub trait DiskExt {
     /// Returns the disk type.
     fn get_type(&self) -> DiskType;

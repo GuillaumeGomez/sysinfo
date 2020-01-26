@@ -112,21 +112,21 @@ mod utils;
 /// Note that if you set a limit bigger than the system limit, the system limit will be set.
 ///
 /// Returns `true` if the new value has been set.
-pub fn set_open_files_limit(mut new_limit: isize) -> bool {
+pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
     #[cfg(all(not(target_os = "macos"), unix))]
     {
-        if new_limit < 0 {
-            new_limit = 0;
+        if _new_limit < 0 {
+            _new_limit = 0;
         }
         let max = sys::system::get_max_nb_fds();
-        if new_limit > max {
-            new_limit = max;
+        if _new_limit > max {
+            _new_limit = max;
         }
         return if let Ok(ref mut x) = unsafe { sys::system::REMAINING_FILES.lock() } {
             // If files are already open, to be sure that the number won't be bigger when those
             // files are closed, we subtract the current number of opened files to the new limit.
             let diff = max - **x;
-            **x = new_limit - diff;
+            **x = _new_limit - diff;
             true
         } else {
             false
