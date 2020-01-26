@@ -284,7 +284,7 @@ pub trait SystemExt: Sized {
     fn get_uptime(&self) -> u64;
 
     /// Returns the system load average value.
-    fn get_avg_load(&self) -> LoadAvg;
+    fn get_load_average(&self) -> LoadAvg;
 }
 
 /// Getting volume of incoming and outgoing data.

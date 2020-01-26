@@ -389,7 +389,7 @@ impl SystemExt for System {
         self.uptime
     }
 
-    fn get_avg_load(&self) -> LoadAvg {
+    fn get_load_average(&self) -> LoadAvg {
         let loads = vec![0f64; 3];
         unsafe {
             ffi::getloadavg(loads.as_ptr() as *const f64, 3);

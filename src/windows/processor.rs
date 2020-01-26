@@ -311,6 +311,6 @@ pub fn get_vendor_id() -> String {
 }
 
 /// get_avg_load returns the system load average value.
-pub fn get_avg_load() -> LoadAvg {
+pub fn get_load_average() -> LoadAvg {
     LoadAvg::default()
 }

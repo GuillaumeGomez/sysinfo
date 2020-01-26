@@ -436,7 +436,7 @@ impl SystemExt for System {
     }
 
     /// Not yet implemented.
-    fn get_avg_load(&self) -> LoadAvg {
+    fn get_load_average(&self) -> LoadAvg {
         LoadAvg {
             one: 0.,
             five: 0.,

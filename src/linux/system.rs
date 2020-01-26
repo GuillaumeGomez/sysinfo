@@ -374,7 +374,7 @@ impl SystemExt for System {
         self.uptime
     }
 
-    fn get_avg_load(&self) -> LoadAvg {
+    fn get_load_average(&self) -> LoadAvg {
         let mut s = String::new();
         if let Err(_) = File::open("/proc/loadavg").and_then(|mut f| f.read_to_string(&mut s)) {
             return LoadAvg::default();
