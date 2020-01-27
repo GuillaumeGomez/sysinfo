@@ -28,7 +28,12 @@ use winapi::um::psapi::{
     LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
-use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER};
+use winapi::um::winnt::{
+    HANDLE, /*, PWSTR*/ PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ,
+    ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
+};
+use winrt::*;
+use winrt::windows::system::diagnostics::*;
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -100,6 +105,8 @@ pub struct Process {
     start_time: u64,
     cpu_usage: f32,
     pub(crate) updated: bool,
+    pub read_bytes: u64,
+    pub write_bytes: u64
 }
 
 unsafe fn get_process_name(process_handler: HANDLE, h_mod: *mut c_void) -> String {
@@ -218,6 +225,8 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: unsafe { get_start_time(handle) },
                 updated: true,
+                read_bytes: 0,
+                write_bytes: 0,
             }
         } else {
             Process {
@@ -239,6 +248,8 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
+                read_bytes: 0,
+                write_bytes: 0
             }
         }
     }
@@ -310,6 +321,8 @@ impl ProcessExt for Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
+                read_bytes: 0,
+                write_bytes: 0,
             }
         }
     }
@@ -585,6 +598,38 @@ pub(crate) fn get_system_computation_time() -> ULARGE_INTEGER {
     }
 }
 
+pub(crate) fn get_disk_usage(p: &mut Process){
+    let r = ProcessDiagnosticInfo::try_get_for_process_id(p.pid as u32).ok();
+    if r.is_some(){
+        let r = r.unwrap();
+        if r.is_some(){
+            let du = r.unwrap().get_disk_usage().ok();
+            if du.is_some(){
+                let du = du.unwrap();
+                if du.is_some(){
+                    let report = du.unwrap().get_report().ok();
+                    if report.is_some(){
+                        let report = report.unwrap();
+                        if report.is_some(){
+                            let report = report.unwrap();
+                            let read_bytes = report.get_bytes_read_count().ok();
+                            let write_bytes = report.get_bytes_written_count().ok();
+                            if read_bytes.is_some(){
+                                p.read_bytes = read_bytes.unwrap() as u64;
+                            }
+                            if write_bytes.is_some(){
+                                p.write_bytes = write_bytes.unwrap() as u64;
+                            }
+                        }
+                    }
+                }
+            }
+            
+        }
+        
+    }
+}
+
 pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, now: ULARGE_INTEGER) {
     unsafe {
         let mut sys: ULARGE_INTEGER = ::std::mem::zeroed();
@@ -627,6 +672,7 @@ pub fn get_handle(p: &Process) -> HANDLE {
 
 pub fn update_proc_info(p: &mut Process) {
     update_memory(p);
+    get_disk_usage(p);
 }
 
 pub fn update_memory(p: &mut Process) {

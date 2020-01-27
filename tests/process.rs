@@ -60,3 +60,25 @@ fn test_get_cmd_line() {
     let process = s.get_process(p.id() as sysinfo::Pid).unwrap();
     assert_eq!(process.cmd(), &["sleep", "3"]);
 }
+
+#[test]
+fn test_process_disk_usage() {
+    use sysinfo::{ProcessExt, SystemExt};
+    use std::fs::File;
+    use std::fs;
+    use std::io::prelude::*;
+    {
+        let mut file = File::create("test.txt").unwrap();
+        file.write_all(b"This is a test file\nwith test data.\n").unwrap();
+    }
+    fs::remove_file("test.txt").ok();
+    let mut system = sysinfo::System::new();
+    system.refresh_processes();
+    let process_list = system.get_process_list();
+    let mut write_bytes: u64 = 0;
+    for p in process_list.values(){
+        write_bytes += p.write_bytes;
+    }
+
+    assert!(write_bytes > 0);
+}

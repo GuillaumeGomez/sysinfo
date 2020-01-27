@@ -23,7 +23,7 @@ use SystemExt;
 use User;
 
 use windows::process::{
-    compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process,
+    compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process, get_disk_usage
 };
 use windows::tools::*;
 
@@ -251,6 +251,7 @@ impl SystemExt for System {
                             proc_.memory = (pi.WorkingSetSize as u64) >> 10u64;
                             proc_.virtual_memory = (pi.VirtualSize as u64) >> 10u64;
                             compute_cpu_usage(proc_, nb_processors, system_time);
+                            get_disk_usage(proc_);
                             proc_.updated = true;
                             return None;
                         }
@@ -266,6 +267,7 @@ impl SystemExt for System {
                             (pi.VirtualSize as u64) >> 10u64,
                             name,
                         );
+                        get_disk_usage(&mut p);
                         compute_cpu_usage(&mut p, nb_processors, system_time);
                         Some(p)
                     })
