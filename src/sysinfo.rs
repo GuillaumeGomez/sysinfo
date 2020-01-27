@@ -69,6 +69,7 @@ cfg_if! {
         use windows as sys;
         extern crate winapi;
         extern crate ntapi;
+        extern crate winrt;
     } else if #[cfg(unix)] {
         mod linux;
         use linux as sys;
