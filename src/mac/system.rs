@@ -266,10 +266,7 @@ impl SystemExt for System {
                         ) - *old_proc_data.cpu_info.offset(
                             (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
                         ));
-                    proc_.update(
-                        in_use as f32 / total as f32,
-                        Arc::clone(&proc_data),
-                    );
+                    proc_.update(in_use as f32 / total as f32, Arc::clone(&proc_data));
                     pourcent += proc_.get_cpu_usage();
                 }
                 if self.processors.len() > 1 {

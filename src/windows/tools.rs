@@ -52,9 +52,17 @@ pub fn init_processors() -> Vec<Processor> {
         let frequencies = processor::get_frequencies(sys_info.dwNumberOfProcessors as usize);
         let mut ret = Vec::with_capacity(sys_info.dwNumberOfProcessors as usize + 1);
         for nb in 0..sys_info.dwNumberOfProcessors {
-            ret.push(Processor::new_with_values(&format!("CPU {}", nb + 1), vendor_id.clone(), brand.clone(), frequencies[nb as usize]));
+            ret.push(Processor::new_with_values(
+                &format!("CPU {}", nb + 1),
+                vendor_id.clone(),
+                brand.clone(),
+                frequencies[nb as usize],
+            ));
         }
-        ret.insert(0, Processor::new_with_values("Total CPU", vendor_id, brand, 0));
+        ret.insert(
+            0,
+            Processor::new_with_values("Total CPU", vendor_id, brand, 0),
+        );
         ret
     }
 }

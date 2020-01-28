@@ -26,7 +26,7 @@ use winapi::um::powerbase::CallNtPowerInformation;
 use winapi::um::synchapi::{CreateEventA, WaitForSingleObject};
 use winapi::um::sysinfoapi::SYSTEM_INFO;
 use winapi::um::winbase::{INFINITE, WAIT_OBJECT_0};
-use winapi::um::winnt::{HANDLE, ProcessorInformation};
+use winapi::um::winnt::{ProcessorInformation, HANDLE};
 
 #[derive(Debug)]
 pub enum CounterValue {
@@ -280,7 +280,12 @@ impl ProcessorExt for Processor {
 }
 
 impl Processor {
-    pub(crate) fn new_with_values(name: &str, vendor_id: String, brand: String, frequency: u64) -> Processor {
+    pub(crate) fn new_with_values(
+        name: &str,
+        vendor_id: String,
+        brand: String,
+        frequency: u64,
+    ) -> Processor {
         Processor {
             name: name.to_owned(),
             cpu_usage: 0f32,
@@ -293,7 +298,7 @@ impl Processor {
     }
 
     pub(crate) fn set_cpu_usage(&mut self, value: f32) {
-       self.cpu_usage = value;
+        self.cpu_usage = value;
     }
 }
 
@@ -316,8 +321,9 @@ fn get_vendor_id_not_great(info: &SYSTEM_INFO) -> String {
         winnt::PROCESSOR_ARCHITECTURE_ARM64 => "ARM x64",
         winnt::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => "ARM",
         winnt::PROCESSOR_ARCHITECTURE_IA32_ON_ARM64 => "Intel Itanium-based x86",
-        _ => "unknown"
-    }.to_owned()
+        _ => "unknown",
+    }
+    .to_owned()
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -408,13 +414,27 @@ pub fn get_key_used(p: &mut Processor) -> &mut Option<KeyHandler> {
 // if your PC has more than 64 logical processors installed, use GetActiveProcessorCount() or
 // GetLogicalProcessorInformation() to determine the total number of logical processors installed.
 pub fn get_frequencies(nb_processors: usize) -> Vec<u64> {
-   let size = nb_processors * mem::size_of::<PROCESSOR_POWER_INFORMATION>();
-   let mut infos: Vec<PROCESSOR_POWER_INFORMATION> = Vec::with_capacity(nb_processors);
+    let size = nb_processors * mem::size_of::<PROCESSOR_POWER_INFORMATION>();
+    let mut infos: Vec<PROCESSOR_POWER_INFORMATION> = Vec::with_capacity(nb_processors);
 
-    if unsafe { CallNtPowerInformation(ProcessorInformation, ::std::ptr::null_mut(), 0, infos.as_mut_ptr() as _, size as _) } == 0 {
-        unsafe { infos.set_len(nb_processors); }
+    if unsafe {
+        CallNtPowerInformation(
+            ProcessorInformation,
+            ::std::ptr::null_mut(),
+            0,
+            infos.as_mut_ptr() as _,
+            size as _,
+        )
+    } == 0
+    {
+        unsafe {
+            infos.set_len(nb_processors);
+        }
         // infos.Number
-        infos.into_iter().map(|i| i.CurrentMhz as u64).collect::<Vec<_>>()
+        infos
+            .into_iter()
+            .map(|i| i.CurrentMhz as u64)
+            .collect::<Vec<_>>()
     } else {
         vec![0; nb_processors]
     }

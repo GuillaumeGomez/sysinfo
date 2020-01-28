@@ -256,7 +256,10 @@ pub fn get_vendor_id_and_brand() -> (String, String) {
     }
 
     fn get_value(s: &str) -> String {
-        s.split(':').last().map(|x| x.trim().to_owned()).unwrap_or_default()
+        s.split(':')
+            .last()
+            .map(|x| x.trim().to_owned())
+            .unwrap_or_default()
     }
 
     let mut vendor_id = None;
