@@ -28,4 +28,8 @@ impl ProcessorExt for Processor {
     fn get_vendor_id(&self) -> &str {
         ""
     }
+
+    fn get_brand(&self) -> &str {
+        ""
+    }
 }
