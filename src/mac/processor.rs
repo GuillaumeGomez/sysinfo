@@ -57,6 +57,7 @@ pub struct Processor {
     processor_data: Arc<ProcessorData>,
     frequency: u64,
     vendor_id: String,
+    brand: String,
 }
 
 impl Processor {
@@ -65,6 +66,7 @@ impl Processor {
         processor_data: Arc<ProcessorData>,
         frequency: u64,
         vendor_id: String,
+        brand: String,
     ) -> Processor {
         Processor {
             name,
@@ -72,6 +74,7 @@ impl Processor {
             processor_data,
             frequency,
             vendor_id,
+            brand,
         }
     }
 
@@ -106,6 +109,10 @@ impl ProcessorExt for Processor {
     fn get_vendor_id(&self) -> &str {
         &self.vendor_id
     }
+
+    fn get_brand(&self) -> &str {
+        &self.brand
+    }
 }
 
 pub fn get_cpu_frequency() -> u64 {
@@ -124,12 +131,12 @@ pub fn get_cpu_frequency() -> u64 {
     speed
 }
 
-pub fn get_vendor_id() -> String {
+fn get_sysctl_str(s: &[u8]) -> String {
     let mut len = 0;
 
     unsafe {
         ffi::sysctlbyname(
-            b"machdep.cpu.brand_string\0".as_ptr() as *const c_char,
+            s.as_ptr() as *const c_char,
             std::ptr::null_mut(),
             &mut len,
             std::ptr::null_mut(),
@@ -142,7 +149,7 @@ pub fn get_vendor_id() -> String {
     let mut buf = Vec::with_capacity(len);
     unsafe {
         ffi::sysctlbyname(
-            b"machdep.cpu.brand_string\0".as_ptr() as *const c_char,
+            s.as_ptr() as *const c_char,
             buf.as_mut_ptr() as _,
             &mut len,
             std::ptr::null_mut(),
@@ -157,4 +164,8 @@ pub fn get_vendor_id() -> String {
     } else {
         String::new()
     }
+}
+
+pub fn get_vendor_id_and_brand() -> (String, String) {
+    (get_sysctl_str(b"machdep.cpu.brand_string\0"), get_sysctl_str(b"machdep.cpu.vendor\0"))
 }

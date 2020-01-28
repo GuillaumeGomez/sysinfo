@@ -182,7 +182,7 @@ impl SystemExt for System {
 
             if self.processors.is_empty() {
                 let mut num_cpu = 0;
-                let vendor_id = get_vendor_id();
+                let (vendor_id, brand) = get_vendor_id_and_brand();
                 let frequency = get_cpu_frequency();
 
                 if !get_sys_value(
@@ -200,6 +200,7 @@ impl SystemExt for System {
                     Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0)),
                     frequency,
                     vendor_id.clone(),
+                    brand.clone(),
                 ));
                 if ffi::host_processor_info(
                     self.port,
@@ -216,6 +217,7 @@ impl SystemExt for System {
                             Arc::clone(&proc_data),
                             frequency,
                             vendor_id.clone(),
+                            brand.clone(),
                         );
                         let in_use = *cpu_info.offset(
                             (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize,
