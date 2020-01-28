@@ -328,6 +328,18 @@ pub trait ProcessorExt {
     /// ```
     fn get_vendor_id(&self) -> &str;
 
+    /// Returns the processor's brand.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessorExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// for processor in s.get_processor_list() {
+    ///     println!("{}", processor.get_brand());
+    /// }
+    /// ```
+    fn get_brand(&self) -> &str;
+
     /// Returns the processor's frequency.
     ///
     /// ```no_run
