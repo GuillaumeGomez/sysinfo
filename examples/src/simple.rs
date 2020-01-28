@@ -79,7 +79,7 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
-        "proc               : Displays proc state"
+        "procd              : Displays processors state"
     );
     writeln!(
         &mut io::stdout(),
@@ -111,6 +111,10 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
+        "brand              : Displays processor brand"
+    );
+    writeln!(
+        &mut io::stdout(),
         "load_avg           : Displays system load average"
     );
     writeln!(
@@ -136,8 +140,9 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 nb += 1;
             }
         }
-        "proc" => {
-            // Note: you should refresh a few times before using this, so that usage statistics can be ascertained
+        "procs" => {
+            // Note: you should refresh a few times before using this, so that usage statistics
+            // can be ascertained
             let procs = sys.get_processor_list();
 
             writeln!(
@@ -197,6 +202,13 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 &mut io::stdout(),
                 "vendor ID: {}",
                 sys.get_processor_list()[0].get_vendor_id()
+            );
+        }
+        "brand" => {
+            writeln!(
+                &mut io::stdout(),
+                "brand: {}",
+                sys.get_processor_list()[0].get_brand()
             );
         }
         "load_avg" => {
