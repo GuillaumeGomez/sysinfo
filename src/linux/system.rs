@@ -838,7 +838,7 @@ fn update_process_disk_activity(p: &mut Process){
             p.read_bytes = d[1].parse::<u64>().unwrap_or(0);
         }
         else if d[0] == "write_bytes"{
-            p.write_bytes = d[1].parse::<u64>().unwrap_or(0);
+            p.written_bytes = d[1].parse::<u64>().unwrap_or(0);
         }
     }
 }
