@@ -7,7 +7,6 @@
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::fs::File;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use libc::{c_int, gid_t, kill, uid_t};

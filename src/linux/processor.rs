@@ -130,6 +130,7 @@ pub struct Processor {
     old_total_time: u64,
     frequency: u64,
     vendor_id: String,
+    brand: String,
 }
 
 impl Processor {
@@ -147,6 +148,7 @@ impl Processor {
         guest_nice: u64,
         frequency: u64,
         vendor_id: String,
+        brand: String,
     ) -> Processor {
         Processor {
             name: name.to_owned(),
@@ -159,6 +161,7 @@ impl Processor {
             old_total_time: 0,
             frequency,
             vendor_id,
+            brand,
         }
     }
 
@@ -214,6 +217,10 @@ impl ProcessorExt for Processor {
     fn get_vendor_id(&self) -> &str {
         &self.vendor_id
     }
+
+    fn get_brand(&self) -> &str {
+        &self.brand
+    }
 }
 
 pub fn get_raw_times(p: &Processor) -> (u64, u64) {
@@ -242,15 +249,30 @@ pub fn get_cpu_frequency() -> u64 {
 }
 
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
-pub fn get_vendor_id() -> String {
+pub fn get_vendor_id_and_brand() -> (String, String) {
     let mut s = String::new();
     if let Err(_) = File::open("/proc/cpuinfo").and_then(|mut f| f.read_to_string(&mut s)) {
-        return String::new();
+        return (String::new(), String::new());
     }
 
-    s.split('\n')
-        .find(|line| line.starts_with("vendor_id\t"))
-        .and_then(|line| line.split(':').last())
-        .map(|s| s.trim().to_owned())
-        .unwrap_or_default()
+    fn get_value(s: &str) -> String {
+        s.split(':').last().map(|x| x.trim().to_owned()).unwrap_or_default()
+    }
+
+    let mut vendor_id = None;
+    let mut brand = None;
+
+    for it in s.split('\n') {
+        if it.starts_with("vendor_id\t") {
+            vendor_id = Some(get_value(it));
+        } else if it.starts_with("model name\t") {
+            brand = Some(get_value(it));
+        } else {
+            continue;
+        }
+        if brand.is_some() && vendor_id.is_some() {
+            break;
+        }
+    }
+    (vendor_id.unwrap_or_default(), brand.unwrap_or_default())
 }

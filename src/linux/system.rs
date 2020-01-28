@@ -138,7 +138,7 @@ impl System {
         ) -> Box<dyn Fn(&mut dyn Iterator<Item = &[u8]>, &mut Vec<Processor>, &mut usize)> {
             if first {
                 let frequency = get_cpu_frequency();
-                let vendor_id = get_vendor_id();
+                let (vendor_id, brand) = get_vendor_id_and_brand();
                 Box::new(
                     move |parts: &mut dyn Iterator<Item = &[u8]>,
                           processors: &mut Vec<Processor>,
@@ -157,6 +157,7 @@ impl System {
                             parts.next().map(|v| to_u64(v)).unwrap_or(0),
                             frequency,
                             vendor_id.clone(),
+                            brand.clone(),
                         ));
                     },
                 )
