@@ -253,6 +253,7 @@ pub struct Processor {
     key_idle: Option<KeyHandler>,
     key_used: Option<KeyHandler>,
     vendor_id: String,
+    brand: String,
     frequency: u64,
 }
 
@@ -272,16 +273,21 @@ impl ProcessorExt for Processor {
     fn get_vendor_id(&self) -> &str {
         &self.vendor_id
     }
+
+    fn get_brand(&self) -> &str {
+        &self.brand
+    }
 }
 
 impl Processor {
-    pub(crate) fn new_with_values(name: &str, vendor_id: String, frequency: u64) -> Processor {
+    pub(crate) fn new_with_values(name: &str, vendor_id: String, brand: String, frequency: u64) -> Processor {
         Processor {
             name: name.to_owned(),
             cpu_usage: 0f32,
             key_idle: None,
             key_used: None,
             vendor_id,
+            brand,
             frequency,
         }
     }
@@ -315,7 +321,7 @@ fn get_vendor_id_not_great(info: &SYSTEM_INFO) -> String {
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-pub fn get_vendor_id(info: &SYSTEM_INFO) -> String {
+pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::__cpuid;
     #[cfg(target_arch = "x86_64")]
@@ -334,7 +340,7 @@ pub fn get_vendor_id(info: &SYSTEM_INFO) -> String {
     // First, we try to get the complete name.
     let res = unsafe { __cpuid(0x80000000) };
     let n_ex_ids = res.eax;
-    if n_ex_ids >= 0x80000004 {
+    let brand = if n_ex_ids >= 0x80000004 {
         let mut extdata = Vec::with_capacity(5);
 
         for i in 0x80000000..=n_ex_ids {
@@ -356,10 +362,12 @@ pub fn get_vendor_id(info: &SYSTEM_INFO) -> String {
             pos += 1;
         }
         match ::std::str::from_utf8(&out[..pos]) {
-            Ok(s) => return s.to_owned(),
-            _ => {},
+            Ok(s) => s.to_owned(),
+            _ => String::new(),
         }
-    }
+    } else {
+        String::new()
+    };
 
     // Failed to get full name, let's retry for the short version!
     let res = unsafe { __cpuid(0) };
@@ -374,15 +382,16 @@ pub fn get_vendor_id(info: &SYSTEM_INFO) -> String {
         }
         pos += 1;
     }
-    match ::std::str::from_utf8(&x[..pos]) {
+    let vendor_id = match ::std::str::from_utf8(&x[..pos]) {
         Ok(s) => s.to_owned(),
         Err(_) => get_vendor_id_not_great(info),
-    }
+    };
+    (vendor_id, brand)
 }
 
 #[cfg(all(not(target_arch = "x86_64"), not(target_arch = "x86")))]
-pub fn get_vendor_id(info: &SYSTEM_INFO) -> String {
-    get_vendor_id_not_great(info)
+pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
+    (get_vendor_id_not_great(info), String::new())
 }
 
 pub fn get_key_idle(p: &mut Processor) -> &mut Option<KeyHandler> {
