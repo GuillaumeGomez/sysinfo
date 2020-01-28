@@ -5,12 +5,14 @@
 //
 
 use std::collections::HashMap;
+use std::mem;
 use std::sync::{Arc, Mutex};
-use std::thread::{self /*, sleep*/, JoinHandle};
-//use std::time::Duration;
+use std::thread::{self, JoinHandle};
 
 use windows::tools::KeyHandler;
 use ProcessorExt;
+
+use ntapi::ntpoapi::PROCESSOR_POWER_INFORMATION;
 
 use winapi::shared::minwindef::{FALSE, ULONG};
 use winapi::shared::winerror::ERROR_SUCCESS;
@@ -20,9 +22,11 @@ use winapi::um::pdh::{
     PdhGetFormattedCounterValue, PdhOpenQueryA, PdhRemoveCounter, PDH_FMT_COUNTERVALUE,
     PDH_FMT_DOUBLE, PDH_FMT_LARGE, PDH_HCOUNTER, PDH_HQUERY,
 };
+use winapi::um::powerbase::CallNtPowerInformation;
 use winapi::um::synchapi::{CreateEventA, WaitForSingleObject};
+use winapi::um::sysinfoapi::SYSTEM_INFO;
 use winapi::um::winbase::{INFINITE, WAIT_OBJECT_0};
-use winapi::um::winnt::HANDLE;
+use winapi::um::winnt::{HANDLE, ProcessorInformation};
 
 #[derive(Debug)]
 pub enum CounterValue {
@@ -248,6 +252,8 @@ pub struct Processor {
     cpu_usage: f32,
     key_idle: Option<KeyHandler>,
     key_used: Option<KeyHandler>,
+    vendor_id: String,
+    frequency: u64,
 }
 
 impl ProcessorExt for Processor {
@@ -259,34 +265,124 @@ impl ProcessorExt for Processor {
         &self.name
     }
 
-    // Not yet implemented.
     fn get_frequency(&self) -> u64 {
-        0
+        self.frequency
     }
 
-    // Not yet implemented.
     fn get_vendor_id(&self) -> &str {
-        ""
+        &self.vendor_id
     }
 }
 
 impl Processor {
-    fn new_with_values(name: &str) -> Processor {
+    pub(crate) fn new_with_values(name: &str, vendor_id: String, frequency: u64) -> Processor {
         Processor {
             name: name.to_owned(),
             cpu_usage: 0f32,
             key_idle: None,
             key_used: None,
+            vendor_id,
+            frequency,
         }
+    }
+
+    pub(crate) fn set_cpu_usage(&mut self, value: f32) {
+       self.cpu_usage = value;
     }
 }
 
-pub fn create_processor(name: &str) -> Processor {
-    Processor::new_with_values(name)
+fn get_vendor_id_not_great(info: &SYSTEM_INFO) -> String {
+    use winapi::um::winnt;
+    // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
+    match unsafe { info.u.s() }.wProcessorArchitecture {
+        winnt::PROCESSOR_ARCHITECTURE_INTEL => "Intel x86",
+        winnt::PROCESSOR_ARCHITECTURE_MIPS => "MIPS",
+        winnt::PROCESSOR_ARCHITECTURE_ALPHA => "RISC Alpha",
+        winnt::PROCESSOR_ARCHITECTURE_PPC => "PPC",
+        winnt::PROCESSOR_ARCHITECTURE_SHX => "SHX",
+        winnt::PROCESSOR_ARCHITECTURE_ARM => "ARM",
+        winnt::PROCESSOR_ARCHITECTURE_IA64 => "Intel Itanium-based x64",
+        winnt::PROCESSOR_ARCHITECTURE_ALPHA64 => "RISC Alpha x64",
+        winnt::PROCESSOR_ARCHITECTURE_MSIL => "MSIL",
+        winnt::PROCESSOR_ARCHITECTURE_AMD64 => "(Intel or AMD) x64",
+        winnt::PROCESSOR_ARCHITECTURE_IA32_ON_WIN64 => "Intel Itanium-based x86",
+        winnt::PROCESSOR_ARCHITECTURE_NEUTRAL => "unknown",
+        winnt::PROCESSOR_ARCHITECTURE_ARM64 => "ARM x64",
+        winnt::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => "ARM",
+        winnt::PROCESSOR_ARCHITECTURE_IA32_ON_ARM64 => "Intel Itanium-based x86",
+        _ => "unknown"
+    }.to_owned()
 }
 
-pub fn set_cpu_usage(p: &mut Processor, value: f32) {
-    p.cpu_usage = value;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub fn get_vendor_id(info: &SYSTEM_INFO) -> String {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::__cpuid;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::__cpuid;
+
+    fn add_u32(v: &mut Vec<u8>, i: u32) {
+        let i = &i as *const u32 as *const u8;
+        unsafe {
+            v.push(*i);
+            v.push(*i.offset(1));
+            v.push(*i.offset(2));
+            v.push(*i.offset(3));
+        }
+    }
+
+    // First, we try to get the complete name.
+    let res = unsafe { __cpuid(0x80000000) };
+    let n_ex_ids = res.eax;
+    if n_ex_ids >= 0x80000004 {
+        let mut extdata = Vec::with_capacity(5);
+
+        for i in 0x80000000..=n_ex_ids {
+            extdata.push(unsafe { __cpuid(i) });
+        }
+
+        let mut out = Vec::with_capacity(4 * 4 * 3); // 4 * u32 * nb_entries
+        for i in 2..5 {
+            add_u32(&mut out, extdata[i].eax);
+            add_u32(&mut out, extdata[i].ebx);
+            add_u32(&mut out, extdata[i].ecx);
+            add_u32(&mut out, extdata[i].edx);
+        }
+        let mut pos = 0;
+        for e in out.iter() {
+            if *e == 0 {
+                break;
+            }
+            pos += 1;
+        }
+        match ::std::str::from_utf8(&out[..pos]) {
+            Ok(s) => return s.to_owned(),
+            _ => {},
+        }
+    }
+
+    // Failed to get full name, let's retry for the short version!
+    let res = unsafe { __cpuid(0) };
+    let mut x = Vec::with_capacity(16); // 3 * u32
+    add_u32(&mut x, res.ebx);
+    add_u32(&mut x, res.edx);
+    add_u32(&mut x, res.ecx);
+    let mut pos = 0;
+    for e in x.iter() {
+        if *e == 0 {
+            break;
+        }
+        pos += 1;
+    }
+    match ::std::str::from_utf8(&x[..pos]) {
+        Ok(s) => s.to_owned(),
+        Err(_) => get_vendor_id_not_great(info),
+    }
+}
+
+#[cfg(all(not(target_arch = "x86_64"), not(target_arch = "x86")))]
+pub fn get_vendor_id(info: &SYSTEM_INFO) -> String {
+    get_vendor_id_not_great(info)
 }
 
 pub fn get_key_idle(p: &mut Processor) -> &mut Option<KeyHandler> {
@@ -295,4 +391,22 @@ pub fn get_key_idle(p: &mut Processor) -> &mut Option<KeyHandler> {
 
 pub fn get_key_used(p: &mut Processor) -> &mut Option<KeyHandler> {
     &mut p.key_used
+}
+
+// From https://stackoverflow.com/a/43813138:
+//
+// If your PC has 64 or fewer logical processors installed, the above code will work fine. However,
+// if your PC has more than 64 logical processors installed, use GetActiveProcessorCount() or
+// GetLogicalProcessorInformation() to determine the total number of logical processors installed.
+pub fn get_frequencies(nb_processors: usize) -> Vec<u64> {
+   let size = nb_processors * mem::size_of::<PROCESSOR_POWER_INFORMATION>();
+   let mut infos: Vec<PROCESSOR_POWER_INFORMATION> = Vec::with_capacity(nb_processors);
+
+    if unsafe { CallNtPowerInformation(ProcessorInformation, ::std::ptr::null_mut(), 0, infos.as_mut_ptr() as _, size as _) } == 0 {
+        unsafe { infos.set_len(nb_processors); }
+        // infos.Number
+        infos.into_iter().map(|i| i.CurrentMhz as u64).collect::<Vec<_>>()
+    } else {
+        vec![0; nb_processors]
+    }
 }

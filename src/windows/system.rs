@@ -232,7 +232,7 @@ impl SystemExt for System {
                     idle_time = Some(query.get(&key_idle.unique_id).expect("key disappeared"));
                 }
                 if let Some(idle_time) = idle_time {
-                    set_cpu_usage(p, 1. - idle_time);
+                    p.set_cpu_usage(1. - idle_time);
                 }
             }
         }
