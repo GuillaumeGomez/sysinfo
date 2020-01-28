@@ -93,6 +93,12 @@ pub trait ProcessExt {
 
     /// Returns the total CPU usage.
     fn cpu_usage(&self) -> f32;
+
+    /// Returns number of bytes read from disk
+    fn read_bytes(&self) -> u64;
+
+    /// Returns number of bytes written to disk
+    fn written_bytes(&self) -> u64;
 }
 
 /// Contains all the methods of the `Processor` struct.

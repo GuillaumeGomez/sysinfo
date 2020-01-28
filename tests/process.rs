@@ -36,7 +36,7 @@ fn test_process_disk_usage(){
     let process_list = system.get_process_list();
     let mut write_bytes: u64 = 0;
     for p in process_list.values(){
-        write_bytes += p.write_bytes;
+        write_bytes += p.written_bytes();
     }
 
     assert!(write_bytes > 0);
