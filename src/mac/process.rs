@@ -149,8 +149,8 @@ pub struct Process {
     ///
     /// This is very likely this one that you want instead of `process_status`.
     pub status: Option<ThreadStatus>,
-    pub read_bytes: u64,
-    pub write_bytes: u64
+    pub(crate) read_bytes: u64,
+    pub(crate) written_bytes: u64
 }
 
 impl Process {
@@ -178,7 +178,7 @@ impl Process {
             process_status: ProcessStatus::Unknown(0),
             status: None,
             read_bytes: 0,
-            write_bytes: 0
+            written_bytes: 0
         }
     }
 
@@ -215,7 +215,7 @@ impl Process {
             process_status: ProcessStatus::Unknown(0),
             status: None,
             read_bytes: 0,
-            write_bytes: 0
+            written_bytes: 0
         }
     }
 }
@@ -245,7 +245,7 @@ impl ProcessExt for Process {
             process_status: ProcessStatus::Unknown(0),
             status: None,
             read_bytes: 0,
-            write_bytes: 0
+            written_bytes: 0
         }
     }
 
@@ -303,6 +303,14 @@ impl ProcessExt for Process {
 
     fn cpu_usage(&self) -> f32 {
         self.cpu_usage
+    }
+
+    fn read_bytes(&self) -> u64{
+        self.read_bytes
+    }
+
+    fn written_bytes(&self) -> u64{
+        self.written_bytes
     }
 }
 
@@ -599,7 +607,7 @@ fn update_proc_disk_activity(p: &mut Process){
     }
     else{
         p.read_bytes = pidrusage.ri_diskio_bytesread;
-        p.write_bytes = pidrusage.ri_diskio_byteswritten;
+        p.written_bytes = pidrusage.ri_diskio_byteswritten;
     }
 }
 

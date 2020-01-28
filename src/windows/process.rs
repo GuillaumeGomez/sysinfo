@@ -105,8 +105,8 @@ pub struct Process {
     start_time: u64,
     cpu_usage: f32,
     pub(crate) updated: bool,
-    pub read_bytes: u64,
-    pub write_bytes: u64
+    pub(crate) read_bytes: u64,
+    pub(crate) written_bytes: u64
 }
 
 unsafe fn get_process_name(process_handler: HANDLE, h_mod: *mut c_void) -> String {
@@ -226,7 +226,7 @@ impl Process {
                 start_time: unsafe { get_start_time(handle) },
                 updated: true,
                 read_bytes: 0,
-                write_bytes: 0,
+                written_bytes: 0,
             }
         } else {
             Process {
@@ -249,7 +249,7 @@ impl Process {
                 start_time: 0,
                 updated: true,
                 read_bytes: 0,
-                write_bytes: 0
+                written_bytes: 0
             }
         }
     }
@@ -322,7 +322,7 @@ impl ProcessExt for Process {
                 start_time: 0,
                 updated: true,
                 read_bytes: 0,
-                write_bytes: 0,
+                written_bytes: 0
             }
         }
     }
@@ -618,7 +618,7 @@ pub(crate) fn get_disk_usage(p: &mut Process){
                                 p.read_bytes = read_bytes.unwrap() as u64;
                             }
                             if write_bytes.is_some(){
-                                p.write_bytes = write_bytes.unwrap() as u64;
+                                p.written_bytes = write_bytes.unwrap() as u64;
                             }
                         }
                     }
