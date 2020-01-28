@@ -356,6 +356,14 @@ impl ProcessExt for Process {
     fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
+
+    fn read_bytes(&self) -> u64{
+        self.read_bytes
+    }
+
+    fn written_bytes(&self) -> u64{
+        self.written_bytes
+    }
 }
 
 impl Drop for Process {
