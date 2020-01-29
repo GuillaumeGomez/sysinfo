@@ -79,9 +79,6 @@ cfg_if! {
 }
 
 pub use common::{AsU32, Pid, RefreshKind};
-pub use io::IOLoad;
-pub use net::NICLoad;
-
 pub use sys::{Component, Disk, DiskType, NetworkData, Process, ProcessStatus, Processor, System};
 pub use traits::{ComponentExt, DiskExt, NetworkExt, ProcessExt, ProcessorExt, SystemExt};
 
