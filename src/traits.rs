@@ -4,7 +4,7 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use sys::{Component, Disk, DiskType, NetworkData, Process, Processor};
+use sys::{Component, Disk, DiskType, Networks, Process, Processor};
 use LoadAvg;
 use Pid;
 use ProcessStatus;
@@ -404,8 +404,8 @@ pub trait SystemExt: Sized {
     ///
     /// let mut s = System::new();
     ///
-    /// // Let's just update network data and processes:
-    /// s.refresh_specifics(RefreshKind::new().with_network().with_processes());
+    /// // Let's just update networks and processes:
+    /// s.refresh_specifics(RefreshKind::new().with_networks().with_processes());
     /// ```
     fn refresh_specifics(&mut self, refreshes: RefreshKind) {
         if refreshes.memory() {
@@ -417,8 +417,8 @@ pub trait SystemExt: Sized {
         if refreshes.temperatures() {
             self.refresh_temperatures();
         }
-        if refreshes.network() {
-            self.refresh_network();
+        if refreshes.networks() {
+            self.refresh_networks();
         }
         if refreshes.processes() {
             self.refresh_processes();
@@ -523,15 +523,15 @@ pub trait SystemExt: Sized {
     /// ```
     fn refresh_disk_list(&mut self);
 
-    /// Refresh data network.
+    /// Refresh networks data.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let mut s = System::new();
-    /// s.refresh_network();
+    /// s.refresh_networks();
     /// ```
-    fn refresh_network(&mut self);
+    fn refresh_networks(&mut self);
 
     /// Refreshes all system, processes and disks information.
     ///
@@ -545,7 +545,7 @@ pub trait SystemExt: Sized {
         self.refresh_system();
         self.refresh_processes();
         self.refresh_disks();
-        self.refresh_network();
+        self.refresh_networks();
     }
 
     /// Returns the process list.
@@ -688,16 +688,16 @@ pub trait SystemExt: Sized {
     /// ```
     fn get_disks(&self) -> &[Disk];
 
-    /// Returns network data.
+    /// Returns network interfaces.
     ///
     /// ```no_run
     /// use sysinfo::{NetworkExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// let network = s.get_network();
+    /// let network = s.get_networks();
     /// println!("in: {}, out: {}", network.get_income(), network.get_outcome());
     /// ```
-    fn get_network(&self) -> &NetworkData;
+    fn get_networks(&self) -> &Networks;
 
     /// Returns system uptime.
     ///

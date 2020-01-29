@@ -10,7 +10,7 @@ use sys::network;
 use sys::process::*;
 use sys::processor::*;
 use sys::Disk;
-use sys::NetworkData;
+use sys::Networks;
 use LoadAvg;
 use Pid;
 use {DiskExt, ProcessExt, RefreshKind, SystemExt};
@@ -107,7 +107,7 @@ pub struct System {
     page_size_kb: u64,
     temperatures: Vec<Component>,
     disks: Vec<Disk>,
-    network: NetworkData,
+    networks: Networks,
     uptime: u64,
 }
 
@@ -222,7 +222,7 @@ impl SystemExt for System {
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
             temperatures: component::get_components(),
             disks: Vec::with_capacity(2),
-            network: network::new(),
+            networks: Networks::new(),
             uptime: get_uptime(),
         };
         s.refresh_specifics(refreshes);
@@ -314,8 +314,8 @@ impl SystemExt for System {
         self.disks = get_all_disks();
     }
 
-    fn refresh_network(&mut self) {
-        network::update_network(&mut self.network);
+    fn refresh_networks(&mut self) {
+        self.networks.update();
     }
 
     // COMMON PART
@@ -330,8 +330,8 @@ impl SystemExt for System {
         self.process_list.tasks.get(&pid)
     }
 
-    fn get_network(&self) -> &NetworkData {
-        &self.network
+    fn get_networks(&self) -> &Networks {
+        &self.networks
     }
 
     fn get_processor_list(&self) -> &[Processor] {

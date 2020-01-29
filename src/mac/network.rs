@@ -39,6 +39,8 @@ pub fn new() -> NetworkData {
 
 #[allow(clippy::cast_ptr_alignment)]
 pub fn update_network(n: &mut NetworkData) {
+    // getifaddrs
+    // freeifaddrs
     let mib = &mut [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0];
     let mut len = 0;
     if unsafe { libc::sysctl(mib.as_mut_ptr(), 6, null_mut(), &mut len, null_mut(), 0) } < 0 {
