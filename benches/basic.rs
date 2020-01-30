@@ -70,11 +70,11 @@ fn bench_refresh_disk_lists(b: &mut test::Bencher) {
 }
 
 #[bench]
-fn bench_refresh_network(b: &mut test::Bencher) {
+fn bench_refresh_networks(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
 
     b.iter(move || {
-        s.refresh_network();
+        s.refresh_networks();
     });
 }
 

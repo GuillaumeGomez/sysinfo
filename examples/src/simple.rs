@@ -12,7 +12,7 @@ extern crate sysinfo;
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::Signal::*;
-use sysinfo::{NetworkExt, Pid, ProcessExt, ProcessorExt, Signal, System, SystemExt};
+use sysinfo::{NetworkExt, NetworksExt, Pid, ProcessExt, ProcessorExt, Signal, System, SystemExt};
 
 const signals: [Signal; 31] = [
     Hangup,
@@ -245,16 +245,15 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "network" => {
-            writeln!(
-                &mut io::stdout(),
-                "input data : {} B",
-                sys.get_network().get_income()
-            );
-            writeln!(
-                &mut io::stdout(),
-                "output data: {} B",
-                sys.get_network().get_outcome()
-            );
+            for (interface_name, data) in sys.get_networks().iter() {
+                writeln!(
+                    &mut io::stdout(),
+                    "{}:\n  input data:  {} B\n  output data: {} B",
+                    interface_name,
+                    data.get_income(),
+                    data.get_outcome()
+                );
+            }
         }
         "show" => {
             writeln!(
