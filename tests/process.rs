@@ -66,14 +66,19 @@ fn test_process_disk_usage() {
     use sysinfo::{ProcessExt, SystemExt, get_current_pid};
     use std::fs::File;
     use std::fs;
+    use std::fs::File;
     use std::io::prelude::*;
+    use sysinfo::{get_current_pid, ProcessExt, SystemExt};
     {
         let mut file = File::create("test.txt").unwrap();
-        file.write_all(b"This is a test file\nwith test data.\n").unwrap();
+        file.write_all(b"This is a test file\nwith test data.\n")
+            .unwrap();
     }
     fs::remove_file("test.txt").ok();
     let system = sysinfo::System::new();
-    let p = system.get_process(get_current_pid().expect("Failed retrieving current pid.")).expect("failed to get process");
+    let p = system
+        .get_process(get_current_pid().expect("Failed retrieving current pid."))
+        .expect("failed to get process");
 
     assert!(p.written_bytes() > 0);
 }

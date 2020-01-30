@@ -131,7 +131,7 @@ extern "C" {
 }
 
 #[link(name = "proc", kind = "dylib")]
-extern {
+extern "C" {
     pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
 }
 
@@ -440,25 +440,25 @@ pub struct xsw_usage {
 #[repr(C)]
 #[derive(Debug, Default)]
 pub struct RUsageInfoV2 {
-    pub ri_uuid                 : [u8; 16],
-    pub ri_user_time            : u64,
-    pub ri_system_time          : u64,
-    pub ri_pkg_idle_wkups       : u64,
-    pub ri_interrupt_wkups      : u64,
-    pub ri_pageins              : u64,
-    pub ri_wired_size           : u64,
-    pub ri_resident_size        : u64,
-    pub ri_phys_footprint       : u64,
-    pub ri_proc_start_abstime   : u64,
-    pub ri_proc_exit_abstime    : u64,
-    pub ri_child_user_time      : u64,
-    pub ri_child_system_time    : u64,
-    pub ri_child_pkg_idle_wkups : u64,
+    pub ri_uuid: [u8; 16],
+    pub ri_user_time: u64,
+    pub ri_system_time: u64,
+    pub ri_pkg_idle_wkups: u64,
+    pub ri_interrupt_wkups: u64,
+    pub ri_pageins: u64,
+    pub ri_wired_size: u64,
+    pub ri_resident_size: u64,
+    pub ri_phys_footprint: u64,
+    pub ri_proc_start_abstime: u64,
+    pub ri_proc_exit_abstime: u64,
+    pub ri_child_user_time: u64,
+    pub ri_child_system_time: u64,
+    pub ri_child_pkg_idle_wkups: u64,
     pub ri_child_interrupt_wkups: u64,
-    pub ri_child_pageins        : u64,
+    pub ri_child_pageins: u64,
     pub ri_child_elapsed_abstime: u64,
-    pub ri_diskio_bytesread     : u64,
-    pub ri_diskio_byteswritten  : u64,
+    pub ri_diskio_bytesread: u64,
+    pub ri_diskio_byteswritten: u64,
 }
 
 //pub const HOST_CPU_LOAD_INFO_COUNT: usize = 4;

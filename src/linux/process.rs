@@ -125,7 +125,7 @@ pub struct Process {
     pub tasks: HashMap<Pid, Process>,
     pub(crate) stat_file: Option<File>,
     pub(crate) read_bytes: u64,
-    pub(crate) written_bytes: u64
+    pub(crate) written_bytes: u64,
 }
 
 impl ProcessExt for Process {
@@ -158,7 +158,7 @@ impl ProcessExt for Process {
             },
             stat_file: None,
             read_bytes: 0,
-            written_bytes: 0
+            written_bytes: 0,
         }
     }
 
@@ -220,11 +220,11 @@ impl ProcessExt for Process {
         self.cpu_usage
     }
 
-    fn read_bytes(&self) -> u64{
+    fn read_bytes(&self) -> u64 {
         self.read_bytes
     }
 
-    fn written_bytes(&self) -> u64{
+    fn written_bytes(&self) -> u64 {
         self.written_bytes
     }
 }

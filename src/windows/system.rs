@@ -23,7 +23,8 @@ use SystemExt;
 use User;
 
 use windows::process::{
-    compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process, get_disk_usage
+    compute_cpu_usage, get_disk_usage, get_handle, get_system_computation_time, update_proc_info,
+    Process,
 };
 use windows::tools::*;
 
