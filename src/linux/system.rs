@@ -6,7 +6,6 @@
 
 use sys::component::{self, Component};
 use sys::disk;
-use sys::network;
 use sys::process::*;
 use sys::processor::*;
 use sys::Disk;

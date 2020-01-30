@@ -6,6 +6,7 @@
 
 use sys::{Component, Disk, DiskType, Networks, Process, Processor};
 use LoadAvg;
+use NetworksIter;
 use Pid;
 use ProcessStatus;
 use RefreshKind;
@@ -728,27 +729,63 @@ pub trait SystemExt: Sized {
 
 /// Getting volume of incoming and outgoing data.
 pub trait NetworkExt {
-    /// Returns the number of incoming bytes.
+    /// Returns the number of incoming bytes since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, System, SystemExt};
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// let network = s.get_network();
-    /// println!("in: {}", network.get_income());
+    /// let networks = s.get_networks();
+    /// for (interface_name, network) in networks.iter() {
+    ///     println!("in: {} B", network.get_income());
+    /// }
     /// ```
     fn get_income(&self) -> u64;
 
-    /// Returns the number of outgoing bytes.
+    /// Returns the number of outgoing bytes since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, System, SystemExt};
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// let network = s.get_network();
-    /// println!("out: {}", network.get_outcome());
+    /// let network = s.get_networks();
+    /// for (interface_name, network) in networks.iter() {
+    ///     println!("in: {} B", network.get_outcome());
+    /// }
     /// ```
     fn get_outcome(&self) -> u64;
+
+    /// Returns the total number of incoming bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// let network = s.get_networks();
+    /// for (interface_name, network) in networks.iter() {
+    ///     println!("in: {} B", network.get_total_income());
+    /// }
+    /// ```
+    fn get_total_income(&self) -> u64;
+
+    /// Returns the total number of outgoing bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// let network = s.get_networks();
+    /// for (interface_name, network) in networks.iter() {
+    ///     println!("in: {} B", network.get_total_outcome());
+    /// }
+    /// ```
+    fn get_total_outcome(&self) -> u64;
+}
+
+/// Interacting with network interfaces.
+pub trait NetworksExt {
+    /// Returns an iterator over the network interfaces.
+    fn iter(&self) -> NetworksIter;
 }
 
 /// Getting a component temperature information.
