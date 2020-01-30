@@ -20,7 +20,8 @@ use SystemExt;
 
 use windows::network::{self, NetworkData};
 use windows::process::{
-    compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process, get_disk_usage
+    compute_cpu_usage, get_disk_usage, get_handle, get_system_computation_time, update_proc_info,
+    Process,
 };
 use windows::processor::CounterValue;
 use windows::tools::*;

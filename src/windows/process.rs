@@ -27,8 +27,8 @@ use winapi::um::winnt::{
     HANDLE, /*, PWSTR*/ PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ,
     ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
 };
-use winrt::*;
 use winrt::windows::system::diagnostics::*;
+use winrt::*;
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -107,7 +107,7 @@ pub struct Process {
     cpu_usage: f32,
     pub(crate) updated: bool,
     pub(crate) read_bytes: u64,
-    pub(crate) written_bytes: u64
+    pub(crate) written_bytes: u64,
 }
 
 unsafe fn get_process_name(process_handler: HANDLE, h_mod: *mut c_void) -> String {
@@ -197,7 +197,7 @@ impl Process {
                     start_time: get_start_time(process_handler),
                     updated: true,
                     read_bytes: 0,
-                    written_bytes: 0
+                    written_bytes: 0,
                 }
             }
         } else {
@@ -221,7 +221,7 @@ impl Process {
                 start_time: 0,
                 updated: true,
                 read_bytes: 0,
-                written_bytes: 0
+                written_bytes: 0,
             }
         }
     }
@@ -268,7 +268,7 @@ impl ProcessExt for Process {
                     start_time: get_start_time(process_handler),
                     updated: true,
                     read_bytes: 0,
-                    written_bytes: 0
+                    written_bytes: 0,
                 }
             }
         } else {
@@ -292,7 +292,7 @@ impl ProcessExt for Process {
                 start_time: 0,
                 updated: true,
                 read_bytes: 0,
-                written_bytes: 0
+                written_bytes: 0,
             }
         }
     }
@@ -357,11 +357,11 @@ impl ProcessExt for Process {
         self.cpu_usage
     }
 
-    fn read_bytes(&self) -> u64{
+    fn read_bytes(&self) -> u64 {
         self.read_bytes
     }
 
-    fn written_bytes(&self) -> u64{
+    fn written_bytes(&self) -> u64 {
         self.written_bytes
     }
 }
@@ -558,26 +558,26 @@ pub(crate) fn get_system_computation_time() -> ULARGE_INTEGER {
     }
 }
 
-pub(crate) fn get_disk_usage(p: &mut Process){
+pub(crate) fn get_disk_usage(p: &mut Process) {
     let diag_info = ProcessDiagnosticInfo::try_get_for_process_id(p.pid as u32).ok();
-    match diag_info{
-        Some(diag_info) => match diag_info{
-            Some(diag_info) => match diag_info.get_disk_usage().ok(){
-                Some(disk_usage) => match disk_usage{
-                    Some(disk_usage) => match disk_usage.get_report().ok(){
-                        Some(report) => match report{
+    match diag_info {
+        Some(diag_info) => match diag_info {
+            Some(diag_info) => match diag_info.get_disk_usage().ok() {
+                Some(disk_usage) => match disk_usage {
+                    Some(disk_usage) => match disk_usage.get_report().ok() {
+                        Some(report) => match report {
                             Some(report) => {
                                 let read_bytes = report.get_bytes_read_count().ok();
                                 let write_bytes = report.get_bytes_written_count().ok();
-                                match read_bytes{
+                                match read_bytes {
                                     Some(read_bytes) => p.read_bytes = read_bytes as u64,
                                     None => {}
                                 };
-                                match write_bytes{
+                                match write_bytes {
                                     Some(write_bytes) => p.written_bytes = write_bytes as u64,
                                     None => {}
                                 };
-                            },
+                            }
                             None => {}
                         },
                         None => {}

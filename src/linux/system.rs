@@ -695,18 +695,17 @@ fn _get_process_data(
     Ok(Some(p))
 }
 
-fn update_process_disk_activity(p: &mut Process){
+fn update_process_disk_activity(p: &mut Process) {
     let path = PathBuf::from(format!("/proc/{}/io", p.pid));
-    let data = match get_all_data(&path, 16_384){
+    let data = match get_all_data(&path, 16_384) {
         Ok(d) => d,
-        Err(_) => return
+        Err(_) => return,
     };
     let data: Vec<Vec<&str>> = data.split("\n").map(|l| l.split(": ").collect()).collect();
-    for d in data.iter(){
-        if d[0] == "read_bytes"{
+    for d in data.iter() {
+        if d[0] == "read_bytes" {
             p.read_bytes = d[1].parse::<u64>().unwrap_or(0);
-        }
-        else if d[0] == "write_bytes"{
+        } else if d[0] == "write_bytes" {
             p.written_bytes = d[1].parse::<u64>().unwrap_or(0);
         }
     }

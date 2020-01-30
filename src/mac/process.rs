@@ -150,15 +150,11 @@ pub struct Process {
     /// This is very likely this one that you want instead of `process_status`.
     pub status: Option<ThreadStatus>,
     pub(crate) read_bytes: u64,
-    pub(crate) written_bytes: u64
+    pub(crate) written_bytes: u64,
 }
 
 impl Process {
-    pub(crate) fn new_empty(
-        pid: Pid,
-        exe: PathBuf,
-        name: String,
-    ) -> Process {
+    pub(crate) fn new_empty(pid: Pid, exe: PathBuf, name: String) -> Process {
         Process {
             name,
             pid,
@@ -182,7 +178,7 @@ impl Process {
             process_status: ProcessStatus::Unknown(0),
             status: None,
             read_bytes: 0,
-            written_bytes: 0
+            written_bytes: 0,
         }
     }
 
@@ -219,7 +215,7 @@ impl Process {
             process_status: ProcessStatus::Unknown(0),
             status: None,
             read_bytes: 0,
-            written_bytes: 0
+            written_bytes: 0,
         }
     }
 }
@@ -249,7 +245,7 @@ impl ProcessExt for Process {
             process_status: ProcessStatus::Unknown(0),
             status: None,
             read_bytes: 0,
-            written_bytes: 0
+            written_bytes: 0,
         }
     }
 
@@ -309,11 +305,11 @@ impl ProcessExt for Process {
         self.cpu_usage
     }
 
-    fn read_bytes(&self) -> u64{
+    fn read_bytes(&self) -> u64 {
         self.read_bytes
     }
 
-    fn written_bytes(&self) -> u64{
+    fn written_bytes(&self) -> u64 {
         self.written_bytes
     }
 }
@@ -452,7 +448,11 @@ pub(crate) fn update_process(
         ) != mem::size_of::<libc::proc_bsdinfo>() as _
         {
             let mut buffer: Vec<u8> = Vec::with_capacity(ffi::PROC_PIDPATHINFO_MAXSIZE as _);
-            match ffi::proc_pidpath(pid, buffer.as_mut_ptr() as *mut _, ffi::PROC_PIDPATHINFO_MAXSIZE) {
+            match ffi::proc_pidpath(
+                pid,
+                buffer.as_mut_ptr() as *mut _,
+                ffi::PROC_PIDPATHINFO_MAXSIZE,
+            ) {
                 x if x > 0 => {
                     buffer.set_len(x as _);
                     let tmp = String::from_utf8_unchecked(buffer);
@@ -628,18 +628,17 @@ pub(crate) fn update_process(
     }
 }
 
-fn update_proc_disk_activity(p: &mut Process){
+fn update_proc_disk_activity(p: &mut Process) {
     let mut pidrusage = ffi::RUsageInfoV2::default();
     let ptr = &mut pidrusage as *mut _ as *mut c_void;
     let retval: i32;
-    unsafe{
+    unsafe {
         retval = ffi::proc_pid_rusage(p.pid() as c_int, 2, ptr);
     }
 
-    if retval < 0{
+    if retval < 0 {
         panic!("proc_pid_rusage failed: {:?}", retval);
-    }
-    else{
+    } else {
         p.read_bytes = pidrusage.ri_diskio_bytesread;
         p.written_bytes = pidrusage.ri_diskio_byteswritten;
     }
