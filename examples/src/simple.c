@@ -63,19 +63,19 @@ bool process_loop(pid_t pid, CProcess process, void *data) {
 int main() {
     CSystem system = sysinfo_init();
     sysinfo_refresh_all(system);
-    printf("total memory:    %ld\n", sysinfo_get_total_memory(system));
-    printf("free memory:     %ld\n", sysinfo_get_free_memory(system));
-    printf("used memory:     %ld\n", sysinfo_get_used_memory(system));
-    printf("total swap:      %ld\n", sysinfo_get_total_swap(system));
-    printf("free swap:       %ld\n", sysinfo_get_free_swap(system));
-    printf("used swap:       %ld\n", sysinfo_get_used_swap(system));
-    printf("network income:  %ld\n", sysinfo_get_network_income(system));
-    printf("network outcome: %ld\n", sysinfo_get_network_outcome(system));
+    printf("total memory:     %ld\n", sysinfo_get_total_memory(system));
+    printf("free memory:      %ld\n", sysinfo_get_free_memory(system));
+    printf("used memory:      %ld\n", sysinfo_get_used_memory(system));
+    printf("total swap:       %ld\n", sysinfo_get_total_swap(system));
+    printf("free swap:        %ld\n", sysinfo_get_free_swap(system));
+    printf("used swap:        %ld\n", sysinfo_get_used_swap(system));
+    printf("networks income:  %ld\n", sysinfo_get_networks_income(system));
+    printf("networks outcome: %ld\n", sysinfo_get_networks_outcome(system));
     unsigned int len = 0, i = 0;
     float *procs = NULL;
     sysinfo_get_processors_usage(system, &len, &procs);
     while (i < len) {
-        printf("Processor #%d usage: %f\n", i, procs[i]);
+        printf("Processor #%d usage: %f%%\n", i, procs[i]);
         i += 1;
     }
     free(procs);
