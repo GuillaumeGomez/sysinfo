@@ -7,7 +7,7 @@
 use sys::component::Component;
 use sys::disk::Disk;
 use sys::ffi;
-use sys::network::{self, NetworkData};
+use sys::network::Networks;
 use sys::process::*;
 use sys::processor::*;
 
@@ -34,7 +34,7 @@ pub struct System {
     temperatures: Vec<Component>,
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
-    network: NetworkData,
+    networks: Networks,
     uptime: u64,
     port: ffi::mach_port_t,
 }
@@ -82,7 +82,7 @@ impl SystemExt for System {
             temperatures: Vec::with_capacity(2),
             connection: get_io_service_connection(),
             disks: Vec::with_capacity(1),
-            network: network::new(),
+            networks: Networks::new(),
             uptime: get_uptime(),
             port: unsafe { ffi::mach_host_self() },
         };
@@ -279,8 +279,8 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_network(&mut self) {
-        network::update_network(&mut self.network);
+    fn refresh_networks(&mut self) {
+        self.networks.update();
     }
 
     fn refresh_processes(&mut self) {
@@ -347,8 +347,8 @@ impl SystemExt for System {
         &self.processors[..]
     }
 
-    fn get_network(&self) -> &NetworkData {
-        &self.network
+    fn get_networks(&self) -> &Networks {
+        &self.networks
     }
 
     fn get_total_memory(&self) -> u64 {

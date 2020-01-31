@@ -198,9 +198,7 @@ pub struct NetworksIter<'a> {
 
 impl<'a> NetworksIter<'a> {
     pub(crate) fn new(v: std::collections::hash_map::Iter<'a, String, NetworkData>) -> Self {
-        NetworksIter {
-            inner: v,
-        }
+        NetworksIter { inner: v }
     }
 }
 

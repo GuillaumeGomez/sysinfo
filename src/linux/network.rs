@@ -85,26 +85,24 @@ impl Networks {
                     let tx_errors = read(parent, "tx_errors", &mut data);
                     let rx_compressed = read(parent, "rx_compressed", &mut data);
                     let tx_compressed = read(parent, "tx_compressed", &mut data);
-                    let interface = self.interfaces.entry(entry).or_insert(
-                        NetworkData {
-                            rx_bytes,
-                            old_rx_bytes: rx_bytes,
-                            tx_bytes,
-                            old_tx_bytes: tx_bytes,
-                            rx_packets,
-                            old_rx_packets: rx_packets,
-                            tx_packets,
-                            old_tx_packets: tx_packets,
-                            rx_errors,
-                            old_rx_errors: rx_errors,
-                            tx_errors,
-                            old_tx_errors: tx_errors,
-                            rx_compressed,
-                            old_rx_compressed: rx_compressed,
-                            tx_compressed,
-                            old_tx_compressed: tx_compressed,
-                        }
-                    );
+                    let interface = self.interfaces.entry(entry).or_insert(NetworkData {
+                        rx_bytes,
+                        old_rx_bytes: rx_bytes,
+                        tx_bytes,
+                        old_tx_bytes: tx_bytes,
+                        rx_packets,
+                        old_rx_packets: rx_packets,
+                        tx_packets,
+                        old_tx_packets: tx_packets,
+                        rx_errors,
+                        old_rx_errors: rx_errors,
+                        tx_errors,
+                        old_tx_errors: tx_errors,
+                        rx_compressed,
+                        old_rx_compressed: rx_compressed,
+                        tx_compressed,
+                        old_tx_compressed: tx_compressed,
+                    });
                     old_and_new!(interface, rx_bytes, old_rx_bytes);
                     old_and_new!(interface, tx_bytes, old_tx_bytes);
                     old_and_new!(interface, rx_packets, old_rx_packets);
@@ -165,12 +163,42 @@ impl NetworkData {
         let path = &Path::new("/sys/class/net/").join(path).join("statistics");
         old_and_new!(self, rx_bytes, old_rx_bytes, read(path, "rx_bytes", data));
         old_and_new!(self, tx_bytes, old_tx_bytes, read(path, "tx_bytes", data));
-        old_and_new!(self, rx_packets, old_rx_packets, read(path, "rx_packets", data));
-        old_and_new!(self, tx_packets, old_tx_packets, read(path, "tx_packets", data));
-        old_and_new!(self, rx_errors, old_rx_errors, read(path, "rx_errors", data));
-        old_and_new!(self, tx_errors, old_tx_errors, read(path, "tx_errors", data));
-        old_and_new!(self, rx_compressed, old_rx_compressed, read(path, "rx_compressed", data));
-        old_and_new!(self, tx_compressed, old_tx_compressed, read(path, "tx_compressed", data));
+        old_and_new!(
+            self,
+            rx_packets,
+            old_rx_packets,
+            read(path, "rx_packets", data)
+        );
+        old_and_new!(
+            self,
+            tx_packets,
+            old_tx_packets,
+            read(path, "tx_packets", data)
+        );
+        old_and_new!(
+            self,
+            rx_errors,
+            old_rx_errors,
+            read(path, "rx_errors", data)
+        );
+        old_and_new!(
+            self,
+            tx_errors,
+            old_tx_errors,
+            read(path, "tx_errors", data)
+        );
+        old_and_new!(
+            self,
+            rx_compressed,
+            old_rx_compressed,
+            read(path, "rx_compressed", data)
+        );
+        old_and_new!(
+            self,
+            tx_compressed,
+            old_tx_compressed,
+            read(path, "tx_compressed", data)
+        );
     }
 }
 

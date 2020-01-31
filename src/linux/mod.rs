@@ -13,7 +13,7 @@ pub mod system;
 
 pub use self::component::Component;
 pub use self::disk::{Disk, DiskType};
-pub use self::network::{Networks, NetworkData};
+pub use self::network::{NetworkData, Networks};
 pub use self::process::{Process, ProcessStatus};
 pub use self::processor::Processor;
 pub use self::system::System;

@@ -79,8 +79,12 @@ cfg_if! {
 }
 
 pub use common::{AsU32, NetworksIter, Pid, RefreshKind};
-pub use sys::{Component, Disk, DiskType, NetworkData, Networks, Process, ProcessStatus, Processor, System};
-pub use traits::{ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt};
+pub use sys::{
+    Component, Disk, DiskType, NetworkData, Networks, Process, ProcessStatus, Processor, System,
+};
+pub use traits::{
+    ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt,
+};
 
 #[cfg(feature = "c-interface")]
 pub use c_interface::*;
