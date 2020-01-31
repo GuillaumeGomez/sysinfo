@@ -248,10 +248,12 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             for (interface_name, data) in sys.get_networks().iter() {
                 writeln!(
                     &mut io::stdout(),
-                    "{}:\n  input data:  {} B\n  output data: {} B",
+                    "{}:\n  input data  (new / total): {} / {} B\n  output data (new / total): {} / {} B",
                     interface_name,
                     data.get_income(),
-                    data.get_outcome()
+                    data.get_total_income(),
+                    data.get_outcome(),
+                    data.get_total_outcome(),
                 );
             }
         }
