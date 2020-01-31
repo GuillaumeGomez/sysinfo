@@ -7,7 +7,7 @@
 use libc::{self, c_char, c_float, c_uint, c_void, pid_t, size_t};
 use std::borrow::BorrowMut;
 use std::ffi::CString;
-use {NetworkExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
+use {NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 
 /// Equivalent of `System` struct.
 pub type CSystem = *mut c_void;
@@ -203,22 +203,30 @@ pub extern "C" fn sysinfo_get_used_swap(system: CSystem) -> size_t {
     ret
 }
 
-/// Equivalent of `system::get_network().get_income()`.
+/// Equivalent of
+/// `system::get_networks().iter().fold(0, |acc, (_, data)| acc + data.get_income() as size_t)`.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_network_income(system: CSystem) -> size_t {
+pub extern "C" fn sysinfo_get_networks_income(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.get_network().get_income() as size_t;
+    let ret = system
+        .get_networks()
+        .iter()
+        .fold(0, |acc, (_, data)| acc + data.get_income() as size_t);
     Box::into_raw(system);
     ret
 }
 
-/// Equivalent of `system::get_network().get_outcome()`.
+/// Equivalent of
+/// `system::get_networks().iter().fold(0, |acc, (_, data)| acc + data.get_outcome() as size_t)`.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_network_outcome(system: CSystem) -> size_t {
+pub extern "C" fn sysinfo_get_networks_outcome(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.get_network().get_outcome() as size_t;
+    let ret = system
+        .get_networks()
+        .iter()
+        .fold(0, |acc, (_, data)| acc + data.get_outcome() as size_t);
     Box::into_raw(system);
     ret
 }
