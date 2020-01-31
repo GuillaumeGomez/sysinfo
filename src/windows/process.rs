@@ -606,38 +606,37 @@ pub(crate) fn get_system_computation_time() -> ULARGE_INTEGER {
     }
 }
 
-pub(crate) fn get_disk_usage(p: &mut Process) {
-    let diag_info = ProcessDiagnosticInfo::try_get_for_process_id(p.pid as u32).ok();
-    match diag_info {
-        Some(diag_info) => match diag_info {
-            Some(diag_info) => match diag_info.get_disk_usage().ok() {
-                Some(disk_usage) => match disk_usage {
-                    Some(disk_usage) => match disk_usage.get_report().ok() {
-                        Some(report) => match report {
-                            Some(report) => {
-                                let read_bytes = report.get_bytes_read_count().ok();
-                                let write_bytes = report.get_bytes_written_count().ok();
-                                match read_bytes {
-                                    Some(read_bytes) => p.read_bytes = read_bytes as u64,
-                                    None => {}
-                                };
-                                match write_bytes {
-                                    Some(write_bytes) => p.written_bytes = write_bytes as u64,
-                                    None => {}
-                                };
-                            }
-                            None => {}
-                        },
-                        None => {}
-                    },
-                    None => {}
-                },
-                None => {}
-            },
-            None => {}
-        },
-        None => {}
+macro_rules! safe_unwrap {
+    ($x:expr) => {
+        match $x {
+            Some(x) => x,
+            None => return,
+        }
     };
+}
+
+macro_rules! safe_unwrap_to_inner {
+    ($x:expr) => {
+        match $x {
+            Some(x) => safe_unwrap!(x),
+            None => return,
+        }
+    };
+}
+
+pub(crate) fn get_disk_usage(p: &mut Process) {
+    let diag_info =
+        safe_unwrap_to_inner!(ProcessDiagnosticInfo::try_get_for_process_id(p.pid as u32).ok());
+    let disk_usage = safe_unwrap_to_inner!(diag_info.get_disk_usage().ok());
+    let report = safe_unwrap_to_inner!(disk_usage.get_report().ok());
+    let read_bytes = report.get_bytes_read_count().ok();
+    let write_bytes = report.get_bytes_written_count().ok();
+    if let Some(rb) = read_bytes {
+        p.read_bytes = rb as u64;
+    }
+    if let Some(wb) = write_bytes {
+        p.written_bytes = wb as u64;
+    }
 }
 
 pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, now: ULARGE_INTEGER) {
