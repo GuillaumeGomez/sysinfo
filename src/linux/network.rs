@@ -85,7 +85,7 @@ impl Networks {
                     let tx_errors = read(parent, "tx_errors", &mut data);
                     let rx_compressed = read(parent, "rx_compressed", &mut data);
                     let tx_compressed = read(parent, "tx_compressed", &mut data);
-                    let interface = self.interfaces.entry(entry).or_insert(NetworkData {
+                    let interface = self.interfaces.entry(entry).or_insert_with(|| NetworkData {
                         rx_bytes,
                         old_rx_bytes: rx_bytes,
                         tx_bytes,
