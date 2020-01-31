@@ -44,7 +44,7 @@
 #![crate_name = "sysinfo"]
 #![crate_type = "lib"]
 #![crate_type = "rlib"]
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 //#![deny(warnings)]
 #![allow(unknown_lints)]
 
