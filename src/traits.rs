@@ -692,11 +692,13 @@ pub trait SystemExt: Sized {
     /// Returns network interfaces.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, System, SystemExt};
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// let network = s.get_networks();
-    /// println!("in: {}, out: {}", network.get_income(), network.get_outcome());
+    /// let networks = s.get_networks();
+    /// for (interface_name, data) in networks.iter() {
+    ///     println!("[{}] in: {}, out: {}", interface_name, data.get_income(), data.get_outcome());
+    /// }
     /// ```
     fn get_networks(&self) -> &Networks;
 
@@ -748,7 +750,7 @@ pub trait NetworkExt {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// let network = s.get_networks();
+    /// let networks = s.get_networks();
     /// for (interface_name, network) in networks.iter() {
     ///     println!("in: {} B", network.get_outcome());
     /// }
@@ -761,7 +763,7 @@ pub trait NetworkExt {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// let network = s.get_networks();
+    /// let networks = s.get_networks();
     /// for (interface_name, network) in networks.iter() {
     ///     println!("in: {} B", network.get_total_income());
     /// }
@@ -774,7 +776,7 @@ pub trait NetworkExt {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// let network = s.get_networks();
+    /// let networks = s.get_networks();
     /// for (interface_name, network) in networks.iter() {
     ///     println!("in: {} B", network.get_total_outcome());
     /// }
