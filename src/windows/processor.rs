@@ -7,25 +7,21 @@
 use std::collections::HashMap;
 use std::mem;
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
 
 use windows::tools::KeyHandler;
 use ProcessorExt;
 
 use ntapi::ntpoapi::PROCESSOR_POWER_INFORMATION;
 
-use winapi::shared::minwindef::{FALSE, ULONG};
+use winapi::shared::minwindef::FALSE;
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::{
-    PdhAddCounterW, PdhCloseQuery, PdhCollectQueryData, PdhCollectQueryDataEx,
-    PdhGetFormattedCounterValue, PdhOpenQueryA, PdhRemoveCounter, PDH_FMT_COUNTERVALUE,
-    PDH_FMT_DOUBLE, PDH_FMT_LARGE, PDH_HCOUNTER, PDH_HQUERY,
+    PdhAddCounterW, PdhCloseQuery, PdhOpenQueryA, PdhRemoveCounter, PDH_HCOUNTER, PDH_HQUERY,
 };
 use winapi::um::powerbase::CallNtPowerInformation;
-use winapi::um::synchapi::{CreateEventA, WaitForSingleObject};
+use winapi::um::synchapi::CreateEventA;
 use winapi::um::sysinfoapi::SYSTEM_INFO;
-use winapi::um::winbase::{INFINITE, WAIT_OBJECT_0};
 use winapi::um::winnt::{ProcessorInformation, HANDLE};
 
 #[derive(Debug)]
@@ -39,13 +35,6 @@ impl CounterValue {
         match *self {
             CounterValue::Float(v) => v,
             _ => panic!("not a float"),
-        }
-    }
-
-    pub fn get_u64(&self) -> u64 {
-        match *self {
-            CounterValue::Integer(v) => v,
-            _ => panic!("not an integer"),
         }
     }
 }
@@ -85,56 +74,6 @@ struct InternalQuery {
 unsafe impl Send for InternalQuery {}
 unsafe impl Sync for InternalQuery {}
 
-impl InternalQuery {
-    pub fn record(&self) -> bool {
-        unsafe {
-            let status = PdhCollectQueryData(self.query);
-            if status != ERROR_SUCCESS as i32 {
-                eprintln!("PdhCollectQueryData error: {:x} {:?}", status, self.query);
-                return false;
-            }
-            if PdhCollectQueryDataEx(self.query, 1, self.event) != ERROR_SUCCESS as i32 {
-                return false;
-            }
-            if WaitForSingleObject(self.event, INFINITE) == WAIT_OBJECT_0 {
-                if let Ok(ref mut data) = self.data.lock() {
-                    let mut counter_type: ULONG = 0;
-                    let mut display_value: PDH_FMT_COUNTERVALUE = ::std::mem::zeroed();
-                    for (_, x) in data.iter_mut() {
-                        match x.value {
-                            CounterValue::Float(ref mut value) => {
-                                if PdhGetFormattedCounterValue(
-                                    x.counter,
-                                    PDH_FMT_DOUBLE,
-                                    &mut counter_type,
-                                    &mut display_value,
-                                ) == ERROR_SUCCESS as i32
-                                {
-                                    *value = *display_value.u.doubleValue() as f32 / 100f32;
-                                }
-                            }
-                            CounterValue::Integer(ref mut value) => {
-                                if PdhGetFormattedCounterValue(
-                                    x.counter,
-                                    PDH_FMT_LARGE,
-                                    &mut counter_type,
-                                    &mut display_value,
-                                ) == ERROR_SUCCESS as i32
-                                {
-                                    *value = *display_value.u.largeValue() as u64;
-                                }
-                            }
-                        }
-                    }
-                }
-                true
-            } else {
-                false
-            }
-        }
-    }
-}
-
 impl Drop for InternalQuery {
     fn drop(&mut self) {
         unsafe {
@@ -157,7 +96,6 @@ impl Drop for InternalQuery {
 
 pub struct Query {
     internal: Arc<InternalQuery>,
-    thread: Option<JoinHandle<()>>,
 }
 
 impl Query {
@@ -182,7 +120,6 @@ impl Query {
                     });
                     Some(Query {
                         internal: q,
-                        thread: None,
                     })
                 }
             } else {
@@ -195,15 +132,6 @@ impl Query {
         if let Ok(data) = self.internal.data.lock() {
             if let Some(ref counter) = data.get(name) {
                 return Some(counter.value.get_f32());
-            }
-        }
-        None
-    }
-
-    pub fn get_u64(&self, name: &String) -> Option<u64> {
-        if let Ok(data) = self.internal.data.lock() {
-            if let Some(ref counter) = data.get(name) {
-                return Some(counter.value.get_u64());
             }
         }
         None
@@ -236,13 +164,6 @@ impl Query {
             }
         }
         true
-    }
-
-    pub fn start(&mut self) {
-        let internal = Arc::clone(&self.internal);
-        self.thread = Some(thread::spawn(move || loop {
-            internal.record();
-        }));
     }
 }
 

@@ -8,11 +8,12 @@ use sys::component::{self, Component};
 use sys::disk;
 use sys::process::*;
 use sys::processor::*;
-use sys::Disk;
-use sys::Networks;
+
+use Disk;
 use LoadAvg;
+use Networks;
 use Pid;
-use {DiskExt, ProcessExt, RefreshKind, SystemExt};
+use {DiskExt, NetworksExt, ProcessExt, RefreshKind, SystemExt};
 
 use libc::{self, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
@@ -224,6 +225,9 @@ impl SystemExt for System {
             networks: Networks::new(),
             uptime: get_uptime(),
         };
+        if refreshes.networks() {
+            s.networks.refresh_interfaces_list();
+        }
         s.refresh_specifics(refreshes);
         s
     }
@@ -313,10 +317,6 @@ impl SystemExt for System {
         self.disks = get_all_disks();
     }
 
-    fn refresh_networks(&mut self) {
-        self.networks.update();
-    }
-
     // COMMON PART
     //
     // Need to be moved into a "common" file to avoid duplication.
@@ -331,6 +331,10 @@ impl SystemExt for System {
 
     fn get_networks(&self) -> &Networks {
         &self.networks
+    }
+
+    fn get_networks_mut(&mut self) -> &mut Networks {
+        &mut self.networks
     }
 
     fn get_processor_list(&self) -> &[Processor] {

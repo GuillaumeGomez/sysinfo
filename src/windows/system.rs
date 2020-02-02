@@ -14,12 +14,13 @@ use std::mem::{size_of, zeroed};
 
 use DiskExt;
 use LoadAvg;
+use Networks;
+use NetworksExt;
 use Pid;
 use ProcessExt;
 use RefreshKind;
 use SystemExt;
 
-use windows::network::{self, NetworkData};
 use windows::process::{
     compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process,
 };
@@ -29,12 +30,10 @@ use windows::tools::*;
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemProcessInformation, SYSTEM_PROCESS_INFORMATION,
 };
-use winapi::shared::minwindef::{DWORD, FALSE};
+use winapi::shared::minwindef::FALSE;
 use winapi::shared::ntdef::{PVOID, ULONG};
 use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
-use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::minwinbase::STILL_ACTIVE;
-use winapi::um::pdh::PdhEnumObjectItemsW;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
 use winapi::um::sysinfoapi::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
 use winapi::um::winnt::HANDLE;
@@ -52,7 +51,7 @@ pub struct System {
     temperatures: Vec<Component>,
     disks: Vec<Disk>,
     query: Option<Query>,
-    network: NetworkData,
+    networks: Networks,
     uptime: u64,
 }
 
@@ -75,7 +74,7 @@ impl SystemExt for System {
             temperatures: component::get_components(),
             disks: Vec::with_capacity(2),
             query: Query::new(),
-            network: network::new(),
+            networks: Networks::new(),
             uptime: get_uptime(),
         };
         // TODO: in case a translation fails, it might be nice to log it somewhere...
@@ -123,8 +122,9 @@ impl SystemExt for System {
                     }
                 }
             }
-
-            ;
+        }
+        if refreshes.networks() {
+            s.networks.refresh_interfaces_list();
         }
         s.refresh_specifics(refreshes);
         s
@@ -164,10 +164,6 @@ impl SystemExt for System {
         for component in &mut self.temperatures {
             component.refresh();
         }
-    }
-
-    fn refresh_network(&mut self) {
-        network::refresh(&mut self.network, &self.query);
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
@@ -335,8 +331,12 @@ impl SystemExt for System {
         &self.disks[..]
     }
 
-    fn get_network(&self) -> &NetworkData {
-        &self.network
+    fn get_networks(&self) -> &Networks {
+        &self.networks
+    }
+
+    fn get_networks_mut(&mut self) -> &mut Networks {
+        &mut self.networks
     }
 
     fn get_uptime(&self) -> u64 {

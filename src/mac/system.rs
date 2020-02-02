@@ -11,7 +11,7 @@ use sys::network::Networks;
 use sys::process::*;
 use sys::processor::*;
 
-use {DiskExt, LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
+use {DiskExt, LoadAvg, NetworksExt, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -86,6 +86,9 @@ impl SystemExt for System {
             uptime: get_uptime(),
             port: unsafe { ffi::mach_host_self() },
         };
+        if refreshes.networks() {
+            s.networks.refresh_interfaces_list();
+        }
         s.refresh_specifics(refreshes);
         s
     }
@@ -279,10 +282,6 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_networks(&mut self) {
-        self.networks.update();
-    }
-
     fn refresh_processes(&mut self) {
         let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
         if count < 1 {
@@ -349,6 +348,10 @@ impl SystemExt for System {
 
     fn get_networks(&self) -> &Networks {
         &self.networks
+    }
+
+    fn get_networks_mut(&mut self) -> &mut Networks {
+        &mut self.networks
     }
 
     fn get_total_memory(&self) -> u64 {

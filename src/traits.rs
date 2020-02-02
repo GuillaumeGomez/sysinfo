@@ -532,9 +532,46 @@ pub trait SystemExt: Sized {
     /// let mut s = System::new();
     /// s.refresh_networks();
     /// ```
-    fn refresh_networks(&mut self);
+    ///
+    /// It is a shortcut for:
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworksExt, System, SystemExt};
+    ///
+    /// let mut s = System::new();
+    /// let networks = s.get_networks_mut();
+    /// networks.refresh();
+    /// ```
+    fn refresh_networks(&mut self) {
+        self.get_networks_mut().refresh();
+    }
+
+    /// The network list will be emptied then completely recomputed.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new();
+    /// s.refresh_network_interfaces();
+    /// ```
+    ///
+    /// This is a shortcut for:
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworksExt, System, SystemExt};
+    ///
+    /// let mut s = System::new();
+    /// let networks = s.get_networks_mut();
+    /// networks.refresh_interfaces_list();
+    /// ```
+    fn refresh_network_interfaces(&mut self) {
+        self.get_networks_mut().refresh_interfaces_list();
+    }
 
     /// Refreshes all system, processes and disks information.
+    ///
+    /// Please note that it doesn't recompute disks list, components list nor network interfaces
+    /// list.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -702,6 +739,17 @@ pub trait SystemExt: Sized {
     /// ```
     fn get_networks(&self) -> &Networks;
 
+    /// Returns a mutable access to network interfaces.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let mut s = System::new();
+    /// let networks = s.get_networks_mut();
+    /// networks.refresh_interfaces_list();
+    /// ```
+    fn get_networks_mut(&mut self) -> &mut Networks;
+
     /// Returns system uptime.
     ///
     /// ```no_run
@@ -787,7 +835,39 @@ pub trait NetworkExt {
 /// Interacting with network interfaces.
 pub trait NetworksExt {
     /// Returns an iterator over the network interfaces.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// let networks = s.get_networks();
+    /// for (interface_name, network) in networks.iter() {
+    ///     println!("in: {} B", network.get_income());
+    /// }
+    /// ```
     fn iter(&self) -> NetworksIter;
+
+    /// Refreshes the network interfaces list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworksExt, System, SystemExt};
+    ///
+    /// let mut s = System::new();
+    /// let networks = s.get_networks_mut();
+    /// networks.refresh_interfaces_list();
+    /// ```
+    fn refresh_interfaces_list(&mut self);
+
+    /// Refreshes the network interfaces' content.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworksExt, System, SystemExt};
+    ///
+    /// let mut s = System::new();
+    /// let networks = s.get_networks_mut();
+    /// networks.refresh();
+    /// ```
+    fn refresh(&mut self);
 }
 
 /// Getting a component temperature information.

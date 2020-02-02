@@ -14,6 +14,13 @@ use NetworksExt;
 use NetworksIter;
 
 /// Network interfaces.
+///
+/// ```no_run
+/// use sysinfo::{NetworksExt, System, SystemExt};
+///
+/// let s = System::new();
+/// let networks = s.get_networks();
+/// ```
 #[derive(Debug)]
 pub struct Networks {
     interfaces: HashMap<String, NetworkData>,
@@ -54,20 +61,22 @@ impl Networks {
             interfaces: HashMap::new(),
         }
     }
+}
 
-    pub(crate) fn update(&mut self) {
-        if self.interfaces.is_empty() {
-            self.refresh_interfaces_list();
-        } else {
-            let mut v = vec![0; 30];
+impl NetworksExt for Networks {
+    fn iter<'a>(&'a self) -> NetworksIter<'a> {
+        NetworksIter::new(self.interfaces.iter())
+    }
 
-            for (interface_name, data) in self.interfaces.iter_mut() {
-                data.update(interface_name, &mut v);
-            }
+    fn refresh(&mut self) {
+        let mut v = vec![0; 30];
+
+        for (interface_name, data) in self.interfaces.iter_mut() {
+            data.update(interface_name, &mut v);
         }
     }
 
-    pub(crate) fn refresh_interfaces_list(&mut self) {
+    fn refresh_interfaces_list(&mut self) {
         if let Ok(dir) = std::fs::read_dir("/sys/class/net/") {
             let mut data = vec![0; 30];
             for entry in dir {
@@ -114,12 +123,6 @@ impl Networks {
                 }
             }
         }
-    }
-}
-
-impl NetworksExt for Networks {
-    fn iter<'a>(&'a self) -> NetworksIter<'a> {
-        NetworksIter::new(self.interfaces.iter())
     }
 }
 

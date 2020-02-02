@@ -1,9 +1,22 @@
+//
+// Sysinfo
+//
+// Copyright (c) 2020 Guillaume Gomez
+//
+
 // TO BE REMOVED ONCE https://github.com/retep998/winapi-rs/pull/802 IS MERGED!!!
-use shared::ifdef::{NET_LUID, NET_IFINDEX};
-use shared::ntdef::{UCHAR, ULONG, ULONG64, PVOID, WCHAR};
-use shared::guiddef::GUID;
-use shared::minwindef::BYTE;
-use shared::netioapi::NETIOAPI_API;
+
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
+#![allow(non_upper_case_globals)]
+
+use winapi::{ENUM, STRUCT};
+use winapi::shared::basetsd::ULONG64;
+use winapi::shared::ifdef::{NET_LUID, NET_IFINDEX};
+use winapi::shared::ntdef::{UCHAR, ULONG, PVOID, WCHAR};
+use winapi::shared::guiddef::GUID;
+use winapi::shared::minwindef::BYTE;
+use winapi::shared::netioapi::NETIOAPI_API;
 
 const ANY_SIZE: usize = 1;
 
@@ -12,6 +25,7 @@ pub const IF_MAX_PHYS_ADDRESS_LENGTH: usize = 32;
 
 pub type NET_IF_NETWORK_GUID = GUID;
 pub type PMIB_IF_TABLE2 = *mut MIB_IF_TABLE2;
+pub type PMIB_IF_ROW2 = *mut MIB_IF_ROW2;
 
 STRUCT!{struct MIB_IF_TABLE2 {
     NumEntries: ULONG,
@@ -171,6 +185,9 @@ STRUCT!{struct MIB_IF_ROW2 {
 extern "system" {
     pub fn GetIfTable2(
         Table: *mut PMIB_IF_TABLE2,
+    ) -> NETIOAPI_API;
+    pub fn GetIfEntry2(
+        Row: PMIB_IF_ROW2,
     ) -> NETIOAPI_API;
     pub fn FreeMibTable(
         Memory: PVOID,
