@@ -8,12 +8,40 @@ use windows::processor::Query;
 use windows::tools::KeyHandler;
 use NetworkExt;
 
+pub struct Networks {
+    interfaces: HashMap<String, NetworkData>,
+}
+
+impl Networks {
+    pub(crate) fn new() -> Networks {
+        Networks {
+            interfaces: HashMap::new(),
+        }
+    }
+
+    pub(crate) fn refresh_list(&mut self) {
+        ;
+    }
+
+    pub(crate) fn refresh(&mut self) {
+        let mut table: MIB_IF_TABLE2 = zeroed();
+        if unsafe { ffi::GetIfTable2(&mut table) } != NO_ERROR {
+            return;
+        }
+        let ptr = table.Table.as_ptr();
+        for _ in 0..table.NumEntries {
+            // Alias
+            let entry = self.interfaces.entry()
+            // InOctets
+            // OutOctets
+        }
+    }
+}
+
 /// Contains network information.
 pub struct NetworkData {
     current_out: u64,
     current_in: u64,
-    keys_in: Vec<KeyHandler>,
-    keys_out: Vec<KeyHandler>,
 }
 
 impl NetworkExt for NetworkData {

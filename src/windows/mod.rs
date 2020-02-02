@@ -14,6 +14,8 @@ mod processor;
 mod system;
 mod tools;
 
+mod ffi;
+
 pub use self::component::Component;
 pub use self::disk::{Disk, DiskType};
 pub use self::network::NetworkData;
