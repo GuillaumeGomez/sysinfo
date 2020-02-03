@@ -366,7 +366,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
 
 fn main() {
     println!("Getting processes' information...");
-    let mut t = System::new();
+    let mut t = System::new_all();
     println!("Done.");
     let t_stin = io::stdin();
     let mut stin = t_stin.lock();
