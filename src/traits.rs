@@ -356,9 +356,8 @@ pub trait ProcessorExt {
 
 /// Contains all the methods of the [`System`] type.
 pub trait SystemExt: Sized {
-    /// Creates a new [`System`] instance. It only contains the disks' list  and the processes list
-    /// at this stage. Use the [`refresh_all`] method to update its internal information (or any of
-    /// the `refresh_` method).
+    /// Creates a new [`System`] instance with only the processes list loaded. Use the
+    /// [`refresh_all`] method to update its internal information (or any of the `refresh_` method).
     ///
     /// [`refresh_all`]: #method.refresh_all
     ///
@@ -369,7 +368,21 @@ pub trait SystemExt: Sized {
     /// ```
     fn new() -> Self {
         let mut s = Self::new_with_specifics(RefreshKind::new());
-        s.refresh_disk_list();
+        s.refresh_all();
+        s
+    }
+
+    /// Creates a new [`System`] instance with everything loaded.
+    ///
+    /// It is an equivalent of `SystemExt::new_with_specifics(RefreshKind::everything())`.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// ```
+    fn new_all() -> Self {
+        let mut s = Self::new_with_specifics(RefreshKind::everything());
         s.refresh_all();
         s
     }

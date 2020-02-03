@@ -9,6 +9,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
+#![allow(dead_code)]
 
 use winapi::{ENUM, STRUCT};
 use winapi::shared::basetsd::ULONG64;
@@ -26,6 +27,26 @@ pub const IF_MAX_PHYS_ADDRESS_LENGTH: usize = 32;
 pub type NET_IF_NETWORK_GUID = GUID;
 pub type PMIB_IF_TABLE2 = *mut MIB_IF_TABLE2;
 pub type PMIB_IF_ROW2 = *mut MIB_IF_ROW2;
+
+macro_rules! BITFIELD {
+    ($base:ident $field:ident: $fieldtype:ty [
+        $($thing:ident $set_thing:ident[$r:expr],)+
+    ]) => {
+        impl $base {$(
+            #[inline]
+            pub fn $thing(&self) -> $fieldtype {
+                let size = ::std::mem::size_of::<$fieldtype>() * 8;
+                self.$field << (size - $r.end) >> (size - $r.end + $r.start)
+            }
+            #[inline]
+            pub fn $set_thing(&mut self, val: $fieldtype) {
+                let mask = ((1 << ($r.end - $r.start)) - 1) << $r.start;
+                self.$field &= !mask;
+                self.$field |= (val << $r.start) & mask;
+            }
+        )+}
+    }
+}
 
 STRUCT!{struct MIB_IF_TABLE2 {
     NumEntries: ULONG,
@@ -137,6 +158,16 @@ ENUM!{enum NET_IF_CONNECTION_TYPE {
 STRUCT!{struct MIB_IF_ROW2_InterfaceAndOperStatusFlags {
     bitfield: BYTE,
 }}
+BITFIELD!{MIB_IF_ROW2_InterfaceAndOperStatusFlags bitfield: BYTE [
+    HardwareInterface set_HardwareInterface[0..1],
+    FilterInterface set_FilterInterface[1..2],
+    ConnectorPresent set_ConnectorPresent[2..3],
+    NotAuthenticated set_NotAuthenticated[3..4],
+    NotMediaConnected set_NotMediaConnected[4..5],
+    Paused set_Paused[5..6],
+    LowPower set_LowPower[6..7],
+    EndPointInterface set_EndPointInterface[7..8],
+]}
 
 STRUCT!{struct MIB_IF_ROW2 {
     InterfaceLuid: NET_LUID,

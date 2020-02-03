@@ -15,7 +15,6 @@ use std::mem::{size_of, zeroed};
 use DiskExt;
 use LoadAvg;
 use Networks;
-use NetworksExt;
 use Pid;
 use ProcessExt;
 use RefreshKind;
@@ -124,7 +123,7 @@ impl SystemExt for System {
             }
         }
         if refreshes.networks() {
-            s.networks.refresh_interfaces_list();
+            s.refresh_network_interfaces();
         }
         s.refresh_specifics(refreshes);
         s
