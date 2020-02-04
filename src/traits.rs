@@ -745,7 +745,7 @@ pub trait SystemExt: Sized {
     ///
     /// let s = System::new_all();
     /// let networks = s.get_networks();
-    /// for (interface_name, data) in networks.iter() {
+    /// for (interface_name, data) in networks {
     ///     println!("[{}] in: {}, out: {}", interface_name, data.get_income(), data.get_outcome());
     /// }
     /// ```
@@ -798,7 +798,7 @@ pub trait NetworkExt {
     ///
     /// let s = System::new_all();
     /// let networks = s.get_networks();
-    /// for (interface_name, network) in networks.iter() {
+    /// for (interface_name, network) in networks {
     ///     println!("in: {} B", network.get_income());
     /// }
     /// ```
@@ -811,7 +811,7 @@ pub trait NetworkExt {
     ///
     /// let s = System::new_all();
     /// let networks = s.get_networks();
-    /// for (interface_name, network) in networks.iter() {
+    /// for (interface_name, network) in networks {
     ///     println!("in: {} B", network.get_outcome());
     /// }
     /// ```
@@ -824,7 +824,7 @@ pub trait NetworkExt {
     ///
     /// let s = System::new_all();
     /// let networks = s.get_networks();
-    /// for (interface_name, network) in networks.iter() {
+    /// for (interface_name, network) in networks {
     ///     println!("in: {} B", network.get_total_income());
     /// }
     /// ```
@@ -837,7 +837,7 @@ pub trait NetworkExt {
     ///
     /// let s = System::new_all();
     /// let networks = s.get_networks();
-    /// for (interface_name, network) in networks.iter() {
+    /// for (interface_name, network) in networks {
     ///     println!("in: {} B", network.get_total_outcome());
     /// }
     /// ```
@@ -853,7 +853,7 @@ pub trait NetworksExt {
     ///
     /// let s = System::new_all();
     /// let networks = s.get_networks();
-    /// for (interface_name, network) in networks.iter() {
+    /// for (interface_name, network) in networks {
     ///     println!("in: {} B", network.get_income());
     /// }
     /// ```
