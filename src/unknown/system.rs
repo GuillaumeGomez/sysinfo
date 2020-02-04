@@ -8,7 +8,7 @@ use sys::component::Component;
 use sys::process::*;
 use sys::processor::*;
 use sys::Disk;
-use sys::NetworkData;
+use sys::Networks;
 use Pid;
 use {RefreshKind, SystemExt};
 
@@ -18,14 +18,14 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct System {
     processes_list: HashMap<Pid, Process>,
-    network: NetworkData,
+    networks: Networks,
 }
 
 impl SystemExt for System {
     fn new_with_specifics(_: RefreshKind) -> System {
         System {
             processes_list: Default::default(),
-            network: NetworkData,
+            networks: Networks::new(),
         }
     }
 
@@ -59,8 +59,12 @@ impl SystemExt for System {
         None
     }
 
-    fn get_network(&self) -> &NetworkData {
-        &self.network
+    fn get_networks(&self) -> &Networks {
+        &self.networks
+    }
+
+    fn get_networks_mut(&mut self) -> &mut Networks {
+        &mut self.networks
     }
 
     fn get_processor_list(&self) -> &[Processor] {
