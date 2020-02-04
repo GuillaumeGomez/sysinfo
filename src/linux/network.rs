@@ -18,7 +18,7 @@ use NetworksIter;
 /// ```no_run
 /// use sysinfo::{NetworksExt, System, SystemExt};
 ///
-/// let s = System::new();
+/// let s = System::new_all();
 /// let networks = s.get_networks();
 /// ```
 #[derive(Debug)]
@@ -76,7 +76,7 @@ impl NetworksExt for Networks {
         }
     }
 
-    fn refresh_interfaces_list(&mut self) {
+    fn refresh_networks_list(&mut self) {
         if let Ok(dir) = std::fs::read_dir("/sys/class/net/") {
             let mut data = vec![0; 30];
             for entry in dir {

@@ -129,7 +129,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "help" => print_help(),
         "refresh_disks" => {
             writeln!(&mut io::stdout(), "Refreshing disk list...");
-            sys.refresh_disk_list();
+            sys.refresh_disks_list();
             writeln!(&mut io::stdout(), "Done.");
         }
         "signals" => {

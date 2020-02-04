@@ -392,14 +392,14 @@ pub trait SystemExt: Sized {
     /// use sysinfo::{RefreshKind, System, SystemExt};
     ///
     /// // We want everything except disks.
-    /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disk_list());
+    /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
     ///
     /// assert_eq!(system.get_disks().len(), 0);
     /// assert!(system.get_process_list().len() > 0);
     ///
     /// // If you want the disks list afterwards, just call the corresponding
-    /// // "refresh_disk_list":
-    /// system.refresh_disk_list();
+    /// // "refresh_disks_list":
+    /// system.refresh_disks_list();
     /// let disks = system.get_disks();
     /// ```
     fn new_with_specifics(refreshes: RefreshKind) -> Self;
@@ -412,7 +412,7 @@ pub trait SystemExt: Sized {
     /// ```
     /// use sysinfo::{RefreshKind, System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     ///
     /// // Let's just update networks and processes:
     /// s.refresh_specifics(RefreshKind::new().with_networks().with_processes());
@@ -428,7 +428,7 @@ pub trait SystemExt: Sized {
             self.refresh_temperatures();
         }
         if refreshes.networks_list() {
-            self.refresh_network_interfaces();
+            self.refresh_networks_list();
         }
         if refreshes.networks() {
             self.refresh_networks();
@@ -436,8 +436,8 @@ pub trait SystemExt: Sized {
         if refreshes.processes() {
             self.refresh_processes();
         }
-        if refreshes.disk_list() {
-            self.refresh_disk_list();
+        if refreshes.disks_list() {
+            self.refresh_disks_list();
         }
         if refreshes.disks() {
             self.refresh_disks();
@@ -456,7 +456,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// s.refresh_system();
     /// ```
     fn refresh_system(&mut self) {
@@ -470,7 +470,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// s.refresh_memory();
     /// ```
     fn refresh_memory(&mut self);
@@ -480,7 +480,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// s.refresh_cpu();
     /// ```
     fn refresh_cpu(&mut self);
@@ -490,7 +490,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// s.refresh_temperatures();
     /// ```
     fn refresh_temperatures(&mut self);
@@ -500,7 +500,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// s.refresh_processes();
     /// ```
     fn refresh_processes(&mut self);
@@ -511,7 +511,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// s.refresh_process(1337);
     /// ```
     fn refresh_process(&mut self, pid: Pid) -> bool;
@@ -521,7 +521,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// s.refresh_disks();
     /// ```
     fn refresh_disks(&mut self);
@@ -531,17 +531,17 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disk_list();
+    /// let mut s = System::new_all();
+    /// s.refresh_disks_list();
     /// ```
-    fn refresh_disk_list(&mut self);
+    fn refresh_disks_list(&mut self);
 
     /// Refresh networks data.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// s.refresh_networks();
     /// ```
     ///
@@ -550,7 +550,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{NetworksExt, System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// let networks = s.get_networks_mut();
     /// networks.refresh();
     /// ```
@@ -563,7 +563,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// s.refresh_network_interfaces();
     /// ```
     ///
@@ -572,12 +572,12 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{NetworksExt, System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// let networks = s.get_networks_mut();
-    /// networks.refresh_interfaces_list();
+    /// networks.refresh_networks_list();
     /// ```
-    fn refresh_network_interfaces(&mut self) {
-        self.get_networks_mut().refresh_interfaces_list();
+    fn refresh_networks_list(&mut self) {
+        self.get_networks_mut().refresh_networks_list();
     }
 
     /// Refreshes all system, processes, disks and network interfaces information.
@@ -588,7 +588,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// s.refresh_all();
     /// ```
     fn refresh_all(&mut self) {
@@ -603,7 +603,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// for (pid, process) in s.get_process_list() {
     ///     println!("{} {}", pid, process.name());
     /// }
@@ -615,7 +615,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.get_process(1337) {
     ///     println!("{}", process.name());
     /// }
@@ -627,7 +627,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// for process in s.get_process_by_name("htop") {
     ///     println!("{} {}", process.pid(), process.name());
     /// }
@@ -647,7 +647,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// for processor in s.get_processor_list() {
     ///     println!("{}%", processor.get_cpu_usage());
     /// }
@@ -659,7 +659,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// println!("{} KiB", s.get_total_memory());
     /// ```
     fn get_total_memory(&self) -> u64;
@@ -669,7 +669,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// println!("{} KiB", s.get_free_memory());
     /// ```
     fn get_free_memory(&self) -> u64;
@@ -679,7 +679,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// println!("{} KiB", s.get_used_memory());
     /// ```
     fn get_used_memory(&self) -> u64;
@@ -689,7 +689,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// println!("{} KiB", s.get_total_swap());
     /// ```
     fn get_total_swap(&self) -> u64;
@@ -699,7 +699,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// println!("{} KiB", s.get_free_swap());
     /// ```
     fn get_free_swap(&self) -> u64;
@@ -709,7 +709,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// println!("{} KiB", s.get_used_swap());
     /// ```
     fn get_used_swap(&self) -> u64;
@@ -719,7 +719,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// for component in s.get_components_list() {
     ///     println!("{}: {}°C", component.get_label(), component.get_temperature());
     /// }
@@ -731,7 +731,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// for disk in s.get_disks() {
     ///     println!("{:?}", disk.get_name());
     /// }
@@ -743,7 +743,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, data) in networks.iter() {
     ///     println!("[{}] in: {}, out: {}", interface_name, data.get_income(), data.get_outcome());
@@ -756,7 +756,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// let networks = s.get_networks_mut();
     /// networks.refresh_interfaces_list();
     /// ```
@@ -767,7 +767,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// println!("{}", s.get_uptime());
     /// ```
     fn get_uptime(&self) -> u64;
@@ -777,7 +777,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// let load_avg = s.get_load_average();
     /// println!(
     ///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
@@ -796,7 +796,7 @@ pub trait NetworkExt {
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks.iter() {
     ///     println!("in: {} B", network.get_income());
@@ -809,7 +809,7 @@ pub trait NetworkExt {
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks.iter() {
     ///     println!("in: {} B", network.get_outcome());
@@ -822,7 +822,7 @@ pub trait NetworkExt {
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks.iter() {
     ///     println!("in: {} B", network.get_total_income());
@@ -835,7 +835,7 @@ pub trait NetworkExt {
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks.iter() {
     ///     println!("in: {} B", network.get_total_outcome());
@@ -851,7 +851,7 @@ pub trait NetworksExt {
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks.iter() {
     ///     println!("in: {} B", network.get_income());
@@ -864,18 +864,18 @@ pub trait NetworksExt {
     /// ```no_run
     /// use sysinfo::{NetworksExt, System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// let networks = s.get_networks_mut();
-    /// networks.refresh_interfaces_list();
+    /// networks.refresh_networks_list();
     /// ```
-    fn refresh_interfaces_list(&mut self);
+    fn refresh_networks_list(&mut self);
 
     /// Refreshes the network interfaces' content.
     ///
     /// ```no_run
     /// use sysinfo::{NetworksExt, System, SystemExt};
     ///
-    /// let mut s = System::new();
+    /// let mut s = System::new_all();
     /// let networks = s.get_networks_mut();
     /// networks.refresh();
     /// ```
@@ -889,7 +889,7 @@ pub trait ComponentExt {
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// for component in s.get_components_list() {
     ///     println!("{}°C", component.get_temperature());
     /// }
@@ -901,7 +901,7 @@ pub trait ComponentExt {
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// for component in s.get_components_list() {
     ///     println!("{}°C", component.get_max());
     /// }
@@ -913,7 +913,7 @@ pub trait ComponentExt {
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// for component in s.get_components_list() {
     ///     println!("{:?}°C", component.get_critical());
     /// }
@@ -925,7 +925,7 @@ pub trait ComponentExt {
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// for component in s.get_components_list() {
     ///     println!("{}", component.get_label());
     /// }

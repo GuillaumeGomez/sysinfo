@@ -26,7 +26,7 @@ macro_rules! old_and_new {
 /// ```no_run
 /// use sysinfo::{NetworksExt, System, SystemExt};
 ///
-/// let s = System::new();
+/// let s = System::new_all();
 /// let networks = s.get_networks();
 /// ```
 pub struct Networks {
@@ -46,7 +46,7 @@ impl NetworksExt for Networks {
         NetworksIter::new(self.interfaces.iter())
     }
 
-    fn refresh_interfaces_list(&mut self) {
+    fn refresh_networks_list(&mut self) {
         let mut table: PMIB_IF_TABLE2 = ::std::ptr::null_mut();
         if unsafe { ffi::GetIfTable2(&mut table) } != NO_ERROR {
             return;

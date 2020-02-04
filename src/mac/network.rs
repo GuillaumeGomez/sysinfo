@@ -19,7 +19,7 @@ use NetworksIter;
 /// ```no_run
 /// use sysinfo::{NetworksExt, System, SystemExt};
 ///
-/// let s = System::new();
+/// let s = System::new_all();
 /// let networks = s.get_networks();
 /// ```
 pub struct Networks {
@@ -40,7 +40,7 @@ impl NetworksExt for Networks {
     }
 
     #[allow(clippy::cast_ptr_alignment)]
-    fn refresh_interfaces_list(&mut self) {
+    fn refresh_networks_list(&mut self) {
         let mib = &mut [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0];
         let mut len = 0;
         if unsafe { libc::sysctl(mib.as_mut_ptr(), 6, null_mut(), &mut len, null_mut(), 0) } < 0 {

@@ -323,7 +323,7 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_disk_list(&mut self) {
+    fn refresh_disks_list(&mut self) {
         self.disks = crate::mac::disk::get_disks();
     }
 
