@@ -5,6 +5,8 @@
 //
 
 use NetworkData;
+use Networks;
+use NetworksExt;
 
 /// Trait to have a common fallback for the `Pid` type.
 pub trait AsU32 {
@@ -213,5 +215,14 @@ impl<'a> Iterator for NetworksIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next()
+    }
+}
+
+impl<'a> IntoIterator for &'a Networks {
+    type Item = (&'a String, &'a NetworkData);
+    type IntoIter = NetworksIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
