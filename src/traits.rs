@@ -356,8 +356,8 @@ pub trait ProcessorExt {
 
 /// Contains all the methods of the [`System`] type.
 pub trait SystemExt: Sized {
-    /// Creates a new [`System`] instance with only the processes list loaded. Use the
-    /// [`refresh_all`] method to update its internal information (or any of the `refresh_` method).
+    /// Creates a new [`System`] instance with nothing loaded. Use the [`refresh_all`] method to
+    /// update its internal information (or any of the `refresh_` method).
     ///
     /// [`refresh_all`]: #method.refresh_all
     ///
@@ -506,7 +506,7 @@ pub trait SystemExt: Sized {
     fn refresh_processes(&mut self);
 
     /// Refresh *only* the process corresponding to `pid`. Returns `false` if the process doesn't
-    /// exist.
+    /// exist or isn't listed.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -564,7 +564,7 @@ pub trait SystemExt: Sized {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// s.refresh_network_interfaces();
+    /// s.refresh_networks_list();
     /// ```
     ///
     /// This is a shortcut for:
@@ -758,7 +758,7 @@ pub trait SystemExt: Sized {
     ///
     /// let mut s = System::new_all();
     /// let networks = s.get_networks_mut();
-    /// networks.refresh_interfaces_list();
+    /// networks.refresh_networks_list();
     /// ```
     fn get_networks_mut(&mut self) -> &mut Networks;
 

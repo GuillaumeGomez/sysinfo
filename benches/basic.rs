@@ -4,6 +4,7 @@ extern crate sysinfo;
 extern crate test;
 
 use sysinfo::SystemExt;
+use sysinfo::get_current_pid;
 
 #[bench]
 fn bench_new(b: &mut test::Bencher) {
@@ -13,8 +14,15 @@ fn bench_new(b: &mut test::Bencher) {
 }
 
 #[bench]
+fn bench_new_all(b: &mut test::Bencher) {
+    b.iter(|| {
+        sysinfo::System::new_all();
+    });
+}
+
+#[bench]
 fn bench_refresh_all(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new();
+    let mut s = sysinfo::System::new_all();
 
     b.iter(move || {
         s.refresh_all();
@@ -23,7 +31,7 @@ fn bench_refresh_all(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_refresh_system(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new();
+    let mut s = sysinfo::System::new_all();
 
     s.refresh_system();
     b.iter(move || {
@@ -35,6 +43,7 @@ fn bench_refresh_system(b: &mut test::Bencher) {
 fn bench_refresh_processes(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
 
+    s.refresh_processes(); // to load the whole processes list a first time.
     b.iter(move || {
         s.refresh_processes();
     });
@@ -45,7 +54,8 @@ fn bench_refresh_process(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
 
     s.refresh_all();
-    let pid = *s.get_process_list().iter().take(1).next().unwrap().0;
+    // to be sure it'll exist for at least as long as we run
+    let pid = get_current_pid().expect("failed to get current pid");
     b.iter(move || {
         s.refresh_process(pid);
     });
@@ -53,7 +63,7 @@ fn bench_refresh_process(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_refresh_disks(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new();
+    let mut s = sysinfo::System::new_all();
 
     b.iter(move || {
         s.refresh_disks();
@@ -61,20 +71,29 @@ fn bench_refresh_disks(b: &mut test::Bencher) {
 }
 
 #[bench]
-fn bench_refresh_disk_lists(b: &mut test::Bencher) {
+fn bench_refresh_disks_lists(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
 
     b.iter(move || {
-        s.refresh_disk_list();
+        s.refresh_disks_list();
     });
 }
 
 #[bench]
 fn bench_refresh_networks(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new();
+    let mut s = sysinfo::System::new_all();
 
     b.iter(move || {
         s.refresh_networks();
+    });
+}
+
+#[bench]
+fn bench_refresh_networks_list(b: &mut test::Bencher) {
+    let mut s = sysinfo::System::new();
+
+    b.iter(move || {
+        s.refresh_networks_list();
     });
 }
 
@@ -98,7 +117,7 @@ fn bench_refresh_cpu(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_refresh_temperatures(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new();
+    let mut s = sysinfo::System::new_all();
 
     b.iter(move || {
         s.refresh_temperatures();

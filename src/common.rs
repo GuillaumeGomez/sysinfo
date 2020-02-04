@@ -146,7 +146,7 @@ impl RefreshKind {
     pub fn new() -> RefreshKind {
         RefreshKind {
             networks: false,
-            networks_list: true,
+            networks_list: false,
             processes: false,
             disks: false,
             disks_list: false,
