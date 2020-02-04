@@ -367,9 +367,7 @@ pub trait SystemExt: Sized {
     /// let s = System::new();
     /// ```
     fn new() -> Self {
-        let mut s = Self::new_with_specifics(RefreshKind::new());
-        s.refresh_all();
-        s
+        Self::new_with_specifics(RefreshKind::new())
     }
 
     /// Creates a new [`System`] instance with everything loaded.
@@ -382,9 +380,7 @@ pub trait SystemExt: Sized {
     /// let s = System::new_all();
     /// ```
     fn new_all() -> Self {
-        let mut s = Self::new_with_specifics(RefreshKind::everything());
-        s.refresh_all();
-        s
+        Self::new_with_specifics(RefreshKind::everything())
     }
 
     /// Creates a new [`System`] instance and refresh the data corresponding to the
@@ -581,7 +577,7 @@ pub trait SystemExt: Sized {
         self.get_networks_mut().refresh_interfaces_list();
     }
 
-    /// Refreshes all system, processes and disks information.
+    /// Refreshes all system, processes, disks and network interfaces information.
     ///
     /// Please note that it doesn't recompute disks list, components list nor network interfaces
     /// list.

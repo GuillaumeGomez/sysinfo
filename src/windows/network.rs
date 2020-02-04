@@ -130,6 +130,7 @@ impl NetworksExt for Networks {
     }
 
     fn refresh(&mut self) {
+        println!("refresh network!");
         let mut entry: MIB_IF_ROW2 = unsafe { ::std::mem::MaybeUninit::uninit().assume_init() };
         for (_, interface) in self.interfaces.iter_mut() {
             entry.InterfaceLuid = interface.id;

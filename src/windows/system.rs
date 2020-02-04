@@ -157,8 +157,17 @@ impl SystemExt for System {
         }
     }
 
+    /// Refresh components' temperature.
+    ///
     /// Please note that on Windows, you need to have Administrator priviledges to get this
     /// information.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new();
+    /// s.refresh_temperatures();
+    /// ```
     fn refresh_temperatures(&mut self) {
         for component in &mut self.temperatures {
             component.refresh();
