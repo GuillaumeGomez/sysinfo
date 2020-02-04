@@ -68,7 +68,8 @@ impl NetworksExt for Networks {
             if ptr.TransmitLinkSpeed == 0 && ptr.ReceiveLinkSpeed == 0 {
                 continue;
             } else if ptr.MediaConnectState == ffi::MediaConnectStateDisconnected
-                || ptr.PhysicalAddressLength == 0 {
+                || ptr.PhysicalAddressLength == 0
+            {
                 continue;
             }
             let id = vec![
@@ -107,19 +108,22 @@ impl NetworksExt for Networks {
                 _ => continue,
             };
             to_be_removed.remove(&interface_name);
-            let mut interface = self.interfaces.entry(interface_name).or_insert_with(|| {
-                NetworkData {
-                    id: ptr.InterfaceLuid,
-                    current_out: ptr.OutOctets,
-                    old_out: ptr.OutOctets,
-                    current_in: ptr.InOctets,
-                    old_in: ptr.InOctets,
-                }
-            });
+            let mut interface =
+                self.interfaces
+                    .entry(interface_name)
+                    .or_insert_with(|| NetworkData {
+                        id: ptr.InterfaceLuid,
+                        current_out: ptr.OutOctets,
+                        old_out: ptr.OutOctets,
+                        current_in: ptr.InOctets,
+                        old_in: ptr.InOctets,
+                    });
             old_and_new!(interface, current_out, old_out, ptr.OutOctets);
             old_and_new!(interface, current_in, old_in, ptr.InOctets);
         }
-        unsafe { ffi::FreeMibTable(table as _); }
+        unsafe {
+            ffi::FreeMibTable(table as _);
+        }
         for key in to_be_removed {
             self.interfaces.remove(&key);
         }

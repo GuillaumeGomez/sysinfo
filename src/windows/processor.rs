@@ -6,9 +6,12 @@
 
 use std::collections::HashMap;
 use std::mem;
+use std::ops::DerefMut;
+use std::ptr::null_mut;
 use std::sync::{Arc, Mutex};
 
 use windows::tools::KeyHandler;
+use LoadAvg;
 use ProcessorExt;
 
 use ntapi::ntpoapi::PROCESSOR_POWER_INFORMATION;
@@ -17,12 +20,105 @@ use winapi::shared::minwindef::FALSE;
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::{
-    PdhAddCounterW, PdhCloseQuery, PdhOpenQueryA, PdhRemoveCounter, PDH_HCOUNTER, PDH_HQUERY,
+    PdhAddCounterW, PdhAddEnglishCounterA, PdhCloseQuery, PdhCollectQueryDataEx,
+    PdhGetFormattedCounterValue, PdhOpenQueryA, PdhRemoveCounter, PDH_FMT_COUNTERVALUE,
+    PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
 };
 use winapi::um::powerbase::CallNtPowerInformation;
 use winapi::um::synchapi::CreateEventA;
 use winapi::um::sysinfoapi::SYSTEM_INFO;
-use winapi::um::winnt::{ProcessorInformation, HANDLE};
+use winapi::um::winbase::{RegisterWaitForSingleObject, INFINITE};
+use winapi::um::winnt::{ProcessorInformation, BOOLEAN, HANDLE, PVOID, WT_EXECUTEDEFAULT};
+
+// This formula comes from linux's include/linux/sched/loadavg.h
+// https://github.com/torvalds/linux/blob/345671ea0f9258f410eb057b9ced9cefbbe5dc78/include/linux/sched/loadavg.h#L20-L23
+const LOADAVG_FACTOR_1F: f64 = 0.9200444146293232478931553241;
+const LOADAVG_FACTOR_5F: f64 = 0.6592406302004437462547604110;
+const LOADAVG_FACTOR_15F: f64 = 0.2865047968601901003248854266;
+// The time interval in seconds between taking load counts, same as Linux
+const SAMPLING_INTERVAL: usize = 5;
+
+// maybe use a read/write lock instead?
+static LOAD_AVG: once_cell::sync::Lazy<Mutex<Option<LoadAvg>>> =
+    once_cell::sync::Lazy::new(|| unsafe { init_load_avg() });
+
+pub(crate) fn get_load_average() -> LoadAvg {
+    if let Ok(avg) = LOAD_AVG.lock() {
+        if let Some(avg) = &*avg {
+            return avg.clone();
+        }
+    }
+    return LoadAvg::default();
+}
+
+unsafe extern "system" fn load_avg_callback(counter: PVOID, _: BOOLEAN) {
+    let mut display_value: PDH_FMT_COUNTERVALUE = mem::MaybeUninit::uninit().assume_init();
+
+    if PdhGetFormattedCounterValue(counter as _, PDH_FMT_DOUBLE, null_mut(), &mut display_value)
+        != ERROR_SUCCESS as _
+    {
+        return;
+    }
+    if let Ok(mut avg) = LOAD_AVG.lock() {
+        if let Some(avg) = avg.deref_mut() {
+            let current_load = display_value.u.doubleValue();
+
+            avg.one = avg.one * LOADAVG_FACTOR_1F + current_load * (1.0 - LOADAVG_FACTOR_1F);
+            avg.five = avg.five * LOADAVG_FACTOR_5F + current_load * (1.0 - LOADAVG_FACTOR_5F);
+            avg.fifteen =
+                avg.fifteen * LOADAVG_FACTOR_15F + current_load * (1.0 - LOADAVG_FACTOR_15F);
+        }
+    }
+}
+
+unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
+    // You can see the original implementation here: https://github.com/giampaolo/psutil
+    let mut query = null_mut();
+
+    if PdhOpenQueryA(null_mut(), 0, &mut query) != ERROR_SUCCESS as _ {
+        return Mutex::new(None);
+    }
+
+    let mut counter: PDH_HCOUNTER = mem::zeroed();
+    if PdhAddEnglishCounterA(
+        query,
+        b"\\System\\Processor Queue Length\0".as_ptr() as _,
+        0,
+        &mut counter,
+    ) != ERROR_SUCCESS as _
+    {
+        PdhCloseQuery(query);
+        return Mutex::new(None);
+    }
+
+    let event = CreateEventA(null_mut(), FALSE, FALSE, b"LoadUpdateEvent\0".as_ptr() as _);
+    if event.is_null() {
+        PdhCloseQuery(query);
+        return Mutex::new(None);
+    }
+
+    if PdhCollectQueryDataEx(query, SAMPLING_INTERVAL as _, event) != ERROR_SUCCESS as _ {
+        PdhCloseQuery(query);
+        return Mutex::new(None);
+    }
+
+    let mut wait_handle = null_mut();
+    if RegisterWaitForSingleObject(
+        &mut wait_handle,
+        event,
+        Some(load_avg_callback),
+        counter as _,
+        INFINITE,
+        WT_EXECUTEDEFAULT,
+    ) == 0
+    {
+        PdhRemoveCounter(counter);
+        PdhCloseQuery(query);
+        return Mutex::new(None);
+    }
+
+    return Mutex::new(Some(LoadAvg::default()));
+}
 
 #[derive(Debug)]
 pub enum CounterValue {
@@ -100,15 +196,11 @@ pub struct Query {
 
 impl Query {
     pub fn new() -> Option<Query> {
-        let mut query = ::std::ptr::null_mut();
+        let mut query = null_mut();
         unsafe {
-            if PdhOpenQueryA(::std::ptr::null_mut(), 0, &mut query) == ERROR_SUCCESS as i32 {
-                let event = CreateEventA(
-                    ::std::ptr::null_mut(),
-                    FALSE,
-                    FALSE,
-                    b"some_ev\0".as_ptr() as *const i8,
-                );
+            if PdhOpenQueryA(null_mut(), 0, &mut query) == ERROR_SUCCESS as i32 {
+                let event =
+                    CreateEventA(null_mut(), FALSE, FALSE, b"some_ev\0".as_ptr() as *const i8);
                 if event.is_null() {
                     PdhCloseQuery(query);
                     None
@@ -118,9 +210,7 @@ impl Query {
                         event: event,
                         data: Mutex::new(HashMap::new()),
                     });
-                    Some(Query {
-                        internal: q,
-                    })
+                    Some(Query { internal: q })
                 }
             } else {
                 None
@@ -341,7 +431,7 @@ pub fn get_frequencies(nb_processors: usize) -> Vec<u64> {
     if unsafe {
         CallNtPowerInformation(
             ProcessorInformation,
-            ::std::ptr::null_mut(),
+            null_mut(),
             0,
             infos.as_mut_ptr() as _,
             size as _,

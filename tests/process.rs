@@ -8,9 +8,9 @@ extern crate sysinfo;
 
 #[test]
 fn test_process() {
-    use sysinfo::SystemExt;
     #[cfg(not(windows))]
     use sysinfo::ProcessExt;
+    use sysinfo::SystemExt;
 
     let mut s = sysinfo::System::new();
     s.refresh_processes();

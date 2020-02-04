@@ -11,13 +11,13 @@
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
 
-use winapi::{ENUM, STRUCT};
 use winapi::shared::basetsd::ULONG64;
-use winapi::shared::ifdef::{NET_LUID, NET_IFINDEX};
-use winapi::shared::ntdef::{UCHAR, ULONG, PVOID, WCHAR};
 use winapi::shared::guiddef::GUID;
+use winapi::shared::ifdef::{NET_IFINDEX, NET_LUID};
 use winapi::shared::minwindef::BYTE;
 use winapi::shared::netioapi::NETIOAPI_API;
+use winapi::shared::ntdef::{PVOID, UCHAR, ULONG, WCHAR};
+use winapi::{ENUM, STRUCT};
 
 const ANY_SIZE: usize = 1;
 
@@ -48,12 +48,12 @@ macro_rules! BITFIELD {
     }
 }
 
-STRUCT!{struct MIB_IF_TABLE2 {
+STRUCT! {struct MIB_IF_TABLE2 {
     NumEntries: ULONG,
     Table: [MIB_IF_ROW2; ANY_SIZE],
 }}
 
-ENUM!{enum NDIS_MEDIUM {
+ENUM! {enum NDIS_MEDIUM {
     NdisMedium802_3 = 0,
     NdisMedium802_5 = 1,
     NdisMediumFddi = 2,
@@ -77,7 +77,7 @@ ENUM!{enum NDIS_MEDIUM {
     NdisMediumMax = 20, // Not a real medium, defined as an upper-bound
 }}
 
-ENUM!{enum TUNNEL_TYPE {
+ENUM! {enum TUNNEL_TYPE {
     TUNNEL_TYPE_NONE = 0,
     TUNNEL_TYPE_OTHER = 1,
     TUNNEL_TYPE_DIRECT = 2,
@@ -87,7 +87,7 @@ ENUM!{enum TUNNEL_TYPE {
     TUNNEL_TYPE_IPHTTPS = 15,
 }}
 
-ENUM!{enum NDIS_PHYSICAL_MEDIUM {
+ENUM! {enum NDIS_PHYSICAL_MEDIUM {
     NdisPhysicalMediumUnspecified = 0,
     NdisPhysicalMediumWirelessLan = 1,
     NdisPhysicalMediumCableModem = 2,
@@ -111,7 +111,7 @@ ENUM!{enum NDIS_PHYSICAL_MEDIUM {
     NdisPhysicalMediumMax = 20, // Not a real physical type, defined as an upper-bound
 }}
 
-ENUM!{enum NET_IF_ACCESS_TYPE {
+ENUM! {enum NET_IF_ACCESS_TYPE {
     NET_IF_ACCESS_LOOPBACK = 1,
     NET_IF_ACCESS_BROADCAST = 2,
     NET_IF_ACCESS_POINT_TO_POINT = 3,
@@ -119,14 +119,14 @@ ENUM!{enum NET_IF_ACCESS_TYPE {
     NET_IF_ACCESS_MAXIMUM = 5,
 }}
 
-ENUM!{enum NET_IF_DIRECTION_TYPE {
+ENUM! {enum NET_IF_DIRECTION_TYPE {
     NET_IF_DIRECTION_SENDRECEIVE = 0,
     NET_IF_DIRECTION_SENDONLY = 1,
     NET_IF_DIRECTION_RECEIVEONLY = 2,
     NET_IF_DIRECTION_MAXIMUM = 3,
 }}
 
-ENUM!{enum IF_OPER_STATUS {
+ENUM! {enum IF_OPER_STATUS {
     IfOperStatusUp = 1,
     IfOperStatusDown = 2,
     IfOperStatusTesting = 3,
@@ -136,29 +136,29 @@ ENUM!{enum IF_OPER_STATUS {
     IfOperStatusLowerLayerDown = 7,
 }}
 
-ENUM!{enum NET_IF_ADMIN_STATUS {
+ENUM! {enum NET_IF_ADMIN_STATUS {
     NET_IF_ADMIN_STATUS_UP = 1,
     NET_IF_ADMIN_STATUS_DOWN = 2,
     NET_IF_ADMIN_STATUS_TESTING = 3,
 }}
 
-ENUM!{enum NET_IF_MEDIA_CONNECT_STATE {
+ENUM! {enum NET_IF_MEDIA_CONNECT_STATE {
     MediaConnectStateUnknown = 0,
     MediaConnectStateConnected = 1,
     MediaConnectStateDisconnected = 2,
 }}
 
-ENUM!{enum NET_IF_CONNECTION_TYPE {
+ENUM! {enum NET_IF_CONNECTION_TYPE {
     NET_IF_CONNECTION_DEDICATED = 1,
     NET_IF_CONNECTION_PASSIVE = 2,
     NET_IF_CONNECTION_DEMAND = 3,
     NET_IF_CONNECTION_MAXIMUM = 4,
 }}
 
-STRUCT!{struct MIB_IF_ROW2_InterfaceAndOperStatusFlags {
+STRUCT! {struct MIB_IF_ROW2_InterfaceAndOperStatusFlags {
     bitfield: BYTE,
 }}
-BITFIELD!{MIB_IF_ROW2_InterfaceAndOperStatusFlags bitfield: BYTE [
+BITFIELD! {MIB_IF_ROW2_InterfaceAndOperStatusFlags bitfield: BYTE [
     HardwareInterface set_HardwareInterface[0..1],
     FilterInterface set_FilterInterface[1..2],
     ConnectorPresent set_ConnectorPresent[2..3],
@@ -169,7 +169,7 @@ BITFIELD!{MIB_IF_ROW2_InterfaceAndOperStatusFlags bitfield: BYTE [
     EndPointInterface set_EndPointInterface[7..8],
 ]}
 
-STRUCT!{struct MIB_IF_ROW2 {
+STRUCT! {struct MIB_IF_ROW2 {
     InterfaceLuid: NET_LUID,
     InterfaceIndex: NET_IFINDEX,
     InterfaceGuid: GUID,
@@ -214,13 +214,7 @@ STRUCT!{struct MIB_IF_ROW2 {
 }}
 
 extern "system" {
-    pub fn GetIfTable2(
-        Table: *mut PMIB_IF_TABLE2,
-    ) -> NETIOAPI_API;
-    pub fn GetIfEntry2(
-        Row: PMIB_IF_ROW2,
-    ) -> NETIOAPI_API;
-    pub fn FreeMibTable(
-        Memory: PVOID,
-    );
+    pub fn GetIfTable2(Table: *mut PMIB_IF_TABLE2) -> NETIOAPI_API;
+    pub fn GetIfEntry2(Row: PMIB_IF_ROW2) -> NETIOAPI_API;
+    pub fn FreeMibTable(Memory: PVOID);
 }

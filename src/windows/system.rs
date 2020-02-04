@@ -342,13 +342,8 @@ impl SystemExt for System {
         self.uptime
     }
 
-    /// Not yet implemented.
     fn get_load_average(&self) -> LoadAvg {
-        LoadAvg {
-            one: 0.,
-            five: 0.,
-            fifteen: 0.,
-        }
+        get_load_average()
     }
 }
 
