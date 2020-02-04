@@ -94,19 +94,19 @@ Here are the current results:
 <details>
 
 ```text
-test bench_new                   ... bench:     376,960 ns/iter (+/- 4,905)
-test bench_new_all               ... bench:  10,329,744 ns/iter (+/- 330,898)
-test bench_refresh_all           ... bench:   2,836,934 ns/iter (+/- 155,357)
-test bench_refresh_cpu           ... bench:      13,494 ns/iter (+/- 460)
-test bench_refresh_disks         ... bench:       2,542 ns/iter (+/- 37)
-test bench_refresh_disks_lists   ... bench:      50,740 ns/iter (+/- 1,252)
-test bench_refresh_memory        ... bench:      11,933 ns/iter (+/- 1,222)
-test bench_refresh_networks      ... bench:     293,706 ns/iter (+/- 36,558)
-test bench_refresh_networks_list ... bench:     300,782 ns/iter (+/- 26,761)
-test bench_refresh_process       ... bench:      75,210 ns/iter (+/- 3,211)
-test bench_refresh_processes     ... bench:   2,210,766 ns/iter (+/- 172,166)
-test bench_refresh_system        ... bench:      51,037 ns/iter (+/- 2,083)
-test bench_refresh_temperatures  ... bench:      24,812 ns/iter (+/- 2,644)
+test bench_new                   ... bench:     375,774 ns/iter (+/- 7,119)
+test bench_new_all               ... bench:  10,308,642 ns/iter (+/- 422,803)
+test bench_refresh_all           ... bench:   2,824,911 ns/iter (+/- 169,153)
+test bench_refresh_cpu           ... bench:      13,630 ns/iter (+/- 702)
+test bench_refresh_disks         ... bench:       2,558 ns/iter (+/- 14)
+test bench_refresh_disks_lists   ... bench:      51,737 ns/iter (+/- 5,712)
+test bench_refresh_memory        ... bench:      12,006 ns/iter (+/- 277)
+test bench_refresh_networks      ... bench:     223,858 ns/iter (+/- 28,537)
+test bench_refresh_networks_list ... bench:     232,934 ns/iter (+/- 34,344)
+test bench_refresh_process       ... bench:      78,925 ns/iter (+/- 12,421)
+test bench_refresh_processes     ... bench:   2,235,119 ns/iter (+/- 137,403)
+test bench_refresh_system        ... bench:      52,832 ns/iter (+/- 6,704)
+test bench_refresh_temperatures  ... bench:      25,079 ns/iter (+/- 2,258)
 ```
 </details>
 
