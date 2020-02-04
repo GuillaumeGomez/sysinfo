@@ -13,7 +13,7 @@ use Disk;
 use LoadAvg;
 use Networks;
 use Pid;
-use {DiskExt, NetworksExt, ProcessExt, RefreshKind, SystemExt};
+use {DiskExt, ProcessExt, RefreshKind, SystemExt};
 
 use libc::{self, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
