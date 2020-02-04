@@ -15,7 +15,7 @@ Support the following platforms:
  * Linux
  * Raspberry
  * Android
- * Mac OSX
+ * macOS
  * Windows
 
 It also compiles for Android but never been tested on it.
@@ -129,22 +129,24 @@ test bench_refresh_temperatures  ... bench:   1,231,260 ns/iter (+/- 111,274)
 ```
 </details>
 
-**OSX**
+**macOS**
 
 <details>
 
 ```text
-test bench_new                  ... bench:   4,713,851 ns/iter (+/- 1,080,986)
-test bench_refresh_all          ... bench:   1,639,098 ns/iter (+/- 191,147)
-test bench_refresh_cpu          ... bench:      10,651 ns/iter (+/- 1,635)
-test bench_refresh_disk_lists   ... bench:      29,327 ns/iter (+/- 3,104)
-test bench_refresh_disks        ... bench:         942 ns/iter (+/- 79)
-test bench_refresh_memory       ... bench:       3,417 ns/iter (+/- 654)
-test bench_refresh_network      ... bench:      34,497 ns/iter (+/- 2,681)
-test bench_refresh_process      ... bench:       4,272 ns/iter (+/- 549)
-test bench_refresh_processes    ... bench:     782,977 ns/iter (+/- 30,958)
-test bench_refresh_system       ... bench:     336,008 ns/iter (+/- 43,015)
-test bench_refresh_temperatures ... bench:     294,323 ns/iter (+/- 41,612)
+test bench_new                   ... bench:      54,862 ns/iter (+/- 6,528)
+test bench_new_all               ... bench:   4,989,120 ns/iter (+/- 1,001,529)
+test bench_refresh_all           ... bench:   1,924,596 ns/iter (+/- 341,209)
+test bench_refresh_cpu           ... bench:      10,521 ns/iter (+/- 1,623)
+test bench_refresh_disks         ... bench:         945 ns/iter (+/- 95)
+test bench_refresh_disks_lists   ... bench:      29,315 ns/iter (+/- 3,076)
+test bench_refresh_memory        ... bench:       3,275 ns/iter (+/- 143)
+test bench_refresh_networks      ... bench:     200,670 ns/iter (+/- 28,674)
+test bench_refresh_networks_list ... bench:     200,263 ns/iter (+/- 31,473)
+test bench_refresh_process       ... bench:       4,009 ns/iter (+/- 584)
+test bench_refresh_processes     ... bench:     790,834 ns/iter (+/- 61,236)
+test bench_refresh_system        ... bench:     335,144 ns/iter (+/- 35,713)
+test bench_refresh_temperatures  ... bench:     298,823 ns/iter (+/- 77,589)
 ```
 </details>
 
