@@ -92,8 +92,8 @@ impl NetworksExt for Networks {
                     let tx_packets = read(parent, "tx_packets", &mut data);
                     let rx_errors = read(parent, "rx_errors", &mut data);
                     let tx_errors = read(parent, "tx_errors", &mut data);
-                    let rx_compressed = read(parent, "rx_compressed", &mut data);
-                    let tx_compressed = read(parent, "tx_compressed", &mut data);
+                    // let rx_compressed = read(parent, "rx_compressed", &mut data);
+                    // let tx_compressed = read(parent, "tx_compressed", &mut data);
                     let interface = self.interfaces.entry(entry).or_insert_with(|| NetworkData {
                         rx_bytes,
                         old_rx_bytes: rx_bytes,
@@ -107,10 +107,10 @@ impl NetworksExt for Networks {
                         old_rx_errors: rx_errors,
                         tx_errors,
                         old_tx_errors: tx_errors,
-                        rx_compressed,
-                        old_rx_compressed: rx_compressed,
-                        tx_compressed,
-                        old_tx_compressed: tx_compressed,
+                        // rx_compressed,
+                        // old_rx_compressed: rx_compressed,
+                        // tx_compressed,
+                        // old_tx_compressed: tx_compressed,
                     });
                     old_and_new!(interface, rx_bytes, old_rx_bytes);
                     old_and_new!(interface, tx_bytes, old_tx_bytes);
@@ -118,8 +118,8 @@ impl NetworksExt for Networks {
                     old_and_new!(interface, tx_packets, old_tx_packets);
                     old_and_new!(interface, rx_errors, old_rx_errors);
                     old_and_new!(interface, tx_errors, old_tx_errors);
-                    old_and_new!(interface, rx_compressed, old_rx_compressed);
-                    old_and_new!(interface, tx_compressed, old_tx_compressed);
+                    // old_and_new!(interface, rx_compressed, old_rx_compressed);
+                    // old_and_new!(interface, tx_compressed, old_tx_compressed);
                 }
             }
         }
@@ -149,16 +149,16 @@ pub struct NetworkData {
     /// similar to `rx_errors`
     tx_errors: usize,
     old_tx_errors: usize,
-    /// Indicates the number of compressed packets received by this
-    /// network device. This value might only be relevant for interfaces
-    /// that support packet compression (e.g: PPP).
-    rx_compressed: usize,
-    old_rx_compressed: usize,
-    /// Indicates the number of transmitted compressed packets. Note
-    /// this might only be relevant for devices that support
-    /// compression (e.g: PPP).
-    tx_compressed: usize,
-    old_tx_compressed: usize,
+    // /// Indicates the number of compressed packets received by this
+    // /// network device. This value might only be relevant for interfaces
+    // /// that support packet compression (e.g: PPP).
+    // rx_compressed: usize,
+    // old_rx_compressed: usize,
+    // /// Indicates the number of transmitted compressed packets. Note
+    // /// this might only be relevant for devices that support
+    // /// compression (e.g: PPP).
+    // tx_compressed: usize,
+    // old_tx_compressed: usize,
 }
 
 impl NetworkData {
@@ -190,18 +190,18 @@ impl NetworkData {
             old_tx_errors,
             read(path, "tx_errors", data)
         );
-        old_and_new!(
-            self,
-            rx_compressed,
-            old_rx_compressed,
-            read(path, "rx_compressed", data)
-        );
-        old_and_new!(
-            self,
-            tx_compressed,
-            old_tx_compressed,
-            read(path, "tx_compressed", data)
-        );
+        // old_and_new!(
+        //     self,
+        //     rx_compressed,
+        //     old_rx_compressed,
+        //     read(path, "rx_compressed", data)
+        // );
+        // old_and_new!(
+        //     self,
+        //     tx_compressed,
+        //     old_tx_compressed,
+        //     read(path, "tx_compressed", data)
+        // );
     }
 }
 
