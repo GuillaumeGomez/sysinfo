@@ -11,7 +11,7 @@ use sys::network::Networks;
 use sys::process::*;
 use sys::processor::*;
 
-use {DiskExt, LoadAvg, NetworksExt, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
+use {DiskExt, LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;

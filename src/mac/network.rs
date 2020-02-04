@@ -32,15 +32,9 @@ impl Networks {
             interfaces: HashMap::new(),
         }
     }
-}
-
-impl NetworksExt for Networks {
-    fn iter<'a>(&'a self) -> NetworksIter<'a> {
-        NetworksIter::new(self.interfaces.iter())
-    }
 
     #[allow(clippy::cast_ptr_alignment)]
-    fn refresh_networks_list(&mut self) {
+    fn update_networks(&mut self) {
         let mib = &mut [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0];
         let mut len = 0;
         if unsafe { libc::sysctl(mib.as_mut_ptr(), 6, null_mut(), &mut len, null_mut(), 0) } < 0 {
@@ -92,27 +86,45 @@ impl NetworksExt for Networks {
                         current_in: ibytes,
                         old_out: obytes,
                         current_out: obytes,
+                        updated: true,
                     });
                     interface.old_in = interface.current_in;
                     interface.current_in = ibytes;
                     interface.old_out = interface.current_out;
                     interface.current_out = obytes;
+                    interface.updated = true;
                 }
             }
         }
     }
+}
+
+impl NetworksExt for Networks {
+    fn iter<'a>(&'a self) -> NetworksIter<'a> {
+        NetworksIter::new(self.interfaces.iter())
+    }
+
+    fn refresh_networks_list(&mut self) {
+        for (_, data) in self.interfaces.iter_mut() {
+            data.updated = false;
+        }
+        self.update_networks();
+        self.interfaces.retain(|_, data| data.updated);
+    }
 
     fn refresh(&mut self) {
-        self.refresh_interfaces_list();
+        self.update_networks();
     }
 }
 
 /// Contains network information.
+#[derive(PartialEq, Eq)]
 pub struct NetworkData {
     old_in: u64,
     old_out: u64,
     current_in: u64,
     current_out: u64,
+    updated: bool,
 }
 
 impl NetworkExt for NetworkData {
