@@ -225,9 +225,6 @@ impl SystemExt for System {
             networks: Networks::new(),
             uptime: get_uptime(),
         };
-        if refreshes.networks() {
-            s.networks.refresh_interfaces_list();
-        }
         s.refresh_specifics(refreshes);
         s
     }

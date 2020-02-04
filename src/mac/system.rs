@@ -86,9 +86,6 @@ impl SystemExt for System {
             uptime: get_uptime(),
             port: unsafe { ffi::mach_host_self() },
         };
-        if refreshes.networks() {
-            s.networks.refresh_interfaces_list();
-        }
         s.refresh_specifics(refreshes);
         s
     }

@@ -115,6 +115,7 @@ assert_eq!(r.", stringify!($name), "(), false);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RefreshKind {
     networks: bool,
+    networks_list: bool,
     processes: bool,
     disk_list: bool,
     disks: bool,
@@ -134,6 +135,7 @@ impl RefreshKind {
     /// let r = RefreshKind::new();
     ///
     /// assert_eq!(r.networks(), false);
+    /// assert_eq!(r.networks_list(), false);
     /// assert_eq!(r.processes(), false);
     /// assert_eq!(r.disk_list(), false);
     /// assert_eq!(r.disks(), false);
@@ -163,6 +165,7 @@ impl RefreshKind {
     /// let r = RefreshKind::everything();
     ///
     /// assert_eq!(r.networks(), true);
+    /// assert_eq!(r.networks_list(), true);
     /// assert_eq!(r.processes(), true);
     /// assert_eq!(r.disk_list(), true);
     /// assert_eq!(r.disks(), true);
@@ -173,6 +176,7 @@ impl RefreshKind {
     pub fn everything() -> RefreshKind {
         RefreshKind {
             networks: true,
+            networks_list: true,
             processes: true,
             disks: true,
             disk_list: true,
@@ -183,6 +187,7 @@ impl RefreshKind {
     }
 
     impl_get_set!(networks, with_networks, without_networks);
+    impl_get_set!(networks_list, with_networks_list, without_networks_list);
     impl_get_set!(processes, with_processes, without_processes);
     impl_get_set!(disks, with_disks, without_disks);
     impl_get_set!(disk_list, with_disk_list, without_disk_list);

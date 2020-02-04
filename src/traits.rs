@@ -427,6 +427,9 @@ pub trait SystemExt: Sized {
         if refreshes.temperatures() {
             self.refresh_temperatures();
         }
+        if refreshes.networks_list() {
+            self.refresh_network_interfaces();
+        }
         if refreshes.networks() {
             self.refresh_networks();
         }

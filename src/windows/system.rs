@@ -122,9 +122,6 @@ impl SystemExt for System {
                 }
             }
         }
-        if refreshes.networks() {
-            s.refresh_network_interfaces();
-        }
         s.refresh_specifics(refreshes);
         s
     }
