@@ -49,15 +49,47 @@ impl NetworkExt for NetworkData {
         0
     }
 
-    fn get_outcome(&self) -> u64 {
-        0
-    }
-
     fn get_total_income(&self) -> u64 {
         0
     }
 
+    fn get_outcome(&self) -> u64 {
+        0
+    }
+
     fn get_total_outcome(&self) -> u64 {
+        0
+    }
+
+    fn get_packets_income(&self) -> u64 {
+        0
+    }
+
+    fn get_total_packets_income(&self) -> u64 {
+        0
+    }
+
+    fn get_packets_outcome(&self) -> u64 {
+        0
+    }
+
+    fn get_total_packets_outcome(&self) -> u64 {
+        0
+    }
+
+    fn get_errors_income(&self) -> u64 {
+        0
+    }
+
+    fn get_total_errors_income(&self) -> u64 {
+        0
+    }
+
+    fn get_errors_outcome(&self) -> u64 {
+        0
+    }
+
+    fn get_total_errors_outcome(&self) -> u64 {
         0
     }
 }
