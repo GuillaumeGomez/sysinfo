@@ -377,7 +377,7 @@ impl SystemExt for System {
 
     fn get_load_average(&self) -> LoadAvg {
         let mut s = String::new();
-        if let Err(_) = File::open("/proc/loadavg").and_then(|mut f| f.read_to_string(&mut s)) {
+        if File::open("/proc/loadavg").and_then(|mut f| f.read_to_string(&mut s)).is_err() {
             return LoadAvg::default();
         }
         let loads = s
@@ -599,7 +599,7 @@ fn check_nb_open_files(f: File) -> Option<File> {
         }
     }
     // Something bad happened...
-    return None;
+    None
 }
 
 fn _get_process_data(
@@ -826,6 +826,6 @@ fn get_uptime() -> u64 {
 fn get_secs_since_epoch() -> u64 {
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
         Ok(n) => n.as_secs(),
-        Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+        _ => panic!("SystemTime before UNIX EPOCH!"),
     }
 }

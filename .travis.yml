@@ -55,7 +55,7 @@ script:
   - rustc --version
   - sysctl -a | grep mem
   - if [[ "$TRAVIS_RUST_VERSION" == "nightly" ]]; then
-      (rustup component add clippy-preview && cargo clippy) || touch clippy_install_failed;
+      (rustup component add clippy && cargo clippy) || touch clippy_install_failed;
     fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
       cargo build --features debug;

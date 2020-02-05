@@ -121,7 +121,7 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
         if _new_limit > max {
             _new_limit = max;
         }
-        return if let Ok(ref mut x) = unsafe { sys::system::REMAINING_FILES.lock() } {
+        if let Ok(ref mut x) = unsafe { sys::system::REMAINING_FILES.lock() } {
             // If files are already open, to be sure that the number won't be bigger when those
             // files are closed, we subtract the current number of opened files to the new limit.
             let diff = max - **x;
@@ -129,11 +129,11 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
             true
         } else {
             false
-        };
+        }
     }
     #[cfg(any(not(unix), target_os = "macos"))]
     {
-        return false;
+        false
     }
 }
 

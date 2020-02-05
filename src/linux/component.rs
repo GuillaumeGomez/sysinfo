@@ -71,7 +71,7 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                                     parts
                                         .next()
                                         .map(|s| format!("_{}", s))
-                                        .unwrap_or_else(|| String::new()),
+                                        .unwrap_or_else(String::new),
                                 );
                         }
                     }
@@ -93,14 +93,14 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                     _ => {}
                 }
             }
-            if found_label.is_some() && found_input.is_some() {
+            if let (Some(_), Some(found_input)) = (found_label, found_input) {
                 let mut p_label = folder.to_path_buf();
                 let mut p_input = folder.to_path_buf();
                 let mut p_crit = folder.to_path_buf();
                 let mut p_max = folder.to_path_buf();
 
                 p_label.push(&format!("temp{}_label", key));
-                p_input.push(&format!("temp{}{}", key, val[found_input.unwrap()]));
+                p_input.push(&format!("temp{}{}", key, val[found_input]));
                 p_max.push(&format!("temp{}_max", key));
                 p_crit.push(&format!("temp{}_crit", key));
                 if is_file(&p_input) {
