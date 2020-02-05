@@ -131,14 +131,14 @@ pub extern "C" fn sysinfo_refresh_disks(system: CSystem) {
     Box::into_raw(system);
 }
 
-/// Equivalent of `System::refresh_disk_list()`.
+/// Equivalent of `System::refresh_disks_list()`.
 #[no_mangle]
-pub extern "C" fn sysinfo_refresh_disk_list(system: CSystem) {
+pub extern "C" fn sysinfo_refresh_disks_list(system: CSystem) {
     assert!(!system.is_null());
     let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     {
         let system: &mut System = system.borrow_mut();
-        system.refresh_disk_list();
+        system.refresh_disks_list();
     }
     Box::into_raw(system);
 }
