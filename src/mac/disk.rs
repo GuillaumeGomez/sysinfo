@@ -114,7 +114,7 @@ macro_rules! unwrapper {
 }
 
 static DISK_TYPES: once_cell::sync::Lazy<HashMap<OsString, DiskType>> =
-    once_cell::sync::Lazy::new(|| get_disk_types());
+    once_cell::sync::Lazy::new(get_disk_types);
 
 fn get_disk_types() -> HashMap<OsString, DiskType> {
     let mut master_port: ffi::mach_port_t = 0;
