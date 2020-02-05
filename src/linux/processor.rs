@@ -230,7 +230,7 @@ pub fn get_raw_times(p: &Processor) -> (u64, u64) {
 pub fn get_cpu_frequency() -> u64 {
     // /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq
     let mut s = String::new();
-    if let Err(_) = File::open("/proc/cpuinfo").and_then(|mut f| f.read_to_string(&mut s)) {
+    if File::open("/proc/cpuinfo").and_then(|mut f| f.read_to_string(&mut s)).is_err() {
         return 0;
     }
 
@@ -251,7 +251,7 @@ pub fn get_cpu_frequency() -> u64 {
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
 pub fn get_vendor_id_and_brand() -> (String, String) {
     let mut s = String::new();
-    if let Err(_) = File::open("/proc/cpuinfo").and_then(|mut f| f.read_to_string(&mut s)) {
+    if File::open("/proc/cpuinfo").and_then(|mut f| f.read_to_string(&mut s)).is_err() {
         return (String::new(), String::new());
     }
 
