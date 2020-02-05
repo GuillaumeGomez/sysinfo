@@ -114,12 +114,24 @@ impl NetworksExt for Networks {
                     .or_insert_with(|| NetworkData {
                         id: ptr.InterfaceLuid,
                         current_out: ptr.OutOctets,
-                        old_out: ptr.OutOctets,
+                        old_out: 0,
                         current_in: ptr.InOctets,
-                        old_in: ptr.InOctets,
+                        old_in: 0,
+                        packets_in: ptr.InUcastPkts + ptr.InNUcastPkts,
+                        old_packets_in: 0,
+                        packets_out: ptr.OutUcastPkts + ptr.OutNUcastPkts,
+                        old_packets_out: 0,
+                        errors_in: ptr.InErrors,
+                        old_errors_in: 0,
+                        errors_out: ptr.OutErrors,
+                        old_errors_out: 0,
                     });
             old_and_new!(interface, current_out, old_out, ptr.OutOctets);
             old_and_new!(interface, current_in, old_in, ptr.InOctets);
+            old_and_new!(interface, packets_in, old_packets_in, ptr.InUcastPkts + ptr.InNUcastPkts);
+            old_and_new!(interface, packets_out, old_packets_out, ptr.OutUcastPkts + ptr.OutNUcastPkts);
+            old_and_new!(interface, errors_in, old_errors_in, ptr.InErrors);
+            old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
         }
         unsafe {
             ffi::FreeMibTable(table as _);
@@ -139,6 +151,10 @@ impl NetworksExt for Networks {
             }
             old_and_new!(interface, current_out, old_out, entry.OutOctets);
             old_and_new!(interface, current_in, old_in, entry.InOctets);
+            old_and_new!(interface, packets_in, old_packets_in, entry.InUcastPkts + entry.InNUcastPkts);
+            old_and_new!(interface, packets_out, old_packets_out, entry.OutUcastPkts + entry.OutNUcastPkts);
+            old_and_new!(interface, errors_in, old_errors_in, entry.InErrors);
+            old_and_new!(interface, errors_out, old_errors_out, entry.OutErrors);
         }
     }
 }
@@ -150,6 +166,14 @@ pub struct NetworkData {
     old_out: u64,
     current_in: u64,
     old_in: u64,
+    packets_in: u64,
+    old_packets_in: u64,
+    packets_out: u64,
+    old_packets_out: u64,
+    errors_in: u64,
+    old_errors_in: u64,
+    errors_out: u64,
+    old_errors_out: u64,
 }
 
 impl NetworkExt for NetworkData {
@@ -157,15 +181,47 @@ impl NetworkExt for NetworkData {
         self.current_in - self.old_in
     }
 
-    fn get_outcome(&self) -> u64 {
-        self.current_out - self.old_out
-    }
-
     fn get_total_income(&self) -> u64 {
         self.current_in
     }
 
+    fn get_outcome(&self) -> u64 {
+        self.current_out - self.old_out
+    }
+
     fn get_total_outcome(&self) -> u64 {
         self.current_out
+    }
+
+    fn get_packets_income(&self) -> u64 {
+        self.packets_in - self.old_packets_in
+    }
+
+    fn get_total_packets_income(&self) -> u64 {
+        self.packets_in
+    }
+
+    fn get_packets_outcome(&self) -> u64 {
+        self.packets_out - self.old_packets_out
+    }
+
+    fn get_total_packets_outcome(&self) -> u64 {
+        self.packets_out
+    }
+
+    fn get_errors_income(&self) -> u64 {
+        self.errors_in - self.old_errors_in
+    }
+
+    fn get_total_errors_income(&self) -> u64 {
+        self.errors_in
+    }
+
+    fn get_errors_outcome(&self) -> u64 {
+        self.errors_out - self.old_errors_out
+    }
+
+    fn get_total_errors_outcome(&self) -> u64 {
+        self.errors_out
     }
 }
