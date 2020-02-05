@@ -6,11 +6,12 @@
 
 use sys::component::{self, Component};
 use sys::disk;
-use sys::network;
 use sys::process::*;
 use sys::processor::*;
-use sys::Disk;
-use sys::NetworkData;
+
+use Disk;
+use LoadAvg;
+use Networks;
 use Pid;
 use {DiskExt, ProcessExt, RefreshKind, SystemExt};
 
@@ -106,7 +107,7 @@ pub struct System {
     page_size_kb: u64,
     temperatures: Vec<Component>,
     disks: Vec<Disk>,
-    network: NetworkData,
+    networks: Networks,
     uptime: u64,
 }
 
@@ -132,12 +133,64 @@ impl System {
     }
 
     fn refresh_processors(&mut self, limit: Option<u32>) {
+        fn get_callbacks(
+            first: bool,
+        ) -> Box<dyn Fn(&mut dyn Iterator<Item = &[u8]>, &mut Vec<Processor>, &mut usize)> {
+            if first {
+                let frequency = get_cpu_frequency();
+                let (vendor_id, brand) = get_vendor_id_and_brand();
+                Box::new(
+                    move |parts: &mut dyn Iterator<Item = &[u8]>,
+                          processors: &mut Vec<Processor>,
+                          _| {
+                        processors.push(Processor::new_with_values(
+                            to_str!(parts.next().unwrap_or(&[])),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            frequency,
+                            vendor_id.clone(),
+                            brand.clone(),
+                        ));
+                    },
+                )
+            } else {
+                Box::new(
+                    |parts: &mut dyn Iterator<Item = &[u8]>,
+                     processors: &mut Vec<Processor>,
+                     i: &mut usize| {
+                        parts.next(); // we don't want the name again
+                        processors[*i].set(
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        );
+                        *i += 1;
+                    },
+                )
+            }
+        }
         if let Ok(f) = File::open("/proc/stat") {
             let buf = BufReader::new(f);
             let mut i = 0;
             let first = self.processors.is_empty();
             let mut it = buf.split(b'\n');
             let mut count = 0;
+            let callback = get_callbacks(first);
 
             while let Some(Ok(line)) = it.next() {
                 if &line[..3] != b"cpu" {
@@ -146,37 +199,7 @@ impl System {
 
                 count += 1;
                 let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
-                if first {
-                    self.processors.push(new_processor(
-                        to_str!(parts.next().unwrap_or(&[])),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    ));
-                } else {
-                    parts.next(); // we don't want the name again
-                    set_processor(
-                        &mut self.processors[i],
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    );
-                    i += 1;
-                }
+                callback(&mut parts, &mut self.processors, &mut i);
                 if let Some(limit) = limit {
                     if count >= limit {
                         break;
@@ -199,7 +222,7 @@ impl SystemExt for System {
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
             temperatures: component::get_components(),
             disks: Vec::with_capacity(2),
-            network: network::new(),
+            networks: Networks::new(),
             uptime: get_uptime(),
         };
         s.refresh_specifics(refreshes);
@@ -287,12 +310,8 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_disk_list(&mut self) {
+    fn refresh_disks_list(&mut self) {
         self.disks = get_all_disks();
-    }
-
-    fn refresh_network(&mut self) {
-        network::update_network(&mut self.network);
     }
 
     // COMMON PART
@@ -307,8 +326,12 @@ impl SystemExt for System {
         self.process_list.tasks.get(&pid)
     }
 
-    fn get_network(&self) -> &NetworkData {
-        &self.network
+    fn get_networks(&self) -> &Networks {
+        &self.networks
+    }
+
+    fn get_networks_mut(&mut self) -> &mut Networks {
+        &mut self.networks
     }
 
     fn get_processor_list(&self) -> &[Processor] {
@@ -350,6 +373,24 @@ impl SystemExt for System {
 
     fn get_uptime(&self) -> u64 {
         self.uptime
+    }
+
+    fn get_load_average(&self) -> LoadAvg {
+        let mut s = String::new();
+        if let Err(_) = File::open("/proc/loadavg").and_then(|mut f| f.read_to_string(&mut s)) {
+            return LoadAvg::default();
+        }
+        let loads = s
+            .trim()
+            .split(' ')
+            .take(3)
+            .map(|val| val.parse::<f64>().unwrap())
+            .collect::<Vec<f64>>();
+        LoadAvg {
+            one: loads[0],
+            five: loads[1],
+            fifteen: loads[2],
+        }
     }
 }
 

@@ -4,6 +4,10 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use NetworkData;
+use Networks;
+use NetworksExt;
+
 /// Trait to have a common fallback for the `Pid` type.
 pub trait AsU32 {
     /// Allows to convert `Pid` into `u32`.
@@ -105,16 +109,17 @@ assert_eq!(r.", stringify!($name), "(), false);
 /// use sysinfo::{RefreshKind, System, SystemExt};
 ///
 /// // We want everything except disks.
-/// let mut system = System::new_with_specifics(RefreshKind::everything().without_disk_list());
+/// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
 ///
 /// assert_eq!(system.get_disks().len(), 0);
 /// assert!(system.get_process_list().len() > 0);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RefreshKind {
-    network: bool,
+    networks: bool,
+    networks_list: bool,
     processes: bool,
-    disk_list: bool,
+    disks_list: bool,
     disks: bool,
     memory: bool,
     cpu: bool,
@@ -131,9 +136,10 @@ impl RefreshKind {
     ///
     /// let r = RefreshKind::new();
     ///
-    /// assert_eq!(r.network(), false);
+    /// assert_eq!(r.networks(), false);
+    /// assert_eq!(r.networks_list(), false);
     /// assert_eq!(r.processes(), false);
-    /// assert_eq!(r.disk_list(), false);
+    /// assert_eq!(r.disks_list(), false);
     /// assert_eq!(r.disks(), false);
     /// assert_eq!(r.memory(), false);
     /// assert_eq!(r.cpu(), false);
@@ -141,10 +147,11 @@ impl RefreshKind {
     /// ```
     pub fn new() -> RefreshKind {
         RefreshKind {
-            network: false,
+            networks: false,
+            networks_list: false,
             processes: false,
             disks: false,
-            disk_list: false,
+            disks_list: false,
             memory: false,
             cpu: false,
             temperatures: false,
@@ -160,9 +167,10 @@ impl RefreshKind {
     ///
     /// let r = RefreshKind::everything();
     ///
-    /// assert_eq!(r.network(), true);
+    /// assert_eq!(r.networks(), true);
+    /// assert_eq!(r.networks_list(), true);
     /// assert_eq!(r.processes(), true);
-    /// assert_eq!(r.disk_list(), true);
+    /// assert_eq!(r.disks_list(), true);
     /// assert_eq!(r.disks(), true);
     /// assert_eq!(r.memory(), true);
     /// assert_eq!(r.cpu(), true);
@@ -170,21 +178,51 @@ impl RefreshKind {
     /// ```
     pub fn everything() -> RefreshKind {
         RefreshKind {
-            network: true,
+            networks: true,
+            networks_list: true,
             processes: true,
             disks: true,
-            disk_list: true,
+            disks_list: true,
             memory: true,
             cpu: true,
             temperatures: true,
         }
     }
 
-    impl_get_set!(network, with_network, without_network);
+    impl_get_set!(networks, with_networks, without_networks);
+    impl_get_set!(networks_list, with_networks_list, without_networks_list);
     impl_get_set!(processes, with_processes, without_processes);
     impl_get_set!(disks, with_disks, without_disks);
-    impl_get_set!(disk_list, with_disk_list, without_disk_list);
+    impl_get_set!(disks_list, with_disks_list, without_disks_list);
     impl_get_set!(memory, with_memory, without_memory);
     impl_get_set!(cpu, with_cpu, without_cpu);
     impl_get_set!(temperatures, with_temperatures, without_temperatures);
+}
+
+/// Iterator over network interfaces.
+pub struct NetworksIter<'a> {
+    inner: std::collections::hash_map::Iter<'a, String, NetworkData>,
+}
+
+impl<'a> NetworksIter<'a> {
+    pub(crate) fn new(v: std::collections::hash_map::Iter<'a, String, NetworkData>) -> Self {
+        NetworksIter { inner: v }
+    }
+}
+
+impl<'a> Iterator for NetworksIter<'a> {
+    type Item = (&'a String, &'a NetworkData);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+}
+
+impl<'a> IntoIterator for &'a Networks {
+    type Item = (&'a String, &'a NetworkData);
+    type IntoIter = NetworksIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
 }

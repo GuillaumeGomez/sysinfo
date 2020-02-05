@@ -25,7 +25,12 @@ mod tests {
     #[test]
     fn test_refresh_process() {
         let mut sys = System::new();
-        assert!(sys.refresh_process(utils::get_current_pid().expect("failed to get current pid")));
+        assert!(sys.get_process_list().is_empty(), "no process should be listed!");
+        sys.refresh_processes();
+        assert!(
+            sys.refresh_process(utils::get_current_pid().expect("failed to get current pid")),
+            "process not listed",
+        );
     }
 
     #[test]

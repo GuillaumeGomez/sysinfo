@@ -4,6 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use libc::c_char;
 use std::ops::Deref;
 use std::sync::Arc;
 use sys::ffi;
@@ -54,15 +55,40 @@ pub struct Processor {
     name: String,
     cpu_usage: f32,
     processor_data: Arc<ProcessorData>,
+    frequency: u64,
+    vendor_id: String,
+    brand: String,
 }
 
 impl Processor {
-    fn new(name: String, processor_data: Arc<ProcessorData>) -> Processor {
+    pub(crate) fn new(
+        name: String,
+        processor_data: Arc<ProcessorData>,
+        frequency: u64,
+        vendor_id: String,
+        brand: String,
+    ) -> Processor {
         Processor {
             name,
             cpu_usage: 0f32,
             processor_data,
+            frequency,
+            vendor_id,
+            brand,
         }
+    }
+
+    pub(crate) fn set_cpu_usage(&mut self, cpu_usage: f32) {
+        self.cpu_usage = cpu_usage;
+    }
+
+    pub(crate) fn update(&mut self, cpu_usage: f32, processor_data: Arc<ProcessorData>) {
+        self.cpu_usage = cpu_usage;
+        self.processor_data = processor_data;
+    }
+
+    pub(crate) fn get_data(&self) -> Arc<ProcessorData> {
+        Arc::clone(&self.processor_data)
     }
 }
 
@@ -74,25 +100,75 @@ impl ProcessorExt for Processor {
     fn get_name(&self) -> &str {
         &self.name
     }
+
+    /// Returns the processor frequency in MHz.
+    fn get_frequency(&self) -> u64 {
+        self.frequency
+    }
+
+    fn get_vendor_id(&self) -> &str {
+        &self.vendor_id
+    }
+
+    fn get_brand(&self) -> &str {
+        &self.brand
+    }
 }
 
-pub fn set_cpu_usage(p: &mut Processor, usage: f32) {
-    p.cpu_usage = usage;
+pub fn get_cpu_frequency() -> u64 {
+    let mut speed: u64 = 0;
+    let mut len = std::mem::size_of::<u64>();
+    unsafe {
+        ffi::sysctlbyname(
+            b"hw.cpufrequency\0".as_ptr() as *const c_char,
+            &mut speed as *mut _ as _,
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        );
+    }
+    speed /= 1000000;
+    speed
 }
 
-pub fn create_proc(name: String, processor_data: Arc<ProcessorData>) -> Processor {
-    Processor::new(name, processor_data)
+fn get_sysctl_str(s: &[u8]) -> String {
+    let mut len = 0;
+
+    unsafe {
+        ffi::sysctlbyname(
+            s.as_ptr() as *const c_char,
+            std::ptr::null_mut(),
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        );
+    }
+    if len < 1 {
+        return String::new();
+    }
+    let mut buf = Vec::with_capacity(len);
+    unsafe {
+        ffi::sysctlbyname(
+            s.as_ptr() as *const c_char,
+            buf.as_mut_ptr() as _,
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        );
+    }
+    if len > 0 {
+        unsafe {
+            buf.set_len(len);
+        }
+        String::from_utf8(buf).unwrap_or_else(|_| String::new())
+    } else {
+        String::new()
+    }
 }
 
-pub fn update_proc(p: &mut Processor, cpu_usage: f32, processor_data: Arc<ProcessorData>) {
-    p.cpu_usage = cpu_usage;
-    p.processor_data = processor_data;
-}
-
-pub fn set_cpu_proc(p: &mut Processor, cpu_usage: f32) {
-    p.cpu_usage = cpu_usage;
-}
-
-pub fn get_processor_data(p: &Processor) -> Arc<ProcessorData> {
-    Arc::clone(&p.processor_data)
+pub fn get_vendor_id_and_brand() -> (String, String) {
+    (
+        get_sysctl_str(b"machdep.cpu.brand_string\0"),
+        get_sysctl_str(b"machdep.cpu.vendor\0"),
+    )
 }

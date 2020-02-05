@@ -16,16 +16,14 @@ build = "build.rs"
 cfg-if = "0.1"
 rayon = "^1.0"
 doc-comment = "0.3"
+once_cell = "1.0"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["fileapi", "handleapi", "ioapiset", "minwindef", "pdh", "psapi", "synchapi", "sysinfoapi", "winbase", "winerror", "winioctl", "winnt", "oleauto", "wbemcli", "rpcdce", "combaseapi", "objidl", "objbase"] }
+winapi = { version = "0.3", features = ["fileapi", "handleapi", "ifdef", "ioapiset", "minwindef", "pdh", "psapi", "synchapi", "sysinfoapi", "winbase", "winerror", "winioctl", "winnt", "oleauto", "wbemcli", "rpcdce", "combaseapi", "objidl", "objbase", "powerbase", "netioapi"] }
 ntapi = "0.3"
 
 [target.'cfg(not(any(target_os = "unknown", target_arch = "wasm32")))'.dependencies]
 libc = "0.2"
-
-[target.'cfg(unix)'.dependencies]
-once_cell = "1.0"
 
 [lib]
 name = "sysinfo"

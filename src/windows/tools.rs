@@ -4,7 +4,7 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use windows::processor::{create_processor, CounterValue, Processor, Query};
+use windows::processor::{self, CounterValue, Processor, Query};
 
 use sys::disk::{new_disk, Disk, DiskType};
 
@@ -44,56 +44,25 @@ impl KeyHandler {
     }
 }
 
-/*#[allow(non_snake_case)]
-#[allow(unused)]
-unsafe fn browser() {
-    use winapi::um::pdh::{PdhBrowseCountersA, PDH_BROWSE_DLG_CONFIG_A};
-    use winapi::shared::winerror::ERROR_SUCCESS;
-
-    let mut BrowseDlgData: PDH_BROWSE_DLG_CONFIG_A = ::std::mem::zeroed();
-    let mut CounterPathBuffer: [i8; 255] = ::std::mem::zeroed();
-    const PERF_DETAIL_WIZARD: u32 = 400;
-    let text = b"Select a counter to monitor.\0";
-
-    BrowseDlgData.set_IncludeInstanceIndex(FALSE as u32);
-    BrowseDlgData.set_SingleCounterPerAdd(TRUE as u32);
-    BrowseDlgData.set_SingleCounterPerDialog(TRUE as u32);
-    BrowseDlgData.set_LocalCountersOnly(FALSE as u32);
-    BrowseDlgData.set_WildCardInstances(TRUE as u32);
-    BrowseDlgData.set_HideDetailBox(TRUE as u32);
-    BrowseDlgData.set_InitializePath(FALSE as u32);
-    BrowseDlgData.set_DisableMachineSelection(FALSE as u32);
-    BrowseDlgData.set_IncludeCostlyObjects(FALSE as u32);
-    BrowseDlgData.set_ShowObjectBrowser(FALSE as u32);
-    BrowseDlgData.hWndOwner = ::std::ptr::null_mut();
-    BrowseDlgData.szReturnPathBuffer = CounterPathBuffer.as_mut_ptr();
-    BrowseDlgData.cchReturnPathLength = 255;
-    BrowseDlgData.pCallBack = None;
-    BrowseDlgData.dwCallBackArg = 0;
-    BrowseDlgData.CallBackStatus = ERROR_SUCCESS as i32;
-    BrowseDlgData.dwDefaultDetailLevel = PERF_DETAIL_WIZARD;
-    BrowseDlgData.szDialogBoxCaption = text as *const _ as usize as *mut i8;
-    let ret = PdhBrowseCountersA(&mut BrowseDlgData as *mut _);
-    println!("browser: {:?}", ret);
-    for x in CounterPathBuffer.iter() {
-        print!("{:?} ", *x);
-    }
-    println!("");
-    for x in 0..256 {
-        print!("{:?} ", *BrowseDlgData.szReturnPathBuffer.offset(x));
-    }
-    println!("");
-}*/
-
 pub fn init_processors() -> Vec<Processor> {
     unsafe {
         let mut sys_info: SYSTEM_INFO = zeroed();
         GetSystemInfo(&mut sys_info);
+        let (vendor_id, brand) = processor::get_vendor_id_and_brand(&sys_info);
+        let frequencies = processor::get_frequencies(sys_info.dwNumberOfProcessors as usize);
         let mut ret = Vec::with_capacity(sys_info.dwNumberOfProcessors as usize + 1);
         for nb in 0..sys_info.dwNumberOfProcessors {
-            ret.push(create_processor(&format!("CPU {}", nb + 1)));
+            ret.push(Processor::new_with_values(
+                &format!("CPU {}", nb + 1),
+                vendor_id.clone(),
+                brand.clone(),
+                frequencies[nb as usize],
+            ));
         }
-        ret.insert(0, create_processor("Total CPU"));
+        ret.insert(
+            0,
+            Processor::new_with_values("Total CPU", vendor_id, brand, 0),
+        );
         ret
     }
 }

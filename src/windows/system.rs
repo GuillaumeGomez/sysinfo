@@ -13,12 +13,13 @@ use std::collections::HashMap;
 use std::mem::{size_of, zeroed};
 
 use DiskExt;
+use LoadAvg;
+use Networks;
 use Pid;
 use ProcessExt;
 use RefreshKind;
 use SystemExt;
 
-use windows::network::{self, NetworkData};
 use windows::process::{
     compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process,
 };
@@ -28,12 +29,10 @@ use windows::tools::*;
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemProcessInformation, SYSTEM_PROCESS_INFORMATION,
 };
-use winapi::shared::minwindef::{DWORD, FALSE};
+use winapi::shared::minwindef::FALSE;
 use winapi::shared::ntdef::{PVOID, ULONG};
 use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
-use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::minwinbase::STILL_ACTIVE;
-use winapi::um::pdh::PdhEnumObjectItemsW;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
 use winapi::um::sysinfoapi::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
 use winapi::um::winnt::HANDLE;
@@ -51,7 +50,7 @@ pub struct System {
     temperatures: Vec<Component>,
     disks: Vec<Disk>,
     query: Option<Query>,
-    network: NetworkData,
+    networks: Networks,
     uptime: u64,
 }
 
@@ -74,7 +73,7 @@ impl SystemExt for System {
             temperatures: component::get_components(),
             disks: Vec::with_capacity(2),
             query: Query::new(),
-            network: network::new(),
+            networks: Networks::new(),
             uptime: get_uptime(),
         };
         // TODO: in case a translation fails, it might be nice to log it somewhere...
@@ -122,101 +121,6 @@ impl SystemExt for System {
                     }
                 }
             }
-
-            if let Some(network_trans) = get_translation(&"Network Interface".to_owned(), &x) {
-                let network_in_trans = get_translation(&"Bytes Received/Sec".to_owned(), &x);
-                let network_out_trans = get_translation(&"Bytes Sent/sec".to_owned(), &x);
-
-                const PERF_DETAIL_WIZARD: DWORD = 400;
-                const PDH_MORE_DATA: DWORD = 0x800007D2;
-
-                let mut network_trans_utf16: Vec<u16> = network_trans.encode_utf16().collect();
-                network_trans_utf16.push(0);
-                let mut dwCounterListSize: DWORD = 0;
-                let mut dwInstanceListSize: DWORD = 0;
-                let status = unsafe {
-                    PdhEnumObjectItemsW(
-                        ::std::ptr::null(),
-                        ::std::ptr::null(),
-                        network_trans_utf16.as_ptr(),
-                        ::std::ptr::null_mut(),
-                        &mut dwCounterListSize,
-                        ::std::ptr::null_mut(),
-                        &mut dwInstanceListSize,
-                        PERF_DETAIL_WIZARD,
-                        0,
-                    )
-                };
-                if status != PDH_MORE_DATA as i32 {
-                    eprintln!("PdhEnumObjectItems invalid status: {:x}", status);
-                } else {
-                    let mut pwsCounterListBuffer: Vec<u16> =
-                        Vec::with_capacity(dwCounterListSize as usize);
-                    let mut pwsInstanceListBuffer: Vec<u16> =
-                        Vec::with_capacity(dwInstanceListSize as usize);
-                    unsafe {
-                        pwsCounterListBuffer.set_len(dwCounterListSize as usize);
-                        pwsInstanceListBuffer.set_len(dwInstanceListSize as usize);
-                    }
-                    let status = unsafe {
-                        PdhEnumObjectItemsW(
-                            ::std::ptr::null(),
-                            ::std::ptr::null(),
-                            network_trans_utf16.as_ptr(),
-                            pwsCounterListBuffer.as_mut_ptr(),
-                            &mut dwCounterListSize,
-                            pwsInstanceListBuffer.as_mut_ptr(),
-                            &mut dwInstanceListSize,
-                            PERF_DETAIL_WIZARD,
-                            0,
-                        )
-                    };
-                    if status != ERROR_SUCCESS as i32 {
-                        eprintln!("PdhEnumObjectItems invalid status: {:x}", status);
-                    } else {
-                        for (pos, x) in pwsInstanceListBuffer
-                            .split(|x| *x == 0)
-                            .filter(|x| x.len() > 0)
-                            .enumerate()
-                        {
-                            let net_interface = String::from_utf16(x).expect("invalid utf16");
-                            if let Some(ref network_in_trans) = network_in_trans {
-                                let mut key_in = None;
-                                add_counter(
-                                    format!(
-                                        "\\{}({})\\{}",
-                                        network_trans, net_interface, network_in_trans
-                                    ),
-                                    query,
-                                    &mut key_in,
-                                    format!("net{}_in", pos),
-                                    CounterValue::Integer(0),
-                                );
-                                if key_in.is_some() {
-                                    network::get_keys_in(&mut s.network).push(key_in.unwrap());
-                                }
-                            }
-                            if let Some(ref network_out_trans) = network_out_trans {
-                                let mut key_out = None;
-                                add_counter(
-                                    format!(
-                                        "\\{}({})\\{}",
-                                        network_trans, net_interface, network_out_trans
-                                    ),
-                                    query,
-                                    &mut key_out,
-                                    format!("net{}_out", pos),
-                                    CounterValue::Integer(0),
-                                );
-                                if key_out.is_some() {
-                                    network::get_keys_out(&mut s.network).push(key_out.unwrap());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            query.start();
         }
         s.refresh_specifics(refreshes);
         s
@@ -231,7 +135,7 @@ impl SystemExt for System {
                     idle_time = Some(query.get(&key_idle.unique_id).expect("key disappeared"));
                 }
                 if let Some(idle_time) = idle_time {
-                    set_cpu_usage(p, 1. - idle_time);
+                    p.set_cpu_usage(1. - idle_time);
                 }
             }
         }
@@ -250,16 +154,21 @@ impl SystemExt for System {
         }
     }
 
+    /// Refresh components' temperature.
+    ///
     /// Please note that on Windows, you need to have Administrator priviledges to get this
     /// information.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new();
+    /// s.refresh_temperatures();
+    /// ```
     fn refresh_temperatures(&mut self) {
         for component in &mut self.temperatures {
             component.refresh();
         }
-    }
-
-    fn refresh_network(&mut self) {
-        network::refresh(&mut self.network, &self.query);
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
@@ -379,7 +288,7 @@ impl SystemExt for System {
         });
     }
 
-    fn refresh_disk_list(&mut self) {
+    fn refresh_disks_list(&mut self) {
         self.disks = unsafe { get_disks() };
     }
 
@@ -427,12 +336,20 @@ impl SystemExt for System {
         &self.disks[..]
     }
 
-    fn get_network(&self) -> &NetworkData {
-        &self.network
+    fn get_networks(&self) -> &Networks {
+        &self.networks
+    }
+
+    fn get_networks_mut(&mut self) -> &mut Networks {
+        &mut self.networks
     }
 
     fn get_uptime(&self) -> u64 {
         self.uptime
+    }
+
+    fn get_load_average(&self) -> LoadAvg {
+        get_load_average()
     }
 }
 

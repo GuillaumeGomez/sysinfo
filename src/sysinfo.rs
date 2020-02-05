@@ -78,9 +78,13 @@ cfg_if! {
     }
 }
 
-pub use common::{AsU32, Pid, RefreshKind};
-pub use sys::{Component, Disk, DiskType, NetworkData, Process, ProcessStatus, Processor, System};
-pub use traits::{ComponentExt, DiskExt, NetworkExt, ProcessExt, ProcessorExt, SystemExt};
+pub use common::{AsU32, NetworksIter, Pid, RefreshKind};
+pub use sys::{
+    Component, Disk, DiskType, NetworkData, Networks, Process, ProcessStatus, Processor, System,
+};
+pub use traits::{
+    ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt,
+};
 
 #[cfg(feature = "c-interface")]
 pub use c_interface::*;
@@ -102,26 +106,26 @@ mod utils;
 /// a maximum number of files open equivalent to half of the system limit.
 ///
 /// The problem is that some users might need all the available file descriptors so we need to
-/// allow them to change this limit. Reducing 
+/// allow them to change this limit. Reducing
 ///
 /// Note that if you set a limit bigger than the system limit, the system limit will be set.
 ///
 /// Returns `true` if the new value has been set.
-pub fn set_open_files_limit(mut new_limit: isize) -> bool {
+pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
     #[cfg(all(not(target_os = "macos"), unix))]
     {
-        if new_limit < 0 {
-            new_limit = 0;
+        if _new_limit < 0 {
+            _new_limit = 0;
         }
         let max = sys::system::get_max_nb_fds();
-        if new_limit > max {
-            new_limit = max;
+        if _new_limit > max {
+            _new_limit = max;
         }
         return if let Ok(ref mut x) = unsafe { sys::system::REMAINING_FILES.lock() } {
             // If files are already open, to be sure that the number won't be bigger when those
             // files are closed, we subtract the current number of opened files to the new limit.
             let diff = max - **x;
-            **x = new_limit - diff;
+            **x = _new_limit - diff;
             true
         } else {
             false
@@ -205,9 +209,21 @@ pub enum Signal {
     Sys = 31,
 }
 
+/// A struct represents system load average value.
+#[repr(C)]
+#[derive(Default, Debug, Clone)]
+pub struct LoadAvg {
+    /// Average load within one minute.
+    pub one: f64,
+    /// Average load within five minutes.
+    pub five: f64,
+    /// Average load within fifteen minutes.
+    pub fifteen: f64,
+}
+
 #[cfg(test)]
 mod test {
-    use traits::{ProcessExt, SystemExt};
+    use super::*;
 
     #[test]
     fn check_memory_usage() {

@@ -7,17 +7,16 @@
 use sys::component::Component;
 use sys::disk::Disk;
 use sys::ffi;
-use sys::network::{self, NetworkData};
+use sys::network::Networks;
 use sys::process::*;
 use sys::processor::*;
 
-use {DiskExt, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
+use {DiskExt, LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
-use sys::processor;
 
 use libc::{self, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
@@ -35,7 +34,7 @@ pub struct System {
     temperatures: Vec<Component>,
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
-    network: NetworkData,
+    networks: Networks,
     uptime: u64,
     port: ffi::mach_port_t,
 }
@@ -83,7 +82,7 @@ impl SystemExt for System {
             temperatures: Vec::with_capacity(2),
             connection: get_io_service_connection(),
             disks: Vec::with_capacity(1),
-            network: network::new(),
+            networks: Networks::new(),
             uptime: get_uptime(),
             port: unsafe { ffi::mach_host_self() },
         };
@@ -183,6 +182,8 @@ impl SystemExt for System {
 
             if self.processors.is_empty() {
                 let mut num_cpu = 0;
+                let (vendor_id, brand) = get_vendor_id_and_brand();
+                let frequency = get_cpu_frequency();
 
                 if !get_sys_value(
                     ffi::CTL_HW,
@@ -194,9 +195,12 @@ impl SystemExt for System {
                     num_cpu = 1;
                 }
 
-                self.processors.push(processor::create_proc(
+                self.processors.push(Processor::new(
                     "0".to_owned(),
                     Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0)),
+                    frequency,
+                    vendor_id.clone(),
+                    brand.clone(),
                 ));
                 if ffi::host_processor_info(
                     self.port,
@@ -208,8 +212,13 @@ impl SystemExt for System {
                 {
                     let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
                     for i in 0..num_cpu {
-                        let mut p =
-                            processor::create_proc(format!("{}", i + 1), Arc::clone(&proc_data));
+                        let mut p = Processor::new(
+                            format!("{}", i + 1),
+                            Arc::clone(&proc_data),
+                            frequency,
+                            vendor_id.clone(),
+                            brand.clone(),
+                        );
                         let in_use = *cpu_info.offset(
                             (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize,
                         ) + *cpu_info.offset(
@@ -221,7 +230,7 @@ impl SystemExt for System {
                             + *cpu_info.offset(
                                 (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
                             );
-                        processor::set_cpu_proc(&mut p, in_use as f32 / total as f32);
+                        p.set_cpu_usage(in_use as f32 / total as f32);
                         self.processors.push(p);
                     }
                 }
@@ -236,7 +245,7 @@ impl SystemExt for System {
                 let mut pourcent = 0f32;
                 let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
                 for (i, proc_) in self.processors.iter_mut().skip(1).enumerate() {
-                    let old_proc_data = &*processor::get_processor_data(proc_);
+                    let old_proc_data = &*proc_.get_data();
                     let in_use =
                         (*cpu_info.offset(
                             (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize,
@@ -257,25 +266,17 @@ impl SystemExt for System {
                         ) - *old_proc_data.cpu_info.offset(
                             (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
                         ));
-                    processor::update_proc(
-                        proc_,
-                        in_use as f32 / total as f32,
-                        Arc::clone(&proc_data),
-                    );
+                    proc_.update(in_use as f32 / total as f32, Arc::clone(&proc_data));
                     pourcent += proc_.get_cpu_usage();
                 }
                 if self.processors.len() > 1 {
                     let len = self.processors.len() - 1;
                     if let Some(p) = self.processors.get_mut(0) {
-                        processor::set_cpu_usage(p, pourcent / len as f32);
+                        p.set_cpu_usage(pourcent / len as f32);
                     }
                 }
             }
         }
-    }
-
-    fn refresh_network(&mut self) {
-        network::update_network(&mut self.network);
     }
 
     fn refresh_processes(&mut self) {
@@ -288,15 +289,9 @@ impl SystemExt for System {
             let entries: Vec<Process> = {
                 let wrap = &Wrap(UnsafeCell::new(&mut self.process_list));
                 pids.par_iter()
-                    .flat_map(|pid| {
-                        match update_process(
-                            wrap,
-                            *pid,
-                            arg_max as size_t,
-                        ) {
-                            Ok(x) => x,
-                            Err(_) => None,
-                        }
+                    .flat_map(|pid| match update_process(wrap, *pid, arg_max as size_t) {
+                        Ok(x) => x,
+                        Err(_) => None,
                     })
                     .collect()
             };
@@ -311,11 +306,7 @@ impl SystemExt for System {
         let arg_max = get_arg_max();
         match {
             let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
-            update_process(
-                &wrap,
-                pid,
-                arg_max as size_t,
-            )
+            update_process(&wrap, pid, arg_max as size_t)
         } {
             Ok(Some(p)) => {
                 self.process_list.insert(p.pid(), p);
@@ -332,7 +323,7 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_disk_list(&mut self) {
+    fn refresh_disks_list(&mut self) {
         self.disks = crate::mac::disk::get_disks();
     }
 
@@ -352,8 +343,12 @@ impl SystemExt for System {
         &self.processors[..]
     }
 
-    fn get_network(&self) -> &NetworkData {
-        &self.network
+    fn get_networks(&self) -> &Networks {
+        &self.networks
+    }
+
+    fn get_networks_mut(&mut self) -> &mut Networks {
+        &mut self.networks
     }
 
     fn get_total_memory(&self) -> u64 {
@@ -391,6 +386,18 @@ impl SystemExt for System {
 
     fn get_uptime(&self) -> u64 {
         self.uptime
+    }
+
+    fn get_load_average(&self) -> LoadAvg {
+        let loads = vec![0f64; 3];
+        unsafe {
+            ffi::getloadavg(loads.as_ptr() as *const f64, 3);
+        }
+        LoadAvg {
+            one: loads[0],
+            five: loads[1],
+            fifteen: loads[2],
+        }
     }
 }
 
