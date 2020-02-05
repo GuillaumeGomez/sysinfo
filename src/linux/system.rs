@@ -377,7 +377,10 @@ impl SystemExt for System {
 
     fn get_load_average(&self) -> LoadAvg {
         let mut s = String::new();
-        if File::open("/proc/loadavg").and_then(|mut f| f.read_to_string(&mut s)).is_err() {
+        if File::open("/proc/loadavg")
+            .and_then(|mut f| f.read_to_string(&mut s))
+            .is_err()
+        {
             return LoadAvg::default();
         }
         let loads = s
