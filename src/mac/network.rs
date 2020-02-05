@@ -103,10 +103,30 @@ impl Networks {
                     });
                     old_and_new!(interface, current_out, old_out, (*if2m).ifm_data.ifi_obytes);
                     old_and_new!(interface, current_in, old_in, (*if2m).ifm_data.ifi_ibytes);
-                    old_and_new!(interface, packets_in, old_packets_in, (*if2m).ifm_data.ifi_ipackets);
-                    old_and_new!(interface, packets_out, old_packets_out, (*if2m).ifm_data.ifi_opackets);
-                    old_and_new!(interface, errors_in, old_errors_in, (*if2m).ifm_data.ifi_ierrors);
-                    old_and_new!(interface, errors_out, old_errors_out, (*if2m).ifm_data.ifi_oerrors);
+                    old_and_new!(
+                        interface,
+                        packets_in,
+                        old_packets_in,
+                        (*if2m).ifm_data.ifi_ipackets
+                    );
+                    old_and_new!(
+                        interface,
+                        packets_out,
+                        old_packets_out,
+                        (*if2m).ifm_data.ifi_opackets
+                    );
+                    old_and_new!(
+                        interface,
+                        errors_in,
+                        old_errors_in,
+                        (*if2m).ifm_data.ifi_ierrors
+                    );
+                    old_and_new!(
+                        interface,
+                        errors_out,
+                        old_errors_out,
+                        (*if2m).ifm_data.ifi_oerrors
+                    );
                     interface.updated = true;
                 }
             }

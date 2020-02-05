@@ -128,8 +128,18 @@ impl NetworksExt for Networks {
                     });
             old_and_new!(interface, current_out, old_out, ptr.OutOctets);
             old_and_new!(interface, current_in, old_in, ptr.InOctets);
-            old_and_new!(interface, packets_in, old_packets_in, ptr.InUcastPkts + ptr.InNUcastPkts);
-            old_and_new!(interface, packets_out, old_packets_out, ptr.OutUcastPkts + ptr.OutNUcastPkts);
+            old_and_new!(
+                interface,
+                packets_in,
+                old_packets_in,
+                ptr.InUcastPkts + ptr.InNUcastPkts
+            );
+            old_and_new!(
+                interface,
+                packets_out,
+                old_packets_out,
+                ptr.OutUcastPkts + ptr.OutNUcastPkts
+            );
             old_and_new!(interface, errors_in, old_errors_in, ptr.InErrors);
             old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
         }
@@ -151,8 +161,18 @@ impl NetworksExt for Networks {
             }
             old_and_new!(interface, current_out, old_out, entry.OutOctets);
             old_and_new!(interface, current_in, old_in, entry.InOctets);
-            old_and_new!(interface, packets_in, old_packets_in, entry.InUcastPkts + entry.InNUcastPkts);
-            old_and_new!(interface, packets_out, old_packets_out, entry.OutUcastPkts + entry.OutNUcastPkts);
+            old_and_new!(
+                interface,
+                packets_in,
+                old_packets_in,
+                entry.InUcastPkts + entry.InNUcastPkts
+            );
+            old_and_new!(
+                interface,
+                packets_out,
+                old_packets_out,
+                entry.OutUcastPkts + entry.OutNUcastPkts
+            );
             old_and_new!(interface, errors_in, old_errors_in, entry.InErrors);
             old_and_new!(interface, errors_out, old_errors_out, entry.OutErrors);
         }
