@@ -804,19 +804,6 @@ pub trait NetworkExt {
     /// ```
     fn get_income(&self) -> u64;
 
-    /// Returns the number of outgoing bytes since the last refresh.
-    ///
-    /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
-    ///
-    /// let s = System::new_all();
-    /// let networks = s.get_networks();
-    /// for (interface_name, network) in networks {
-    ///     println!("in: {} B", network.get_outcome());
-    /// }
-    /// ```
-    fn get_outcome(&self) -> u64;
-
     /// Returns the total number of incoming bytes.
     ///
     /// ```no_run
@@ -830,6 +817,19 @@ pub trait NetworkExt {
     /// ```
     fn get_total_income(&self) -> u64;
 
+    /// Returns the number of outgoing bytes since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// let networks = s.get_networks();
+    /// for (interface_name, network) in networks {
+    ///     println!("out: {} B", network.get_outcome());
+    /// }
+    /// ```
+    fn get_outcome(&self) -> u64;
+
     /// Returns the total number of outgoing bytes.
     ///
     /// ```no_run
@@ -838,10 +838,114 @@ pub trait NetworkExt {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {} B", network.get_total_outcome());
+    ///     println!("out: {} B", network.get_total_outcome());
     /// }
     /// ```
     fn get_total_outcome(&self) -> u64;
+
+    /// Returns the number of incoming packets since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// let networks = s.get_networks();
+    /// for (interface_name, network) in networks {
+    ///     println!("in: {}", network.get_packets_income());
+    /// }
+    /// ```
+    fn get_packets_income(&self) -> u64;
+
+    /// Returns the total number of incoming packets.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// let networks = s.get_networks();
+    /// for (interface_name, network) in networks {
+    ///     println!("in: {}", network.get_total_packets_income());
+    /// }
+    /// ```
+    fn get_total_packets_income(&self) -> u64;
+
+    /// Returns the number of outcoming packets since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// let networks = s.get_networks();
+    /// for (interface_name, network) in networks {
+    ///     println!("out: {}", network.get_packets_outcome());
+    /// }
+    /// ```
+    fn get_packets_outcome(&self) -> u64;
+
+    /// Returns the total number of outcoming packets.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// let networks = s.get_networks();
+    /// for (interface_name, network) in networks {
+    ///     println!("out: {}", network.get_total_packets_outcome());
+    /// }
+    /// ```
+    fn get_total_packets_outcome(&self) -> u64;
+
+    /// Returns the number of incoming errors since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// let networks = s.get_networks();
+    /// for (interface_name, network) in networks {
+    ///     println!("in: {}", network.get_errors_income());
+    /// }
+    /// ```
+    fn get_errors_income(&self) -> u64;
+
+    /// Returns the total number of incoming errors.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// let networks = s.get_networks();
+    /// for (interface_name, network) in networks {
+    ///     println!("in: {}", network.get_total_errors_income());
+    /// }
+    /// ```
+    fn get_total_errors_income(&self) -> u64;
+
+    /// Returns the number of outcoming errors since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// let networks = s.get_networks();
+    /// for (interface_name, network) in networks {
+    ///     println!("out: {}", network.get_errors_outcome());
+    /// }
+    /// ```
+    fn get_errors_outcome(&self) -> u64;
+
+    /// Returns the total number of outcoming errors.
+    ///
+    /// ```no_run
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// let networks = s.get_networks();
+    /// for (interface_name, network) in networks {
+    ///     println!("out: {}", network.get_total_errors_outcome());
+    /// }
+    /// ```
+    fn get_total_errors_outcome(&self) -> u64;
 }
 
 /// Interacting with network interfaces.
