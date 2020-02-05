@@ -114,10 +114,10 @@ unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
     {
         PdhRemoveCounter(counter);
         PdhCloseQuery(query);
-        return Mutex::new(None);
+        Mutex::new(None)
+    } else {
+        Mutex::new(Some(LoadAvg::default()))
     }
-
-    return Mutex::new(Some(LoadAvg::default()));
 }
 
 #[derive(Debug)]
