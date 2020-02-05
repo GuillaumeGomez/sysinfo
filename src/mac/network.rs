@@ -14,6 +14,13 @@ use NetworkExt;
 use NetworksExt;
 use NetworksIter;
 
+macro_rules! old_and_new {
+    ($ty_:expr, $name:ident, $old:ident, $new_val:expr) => {{
+        $ty_.$old = $ty_.$name;
+        $ty_.$name = $new_val;
+    }};
+}
+
 /// Network interfaces.
 ///
 /// ```no_run
@@ -79,19 +86,27 @@ impl Networks {
                     }
                     name.set_len(libc::strlen(pname));
                     let name = String::from_utf8_unchecked(name);
-                    let ibytes = (*if2m).ifm_data.ifi_ibytes;
-                    let obytes = (*if2m).ifm_data.ifi_obytes;
                     let interface = self.interfaces.entry(name).or_insert_with(|| NetworkData {
-                        old_in: ibytes,
-                        current_in: ibytes,
-                        old_out: obytes,
-                        current_out: obytes,
+                        current_in: (*if2m).ifm_data.ifi_ibytes,
+                        old_in: 0,
+                        current_out: (*if2m).ifm_data.ifi_obytes,
+                        old_out: 0,
+                        packets_in: (*if2m).ifm_data.ifi_ipackets,
+                        old_packets_in: 0,
+                        packets_out: (*if2m).ifm_data.ifi_opackets,
+                        old_packets_out: 0,
+                        errors_in: (*if2m).ifm_data.ifi_ierrors,
+                        old_errors_in: 0,
+                        errors_out: (*if2m).ifm_data.ifi_oerrors,
+                        old_errors_out: 0,
                         updated: true,
                     });
-                    interface.old_in = interface.current_in;
-                    interface.current_in = ibytes;
-                    interface.old_out = interface.current_out;
-                    interface.current_out = obytes;
+                    old_and_new!(interface, current_out, old_out, (*if2m).ifm_data.ifi_obytes);
+                    old_and_new!(interface, current_in, old_in, (*if2m).ifm_data.ifi_ibytes);
+                    old_and_new!(interface, packets_in, old_packets_in, (*if2m).ifm_data.ifi_ipackets);
+                    old_and_new!(interface, packets_out, old_packets_out, (*if2m).ifm_data.ifi_opackets);
+                    old_and_new!(interface, errors_in, old_errors_in, (*if2m).ifm_data.ifi_ierrors);
+                    old_and_new!(interface, errors_out, old_errors_out, (*if2m).ifm_data.ifi_oerrors);
                     interface.updated = true;
                 }
             }
@@ -120,10 +135,18 @@ impl NetworksExt for Networks {
 /// Contains network information.
 #[derive(PartialEq, Eq)]
 pub struct NetworkData {
-    old_in: u64,
-    old_out: u64,
     current_in: u64,
+    old_in: u64,
     current_out: u64,
+    old_out: u64,
+    packets_in: u64,
+    old_packets_in: u64,
+    packets_out: u64,
+    old_packets_out: u64,
+    errors_in: u64,
+    old_errors_in: u64,
+    errors_out: u64,
+    old_errors_out: u64,
     updated: bool,
 }
 
@@ -132,15 +155,47 @@ impl NetworkExt for NetworkData {
         self.current_in - self.old_in
     }
 
-    fn get_outcome(&self) -> u64 {
-        self.current_out - self.old_out
-    }
-
     fn get_total_income(&self) -> u64 {
         self.current_in
     }
 
+    fn get_outcome(&self) -> u64 {
+        self.current_out - self.old_out
+    }
+
     fn get_total_outcome(&self) -> u64 {
         self.current_out
+    }
+
+    fn get_packets_income(&self) -> u64 {
+        self.packets_in - self.old_packets_in
+    }
+
+    fn get_total_packets_income(&self) -> u64 {
+        self.packets_in
+    }
+
+    fn get_packets_outcome(&self) -> u64 {
+        self.packets_out - self.old_packets_out
+    }
+
+    fn get_total_packets_outcome(&self) -> u64 {
+        self.packets_out
+    }
+
+    fn get_errors_income(&self) -> u64 {
+        self.errors_in - self.old_errors_in
+    }
+
+    fn get_total_errors_income(&self) -> u64 {
+        self.errors_in
+    }
+
+    fn get_errors_outcome(&self) -> u64 {
+        self.errors_out - self.old_errors_out
+    }
+
+    fn get_total_errors_outcome(&self) -> u64 {
+        self.errors_out
     }
 }
