@@ -47,7 +47,7 @@ pub struct System {
     swap_total: u64,
     swap_free: u64,
     processors: Vec<Processor>,
-    temperatures: Vec<Component>,
+    components: Vec<Component>,
     disks: Vec<Disk>,
     query: Option<Query>,
     networks: Networks,
@@ -70,7 +70,7 @@ impl SystemExt for System {
             swap_total: 0,
             swap_free: 0,
             processors: init_processors(),
-            temperatures: component::get_components(),
+            components: Vec::new(),
             disks: Vec::with_capacity(2),
             query: Query::new(),
             networks: Networks::new(),
@@ -163,12 +163,16 @@ impl SystemExt for System {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let mut s = System::new();
-    /// s.refresh_temperatures();
+    /// s.refresh_components();
     /// ```
-    fn refresh_temperatures(&mut self) {
-        for component in &mut self.temperatures {
+    fn refresh_components(&mut self) {
+        for component in &mut self.components {
             component.refresh();
         }
+    }
+
+    fn refresh_components_list(&mut self) {
+        self.components = component::get_components();
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
@@ -323,8 +327,12 @@ impl SystemExt for System {
         (self.swap_total - self.swap_free) >> 10
     }
 
-    fn get_components_list(&self) -> &[Component] {
-        &self.temperatures[..]
+    fn get_components(&self) -> &[Component] {
+        &self.components
+    }
+
+    fn get_components_mut(&mut self) -> &mut [Component] {
+        &mut self.components
     }
 
     fn get_disks(&self) -> &[Disk] {

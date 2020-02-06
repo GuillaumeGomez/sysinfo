@@ -31,7 +31,7 @@ pub struct System {
     swap_free: u64,
     processors: Vec<Processor>,
     page_size_kb: u64,
-    temperatures: Vec<Component>,
+    components: Vec<Component>,
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
     networks: Networks,
@@ -79,7 +79,7 @@ impl SystemExt for System {
             swap_free: 0,
             processors: Vec::with_capacity(4),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 >> 10 }, // divide by 1024
-            temperatures: Vec::with_capacity(2),
+            components: Vec::with_capacity(2),
             connection: get_io_service_connection(),
             disks: Vec::with_capacity(1),
             networks: Networks::new(),
@@ -365,8 +365,12 @@ impl SystemExt for System {
         self.swap_total - self.swap_free
     }
 
-    fn get_components_list(&self) -> &[Component] {
-        &self.temperatures[..]
+    fn get_components(&self) -> &[Component] {
+        &self.components
+    }
+
+    fn get_components_mut(&mut self) -> &mut [Component] {
+        &mut self.components
     }
 
     fn get_disks(&self) -> &[Disk] {

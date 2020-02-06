@@ -25,7 +25,7 @@
 //! }
 //!
 //! // Then let's print the temperature of the different components:
-//! for component in system.get_components_list() {
+//! for component in system.get_components() {
 //!     println!("{:?}", component);
 //! }
 //!

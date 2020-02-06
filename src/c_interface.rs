@@ -70,14 +70,14 @@ pub extern "C" fn sysinfo_refresh_cpu(system: CSystem) {
     Box::into_raw(system);
 }
 
-/// Equivalent of [`System::refresh_temperatures()`][crate::System#method.refresh_temperatures].
+/// Equivalent of [`System::refresh_components()`][crate::System#method.refresh_temperatures].
 #[no_mangle]
-pub extern "C" fn sysinfo_refresh_temperatures(system: CSystem) {
+pub extern "C" fn sysinfo_refresh_components(system: CSystem) {
     assert!(!system.is_null());
     let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     {
         let system: &mut System = system.borrow_mut();
-        system.refresh_temperatures();
+        system.refresh_components();
     }
     Box::into_raw(system);
 }

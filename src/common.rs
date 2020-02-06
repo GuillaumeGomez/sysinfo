@@ -125,7 +125,8 @@ pub struct RefreshKind {
     disks: bool,
     memory: bool,
     cpu: bool,
-    temperatures: bool,
+    components: bool,
+    components_list: bool,
 }
 
 impl RefreshKind {
@@ -145,7 +146,8 @@ impl RefreshKind {
     /// assert_eq!(r.disks(), false);
     /// assert_eq!(r.memory(), false);
     /// assert_eq!(r.cpu(), false);
-    /// assert_eq!(r.temperatures(), false);
+    /// assert_eq!(r.components(), false);
+    /// assert_eq!(r.components_list(), false);
     /// ```
     pub fn new() -> RefreshKind {
         RefreshKind {
@@ -156,7 +158,8 @@ impl RefreshKind {
             disks_list: false,
             memory: false,
             cpu: false,
-            temperatures: false,
+            components: false,
+            components_list: false,
         }
     }
 
@@ -176,7 +179,8 @@ impl RefreshKind {
     /// assert_eq!(r.disks(), true);
     /// assert_eq!(r.memory(), true);
     /// assert_eq!(r.cpu(), true);
-    /// assert_eq!(r.temperatures(), true);
+    /// assert_eq!(r.components(), true);
+    /// assert_eq!(r.components_list(), true);
     /// ```
     pub fn everything() -> RefreshKind {
         RefreshKind {
@@ -187,7 +191,8 @@ impl RefreshKind {
             disks_list: true,
             memory: true,
             cpu: true,
-            temperatures: true,
+            components: true,
+            components_list: true,
         }
     }
 
@@ -198,7 +203,8 @@ impl RefreshKind {
     impl_get_set!(disks_list, with_disks_list, without_disks_list);
     impl_get_set!(memory, with_memory, without_memory);
     impl_get_set!(cpu, with_cpu, without_cpu);
-    impl_get_set!(temperatures, with_temperatures, without_temperatures);
+    impl_get_set!(components, with_components, without_components);
+    impl_get_set!(components_list, with_components_list, without_components_list);
 }
 
 /// Iterator over network interfaces.

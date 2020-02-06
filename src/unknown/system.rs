@@ -33,7 +33,7 @@ impl SystemExt for System {
 
     fn refresh_cpu(&mut self) {}
 
-    fn refresh_temperatures(&mut self) {}
+    fn refresh_components_list(&mut self) {}
 
     fn refresh_processes(&mut self) {}
 
@@ -93,7 +93,11 @@ impl SystemExt for System {
         0
     }
 
-    fn get_components_list(&self) -> &[Component] {
+    fn get_components(&self) -> &[Component] {
+        &[]
+    }
+
+    fn get_components_mut(&self) -> &[Component] {
         &[]
     }
 

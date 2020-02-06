@@ -126,7 +126,7 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
 
 impl Component {
     /// Creates a new component with the given information.
-    pub fn new(
+    pub(crate) fn new(
         label: String,
         input_path: &Path,
         max: Option<f32>,
@@ -139,22 +139,8 @@ impl Component {
             max: max.unwrap_or(0.0),
             critical,
         };
-        c.update();
+        c.refresh();
         c
-    }
-
-    /// Updates the component.
-    pub fn update(&mut self) {
-        if let Some(content) = get_file_line(self.input_file.as_path(), 10) {
-            self.temperature = content
-                .replace("\n", "")
-                .parse::<f32>()
-                .unwrap_or(100_000f32)
-                / 1000f32;
-            if self.temperature > self.max {
-                self.max = self.temperature;
-            }
-        }
     }
 }
 
@@ -173,6 +159,19 @@ impl ComponentExt for Component {
 
     fn get_label(&self) -> &str {
         &self.label
+    }
+
+    fn refresh(&mut self) {
+        if let Some(content) = get_file_line(self.input_file.as_path(), 10) {
+            self.temperature = content
+                .replace("\n", "")
+                .parse::<f32>()
+                .unwrap_or(100_000f32)
+                / 1000f32;
+            if self.temperature > self.max {
+                self.max = self.temperature;
+            }
+        }
     }
 }
 

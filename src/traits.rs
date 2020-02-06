@@ -365,8 +365,12 @@ pub trait ProcessorExt {
 
 /// Contains all the methods of the [`System`][crate::System] type.
 pub trait SystemExt: Sized {
-    /// Creates a new [`System`] instance with nothing loaded. Use the [`refresh_all`] method to
-    /// update its internal information (or any of the `refresh_` method).
+    /// Creates a new [`System`] instance with nothing loaded. If you want to load components,
+    /// network interfaces or the disks, you'll have to use the `refresh_*_list` methods.
+    /// [`SystemExt::refresh_networks_list`] for example.
+    ///
+    /// Use the [`refresh_all`] method to update its internal information (or any of the `refresh_`
+    /// method).
     ///
     /// [`System`]: crate::System
     /// [`refresh_all`]: #method.refresh_all
@@ -438,13 +442,14 @@ pub trait SystemExt: Sized {
         if refreshes.cpu() {
             self.refresh_cpu();
         }
-        if refreshes.temperatures() {
-            self.refresh_temperatures();
+        if refreshes.components_list() {
+            self.refresh_components_list();
+        } else if refreshes.components() {
+            self.refresh_components();
         }
         if refreshes.networks_list() {
             self.refresh_networks_list();
-        }
-        if refreshes.networks() {
+        } else if refreshes.networks() {
             self.refresh_networks();
         }
         if refreshes.processes() {
@@ -452,8 +457,7 @@ pub trait SystemExt: Sized {
         }
         if refreshes.disks_list() {
             self.refresh_disks_list();
-        }
-        if refreshes.disks() {
+        } else if refreshes.disks() {
             self.refresh_disks();
         }
     }
@@ -461,11 +465,11 @@ pub trait SystemExt: Sized {
     /// Refresh system information (such as memory, swap, CPU usage and components' temperature).
     ///
     /// If you want some more specific refresh, you might be interested into looking at
-    /// [`refresh_memory`], [`refresh_cpu`] and [`refresh_temperatures`].
+    /// [`refresh_memory`], [`refresh_cpu`] and [`refresh_components`].
     ///
     /// [`refresh_memory`]: SystemExt::refresh_memory
     /// [`refresh_cpu`]: SystemExt::refresh_memory
-    /// [`refresh_temperatures`]: SystemExt::refresh_temperatures
+    /// [`refresh_components`]: SystemExt::refresh_components
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -476,7 +480,7 @@ pub trait SystemExt: Sized {
     fn refresh_system(&mut self) {
         self.refresh_memory();
         self.refresh_cpu();
-        self.refresh_temperatures();
+        self.refresh_components();
     }
 
     /// Refresh RAM and SWAP usage.
@@ -505,9 +509,23 @@ pub trait SystemExt: Sized {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// s.refresh_temperatures();
+    /// s.refresh_components();
     /// ```
-    fn refresh_temperatures(&mut self);
+    fn refresh_components(&mut self) {
+        for component in self.get_components_mut() {
+            component.refresh();
+        }
+    }
+
+    /// Refresh components list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new();
+    /// s.refresh_components_list();
+    /// ```
+    fn refresh_components_list(&mut self);
 
     /// Get all processes and update their information.
     ///
@@ -739,11 +757,23 @@ pub trait SystemExt: Sized {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for component in s.get_components_list() {
+    /// for component in s.get_components() {
     ///     println!("{}: {}°C", component.get_label(), component.get_temperature());
     /// }
     /// ```
-    fn get_components_list(&self) -> &[Component];
+    fn get_components(&self) -> &[Component];
+
+    /// Returns components list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ComponentExt, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for component in s.get_components_mut() {
+    ///     component.refresh();
+    /// }
+    /// ```
+    fn get_components_mut(&mut self) -> &mut [Component];
 
     /// Returns disks' list.
     ///
@@ -1025,7 +1055,7 @@ pub trait ComponentExt {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for component in s.get_components_list() {
+    /// for component in s.get_components() {
     ///     println!("{}°C", component.get_temperature());
     /// }
     /// ```
@@ -1037,7 +1067,7 @@ pub trait ComponentExt {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for component in s.get_components_list() {
+    /// for component in s.get_components() {
     ///     println!("{}°C", component.get_max());
     /// }
     /// ```
@@ -1049,7 +1079,7 @@ pub trait ComponentExt {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for component in s.get_components_list() {
+    /// for component in s.get_components() {
     ///     println!("{:?}°C", component.get_critical());
     /// }
     /// ```
@@ -1061,9 +1091,21 @@ pub trait ComponentExt {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for component in s.get_components_list() {
+    /// for component in s.get_components() {
     ///     println!("{}", component.get_label());
     /// }
     /// ```
     fn get_label(&self) -> &str;
+
+    /// Refresh component.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ComponentExt, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for component in s.get_components_mut() {
+    ///     component.refresh();
+    /// }
+    /// ```
+    fn refresh(&mut self);
 }

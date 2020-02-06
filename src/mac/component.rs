@@ -42,6 +42,7 @@ pub struct Component {
     critical: Option<f32>,
     label: String,
     ffi_part: ComponentFFI,
+    connection: ffi::io_connect_t,
 }
 
 impl Component {
@@ -51,25 +52,17 @@ impl Component {
         max: Option<f32>,
         critical: Option<f32>,
         key: &[i8],
-        con: ffi::io_connect_t,
+        connection: ffi::io_connect_t,
     ) -> Option<Component> {
-        let ffi_part = ComponentFFI::new(key, con)?;
-        ffi_part.get_temperature(con).map(|temperature| Component {
+        let ffi_part = ComponentFFI::new(key, connection)?;
+        ffi_part.get_temperature(connection).map(|temperature| Component {
             temperature,
             label,
             max: max.unwrap_or(0.0),
             critical,
             ffi_part,
+            connection,
         })
-    }
-
-    pub(crate) fn update(&mut self, con: ffi::io_connect_t) {
-        if let Some(temp) = self.ffi_part.get_temperature(con) {
-            self.temperature = temp;
-            if self.temperature > self.max {
-                self.max = self.temperature;
-            }
-        }
     }
 }
 
@@ -88,6 +81,15 @@ impl ComponentExt for Component {
 
     fn get_label(&self) -> &str {
         &self.label
+    }
+
+    fn refresh(&mut self) {
+        if let Some(temp) = self.ffi_part.get_temperature(self.connection) {
+            self.temperature = temp;
+            if self.temperature > self.max {
+                self.max = self.temperature;
+            }
+        }
     }
 }
 
