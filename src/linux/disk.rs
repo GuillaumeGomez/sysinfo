@@ -15,7 +15,7 @@ use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
-/// Enum containing the different handled disks types.
+/// Enum containing the different supported disks types.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum DiskType {
     /// HDD type.

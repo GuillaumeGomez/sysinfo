@@ -14,7 +14,7 @@
 //! ```
 //! use sysinfo::{ProcessExt, SystemExt};
 //!
-//! let mut system = sysinfo::System::new();
+//! let mut system = sysinfo::System::new_all();
 //!
 //! // First we update all information of our system struct.
 //! system.refresh_all();

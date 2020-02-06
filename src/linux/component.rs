@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 /// More information can be found at [kernel.org][k].
 ///
-/// k: https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface
+/// [k]: https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface
 pub struct Component {
     temperature: f32,
     max: f32,

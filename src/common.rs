@@ -8,9 +8,9 @@ use NetworkData;
 use Networks;
 use NetworksExt;
 
-/// Trait to have a common fallback for the `Pid` type.
+/// Trait to have a common fallback for the [`Pid`][crate::Pid] type.
 pub trait AsU32 {
-    /// Allows to convert `Pid` into `u32`.
+    /// Allows to convert [`Pid`][crate::Pid] into [`u32`].
     fn as_u32(&self) -> u32;
 }
 
@@ -114,6 +114,8 @@ assert_eq!(r.", stringify!($name), "(), false);
 /// assert_eq!(system.get_disks().len(), 0);
 /// assert!(system.get_process_list().len() > 0);
 /// ```
+///
+/// [`System`]: crate::System
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RefreshKind {
     networks: bool,

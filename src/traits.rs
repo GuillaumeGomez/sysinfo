@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::Path;
 
-/// Contains all the methods of the `Disk` struct.
+/// Contains all the methods of the [`Disk`][crate::Disk] struct.
 ///
 /// ```no_run
 /// use sysinfo::{DiskExt, System, SystemExt};
@@ -103,7 +103,7 @@ pub trait DiskExt {
     fn update(&mut self) -> bool;
 }
 
-/// Contains all the methods of the `Process` struct.
+/// Contains all the methods of the [`Process`][crate::Process] struct.
 pub trait ProcessExt {
     /// Create a new process only containing the given information.
     ///
@@ -288,7 +288,7 @@ pub trait ProcessExt {
     fn cpu_usage(&self) -> f32;
 }
 
-/// Contains all the methods of the `Processor` struct.
+/// Contains all the methods of the [`Processor`][crate::Processor] struct.
 pub trait ProcessorExt {
     /// Returns this processor's usage.
     ///
@@ -354,11 +354,12 @@ pub trait ProcessorExt {
     fn get_frequency(&self) -> u64;
 }
 
-/// Contains all the methods of the [`System`] type.
+/// Contains all the methods of the [`System`][crate::System] type.
 pub trait SystemExt: Sized {
     /// Creates a new [`System`] instance with nothing loaded. Use the [`refresh_all`] method to
     /// update its internal information (or any of the `refresh_` method).
     ///
+    /// [`System`]: crate::System
     /// [`refresh_all`]: #method.refresh_all
     ///
     /// ```no_run
@@ -372,7 +373,9 @@ pub trait SystemExt: Sized {
 
     /// Creates a new [`System`] instance with everything loaded.
     ///
-    /// It is an equivalent of `SystemExt::new_with_specifics(RefreshKind::everything())`.
+    /// It is an equivalent of [`SystemExt::new_with_specifics`]`(`[`RefreshKind::everything`]`())`.
+    ///
+    /// [`System`]: crate::System
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -385,6 +388,8 @@ pub trait SystemExt: Sized {
 
     /// Creates a new [`System`] instance and refresh the data corresponding to the
     /// given [`RefreshKind`].
+    ///
+    /// [`System`]: crate::System
     ///
     /// # Example
     ///
