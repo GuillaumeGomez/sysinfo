@@ -6,7 +6,8 @@
 
 use windows::processor::{self, CounterValue, Processor, Query};
 
-use sys::disk::{new_disk, Disk, DiskType};
+use DiskType;
+use sys::disk::{new_disk, Disk};
 
 use std::collections::HashMap;
 use std::ffi::OsStr;

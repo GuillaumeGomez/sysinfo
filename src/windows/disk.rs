@@ -31,7 +31,7 @@ pub fn new_disk(
         total_space: total_space,
         available_space: 0,
     };
-    d.update();
+    d.refresh();
     d
 }
 

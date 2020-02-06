@@ -12,7 +12,7 @@ use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem::{size_of, zeroed};
 
-use DiskExt;
+use ComponentExt;
 use LoadAvg;
 use Networks;
 use Pid;
@@ -339,7 +339,7 @@ impl SystemExt for System {
         &self.disks
     }
 
-    fn get_disks_mut(&self) -> &mut [Disk] {
+    fn get_disks_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
     }
 
