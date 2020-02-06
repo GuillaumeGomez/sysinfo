@@ -14,7 +14,7 @@
 //! ```
 //! use sysinfo::{ProcessExt, SystemExt};
 //!
-//! let mut system = sysinfo::System::new();
+//! let mut system = sysinfo::System::new_all();
 //!
 //! // First we update all information of our system struct.
 //! system.refresh_all();
@@ -25,7 +25,7 @@
 //! }
 //!
 //! // Then let's print the temperature of the different components:
-//! for component in system.get_components_list() {
+//! for component in system.get_components() {
 //!     println!("{:?}", component);
 //! }
 //!
@@ -45,6 +45,7 @@
 #![crate_type = "lib"]
 #![crate_type = "rlib"]
 #![deny(missing_docs)]
+#![deny(intra_doc_link_resolution_failure)]
 //#![deny(warnings)]
 #![allow(unknown_lints)]
 
@@ -78,9 +79,9 @@ cfg_if! {
     }
 }
 
-pub use common::{AsU32, NetworksIter, Pid, RefreshKind};
+pub use common::{AsU32, DiskType, NetworksIter, Pid, RefreshKind};
 pub use sys::{
-    Component, Disk, DiskType, NetworkData, Networks, Process, ProcessStatus, Processor, System,
+    Component, Disk, NetworkData, Networks, Process, ProcessStatus, Processor, System,
 };
 pub use traits::{
     ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt,

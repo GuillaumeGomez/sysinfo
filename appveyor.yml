@@ -19,6 +19,7 @@ build_script:
   - cargo clippy
   - cargo build
   - cargo test
+  - cargo doc
   - cd examples
   - cargo build
 

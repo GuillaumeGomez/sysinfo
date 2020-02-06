@@ -74,6 +74,7 @@ script:
   - if [[ -z "$EXTRA" ]]; then
       RUST_BACKTRACE=1 cargo test;
     fi
+  - cargo doc
   - cd examples
   - if [[ -z "$EXTRA" ]]; then
       RUST_BACKTRACE=1 cargo build;

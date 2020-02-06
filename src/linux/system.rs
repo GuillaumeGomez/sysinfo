@@ -13,7 +13,7 @@ use Disk;
 use LoadAvg;
 use Networks;
 use Pid;
-use {DiskExt, ProcessExt, RefreshKind, SystemExt};
+use {ProcessExt, RefreshKind, SystemExt};
 
 use libc::{self, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
@@ -105,7 +105,7 @@ pub struct System {
     swap_free: u64,
     processors: Vec<Processor>,
     page_size_kb: u64,
-    temperatures: Vec<Component>,
+    components: Vec<Component>,
     disks: Vec<Disk>,
     networks: Networks,
     uptime: u64,
@@ -220,13 +220,17 @@ impl SystemExt for System {
             swap_free: 0,
             processors: Vec::with_capacity(4),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
-            temperatures: component::get_components(),
+            components: Vec::new(),
             disks: Vec::with_capacity(2),
             networks: Networks::new(),
             uptime: get_uptime(),
         };
         s.refresh_specifics(refreshes);
         s
+    }
+
+    fn refresh_components_list(&mut self) {
+        self.components = component::get_components();
     }
 
     fn refresh_memory(&mut self) {
@@ -252,12 +256,6 @@ impl SystemExt for System {
     fn refresh_cpu(&mut self) {
         self.uptime = get_uptime();
         self.refresh_processors(None);
-    }
-
-    fn refresh_temperatures(&mut self) {
-        for component in &mut self.temperatures {
-            component.update();
-        }
     }
 
     fn refresh_processes(&mut self) {
@@ -302,12 +300,6 @@ impl SystemExt for System {
             }
         }
         found
-    }
-
-    fn refresh_disks(&mut self) {
-        for disk in &mut self.disks {
-            disk.update();
-        }
     }
 
     fn refresh_disks_list(&mut self) {
@@ -363,12 +355,20 @@ impl SystemExt for System {
         self.swap_total - self.swap_free
     }
 
-    fn get_components_list(&self) -> &[Component] {
-        &self.temperatures[..]
+    fn get_components(&self) -> &[Component] {
+        &self.components
+    }
+
+    fn get_components_mut(&mut self) -> &mut [Component] {
+        &mut self.components
     }
 
     fn get_disks(&self) -> &[Disk] {
-        &self.disks[..]
+        &self.disks
+    }
+
+    fn get_disks_mut(&mut self) -> &mut [Disk] {
+        &mut self.disks
     }
 
     fn get_uptime(&self) -> u64 {

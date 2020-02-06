@@ -11,7 +11,7 @@ use sys::network::Networks;
 use sys::process::*;
 use sys::processor::*;
 
-use {DiskExt, LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
+use {LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -31,7 +31,7 @@ pub struct System {
     swap_free: u64,
     processors: Vec<Processor>,
     page_size_kb: u64,
-    temperatures: Vec<Component>,
+    components: Vec<Component>,
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
     networks: Networks,
@@ -79,7 +79,7 @@ impl SystemExt for System {
             swap_free: 0,
             processors: Vec::with_capacity(4),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 >> 10 }, // divide by 1024
-            temperatures: Vec::with_capacity(2),
+            components: Vec::with_capacity(2),
             connection: get_io_service_connection(),
             disks: Vec::with_capacity(1),
             networks: Networks::new(),
@@ -148,23 +148,18 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_temperatures(&mut self) {
+    fn refresh_components_list(&mut self) {
         if let Some(con) = self.connection {
-            if self.temperatures.is_empty() {
-                // getting CPU critical temperature
-                let critical_temp = crate::mac::component::get_temperature(
-                    con,
-                    &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0],
-                );
+            self.components.clear();
+            // getting CPU critical temperature
+            let critical_temp = crate::mac::component::get_temperature(
+                con,
+                &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0],
+            );
 
-                for (id, v) in crate::mac::component::COMPONENTS_TEMPERATURE_IDS.iter() {
-                    if let Some(c) = Component::new((*id).to_owned(), None, critical_temp, v, con) {
-                        self.temperatures.push(c);
-                    }
-                }
-            } else {
-                for comp in &mut self.temperatures {
-                    comp.update(con);
+            for (id, v) in crate::mac::component::COMPONENTS_TEMPERATURE_IDS.iter() {
+                if let Some(c) = Component::new((*id).to_owned(), None, critical_temp, v, con) {
+                    self.components.push(c);
                 }
             }
         }
@@ -317,12 +312,6 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_disks(&mut self) {
-        for disk in &mut self.disks {
-            disk.update();
-        }
-    }
-
     fn refresh_disks_list(&mut self) {
         self.disks = crate::mac::disk::get_disks();
     }
@@ -376,12 +365,20 @@ impl SystemExt for System {
         self.swap_total - self.swap_free
     }
 
-    fn get_components_list(&self) -> &[Component] {
-        &self.temperatures[..]
+    fn get_components(&self) -> &[Component] {
+        &self.components
+    }
+
+    fn get_components_mut(&mut self) -> &mut [Component] {
+        &mut self.components
     }
 
     fn get_disks(&self) -> &[Disk] {
-        &self.disks[..]
+        &self.disks
+    }
+
+    fn get_disks_mut(&mut self) -> &mut [Disk] {
+        &mut self.disks
     }
 
     fn get_uptime(&self) -> u64 {

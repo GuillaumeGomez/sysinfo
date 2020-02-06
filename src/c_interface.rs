@@ -9,16 +9,16 @@ use std::borrow::BorrowMut;
 use std::ffi::CString;
 use {NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 
-/// Equivalent of `System` struct.
+/// Equivalent of [`System`][crate::System] struct.
 pub type CSystem = *mut c_void;
-/// Equivalent of `Process` struct.
+/// Equivalent of [`Process`][crate::Process] struct.
 pub type CProcess = *const c_void;
 /// C string returned from `CString::into_raw`.
 pub type RString = *const c_char;
-/// Callback used by `get_process_list`.
+/// Callback used by [`get_process_list`][crate::System#method.get_process_list].
 pub type ProcessLoop = extern "C" fn(pid: pid_t, process: CProcess, data: *mut c_void) -> bool;
 
-/// Equivalent of `System::new()`.
+/// Equivalent of [`System::new()`][crate::System#method.new].
 #[no_mangle]
 pub extern "C" fn sysinfo_init() -> CSystem {
     let system = Box::new(System::new());
@@ -34,7 +34,7 @@ pub extern "C" fn sysinfo_destroy(system: CSystem) {
     }
 }
 
-/// Equivalent of `System::refresh_system()`.
+/// Equivalent of [`System::refresh_system()`][crate::System#method.refresh_system].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_system(system: CSystem) {
     assert!(!system.is_null());
@@ -46,7 +46,7 @@ pub extern "C" fn sysinfo_refresh_system(system: CSystem) {
     Box::into_raw(system);
 }
 
-/// Equivalent of `System::refresh_memory()`.
+/// Equivalent of [`System::refresh_memory()`][crate::System#method.refresh_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_memory(system: CSystem) {
     assert!(!system.is_null());
@@ -58,7 +58,7 @@ pub extern "C" fn sysinfo_refresh_memory(system: CSystem) {
     Box::into_raw(system);
 }
 
-/// Equivalent of `System::refresh_cpu()`.
+/// Equivalent of [`System::refresh_cpu()`][crate::System#method.refresh_cpu].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_cpu(system: CSystem) {
     assert!(!system.is_null());
@@ -70,19 +70,19 @@ pub extern "C" fn sysinfo_refresh_cpu(system: CSystem) {
     Box::into_raw(system);
 }
 
-/// Equivalent of `System::refresh_cpu()`.
+/// Equivalent of [`System::refresh_components()`][crate::System#method.refresh_temperatures].
 #[no_mangle]
-pub extern "C" fn sysinfo_refresh_temperatures(system: CSystem) {
+pub extern "C" fn sysinfo_refresh_components(system: CSystem) {
     assert!(!system.is_null());
     let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     {
         let system: &mut System = system.borrow_mut();
-        system.refresh_temperatures();
+        system.refresh_components();
     }
     Box::into_raw(system);
 }
 
-/// Equivalent of `System::refresh_all()`.
+/// Equivalent of [`System::refresh_all()`][crate::System#method.refresh_all].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_all(system: CSystem) {
     assert!(!system.is_null());
@@ -94,7 +94,7 @@ pub extern "C" fn sysinfo_refresh_all(system: CSystem) {
     Box::into_raw(system);
 }
 
-/// Equivalent of `System::refresh_processes()`.
+/// Equivalent of [`System::refresh_processes()`][crate::System#method.refresh_processes].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
     assert!(!system.is_null());
@@ -106,7 +106,7 @@ pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
     Box::into_raw(system);
 }
 
-/// Equivalent of `System::refresh_process()`.
+/// Equivalent of [`System::refresh_process()`][crate::System#method.refresh_process].
 #[cfg(target_os = "linux")]
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: pid_t) {
@@ -119,7 +119,7 @@ pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: pid_t) {
     Box::into_raw(system);
 }
 
-/// Equivalent of `System::refresh_disks()`.
+/// Equivalent of [`System::refresh_disks()`][crate::System#method.refresh_disks].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_disks(system: CSystem) {
     assert!(!system.is_null());
@@ -131,7 +131,7 @@ pub extern "C" fn sysinfo_refresh_disks(system: CSystem) {
     Box::into_raw(system);
 }
 
-/// Equivalent of `System::refresh_disks_list()`.
+/// Equivalent of [`System::refresh_disks_list()`][crate::System#method.refresh_disks_list].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_disks_list(system: CSystem) {
     assert!(!system.is_null());
@@ -143,7 +143,7 @@ pub extern "C" fn sysinfo_refresh_disks_list(system: CSystem) {
     Box::into_raw(system);
 }
 
-/// Equivalent of `System::get_total_memory()`.
+/// Equivalent of [`System::get_total_memory()`][crate::System#method.get_total_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_total_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
@@ -153,7 +153,7 @@ pub extern "C" fn sysinfo_get_total_memory(system: CSystem) -> size_t {
     ret
 }
 
-/// Equivalent of `System::get_free_memory()`.
+/// Equivalent of [`System::get_free_memory()`][crate::System#method.get_free_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_free_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
@@ -163,7 +163,7 @@ pub extern "C" fn sysinfo_get_free_memory(system: CSystem) -> size_t {
     ret
 }
 
-/// Equivalent of `System::get_used_memory()`.
+/// Equivalent of [`System::get_used_memory()`][crate::System#method.get_used_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_used_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
@@ -173,7 +173,7 @@ pub extern "C" fn sysinfo_get_used_memory(system: CSystem) -> size_t {
     ret
 }
 
-/// Equivalent of `System::get_total_swap()`.
+/// Equivalent of [`System::get_total_swap()`][crate::System#method.get_total_swap].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_total_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
@@ -183,7 +183,7 @@ pub extern "C" fn sysinfo_get_total_swap(system: CSystem) -> size_t {
     ret
 }
 
-/// Equivalent of `System::get_free_swap()`.
+/// Equivalent of [`System::get_free_swap()`][crate::System#method.get_free_swap].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_free_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
@@ -193,7 +193,7 @@ pub extern "C" fn sysinfo_get_free_swap(system: CSystem) -> size_t {
     ret
 }
 
-/// Equivalent of `System::get_used_swap()`.
+/// Equivalent of [`System::get_used_swap()`][crate::System#method.get_used_swap].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_used_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
@@ -231,7 +231,7 @@ pub extern "C" fn sysinfo_get_networks_outcome(system: CSystem) -> size_t {
     ret
 }
 
-/// Equivalent of `System::get_processors_usage()`.
+/// Equivalent of [`System::get_processors_usage()`][crate::System#method.get_processors_usage].
 ///
 /// * `length` will contain the number of cpu usage added into `procs`.
 /// * `procs` will be allocated if it's null and will contain of cpu usage.
@@ -262,8 +262,8 @@ pub extern "C" fn sysinfo_get_processors_usage(
     Box::into_raw(system);
 }
 
-/// Equivalent of `System::get_process_list()`. Returns an array ended by a null pointer. Must
-/// be freed.
+/// Equivalent of [`System::get_process_list()`][crate::System#method.get_process_list]. Returns an
+/// array ended by a null pointer. Must be freed.
 ///
 /// # /!\ WARNING /!\
 ///
@@ -293,7 +293,7 @@ pub extern "C" fn sysinfo_get_processes(
     }
 }
 
-/// Equivalent of `System::get_process()`.
+/// Equivalent of [`System::get_process()`][crate::System#method.get_process].
 ///
 /// # /!\ WARNING /!\
 ///
@@ -312,7 +312,7 @@ pub extern "C" fn sysinfo_get_process_by_pid(system: CSystem, pid: pid_t) -> CPr
     ret
 }
 
-/// Equivalent of iterating over `Process::tasks()`.
+/// Equivalent of iterating over [`Process::tasks()`][crate::Process#method.tasks].
 ///
 /// # /!\ WARNING /!\
 ///
@@ -338,7 +338,7 @@ pub extern "C" fn sysinfo_process_get_tasks(
     }
 }
 
-/// Equivalent of `Process::pid()`.
+/// Equivalent of [`Process::pid()`][crate::Process#method.pid].
 #[no_mangle]
 pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> pid_t {
     assert!(!process.is_null());
@@ -346,7 +346,7 @@ pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> pid_t {
     unsafe { (*process).pid() }
 }
 
-/// Equivalent of `Process::parent()`.
+/// Equivalent of [`Process::parent()`][crate::Process#method.parent].
 ///
 /// In case there is no known parent, it returns `0`.
 #[no_mangle]
@@ -356,7 +356,7 @@ pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> pid_t {
     unsafe { (*process).parent().unwrap_or_else(|| 0) }
 }
 
-/// Equivalent of `Process::cpu_usage()`.
+/// Equivalent of [`Process::cpu_usage()`][crate::Process#method.cpu_usage].
 #[no_mangle]
 pub extern "C" fn sysinfo_process_get_cpu_usage(process: CProcess) -> c_float {
     assert!(!process.is_null());
@@ -364,7 +364,7 @@ pub extern "C" fn sysinfo_process_get_cpu_usage(process: CProcess) -> c_float {
     unsafe { (*process).cpu_usage() }
 }
 
-/// Equivalent of `Process::memory()`.
+/// Equivalent of [`Process::memory()`][crate::Process#method.memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_process_get_memory(process: CProcess) -> size_t {
     assert!(!process.is_null());
@@ -372,7 +372,7 @@ pub extern "C" fn sysinfo_process_get_memory(process: CProcess) -> size_t {
     unsafe { (*process).memory() as usize }
 }
 
-/// Equivalent of `Process::virtual_memory()`.
+/// Equivalent of [`Process::virtual_memory()`][crate::Process#method.virtual_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_process_get_virtual_memory(process: CProcess) -> size_t {
     assert!(!process.is_null());
@@ -380,7 +380,7 @@ pub extern "C" fn sysinfo_process_get_virtual_memory(process: CProcess) -> size_
     unsafe { (*process).virtual_memory() as usize }
 }
 
-/// Equivalent of `Process::exe()`.
+/// Equivalent of [`Process::exe()`][crate::Process#method.exe].
 #[no_mangle]
 pub extern "C" fn sysinfo_process_get_executable_path(process: CProcess) -> RString {
     assert!(!process.is_null());
@@ -395,7 +395,7 @@ pub extern "C" fn sysinfo_process_get_executable_path(process: CProcess) -> RStr
     }
 }
 
-/// Equivalent of `Process::root()`.
+/// Equivalent of [`Process::root()`][crate::Process#method.root].
 #[no_mangle]
 pub extern "C" fn sysinfo_process_get_root_directory(process: CProcess) -> RString {
     assert!(!process.is_null());
@@ -410,7 +410,7 @@ pub extern "C" fn sysinfo_process_get_root_directory(process: CProcess) -> RStri
     }
 }
 
-/// Equivalent of `Process::cwd()`.
+/// Equivalent of [`Process::cwd()`][crate::Process#method.cwd].
 #[no_mangle]
 pub extern "C" fn sysinfo_process_get_current_directory(process: CProcess) -> RString {
     assert!(!process.is_null());

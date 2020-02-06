@@ -33,15 +33,13 @@ impl SystemExt for System {
 
     fn refresh_cpu(&mut self) {}
 
-    fn refresh_temperatures(&mut self) {}
+    fn refresh_components_list(&mut self) {}
 
     fn refresh_processes(&mut self) {}
 
     fn refresh_process(&mut self, _pid: Pid) -> bool {
         false
     }
-
-    fn refresh_disks(&mut self) {}
 
     fn refresh_disks_list(&mut self) {}
 
@@ -95,12 +93,20 @@ impl SystemExt for System {
         0
     }
 
-    fn get_components_list(&self) -> &[Component] {
+    fn get_components(&self) -> &[Component] {
+        &[]
+    }
+
+    fn get_components_mut(&self) -> &[Component] {
         &[]
     }
 
     fn get_disks(&self) -> &[Disk] {
         &[]
+    }
+
+    fn get_disks_mut(&self) -> &mut [Disk] {
+        &mut []
     }
 
     fn get_uptime(&self) -> u64 {
