@@ -202,6 +202,15 @@ impl RefreshKind {
 }
 
 /// Iterator over network interfaces.
+///
+/// It is returned by [`Networks::iter`][crate::Networks#method.iter].
+///
+/// ```no_run
+/// use sysinfo::{System, SystemExt, NetworksExt};
+///
+/// let system = System::new_all();
+/// let networks_iter = system.get_networks().iter();
+/// ```
 pub struct NetworksIter<'a> {
     inner: std::collections::hash_map::Iter<'a, String, NetworkData>,
 }
@@ -226,5 +235,37 @@ impl<'a> IntoIterator for &'a Networks {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+/// Enum containing the different supported disks types.
+///
+/// This type is returned by [`Disk::get_type`][crate::Disk#method.get_type].
+///
+/// ```no_run
+/// use sysinfo::{System, SystemExt, DiskExt};
+///
+/// let system = System::new_all();
+/// for disk in system.get_disks() {
+///     println!("{:?}: {:?}", disk.get_name(), disk.get_type());
+/// }
+/// ```
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum DiskType {
+    /// HDD type.
+    HDD,
+    /// SSD type.
+    SSD,
+    /// Unknown type.
+    Unknown(isize),
+}
+
+impl From<isize> for DiskType {
+    fn from(t: isize) -> DiskType {
+        match t {
+            0 => DiskType::HDD,
+            1 => DiskType::SSD,
+            id => DiskType::Unknown(id),
+        }
     }
 }

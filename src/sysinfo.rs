@@ -78,9 +78,9 @@ cfg_if! {
     }
 }
 
-pub use common::{AsU32, NetworksIter, Pid, RefreshKind};
+pub use common::{AsU32, DiskType, NetworksIter, Pid, RefreshKind};
 pub use sys::{
-    Component, Disk, DiskType, NetworkData, Networks, Process, ProcessStatus, Processor, System,
+    Component, Disk, NetworkData, Networks, Process, ProcessStatus, Processor, System,
 };
 pub use traits::{
     ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt,

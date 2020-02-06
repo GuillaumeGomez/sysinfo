@@ -4,7 +4,8 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use sys::{Component, Disk, DiskType, Networks, Process, Processor};
+use sys::{Component, Disk, Networks, Process, Processor};
+use DiskType;
 use LoadAvg;
 use NetworksIter;
 use Pid;

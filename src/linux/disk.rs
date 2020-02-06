@@ -7,6 +7,7 @@
 use super::system::get_all_data;
 use utils;
 use DiskExt;
+use DiskType;
 
 use libc::statvfs;
 use std::ffi::{OsStr, OsString};
@@ -14,27 +15,6 @@ use std::fmt::{Debug, Error, Formatter};
 use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
-
-/// Enum containing the different supported disks types.
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum DiskType {
-    /// HDD type.
-    HDD,
-    /// SSD type.
-    SSD,
-    /// Unknown type.
-    Unknown(isize),
-}
-
-impl From<isize> for DiskType {
-    fn from(t: isize) -> DiskType {
-        match t {
-            0 => DiskType::SSD,
-            1 => DiskType::HDD,
-            id => DiskType::Unknown(id),
-        }
-    }
-}
 
 fn find_type_for_name(name: &OsStr) -> DiskType {
     /* turn "sda1" into "sda": */

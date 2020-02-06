@@ -6,6 +6,7 @@
 
 use utils;
 use DiskExt;
+use DiskType;
 
 use libc::{c_char, c_void, statfs};
 use std::collections::HashMap;
@@ -18,27 +19,6 @@ use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use sys::ffi;
-
-/// Enum containing the different handled disks types.
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum DiskType {
-    /// HDD type.
-    HDD,
-    /// SSD type.
-    SSD,
-    /// Unknown type.
-    Unknown(isize),
-}
-
-impl From<isize> for DiskType {
-    fn from(t: isize) -> DiskType {
-        match t {
-            0 => DiskType::HDD,
-            1 => DiskType::SSD,
-            id => DiskType::Unknown(id),
-        }
-    }
-}
 
 /// Struct containing a disk information.
 pub struct Disk {

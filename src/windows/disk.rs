@@ -10,30 +10,10 @@ use std::path::Path;
 use std::str;
 
 use DiskExt;
+use DiskType;
 
 use winapi::um::fileapi::GetDiskFreeSpaceExW;
 use winapi::um::winnt::ULARGE_INTEGER;
-
-/// Enum containing the different handled disks types.
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum DiskType {
-    /// HDD type.
-    HDD,
-    /// SSD type.
-    SSD,
-    /// Unknown type.
-    Unknown(isize),
-}
-
-impl From<isize> for DiskType {
-    fn from(t: isize) -> DiskType {
-        match t {
-            0 => DiskType::HDD,
-            1 => DiskType::SSD,
-            id => DiskType::Unknown(id),
-        }
-    }
-}
 
 pub fn new_disk(
     name: &OsStr,

@@ -5,13 +5,10 @@
 //
 
 use DiskExt;
+use DiskType;
 
 use std::ffi::OsStr;
 use std::path::Path;
-
-/// Enum containing the different handled disks types.
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum DiskType {}
 
 /// Struct containing a disk information.
 pub struct Disk {}
