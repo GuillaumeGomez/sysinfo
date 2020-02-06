@@ -116,10 +116,19 @@ fn bench_refresh_cpu(b: &mut test::Bencher) {
 }
 
 #[bench]
-fn bench_refresh_temperatures(b: &mut test::Bencher) {
+fn bench_refresh_components(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new_all();
 
     b.iter(move || {
-        s.refresh_temperatures();
+        s.refresh_components();
+    });
+}
+
+#[bench]
+fn bench_refresh_components_list(b: &mut test::Bencher) {
+    let mut s = sysinfo::System::new_all();
+
+    b.iter(move || {
+        s.refresh_components_list();
     });
 }
