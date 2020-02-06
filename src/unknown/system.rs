@@ -41,8 +41,6 @@ impl SystemExt for System {
         false
     }
 
-    fn refresh_disks(&mut self) {}
-
     fn refresh_disks_list(&mut self) {}
 
     fn refresh_network(&mut self) {}
@@ -101,6 +99,10 @@ impl SystemExt for System {
 
     fn get_disks(&self) -> &[Disk] {
         &[]
+    }
+
+    fn get_disks_mut(&self) -> &mut [Disk] {
+        &mut []
     }
 
     fn get_uptime(&self) -> u64 {

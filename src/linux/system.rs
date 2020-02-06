@@ -13,7 +13,7 @@ use Disk;
 use LoadAvg;
 use Networks;
 use Pid;
-use {DiskExt, ProcessExt, RefreshKind, SystemExt};
+use {ProcessExt, RefreshKind, SystemExt};
 
 use libc::{self, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
@@ -304,12 +304,6 @@ impl SystemExt for System {
         found
     }
 
-    fn refresh_disks(&mut self) {
-        for disk in &mut self.disks {
-            disk.update();
-        }
-    }
-
     fn refresh_disks_list(&mut self) {
         self.disks = get_all_disks();
     }
@@ -368,7 +362,11 @@ impl SystemExt for System {
     }
 
     fn get_disks(&self) -> &[Disk] {
-        &self.disks[..]
+        &self.disks
+    }
+
+    fn get_disks_mut(&mut self) -> &mut [Disk] {
+        &mut self.disks
     }
 
     fn get_uptime(&self) -> u64 {

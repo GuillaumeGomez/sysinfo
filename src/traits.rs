@@ -100,8 +100,16 @@ pub trait DiskExt {
     fn get_available_space(&self) -> u64;
 
     /// Update the disk' information.
-    #[doc(hidden)]
-    fn update(&mut self) -> bool;
+    ///
+    /// ```no_run
+    /// use sysinfo::{DiskExt, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for disk in s.get_disks_mut() {
+    ///     disk.refresh();
+    /// }
+    /// ```
+    fn refresh(&mut self) -> bool;
 }
 
 /// Contains all the methods of the [`Process`][crate::Process] struct.
@@ -530,7 +538,11 @@ pub trait SystemExt: Sized {
     /// let mut s = System::new_all();
     /// s.refresh_disks();
     /// ```
-    fn refresh_disks(&mut self);
+    fn refresh_disks(&mut self) {
+        for disk in self.get_disks_mut() {
+            disk.refresh();
+        }
+    }
 
     /// The disk list will be emptied then completely recomputed.
     ///
@@ -564,7 +576,8 @@ pub trait SystemExt: Sized {
         self.get_networks_mut().refresh();
     }
 
-    /// The network list will be emptied then completely recomputed.
+    /// The network list will be updated: removing not existing anymore interfaces and adding new
+    /// ones.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -743,6 +756,18 @@ pub trait SystemExt: Sized {
     /// }
     /// ```
     fn get_disks(&self) -> &[Disk];
+
+    /// Returns disks' list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{DiskExt, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for disk in s.get_disks_mut() {
+    ///     disk.refresh();
+    /// }
+    /// ```
+    fn get_disks_mut(&mut self) -> &mut [Disk];
 
     /// Returns network interfaces.
     ///

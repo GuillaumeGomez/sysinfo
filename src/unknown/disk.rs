@@ -38,7 +38,7 @@ impl DiskExt for Disk {
         0
     }
 
-    fn update(&mut self) -> bool {
+    fn refresh(&mut self) -> bool {
         true
     }
 }

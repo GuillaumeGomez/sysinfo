@@ -86,7 +86,7 @@ impl DiskExt for Disk {
         self.available_space
     }
 
-    fn update(&mut self) -> bool {
+    fn refresh(&mut self) -> bool {
         if self.total_space != 0 {
             unsafe {
                 let mut tmp: ULARGE_INTEGER = ::std::mem::zeroed();

@@ -70,7 +70,7 @@ impl DiskExt for Disk {
         self.available_space
     }
 
-    fn update(&mut self) -> bool {
+    fn refresh(&mut self) -> bool {
         unsafe {
             let mut stat: statfs = mem::zeroed();
             let mount_point_cpath = utils::to_cpath(&self.mount_point);

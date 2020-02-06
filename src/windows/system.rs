@@ -283,12 +283,6 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_disks(&mut self) {
-        self.disks.par_iter_mut().for_each(|disk| {
-            disk.update();
-        });
-    }
-
     fn refresh_disks_list(&mut self) {
         self.disks = unsafe { get_disks() };
     }
@@ -334,7 +328,11 @@ impl SystemExt for System {
     }
 
     fn get_disks(&self) -> &[Disk] {
-        &self.disks[..]
+        &self.disks
+    }
+
+    fn get_disks_mut(&self) -> &mut [Disk] {
+        &mut self.disks
     }
 
     fn get_networks(&self) -> &Networks {
