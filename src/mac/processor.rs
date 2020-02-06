@@ -127,8 +127,7 @@ pub fn get_cpu_frequency() -> u64 {
             0,
         );
     }
-    speed /= 1000000;
-    speed
+    speed / 1_000_000
 }
 
 fn get_sysctl_str(s: &[u8]) -> String {

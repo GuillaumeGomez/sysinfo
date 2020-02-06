@@ -11,10 +11,12 @@ install:
   - curl -sSf -o rustup-init.exe https://win.rustup.rs
   - rustup-init.exe --default-host "%ARCH%-pc-windows-gnu" --default-toolchain %RUST% -y
   - SET PATH=C:\Users\appveyor\.cargo\bin;C:\msys64\mingw%BITS%\bin;%PATH%;C:\msys64\usr\bin
+  - rustup component add clippy
   - rustc -Vv
   - cargo -Vv
 
 build_script:
+  - cargo clippy
   - cargo build
   - cargo test
   - cd examples

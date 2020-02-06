@@ -180,6 +180,7 @@ impl SystemExt for System {
         }
     }
 
+    #[allow(clippy::cast_ptr_alignment)]
     fn refresh_processes(&mut self) {
         // Windows 10 notebook requires at least 512KiB of memory to make it in one go
         let mut buffer_size: usize = 512 * 1024;

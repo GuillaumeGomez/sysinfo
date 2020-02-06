@@ -364,7 +364,7 @@ impl Debug for Process {
         writeln!(f, "name: {}", self.name);
         writeln!(f, "environment:");
         for var in self.environ.iter() {
-            if var.len() > 0 {
+            if !var.is_empty() {
                 writeln!(f, "\t{}", var);
             }
         }

@@ -65,9 +65,8 @@ impl NetworksExt for Networks {
         let ptr = unsafe { (*table).Table.as_ptr() };
         for i in 0..unsafe { *table }.NumEntries {
             let ptr = unsafe { &*ptr.offset(i as _) };
-            if ptr.TransmitLinkSpeed == 0 && ptr.ReceiveLinkSpeed == 0 {
-                continue;
-            } else if ptr.MediaConnectState == ffi::MediaConnectStateDisconnected
+            if (ptr.TransmitLinkSpeed == 0 && ptr.ReceiveLinkSpeed == 0)
+                || ptr.MediaConnectState == ffi::MediaConnectStateDisconnected
                 || ptr.PhysicalAddressLength == 0
             {
                 continue;
