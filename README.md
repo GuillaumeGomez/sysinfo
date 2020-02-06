@@ -94,19 +94,20 @@ Here are the current results:
 <details>
 
 ```text
-test bench_new                   ... bench:     375,774 ns/iter (+/- 7,119)
-test bench_new_all               ... bench:  10,308,642 ns/iter (+/- 422,803)
-test bench_refresh_all           ... bench:   2,824,911 ns/iter (+/- 169,153)
-test bench_refresh_cpu           ... bench:      13,630 ns/iter (+/- 702)
-test bench_refresh_disks         ... bench:       2,558 ns/iter (+/- 14)
-test bench_refresh_disks_lists   ... bench:      51,737 ns/iter (+/- 5,712)
-test bench_refresh_memory        ... bench:      12,006 ns/iter (+/- 277)
-test bench_refresh_networks      ... bench:     223,858 ns/iter (+/- 28,537)
-test bench_refresh_networks_list ... bench:     232,934 ns/iter (+/- 34,344)
-test bench_refresh_process       ... bench:      78,925 ns/iter (+/- 12,421)
-test bench_refresh_processes     ... bench:   2,235,119 ns/iter (+/- 137,403)
-test bench_refresh_system        ... bench:      52,832 ns/iter (+/- 6,704)
-test bench_refresh_temperatures  ... bench:      25,079 ns/iter (+/- 2,258)
+test bench_new                     ... bench:       3,741 ns/iter (+/- 252)
+test bench_new_all                 ... bench:  10,491,084 ns/iter (+/- 450,925)
+test bench_refresh_all             ... bench:   2,787,974 ns/iter (+/- 235,649)
+test bench_refresh_components      ... bench:      24,270 ns/iter (+/- 1,127)
+test bench_refresh_components_list ... bench:     370,693 ns/iter (+/- 51,925)
+test bench_refresh_cpu             ... bench:      13,367 ns/iter (+/- 1,858)
+test bench_refresh_disks           ... bench:       2,532 ns/iter (+/- 108)
+test bench_refresh_disks_lists     ... bench:      50,359 ns/iter (+/- 5,877)
+test bench_refresh_memory          ... bench:      11,713 ns/iter (+/- 1,006)
+test bench_refresh_networks        ... bench:     220,246 ns/iter (+/- 24,294)
+test bench_refresh_networks_list   ... bench:     229,648 ns/iter (+/- 82,050)
+test bench_refresh_process         ... bench:      77,375 ns/iter (+/- 10,657)
+test bench_refresh_processes       ... bench:   2,282,106 ns/iter (+/- 154,098)
+test bench_refresh_system          ... bench:      52,466 ns/iter (+/- 4,710)
 ```
 </details>
 
