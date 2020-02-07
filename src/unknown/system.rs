@@ -19,6 +19,7 @@ use std::collections::HashMap;
 pub struct System {
     processes_list: HashMap<Pid, Process>,
     networks: Networks,
+    global_processor: Processor,
 }
 
 impl SystemExt for System {
@@ -26,6 +27,7 @@ impl SystemExt for System {
         System {
             processes_list: Default::default(),
             networks: Networks::new(),
+            global_processor: Processor::new{},
         }
     }
 
@@ -63,6 +65,10 @@ impl SystemExt for System {
 
     fn get_networks_mut(&mut self) -> &mut Networks {
         &mut self.networks
+    }
+
+    fn get_global_processor_info(&self) -> &Processor {
+        &self.global_processor
     }
 
     fn get_processors(&self) -> &[Processor] {

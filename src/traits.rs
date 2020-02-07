@@ -679,7 +679,17 @@ pub trait SystemExt: Sized {
         ret
     }
 
-    /// The first processor in the array is the "main" one (aka the addition of all the others).
+    /// Returns "global" processors information (aka the addition of all the processors).
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessorExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// println!("{}%", s.get_global_processor_info().get_cpu_usage());
+    /// ```
+    fn get_global_processor_info(&self) -> &Processor;
+
+    /// Returns the list of the processors.
     ///
     /// ```no_run
     /// use sysinfo::{ProcessorExt, System, SystemExt};

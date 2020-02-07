@@ -103,6 +103,7 @@ pub struct System {
     mem_free: u64,
     swap_total: u64,
     swap_free: u64,
+    global_processor: Processor,
     processors: Vec<Processor>,
     page_size_kb: u64,
     components: Vec<Component>,
@@ -114,16 +115,15 @@ pub struct System {
 impl System {
     fn clear_procs(&mut self) {
         if !self.processors.is_empty() {
-            let (new, old) = get_raw_times(&self.processors[0]);
+            let (new, old) = get_raw_times(&self.global_processor);
             let total_time = (if old > new { 1 } else { new - old }) as f32;
             let mut to_delete = Vec::with_capacity(20);
-            let nb_processors = self.processors.len() as u64 - 1;
 
             for (pid, proc_) in &mut self.process_list.tasks {
                 if !has_been_updated(proc_) {
                     to_delete.push(*pid);
                 } else {
-                    compute_cpu_usage(proc_, nb_processors, total_time);
+                    compute_cpu_usage(proc_, self.processors.len() as u64, total_time);
                 }
             }
             for pid in to_delete {
@@ -133,65 +133,46 @@ impl System {
     }
 
     fn refresh_processors(&mut self, limit: Option<u32>) {
-        fn get_callbacks(
-            first: bool,
-        ) -> Box<dyn Fn(&mut dyn Iterator<Item = &[u8]>, &mut Vec<Processor>, &mut usize)> {
-            if first {
-                let frequency = get_cpu_frequency();
-                let (vendor_id, brand) = get_vendor_id_and_brand();
-                Box::new(
-                    move |parts: &mut dyn Iterator<Item = &[u8]>,
-                          processors: &mut Vec<Processor>,
-                          _| {
-                        processors.push(Processor::new_with_values(
-                            to_str!(parts.next().unwrap_or(&[])),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            frequency,
-                            vendor_id.clone(),
-                            brand.clone(),
-                        ));
-                    },
-                )
-            } else {
-                Box::new(
-                    |parts: &mut dyn Iterator<Item = &[u8]>,
-                     processors: &mut Vec<Processor>,
-                     i: &mut usize| {
-                        parts.next(); // we don't want the name again
-                        processors[*i].set(
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                            parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        );
-                        *i += 1;
-                    },
-                )
-            }
-        }
         if let Ok(f) = File::open("/proc/stat") {
             let buf = BufReader::new(f);
             let mut i = 0;
             let first = self.processors.is_empty();
             let mut it = buf.split(b'\n');
             let mut count = 0;
-            let callback = get_callbacks(first);
+            let frequency = if first { get_cpu_frequency() } else { 0 };
+            let (vendor_id, brand) = if first {
+                get_vendor_id_and_brand()
+            } else {
+                (String::new(), String::new())
+            };
 
+            if let Some(Ok(line)) = it.next() {
+                if &line[..3] != b"cpu" {
+                    return;
+                }
+                count += 1;
+                let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
+                if first {
+                    self.global_processor.name = to_str!(parts.next().unwrap_or(&[])).to_owned();
+                }
+                self.global_processor.set(
+                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                );
+                if let Some(limit) = limit {
+                    if count >= limit {
+                        return;
+                    }
+                }
+            }
             while let Some(Ok(line)) = it.next() {
                 if &line[..3] != b"cpu" {
                     break;
@@ -199,12 +180,48 @@ impl System {
 
                 count += 1;
                 let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
-                callback(&mut parts, &mut self.processors, &mut i);
+                if first {
+                    self.processors.push(Processor::new_with_values(
+                        to_str!(parts.next().unwrap_or(&[])),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        frequency,
+                        vendor_id.clone(),
+                        brand.clone(),
+                    ));
+                } else {
+                    parts.next(); // we don't want the name again
+                    self.processors[i].set(
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    );
+                    i += 1;
+                }
                 if let Some(limit) = limit {
                     if count >= limit {
                         break;
                     }
                 }
+            }
+            if first {
+                self.global_processor.vendor_id = vendor_id;
+                self.global_processor.brand = brand;
             }
         }
     }
@@ -218,6 +235,22 @@ impl SystemExt for System {
             mem_free: 0,
             swap_total: 0,
             swap_free: 0,
+            global_processor: Processor::new_with_values(
+                "",
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                String::new(),
+                String::new(),
+            ),
             processors: Vec::with_capacity(4),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
             components: Vec::new(),
@@ -225,6 +258,9 @@ impl SystemExt for System {
             networks: Networks::new(),
             uptime: get_uptime(),
         };
+        if !refreshes.cpu() {
+            s.refresh_processors(None); // We need the processors to be filled.
+        }
         s.refresh_specifics(refreshes);
         s
     }
@@ -291,12 +327,11 @@ impl SystemExt for System {
         };
         if found && !self.processors.is_empty() {
             self.refresh_processors(Some(1));
-            let (new, old) = get_raw_times(&self.processors[0]);
+            let (new, old) = get_raw_times(&self.global_processor);
             let total_time = (if old > new { 1 } else { new - old }) as f32;
-            let nb_processors = self.processors.len() as u64 - 1;
 
             if let Some(p) = self.process_list.tasks.get_mut(&pid) {
-                compute_cpu_usage(p, nb_processors, total_time);
+                compute_cpu_usage(p, self.processors.len() as u64, total_time);
             }
         }
         found
@@ -326,8 +361,12 @@ impl SystemExt for System {
         &mut self.networks
     }
 
+    fn get_global_processor_info(&self) -> &Processor {
+        &self.global_processor
+    }
+
     fn get_processors(&self) -> &[Processor] {
-        &self.processors[..]
+        &self.processors
     }
 
     fn get_total_memory(&self) -> u64 {

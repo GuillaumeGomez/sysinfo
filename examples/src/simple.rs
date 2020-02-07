@@ -189,12 +189,10 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "frequency" => {
-            let procs = sys.get_processors();
-            // On windows, the first processor is the "all processors", so not interesting in here.
             writeln!(
                 &mut io::stdout(),
                 "{} MHz",
-                procs[if procs.len() > 1 { 1 } else { 0 }].get_frequency()
+                sys.get_processors()[0].get_frequency()
             );
         }
         "vendor_id" => {

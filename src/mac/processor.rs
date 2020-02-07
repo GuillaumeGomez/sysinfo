@@ -4,10 +4,12 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use libc::c_char;
+use libc::{c_char, c_void};
+use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
 use sys::ffi;
+use sys::system::get_sys_value;
 
 use ProcessorExt;
 
@@ -128,6 +130,76 @@ pub fn get_cpu_frequency() -> u64 {
         );
     }
     speed / 1_000_000
+}
+
+pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>) {
+    let mut num_cpu = 0;
+    let mut processors = Vec::new();
+    let mut pourcent = 0f32;
+    let mut mib = [0, 0];
+
+    let (vendor_id, brand) = get_vendor_id_and_brand();
+    let frequency = get_cpu_frequency();
+
+    unsafe {
+        if !get_sys_value(
+            ffi::CTL_HW,
+            ffi::HW_NCPU,
+            mem::size_of::<u32>(),
+            &mut num_cpu as *mut usize as *mut c_void,
+            &mut mib,
+        ) {
+            num_cpu = 1;
+        }
+
+        let mut num_cpu_u = 0u32;
+        let mut cpu_info: *mut i32 = ::std::ptr::null_mut();
+        let mut num_cpu_info = 0u32;
+
+        if ffi::host_processor_info(
+            port,
+            ffi::PROCESSOR_CPU_LOAD_INFO,
+            &mut num_cpu_u as *mut u32,
+            &mut cpu_info as *mut *mut i32,
+            &mut num_cpu_info as *mut u32,
+        ) == ffi::KERN_SUCCESS
+        {
+            let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
+            for i in 0..num_cpu {
+                let mut p = Processor::new(
+                    format!("{}", i + 1),
+                    Arc::clone(&proc_data),
+                    frequency,
+                    vendor_id.clone(),
+                    brand.clone(),
+                );
+                let in_use = *cpu_info.offset(
+                    (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize,
+                ) + *cpu_info.offset(
+                    (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_SYSTEM as isize,
+                ) + *cpu_info.offset(
+                    (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_NICE as isize,
+                );
+                let total = in_use
+                    + *cpu_info.offset(
+                        (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
+                    );
+                p.set_cpu_usage(in_use as f32 / total as f32);
+                pourcent += p.get_cpu_usage();
+                processors.push(p);
+            }
+        }
+    }
+    let mut global_processor = Processor::new(
+        "0".to_owned(),
+        Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0)),
+        frequency,
+        vendor_id,
+        brand,
+    );
+    global_processor.set_cpu_usage(pourcent / processors.len() as f32);
+
+    (global_processor, processors)
 }
 
 fn get_sysctl_str(s: &[u8]) -> String {

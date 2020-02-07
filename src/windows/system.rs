@@ -46,6 +46,7 @@ pub struct System {
     mem_free: u64,
     swap_total: u64,
     swap_free: u64,
+    global_processor: Processor,
     processors: Vec<Processor>,
     components: Vec<Component>,
     disks: Vec<Disk>,
@@ -63,13 +64,15 @@ unsafe impl<T> Sync for Wrap<T> {}
 impl SystemExt for System {
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {
+        let (processors, vendor_id, brand) = init_processors();
         let mut s = System {
             process_list: HashMap::with_capacity(500),
             mem_total: 0,
             mem_free: 0,
             swap_total: 0,
             swap_free: 0,
-            processors: init_processors(),
+            global_processor: Processor::new_with_values("Total CPU", vendor_id, brand, 0),
+            processors,
             components: Vec::new(),
             disks: Vec::with_capacity(2),
             query: Query::new(),
@@ -86,7 +89,7 @@ impl SystemExt for System {
                     add_counter(
                         format!("\\{}(_Total)\\{}", processor_trans, proc_time_trans),
                         query,
-                        get_key_used(&mut s.processors[0]),
+                        get_key_used(&mut s.global_processor),
                         "tot_0".to_owned(),
                         CounterValue::Float(0.),
                     );
@@ -95,12 +98,12 @@ impl SystemExt for System {
                     add_counter(
                         format!("\\{}(_Total)\\{}", processor_trans, idle_time_trans),
                         query,
-                        get_key_idle(&mut s.processors[0]),
+                        get_key_idle(&mut s.global_processor),
                         "tot_1".to_owned(),
                         CounterValue::Float(0.),
                     );
                 }
-                for (pos, proc_) in s.processors.iter_mut().skip(1).enumerate() {
+                for (pos, proc_) in s.processors.iter_mut().enumerate() {
                     if let Some(ref proc_time_trans) = proc_time_trans {
                         add_counter(
                             format!("\\{}({})\\{}", processor_trans, pos, proc_time_trans),
@@ -137,6 +140,13 @@ impl SystemExt for System {
                 if let Some(idle_time) = idle_time {
                     p.set_cpu_usage(1. - idle_time);
                 }
+            }
+            let mut idle_time = None;
+            if let &mut Some(ref key_idle) = get_key_idle(&mut self.global_processor) {
+                idle_time = Some(query.get(&key_idle.unique_id).expect("key disappeared"));
+            }
+            if let Some(idle_time) = idle_time {
+                self.global_processor.set_cpu_usage(1. - idle_time);
             }
         }
     }
@@ -299,8 +309,12 @@ impl SystemExt for System {
         self.process_list.get(&(pid as usize))
     }
 
+    fn get_global_processor_info(&self) -> &Processor {
+        &self.global_processor
+    }
+
     fn get_processors(&self) -> &[Processor] {
-        &self.processors[..]
+        &self.processors
     }
 
     fn get_total_memory(&self) -> u64 {

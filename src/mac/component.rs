@@ -55,14 +55,16 @@ impl Component {
         connection: ffi::io_connect_t,
     ) -> Option<Component> {
         let ffi_part = ComponentFFI::new(key, connection)?;
-        ffi_part.get_temperature(connection).map(|temperature| Component {
-            temperature,
-            label,
-            max: max.unwrap_or(0.0),
-            critical,
-            ffi_part,
-            connection,
-        })
+        ffi_part
+            .get_temperature(connection)
+            .map(|temperature| Component {
+                temperature,
+                label,
+                max: max.unwrap_or(0.0),
+                critical,
+                ffi_part,
+                connection,
+            })
     }
 }
 
