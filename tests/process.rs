@@ -13,6 +13,7 @@ fn test_process() {
     use sysinfo::SystemExt;
 
     let mut s = sysinfo::System::new();
+    assert_eq!(s.get_process_list().len(), 0);
     s.refresh_processes();
     assert!(s.get_process_list().len() != 0);
     #[cfg(not(windows))]
