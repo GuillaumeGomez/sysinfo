@@ -194,7 +194,7 @@ impl Processor {
             user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
         );
         self.cpu_usage = min(self.new_values.work_time(), self.old_values.work_time())
-            / min(self.new_values.total_time(), self.old_values.total_time());
+            / min(self.new_values.total_time(), self.old_values.total_time()) * 100.;
         self.old_total_time = self.old_values.total_time();
         self.total_time = self.new_values.total_time();
     }

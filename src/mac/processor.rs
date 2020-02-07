@@ -184,7 +184,7 @@ pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>) {
                     + *cpu_info.offset(
                         (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
                     );
-                p.set_cpu_usage(in_use as f32 / total as f32);
+                p.set_cpu_usage(in_use as f32 / total as f32 * 100.);
                 pourcent += p.get_cpu_usage();
                 processors.push(p);
             }
