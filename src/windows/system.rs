@@ -299,7 +299,7 @@ impl SystemExt for System {
         self.process_list.get(&(pid as usize))
     }
 
-    fn get_processor_list(&self) -> &[Processor] {
+    fn get_processors(&self) -> &[Processor] {
         &self.processors[..]
     }
 

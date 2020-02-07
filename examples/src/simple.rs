@@ -143,7 +143,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "procs" => {
             // Note: you should refresh a few times before using this, so that usage statistics
             // can be ascertained
-            let procs = sys.get_processor_list();
+            let procs = sys.get_processors();
 
             writeln!(
                 &mut io::stdout(),
@@ -189,7 +189,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "frequency" => {
-            let procs = sys.get_processor_list();
+            let procs = sys.get_processors();
             // On windows, the first processor is the "all processors", so not interesting in here.
             writeln!(
                 &mut io::stdout(),
@@ -201,14 +201,14 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             writeln!(
                 &mut io::stdout(),
                 "vendor ID: {}",
-                sys.get_processor_list()[0].get_vendor_id()
+                sys.get_processors()[0].get_vendor_id()
             );
         }
         "brand" => {
             writeln!(
                 &mut io::stdout(),
                 "brand: {}",
-                sys.get_processor_list()[0].get_brand()
+                sys.get_processors()[0].get_brand()
             );
         }
         "load_avg" => {

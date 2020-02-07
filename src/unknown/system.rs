@@ -65,7 +65,7 @@ impl SystemExt for System {
         &mut self.networks
     }
 
-    fn get_processor_list(&self) -> &[Processor] {
+    fn get_processors(&self) -> &[Processor] {
         &[]
     }
 

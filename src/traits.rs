@@ -308,7 +308,7 @@ pub trait ProcessorExt {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processor_list() {
+    /// for processor in s.get_processors() {
     ///     println!("{}%", processor.get_cpu_usage());
     /// }
     /// ```
@@ -320,7 +320,7 @@ pub trait ProcessorExt {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processor_list() {
+    /// for processor in s.get_processors() {
     ///     println!("{}", processor.get_name());
     /// }
     /// ```
@@ -332,7 +332,7 @@ pub trait ProcessorExt {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processor_list() {
+    /// for processor in s.get_processors() {
     ///     println!("{}", processor.get_vendor_id());
     /// }
     /// ```
@@ -344,7 +344,7 @@ pub trait ProcessorExt {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processor_list() {
+    /// for processor in s.get_processors() {
     ///     println!("{}", processor.get_brand());
     /// }
     /// ```
@@ -356,7 +356,7 @@ pub trait ProcessorExt {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processor_list() {
+    /// for processor in s.get_processors() {
     ///     println!("{}", processor.get_frequency());
     /// }
     /// ```
@@ -685,11 +685,11 @@ pub trait SystemExt: Sized {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for processor in s.get_processor_list() {
+    /// for processor in s.get_processors() {
     ///     println!("{}%", processor.get_cpu_usage());
     /// }
     /// ```
-    fn get_processor_list(&self) -> &[Processor];
+    fn get_processors(&self) -> &[Processor];
 
     /// Returns total RAM size in KiB.
     ///

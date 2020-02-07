@@ -247,7 +247,7 @@ pub extern "C" fn sysinfo_get_processors_usage(
     }
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     {
-        let processors = system.get_processor_list();
+        let processors = system.get_processors();
         unsafe {
             if (*procs).is_null() {
                 (*procs) = libc::malloc(::std::mem::size_of::<c_float>() * processors.len())
