@@ -4,7 +4,7 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use windows::processor::{self, CounterValue, Processor, Query};
+use windows::processor::{self, Processor, Query};
 
 use sys::disk::{new_disk, Disk};
 use DiskType;
@@ -315,11 +315,10 @@ pub fn add_counter(
     query: &mut Query,
     keys: &mut Option<KeyHandler>,
     counter_name: String,
-    value: CounterValue,
 ) {
     let mut full = s.encode_utf16().collect::<Vec<_>>();
     full.push(0);
-    if query.add_counter(&counter_name, full.clone(), value) {
+    if query.add_counter(&counter_name, full.clone()) {
         *keys = Some(KeyHandler::new(counter_name, full));
     }
 }

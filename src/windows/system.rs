@@ -23,7 +23,6 @@ use SystemExt;
 use windows::process::{
     compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process,
 };
-use windows::processor::CounterValue;
 use windows::tools::*;
 
 use ntapi::ntexapi::{
@@ -91,16 +90,6 @@ impl SystemExt for System {
                         query,
                         get_key_used(&mut s.global_processor),
                         "tot_0".to_owned(),
-                        CounterValue::Float(0.),
-                    );
-                }
-                if let Some(ref idle_time_trans) = idle_time_trans {
-                    add_counter(
-                        format!("\\{}(_Total)\\{}", processor_trans, idle_time_trans),
-                        query,
-                        get_key_idle(&mut s.global_processor),
-                        "tot_1".to_owned(),
-                        CounterValue::Float(0.),
                     );
                 }
                 for (pos, proc_) in s.processors.iter_mut().enumerate() {
@@ -110,19 +99,11 @@ impl SystemExt for System {
                             query,
                             get_key_used(proc_),
                             format!("{}_0", pos),
-                            CounterValue::Float(0.),
-                        );
-                    }
-                    if let Some(ref idle_time_trans) = idle_time_trans {
-                        add_counter(
-                            format!("\\{}({})\\{}", processor_trans, pos, idle_time_trans),
-                            query,
-                            get_key_idle(proc_),
-                            format!("{}_1", pos),
-                            CounterValue::Float(0.),
                         );
                     }
                 }
+            } else {
+                eprintln!("failed to get `Processor` translation");
             }
         }
         s.refresh_specifics(refreshes);
@@ -132,21 +113,22 @@ impl SystemExt for System {
     fn refresh_cpu(&mut self) {
         self.uptime = get_uptime();
         if let Some(ref mut query) = self.query {
+            query.refresh();
+            let mut used_time = None;
+            if let &mut Some(ref key_used) = get_key_used(&mut self.global_processor) {
+                used_time = Some(query.get(&key_used.unique_id).expect("global_key_idle disappeared"));
+            }
+            if let Some(used_time) = used_time {
+                self.global_processor.set_cpu_usage(used_time);
+            }
             for p in self.processors.iter_mut() {
-                let mut idle_time = None;
-                if let &mut Some(ref key_idle) = get_key_idle(p) {
-                    idle_time = Some(query.get(&key_idle.unique_id).expect("key disappeared"));
+                let mut used_time = None;
+                if let &mut Some(ref key_used) = get_key_used(p) {
+                    used_time = Some(query.get(&key_used.unique_id).expect("key_used disappeared"));
                 }
-                if let Some(idle_time) = idle_time {
-                    p.set_cpu_usage(1. - idle_time);
+                if let Some(used_time) = used_time {
+                    p.set_cpu_usage(used_time);
                 }
-            }
-            let mut idle_time = None;
-            if let &mut Some(ref key_idle) = get_key_idle(&mut self.global_processor) {
-                idle_time = Some(query.get(&key_idle.unique_id).expect("key disappeared"));
-            }
-            if let Some(idle_time) = idle_time {
-                self.global_processor.set_cpu_usage(1. - idle_time);
             }
         }
     }

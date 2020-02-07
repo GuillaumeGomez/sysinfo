@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::ops::DerefMut;
 use std::ptr::null_mut;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use windows::tools::KeyHandler;
 use LoadAvg;
@@ -20,7 +20,7 @@ use winapi::shared::minwindef::FALSE;
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::{
-    PdhAddCounterW, PdhAddEnglishCounterA, PdhCloseQuery, PdhCollectQueryDataEx,
+    PdhAddCounterW, PdhAddEnglishCounterA, PdhCloseQuery, PdhCollectQueryData, PdhCollectQueryDataEx,
     PdhGetFormattedCounterValue, PdhOpenQueryA, PdhRemoveCounter, PDH_FMT_COUNTERVALUE,
     PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
 };
@@ -120,51 +120,10 @@ unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
     }
 }
 
-#[derive(Debug)]
-pub enum CounterValue {
-    Float(f32),
-    Integer(u64),
-}
-
-impl CounterValue {
-    pub fn get_f32(&self) -> f32 {
-        match *self {
-            CounterValue::Float(v) => v,
-            _ => panic!("not a float"),
-        }
-    }
-}
-
-#[allow(dead_code)]
-#[derive(Debug)]
-struct Counter {
-    counter: PDH_HCOUNTER,
-    value: CounterValue,
-    getter: Vec<u16>,
-}
-
-impl Counter {
-    fn new_f32(counter: PDH_HCOUNTER, value: f32, getter: Vec<u16>) -> Counter {
-        Counter {
-            counter: counter,
-            value: CounterValue::Float(value),
-            getter: getter,
-        }
-    }
-
-    fn new_u64(counter: PDH_HCOUNTER, value: u64, getter: Vec<u16>) -> Counter {
-        Counter {
-            counter: counter,
-            value: CounterValue::Integer(value),
-            getter: getter,
-        }
-    }
-}
-
 struct InternalQuery {
     query: PDH_HQUERY,
     event: HANDLE,
-    data: Mutex<HashMap<String, Counter>>,
+    data: HashMap<String, PDH_HCOUNTER>,
 }
 
 unsafe impl Send for InternalQuery {}
@@ -173,10 +132,8 @@ unsafe impl Sync for InternalQuery {}
 impl Drop for InternalQuery {
     fn drop(&mut self) {
         unsafe {
-            if let Ok(ref data) = self.data.lock() {
-                for (_, counter) in data.iter() {
-                    PdhRemoveCounter(counter.counter);
-                }
+            for (_, counter) in self.data.iter() {
+                PdhRemoveCounter(*counter);
             }
 
             if !self.event.is_null() {
@@ -191,7 +148,7 @@ impl Drop for InternalQuery {
 }
 
 pub struct Query {
-    internal: Arc<InternalQuery>,
+    internal: InternalQuery,
 }
 
 impl Query {
@@ -199,19 +156,12 @@ impl Query {
         let mut query = null_mut();
         unsafe {
             if PdhOpenQueryA(null_mut(), 0, &mut query) == ERROR_SUCCESS as i32 {
-                let event =
-                    CreateEventA(null_mut(), FALSE, FALSE, b"some_ev\0".as_ptr() as *const i8);
-                if event.is_null() {
-                    PdhCloseQuery(query);
-                    None
-                } else {
-                    let q = Arc::new(InternalQuery {
-                        query: query,
-                        event: event,
-                        data: Mutex::new(HashMap::new()),
-                    });
-                    Some(Query { internal: q })
-                }
+                let q = InternalQuery {
+                    query,
+                    event: null_mut(),
+                    data: HashMap::new(),
+                };
+                Some(Query { internal: q })
             } else {
                 None
             }
@@ -219,34 +169,36 @@ impl Query {
     }
 
     pub fn get(&self, name: &String) -> Option<f32> {
-        if let Ok(data) = self.internal.data.lock() {
-            if let Some(ref counter) = data.get(name) {
-                return Some(counter.value.get_f32());
+        if let Some(ref counter) = self.internal.data.get(name) {
+            unsafe {
+                let mut display_value: PDH_FMT_COUNTERVALUE = mem::MaybeUninit::uninit().assume_init();
+                let counter: PDH_HCOUNTER = **counter;
+
+                let ret = PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, null_mut(), &mut display_value) as u32;
+                return if ret == ERROR_SUCCESS as _ {
+                    let data = *display_value.u.doubleValue();
+                    Some(data as f32)
+                } else {
+                    Some(0.)
+                };
             }
         }
         None
     }
 
-    pub fn add_counter(&mut self, name: &String, getter: Vec<u16>, value: CounterValue) -> bool {
-        if let Ok(data) = self.internal.data.lock() {
-            if data.contains_key(name) {
-                return false;
-            }
+    pub fn add_counter(&mut self, name: &String, getter: Vec<u16>) -> bool {
+        if self.internal.data.contains_key(name) {
+            return false;
         }
         unsafe {
             let mut counter: PDH_HCOUNTER = ::std::mem::zeroed();
             let ret = PdhAddCounterW(self.internal.query, getter.as_ptr(), 0, &mut counter);
-            if ret == ERROR_SUCCESS as i32 {
+            if ret == ERROR_SUCCESS as _ {
                 self.internal
                     .data
-                    .lock()
-                    .expect("couldn't add counter...")
                     .insert(
                         name.clone(),
-                        match value {
-                            CounterValue::Float(v) => Counter::new_f32(counter, v, getter),
-                            CounterValue::Integer(v) => Counter::new_u64(counter, v, getter),
-                        },
+                        counter,
                     );
             } else {
                 eprintln!("failed to add counter '{}': {:x}...", name, ret);
@@ -255,13 +207,20 @@ impl Query {
         }
         true
     }
+
+    pub fn refresh(&self) {
+        unsafe { 
+            if PdhCollectQueryData(self.internal.query) != ERROR_SUCCESS as _ {
+                eprintln!("failed to refresh CPU data");
+            }
+        }
+    }
 }
 
 /// Struct containing a processor information.
 pub struct Processor {
     name: String,
     cpu_usage: f32,
-    key_idle: Option<KeyHandler>,
     key_used: Option<KeyHandler>,
     vendor_id: String,
     brand: String,
@@ -300,7 +259,6 @@ impl Processor {
         Processor {
             name: name.to_owned(),
             cpu_usage: 0f32,
-            key_idle: None,
             key_used: None,
             vendor_id,
             brand,
@@ -409,10 +367,6 @@ pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
 #[cfg(all(not(target_arch = "x86_64"), not(target_arch = "x86")))]
 pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
     (get_vendor_id_not_great(info), String::new())
-}
-
-pub fn get_key_idle(p: &mut Processor) -> &mut Option<KeyHandler> {
-    &mut p.key_idle
 }
 
 pub fn get_key_used(p: &mut Processor) -> &mut Option<KeyHandler> {
