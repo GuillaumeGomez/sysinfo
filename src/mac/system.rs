@@ -68,7 +68,6 @@ impl System {
             self.process_list.remove(&pid);
         }
     }
-
 }
 
 impl SystemExt for System {
@@ -218,7 +217,8 @@ impl SystemExt for System {
                 }
             }
         }
-        self.global_processor.set_cpu_usage(pourcent / self.processors.len() as f32);
+        self.global_processor
+            .set_cpu_usage(pourcent / self.processors.len() as f32);
     }
 
     fn refresh_processes(&mut self) {

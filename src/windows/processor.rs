@@ -20,9 +20,9 @@ use winapi::shared::minwindef::FALSE;
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::{
-    PdhAddCounterW, PdhAddEnglishCounterA, PdhCloseQuery, PdhCollectQueryData, PdhCollectQueryDataEx,
-    PdhGetFormattedCounterValue, PdhOpenQueryA, PdhRemoveCounter, PDH_FMT_COUNTERVALUE,
-    PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
+    PdhAddCounterW, PdhAddEnglishCounterA, PdhCloseQuery, PdhCollectQueryData,
+    PdhCollectQueryDataEx, PdhGetFormattedCounterValue, PdhOpenQueryA, PdhRemoveCounter,
+    PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
 };
 use winapi::um::powerbase::CallNtPowerInformation;
 use winapi::um::synchapi::CreateEventA;
@@ -171,10 +171,16 @@ impl Query {
     pub fn get(&self, name: &String) -> Option<f32> {
         if let Some(ref counter) = self.internal.data.get(name) {
             unsafe {
-                let mut display_value: PDH_FMT_COUNTERVALUE = mem::MaybeUninit::uninit().assume_init();
+                let mut display_value: PDH_FMT_COUNTERVALUE =
+                    mem::MaybeUninit::uninit().assume_init();
                 let counter: PDH_HCOUNTER = **counter;
 
-                let ret = PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, null_mut(), &mut display_value) as u32;
+                let ret = PdhGetFormattedCounterValue(
+                    counter,
+                    PDH_FMT_DOUBLE,
+                    null_mut(),
+                    &mut display_value,
+                ) as u32;
                 return if ret == ERROR_SUCCESS as _ {
                     let data = *display_value.u.doubleValue();
                     Some(data as f32)
@@ -194,12 +200,7 @@ impl Query {
             let mut counter: PDH_HCOUNTER = ::std::mem::zeroed();
             let ret = PdhAddCounterW(self.internal.query, getter.as_ptr(), 0, &mut counter);
             if ret == ERROR_SUCCESS as _ {
-                self.internal
-                    .data
-                    .insert(
-                        name.clone(),
-                        counter,
-                    );
+                self.internal.data.insert(name.clone(), counter);
             } else {
                 eprintln!("failed to add counter '{}': {:x}...", name, ret);
                 return false;
@@ -209,7 +210,7 @@ impl Query {
     }
 
     pub fn refresh(&self) {
-        unsafe { 
+        unsafe {
             if PdhCollectQueryData(self.internal.query) != ERROR_SUCCESS as _ {
                 eprintln!("failed to refresh CPU data");
             }

@@ -27,7 +27,7 @@ impl SystemExt for System {
         System {
             processes_list: Default::default(),
             networks: Networks::new(),
-            global_processor: Processor::new{},
+            global_processor: Processor::new {},
         }
     }
 

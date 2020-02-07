@@ -116,7 +116,11 @@ impl SystemExt for System {
             query.refresh();
             let mut used_time = None;
             if let &mut Some(ref key_used) = get_key_used(&mut self.global_processor) {
-                used_time = Some(query.get(&key_used.unique_id).expect("global_key_idle disappeared"));
+                used_time = Some(
+                    query
+                        .get(&key_used.unique_id)
+                        .expect("global_key_idle disappeared"),
+                );
             }
             if let Some(used_time) = used_time {
                 self.global_processor.set_cpu_usage(used_time);
@@ -124,7 +128,11 @@ impl SystemExt for System {
             for p in self.processors.iter_mut() {
                 let mut used_time = None;
                 if let &mut Some(ref key_used) = get_key_used(p) {
-                    used_time = Some(query.get(&key_used.unique_id).expect("key_used disappeared"));
+                    used_time = Some(
+                        query
+                            .get(&key_used.unique_id)
+                            .expect("key_used disappeared"),
+                    );
                 }
                 if let Some(used_time) = used_time {
                     p.set_cpu_usage(used_time);
