@@ -4,10 +4,10 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use windows::processor::{self, CounterValue, Processor, Query};
+use windows::processor::{self, Processor, Query};
 
-use DiskType;
 use sys::disk::{new_disk, Disk};
+use DiskType;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -45,7 +45,7 @@ impl KeyHandler {
     }
 }
 
-pub fn init_processors() -> Vec<Processor> {
+pub fn init_processors() -> (Vec<Processor>, String, String) {
     unsafe {
         let mut sys_info: SYSTEM_INFO = zeroed();
         GetSystemInfo(&mut sys_info);
@@ -60,11 +60,7 @@ pub fn init_processors() -> Vec<Processor> {
                 frequencies[nb as usize],
             ));
         }
-        ret.insert(
-            0,
-            Processor::new_with_values("Total CPU", vendor_id, brand, 0),
-        );
-        ret
+        (ret, vendor_id, brand)
     }
 }
 
@@ -319,11 +315,10 @@ pub fn add_counter(
     query: &mut Query,
     keys: &mut Option<KeyHandler>,
     counter_name: String,
-    value: CounterValue,
 ) {
     let mut full = s.encode_utf16().collect::<Vec<_>>();
     full.push(0);
-    if query.add_counter(&counter_name, full.clone(), value) {
+    if query.add_counter(&counter_name, full.clone()) {
         *keys = Some(KeyHandler::new(counter_name, full));
     }
 }

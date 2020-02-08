@@ -112,7 +112,7 @@ assert_eq!(r.", stringify!($name), "(), false);
 /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
 ///
 /// assert_eq!(system.get_disks().len(), 0);
-/// assert!(system.get_process_list().len() > 0);
+/// assert!(system.get_processes().len() > 0);
 /// ```
 ///
 /// [`System`]: crate::System
@@ -204,7 +204,11 @@ impl RefreshKind {
     impl_get_set!(memory, with_memory, without_memory);
     impl_get_set!(cpu, with_cpu, without_cpu);
     impl_get_set!(components, with_components, without_components);
-    impl_get_set!(components_list, with_components_list, without_components_list);
+    impl_get_set!(
+        components_list,
+        with_components_list,
+        without_components_list
+    );
 }
 
 /// Iterator over network interfaces.

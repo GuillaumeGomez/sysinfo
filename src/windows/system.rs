@@ -23,7 +23,6 @@ use SystemExt;
 use windows::process::{
     compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process,
 };
-use windows::processor::CounterValue;
 use windows::tools::*;
 
 use ntapi::ntexapi::{
@@ -46,6 +45,7 @@ pub struct System {
     mem_free: u64,
     swap_total: u64,
     swap_free: u64,
+    global_processor: Processor,
     processors: Vec<Processor>,
     components: Vec<Component>,
     disks: Vec<Disk>,
@@ -63,13 +63,15 @@ unsafe impl<T> Sync for Wrap<T> {}
 impl SystemExt for System {
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {
+        let (processors, vendor_id, brand) = init_processors();
         let mut s = System {
             process_list: HashMap::with_capacity(500),
             mem_total: 0,
             mem_free: 0,
             swap_total: 0,
             swap_free: 0,
-            processors: init_processors(),
+            global_processor: Processor::new_with_values("Total CPU", vendor_id, brand, 0),
+            processors,
             components: Vec::new(),
             disks: Vec::with_capacity(2),
             query: Query::new(),
@@ -80,46 +82,28 @@ impl SystemExt for System {
         if let Some(ref mut query) = s.query {
             let x = unsafe { load_symbols() };
             if let Some(processor_trans) = get_translation(&"Processor".to_owned(), &x) {
-                let idle_time_trans = get_translation(&"% Idle Time".to_owned(), &x);
+                // let idle_time_trans = get_translation(&"% Idle Time".to_owned(), &x);
                 let proc_time_trans = get_translation(&"% Processor Time".to_owned(), &x);
                 if let Some(ref proc_time_trans) = proc_time_trans {
                     add_counter(
                         format!("\\{}(_Total)\\{}", processor_trans, proc_time_trans),
                         query,
-                        get_key_used(&mut s.processors[0]),
+                        get_key_used(&mut s.global_processor),
                         "tot_0".to_owned(),
-                        CounterValue::Float(0.),
                     );
                 }
-                if let Some(ref idle_time_trans) = idle_time_trans {
-                    add_counter(
-                        format!("\\{}(_Total)\\{}", processor_trans, idle_time_trans),
-                        query,
-                        get_key_idle(&mut s.processors[0]),
-                        "tot_1".to_owned(),
-                        CounterValue::Float(0.),
-                    );
-                }
-                for (pos, proc_) in s.processors.iter_mut().skip(1).enumerate() {
+                for (pos, proc_) in s.processors.iter_mut().enumerate() {
                     if let Some(ref proc_time_trans) = proc_time_trans {
                         add_counter(
                             format!("\\{}({})\\{}", processor_trans, pos, proc_time_trans),
                             query,
                             get_key_used(proc_),
                             format!("{}_0", pos),
-                            CounterValue::Float(0.),
-                        );
-                    }
-                    if let Some(ref idle_time_trans) = idle_time_trans {
-                        add_counter(
-                            format!("\\{}({})\\{}", processor_trans, pos, idle_time_trans),
-                            query,
-                            get_key_idle(proc_),
-                            format!("{}_1", pos),
-                            CounterValue::Float(0.),
                         );
                     }
                 }
+            } else {
+                eprintln!("failed to get `Processor` translation");
             }
         }
         s.refresh_specifics(refreshes);
@@ -129,13 +113,29 @@ impl SystemExt for System {
     fn refresh_cpu(&mut self) {
         self.uptime = get_uptime();
         if let Some(ref mut query) = self.query {
+            query.refresh();
+            let mut used_time = None;
+            if let &mut Some(ref key_used) = get_key_used(&mut self.global_processor) {
+                used_time = Some(
+                    query
+                        .get(&key_used.unique_id)
+                        .expect("global_key_idle disappeared"),
+                );
+            }
+            if let Some(used_time) = used_time {
+                self.global_processor.set_cpu_usage(used_time);
+            }
             for p in self.processors.iter_mut() {
-                let mut idle_time = None;
-                if let &mut Some(ref key_idle) = get_key_idle(p) {
-                    idle_time = Some(query.get(&key_idle.unique_id).expect("key disappeared"));
+                let mut used_time = None;
+                if let &mut Some(ref key_used) = get_key_used(p) {
+                    used_time = Some(
+                        query
+                            .get(&key_used.unique_id)
+                            .expect("key_used disappeared"),
+                    );
                 }
-                if let Some(idle_time) = idle_time {
-                    p.set_cpu_usage(1. - idle_time);
+                if let Some(used_time) = used_time {
+                    p.set_cpu_usage(used_time);
                 }
             }
         }
@@ -291,7 +291,7 @@ impl SystemExt for System {
         self.disks = unsafe { get_disks() };
     }
 
-    fn get_process_list(&self) -> &HashMap<Pid, Process> {
+    fn get_processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
 
@@ -299,8 +299,12 @@ impl SystemExt for System {
         self.process_list.get(&(pid as usize))
     }
 
-    fn get_processor_list(&self) -> &[Processor] {
-        &self.processors[..]
+    fn get_global_processor_info(&self) -> &Processor {
+        &self.global_processor
+    }
+
+    fn get_processors(&self) -> &[Processor] {
+        &self.processors
     }
 
     fn get_total_memory(&self) -> u64 {

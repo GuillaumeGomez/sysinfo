@@ -29,6 +29,7 @@ pub struct System {
     mem_free: u64,
     swap_total: u64,
     swap_free: u64,
+    global_processor: Processor,
     processors: Vec<Processor>,
     page_size_kb: u64,
     components: Vec<Component>,
@@ -71,20 +72,24 @@ impl System {
 
 impl SystemExt for System {
     fn new_with_specifics(refreshes: RefreshKind) -> System {
+        let port = unsafe { ffi::mach_host_self() };
+        let (global_processor, processors) = init_processors(port);
+
         let mut s = System {
             process_list: HashMap::with_capacity(200),
             mem_total: 0,
             mem_free: 0,
             swap_total: 0,
             swap_free: 0,
-            processors: Vec::with_capacity(4),
+            global_processor,
+            processors,
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 >> 10 }, // divide by 1024
             components: Vec::with_capacity(2),
             connection: get_io_service_connection(),
             disks: Vec::with_capacity(1),
             networks: Networks::new(),
             uptime: get_uptime(),
-            port: unsafe { ffi::mach_host_self() },
+            port,
         };
         s.refresh_specifics(refreshes);
         s
@@ -168,68 +173,15 @@ impl SystemExt for System {
     fn refresh_cpu(&mut self) {
         self.uptime = get_uptime();
 
-        let mut mib = [0, 0];
+        // get processor values
+        let mut num_cpu_u = 0u32;
+        let mut cpu_info: *mut i32 = ::std::ptr::null_mut();
+        let mut num_cpu_info = 0u32;
+
+        let mut pourcent = 0f32;
+
         unsafe {
-            // get processor values
-            let mut num_cpu_u = 0u32;
-            let mut cpu_info: *mut i32 = ::std::ptr::null_mut();
-            let mut num_cpu_info = 0u32;
-
-            if self.processors.is_empty() {
-                let mut num_cpu = 0;
-                let (vendor_id, brand) = get_vendor_id_and_brand();
-                let frequency = get_cpu_frequency();
-
-                if !get_sys_value(
-                    ffi::CTL_HW,
-                    ffi::HW_NCPU,
-                    mem::size_of::<u32>(),
-                    &mut num_cpu as *mut usize as *mut c_void,
-                    &mut mib,
-                ) {
-                    num_cpu = 1;
-                }
-
-                self.processors.push(Processor::new(
-                    "0".to_owned(),
-                    Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0)),
-                    frequency,
-                    vendor_id.clone(),
-                    brand.clone(),
-                ));
-                if ffi::host_processor_info(
-                    self.port,
-                    ffi::PROCESSOR_CPU_LOAD_INFO,
-                    &mut num_cpu_u as *mut u32,
-                    &mut cpu_info as *mut *mut i32,
-                    &mut num_cpu_info as *mut u32,
-                ) == ffi::KERN_SUCCESS
-                {
-                    let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
-                    for i in 0..num_cpu {
-                        let mut p = Processor::new(
-                            format!("{}", i + 1),
-                            Arc::clone(&proc_data),
-                            frequency,
-                            vendor_id.clone(),
-                            brand.clone(),
-                        );
-                        let in_use = *cpu_info.offset(
-                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize,
-                        ) + *cpu_info.offset(
-                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_SYSTEM as isize,
-                        ) + *cpu_info.offset(
-                            (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_NICE as isize,
-                        );
-                        let total = in_use
-                            + *cpu_info.offset(
-                                (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
-                            );
-                        p.set_cpu_usage(in_use as f32 / total as f32);
-                        self.processors.push(p);
-                    }
-                }
-            } else if ffi::host_processor_info(
+            if ffi::host_processor_info(
                 self.port,
                 ffi::PROCESSOR_CPU_LOAD_INFO,
                 &mut num_cpu_u as *mut u32,
@@ -237,9 +189,8 @@ impl SystemExt for System {
                 &mut num_cpu_info as *mut u32,
             ) == ffi::KERN_SUCCESS
             {
-                let mut pourcent = 0f32;
                 let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
-                for (i, proc_) in self.processors.iter_mut().skip(1).enumerate() {
+                for (i, proc_) in self.processors.iter_mut().enumerate() {
                     let old_proc_data = &*proc_.get_data();
                     let in_use =
                         (*cpu_info.offset(
@@ -261,17 +212,13 @@ impl SystemExt for System {
                         ) - *old_proc_data.cpu_info.offset(
                             (ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize,
                         ));
-                    proc_.update(in_use as f32 / total as f32, Arc::clone(&proc_data));
+                    proc_.update(in_use as f32 / total as f32 * 100., Arc::clone(&proc_data));
                     pourcent += proc_.get_cpu_usage();
-                }
-                if self.processors.len() > 1 {
-                    let len = self.processors.len() - 1;
-                    if let Some(p) = self.processors.get_mut(0) {
-                        p.set_cpu_usage(pourcent / len as f32);
-                    }
                 }
             }
         }
+        self.global_processor
+            .set_cpu_usage(pourcent / self.processors.len() as f32);
     }
 
     fn refresh_processes(&mut self) {
@@ -320,7 +267,7 @@ impl SystemExt for System {
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    fn get_process_list(&self) -> &HashMap<Pid, Process> {
+    fn get_processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
 
@@ -328,8 +275,12 @@ impl SystemExt for System {
         self.process_list.get(&pid)
     }
 
-    fn get_processor_list(&self) -> &[Processor] {
-        &self.processors[..]
+    fn get_global_processor_info(&self) -> &Processor {
+        &self.global_processor
+    }
+
+    fn get_processors(&self) -> &[Processor] {
+        &self.processors
     }
 
     fn get_networks(&self) -> &Networks {
@@ -483,7 +434,7 @@ fn get_arg_max() -> usize {
     }
 }
 
-unsafe fn get_sys_value(
+pub(crate) unsafe fn get_sys_value(
     high: u32,
     low: u32,
     mut len: usize,

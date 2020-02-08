@@ -12,5 +12,5 @@ fn test_disks() {
 
     let s = sysinfo::System::new();
     println!("total memory: {}", s.get_total_memory());
-    println!("total cpu cores: {}", s.get_processor_list().len());
+    println!("total cpu cores: {}", s.get_processors().len());
 }

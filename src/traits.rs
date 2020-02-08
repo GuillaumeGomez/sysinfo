@@ -308,7 +308,7 @@ pub trait ProcessorExt {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processor_list() {
+    /// for processor in s.get_processors() {
     ///     println!("{}%", processor.get_cpu_usage());
     /// }
     /// ```
@@ -320,7 +320,7 @@ pub trait ProcessorExt {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processor_list() {
+    /// for processor in s.get_processors() {
     ///     println!("{}", processor.get_name());
     /// }
     /// ```
@@ -332,7 +332,7 @@ pub trait ProcessorExt {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processor_list() {
+    /// for processor in s.get_processors() {
     ///     println!("{}", processor.get_vendor_id());
     /// }
     /// ```
@@ -344,7 +344,7 @@ pub trait ProcessorExt {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processor_list() {
+    /// for processor in s.get_processors() {
     ///     println!("{}", processor.get_brand());
     /// }
     /// ```
@@ -356,7 +356,7 @@ pub trait ProcessorExt {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processor_list() {
+    /// for processor in s.get_processors() {
     ///     println!("{}", processor.get_frequency());
     /// }
     /// ```
@@ -365,9 +365,9 @@ pub trait ProcessorExt {
 
 /// Contains all the methods of the [`System`][crate::System] type.
 pub trait SystemExt: Sized {
-    /// Creates a new [`System`] instance with nothing loaded. If you want to load components,
-    /// network interfaces or the disks, you'll have to use the `refresh_*_list` methods.
-    /// [`SystemExt::refresh_networks_list`] for example.
+    /// Creates a new [`System`] instance with nothing loaded except the processors list. If you
+    /// want to load components, network interfaces or the disks, you'll have to use the
+    /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for example.
     ///
     /// Use the [`refresh_all`] method to update its internal information (or any of the `refresh_`
     /// method).
@@ -413,7 +413,7 @@ pub trait SystemExt: Sized {
     /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
     ///
     /// assert_eq!(system.get_disks().len(), 0);
-    /// assert!(system.get_process_list().len() > 0);
+    /// assert!(system.get_processes().len() > 0);
     ///
     /// // If you want the disks list afterwards, just call the corresponding
     /// // "refresh_disks_list":
@@ -641,11 +641,11 @@ pub trait SystemExt: Sized {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for (pid, process) in s.get_process_list() {
+    /// for (pid, process) in s.get_processes() {
     ///     println!("{} {}", pid, process.name());
     /// }
     /// ```
-    fn get_process_list(&self) -> &HashMap<Pid, Process>;
+    fn get_processes(&self) -> &HashMap<Pid, Process>;
 
     /// Returns the process corresponding to the given pid or `None` if no such process exists.
     ///
@@ -671,7 +671,7 @@ pub trait SystemExt: Sized {
     /// ```
     fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
         let mut ret = vec![];
-        for val in self.get_process_list().values() {
+        for val in self.get_processes().values() {
             if val.name().contains(name) {
                 ret.push(val);
             }
@@ -679,17 +679,27 @@ pub trait SystemExt: Sized {
         ret
     }
 
-    /// The first processor in the array is the "main" one (aka the addition of all the others).
+    /// Returns "global" processors information (aka the addition of all the processors).
     ///
     /// ```no_run
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
-    /// let s = System::new_all();
-    /// for processor in s.get_processor_list() {
+    /// let s = System::new();
+    /// println!("{}%", s.get_global_processor_info().get_cpu_usage());
+    /// ```
+    fn get_global_processor_info(&self) -> &Processor;
+
+    /// Returns the list of the processors.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessorExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// for processor in s.get_processors() {
     ///     println!("{}%", processor.get_cpu_usage());
     /// }
     /// ```
-    fn get_processor_list(&self) -> &[Processor];
+    fn get_processors(&self) -> &[Processor];
 
     /// Returns total RAM size in KiB.
     ///

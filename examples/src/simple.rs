@@ -79,7 +79,7 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
-        "procd              : Displays processors state"
+        "processors         : Displays processors state"
     );
     writeln!(
         &mut io::stdout(),
@@ -140,17 +140,15 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 nb += 1;
             }
         }
-        "procs" => {
+        "processors" => {
             // Note: you should refresh a few times before using this, so that usage statistics
             // can be ascertained
-            let procs = sys.get_processor_list();
-
             writeln!(
                 &mut io::stdout(),
                 "total process usage: {}%",
-                procs[0].get_cpu_usage()
+                sys.get_global_processor_info().get_cpu_usage()
             );
-            for proc_ in procs.iter().skip(1) {
+            for proc_ in sys.get_processors() {
                 writeln!(&mut io::stdout(), "{:?}", proc_);
             }
         }
@@ -178,7 +176,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         }
         "quit" | "exit" => return true,
         "all" => {
-            for (pid, proc_) in sys.get_process_list() {
+            for (pid, proc_) in sys.get_processes() {
                 writeln!(
                     &mut io::stdout(),
                     "{}:{} status={:?}",
@@ -189,26 +187,24 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "frequency" => {
-            let procs = sys.get_processor_list();
-            // On windows, the first processor is the "all processors", so not interesting in here.
             writeln!(
                 &mut io::stdout(),
                 "{} MHz",
-                procs[if procs.len() > 1 { 1 } else { 0 }].get_frequency()
+                sys.get_processors()[0].get_frequency()
             );
         }
         "vendor_id" => {
             writeln!(
                 &mut io::stdout(),
                 "vendor ID: {}",
-                sys.get_processor_list()[0].get_vendor_id()
+                sys.get_processors()[0].get_vendor_id()
             );
         }
         "brand" => {
             writeln!(
                 &mut io::stdout(),
                 "brand: {}",
-                sys.get_processor_list()[0].get_brand()
+                sys.get_processors()[0].get_brand()
             );
         }
         "load_avg" => {

@@ -124,13 +124,13 @@ impl CpuValues {
 pub struct Processor {
     old_values: CpuValues,
     new_values: CpuValues,
-    name: String,
+    pub(crate) name: String,
     cpu_usage: f32,
     total_time: u64,
     old_total_time: u64,
     frequency: u64,
-    vendor_id: String,
-    brand: String,
+    pub(crate) vendor_id: String,
+    pub(crate) brand: String,
 }
 
 impl Processor {
@@ -194,7 +194,8 @@ impl Processor {
             user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
         );
         self.cpu_usage = min(self.new_values.work_time(), self.old_values.work_time())
-            / min(self.new_values.total_time(), self.old_values.total_time());
+            / min(self.new_values.total_time(), self.old_values.total_time())
+            * 100.;
         self.old_total_time = self.old_values.total_time();
         self.total_time = self.new_values.total_time();
     }
