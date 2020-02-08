@@ -82,7 +82,7 @@ impl SystemExt for System {
         if let Some(ref mut query) = s.query {
             let x = unsafe { load_symbols() };
             if let Some(processor_trans) = get_translation(&"Processor".to_owned(), &x) {
-                let idle_time_trans = get_translation(&"% Idle Time".to_owned(), &x);
+                // let idle_time_trans = get_translation(&"% Idle Time".to_owned(), &x);
                 let proc_time_trans = get_translation(&"% Processor Time".to_owned(), &x);
                 if let Some(ref proc_time_trans) = proc_time_trans {
                     add_counter(
