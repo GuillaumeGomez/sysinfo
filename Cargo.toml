@@ -3,7 +3,7 @@ name = "sysinfo"
 version = "0.11.0"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 
-description = "Library to handle processes"
+description = "Library to get system information such as processes, processors, disks, components and networks"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "MIT"
 readme = "README.md"
