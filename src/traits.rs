@@ -365,9 +365,9 @@ pub trait ProcessorExt {
 
 /// Contains all the methods of the [`System`][crate::System] type.
 pub trait SystemExt: Sized {
-    /// Creates a new [`System`] instance with nothing loaded. If you want to load components,
-    /// network interfaces or the disks, you'll have to use the `refresh_*_list` methods.
-    /// [`SystemExt::refresh_networks_list`] for example.
+    /// Creates a new [`System`] instance with nothing loaded except the processors list. If you
+    /// want to load components, network interfaces or the disks, you'll have to use the
+    /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for example.
     ///
     /// Use the [`refresh_all`] method to update its internal information (or any of the `refresh_`
     /// method).
@@ -684,7 +684,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// println!("{}%", s.get_global_processor_info().get_cpu_usage());
     /// ```
     fn get_global_processor_info(&self) -> &Processor;
@@ -694,7 +694,7 @@ pub trait SystemExt: Sized {
     /// ```no_run
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// for processor in s.get_processors() {
     ///     println!("{}%", processor.get_cpu_usage());
     /// }
