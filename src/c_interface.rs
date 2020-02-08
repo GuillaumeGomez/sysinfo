@@ -15,7 +15,7 @@ pub type CSystem = *mut c_void;
 pub type CProcess = *const c_void;
 /// C string returned from `CString::into_raw`.
 pub type RString = *const c_char;
-/// Callback used by [`get_process_list`][crate::System#method.get_process_list].
+/// Callback used by [`get_processes`][crate::System#method.get_processes].
 pub type ProcessLoop = extern "C" fn(pid: pid_t, process: CProcess, data: *mut c_void) -> bool;
 
 /// Equivalent of [`System::new()`][crate::System#method.new].
@@ -262,7 +262,7 @@ pub extern "C" fn sysinfo_get_processors_usage(
     Box::into_raw(system);
 }
 
-/// Equivalent of [`System::get_process_list()`][crate::System#method.get_process_list]. Returns an
+/// Equivalent of [`System::get_processes()`][crate::System#method.get_processes]. Returns an
 /// array ended by a null pointer. Must be freed.
 ///
 /// # /!\ WARNING /!\
@@ -278,7 +278,7 @@ pub extern "C" fn sysinfo_get_processes(
     if let Some(fn_pointer) = fn_pointer {
         let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
         let len = {
-            let entries = system.get_process_list();
+            let entries = system.get_processes();
             for (pid, process) in entries {
                 if !fn_pointer(*pid, process as *const Process as CProcess, data) {
                     break;

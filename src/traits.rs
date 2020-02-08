@@ -413,7 +413,7 @@ pub trait SystemExt: Sized {
     /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
     ///
     /// assert_eq!(system.get_disks().len(), 0);
-    /// assert!(system.get_process_list().len() > 0);
+    /// assert!(system.get_processes().len() > 0);
     ///
     /// // If you want the disks list afterwards, just call the corresponding
     /// // "refresh_disks_list":
@@ -641,11 +641,11 @@ pub trait SystemExt: Sized {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for (pid, process) in s.get_process_list() {
+    /// for (pid, process) in s.get_processes() {
     ///     println!("{} {}", pid, process.name());
     /// }
     /// ```
-    fn get_process_list(&self) -> &HashMap<Pid, Process>;
+    fn get_processes(&self) -> &HashMap<Pid, Process>;
 
     /// Returns the process corresponding to the given pid or `None` if no such process exists.
     ///
@@ -671,7 +671,7 @@ pub trait SystemExt: Sized {
     /// ```
     fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
         let mut ret = vec![];
-        for val in self.get_process_list().values() {
+        for val in self.get_processes().values() {
             if val.name().contains(name) {
                 ret.push(val);
             }

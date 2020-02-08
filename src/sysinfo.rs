@@ -20,7 +20,7 @@
 //! system.refresh_all();
 //!
 //! // Now let's print every process' id and name:
-//! for (pid, proc_) in system.get_process_list() {
+//! for (pid, proc_) in system.get_processes() {
 //!     println!("{}:{} => status: {:?}", pid, proc_.name(), proc_.status());
 //! }
 //!
@@ -230,7 +230,7 @@ mod test {
 
         s.refresh_all();
         assert_eq!(
-            s.get_process_list()
+            s.get_processes()
                 .iter()
                 .all(|(_, proc_)| proc_.memory() == 0),
             false

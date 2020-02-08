@@ -291,7 +291,7 @@ impl SystemExt for System {
         self.disks = unsafe { get_disks() };
     }
 
-    fn get_process_list(&self) -> &HashMap<Pid, Process> {
+    fn get_processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
 

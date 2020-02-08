@@ -176,7 +176,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         }
         "quit" | "exit" => return true,
         "all" => {
-            for (pid, proc_) in sys.get_process_list() {
+            for (pid, proc_) in sys.get_processes() {
                 writeln!(
                     &mut io::stdout(),
                     "{}:{} status={:?}",

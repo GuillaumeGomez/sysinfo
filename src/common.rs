@@ -112,7 +112,7 @@ assert_eq!(r.", stringify!($name), "(), false);
 /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
 ///
 /// assert_eq!(system.get_disks().len(), 0);
-/// assert!(system.get_process_list().len() > 0);
+/// assert!(system.get_processes().len() > 0);
 /// ```
 ///
 /// [`System`]: crate::System

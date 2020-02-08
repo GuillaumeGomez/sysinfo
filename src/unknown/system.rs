@@ -51,7 +51,7 @@ impl SystemExt for System {
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    fn get_process_list(&self) -> &HashMap<Pid, Process> {
+    fn get_processes(&self) -> &HashMap<Pid, Process> {
         &self.processes_list
     }
 
