@@ -93,7 +93,6 @@ pub use utils::get_current_pid;
 mod c_interface;
 mod common;
 mod component;
-mod process;
 mod processor;
 mod system;
 mod traits;
