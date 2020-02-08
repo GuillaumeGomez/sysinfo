@@ -79,7 +79,7 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
-        "procd              : Displays processors state"
+        "processors         : Displays processors state"
     );
     writeln!(
         &mut io::stdout(),
@@ -140,17 +140,15 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 nb += 1;
             }
         }
-        "procs" => {
+        "processors" => {
             // Note: you should refresh a few times before using this, so that usage statistics
             // can be ascertained
-            let procs = sys.get_processors();
-
             writeln!(
                 &mut io::stdout(),
                 "total process usage: {}%",
-                procs[0].get_cpu_usage()
+                sys.get_global_processor_info().get_cpu_usage()
             );
-            for proc_ in procs.iter().skip(1) {
+            for proc_ in sys.get_processors() {
                 writeln!(&mut io::stdout(), "{:?}", proc_);
             }
         }
