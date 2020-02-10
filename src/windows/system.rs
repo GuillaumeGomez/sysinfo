@@ -176,11 +176,19 @@ impl SystemExt for System {
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
-        if refresh_existing_process(self, pid, true) == false {
-            self.process_list.remove(&pid);
-            false
-        } else {
+        if self.process_list.contains_key(&pid) {
+            if refresh_existing_process(self, pid, true) == false {
+                self.process_list.remove(&pid);
+                return false;
+            }
             true
+        } else if let Some(mut p) = Process::new_from_pid(pid) {
+            let system_time = get_system_computation_time();
+            compute_cpu_usage(&mut p, self.processors.len() as u64, system_time);
+            self.process_list.insert(pid, p);
+            true
+        } else {
+            false
         }
     }
 
@@ -389,7 +397,7 @@ fn refresh_existing_process(s: &mut System, pid: Pid, compute_cpu: bool) -> bool
     }
 }
 
-fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: usize) -> String {
+pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: usize) -> String {
     let name = &process.ImageName;
     if name.Buffer.is_null() {
         match process_id {

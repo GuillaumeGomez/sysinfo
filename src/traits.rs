@@ -538,7 +538,7 @@ pub trait SystemExt: Sized {
     fn refresh_processes(&mut self);
 
     /// Refresh *only* the process corresponding to `pid`. Returns `false` if the process doesn't
-    /// exist or isn't listed.
+    /// exist. If it isn't listed yet, it'll be added.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
