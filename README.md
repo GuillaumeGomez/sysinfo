@@ -22,7 +22,20 @@ It also compiles for Android but never been tested on it.
 
 ### Running on Raspberry
 
-It'll be difficult to build on Raspberry. A good way-around is to be build on Linux before sending it to your Raspberry:
+It'll be difficult to build on Raspberry. A good way-around is to be build on Linux before sending it to your Raspberry.
+
+First install the arm toolchain, for example on Ubuntu: `sudo apt-get install gcc-multilib-arm-linux-gnueabihf`.
+
+Then configure cargo to use the corresponding toolchain:
+
+```bash
+cat << EOF > ~/.cargo/config
+[target.armv7-unknown-linux-gnueabihf]
+linker = "arm-linux-gnueabihf-gcc"
+EOF
+```
+
+Finally, cross compile:
 
 ```bash
 rustup target add armv7-unknown-linux-gnueabihf
