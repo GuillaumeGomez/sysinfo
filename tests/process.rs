@@ -28,5 +28,9 @@ fn test_process_refresh() {
     let mut s = sysinfo::System::new();
     assert_eq!(s.get_processes().len(), 0);
     s.refresh_process(sysinfo::get_current_pid().expect("failed to get current pid"));
-    assert_eq!(s.get_process(sysinfo::get_current_pid().expect("failed to get current pid")).is_some(), true);
+    assert_eq!(
+        s.get_process(sysinfo::get_current_pid().expect("failed to get current pid"))
+            .is_some(),
+        true
+    );
 }

@@ -16,6 +16,9 @@ use libc::{c_uint, c_void, memcpy};
 use Pid;
 use ProcessExt;
 
+use ntapi::ntpsapi::{
+    NtQueryInformationProcess, ProcessBasicInformation, PROCESS_BASIC_INFORMATION,
+};
 use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH /*, TRUE, USHORT*/};
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess, TerminateProcess};
@@ -28,7 +31,6 @@ use winapi::um::winnt::{
     HANDLE, /*, PWSTR*/ PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ,
     ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
 };
-use ntapi::ntpsapi::{NtQueryInformationProcess, ProcessBasicInformation, PROCESS_BASIC_INFORMATION};
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -164,15 +166,18 @@ impl Process {
         let process_handler = unsafe { OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid as _) };
         if process_handler.is_null() {
             return None;
-        
+        }
         let mut info: PROCESS_BASIC_INFORMATION = unsafe { MaybeUninit::uninit().assume_init() };
-        if unsafe { NtQueryInformationProcess(
-            process_handler,
-            ProcessBasicInformation,
-            &mut info as *mut _ as *mut _,
-            size_of::<PROCESS_BASIC_INFORMATION>() as _,
-            null_mut(),
-        ) } != 0 {
+        if unsafe {
+            NtQueryInformationProcess(
+                process_handler,
+                ProcessBasicInformation,
+                &mut info as *mut _ as *mut _,
+                size_of::<PROCESS_BASIC_INFORMATION>() as _,
+                null_mut(),
+            )
+        } != 0
+        {
             unsafe { CloseHandle(process_handler) };
             return None;
         }
