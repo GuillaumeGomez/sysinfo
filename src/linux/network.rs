@@ -219,7 +219,7 @@ impl NetworkExt for NetworkData {
     }
 
     fn get_total_outcome(&self) -> u64 {
-        self.rx_bytes as u64
+        self.tx_bytes as u64
     }
 
     fn get_packets_income(&self) -> u64 {
