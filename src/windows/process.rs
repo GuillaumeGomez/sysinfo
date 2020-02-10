@@ -8,6 +8,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use std::process;
 use std::ptr::null_mut;
 use std::str;
 
@@ -19,7 +20,7 @@ use ProcessExt;
 use ntapi::ntpsapi::{
     NtQueryInformationProcess, ProcessBasicInformation, PROCESS_BASIC_INFORMATION,
 };
-use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH /*, TRUE, USHORT*/};
+use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH};
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess, TerminateProcess};
 use winapi::um::psapi::{
@@ -27,10 +28,7 @@ use winapi::um::psapi::{
     LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
-use winapi::um::winnt::{
-    HANDLE, /*, PWSTR*/ PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ,
-    ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
-};
+use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER};
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -58,16 +56,10 @@ fn get_process_handler(pid: Pid) -> Option<HANDLE> {
     if pid == 0 {
         return None;
     }
-    let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_TERMINATE;
+    let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
     let process_handler = unsafe { OpenProcess(options, FALSE, pid as DWORD) };
     if process_handler.is_null() {
-        let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
-        let process_handler = unsafe { OpenProcess(options, FALSE, pid as DWORD) };
-        if process_handler.is_null() {
-            None
-        } else {
-            Some(process_handler)
-        }
+        None
     } else {
         Some(process_handler)
     }
@@ -323,11 +315,9 @@ impl ProcessExt for Process {
     }
 
     fn kill(&self, signal: ::Signal) -> bool {
-        if self.handle.is_null() {
-            false
-        } else {
-            unsafe { TerminateProcess(*self.handle, signal as c_uint) != 0 }
-        }
+        let mut kill = process::Command::new("taskkill.exe");
+        kill.arg("/PID").arg(self.pid().to_string()).arg("/F");
+        kill.output().is_err()
     }
 
     fn name(&self) -> &str {
