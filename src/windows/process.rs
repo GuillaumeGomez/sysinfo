@@ -317,7 +317,10 @@ impl ProcessExt for Process {
     fn kill(&self, signal: ::Signal) -> bool {
         let mut kill = process::Command::new("taskkill.exe");
         kill.arg("/PID").arg(self.pid().to_string()).arg("/F");
-        kill.output().is_err()
+        match kill.output() {
+            Ok(o) => o.status.success(),
+            Err(_) => false,
+        }
     }
 
     fn name(&self) -> &str {
