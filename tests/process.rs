@@ -34,3 +34,22 @@ fn test_process_refresh() {
         true
     );
 }
+
+#[test]
+#[cfg(windows)]
+fn test_get_cmd_line() {}
+
+#[test]
+#[cfg(not(windows))]
+fn test_get_cmd_line() {
+    let p = std::process::Command::new("timeout")
+        .arg("3")
+        .arg("ping")
+        .arg("localhost")
+        .spawn()
+        .unwrap();
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    let process = s.get_process(p.id() as sysinfo::Pid).unwrap();
+    assert_eq!(process.cmd(), &["timeout", "3", "ping", "localhost"]);
+}
