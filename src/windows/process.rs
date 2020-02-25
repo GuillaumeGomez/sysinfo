@@ -387,30 +387,6 @@ impl Drop for Process {
     }
 }
 
-#[allow(unused_must_use)]
-impl Debug for Process {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        writeln!(f, "pid: {}", self.pid);
-        writeln!(f, "name: {}", self.name);
-        writeln!(f, "environment:");
-        for var in self.environ.iter() {
-            if !var.is_empty() {
-                writeln!(f, "\t{}", var);
-            }
-        }
-        writeln!(f, "command:");
-        for arg in &self.cmd {
-            writeln!(f, "\t{}", arg);
-        }
-        writeln!(f, "executable path: {:?}", self.exe);
-        writeln!(f, "current working directory: {:?}", self.cwd);
-        writeln!(f, "memory usage: {} KiB", self.memory);
-        writeln!(f, "virtual memory usage: {} KiB", self.virtual_memory);
-        writeln!(f, "cpu usage: {}", self.cpu_usage);
-        writeln!(f, "root path: {:?}", self.root)
-    }
-}
-
 unsafe fn get_start_time(handle: HANDLE) -> u64 {
     let mut fstart: FILETIME = zeroed();
     let mut x = zeroed();

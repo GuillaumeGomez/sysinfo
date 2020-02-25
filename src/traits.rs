@@ -14,6 +14,7 @@ use RefreshKind;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::fmt::Debug;
 use std::path::Path;
 
 /// Contains all the methods of the [`Disk`][crate::Disk] struct.
@@ -26,7 +27,7 @@ use std::path::Path;
 ///     println!("{:?}: {:?}", disk.get_name(), disk.get_type());
 /// }
 /// ```
-pub trait DiskExt {
+pub trait DiskExt: Debug {
     /// Returns the disk type.
     ///
     /// ```no_run
@@ -113,7 +114,7 @@ pub trait DiskExt {
 }
 
 /// Contains all the methods of the [`Process`][crate::Process] struct.
-pub trait ProcessExt {
+pub trait ProcessExt: Debug {
     /// Create a new process only containing the given information.
     ///
     /// On windows, the `start_time` argument is ignored.
@@ -298,7 +299,7 @@ pub trait ProcessExt {
 }
 
 /// Contains all the methods of the [`Processor`][crate::Processor] struct.
-pub trait ProcessorExt {
+pub trait ProcessorExt: Debug {
     /// Returns this processor's usage.
     ///
     /// Note: You'll need to refresh it at least twice at first if you want to have a
@@ -364,7 +365,7 @@ pub trait ProcessorExt {
 }
 
 /// Contains all the methods of the [`System`][crate::System] type.
-pub trait SystemExt: Sized {
+pub trait SystemExt: Sized + Debug {
     /// Creates a new [`System`] instance with nothing loaded except the processors list. If you
     /// want to load components, network interfaces or the disks, you'll have to use the
     /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for example.
@@ -861,7 +862,7 @@ pub trait SystemExt: Sized {
 }
 
 /// Getting volume of incoming and outgoing data.
-pub trait NetworkExt {
+pub trait NetworkExt: Debug {
     /// Returns the number of incoming bytes since the last refresh.
     ///
     /// ```no_run
@@ -1020,7 +1021,7 @@ pub trait NetworkExt {
 }
 
 /// Interacting with network interfaces.
-pub trait NetworksExt {
+pub trait NetworksExt: Debug {
     /// Returns an iterator over the network interfaces.
     ///
     /// ```no_run
@@ -1058,7 +1059,7 @@ pub trait NetworksExt {
 }
 
 /// Getting a component temperature information.
-pub trait ComponentExt {
+pub trait ComponentExt: Debug {
     /// Returns the component's temperature (in celsius degree).
     ///
     /// ```no_run

@@ -46,21 +46,6 @@ pub struct Disk {
     available_space: u64,
 }
 
-impl Debug for Disk {
-    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        write!(
-            fmt,
-            "Disk({:?})[FS: {:?}][Type: {:?}] mounted on {:?}: {}/{} B",
-            self.get_name(),
-            str::from_utf8(self.get_file_system()).unwrap(),
-            self.get_type(),
-            self.get_mount_point(),
-            self.get_available_space(),
-            self.get_total_space()
-        )
-    }
-}
-
 impl DiskExt for Disk {
     fn get_type(&self) -> DiskType {
         self.type_

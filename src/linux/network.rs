@@ -21,7 +21,6 @@ use NetworksIter;
 /// let s = System::new_all();
 /// let networks = s.get_networks();
 /// ```
-#[derive(Debug)]
 pub struct Networks {
     interfaces: HashMap<String, NetworkData>,
 }
@@ -127,7 +126,6 @@ impl NetworksExt for Networks {
 }
 
 /// Contains network information.
-#[derive(Debug)]
 pub struct NetworkData {
     /// Total number of bytes received over interface.
     rx_bytes: usize,

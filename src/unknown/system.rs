@@ -15,7 +15,6 @@ use {RefreshKind, SystemExt};
 use std::collections::HashMap;
 
 /// Structs containing system's information.
-#[derive(Debug)]
 pub struct System {
     processes_list: HashMap<Pid, Process>,
     networks: Networks,

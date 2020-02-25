@@ -96,7 +96,6 @@ macro_rules! to_str {
 }
 
 /// Structs containing system's information.
-#[derive(Debug)]
 pub struct System {
     process_list: Process,
     mem_total: u64,
