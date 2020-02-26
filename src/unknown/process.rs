@@ -13,7 +13,7 @@ use ProcessExt;
 pub struct ProcessStatus;
 
 /// Struct containing a process' information.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Process {
     pid: Pid,
     parent: Option<Pid>,

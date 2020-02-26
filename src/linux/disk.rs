@@ -11,7 +11,7 @@ use DiskType;
 
 use libc::statvfs;
 use std::ffi::{OsStr, OsString};
-use std::fmt::{Debug, Error, Formatter};
+use std::fmt::{Error, Formatter};
 use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
@@ -72,21 +72,6 @@ pub struct Disk {
     mount_point: PathBuf,
     total_space: u64,
     available_space: u64,
-}
-
-impl Debug for Disk {
-    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        write!(
-            fmt,
-            "Disk({:?})[FS: {:?}][Type: {:?}] mounted on {:?}: {}/{} B",
-            self.get_name(),
-            self.get_file_system(),
-            self.get_type(),
-            self.get_mount_point(),
-            self.get_available_space(),
-            self.get_total_space()
-        )
-    }
 }
 
 impl DiskExt for Disk {

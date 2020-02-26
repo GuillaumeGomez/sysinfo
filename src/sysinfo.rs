@@ -92,8 +92,7 @@ pub use utils::get_current_pid;
 #[cfg(feature = "c-interface")]
 mod c_interface;
 mod common;
-mod component;
-mod processor;
+mod debug;
 mod system;
 mod traits;
 mod utils;

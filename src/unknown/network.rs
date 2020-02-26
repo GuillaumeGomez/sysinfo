@@ -41,7 +41,6 @@ impl NetworksExt for Networks {
 }
 
 /// Contains network information.
-#[derive(Debug)]
 pub struct NetworkData;
 
 impl NetworkExt for NetworkData {

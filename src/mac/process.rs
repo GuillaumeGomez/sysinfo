@@ -6,7 +6,7 @@
 
 use std::borrow::Borrow;
 use std::ffi::OsStr;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt;
 use std::mem;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -295,40 +295,6 @@ impl ProcessExt for Process {
 
     fn cpu_usage(&self) -> f32 {
         self.cpu_usage
-    }
-}
-
-#[allow(unused_must_use)]
-impl Debug for Process {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        writeln!(f, "pid: {}", self.pid);
-        writeln!(f, "parent: {:?}", self.parent);
-        writeln!(f, "name: {}", self.name);
-        writeln!(f, "environment:");
-        for var in &self.environ {
-            if !var.is_empty() {
-                writeln!(f, "\t{}", var);
-            }
-        }
-        writeln!(f, "command:");
-        for arg in &self.cmd {
-            writeln!(f, "\t{}", arg);
-        }
-        writeln!(f, "executable path: {:?}", self.exe);
-        writeln!(f, "current working directory: {:?}", self.cwd);
-        writeln!(f, "owner/group: {}:{}", self.uid, self.gid);
-        writeln!(f, "memory usage: {} KiB", self.memory);
-        writeln!(f, "virtual memory usage: {} KiB", self.virtual_memory);
-        writeln!(f, "cpu usage: {}%", self.cpu_usage);
-        writeln!(
-            f,
-            "status: {}",
-            match self.status {
-                Some(ref v) => v.to_string(),
-                None => "Unknown",
-            }
-        );
-        write!(f, "root path: {:?}", self.root)
     }
 }
 
