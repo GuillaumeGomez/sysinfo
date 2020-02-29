@@ -7,7 +7,15 @@
 use libc::{c_char, c_int, c_uchar, c_uint, c_ushort, c_void, size_t};
 
 extern "C" {
+    #[no_mangle]
     pub static kCFAllocatorDefault: CFAllocatorRef;
+    // #[no_mangle]
+    // pub static kODSessionDefault: ODSessionRef;
+    #[no_mangle]
+    pub static kCFAllocatorNull: CFAllocatorRef;
+    // from https://github.com/apple/ccs-pyosxframeworks/blob/ccbacc3408bd7583a7535bbaca4020bdfe94bd2f/osx/frameworks/_opendirectory_cffi.py
+    // #[no_mangle]
+    // pub static kODRecordTypeUsers: ODRecordType;
 
     pub fn proc_pidinfo(
         pid: c_int,
@@ -58,8 +66,35 @@ extern "C" {
         encoding: CFStringEncoding,
         contentsDeallocator: *mut c_void,
     ) -> CFStringRef;
+    // pub fn CFStringGetCharactersPtr(theString: CFStringRef) -> *mut u16;
+    // pub fn CFStringGetLength(theString: CFStringRef) -> CFIndex;
+    // pub fn CFStringGetCharacterAtIndex(theString: CFStringRef, idx: CFIndex) -> u16;
 
-    pub static kCFAllocatorNull: CFAllocatorRef;
+    // pub fn ODNodeCreateWithName(
+    //     allocator: CFAllocatorRef,
+    //     session: ODSessionRef,
+    //     nodeName: CFStringRef,
+    //     error: *mut CFErrorRef,
+    // ) -> ODNodeRef;
+    // pub fn ODQueryCopyResults(
+    //     query: ODQueryRef,
+    //     allowPartialResults: Boolean,
+    //     error: *mut CFErrorRef,
+    // ) -> CFArrayRef;
+    // pub fn ODQueryCreateWithNode(
+    //     allocator: CFAllocatorRef,
+    //     node: ODNodeRef,
+    //     recordTypeOrList: CFTypeRef,
+    //     attribute: ODAttributeType,
+    //     matchType: ODMatchType,
+    //     queryValueOrList: CFTypeRef,
+    //     returnAttributeOrList: CFTypeRef,
+    //     maxResults: CFIndex,
+    //     error: *mut CFErrorRef,
+    // ) -> ODQueryRef;
+    // pub fn CFArrayGetCount(theArray: CFArrayRef) -> CFIndex;
+    // pub fn CFArrayGetValueAtIndex(theArray: CFArrayRef, idx: CFIndex) -> *const c_void;
+    // pub fn ODRecordGetRecordName(record: ODRecordRef) -> CFStringRef;
 
     pub fn mach_absolute_time() -> u64;
     //pub fn task_for_pid(host: u32, pid: pid_t, task: *mut task_t) -> u32;
@@ -201,6 +236,42 @@ pub struct __CFString {
     __private: c_void,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
+#[repr(C)]
+pub struct __ODNode {
+    __private: c_void,
+}
+
+#[cfg_attr(feature = "debug", derive(Debug))]
+#[repr(C)]
+pub struct __ODSession {
+    __private: c_void,
+}
+
+#[cfg_attr(feature = "debug", derive(Debug))]
+#[repr(C)]
+pub struct __CFError {
+    __private: c_void,
+}
+
+#[cfg_attr(feature = "debug", derive(Debug))]
+#[repr(C)]
+pub struct __CFArray {
+    __private: c_void,
+}
+
+#[cfg_attr(feature = "debug", derive(Debug))]
+#[repr(C)]
+pub struct __ODRecord {
+    __private: c_void,
+}
+
+#[cfg_attr(feature = "debug", derive(Debug))]
+#[repr(C)]
+pub struct __ODQuery {
+    __private: c_void,
+}
+
 pub type CFAllocatorRef = *const __CFAllocator;
 pub type CFMutableDictionaryRef = *mut __CFDictionary;
 pub type CFDictionaryRef = *const __CFDictionary;
@@ -210,6 +281,12 @@ pub type io_name_t = [u8; 128];
 pub type io_registry_entry_t = io_object_t;
 pub type CFTypeRef = *const c_void;
 pub type CFStringRef = *const __CFString;
+// pub type ODNodeRef = *const __ODNode;
+// pub type ODSessionRef = *const __ODSession;
+// pub type CFErrorRef = *const __CFError;
+// pub type CFArrayRef = *const __CFArray;
+// pub type ODRecordRef = *const __ODRecord;
+// pub type ODQueryRef = *const __ODQuery;
 
 //#[allow(non_camel_case_types)]
 //pub type policy_t = i32;
@@ -242,6 +319,10 @@ pub type kern_return_t = c_int;
 pub type Boolean = c_uchar;
 pub type IOOptionBits = u32;
 pub type CFStringEncoding = u32;
+// pub type ODRecordType = CFStringRef;
+// pub type ODAttributeType = CFStringRef;
+// pub type ODMatchType = u32;
+// pub type CFIndex = c_long;
 
 /*#[repr(C)]
 pub struct task_thread_times_info {

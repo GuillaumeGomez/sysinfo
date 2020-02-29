@@ -11,6 +11,7 @@ use NetworksIter;
 use Pid;
 use ProcessStatus;
 use RefreshKind;
+use User;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -573,6 +574,9 @@ pub trait SystemExt: Sized + Debug {
     /// ```
     fn refresh_disks_list(&mut self);
 
+    /// Refresh users list.
+    fn refresh_users_list(&mut self);
+
     /// Refresh networks data.
     ///
     /// ```no_run
@@ -797,6 +801,18 @@ pub trait SystemExt: Sized + Debug {
     /// }
     /// ```
     fn get_disks(&self) -> &[Disk];
+
+    /// Returns users' list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt, UserExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for user in s.get_users() {
+    ///     println!("{} is in {} groups", user.get_name(), user.get_groups().len());
+    /// }
+    /// ```
+    fn get_users(&self) -> &[User];
 
     /// Returns disks' list.
     ///
@@ -1119,4 +1135,42 @@ pub trait ComponentExt: Debug {
     /// }
     /// ```
     fn refresh(&mut self);
+}
+
+/// Getting information for a user.
+///
+/// It is returned from [`SystemExt::get_users`].
+///
+/// ```no_run
+/// use sysinfo::{System, SystemExt, UserExt};
+///
+/// let mut s = System::new_all();
+/// for user in s.get_users() {
+///     println!("{} is in {} groups", user.get_name(), user.get_groups().len());
+/// }
+/// ```
+pub trait UserExt: Debug {
+    /// Returns the name of the user.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt, UserExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for user in s.get_users() {
+    ///     println!("{}", user.get_name());
+    /// }
+    /// ```
+    fn get_name(&self) -> &str;
+
+    /// Returns the groups of the user.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt, UserExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for user in s.get_users() {
+    ///     println!("{} is in {:?}", user.get_name(), user.get_groups());
+    /// }
+    /// ```
+    fn get_groups(&self) -> &[String];
 }

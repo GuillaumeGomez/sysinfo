@@ -69,6 +69,10 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
+        "refresh_users      : reloads only users' information"
+    );
+    writeln!(
+        &mut io::stdout(),
         "show [pid | name]  : show information of the given process \
                                  corresponding to [pid | name]"
     );
@@ -121,6 +125,10 @@ fn print_help() {
         &mut io::stdout(),
         "frequency          : Displays processor frequency"
     );
+    writeln!(
+        &mut io::stdout(),
+        "users              : Displays all users"
+    );
     writeln!(&mut io::stdout(), "quit               : exit the program");
 }
 
@@ -130,6 +138,11 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "refresh_disks" => {
             writeln!(&mut io::stdout(), "Refreshing disk list...");
             sys.refresh_disks_list();
+            writeln!(&mut io::stdout(), "Done.");
+        }
+        "refresh_users" => {
+            writeln!(&mut io::stdout(), "Refreshing user list...");
+            sys.refresh_users_list();
             writeln!(&mut io::stdout(), "Done.");
         }
         "signals" => {
@@ -297,6 +310,11 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "disks" => {
             for disk in sys.get_disks() {
                 writeln!(&mut io::stdout(), "{:?}", disk);
+            }
+        }
+        "users" => {
+            for user in sys.get_users() {
+                writeln!(&mut io::stdout(), "{:?}", user.name);
             }
         }
         "uptime" => {

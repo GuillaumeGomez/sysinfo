@@ -82,7 +82,7 @@ cfg_if! {
 pub use common::{AsU32, DiskType, NetworksIter, Pid, RefreshKind};
 pub use sys::{Component, Disk, NetworkData, Networks, Process, ProcessStatus, Processor, System};
 pub use traits::{
-    ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt,
+    ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt, UserExt,
 };
 
 #[cfg(feature = "c-interface")]
@@ -216,6 +216,23 @@ pub struct LoadAvg {
     pub five: f64,
     /// Average load within fifteen minutes.
     pub fifteen: f64,
+}
+
+/// Type containing user information.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct User {
+    name: String,
+    groups: Vec<String>,
+}
+
+impl UserExt for User {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_groups(&self) -> &[String] {
+        &self.groups
+    }
 }
 
 #[cfg(test)]
