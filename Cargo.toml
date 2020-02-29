@@ -8,7 +8,7 @@ repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "MIT"
 readme = "README.md"
 
-categories = ["filesystem", "os::macos-apis", "os::unix-apis", "os::windows-apis"]
+categories = ["filesystem", "os", "api-bindings"]
 
 build = "build.rs"
 
