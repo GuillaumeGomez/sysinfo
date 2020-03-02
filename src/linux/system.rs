@@ -786,7 +786,7 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
                 let mut start = 0;
                 for (pos, x) in data.iter().enumerate() {
                     if *x == 0 {
-                        if pos - start > 1 {
+                        if pos - start >= 1 {
                             if let Ok(s) = ::std::str::from_utf8(&data[start..pos])
                                 .map(|x| x.trim().to_owned())
                             {
