@@ -4,8 +4,8 @@
 // Copyright (c) 2020 Guillaume Gomez
 //
 
-use crate::User;
 use crate::utils::users::{endswith, get_users_list as users_list};
+use crate::User;
 
 pub fn get_users_list() -> Vec<User> {
     users_list(|shell| !endswith(shell, b"/false") && !endswith(shell, b"/uucico"))

@@ -13,6 +13,7 @@ use Disk;
 use LoadAvg;
 use Networks;
 use Pid;
+use User;
 use {ProcessExt, RefreshKind, SystemExt};
 
 use libc::{self, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
@@ -109,6 +110,7 @@ pub struct System {
     disks: Vec<Disk>,
     networks: Networks,
     uptime: u64,
+    users: Vec<User>,
 }
 
 impl System {
@@ -256,6 +258,7 @@ impl SystemExt for System {
             disks: Vec::with_capacity(2),
             networks: Networks::new(),
             uptime: get_uptime(),
+            users: Vec::new(),
         };
         if !refreshes.cpu() {
             s.refresh_processors(None); // We need the processors to be filled.
@@ -338,6 +341,10 @@ impl SystemExt for System {
 
     fn refresh_disks_list(&mut self) {
         self.disks = get_all_disks();
+    }
+
+    fn refresh_users_list(&mut self) {
+        self.users = crate::linux::users::get_users_list();
     }
 
     // COMMON PART
@@ -432,6 +439,10 @@ impl SystemExt for System {
             five: loads[1],
             fifteen: loads[2],
         }
+    }
+
+    fn get_users(&self) -> &[User] {
+        &self.users
     }
 }
 

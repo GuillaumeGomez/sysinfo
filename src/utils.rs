@@ -90,7 +90,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 #[cfg(any(target_os = "macos", unix))]
 pub mod users {
     use crate::User;
-    use libc::{c_char, getgrgid, getpwent, gid_t, strlen, setpwent, endpwent, getgrouplist};
+    use libc::{c_char, endpwent, getgrgid, getgrouplist, getpwent, gid_t, setpwent, strlen};
 
     fn cstr_to_rust(c: *const c_char) -> Option<String> {
         let mut s = Vec::new();
@@ -98,7 +98,7 @@ pub mod users {
         loop {
             let value = unsafe { *c.offset(i) } as u8;
             if value == 0 {
-                break
+                break;
             }
             s.push(value);
             i += 1;
@@ -116,14 +116,19 @@ pub mod users {
                 add += 100;
                 continue;
             }
-            unsafe { groups.set_len(nb_groups as _); }
-            return groups.into_iter().filter_map(|g| {
-                let group = unsafe { getgrgid(g as _) };
-                if group.is_null() {
-                    return None;
-                }
-                cstr_to_rust(unsafe { (*group).gr_name })
-            }).collect();
+            unsafe {
+                groups.set_len(nb_groups as _);
+            }
+            return groups
+                .into_iter()
+                .filter_map(|g| {
+                    let group = unsafe { getgrgid(g as _) };
+                    if group.is_null() {
+                        return None;
+                    }
+                    cstr_to_rust(unsafe { (*group).gr_name })
+                })
+                .collect();
         }
     }
 
@@ -141,7 +146,8 @@ pub mod users {
     }
 
     pub fn get_users_list<F>(filter: F) -> Vec<User>
-        where F: Fn(*const c_char) -> bool
+    where
+        F: Fn(*const c_char) -> bool,
     {
         let mut users = Vec::new();
 
@@ -157,10 +163,7 @@ pub mod users {
             }
             let groups = get_user_groups(unsafe { (*pw).pw_name }, unsafe { (*pw).pw_gid });
             if let Some(name) = cstr_to_rust(unsafe { (*pw).pw_name }) {
-                users.push(User {
-                    name,
-                    groups,
-                });
+                users.push(User { name, groups });
             }
         }
         unsafe { endpwent() };

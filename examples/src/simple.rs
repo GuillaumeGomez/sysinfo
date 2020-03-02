@@ -12,7 +12,9 @@ extern crate sysinfo;
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::Signal::*;
-use sysinfo::{NetworkExt, NetworksExt, Pid, ProcessExt, ProcessorExt, Signal, System, SystemExt};
+use sysinfo::{
+    NetworkExt, NetworksExt, Pid, ProcessExt, ProcessorExt, Signal, System, SystemExt, UserExt,
+};
 
 const signals: [Signal; 31] = [
     Hangup,
@@ -125,10 +127,7 @@ fn print_help() {
         &mut io::stdout(),
         "frequency          : Displays processor frequency"
     );
-    writeln!(
-        &mut io::stdout(),
-        "users              : Displays all users"
-    );
+    writeln!(&mut io::stdout(), "users              : Displays all users");
     writeln!(&mut io::stdout(), "quit               : exit the program");
 }
 
@@ -314,7 +313,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         }
         "users" => {
             for user in sys.get_users() {
-                writeln!(&mut io::stdout(), "{:?}", user.name);
+                writeln!(&mut io::stdout(), "{:?}", user.get_name());
             }
         }
         "uptime" => {

@@ -575,6 +575,13 @@ pub trait SystemExt: Sized + Debug {
     fn refresh_disks_list(&mut self);
 
     /// Refresh users list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_users_list();
+    /// ```
     fn refresh_users_list(&mut self);
 
     /// Refresh networks data.
