@@ -13,6 +13,7 @@ mod process;
 mod processor;
 mod system;
 mod tools;
+mod users;
 
 mod ffi;
 

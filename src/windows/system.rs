@@ -7,6 +7,7 @@
 use sys::component::{self, Component};
 use sys::disk::Disk;
 use sys::processor::*;
+use sys::users::get_users;
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -19,6 +20,7 @@ use Pid;
 use ProcessExt;
 use RefreshKind;
 use SystemExt;
+use User;
 
 use windows::process::{
     compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process,
@@ -52,6 +54,7 @@ pub struct System {
     query: Option<Query>,
     networks: Networks,
     uptime: u64,
+    users: Vec<User>,
 }
 
 // Useful for parallel iterations.
@@ -77,6 +80,7 @@ impl SystemExt for System {
             query: Query::new(),
             networks: Networks::new(),
             uptime: get_uptime(),
+            users: Vec::new(),
         };
         // TODO: in case a translation fails, it might be nice to log it somewhere...
         if let Some(ref mut query) = s.query {
@@ -299,6 +303,10 @@ impl SystemExt for System {
         self.disks = unsafe { get_disks() };
     }
 
+    fn refresh_users_list(&mut self) {
+        self.users = unsafe { get_users() };
+    }
+
     fn get_processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
@@ -353,6 +361,10 @@ impl SystemExt for System {
 
     fn get_disks_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
+    }
+
+    fn get_users(&self) -> &[User] {
+        &self.users
     }
 
     fn get_networks(&self) -> &Networks {

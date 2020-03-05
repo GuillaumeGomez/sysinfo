@@ -132,3 +132,12 @@ fn bench_refresh_components_list(b: &mut test::Bencher) {
         s.refresh_components_list();
     });
 }
+
+#[bench]
+fn bench_refresh_users_list(b: &mut test::Bencher) {
+    let mut s = sysinfo::System::new_all();
+
+    b.iter(move || {
+        s.refresh_users_list();
+    });
+}

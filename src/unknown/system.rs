@@ -10,6 +10,7 @@ use sys::processor::*;
 use sys::Disk;
 use sys::Networks;
 use Pid;
+use User;
 use {RefreshKind, SystemExt};
 
 use std::collections::HashMap;
@@ -43,6 +44,8 @@ impl SystemExt for System {
     }
 
     fn refresh_disks_list(&mut self) {}
+
+    fn refresh_users_list(&mut self) {}
 
     fn refresh_network(&mut self) {}
 
@@ -124,6 +127,10 @@ impl SystemExt for System {
             five: 0.,
             fifteen: 0.,
         }
+    }
+
+    fn get_users(&self) -> &[User] {
+        &[]
     }
 }
 

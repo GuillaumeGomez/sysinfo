@@ -11,6 +11,7 @@ pub mod network;
 pub mod process;
 pub mod processor;
 pub mod system;
+pub mod users;
 
 pub use self::component::Component;
 pub use self::disk::Disk;

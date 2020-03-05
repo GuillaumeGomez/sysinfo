@@ -11,7 +11,7 @@ use sys::network::Networks;
 use sys::process::*;
 use sys::processor::*;
 
-use {LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt};
+use {LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt, User};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -38,6 +38,7 @@ pub struct System {
     networks: Networks,
     uptime: u64,
     port: ffi::mach_port_t,
+    users: Vec<User>,
 }
 
 impl Drop for System {
@@ -90,6 +91,7 @@ impl SystemExt for System {
             networks: Networks::new(),
             uptime: get_uptime(),
             port,
+            users: Vec::new(),
         };
         s.refresh_specifics(refreshes);
         s
@@ -263,6 +265,10 @@ impl SystemExt for System {
         self.disks = crate::mac::disk::get_disks();
     }
 
+    fn refresh_users_list(&mut self) {
+        self.users = crate::mac::users::get_users_list();
+    }
+
     // COMMON PART
     //
     // Need to be moved into a "common" file to avoid duplication.
@@ -346,6 +352,10 @@ impl SystemExt for System {
             five: loads[1],
             fifteen: loads[2],
         }
+    }
+
+    fn get_users(&self) -> &[User] {
+        &self.users
     }
 }
 

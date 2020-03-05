@@ -213,8 +213,24 @@ STRUCT! {struct MIB_IF_ROW2 {
     OutQLen: ULONG64,
 }}
 
+// To be removed once https://github.com/retep998/winapi-rs/pull/872 is merged
+use winapi::shared::lmcons::NET_API_STATUS;
+use winapi::shared::minwindef::{DWORD, LPBYTE, LPDWORD};
+use winapi::um::winnt::LPCWSTR;
+
 extern "system" {
     pub fn GetIfTable2(Table: *mut PMIB_IF_TABLE2) -> NETIOAPI_API;
     pub fn GetIfEntry2(Row: PMIB_IF_ROW2) -> NETIOAPI_API;
     pub fn FreeMibTable(Memory: PVOID);
+    // To be removed once https://github.com/retep998/winapi-rs/pull/872 is merged
+    pub fn NetUserGetLocalGroups(
+        servername: LPCWSTR,
+        username: LPCWSTR,
+        level: DWORD,
+        flags: DWORD,
+        bufptr: *mut LPBYTE,
+        prefmaxlen: DWORD,
+        entriesread: LPDWORD,
+        totalentries: LPDWORD,
+    ) -> NET_API_STATUS;
 }
