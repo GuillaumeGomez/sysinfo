@@ -127,6 +127,7 @@ pub struct RefreshKind {
     cpu: bool,
     components: bool,
     components_list: bool,
+    users_list: bool,
 }
 
 impl RefreshKind {
@@ -148,6 +149,7 @@ impl RefreshKind {
     /// assert_eq!(r.cpu(), false);
     /// assert_eq!(r.components(), false);
     /// assert_eq!(r.components_list(), false);
+    /// assert_eq!(r.users_list(), false);
     /// ```
     pub fn new() -> RefreshKind {
         RefreshKind {
@@ -160,6 +162,7 @@ impl RefreshKind {
             cpu: false,
             components: false,
             components_list: false,
+            users_list: false,
         }
     }
 
@@ -181,6 +184,7 @@ impl RefreshKind {
     /// assert_eq!(r.cpu(), true);
     /// assert_eq!(r.components(), true);
     /// assert_eq!(r.components_list(), true);
+    /// assert_eq!(r.users_list(), true);
     /// ```
     pub fn everything() -> RefreshKind {
         RefreshKind {
@@ -193,6 +197,7 @@ impl RefreshKind {
             cpu: true,
             components: true,
             components_list: true,
+            users_list: true,
         }
     }
 
@@ -209,6 +214,7 @@ impl RefreshKind {
         with_components_list,
         without_components_list
     );
+    impl_get_set!(users_list, with_users_list, without_users_list);
 }
 
 /// Iterator over network interfaces.
