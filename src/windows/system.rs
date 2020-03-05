@@ -384,6 +384,12 @@ impl SystemExt for System {
     }
 }
 
+impl Default for System {
+    fn default() -> System {
+        System::new()
+    }
+}
+
 fn is_proc_running(handle: HANDLE) -> bool {
     let mut exit_code = 0;
     let ret = unsafe { GetExitCodeProcess(handle, &mut exit_code) };

@@ -285,3 +285,29 @@ impl From<isize> for DiskType {
         }
     }
 }
+
+#[cfg(unix)]
+pub fn boot_time() -> u64 {
+    use libc;
+
+    let mut boot_time = libc::timeval {
+        tv_sec: 0,
+        tv_usec: 0,
+    };
+    let mut len = ::std::mem::size_of::<libc::timeval>();
+    let mut mib: [libc::c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
+    if unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            2,
+            &mut boot_time as *mut libc::timeval as *mut _,
+            &mut len,
+            ::std::ptr::null_mut(),
+            0,
+        )
+    } < 0 {
+        0
+    } else {
+        boot_time.tv_sec as _
+    }
+}

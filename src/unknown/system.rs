@@ -121,6 +121,10 @@ impl SystemExt for System {
         0
     }
 
+    fn get_boot_time(&self) -> u64 {
+        0
+    }
+
     fn get_load_average(&self) -> LoadAvg {
         LoadAvg {
             one: 0.,

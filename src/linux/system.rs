@@ -96,6 +96,21 @@ macro_rules! to_str {
     };
 }
 
+fn boot_time() -> u64 {
+    if let Ok(f) = File::open("/proc/stat") {
+        let buf = BufReader::new(f);
+        let mut it = buf.split(b'\n');
+        while let Some(Ok(line)) = it.next() {
+            if &line[..5] != b"btime" {
+                continue
+            }
+            return line.split(|x| *x == b' ').filter(|s| !s.is_empty()).skip(1).next().map(|v| to_u64(v)).unwrap_or(0);
+        }
+    }
+    // Either we didn't find "btime" or "/proc/stat" wasn't available for some reason...
+    crate::common::boot_time()
+}
+
 /// Structs containing system's information.
 pub struct System {
     process_list: Process,
@@ -111,6 +126,7 @@ pub struct System {
     networks: Networks,
     uptime: u64,
     users: Vec<User>,
+    boot_time: u64,
 }
 
 impl System {
@@ -259,6 +275,7 @@ impl SystemExt for System {
             networks: Networks::new(),
             uptime: get_uptime(),
             users: Vec::new(),
+            boot_time: boot_time(),
         };
         if !refreshes.cpu() {
             s.refresh_processors(None); // We need the processors to be filled.
@@ -418,6 +435,10 @@ impl SystemExt for System {
 
     fn get_uptime(&self) -> u64 {
         self.uptime
+    }
+
+    fn get_boot_time(&self) -> u64 {
+        self.boot_time
     }
 
     fn get_load_average(&self) -> LoadAvg {
