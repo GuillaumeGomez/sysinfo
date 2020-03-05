@@ -65,17 +65,29 @@ cfg_if! {
     if #[cfg(target_os = "macos")] {
         mod mac;
         use mac as sys;
+
+        #[cfg(test)]
+        const MIN_USERS: usize = 1;
     } else if #[cfg(windows)] {
         mod windows;
         use windows as sys;
         extern crate winapi;
         extern crate ntapi;
+
+        #[cfg(test)]
+        const MIN_USERS: usize = 1;
     } else if #[cfg(unix)] {
         mod linux;
         use linux as sys;
+
+        #[cfg(test)]
+        const MIN_USERS: usize = 1;
     } else {
         mod unknown;
         use unknown as sys;
+
+        #[cfg(test)]
+        const MIN_USERS: usize = 0;
     }
 }
 
@@ -250,5 +262,14 @@ mod test {
                 .all(|(_, proc_)| proc_.memory() == 0),
             false
         );
+    }
+
+    #[test]
+    fn check_users() {
+        let mut s = ::System::new();
+
+        assert!(s.get_users().is_empty());
+        s.refresh_users_list();
+        assert!(s.get_users().len() >= MIN_USERS);
     }
 }
