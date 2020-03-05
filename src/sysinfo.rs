@@ -231,6 +231,15 @@ pub struct LoadAvg {
 }
 
 /// Type containing user information.
+///
+/// It is returned by [`SystemExt::get_users`].
+///
+/// ```no_run
+/// use sysinfo::{System, SystemExt};
+///
+/// let s = System::new_all();
+/// println!("users: {:?}", s.get_users());
+/// ```
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct User {
     name: String,
@@ -267,9 +276,16 @@ mod test {
     #[test]
     fn check_users() {
         let mut s = ::System::new();
-
         assert!(s.get_users().is_empty());
         s.refresh_users_list();
+        assert!(s.get_users().len() >= MIN_USERS);
+
+        let mut s = ::System::new();
+        assert!(s.get_users().is_empty());
+        s.refresh_all();
+        assert!(s.get_users().is_empty());
+
+        let s = ::System::new_all();
         assert!(s.get_users().len() >= MIN_USERS);
     }
 }

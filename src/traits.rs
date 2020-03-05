@@ -462,9 +462,12 @@ pub trait SystemExt: Sized + Debug {
         } else if refreshes.disks() {
             self.refresh_disks();
         }
+        if refreshes.users_list() {
+            self.refresh_users_list();
+        }
     }
 
-    /// Refresh system information (such as memory, swap, CPU usage and components' temperature).
+    /// Refresh system information (RAM, swap, CPU usage and components' temperature).
     ///
     /// If you want some more specific refresh, you might be interested into looking at
     /// [`refresh_memory`], [`refresh_cpu`] and [`refresh_components`].
@@ -631,8 +634,8 @@ pub trait SystemExt: Sized + Debug {
 
     /// Refreshes all system, processes, disks and network interfaces information.
     ///
-    /// Please note that it doesn't recompute disks list, components list nor network interfaces
-    /// list.
+    /// Please note that it doesn't recompute disks list, components list, network interfaces
+    /// list nor users list.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
