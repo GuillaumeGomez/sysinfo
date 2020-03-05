@@ -11,7 +11,6 @@ use DiskType;
 
 use libc::statvfs;
 use std::ffi::{OsStr, OsString};
-use std::fmt::{Error, Formatter};
 use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};

@@ -87,7 +87,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
     inner()
 }
 
-#[cfg(any(target_os = "macos", unix))]
+#[cfg(target_os = "macos")]
 pub mod users {
     use crate::User;
     use libc::{c_char, endpwent, getgrgid, getgrouplist, getpwent, gid_t, setpwent, strlen};
