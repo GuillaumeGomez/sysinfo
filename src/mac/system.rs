@@ -342,7 +342,7 @@ impl SystemExt for System {
     fn get_uptime(&self) -> u64 {
         let csec = unsafe { libc::time(::std::ptr::null_mut()) };
 
-        unsafe { libc::difftime(csec, self.boot_time as _) } as _
+        unsafe { libc::difftime(csec, self.boot_time as _) as u64 }
     }
 
     fn get_load_average(&self) -> LoadAvg {

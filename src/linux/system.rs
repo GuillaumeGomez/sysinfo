@@ -102,9 +102,15 @@ fn boot_time() -> u64 {
         let mut it = buf.split(b'\n');
         while let Some(Ok(line)) = it.next() {
             if &line[..5] != b"btime" {
-                continue
+                continue;
             }
-            return line.split(|x| *x == b' ').filter(|s| !s.is_empty()).skip(1).next().map(|v| to_u64(v)).unwrap_or(0);
+            return line
+                .split(|x| *x == b' ')
+                .filter(|s| !s.is_empty())
+                .skip(1)
+                .next()
+                .map(|v| to_u64(v))
+                .unwrap_or(0);
         }
     }
     // Either we didn't find "btime" or "/proc/stat" wasn't available for some reason...

@@ -305,7 +305,8 @@ pub fn boot_time() -> u64 {
             ::std::ptr::null_mut(),
             0,
         )
-    } < 0 {
+    } < 0
+    {
         0
     } else {
         boot_time.tv_sec as _
