@@ -76,12 +76,12 @@ fn print_help() {
     writeln!(
         &mut io::stdout(),
         "show [pid | name]  : show information of the given process \
-                                 corresponding to [pid | name]"
+         corresponding to [pid | name]"
     );
     writeln!(
         &mut io::stdout(),
         "kill [pid] [signal]: send [signal] to the process with this \
-                                 [pid]. 0 < [signal] < 32"
+         [pid]. 0 < [signal] < 32"
     );
     writeln!(
         &mut io::stdout(),
@@ -110,6 +110,10 @@ fn print_help() {
     writeln!(
         &mut io::stdout(),
         "uptime             : Displays system uptime"
+    );
+    writeln!(
+        &mut io::stdout(),
+        "boot_time           : Displays system boot time"
     );
     writeln!(
         &mut io::stdout(),
@@ -288,7 +292,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                     writeln!(
                         &mut io::stdout(),
                         "Signal must be between 0 and 32 ! See the signals list with the \
-                              signals command"
+                         signals command"
                     );
                 } else {
                     match sys.get_process(pid) {
@@ -316,7 +320,12 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 writeln!(&mut io::stdout(), "{:?}", user.get_name());
             }
         }
+        "boot_time" => {
+            let mut uptime = sys.get_boot_time();
+            writeln!(&mut io::stdout(), "{} seconds", sys.get_boot_time());
+        }
         "uptime" => {
+            let up = sys.get_uptime();
             let mut uptime = sys.get_uptime();
             let days = uptime / 86400;
             uptime -= days * 86400;
@@ -325,10 +334,11 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             let minutes = uptime / 60;
             writeln!(
                 &mut io::stdout(),
-                "{} days {} hours {} minutes",
+                "{} days {} hours {} minutes ({} seconds in total)",
                 days,
                 hours,
-                minutes
+                minutes,
+                up,
             );
         }
         x if x.starts_with("refresh") => {
@@ -360,7 +370,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 writeln!(
                     &mut io::stdout(),
                     "\"{}\": Unknown command. Enter 'help' if you want to get the commands' \
-                      list.",
+                     list.",
                     x
                 );
             }
@@ -369,7 +379,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             writeln!(
                 &mut io::stdout(),
                 "\"{}\": Unknown command. Enter 'help' if you want to get the commands' \
-                      list.",
+                 list.",
                 e
             );
         }
