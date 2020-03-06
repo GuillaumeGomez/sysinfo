@@ -18,8 +18,6 @@ use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
 
-use crate::common::boot_time;
-
 use libc::{self, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
 use rayon::prelude::*;
@@ -73,12 +71,34 @@ impl System {
     }
 }
 
+fn boot_time() -> u64 {
+    let mut boot_time = libc::timeval {
+        tv_sec: 0,
+        tv_usec: 0,
+    };
+    let mut len = ::std::mem::size_of::<libc::timeval>();
+    let mut mib: [libc::c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
+    if unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            2,
+            &mut boot_time as *mut libc::timeval as *mut _,
+            &mut len,
+            ::std::ptr::null_mut(),
+            0,
+        )
+    } < 0
+    {
+        0
+    } else {
+        boot_time.tv_sec as _
+    }
+}
+
 impl SystemExt for System {
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let port = unsafe { ffi::mach_host_self() };
         let (global_processor, processors) = init_processors(port);
-
-        let boot_time = crate::common::boot_time();
 
         let mut s = System {
             process_list: HashMap::with_capacity(200),
@@ -95,7 +115,7 @@ impl SystemExt for System {
             networks: Networks::new(),
             port,
             users: Vec::new(),
-            boot_time,
+            boot_time: boot_time(),
         };
         s.refresh_specifics(refreshes);
         s
@@ -362,7 +382,7 @@ impl SystemExt for System {
     }
 
     fn get_boot_time(&self) -> u64 {
-        crate::common::boot_time()
+        self.boot_time
     }
 }
 

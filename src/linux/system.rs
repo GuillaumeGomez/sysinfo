@@ -114,7 +114,19 @@ fn boot_time() -> u64 {
         }
     }
     // Either we didn't find "btime" or "/proc/stat" wasn't available for some reason...
-    crate::common::boot_time()
+    let mut up = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    if unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut up) } == 0 {
+        up.tv_sec as u64
+    } else {
+        #[cfg(feature = "debug")]
+        {
+            println!("clock_gettime failed: boot time cannot be retrieve...");
+        }
+        0
+    }
 }
 
 /// Structs containing system's information.
