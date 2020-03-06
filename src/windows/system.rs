@@ -12,6 +12,7 @@ use sys::users::get_users;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem::{size_of, zeroed};
+use std::time::SystemTime;
 
 use ComponentExt;
 use LoadAvg;
@@ -35,7 +36,7 @@ use winapi::shared::ntdef::{PVOID, ULONG};
 use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
 use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
-use winapi::um::sysinfoapi::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+use winapi::um::sysinfoapi::{GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSEX};
 use winapi::um::winnt::HANDLE;
 
 use rayon::prelude::*;
@@ -53,7 +54,7 @@ pub struct System {
     disks: Vec<Disk>,
     query: Option<Query>,
     networks: Networks,
-    uptime: u64,
+    boot_time: u64,
     users: Vec<User>,
 }
 
@@ -62,6 +63,19 @@ struct Wrap<T>(T);
 
 unsafe impl<T> Send for Wrap<T> {}
 unsafe impl<T> Sync for Wrap<T> {}
+
+unsafe fn boot_time() -> u64 {
+    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(n) => n.as_secs() - GetTickCount64() / 1000,
+        Err(_e) => {
+            #[cfg(feature = "debug")]
+            {
+                println!("Failed to compute boot time: {:?}", _e);
+            }
+            0
+        }
+    }
+}
 
 impl SystemExt for System {
     #[allow(non_snake_case)]
@@ -79,7 +93,7 @@ impl SystemExt for System {
             disks: Vec::with_capacity(2),
             query: Query::new(),
             networks: Networks::new(),
-            uptime: get_uptime(),
+            boot_time: unsafe { boot_time() },
             users: Vec::new(),
         };
         // TODO: in case a translation fails, it might be nice to log it somewhere...
@@ -115,7 +129,6 @@ impl SystemExt for System {
     }
 
     fn refresh_cpu(&mut self) {
-        self.uptime = get_uptime();
         if let Some(ref mut query) = self.query {
             query.refresh();
             let mut used_time = None;
@@ -146,7 +159,6 @@ impl SystemExt for System {
     }
 
     fn refresh_memory(&mut self) {
-        self.uptime = get_uptime();
         unsafe {
             let mut mem_info: MEMORYSTATUSEX = zeroed();
             mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
@@ -376,11 +388,21 @@ impl SystemExt for System {
     }
 
     fn get_uptime(&self) -> u64 {
-        self.uptime
+        unsafe { GetTickCount64() / 1000 }
+    }
+
+    fn get_boot_time(&self) -> u64 {
+        self.boot_time
     }
 
     fn get_load_average(&self) -> LoadAvg {
         get_load_average()
+    }
+}
+
+impl Default for System {
+    fn default() -> System {
+        System::new()
     }
 }
 

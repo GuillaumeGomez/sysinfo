@@ -281,7 +281,7 @@ pub trait ProcessExt: Debug {
     ///
     /// let s = System::new();
     /// if let Some(process) = s.get_process(1337) {
-    ///     println!("{}", process.start_time());
+    ///     println!("Running since {} seconds", process.start_time());
     /// }
     /// ```
     fn start_time(&self) -> u64;
@@ -366,7 +366,7 @@ pub trait ProcessorExt: Debug {
 }
 
 /// Contains all the methods of the [`System`][crate::System] type.
-pub trait SystemExt: Sized + Debug {
+pub trait SystemExt: Sized + Debug + Default {
     /// Creates a new [`System`] instance with nothing loaded except the processors list. If you
     /// want to load components, network interfaces or the disks, you'll have to use the
     /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for example.
@@ -860,15 +860,25 @@ pub trait SystemExt: Sized + Debug {
     /// ```
     fn get_networks_mut(&mut self) -> &mut Networks;
 
-    /// Returns system uptime.
+    /// Returns system uptime (in seconds).
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{}", s.get_uptime());
+    /// println!("System running since {} seconds", s.get_uptime());
     /// ```
     fn get_uptime(&self) -> u64;
+
+    /// Returns the time (in seconds) when the system booted.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// println!("System booted at {} seconds", s.get_boot_time());
+    /// ```
+    fn get_boot_time(&self) -> u64;
 
     /// Returns the system load average value.
     ///

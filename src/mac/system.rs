@@ -36,9 +36,9 @@ pub struct System {
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
     networks: Networks,
-    uptime: u64,
     port: ffi::mach_port_t,
     users: Vec<User>,
+    boot_time: u64,
 }
 
 impl Drop for System {
@@ -71,6 +71,30 @@ impl System {
     }
 }
 
+fn boot_time() -> u64 {
+    let mut boot_time = libc::timeval {
+        tv_sec: 0,
+        tv_usec: 0,
+    };
+    let mut len = ::std::mem::size_of::<libc::timeval>();
+    let mut mib: [libc::c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
+    if unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            2,
+            &mut boot_time as *mut libc::timeval as *mut _,
+            &mut len,
+            ::std::ptr::null_mut(),
+            0,
+        )
+    } < 0
+    {
+        0
+    } else {
+        boot_time.tv_sec as _
+    }
+}
+
 impl SystemExt for System {
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let port = unsafe { ffi::mach_host_self() };
@@ -89,9 +113,9 @@ impl SystemExt for System {
             connection: get_io_service_connection(),
             disks: Vec::with_capacity(1),
             networks: Networks::new(),
-            uptime: get_uptime(),
             port,
             users: Vec::new(),
+            boot_time: boot_time(),
         };
         s.refresh_specifics(refreshes);
         s
@@ -100,7 +124,6 @@ impl SystemExt for System {
     fn refresh_memory(&mut self) {
         let mut mib = [0, 0];
 
-        self.uptime = get_uptime();
         unsafe {
             // get system values
             // get swap info
@@ -173,8 +196,6 @@ impl SystemExt for System {
     }
 
     fn refresh_cpu(&mut self) {
-        self.uptime = get_uptime();
-
         // get processor values
         let mut num_cpu_u = 0u32;
         let mut cpu_info: *mut i32 = ::std::ptr::null_mut();
@@ -339,7 +360,9 @@ impl SystemExt for System {
     }
 
     fn get_uptime(&self) -> u64 {
-        self.uptime
+        let csec = unsafe { libc::time(::std::ptr::null_mut()) };
+
+        unsafe { libc::difftime(csec, self.boot_time as _) as u64 }
     }
 
     fn get_load_average(&self) -> LoadAvg {
@@ -356,6 +379,10 @@ impl SystemExt for System {
 
     fn get_users(&self) -> &[User] {
         &self.users
+    }
+
+    fn get_boot_time(&self) -> u64 {
+        self.boot_time
     }
 }
 
@@ -400,29 +427,6 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
     }
 }
 
-fn get_uptime() -> u64 {
-    let mut boottime: libc::timeval = unsafe { mem::zeroed() };
-    let mut len = mem::size_of::<libc::timeval>();
-    let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
-    unsafe {
-        if libc::sysctl(
-            mib.as_mut_ptr(),
-            2,
-            &mut boottime as *mut libc::timeval as *mut _,
-            &mut len,
-            ::std::ptr::null_mut(),
-            0,
-        ) < 0
-        {
-            return 0;
-        }
-    }
-    let bsec = boottime.tv_sec;
-    let csec = unsafe { libc::time(::std::ptr::null_mut()) };
-
-    unsafe { libc::difftime(csec, bsec) as u64 }
-}
-
 fn get_arg_max() -> usize {
     let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
     let mut arg_max = 0i32;
@@ -448,7 +452,7 @@ pub(crate) unsafe fn get_sys_value(
     high: u32,
     low: u32,
     mut len: usize,
-    value: *mut c_void,
+    value: *mut libc::c_void,
     mib: &mut [i32; 2],
 ) -> bool {
     mib[0] = high as i32;
