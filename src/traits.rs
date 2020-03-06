@@ -870,7 +870,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_uptime(&self) -> u64;
 
-    /// Returns the time (in seconds) when the system booted.
+    /// Returns the time (in seconds) when the system booted since UNIX epoch.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};

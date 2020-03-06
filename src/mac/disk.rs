@@ -68,15 +68,6 @@ impl DiskExt for Disk {
     }
 }
 
-macro_rules! unwrapper {
-    ($b:expr, $ret:expr) => {{
-        match $b {
-            Ok(x) => x,
-            _ => return $ret,
-        }
-    }};
-}
-
 static DISK_TYPES: once_cell::sync::Lazy<HashMap<OsString, DiskType>> =
     once_cell::sync::Lazy::new(get_disk_types);
 
@@ -145,25 +136,28 @@ fn make_name(v: &[u8]) -> OsString {
 }
 
 pub(crate) fn get_disks() -> Vec<Disk> {
-    unwrapper!(fs::read_dir("/Volumes"), Vec::new())
-        .flat_map(|x| {
-            if let Ok(ref entry) = x {
-                let mount_point = utils::realpath(&entry.path());
-                if mount_point.as_os_str().is_empty() {
-                    None
+    match fs::read_dir("/Volumes") {
+        Ok(d) => d
+            .flat_map(|x| {
+                if let Ok(ref entry) = x {
+                    let mount_point = utils::realpath(&entry.path());
+                    if mount_point.as_os_str().is_empty() {
+                        None
+                    } else {
+                        let name = entry.path().file_name()?.to_owned();
+                        let type_ = DISK_TYPES
+                            .get(&name)
+                            .cloned()
+                            .unwrap_or(DiskType::Unknown(-2));
+                        Some(new_disk(name, &mount_point, type_))
+                    }
                 } else {
-                    let name = entry.path().file_name()?.to_owned();
-                    let type_ = DISK_TYPES
-                        .get(&name)
-                        .cloned()
-                        .unwrap_or(DiskType::Unknown(-2));
-                    Some(new_disk(name, &mount_point, type_))
+                    None
                 }
-            } else {
-                None
-            }
-        })
-        .collect()
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
 }
 
 unsafe fn check_value(dict: ffi::CFMutableDictionaryRef, key: &[u8]) -> bool {
