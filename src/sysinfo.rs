@@ -115,7 +115,7 @@ mod utils;
 /// a maximum number of files open equivalent to half of the system limit.
 ///
 /// The problem is that some users might need all the available file descriptors so we need to
-/// allow them to change this limit. Reducing
+/// allow them to change this limit.
 ///
 /// Note that if you set a limit bigger than the system limit, the system limit will be set.
 ///
@@ -219,6 +219,21 @@ pub enum Signal {
 }
 
 /// A struct represents system load average value.
+///
+/// It is returned by [`SystemExt::get_load_average`].
+///
+/// ```no_run
+/// use sysinfo::{System, SystemExt};
+///
+/// let s = System::new_all();
+/// let load_avg = s.get_load_average();
+/// println!(
+///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
+///     load_avg.one,
+///     load_avg.five,
+///     load_avg.fifteen,
+/// );
+/// ```
 #[repr(C)]
 #[derive(Default, Debug, Clone)]
 pub struct LoadAvg {
