@@ -58,7 +58,7 @@ extern crate rayon;
 #[macro_use]
 extern crate doc_comment;
 
-#[cfg(test)]
+#[cfg(doctest)]
 doctest!("../README.md");
 
 cfg_if! {

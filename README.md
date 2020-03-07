@@ -47,7 +47,7 @@ cargo build --target=armv7-unknown-linux-gnueabihf
 You have an example into the `examples` folder. Just run `cargo run` inside the `examples` folder to start it. Otherwise, here is a little code sample:
 
 ```rust
-use sysinfo::{NetworkExt, System, SystemExt};
+use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
 
 let mut sys = System::new();
 
@@ -58,11 +58,12 @@ for disk in sys.get_disks() {
 }
 
 // Network data:
-println!("input data : {} B", sys.get_network().get_income());
-println!("output data: {} B", sys.get_network().get_outcome());
+for (interface_name, data) in sys.get_networks() {
+    println!("{}: {}/{} B", interface_name, data.get_income(), data.get_outcome());
+}
 
 // Components temperature:
-for component in sys.get_components_list() {
+for component in sys.get_components() {
     println!("{:?}", component);
 }
 
