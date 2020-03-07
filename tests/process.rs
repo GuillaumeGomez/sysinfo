@@ -6,7 +6,6 @@
 
 extern crate sysinfo;
 
-#[cfg(not(windows))]
 use sysinfo::ProcessExt;
 use sysinfo::SystemExt;
 
@@ -33,4 +32,34 @@ fn test_process_refresh() {
             .is_some(),
         true
     );
+}
+
+#[test]
+#[cfg(windows)]
+fn test_get_cmd_line() {
+    let p = std::process::Command::new("ping")
+        .arg("localhost")
+        .arg("-n")
+        .arg("2")
+        .spawn()
+        .unwrap();
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    let process = s.get_process(p.id() as sysinfo::Pid).unwrap();
+    assert_eq!(process.cmd(), &["ping", "localhost", "-n", "2"]);
+}
+
+#[test]
+#[cfg(not(windows))]
+fn test_get_cmd_line() {
+    let p = std::process::Command::new("timeout")
+        .arg("3")
+        .arg("ping")
+        .arg("localhost")
+        .spawn()
+        .unwrap();
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    let process = s.get_process(p.id() as sysinfo::Pid).unwrap();
+    assert_eq!(process.cmd(), &["timeout", "3", "ping", "localhost"]);
 }

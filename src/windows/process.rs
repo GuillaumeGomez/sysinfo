@@ -20,7 +20,7 @@ use ProcessExt;
 use ntapi::ntpsapi::{
     NtQueryInformationProcess, ProcessBasicInformation, PROCESS_BASIC_INFORMATION,
 };
-use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH};
+use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH, TRUE};
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess};
 use winapi::um::psapi::{
@@ -204,7 +204,7 @@ impl Process {
                 name,
                 pid,
                 parent,
-                cmd: get_cmd_line(pid),
+                cmd: get_cmd_line(handle),
                 environ,
                 exe,
                 cwd: PathBuf::new(),
@@ -225,7 +225,7 @@ impl Process {
                 name,
                 pid,
                 parent,
-                cmd: get_cmd_line(pid),
+                cmd: Vec::new(),
                 environ: Vec::new(),
                 exe: get_executable_path(pid),
                 cwd: PathBuf::new(),
@@ -262,7 +262,7 @@ impl Process {
                 name,
                 pid,
                 parent,
-                cmd: get_cmd_line(pid),
+                cmd: get_cmd_line(process_handler),
                 environ,
                 exe,
                 cwd: PathBuf::new(),
@@ -296,7 +296,7 @@ impl ProcessExt for Process {
                 name: String::new(),
                 pid,
                 parent,
-                cmd: get_cmd_line(pid),
+                cmd: Vec::new(),
                 environ: Vec::new(),
                 exe: get_executable_path(pid),
                 cwd: PathBuf::new(),
@@ -402,18 +402,94 @@ unsafe fn get_start_time(handle: HANDLE) -> u64 {
     tmp / 10_000_000 - 11_644_473_600
 }
 
-fn get_cmd_line(_pid: Pid) -> Vec<String> {
-    /*let where_req = format!("ProcessId={}", pid);
+fn get_cmd_line(handle: HANDLE) -> Vec<String> {
+    use ntapi::ntpebteb::{PEB, PPEB};
+    use ntapi::ntrtl::{PRTL_USER_PROCESS_PARAMETERS, RTL_USER_PROCESS_PARAMETERS};
+    use winapi::shared::basetsd::SIZE_T;
+    use winapi::um::memoryapi::ReadProcessMemory;
 
-    if let Some(ret) = run_wmi(&["process", "where", &where_req, "get", "CommandLine"]) {
-        for line in ret.lines() {
-            if line.is_empty() || line == "CommandLine" {
-                continue
-            }
-            return vec![line.to_owned()];
+    unsafe {
+        let mut pinfo = std::mem::MaybeUninit::<PROCESS_BASIC_INFORMATION>::uninit();
+        if NtQueryInformationProcess(
+            handle,
+            0, // ProcessBasicInformation
+            pinfo.as_mut_ptr() as *mut _,
+            size_of::<PROCESS_BASIC_INFORMATION>() as u32,
+            null_mut(),
+        ) != 0
+        {
+            return Vec::new();
         }
-    }*/
-    Vec::new()
+        let pinfo = pinfo.assume_init();
+
+        let ppeb: PPEB = pinfo.PebBaseAddress;
+        let mut peb_copy = std::mem::MaybeUninit::<PEB>::uninit();
+        if ReadProcessMemory(
+            handle,
+            ppeb as *mut _,
+            peb_copy.as_mut_ptr() as *mut _,
+            size_of::<PEB>() as SIZE_T,
+            ::std::ptr::null_mut(),
+        ) != TRUE
+        {
+            return Vec::new();
+        }
+        let peb_copy = peb_copy.assume_init();
+
+        let proc_param = peb_copy.ProcessParameters;
+        let mut rtl_proc_param_copy =
+            std::mem::MaybeUninit::<RTL_USER_PROCESS_PARAMETERS>::uninit();
+        if ReadProcessMemory(
+            handle,
+            proc_param as *mut PRTL_USER_PROCESS_PARAMETERS as *mut _,
+            rtl_proc_param_copy.as_mut_ptr() as *mut _,
+            size_of::<RTL_USER_PROCESS_PARAMETERS>() as SIZE_T,
+            ::std::ptr::null_mut(),
+        ) != TRUE
+        {
+            return Vec::new();
+        }
+        let rtl_proc_param_copy = rtl_proc_param_copy.assume_init();
+
+        let len = rtl_proc_param_copy.CommandLine.Length as usize;
+        let len = len / 2;
+
+        // For len symbols + '\0'
+        let mut buffer_copy: Vec<u16> = Vec::with_capacity(len + 1);
+        buffer_copy.set_len(len);
+        if ReadProcessMemory(
+            handle,
+            rtl_proc_param_copy.CommandLine.Buffer as *mut _,
+            buffer_copy.as_mut_ptr() as *mut _,
+            len * 2 as SIZE_T,
+            ::std::ptr::null_mut(),
+        ) != TRUE
+        {
+            return Vec::new();
+        }
+        buffer_copy.push(0);
+
+        // Get argc and argv from command line
+        let mut argc = MaybeUninit::<i32>::uninit();
+        let argv_p =
+            winapi::um::shellapi::CommandLineToArgvW(buffer_copy.as_ptr(), argc.as_mut_ptr());
+        if argv_p.is_null() {
+            return Vec::new();
+        }
+        let argc = argc.assume_init();
+        let argv = std::slice::from_raw_parts(argv_p, argc as usize);
+
+        let mut res = Vec::new();
+        for arg in argv {
+            let len = libc::wcslen(*arg);
+            let str_slice = std::slice::from_raw_parts(*arg, len);
+            res.push(String::from_utf16_lossy(str_slice));
+        }
+
+        winapi::um::winbase::LocalFree(argv_p as *mut _);
+
+        res
+    }
 }
 
 unsafe fn get_proc_env(_handle: HANDLE, _pid: u32, _name: &str) -> Vec<String> {
