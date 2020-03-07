@@ -11,6 +11,7 @@ use NetworksIter;
 use Pid;
 use ProcessStatus;
 use RefreshKind;
+use User;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -280,7 +281,7 @@ pub trait ProcessExt: Debug {
     ///
     /// let s = System::new();
     /// if let Some(process) = s.get_process(1337) {
-    ///     println!("{}", process.start_time());
+    ///     println!("Running since {} seconds", process.start_time());
     /// }
     /// ```
     fn start_time(&self) -> u64;
@@ -365,7 +366,7 @@ pub trait ProcessorExt: Debug {
 }
 
 /// Contains all the methods of the [`System`][crate::System] type.
-pub trait SystemExt: Sized + Debug {
+pub trait SystemExt: Sized + Debug + Default {
     /// Creates a new [`System`] instance with nothing loaded except the processors list. If you
     /// want to load components, network interfaces or the disks, you'll have to use the
     /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for example.
@@ -461,9 +462,12 @@ pub trait SystemExt: Sized + Debug {
         } else if refreshes.disks() {
             self.refresh_disks();
         }
+        if refreshes.users_list() {
+            self.refresh_users_list();
+        }
     }
 
-    /// Refresh system information (such as memory, swap, CPU usage and components' temperature).
+    /// Refresh system information (RAM, swap, CPU usage and components' temperature).
     ///
     /// If you want some more specific refresh, you might be interested into looking at
     /// [`refresh_memory`], [`refresh_cpu`] and [`refresh_components`].
@@ -573,6 +577,16 @@ pub trait SystemExt: Sized + Debug {
     /// ```
     fn refresh_disks_list(&mut self);
 
+    /// Refresh users list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_users_list();
+    /// ```
+    fn refresh_users_list(&mut self);
+
     /// Refresh networks data.
     ///
     /// ```no_run
@@ -620,8 +634,8 @@ pub trait SystemExt: Sized + Debug {
 
     /// Refreshes all system, processes, disks and network interfaces information.
     ///
-    /// Please note that it doesn't recompute disks list, components list nor network interfaces
-    /// list.
+    /// Please note that it doesn't recompute disks list, components list, network interfaces
+    /// list nor users list.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -798,6 +812,18 @@ pub trait SystemExt: Sized + Debug {
     /// ```
     fn get_disks(&self) -> &[Disk];
 
+    /// Returns users' list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt, UserExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for user in s.get_users() {
+    ///     println!("{} is in {} groups", user.get_name(), user.get_groups().len());
+    /// }
+    /// ```
+    fn get_users(&self) -> &[User];
+
     /// Returns disks' list.
     ///
     /// ```no_run
@@ -834,15 +860,25 @@ pub trait SystemExt: Sized + Debug {
     /// ```
     fn get_networks_mut(&mut self) -> &mut Networks;
 
-    /// Returns system uptime.
+    /// Returns system uptime (in seconds).
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{}", s.get_uptime());
+    /// println!("System running since {} seconds", s.get_uptime());
     /// ```
     fn get_uptime(&self) -> u64;
+
+    /// Returns the time (in seconds) when the system booted since UNIX epoch.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// println!("System booted at {} seconds", s.get_boot_time());
+    /// ```
+    fn get_boot_time(&self) -> u64;
 
     /// Returns the system load average value.
     ///
@@ -1119,4 +1155,42 @@ pub trait ComponentExt: Debug {
     /// }
     /// ```
     fn refresh(&mut self);
+}
+
+/// Getting information for a user.
+///
+/// It is returned from [`SystemExt::get_users`].
+///
+/// ```no_run
+/// use sysinfo::{System, SystemExt, UserExt};
+///
+/// let mut s = System::new_all();
+/// for user in s.get_users() {
+///     println!("{} is in {} groups", user.get_name(), user.get_groups().len());
+/// }
+/// ```
+pub trait UserExt: Debug {
+    /// Returns the name of the user.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt, UserExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for user in s.get_users() {
+    ///     println!("{}", user.get_name());
+    /// }
+    /// ```
+    fn get_name(&self) -> &str;
+
+    /// Returns the groups of the user.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt, UserExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for user in s.get_users() {
+    ///     println!("{} is in {:?}", user.get_name(), user.get_groups());
+    /// }
+    /// ```
+    fn get_groups(&self) -> &[String];
 }

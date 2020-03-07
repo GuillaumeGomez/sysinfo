@@ -10,6 +10,7 @@ use sys::processor::*;
 use sys::Disk;
 use sys::Networks;
 use Pid;
+use User;
 use {RefreshKind, SystemExt};
 
 use std::collections::HashMap;
@@ -43,6 +44,8 @@ impl SystemExt for System {
     }
 
     fn refresh_disks_list(&mut self) {}
+
+    fn refresh_users_list(&mut self) {}
 
     fn refresh_network(&mut self) {}
 
@@ -118,12 +121,20 @@ impl SystemExt for System {
         0
     }
 
+    fn get_boot_time(&self) -> u64 {
+        0
+    }
+
     fn get_load_average(&self) -> LoadAvg {
         LoadAvg {
             one: 0.,
             five: 0.,
             fifteen: 0.,
         }
+    }
+
+    fn get_users(&self) -> &[User] {
+        &[]
     }
 }
 

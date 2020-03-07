@@ -5,9 +5,7 @@
 //
 
 use std::ffi::{OsStr, OsString};
-use std::fmt::{Debug, Error, Formatter};
 use std::path::Path;
-use std::str;
 
 use DiskExt;
 use DiskType;

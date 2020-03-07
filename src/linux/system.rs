@@ -13,6 +13,7 @@ use Disk;
 use LoadAvg;
 use Networks;
 use Pid;
+use User;
 use {ProcessExt, RefreshKind, SystemExt};
 
 use libc::{self, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
@@ -95,6 +96,39 @@ macro_rules! to_str {
     };
 }
 
+fn boot_time() -> u64 {
+    if let Ok(f) = File::open("/proc/stat") {
+        let buf = BufReader::new(f);
+        let mut it = buf.split(b'\n');
+        while let Some(Ok(line)) = it.next() {
+            if &line[..5] != b"btime" {
+                continue;
+            }
+            return line
+                .split(|x| *x == b' ')
+                .filter(|s| !s.is_empty())
+                .skip(1)
+                .next()
+                .map(|v| to_u64(v))
+                .unwrap_or(0);
+        }
+    }
+    // Either we didn't find "btime" or "/proc/stat" wasn't available for some reason...
+    let mut up = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    if unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut up) } == 0 {
+        up.tv_sec as u64
+    } else {
+        #[cfg(feature = "debug")]
+        {
+            println!("clock_gettime failed: boot time cannot be retrieve...");
+        }
+        0
+    }
+}
+
 /// Structs containing system's information.
 pub struct System {
     process_list: Process,
@@ -109,6 +143,8 @@ pub struct System {
     disks: Vec<Disk>,
     networks: Networks,
     uptime: u64,
+    users: Vec<User>,
+    boot_time: u64,
 }
 
 impl System {
@@ -256,6 +292,8 @@ impl SystemExt for System {
             disks: Vec::with_capacity(2),
             networks: Networks::new(),
             uptime: get_uptime(),
+            users: Vec::new(),
+            boot_time: boot_time(),
         };
         if !refreshes.cpu() {
             s.refresh_processors(None); // We need the processors to be filled.
@@ -340,6 +378,10 @@ impl SystemExt for System {
         self.disks = get_all_disks();
     }
 
+    fn refresh_users_list(&mut self) {
+        self.users = crate::linux::users::get_users_list();
+    }
+
     // COMMON PART
     //
     // Need to be moved into a "common" file to avoid duplication.
@@ -413,6 +455,10 @@ impl SystemExt for System {
         self.uptime
     }
 
+    fn get_boot_time(&self) -> u64 {
+        self.boot_time
+    }
+
     fn get_load_average(&self) -> LoadAvg {
         let mut s = String::new();
         if File::open("/proc/loadavg")
@@ -432,6 +478,10 @@ impl SystemExt for System {
             five: loads[1],
             fifteen: loads[2],
         }
+    }
+
+    fn get_users(&self) -> &[User] {
+        &self.users
     }
 }
 

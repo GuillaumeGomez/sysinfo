@@ -65,24 +65,36 @@ cfg_if! {
     if #[cfg(target_os = "macos")] {
         mod mac;
         use mac as sys;
+
+        #[cfg(test)]
+        const MIN_USERS: usize = 1;
     } else if #[cfg(windows)] {
         mod windows;
         use windows as sys;
         extern crate winapi;
         extern crate ntapi;
+
+        #[cfg(test)]
+        const MIN_USERS: usize = 1;
     } else if #[cfg(unix)] {
         mod linux;
         use linux as sys;
+
+        #[cfg(test)]
+        const MIN_USERS: usize = 1;
     } else {
         mod unknown;
         use unknown as sys;
+
+        #[cfg(test)]
+        const MIN_USERS: usize = 0;
     }
 }
 
 pub use common::{AsU32, DiskType, NetworksIter, Pid, RefreshKind};
 pub use sys::{Component, Disk, NetworkData, Networks, Process, ProcessStatus, Processor, System};
 pub use traits::{
-    ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt,
+    ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt, UserExt,
 };
 
 #[cfg(feature = "c-interface")]
@@ -103,7 +115,7 @@ mod utils;
 /// a maximum number of files open equivalent to half of the system limit.
 ///
 /// The problem is that some users might need all the available file descriptors so we need to
-/// allow them to change this limit. Reducing
+/// allow them to change this limit.
 ///
 /// Note that if you set a limit bigger than the system limit, the system limit will be set.
 ///
@@ -207,6 +219,21 @@ pub enum Signal {
 }
 
 /// A struct represents system load average value.
+///
+/// It is returned by [`SystemExt::get_load_average`].
+///
+/// ```no_run
+/// use sysinfo::{System, SystemExt};
+///
+/// let s = System::new_all();
+/// let load_avg = s.get_load_average();
+/// println!(
+///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
+///     load_avg.one,
+///     load_avg.five,
+///     load_avg.fifteen,
+/// );
+/// ```
 #[repr(C)]
 #[derive(Default, Debug, Clone)]
 pub struct LoadAvg {
@@ -216,6 +243,32 @@ pub struct LoadAvg {
     pub five: f64,
     /// Average load within fifteen minutes.
     pub fifteen: f64,
+}
+
+/// Type containing user information.
+///
+/// It is returned by [`SystemExt::get_users`].
+///
+/// ```no_run
+/// use sysinfo::{System, SystemExt};
+///
+/// let s = System::new_all();
+/// println!("users: {:?}", s.get_users());
+/// ```
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct User {
+    name: String,
+    groups: Vec<String>,
+}
+
+impl UserExt for User {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_groups(&self) -> &[String] {
+        &self.groups
+    }
 }
 
 #[cfg(test)]
@@ -233,5 +286,21 @@ mod test {
                 .all(|(_, proc_)| proc_.memory() == 0),
             false
         );
+    }
+
+    #[test]
+    fn check_users() {
+        let mut s = ::System::new();
+        assert!(s.get_users().is_empty());
+        s.refresh_users_list();
+        assert!(s.get_users().len() >= MIN_USERS);
+
+        let mut s = ::System::new();
+        assert!(s.get_users().is_empty());
+        s.refresh_all();
+        assert!(s.get_users().is_empty());
+
+        let s = ::System::new_all();
+        assert!(s.get_users().len() >= MIN_USERS);
     }
 }

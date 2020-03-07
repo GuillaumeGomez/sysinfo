@@ -4,7 +4,7 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug};
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -12,7 +12,7 @@ use std::process;
 use std::ptr::null_mut;
 use std::str;
 
-use libc::{c_uint, c_void, memcpy};
+use libc::{c_void, memcpy};
 
 use Pid;
 use ProcessExt;
@@ -22,7 +22,7 @@ use ntapi::ntpsapi::{
 };
 use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH, TRUE};
 use winapi::um::handleapi::CloseHandle;
-use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess, TerminateProcess};
+use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess};
 use winapi::um::psapi::{
     EnumProcessModulesEx, GetModuleBaseNameW, GetModuleFileNameExW, GetProcessMemoryInfo,
     LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
@@ -314,7 +314,7 @@ impl ProcessExt for Process {
         }
     }
 
-    fn kill(&self, signal: ::Signal) -> bool {
+    fn kill(&self, _signal: ::Signal) -> bool {
         let mut kill = process::Command::new("taskkill.exe");
         kill.arg("/PID").arg(self.pid().to_string()).arg("/F");
         match kill.output() {
