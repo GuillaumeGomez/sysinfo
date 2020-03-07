@@ -204,7 +204,7 @@ impl Process {
                 name,
                 pid,
                 parent,
-                cmd: get_cmd_line(pid),
+                cmd: get_cmd_line(handle),
                 environ,
                 exe,
                 cwd: PathBuf::new(),
@@ -225,7 +225,7 @@ impl Process {
                 name,
                 pid,
                 parent,
-                cmd: get_cmd_line(pid),
+                cmd: Vec::new(),
                 environ: Vec::new(),
                 exe: get_executable_path(pid),
                 cwd: PathBuf::new(),
@@ -262,7 +262,7 @@ impl Process {
                 name,
                 pid,
                 parent,
-                cmd: get_cmd_line(pid),
+                cmd: get_cmd_line(process_handler),
                 environ,
                 exe,
                 cwd: PathBuf::new(),
@@ -296,7 +296,7 @@ impl ProcessExt for Process {
                 name: String::new(),
                 pid,
                 parent,
-                cmd: get_cmd_line(pid),
+                cmd: Vec::new(),
                 environ: Vec::new(),
                 exe: get_executable_path(pid),
                 cwd: PathBuf::new(),
@@ -406,20 +406,13 @@ fn parse_cmd_line(cmdline: &str) -> Vec<String> {
     unimplemented!()
 }
 
-fn get_cmd_line(pid: Pid) -> Vec<String> {
+fn get_cmd_line(handle: HANDLE) -> Vec<String> {
     use ntapi::ntpebteb::{PEB, PPEB};
     use ntapi::ntrtl::{PRTL_USER_PROCESS_PARAMETERS, RTL_USER_PROCESS_PARAMETERS};
     use winapi::shared::basetsd::SIZE_T;
     use winapi::um::memoryapi::ReadProcessMemory;
 
     unsafe {
-        let mut res = Vec::new();
-
-        let handle = match get_process_handler(pid) {
-            Some(h) => h,
-            None => return res,
-        };
-
         let mut pinfo = std::mem::MaybeUninit::<PROCESS_BASIC_INFORMATION>::uninit();
         if NtQueryInformationProcess(
             handle,
@@ -429,8 +422,7 @@ fn get_cmd_line(pid: Pid) -> Vec<String> {
             null_mut(),
         ) != 0
         {
-            CloseHandle(handle);
-            return res;
+            return Vec::new();
         }
         let pinfo = pinfo.assume_init();
 
@@ -444,8 +436,7 @@ fn get_cmd_line(pid: Pid) -> Vec<String> {
             ::std::ptr::null_mut(),
         ) != TRUE
         {
-            CloseHandle(handle);
-            return res;
+            return Vec::new();
         }
         let peb_copy = peb_copy.assume_init();
 
@@ -460,8 +451,7 @@ fn get_cmd_line(pid: Pid) -> Vec<String> {
             ::std::ptr::null_mut(),
         ) != TRUE
         {
-            CloseHandle(handle);
-            return res;
+            return Vec::new();
         }
         let rtl_proc_param_copy = rtl_proc_param_copy.assume_init();
 
@@ -479,12 +469,9 @@ fn get_cmd_line(pid: Pid) -> Vec<String> {
             ::std::ptr::null_mut(),
         ) != TRUE
         {
-            CloseHandle(handle);
-            return res;
+            return Vec::new();
         }
         buffer_copy.push(0);
-
-        CloseHandle(handle);
 
         // Get argc and argv from coomand line
         let mut argc = MaybeUninit::<i32>::uninit();
