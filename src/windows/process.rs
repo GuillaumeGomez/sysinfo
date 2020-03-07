@@ -466,13 +466,10 @@ fn get_cmd_line(pid: Pid) -> Vec<String> {
         let rtl_proc_param_copy = rtl_proc_param_copy.assume_init();
 
         let len = rtl_proc_param_copy.CommandLine.Length as usize;
-        if len % 2 == 1 {
-            // Just in case, I don't know can it happen or not
-            CloseHandle(handle);
-            return res;
-        }
         let len = len / 2;
-        let mut buffer_copy: Vec<u16> = Vec::with_capacity(len);
+
+        // For len symbols + '\0'
+        let mut buffer_copy: Vec<u16> = Vec::with_capacity(len + 1);
         buffer_copy.set_len(len);
         if ReadProcessMemory(
             handle,
@@ -485,8 +482,28 @@ fn get_cmd_line(pid: Pid) -> Vec<String> {
             CloseHandle(handle);
             return res;
         }
+        buffer_copy.push(0);
+
         CloseHandle(handle);
-        res = parse_cmd_line(&String::from_utf16_lossy(&buffer_copy));
+
+        // Get argc and argv from coomand line
+        let mut argc = MaybeUninit::<i32>::uninit();
+        let argv_p =
+            winapi::um::shellapi::CommandLineToArgvW(buffer_copy.as_ptr(), argc.as_mut_ptr());
+        if argv_p.is_null() {
+            return Vec::new();
+        }
+        let argc = argc.assume_init();
+        let argv = std::slice::from_raw_parts(argv_p, argc as usize);
+
+        let mut res = Vec::new();
+        for arg in argv {
+            let len = libc::wcslen(*arg);
+            let str_slice = std::slice::from_raw_parts(*arg, len);
+            res.push(String::from_utf16_lossy(str_slice));
+        }
+
+        winapi::um::winbase::LocalFree(argv_p as *mut _);
 
         res
     }
