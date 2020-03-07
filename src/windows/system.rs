@@ -14,7 +14,6 @@ use std::collections::HashMap;
 use std::mem::{size_of, zeroed};
 use std::time::SystemTime;
 
-use ComponentExt;
 use LoadAvg;
 use Networks;
 use Pid;
@@ -167,23 +166,6 @@ impl SystemExt for System {
             self.mem_free = auto_cast!(mem_info.ullAvailPhys, u64);
             //self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
             //self.swap_free = auto_cast!(mem_info.ullAvailPageFile, u64);
-        }
-    }
-
-    /// Refresh components' temperature.
-    ///
-    /// Please note that on Windows, you need to have Administrator priviledges to get this
-    /// information.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new();
-    /// s.refresh_components();
-    /// ```
-    fn refresh_components(&mut self) {
-        for component in &mut self.components {
-            component.refresh();
         }
     }
 
