@@ -402,10 +402,6 @@ unsafe fn get_start_time(handle: HANDLE) -> u64 {
     tmp / 10_000_000 - 11_644_473_600
 }
 
-fn parse_cmd_line(cmdline: &str) -> Vec<String> {
-    unimplemented!()
-}
-
 fn get_cmd_line(handle: HANDLE) -> Vec<String> {
     use ntapi::ntpebteb::{PEB, PPEB};
     use ntapi::ntrtl::{PRTL_USER_PROCESS_PARAMETERS, RTL_USER_PROCESS_PARAMETERS};
