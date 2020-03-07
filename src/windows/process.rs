@@ -469,7 +469,7 @@ fn get_cmd_line(handle: HANDLE) -> Vec<String> {
         }
         buffer_copy.push(0);
 
-        // Get argc and argv from coomand line
+        // Get argc and argv from command line
         let mut argc = MaybeUninit::<i32>::uninit();
         let argv_p =
             winapi::um::shellapi::CommandLineToArgvW(buffer_copy.as_ptr(), argc.as_mut_ptr());
