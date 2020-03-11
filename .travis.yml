@@ -25,6 +25,10 @@ matrix:
       rust: stable
       dist: trusty
     - os: linux
+      env: TARGET=wasm32-unknown-unknown
+      rust: stable
+      dist: trusty
+    - os: linux
       rust: nightly
       dist: trusty
     - os: linux

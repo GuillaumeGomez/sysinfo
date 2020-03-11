@@ -11,6 +11,7 @@ use sys::Disk;
 use sys::Networks;
 use Pid;
 use User;
+use LoadAvg;
 use {RefreshKind, SystemExt};
 
 use std::collections::HashMap;
@@ -27,7 +28,7 @@ impl SystemExt for System {
         System {
             processes_list: Default::default(),
             networks: Networks::new(),
-            global_processor: Processor::new {},
+            global_processor: Processor::new(),
         }
     }
 
@@ -46,8 +47,6 @@ impl SystemExt for System {
     fn refresh_disks_list(&mut self) {}
 
     fn refresh_users_list(&mut self) {}
-
-    fn refresh_network(&mut self) {}
 
     // COMMON PART
     //
@@ -105,15 +104,15 @@ impl SystemExt for System {
         &[]
     }
 
-    fn get_components_mut(&self) -> &[Component] {
-        &[]
+    fn get_components_mut(&mut self) -> &mut [Component] {
+        &mut []
     }
 
     fn get_disks(&self) -> &[Disk] {
         &[]
     }
 
-    fn get_disks_mut(&self) -> &mut [Disk] {
+    fn get_disks_mut(&mut self) -> &mut [Disk] {
         &mut []
     }
 
