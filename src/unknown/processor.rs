@@ -4,9 +4,6 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use std::default::Default;
-
-use LoadAvg;
 use ProcessorExt;
 
 /// Dummy struct that represents a processor.
