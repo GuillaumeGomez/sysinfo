@@ -101,7 +101,7 @@ pub trait DiskExt: Debug {
     /// ```
     fn get_available_space(&self) -> u64;
 
-    /// Update the disk' information.
+    /// Updates the disk' information.
     ///
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
@@ -116,7 +116,7 @@ pub trait DiskExt: Debug {
 
 /// Contains all the methods of the [`Process`][crate::Process] struct.
 pub trait ProcessExt: Debug {
-    /// Create a new process only containing the given information.
+    /// Creates a new process only containing the given information.
     ///
     /// On windows, the `start_time` argument is ignored.
     #[doc(hidden)]
@@ -303,8 +303,8 @@ pub trait ProcessExt: Debug {
 pub trait ProcessorExt: Debug {
     /// Returns this processor's usage.
     ///
-    /// Note: You'll need to refresh it at least twice at first if you want to have a
-    /// non-zero value.
+    /// Note: You'll need to refresh it at least twice (diff between the first and the second is
+    /// how CPU usage is computed) at first if you want to have a non-zero value.
     ///
     /// ```no_run
     /// use sysinfo::{ProcessorExt, System, SystemExt};
@@ -406,8 +406,6 @@ pub trait SystemExt: Sized + Debug + Default {
     ///
     /// [`System`]: crate::System
     ///
-    /// # Example
-    ///
     /// ```
     /// use sysinfo::{RefreshKind, System, SystemExt};
     ///
@@ -426,8 +424,6 @@ pub trait SystemExt: Sized + Debug + Default {
 
     /// Refreshes according to the given [`RefreshKind`]. It calls the corresponding
     /// "refresh_" methods.
-    ///
-    /// # Examples
     ///
     /// ```
     /// use sysinfo::{RefreshKind, System, SystemExt};
@@ -467,9 +463,9 @@ pub trait SystemExt: Sized + Debug + Default {
         }
     }
 
-    /// Refresh system information (RAM, swap, CPU usage and components' temperature).
+    /// Refreshes system information (RAM, swap, CPU usage and components' temperature).
     ///
-    /// If you want some more specific refresh, you might be interested into looking at
+    /// If you want some more specific refreshes, you might be interested into looking at
     /// [`refresh_memory`], [`refresh_cpu`] and [`refresh_components`].
     ///
     /// [`refresh_memory`]: SystemExt::refresh_memory
@@ -488,7 +484,7 @@ pub trait SystemExt: Sized + Debug + Default {
         self.refresh_components();
     }
 
-    /// Refresh RAM and SWAP usage.
+    /// Refreshes RAM and SWAP usage.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -498,7 +494,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn refresh_memory(&mut self);
 
-    /// Refresh CPU usage.
+    /// Refreshes CPU usage.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -508,7 +504,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn refresh_cpu(&mut self);
 
-    /// Refresh components' temperature.
+    /// Refreshes components' temperature.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -522,7 +518,7 @@ pub trait SystemExt: Sized + Debug + Default {
         }
     }
 
-    /// Refresh components list.
+    /// Refreshes components list.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -532,7 +528,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn refresh_components_list(&mut self);
 
-    /// Get all processes and update their information.
+    /// Gets all processes and updates their information.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -542,7 +538,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn refresh_processes(&mut self);
 
-    /// Refresh *only* the process corresponding to `pid`. Returns `false` if the process doesn't
+    /// Refreshes *only* the process corresponding to `pid`. Returns `false` if the process doesn't
     /// exist. If it isn't listed yet, it'll be added.
     ///
     /// ```no_run
@@ -577,7 +573,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn refresh_disks_list(&mut self);
 
-    /// Refresh users list.
+    /// Refreshes users list.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -587,7 +583,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn refresh_users_list(&mut self);
 
-    /// Refresh networks data.
+    /// Refreshes networks data.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -716,7 +712,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_processors(&self) -> &[Processor];
 
-    /// Returns total RAM size in KiB.
+    /// Returns the RAM size in KiB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -726,7 +722,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_total_memory(&self) -> u64;
 
-    /// Returns free RAM size in KiB.
+    /// Returns the amount of free RAM in KiB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -736,7 +732,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_free_memory(&self) -> u64;
 
-    /// Returns used RAM size in KiB.
+    /// Returns the amound of used RAM in KiB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -746,7 +742,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_used_memory(&self) -> u64;
 
-    /// Returns SWAP size in KiB.
+    /// Returns the SWAP size in KiB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -756,7 +752,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_total_swap(&self) -> u64;
 
-    /// Returns free SWAP size in KiB.
+    /// Returns the amount of free SWAP in KiB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -766,7 +762,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_free_swap(&self) -> u64;
 
-    /// Returns used SWAP size in KiB.
+    /// Returns the amount of used SWAP in KiB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -776,7 +772,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_used_swap(&self) -> u64;
 
-    /// Returns components list.
+    /// Returns the components list.
     ///
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
@@ -788,7 +784,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_components(&self) -> &[Component];
 
-    /// Returns components list.
+    /// Returns a mutable components list.
     ///
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
@@ -800,7 +796,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_components_mut(&mut self) -> &mut [Component];
 
-    /// Returns disks' list.
+    /// Returns the disks list.
     ///
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
@@ -812,7 +808,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_disks(&self) -> &[Disk];
 
-    /// Returns users' list.
+    /// Returns the users list.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt, UserExt};
@@ -824,7 +820,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_users(&self) -> &[User];
 
-    /// Returns disks' list.
+    /// Returns the disks list.
     ///
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
@@ -836,7 +832,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_disks_mut(&mut self) -> &mut [Disk];
 
-    /// Returns network interfaces.
+    /// Returns the network interfaces object.
     ///
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
@@ -1096,7 +1092,7 @@ pub trait NetworksExt: Debug {
 
 /// Getting a component temperature information.
 pub trait ComponentExt: Debug {
-    /// Returns the component's temperature (in celsius degree).
+    /// Returns the temperature of the component (in celsius degree).
     ///
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
@@ -1108,7 +1104,7 @@ pub trait ComponentExt: Debug {
     /// ```
     fn get_temperature(&self) -> f32;
 
-    /// Returns the maximum temperature of this component.
+    /// Returns the maximum temperature of the component (in celsius degree).
     ///
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
@@ -1120,7 +1116,7 @@ pub trait ComponentExt: Debug {
     /// ```
     fn get_max(&self) -> f32;
 
-    /// Returns the highest temperature before the computer halts.
+    /// Returns the highest temperature before the component halts (in celsius degree).
     ///
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
@@ -1132,7 +1128,7 @@ pub trait ComponentExt: Debug {
     /// ```
     fn get_critical(&self) -> Option<f32>;
 
-    /// Returns component's label.
+    /// Returns the label of the component.
     ///
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
@@ -1144,7 +1140,7 @@ pub trait ComponentExt: Debug {
     /// ```
     fn get_label(&self) -> &str;
 
-    /// Refresh component.
+    /// Refreshes component.
     ///
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};

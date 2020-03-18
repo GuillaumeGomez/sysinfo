@@ -40,7 +40,7 @@ use winapi::um::winnt::HANDLE;
 
 use rayon::prelude::*;
 
-/// Struct containing system's information.
+/// Struct containing the system's information.
 pub struct System {
     process_list: HashMap<usize, Process>,
     mem_total: u64,
