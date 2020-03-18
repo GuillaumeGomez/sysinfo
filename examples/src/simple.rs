@@ -321,7 +321,6 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "boot_time" => {
-            let mut uptime = sys.get_boot_time();
             writeln!(&mut io::stdout(), "{} seconds", sys.get_boot_time());
         }
         "uptime" => {
