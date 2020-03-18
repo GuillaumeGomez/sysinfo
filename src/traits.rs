@@ -840,7 +840,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, data) in networks {
-    ///     println!("[{}] in: {}, out: {}", interface_name, data.get_income(), data.get_outcome());
+    ///     println!("[{}] in: {}, out: {}", interface_name, data.get_received(), data.get_transmitted());
     /// }
     /// ```
     fn get_networks(&self) -> &Networks;
@@ -893,9 +893,9 @@ pub trait SystemExt: Sized + Debug + Default {
     fn get_load_average(&self) -> LoadAvg;
 }
 
-/// Getting volume of incoming and outgoing data.
+/// Getting volume of received and transmitted data.
 pub trait NetworkExt: Debug {
-    /// Returns the number of incoming bytes since the last refresh.
+    /// Returns the number of received bytes since the last refresh.
     ///
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
@@ -903,12 +903,12 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {} B", network.get_income());
+    ///     println!("in: {} B", network.get_received());
     /// }
     /// ```
-    fn get_income(&self) -> u64;
+    fn get_received(&self) -> u64;
 
-    /// Returns the total number of incoming bytes.
+    /// Returns the total number of received bytes.
     ///
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
@@ -916,12 +916,12 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {} B", network.get_total_income());
+    ///     println!("in: {} B", network.get_total_received());
     /// }
     /// ```
-    fn get_total_income(&self) -> u64;
+    fn get_total_received(&self) -> u64;
 
-    /// Returns the number of outgoing bytes since the last refresh.
+    /// Returns the number of transmitted bytes since the last refresh.
     ///
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
@@ -929,12 +929,12 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {} B", network.get_outcome());
+    ///     println!("out: {} B", network.get_transmitted());
     /// }
     /// ```
-    fn get_outcome(&self) -> u64;
+    fn get_transmitted(&self) -> u64;
 
-    /// Returns the total number of outgoing bytes.
+    /// Returns the total number of transmitted bytes.
     ///
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
@@ -942,10 +942,10 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {} B", network.get_total_outcome());
+    ///     println!("out: {} B", network.get_total_transmitted());
     /// }
     /// ```
-    fn get_total_outcome(&self) -> u64;
+    fn get_total_transmitted(&self) -> u64;
 
     /// Returns the number of incoming packets since the last refresh.
     ///
@@ -955,10 +955,10 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {}", network.get_packets_income());
+    ///     println!("in: {}", network.get_packets_received());
     /// }
     /// ```
-    fn get_packets_income(&self) -> u64;
+    fn get_packets_received(&self) -> u64;
 
     /// Returns the total number of incoming packets.
     ///
@@ -968,10 +968,10 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {}", network.get_total_packets_income());
+    ///     println!("in: {}", network.get_total_packets_received());
     /// }
     /// ```
-    fn get_total_packets_income(&self) -> u64;
+    fn get_total_packets_received(&self) -> u64;
 
     /// Returns the number of outcoming packets since the last refresh.
     ///
@@ -981,10 +981,10 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {}", network.get_packets_outcome());
+    ///     println!("out: {}", network.get_packets_transmitted());
     /// }
     /// ```
-    fn get_packets_outcome(&self) -> u64;
+    fn get_packets_transmitted(&self) -> u64;
 
     /// Returns the total number of outcoming packets.
     ///
@@ -994,10 +994,10 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {}", network.get_total_packets_outcome());
+    ///     println!("out: {}", network.get_total_packets_transmitted());
     /// }
     /// ```
-    fn get_total_packets_outcome(&self) -> u64;
+    fn get_total_packets_transmitted(&self) -> u64;
 
     /// Returns the number of incoming errors since the last refresh.
     ///
@@ -1007,10 +1007,10 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {}", network.get_errors_income());
+    ///     println!("in: {}", network.get_errors_on_received());
     /// }
     /// ```
-    fn get_errors_income(&self) -> u64;
+    fn get_errors_on_received(&self) -> u64;
 
     /// Returns the total number of incoming errors.
     ///
@@ -1020,10 +1020,10 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {}", network.get_total_errors_income());
+    ///     println!("in: {}", network.get_total_errors_on_received());
     /// }
     /// ```
-    fn get_total_errors_income(&self) -> u64;
+    fn get_total_errors_on_received(&self) -> u64;
 
     /// Returns the number of outcoming errors since the last refresh.
     ///
@@ -1033,10 +1033,10 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {}", network.get_errors_outcome());
+    ///     println!("out: {}", network.get_errors_on_transmitted());
     /// }
     /// ```
-    fn get_errors_outcome(&self) -> u64;
+    fn get_errors_on_transmitted(&self) -> u64;
 
     /// Returns the total number of outcoming errors.
     ///
@@ -1046,10 +1046,10 @@ pub trait NetworkExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {}", network.get_total_errors_outcome());
+    ///     println!("out: {}", network.get_total_errors_on_transmitted());
     /// }
     /// ```
-    fn get_total_errors_outcome(&self) -> u64;
+    fn get_total_errors_on_transmitted(&self) -> u64;
 }
 
 /// Interacting with network interfaces.
@@ -1062,7 +1062,7 @@ pub trait NetworksExt: Debug {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {} B", network.get_income());
+    ///     println!("in: {} B", network.get_received());
     /// }
     /// ```
     fn iter(&self) -> NetworksIter;

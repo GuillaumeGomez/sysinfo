@@ -204,29 +204,29 @@ pub extern "C" fn sysinfo_get_used_swap(system: CSystem) -> size_t {
 }
 
 /// Equivalent of
-/// `system::get_networks().iter().fold(0, |acc, (_, data)| acc + data.get_income() as size_t)`.
+/// `system::get_networks().iter().fold(0, |acc, (_, data)| acc + data.get_received() as size_t)`.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_networks_income(system: CSystem) -> size_t {
+pub extern "C" fn sysinfo_get_networks_received(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     let ret = system
         .get_networks()
         .iter()
-        .fold(0, |acc, (_, data)| acc + data.get_income() as size_t);
+        .fold(0, |acc, (_, data)| acc + data.get_received() as size_t);
     Box::into_raw(system);
     ret
 }
 
 /// Equivalent of
-/// `system::get_networks().iter().fold(0, |acc, (_, data)| acc + data.get_outcome() as size_t)`.
+/// `system::get_networks().iter().fold(0, |acc, (_, data)| acc + data.get_transmitted() as size_t)`.
 #[no_mangle]
-pub extern "C" fn sysinfo_get_networks_outcome(system: CSystem) -> size_t {
+pub extern "C" fn sysinfo_get_networks_transmitted(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     let ret = system
         .get_networks()
         .iter()
-        .fold(0, |acc, (_, data)| acc + data.get_outcome() as size_t);
+        .fold(0, |acc, (_, data)| acc + data.get_transmitted() as size_t);
     Box::into_raw(system);
     ret
 }

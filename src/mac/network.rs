@@ -171,51 +171,51 @@ pub struct NetworkData {
 }
 
 impl NetworkExt for NetworkData {
-    fn get_income(&self) -> u64 {
+    fn get_received(&self) -> u64 {
         self.current_in - self.old_in
     }
 
-    fn get_total_income(&self) -> u64 {
+    fn get_total_received(&self) -> u64 {
         self.current_in
     }
 
-    fn get_outcome(&self) -> u64 {
+    fn get_transmitted(&self) -> u64 {
         self.current_out - self.old_out
     }
 
-    fn get_total_outcome(&self) -> u64 {
+    fn get_total_transmitted(&self) -> u64 {
         self.current_out
     }
 
-    fn get_packets_income(&self) -> u64 {
+    fn get_packets_received(&self) -> u64 {
         self.packets_in - self.old_packets_in
     }
 
-    fn get_total_packets_income(&self) -> u64 {
+    fn get_total_packets_received(&self) -> u64 {
         self.packets_in
     }
 
-    fn get_packets_outcome(&self) -> u64 {
+    fn get_packets_transmitted(&self) -> u64 {
         self.packets_out - self.old_packets_out
     }
 
-    fn get_total_packets_outcome(&self) -> u64 {
+    fn get_total_packets_transmitted(&self) -> u64 {
         self.packets_out
     }
 
-    fn get_errors_income(&self) -> u64 {
+    fn get_errors_on_received(&self) -> u64 {
         self.errors_in - self.old_errors_in
     }
 
-    fn get_total_errors_income(&self) -> u64 {
+    fn get_total_errors_on_received(&self) -> u64 {
         self.errors_in
     }
 
-    fn get_errors_outcome(&self) -> u64 {
+    fn get_errors_on_transmitted(&self) -> u64 {
         self.errors_out - self.old_errors_out
     }
 
-    fn get_total_errors_outcome(&self) -> u64 {
+    fn get_total_errors_on_transmitted(&self) -> u64 {
         self.errors_out
     }
 }
