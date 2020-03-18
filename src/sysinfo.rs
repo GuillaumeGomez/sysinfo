@@ -109,7 +109,8 @@ mod system;
 mod traits;
 mod utils;
 
-/// This function is only used on linux targets, on the other platforms it does nothing.
+/// This function is only used on linux targets, on the other platforms it does nothing and returns
+/// `false`.
 ///
 /// On linux, to improve performance, we keep a `/proc` file open for each process we index with
 /// a maximum number of files open equivalent to half of the system limit.
@@ -120,6 +121,17 @@ mod utils;
 /// Note that if you set a limit bigger than the system limit, the system limit will be set.
 ///
 /// Returns `true` if the new value has been set.
+///
+/// ```no_run
+/// use sysinfo::{System, SystemExt, set_open_files_limit};
+///
+/// // We call the function before any call to the processes update.
+/// if !set_open_files_limit(10) {
+///     // It'll always return false on non-linux targets.
+///     eprintln!("failed to update the open files limit...");
+/// }
+/// let s = System::new_all();
+/// ```
 pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
     #[cfg(all(not(target_os = "macos"), unix))]
     {
@@ -218,7 +230,7 @@ pub enum Signal {
     Sys = 31,
 }
 
-/// A struct represents system load average value.
+/// A struct representing system load average value.
 ///
 /// It is returned by [`SystemExt::get_load_average`].
 ///

@@ -62,6 +62,19 @@ pub fn to_cpath(path: &Path) -> Vec<u8> {
 /// Returns the pid for the current process.
 ///
 /// `Err` is returned in case the platform isn't supported.
+///
+/// ```no_run
+/// use sysinfo::get_current_pid;
+///
+/// match get_current_pid() {
+///     Ok(pid) => {
+///         println!("current pid: {}", pid);
+///     }
+///     Err(e) => {
+///         eprintln!("failed to get current pid: {}", e);
+///     }
+/// }
+/// ```
 pub fn get_current_pid() -> Result<Pid, &'static str> {
     cfg_if! {
         if #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))] {

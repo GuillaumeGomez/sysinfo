@@ -43,8 +43,6 @@ macro_rules! impl_get_set {
         doc_comment! {
         concat!("Returns the value of the \"", stringify!($name), "\" refresh kind.
 
-# Examples
-
 ```
 use sysinfo::RefreshKind;
 
@@ -61,8 +59,6 @@ assert_eq!(r.", stringify!($name), "(), true);
 
         doc_comment! {
         concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `true`.
-
-# Examples
 
 ```
 use sysinfo::RefreshKind;
@@ -82,8 +78,6 @@ assert_eq!(r.", stringify!($name), "(), true);
         doc_comment! {
         concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `false`.
 
-# Examples
-
 ```
 use sysinfo::RefreshKind;
 
@@ -102,8 +96,6 @@ assert_eq!(r.", stringify!($name), "(), false);
 }
 
 /// Used to determine what you want to refresh specifically on [`System`] type.
-///
-/// # Example
 ///
 /// ```
 /// use sysinfo::{RefreshKind, System, SystemExt};
@@ -132,8 +124,6 @@ pub struct RefreshKind {
 
 impl RefreshKind {
     /// Creates a new `RefreshKind` with every refresh set to `false`.
-    ///
-    /// # Examples
     ///
     /// ```
     /// use sysinfo::RefreshKind;
@@ -167,8 +157,6 @@ impl RefreshKind {
     }
 
     /// Creates a new `RefreshKind` with every refresh set to `true`.
-    ///
-    /// # Examples
     ///
     /// ```
     /// use sysinfo::RefreshKind;
