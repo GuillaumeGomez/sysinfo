@@ -26,6 +26,5 @@ impl ComponentExt for Component {
         ""
     }
 
-    fn refresh(&mut self) {
-    }
+    fn refresh(&mut self) {}
 }

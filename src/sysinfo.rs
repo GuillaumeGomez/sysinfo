@@ -316,3 +316,18 @@ mod test {
         assert!(s.get_users().len() >= MIN_USERS);
     }
 }
+
+// Used to check that System is Send and Sync.
+#[cfg(doctest)]
+doc_comment!(
+    "
+```
+fn is_send<T: Send>() {}
+is_send::<sysinfo::System>();
+```
+
+```
+fn is_sync<T: Sync>() {}
+is_sync::<sysinfo::System>();
+```"
+);
