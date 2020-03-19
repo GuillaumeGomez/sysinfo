@@ -159,6 +159,9 @@ struct Connection {
     enumerator: Option<Enumerator>,
 }
 
+unsafe impl Send for Connection {}
+unsafe impl Sync for Connection {}
+
 impl Connection {
     fn new() -> Option<Connection> {
         // "Funnily", this function returns ok, false or "this function has already been called".

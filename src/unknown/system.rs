@@ -9,9 +9,9 @@ use sys::process::*;
 use sys::processor::*;
 use sys::Disk;
 use sys::Networks;
+use LoadAvg;
 use Pid;
 use User;
-use LoadAvg;
 use {RefreshKind, SystemExt};
 
 use std::collections::HashMap;
