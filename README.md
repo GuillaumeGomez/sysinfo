@@ -59,7 +59,7 @@ for disk in sys.get_disks() {
 
 // Network data:
 for (interface_name, data) in sys.get_networks() {
-    println!("{}: {}/{} B", interface_name, data.get_income(), data.get_outcome());
+    println!("{}: {}/{} B", interface_name, data.get_received(), data.get_transmitted());
 }
 
 // Components temperature:

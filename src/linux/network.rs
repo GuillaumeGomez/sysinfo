@@ -204,51 +204,51 @@ impl NetworkData {
 }
 
 impl NetworkExt for NetworkData {
-    fn get_income(&self) -> u64 {
+    fn get_received(&self) -> u64 {
         self.rx_bytes as u64 - self.old_rx_bytes as u64
     }
 
-    fn get_total_income(&self) -> u64 {
+    fn get_total_received(&self) -> u64 {
         self.rx_bytes as u64
     }
 
-    fn get_outcome(&self) -> u64 {
+    fn get_transmitted(&self) -> u64 {
         self.tx_bytes as u64 - self.old_tx_bytes as u64
     }
 
-    fn get_total_outcome(&self) -> u64 {
+    fn get_total_transmitted(&self) -> u64 {
         self.tx_bytes as u64
     }
 
-    fn get_packets_income(&self) -> u64 {
+    fn get_packets_received(&self) -> u64 {
         self.rx_packets as u64 - self.old_rx_packets as u64
     }
 
-    fn get_total_packets_income(&self) -> u64 {
+    fn get_total_packets_received(&self) -> u64 {
         self.rx_packets as u64
     }
 
-    fn get_packets_outcome(&self) -> u64 {
+    fn get_packets_transmitted(&self) -> u64 {
         self.tx_packets as u64 - self.old_tx_packets as u64
     }
 
-    fn get_total_packets_outcome(&self) -> u64 {
+    fn get_total_packets_transmitted(&self) -> u64 {
         self.tx_packets as u64
     }
 
-    fn get_errors_income(&self) -> u64 {
+    fn get_errors_on_received(&self) -> u64 {
         self.rx_errors as u64 - self.old_rx_errors as u64
     }
 
-    fn get_total_errors_income(&self) -> u64 {
+    fn get_total_errors_on_received(&self) -> u64 {
         self.rx_errors as u64
     }
 
-    fn get_errors_outcome(&self) -> u64 {
+    fn get_errors_on_transmitted(&self) -> u64 {
         self.tx_errors as u64 - self.old_tx_errors as u64
     }
 
-    fn get_total_errors_outcome(&self) -> u64 {
+    fn get_total_errors_on_transmitted(&self) -> u64 {
         self.tx_errors as u64
     }
 }

@@ -19,7 +19,6 @@ use {ProcessExt, RefreshKind, SystemExt};
 use libc::{self, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::error::Error;
 use std::fs::{self, read_link, File};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -867,7 +866,7 @@ fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
     let size = file.read(&mut data)?;
     data.truncate(size);
     Ok(String::from_utf8(data)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.description()))?)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?)
 }
 
 pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {

@@ -262,10 +262,10 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                     &mut io::stdout(),
                     "{}:\n  input data  (new / total): {} / {} B\n  output data (new / total): {} / {} B",
                     interface_name,
-                    data.get_income(),
-                    data.get_total_income(),
-                    data.get_outcome(),
-                    data.get_total_outcome(),
+                    data.get_received(),
+                    data.get_total_received(),
+                    data.get_transmitted(),
+                    data.get_total_transmitted(),
                 );
             }
         }
