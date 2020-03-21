@@ -147,8 +147,6 @@ pub trait ProcessExt: Debug {
     fn name(&self) -> &str;
 
     /// Returns the command line.
-    // ///
-    // /// On Windows, this is always a one element vector.
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
