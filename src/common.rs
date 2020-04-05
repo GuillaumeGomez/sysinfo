@@ -410,17 +410,25 @@ impl UserExt for User {
 /// let s = System::new_all();
 /// for (pid, process) in s.get_processes() {
 ///     let disk_usage = process.get_disk_usage();
-///     println!("[{}] read/written bytes: {}/{}",
+///     println!("[{}] read bytes   : new/total => {}/{}",
 ///         pid,
 ///         disk_usage.read_bytes,
+///         disk_usage.total_read_bytes,
+///     );
+///     println!("[{}] written bytes: new/total => {}/{}",
 ///         disk_usage.written_bytes,
+///         disk_usage.total_written_bytes,
 ///     );
 /// }
 /// ```
 #[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
 pub struct DiskUsage {
+    /// Total number of written bytes.
+    pub total_written_bytes: u64,
     /// Number of written bytes.
     pub written_bytes: u64,
+    /// Total number of read bytes.
+    pub total_read_bytes: u64,
     /// Number of read bytes.
     pub read_bytes: u64,
 }

@@ -305,9 +305,13 @@ pub trait ProcessExt: Debug {
     /// let s = System::new();
     /// if let Some(process) = s.get_process(1337) {
     ///     let disk_usage = process.get_disk_usage();
-    ///     println!("read/written bytes: {}/{}",
+    ///     println!("read bytes   : new/total => {}/{}",
     ///         disk_usage.read_bytes,
+    ///         disk_usage.total_read_bytes,
+    ///     );
+    ///     println!("written bytes: new/total => {}/{}",
     ///         disk_usage.written_bytes,
+    ///         disk_usage.total_written_bytes,
     ///     );
     /// }
     /// ```
