@@ -23,7 +23,7 @@ use SystemExt;
 use User;
 
 use windows::process::{
-    compute_cpu_usage, get_disk_usage, get_handle, get_system_computation_time, update_proc_info,
+    compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info,
     Process,
 };
 use windows::tools::*;
@@ -65,19 +65,6 @@ struct Wrap<T>(T);
 unsafe impl<T> Send for Wrap<T> {}
 unsafe impl<T> Sync for Wrap<T> {}
 
-unsafe fn boot_time() -> u64 {
-    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_secs() - GetTickCount64() / 1000,
-        Err(_e) => {
-            #[cfg(feature = "debug")]
-            {
-                println!("Failed to compute boot time: {:?}", _e);
-            }
-            0
-        }
-    }
-}
-
 #[cfg(feature = "debug")]
 macro_rules! sysinfo_debug {
     ($($x:tt)*) => {{
@@ -90,6 +77,15 @@ macro_rules! sysinfo_debug {
     ($($x:tt)*) => {{}}
 }
 
+unsafe fn boot_time() -> u64 {
+    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(n) => n.as_secs() - GetTickCount64() / 1000,
+        Err(_e) => {
+            sysinfo_debug!("Failed to compute boot time: {:?}", _e);
+            0
+        }
+    }
+}
 impl SystemExt for System {
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {
@@ -276,7 +272,6 @@ impl SystemExt for System {
                             proc_.memory = (pi.WorkingSetSize as u64) >> 10u64;
                             proc_.virtual_memory = (pi.VirtualSize as u64) >> 10u64;
                             compute_cpu_usage(proc_, nb_processors, system_time);
-                            get_disk_usage(proc_);
                             proc_.updated = true;
                             return None;
                         }
@@ -292,7 +287,6 @@ impl SystemExt for System {
                             (pi.VirtualSize as u64) >> 10u64,
                             name,
                         );
-                        get_disk_usage(&mut p);
                         compute_cpu_usage(&mut p, nb_processors, system_time);
                         Some(p)
                     })

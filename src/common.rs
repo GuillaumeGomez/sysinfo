@@ -386,8 +386,8 @@ pub struct LoadAvg {
 /// ```
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct User {
-    name: String,
-    groups: Vec<String>,
+    pub(crate) name: String,
+    pub(crate) groups: Vec<String>,
 }
 
 impl UserExt for User {
@@ -398,4 +398,29 @@ impl UserExt for User {
     fn get_groups(&self) -> &[String] {
         &self.groups
     }
+}
+
+/// Type containing read and written bytes.
+///
+/// It is returned by [`ProcessExt::get_disk_usage`].
+///
+/// ```no_run
+/// use sysinfo::{ProcessExt, System, SystemExt};
+///
+/// let s = System::new_all();
+/// for (pid, process) in s.get_processes() {
+///     let disk_usage = process.get_disk_usage();
+///     println!("[{}] read/written bytes: {}/{}",
+///         pid,
+///         disk_usage.read_bytes,
+///         disk_usage.written_bytes,
+///     );
+/// }
+/// ```
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
+pub struct DiskUsage {
+    /// Number of written bytes.
+    pub written_bytes: u64,
+    /// Number of read bytes.
+    pub read_bytes: u64,
 }

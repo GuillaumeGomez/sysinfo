@@ -14,6 +14,7 @@ use std::str;
 
 use libc::{c_void, memcpy};
 
+use DiskUsage;
 use Pid;
 use ProcessExt;
 
@@ -101,8 +102,6 @@ pub struct Process {
     start_time: u64,
     cpu_usage: f32,
     pub(crate) updated: bool,
-    pub(crate) read_bytes: u64,
-    pub(crate) written_bytes: u64,
     diag_info: Option<PtrWrapper<ComPtr<ProcessDiagnosticInfo>>>,
 }
 
@@ -222,8 +221,6 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: unsafe { get_start_time(handle) },
                 updated: true,
-                read_bytes: 0,
-                written_bytes: 0,
                 diag_info:
                     ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
                         .ok()
@@ -250,8 +247,6 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
-                read_bytes: 0,
-                written_bytes: 0,
                 diag_info:
                     ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
                         .ok()
@@ -294,8 +289,6 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: get_start_time(process_handler),
                 updated: true,
-                read_bytes: 0,
-                written_bytes: 0,
                 diag_info:
                     ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
                         .ok()
@@ -335,8 +328,6 @@ impl ProcessExt for Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
-                read_bytes: 0,
-                written_bytes: 0,
                 diag_info:
                     ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
                         .ok()
@@ -407,12 +398,25 @@ impl ProcessExt for Process {
         self.cpu_usage
     }
 
-    fn read_bytes(&self) -> u64 {
-        self.read_bytes
-    }
-
-    fn written_bytes(&self) -> u64 {
-        self.written_bytes
+    fn get_disk_usage(&self) -> DiskUsage {
+        if let Some(ref diag_info) = self.diag_info {
+            let disk_usage = match diag_info.get_disk_usage().ok() {
+                Some(Some(d)) => d,
+                _ => return DiskUsage::default(),
+            };
+            let report = match disk_usage.get_report().ok() {
+                Some(Some(d)) => d,
+                _ => return DiskUsage::default(),
+            };
+            let read_bytes = report.get_bytes_read_count().ok().map(|x| x as u64);
+            let written_bytes = report.get_bytes_written_count().ok().map(|x| x as u64);
+            DiskUsage {
+                read_bytes: read_bytes.unwrap_or(0),
+                written_bytes: written_bytes.unwrap_or(0),
+            }
+        } else {
+            DiskUsage::default()
+        }
     }
 }
 
@@ -625,39 +629,6 @@ pub(crate) fn get_system_computation_time() -> ULARGE_INTEGER {
     }
 }
 
-macro_rules! safe_unwrap {
-    ($x:expr) => {
-        match $x {
-            Some(x) => x,
-            None => return,
-        }
-    };
-}
-
-macro_rules! safe_unwrap_to_inner {
-    ($x:expr) => {
-        match $x {
-            Some(x) => safe_unwrap!(x),
-            None => return,
-        }
-    };
-}
-
-pub(crate) fn get_disk_usage(p: &mut Process) {
-    if let Some(ref diag_info) = p.diag_info {
-        let disk_usage = safe_unwrap_to_inner!(diag_info.get_disk_usage().ok());
-        let report = safe_unwrap_to_inner!(disk_usage.get_report().ok());
-        let read_bytes = report.get_bytes_read_count().ok();
-        let write_bytes = report.get_bytes_written_count().ok();
-        if let Some(rb) = read_bytes {
-            p.read_bytes = rb as u64;
-        }
-        if let Some(wb) = write_bytes {
-            p.written_bytes = wb as u64;
-        }
-    }
-}
-
 pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, now: ULARGE_INTEGER) {
     unsafe {
         let mut sys: ULARGE_INTEGER = ::std::mem::zeroed();
@@ -700,7 +671,6 @@ pub fn get_handle(p: &Process) -> HANDLE {
 
 pub fn update_proc_info(p: &mut Process) {
     update_memory(p);
-    get_disk_usage(p);
 }
 
 pub fn update_memory(p: &mut Process) {
