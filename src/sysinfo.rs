@@ -92,7 +92,7 @@ cfg_if! {
     }
 }
 
-pub use common::{AsU32, DiskType, NetworksIter, Pid, RefreshKind};
+pub use common::{AsU32, DiskType, LoadAvg, NetworksIter, Pid, RefreshKind, Signal, User};
 pub use sys::{Component, Disk, NetworkData, Networks, Process, ProcessStatus, Processor, System};
 pub use traits::{
     ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt, UserExt,
@@ -156,131 +156,6 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
     #[cfg(any(not(unix), target_os = "macos"))]
     {
         false
-    }
-}
-
-/// An enum representing signal on UNIX-like systems.
-#[repr(C)]
-#[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
-pub enum Signal {
-    /// Hangup detected on controlling terminal or death of controlling process.
-    Hangup = 1,
-    /// Interrupt from keyboard.
-    Interrupt = 2,
-    /// Quit from keyboard.
-    Quit = 3,
-    /// Illegal instruction.
-    Illegal = 4,
-    /// Trace/breakpoint trap.
-    Trap = 5,
-    /// Abort signal from C abort function.
-    Abort = 6,
-    // IOT trap. A synonym for SIGABRT.
-    // IOT = 6,
-    /// Bus error (bad memory access).
-    Bus = 7,
-    /// Floating point exception.
-    FloatingPointException = 8,
-    /// Kill signal.
-    Kill = 9,
-    /// User-defined signal 1.
-    User1 = 10,
-    /// Invalid memory reference.
-    Segv = 11,
-    /// User-defined signal 2.
-    User2 = 12,
-    /// Broken pipe: write to pipe with no readers.
-    Pipe = 13,
-    /// Timer signal from C alarm function.
-    Alarm = 14,
-    /// Termination signal.
-    Term = 15,
-    /// Stack fault on coprocessor (unused).
-    Stklft = 16,
-    /// Child stopped or terminated.
-    Child = 17,
-    /// Continue if stopped.
-    Continue = 18,
-    /// Stop process.
-    Stop = 19,
-    /// Stop typed at terminal.
-    TSTP = 20,
-    /// Terminal input for background process.
-    TTIN = 21,
-    /// Terminal output for background process.
-    TTOU = 22,
-    /// Urgent condition on socket.
-    Urgent = 23,
-    /// CPU time limit exceeded.
-    XCPU = 24,
-    /// File size limit exceeded.
-    XFSZ = 25,
-    /// Virtual alarm clock.
-    VirtualAlarm = 26,
-    /// Profiling time expired.
-    Profiling = 27,
-    /// Windows resize signal.
-    Winch = 28,
-    /// I/O now possible.
-    IO = 29,
-    // Pollable event (Sys V). Synonym for IO
-    //Poll = 29,
-    /// Power failure (System V).
-    Power = 30,
-    /// Bad argument to routine (SVr4).
-    Sys = 31,
-}
-
-/// A struct representing system load average value.
-///
-/// It is returned by [`SystemExt::get_load_average`].
-///
-/// ```no_run
-/// use sysinfo::{System, SystemExt};
-///
-/// let s = System::new_all();
-/// let load_avg = s.get_load_average();
-/// println!(
-///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
-///     load_avg.one,
-///     load_avg.five,
-///     load_avg.fifteen,
-/// );
-/// ```
-#[repr(C)]
-#[derive(Default, Debug, Clone)]
-pub struct LoadAvg {
-    /// Average load within one minute.
-    pub one: f64,
-    /// Average load within five minutes.
-    pub five: f64,
-    /// Average load within fifteen minutes.
-    pub fifteen: f64,
-}
-
-/// Type containing user information.
-///
-/// It is returned by [`SystemExt::get_users`].
-///
-/// ```no_run
-/// use sysinfo::{System, SystemExt};
-///
-/// let s = System::new_all();
-/// println!("users: {:?}", s.get_users());
-/// ```
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct User {
-    name: String,
-    groups: Vec<String>,
-}
-
-impl UserExt for User {
-    fn get_name(&self) -> &str {
-        &self.name
-    }
-
-    fn get_groups(&self) -> &[String] {
-        &self.groups
     }
 }
 
