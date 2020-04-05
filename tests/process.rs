@@ -63,11 +63,11 @@ fn test_get_cmd_line() {
 
 #[test]
 fn test_process_disk_usage() {
-    use sysinfo::{ProcessExt, SystemExt, get_current_pid};
-    use std::fs::File;
     use std::fs;
     use std::fs::File;
+    use std::fs::File;
     use std::io::prelude::*;
+    use sysinfo::{get_current_pid, ProcessExt, SystemExt};
     use sysinfo::{get_current_pid, ProcessExt, SystemExt};
     {
         let mut file = File::create("test.txt").unwrap();
