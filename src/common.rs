@@ -349,7 +349,7 @@ pub enum Signal {
 
 /// A struct representing system load average value.
 ///
-/// It is returned by [`SystemExt::get_load_average`].
+/// It is returned by [`SystemExt::get_load_average`][crate::SystemExt::get_load_average].
 ///
 /// ```no_run
 /// use sysinfo::{System, SystemExt};
@@ -376,7 +376,7 @@ pub struct LoadAvg {
 
 /// Type containing user information.
 ///
-/// It is returned by [`SystemExt::get_users`].
+/// It is returned by [`SystemExt::get_users`][crate::SystemExt::get_users].
 ///
 /// ```no_run
 /// use sysinfo::{System, SystemExt};
@@ -402,7 +402,7 @@ impl UserExt for User {
 
 /// Type containing read and written bytes.
 ///
-/// It is returned by [`ProcessExt::get_disk_usage`].
+/// It is returned by [`ProcessExt::get_disk_usage`][crate::ProcessExt::get_disk_usage].
 ///
 /// ```no_run
 /// use sysinfo::{ProcessExt, System, SystemExt};
