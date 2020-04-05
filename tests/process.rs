@@ -65,9 +65,7 @@ fn test_get_cmd_line() {
 fn test_process_disk_usage() {
     use std::fs;
     use std::fs::File;
-    use std::fs::File;
     use std::io::prelude::*;
-    use sysinfo::{get_current_pid, ProcessExt, SystemExt};
     use sysinfo::{get_current_pid, ProcessExt, SystemExt};
     {
         let mut file = File::create("test.txt").unwrap();
@@ -75,10 +73,11 @@ fn test_process_disk_usage() {
             .unwrap();
     }
     fs::remove_file("test.txt").ok();
-    let system = sysinfo::System::new();
+    let mut system = sysinfo::System::new();
+    system.refresh_processes();
     let p = system
         .get_process(get_current_pid().expect("Failed retrieving current pid."))
         .expect("failed to get process");
 
-    assert!(p.written_bytes() > 0);
+    assert!(p.get_disk_usage().total_written_bytes > 0);
 }

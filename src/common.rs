@@ -416,6 +416,7 @@ impl UserExt for User {
 ///         disk_usage.total_read_bytes,
 ///     );
 ///     println!("[{}] written bytes: new/total => {}/{}",
+///         pid,
 ///         disk_usage.written_bytes,
 ///         disk_usage.total_written_bytes,
 ///     );
