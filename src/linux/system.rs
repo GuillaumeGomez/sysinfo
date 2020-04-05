@@ -120,10 +120,7 @@ fn boot_time() -> u64 {
     if unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut up) } == 0 {
         up.tv_sec as u64
     } else {
-        #[cfg(feature = "debug")]
-        {
-            println!("clock_gettime failed: boot time cannot be retrieve...");
-        }
+        sysinfo_debug!("clock_gettime failed: boot time cannot be retrieve...");
         0
     }
 }
@@ -738,7 +735,7 @@ fn _get_process_data(
             uptime,
             now,
         );
-        update_process_disk_activity(entry);
+        update_process_disk_activity(entry, path);
         return Ok(None);
     }
 
@@ -822,24 +819,8 @@ fn _get_process_data(
         uptime,
         now,
     );
-    update_process_disk_activity(&mut p);
+    update_process_disk_activity(&mut p, path);
     Ok(Some(p))
-}
-
-fn update_process_disk_activity(p: &mut Process) {
-    let path = PathBuf::from(format!("/proc/{}/io", p.pid));
-    let data = match get_all_data(&path, 16_384) {
-        Ok(d) => d,
-        Err(_) => return,
-    };
-    let data: Vec<Vec<&str>> = data.split("\n").map(|l| l.split(": ").collect()).collect();
-    for d in data.iter() {
-        if d[0] == "read_bytes" {
-            p.read_bytes = d[1].parse::<u64>().unwrap_or(0);
-        } else if d[0] == "write_bytes" {
-            p.written_bytes = d[1].parse::<u64>().unwrap_or(0);
-        }
-    }
 }
 
 fn copy_from_file(entry: &Path) -> Vec<String> {
