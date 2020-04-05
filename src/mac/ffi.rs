@@ -30,6 +30,7 @@ extern "C" {
     //pub fn proc_regionfilename(pid: c_int, address: u64, buffer: *mut c_void,
     //                           buffersize: u32) -> c_int;
     pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
+    pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
 
     pub fn IOMasterPort(a: i32, b: *mut mach_port_t) -> i32;
     pub fn IOServiceMatching(a: *const c_char) -> *mut c_void;
@@ -128,11 +129,6 @@ extern "C" {
 
 // pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
 // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
-}
-
-#[link(name = "proc", kind = "dylib")]
-extern "C" {
-    pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
@@ -437,8 +433,8 @@ pub struct xsw_usage {
 }
 
 //https://github.com/andrewdavidmackenzie/libproc-rs/blob/master/src/libproc/pid_rusage.rs
-#[repr(C)]
 #[derive(Debug, Default)]
+#[repr(C)]
 pub struct RUsageInfoV2 {
     pub ri_uuid: [u8; 16],
     pub ri_user_time: u64,

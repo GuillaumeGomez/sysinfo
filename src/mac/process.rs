@@ -7,12 +7,13 @@
 use std::borrow::Borrow;
 use std::ffi::OsStr;
 use std::fmt;
-use std::mem;
+use std::mem::{self, MaybeUninit};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use libc::{c_int, c_void, gid_t, kill, size_t, uid_t};
 
+use DiskUsage;
 use Pid;
 use ProcessExt;
 
@@ -149,6 +150,8 @@ pub struct Process {
     ///
     /// This is very likely this one that you want instead of `process_status`.
     pub status: Option<ThreadStatus>,
+    pub(crate) old_read_bytes: u64,
+    pub(crate) old_written_bytes: u64,
     pub(crate) read_bytes: u64,
     pub(crate) written_bytes: u64,
 }
@@ -177,6 +180,8 @@ impl Process {
             gid: 0,
             process_status: ProcessStatus::Unknown(0),
             status: None,
+            old_read_bytes: 0,
+            old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
         }
@@ -214,6 +219,8 @@ impl Process {
             gid: 0,
             process_status: ProcessStatus::Unknown(0),
             status: None,
+            old_read_bytes: 0,
+            old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
         }
@@ -244,6 +251,8 @@ impl ProcessExt for Process {
             gid: 0,
             process_status: ProcessStatus::Unknown(0),
             status: None,
+            old_read_bytes: 0,
+            old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
         }
@@ -305,12 +314,13 @@ impl ProcessExt for Process {
         self.cpu_usage
     }
 
-    fn read_bytes(&self) -> u64 {
-        self.read_bytes
-    }
-
-    fn written_bytes(&self) -> u64 {
-        self.written_bytes
+    fn get_disk_usage(&self) -> DiskUsage {
+        DiskUsage {
+            read_bytes: self.read_bytes - self.old_read_bytes,
+            total_read_bytes: self.read_bytes,
+            written_bytes: self.written_bytes - self.old_written_bytes,
+            total_written_bytes: self.written_bytes,
+        }
     }
 }
 
@@ -595,15 +605,14 @@ pub(crate) fn update_process(
 }
 
 fn update_proc_disk_activity(p: &mut Process) {
-    let mut pidrusage = ffi::RUsageInfoV2::default();
-    let ptr = &mut pidrusage as *mut _ as *mut c_void;
-    let retval: i32;
-    unsafe {
-        retval = ffi::proc_pid_rusage(p.pid() as c_int, 2, ptr);
-    }
+    p.old_read_bytes = p.read_bytes;
+    p.old_written_bytes = p.written_bytes;
+
+    let mut pidrusage: ffi::RUsageInfoV2 = unsafe { MaybeUninit::uninit().assume_init() };
+    let retval = unsafe { ffi::proc_pid_rusage(p.pid() as c_int, 2, &mut pidrusage as *mut _ as _) };
 
     if retval < 0 {
-        panic!("proc_pid_rusage failed: {:?}", retval);
+        sysinfo_debug!("proc_pid_rusage failed: {:?}", retval);
     } else {
         p.read_bytes = pidrusage.ri_diskio_bytesread;
         p.written_bytes = pidrusage.ri_diskio_byteswritten;

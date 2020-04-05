@@ -61,6 +61,20 @@ extern crate doc_comment;
 #[cfg(doctest)]
 doctest!("../README.md");
 
+#[cfg(feature = "debug")]
+#[doc(hidden)]
+macro_rules! sysinfo_debug {
+    ($($x:tt)*) => {{
+        eprintln!($($x)*);
+    }}
+}
+
+#[cfg(not(feature = "debug"))]
+#[doc(hidden)]
+macro_rules! sysinfo_debug {
+    ($($x:tt)*) => {{}}
+}
+
 cfg_if! {
     if #[cfg(target_os = "macos")] {
         mod mac;

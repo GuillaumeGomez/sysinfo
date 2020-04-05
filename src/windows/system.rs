@@ -65,18 +65,6 @@ struct Wrap<T>(T);
 unsafe impl<T> Send for Wrap<T> {}
 unsafe impl<T> Sync for Wrap<T> {}
 
-#[cfg(feature = "debug")]
-macro_rules! sysinfo_debug {
-    ($($x:tt)*) => {{
-        eprintln!($($x)*);
-    }}
-}
-
-#[cfg(not(feature = "debug"))]
-macro_rules! sysinfo_debug {
-    ($($x:tt)*) => {{}}
-}
-
 unsafe fn boot_time() -> u64 {
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
         Ok(n) => n.as_secs() - GetTickCount64() / 1000,
