@@ -72,7 +72,7 @@ macro_rules! sysinfo_debug {
 #[cfg(not(feature = "debug"))]
 #[doc(hidden)]
 macro_rules! sysinfo_debug {
-    ($($x:tt)*) => {{}}
+    ($($x:tt)*) => {{}};
 }
 
 cfg_if! {
