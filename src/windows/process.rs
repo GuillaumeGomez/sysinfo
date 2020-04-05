@@ -4,6 +4,7 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
+use std::cell::RefCell;
 use std::fmt::{self, Debug};
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::ops::Deref;
@@ -82,6 +83,20 @@ impl<T: Clone> Deref for PtrWrapper<T> {
 unsafe impl<T: Clone> Send for PtrWrapper<T> {}
 unsafe impl<T: Clone> Sync for PtrWrapper<T> {}
 
+#[derive(Default)]
+struct DiskBytes {
+    written_bytes: u64,
+    read_bytes: u64,
+}
+
+struct DiskInfo {
+    diag_info: PtrWrapper<ComPtr<ProcessDiagnosticInfo>>,
+    old_disk_bytes: RefCell<DiskBytes>,
+}
+
+unsafe impl Send for DiskInfo {}
+unsafe impl Sync for DiskInfo {}
+
 /// Struct containing a process' information.
 pub struct Process {
     name: String,
@@ -102,7 +117,7 @@ pub struct Process {
     start_time: u64,
     cpu_usage: f32,
     pub(crate) updated: bool,
-    diag_info: Option<PtrWrapper<ComPtr<ProcessDiagnosticInfo>>>,
+    disk_info: Option<DiskInfo>,
 }
 
 unsafe fn get_process_name(process_handler: HANDLE, h_mod: *mut c_void) -> String {
@@ -221,11 +236,14 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: unsafe { get_start_time(handle) },
                 updated: true,
-                diag_info:
+                disk_info:
                     ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
                         .ok()
                         .and_then(|x| x)
-                        .map(|x| PtrWrapper(x))
+                        .map(|x| DiskInfo {
+                            diag_info: PtrWrapper(x),
+                            old_disk_bytes: RefCell::new(DiskBytes::default()),
+                        })
             }
         } else {
             Process {
@@ -247,11 +265,14 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
-                diag_info:
+                disk_info:
                     ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
                         .ok()
                         .and_then(|x| x)
-                        .map(|x| PtrWrapper(x))
+                        .map(|x| DiskInfo {
+                            diag_info: PtrWrapper(x),
+                            old_disk_bytes: RefCell::new(DiskBytes::default()),
+                        })
             }
         }
     }
@@ -289,11 +310,14 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: get_start_time(process_handler),
                 updated: true,
-                diag_info:
+                disk_info:
                     ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
                         .ok()
                         .and_then(|x| x)
-                        .map(|x| PtrWrapper(x))
+                        .map(|x| DiskInfo {
+                            diag_info: PtrWrapper(x),
+                            old_disk_bytes: RefCell::new(DiskBytes::default()),
+                        })
             }
         }
     }
@@ -328,11 +352,14 @@ impl ProcessExt for Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
-                diag_info:
+                disk_info:
                     ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
                         .ok()
                         .and_then(|x| x)
-                        .map(|x| PtrWrapper(x))
+                        .map(|x| DiskInfo {
+                            diag_info: PtrWrapper(x),
+                            old_disk_bytes: RefCell::new(DiskBytes::default()),
+                        })
             }
         }
     }
@@ -399,20 +426,46 @@ impl ProcessExt for Process {
     }
 
     fn get_disk_usage(&self) -> DiskUsage {
-        if let Some(ref diag_info) = self.diag_info {
-            let disk_usage = match diag_info.get_disk_usage().ok() {
+        if let Some(ref disk_info) = self.disk_info {
+            let disk_usage = match disk_info.diag_info.get_disk_usage().ok() {
                 Some(Some(d)) => d,
-                _ => return DiskUsage::default(),
+                _ => {
+                    let tmp = disk_info.old_disk_bytes.borrow();
+                    return DiskUsage {
+                        total_read_bytes: tmp.read_bytes,
+                        read_bytes: 0,
+                        total_written_bytes: tmp.written_bytes,
+                        written_bytes: 0,
+                    };
+                }
             };
             let report = match disk_usage.get_report().ok() {
                 Some(Some(d)) => d,
-                _ => return DiskUsage::default(),
+                _ => {
+                    let tmp = disk_info.old_disk_bytes.borrow();
+                    return DiskUsage {
+                        total_read_bytes: tmp.read_bytes,
+                        read_bytes: 0,
+                        total_written_bytes: tmp.written_bytes,
+                        written_bytes: 0,
+                    };
+                }
             };
-            let read_bytes = report.get_bytes_read_count().ok().map(|x| x as u64);
-            let written_bytes = report.get_bytes_written_count().ok().map(|x| x as u64);
+            let (read_bytes, written_bytes, old_read_bytes, old_written_bytes) = {
+                let mut tmp = disk_info.old_disk_bytes.borrow_mut();
+                let read_bytes = report.get_bytes_read_count().ok().map(|x| x as u64).unwrap_or(tmp.read_bytes);
+                let written_bytes = report.get_bytes_written_count().ok().map(|x| x as u64).unwrap_or(tmp.written_bytes);
+                let old_read_bytes = tmp.read_bytes;
+                let old_written_bytes = tmp.written_bytes;
+                tmp.read_bytes = read_bytes;
+                tmp.written_bytes = written_bytes;
+                (read_bytes, written_bytes, old_read_bytes, old_written_bytes)
+            };
             DiskUsage {
-                read_bytes: read_bytes.unwrap_or(0),
-                written_bytes: written_bytes.unwrap_or(0),
+                total_read_bytes: read_bytes,
+                read_bytes: read_bytes - old_read_bytes,
+                total_written_bytes: written_bytes,
+                written_bytes: written_bytes - old_written_bytes,
             }
         } else {
             DiskUsage::default()
