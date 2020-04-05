@@ -38,8 +38,9 @@ use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
 use winapi::um::sysinfoapi::{GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSEX};
 use winapi::um::winnt::HANDLE;
-
 use rayon::prelude::*;
+use winrt::windows::system::{AppDiagnosticInfo, DiagnosticAccessStatus};
+use winrt::{RtAsyncOperation};
 
 /// Struct containing the system's information.
 pub struct System {
@@ -77,9 +78,32 @@ unsafe fn boot_time() -> u64 {
     }
 }
 
+#[cfg(feature = "debug")]
+macro_rules! sysinfo_debug {
+    ($($x:tt)*) => {{
+        eprintln!($($x)*);
+    }}
+}
+
+#[cfg(not(feature = "debug"))]
+macro_rules! sysinfo_debug {
+    ($($x:tt)*) => {{}}
+}
+
 impl SystemExt for System {
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {
+        match AppDiagnosticInfo::request_access_async() {
+            Ok(x) => {
+                match x.blocking_get() {
+                    Ok(DiagnosticAccessStatus::Unspecified) => sysinfo_debug!("app diagnostic access refused: Unspecified"),
+                    Ok(DiagnosticAccessStatus::Denied) => sysinfo_debug!("app diagnostic access refused: Denied"),
+                    Ok(_) => {}
+                    Err(_e) => sysinfo_debug!("failed to get access request status: {:?}", _e),
+                }
+            }
+            Err(_e) => sysinfo_debug!("failed to request app diagnostic access: {:?}", _e),
+        }
         let (processors, vendor_id, brand) = init_processors();
         let mut s = System {
             process_list: HashMap::with_capacity(500),

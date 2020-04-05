@@ -28,12 +28,9 @@ use winapi::um::psapi::{
     LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
-use winapi::um::winnt::{
-    HANDLE, /*, PWSTR*/ PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ,
-    ULARGE_INTEGER, /*THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,*/
-};
-use winrt::windows::system::diagnostics::*;
-use winrt::*;
+use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER};
+use winrt::windows::system::diagnostics::{ProcessDiagnosticInfo};
+use winrt::ComPtr;
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -71,21 +68,20 @@ fn get_process_handler(pid: Pid) -> Option<HANDLE> {
 }
 
 #[derive(Clone)]
-struct HandleWrapper(HANDLE);
+struct PtrWrapper<T: Clone>(T);
 
-impl Deref for HandleWrapper {
-    type Target = HANDLE;
+impl<T: Clone> Deref for PtrWrapper<T> {
+    type Target = T;
 
-    fn deref(&self) -> &HANDLE {
+    fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-unsafe impl Send for HandleWrapper {}
-unsafe impl Sync for HandleWrapper {}
+unsafe impl<T: Clone> Send for PtrWrapper<T> {}
+unsafe impl<T: Clone> Sync for PtrWrapper<T> {}
 
 /// Struct containing a process' information.
-#[derive(Clone)]
 pub struct Process {
     name: String,
     cmd: Vec<String>,
@@ -98,7 +94,7 @@ pub struct Process {
     pub(crate) virtual_memory: u64,
     parent: Option<Pid>,
     status: ProcessStatus,
-    handle: HandleWrapper,
+    handle: PtrWrapper<HANDLE>,
     old_cpu: u64,
     old_sys_cpu: u64,
     old_user_cpu: u64,
@@ -107,6 +103,7 @@ pub struct Process {
     pub(crate) updated: bool,
     pub(crate) read_bytes: u64,
     pub(crate) written_bytes: u64,
+    diag_info: Option<PtrWrapper<ComPtr<ProcessDiagnosticInfo>>>,
 }
 
 unsafe fn get_process_name(process_handler: HANDLE, h_mod: *mut c_void) -> String {
@@ -207,7 +204,7 @@ impl Process {
             let mut root = exe.clone();
             root.pop();
             Process {
-                handle: HandleWrapper(handle),
+                handle: PtrWrapper(handle),
                 name,
                 pid,
                 parent,
@@ -227,10 +224,15 @@ impl Process {
                 updated: true,
                 read_bytes: 0,
                 written_bytes: 0,
+                diag_info:
+                    ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
+                        .ok()
+                        .and_then(|x| x)
+                        .map(|x| PtrWrapper(x))
             }
         } else {
             Process {
-                handle: HandleWrapper(null_mut()),
+                handle: PtrWrapper(null_mut()),
                 name,
                 pid,
                 parent,
@@ -250,6 +252,11 @@ impl Process {
                 updated: true,
                 read_bytes: 0,
                 written_bytes: 0,
+                diag_info:
+                    ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
+                        .ok()
+                        .and_then(|x| x)
+                        .map(|x| PtrWrapper(x))
             }
         }
     }
@@ -269,7 +276,7 @@ impl Process {
             let mut root = exe.clone();
             root.pop();
             Process {
-                handle: HandleWrapper(process_handler),
+                handle: PtrWrapper(process_handler),
                 name,
                 pid,
                 parent,
@@ -287,6 +294,13 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: get_start_time(process_handler),
                 updated: true,
+                read_bytes: 0,
+                written_bytes: 0,
+                diag_info:
+                    ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
+                        .ok()
+                        .and_then(|x| x)
+                        .map(|x| PtrWrapper(x))
             }
         }
     }
@@ -303,7 +317,7 @@ impl ProcessExt for Process {
             Process::new_with_handle(pid, parent, process_handler)
         } else {
             Process {
-                handle: HandleWrapper(null_mut()),
+                handle: PtrWrapper(null_mut()),
                 name: String::new(),
                 pid,
                 parent,
@@ -323,6 +337,11 @@ impl ProcessExt for Process {
                 updated: true,
                 read_bytes: 0,
                 written_bytes: 0,
+                diag_info:
+                    ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
+                        .ok()
+                        .and_then(|x| x)
+                        .map(|x| PtrWrapper(x))
             }
         }
     }
@@ -625,17 +644,17 @@ macro_rules! safe_unwrap_to_inner {
 }
 
 pub(crate) fn get_disk_usage(p: &mut Process) {
-    let diag_info =
-        safe_unwrap_to_inner!(ProcessDiagnosticInfo::try_get_for_process_id(p.pid as u32).ok());
-    let disk_usage = safe_unwrap_to_inner!(diag_info.get_disk_usage().ok());
-    let report = safe_unwrap_to_inner!(disk_usage.get_report().ok());
-    let read_bytes = report.get_bytes_read_count().ok();
-    let write_bytes = report.get_bytes_written_count().ok();
-    if let Some(rb) = read_bytes {
-        p.read_bytes = rb as u64;
-    }
-    if let Some(wb) = write_bytes {
-        p.written_bytes = wb as u64;
+    if let Some(ref diag_info) = p.diag_info {
+        let disk_usage = safe_unwrap_to_inner!(diag_info.get_disk_usage().ok());
+        let report = safe_unwrap_to_inner!(disk_usage.get_report().ok());
+        let read_bytes = report.get_bytes_read_count().ok();
+        let write_bytes = report.get_bytes_written_count().ok();
+        if let Some(rb) = read_bytes {
+            p.read_bytes = rb as u64;
+        }
+        if let Some(wb) = write_bytes {
+            p.written_bytes = wb as u64;
+        }
     }
 }
 
