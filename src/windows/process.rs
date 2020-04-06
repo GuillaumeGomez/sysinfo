@@ -170,6 +170,26 @@ unsafe fn get_exe(process_handler: HANDLE, h_mod: *mut c_void) -> PathBuf {
     PathBuf::from(String::from_utf16_lossy(&exe_buf[..pos]))
 }
 
+fn get_disk_for_process_id(pid: u32) -> Option<DiskInfo> {
+    use super::system::{can_be_registered, RegistrationStatus};
+
+    match can_be_registered::<ProcessDiagnosticInfo>() {
+        RegistrationStatus::Ok => {
+            ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
+                .ok()
+                .and_then(|x| x)
+                .map(|x| DiskInfo {
+                    diag_info: PtrWrapper(x),
+                    old_disk_bytes: RefCell::new(DiskBytes::default()),
+                })
+        }
+        _x => {
+            sysinfo_debug!("Cannot register AppDiagnosticInfo: {:?}", _x);
+            None
+        }
+    }
+}
+
 impl Process {
     #[allow(clippy::uninit_assumed_init)]
     pub(crate) fn new_from_pid(pid: Pid) -> Option<Process> {
@@ -236,14 +256,7 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: unsafe { get_start_time(handle) },
                 updated: true,
-                disk_info:
-                    ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
-                        .ok()
-                        .and_then(|x| x)
-                        .map(|x| DiskInfo {
-                            diag_info: PtrWrapper(x),
-                            old_disk_bytes: RefCell::new(DiskBytes::default()),
-                        })
+                disk_info: get_disk_for_process_id(pid as u32),
             }
         } else {
             Process {
@@ -265,14 +278,7 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
-                disk_info:
-                    ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
-                        .ok()
-                        .and_then(|x| x)
-                        .map(|x| DiskInfo {
-                            diag_info: PtrWrapper(x),
-                            old_disk_bytes: RefCell::new(DiskBytes::default()),
-                        })
+                disk_info: get_disk_for_process_id(pid as u32),
             }
         }
     }
@@ -310,14 +316,7 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: get_start_time(process_handler),
                 updated: true,
-                disk_info:
-                    ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
-                        .ok()
-                        .and_then(|x| x)
-                        .map(|x| DiskInfo {
-                            diag_info: PtrWrapper(x),
-                            old_disk_bytes: RefCell::new(DiskBytes::default()),
-                        })
+                disk_info: get_disk_for_process_id(pid as u32),
             }
         }
     }
@@ -352,14 +351,7 @@ impl ProcessExt for Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
-                disk_info:
-                    ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
-                        .ok()
-                        .and_then(|x| x)
-                        .map(|x| DiskInfo {
-                            diag_info: PtrWrapper(x),
-                            old_disk_bytes: RefCell::new(DiskBytes::default()),
-                        })
+                disk_info: get_disk_for_process_id(pid as u32),
             }
         }
     }

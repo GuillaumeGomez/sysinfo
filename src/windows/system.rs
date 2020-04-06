@@ -40,7 +40,7 @@ use winapi::um::sysinfoapi::{GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSE
 use winapi::um::winnt::HANDLE;
 use rayon::prelude::*;
 use winrt::windows::system::{AppDiagnosticInfo, DiagnosticAccessStatus};
-use winrt::{RtAsyncOperation};
+use winrt::{RtAsyncOperation, RtActivatable};
 
 /// Struct containing the system's information.
 pub struct System {
@@ -74,19 +74,79 @@ unsafe fn boot_time() -> u64 {
         }
     }
 }
+
+// To be removed once winrt PR is merged!
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum RegistrationStatus {
+    Ok,
+    NotRegistered,
+    Error(u32),
+}
+
+// To be removed once winrt PR is merged!
+pub(crate) fn can_be_registered<T: RtActivatable<T>>() -> RegistrationStatus {
+    use std::ptr;
+    use winapi::shared::ntdef::VOID;
+    use winapi::shared::winerror::{S_OK, CO_E_NOTINITIALIZED, REGDB_E_CLASSNOTREG};
+    use winapi::um::combaseapi::CoIncrementMTAUsage;
+    use winapi::winrt::roapi::RoGetActivationFactory;
+    use winrt::{ComIid, HStringReference, RtType};
+
+    let mut res: <T as RtType>::Abi = unsafe {
+        <T as RtType>::uninitialized()
+    };
+    let class_id = unsafe { HStringReference::from_utf16_unchecked(T::name()) };
+    let mut hr = unsafe {
+        RoGetActivationFactory(
+            class_id.get(),
+            <T as ComIid>::iid().as_ref(),
+            &mut res as *mut *mut _ as *mut *mut VOID,
+        )
+    };
+    if hr == CO_E_NOTINITIALIZED {
+        let mut cookie = ptr::null_mut();
+        unsafe { CoIncrementMTAUsage(&mut cookie); }
+        hr = unsafe {
+            RoGetActivationFactory(
+                class_id.get(),
+                <T as ComIid>::iid().as_ref(),
+                &mut res as *mut *mut _ as *mut *mut VOID,
+            )
+        };
+    }
+    if hr == S_OK {
+        RegistrationStatus::Ok
+    } else if hr == REGDB_E_CLASSNOTREG {
+        RegistrationStatus::NotRegistered
+    } else {
+        RegistrationStatus::Error(hr as u32)
+    }
+}
+
 impl SystemExt for System {
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {
-        match AppDiagnosticInfo::request_access_async() {
-            Ok(x) => {
-                match x.blocking_get() {
-                    Ok(DiagnosticAccessStatus::Unspecified) => sysinfo_debug!("app diagnostic access refused: Unspecified"),
-                    Ok(DiagnosticAccessStatus::Denied) => sysinfo_debug!("app diagnostic access refused: Denied"),
-                    Ok(_) => {}
-                    Err(_e) => sysinfo_debug!("failed to get access request status: {:?}", _e),
+        match can_be_registered::<AppDiagnosticInfo>() {
+            RegistrationStatus::Ok => {
+                match AppDiagnosticInfo::request_access_async() {
+                    Ok(x) => {
+                        match x.blocking_get() {
+                            Ok(DiagnosticAccessStatus::Unspecified) => {
+                                sysinfo_debug!("app diagnostic access refused: Unspecified");
+                            }
+                            Ok(DiagnosticAccessStatus::Denied) => {
+                                sysinfo_debug!("app diagnostic access refused: Denied");
+                            }
+                            Ok(_) => {}
+                            Err(_e) => {
+                                sysinfo_debug!("failed to get access request status: {:?}", _e);
+                            }
+                        }
+                    }
+                    Err(_e) => sysinfo_debug!("failed to request app diagnostic access: {:?}", _e),
                 }
             }
-            Err(_e) => sysinfo_debug!("failed to request app diagnostic access: {:?}", _e),
+            _x => sysinfo_debug!("Cannot register AppDiagnosticInfo: {:?}", _x),
         }
         let (processors, vendor_id, brand) = init_processors();
         let mut s = System {
