@@ -299,7 +299,7 @@ pub trait ProcessExt: Debug {
 
     /// Returns number of bytes read and written to disk.
     ///
-    /// **On Windows, the disk usage is computed when calling this method!**
+    /// /!\\ On Windows, this method actually returns **ALL** I/O read and written bytes.
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};

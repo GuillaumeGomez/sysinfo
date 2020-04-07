@@ -4,7 +4,6 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use std::cell::RefCell;
 use std::fmt::{self, Debug};
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::ops::Deref;
@@ -30,9 +29,8 @@ use winapi::um::psapi::{
     LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
-use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER};
-use winrt::windows::system::diagnostics::{ProcessDiagnosticInfo};
-use winrt::ComPtr;
+use winapi::um::winbase::GetProcessIoCounters;
+use winapi::um::winnt::{IO_COUNTERS, HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER};
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -83,20 +81,6 @@ impl<T: Clone> Deref for PtrWrapper<T> {
 unsafe impl<T: Clone> Send for PtrWrapper<T> {}
 unsafe impl<T: Clone> Sync for PtrWrapper<T> {}
 
-#[derive(Default)]
-struct DiskBytes {
-    written_bytes: u64,
-    read_bytes: u64,
-}
-
-struct DiskInfo {
-    diag_info: PtrWrapper<ComPtr<ProcessDiagnosticInfo>>,
-    old_disk_bytes: RefCell<DiskBytes>,
-}
-
-unsafe impl Send for DiskInfo {}
-unsafe impl Sync for DiskInfo {}
-
 /// Struct containing a process' information.
 pub struct Process {
     name: String,
@@ -117,7 +101,10 @@ pub struct Process {
     start_time: u64,
     cpu_usage: f32,
     pub(crate) updated: bool,
-    disk_info: Option<DiskInfo>,
+    old_read_bytes: u64,
+    old_written_bytes: u64,
+    read_bytes: u64,
+    written_bytes: u64,
 }
 
 unsafe fn get_process_name(process_handler: HANDLE, h_mod: *mut c_void) -> String {
@@ -168,26 +155,6 @@ unsafe fn get_exe(process_handler: HANDLE, h_mod: *mut c_void) -> PathBuf {
     }
 
     PathBuf::from(String::from_utf16_lossy(&exe_buf[..pos]))
-}
-
-fn get_disk_for_process_id(pid: u32) -> Option<DiskInfo> {
-    use super::system::{can_be_registered, RegistrationStatus};
-
-    match can_be_registered::<ProcessDiagnosticInfo>() {
-        RegistrationStatus::Ok => {
-            ProcessDiagnosticInfo::try_get_for_process_id(pid as u32)
-                .ok()
-                .and_then(|x| x)
-                .map(|x| DiskInfo {
-                    diag_info: PtrWrapper(x),
-                    old_disk_bytes: RefCell::new(DiskBytes::default()),
-                })
-        }
-        _x => {
-            sysinfo_debug!("Cannot register AppDiagnosticInfo: {:?}", _x);
-            None
-        }
-    }
 }
 
 impl Process {
@@ -256,7 +223,10 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: unsafe { get_start_time(handle) },
                 updated: true,
-                disk_info: get_disk_for_process_id(pid as u32),
+                old_read_bytes: 0,
+                old_written_bytes: 0,
+                read_bytes: 0,
+                written_bytes: 0,
             }
         } else {
             Process {
@@ -278,7 +248,10 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
-                disk_info: get_disk_for_process_id(pid as u32),
+                old_read_bytes: 0,
+                old_written_bytes: 0,
+                read_bytes: 0,
+                written_bytes: 0,
             }
         }
     }
@@ -316,7 +289,10 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: get_start_time(process_handler),
                 updated: true,
-                disk_info: get_disk_for_process_id(pid as u32),
+                old_read_bytes: 0,
+                old_written_bytes: 0,
+                read_bytes: 0,
+                written_bytes: 0,
             }
         }
     }
@@ -351,7 +327,10 @@ impl ProcessExt for Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
-                disk_info: get_disk_for_process_id(pid as u32),
+                old_read_bytes: 0,
+                old_written_bytes: 0,
+                read_bytes: 0,
+                written_bytes: 0,
             }
         }
     }
@@ -418,49 +397,11 @@ impl ProcessExt for Process {
     }
 
     fn get_disk_usage(&self) -> DiskUsage {
-        if let Some(ref disk_info) = self.disk_info {
-            let disk_usage = match disk_info.diag_info.get_disk_usage().ok() {
-                Some(Some(d)) => d,
-                _ => {
-                    let tmp = disk_info.old_disk_bytes.borrow();
-                    return DiskUsage {
-                        total_read_bytes: tmp.read_bytes,
-                        read_bytes: 0,
-                        total_written_bytes: tmp.written_bytes,
-                        written_bytes: 0,
-                    };
-                }
-            };
-            let report = match disk_usage.get_report().ok() {
-                Some(Some(d)) => d,
-                _ => {
-                    let tmp = disk_info.old_disk_bytes.borrow();
-                    return DiskUsage {
-                        total_read_bytes: tmp.read_bytes,
-                        read_bytes: 0,
-                        total_written_bytes: tmp.written_bytes,
-                        written_bytes: 0,
-                    };
-                }
-            };
-            let (read_bytes, written_bytes, old_read_bytes, old_written_bytes) = {
-                let mut tmp = disk_info.old_disk_bytes.borrow_mut();
-                let read_bytes = report.get_bytes_read_count().ok().map(|x| x as u64).unwrap_or(tmp.read_bytes);
-                let written_bytes = report.get_bytes_written_count().ok().map(|x| x as u64).unwrap_or(tmp.written_bytes);
-                let old_read_bytes = tmp.read_bytes;
-                let old_written_bytes = tmp.written_bytes;
-                tmp.read_bytes = read_bytes;
-                tmp.written_bytes = written_bytes;
-                (read_bytes, written_bytes, old_read_bytes, old_written_bytes)
-            };
-            DiskUsage {
-                total_read_bytes: read_bytes,
-                read_bytes: read_bytes - old_read_bytes,
-                total_written_bytes: written_bytes,
-                written_bytes: written_bytes - old_written_bytes,
-            }
-        } else {
-            DiskUsage::default()
+        DiskUsage {
+            written_bytes: self.written_bytes - self.old_written_bytes,
+            total_written_bytes: self.written_bytes,
+            read_bytes: self.read_bytes - self.old_read_bytes,
+            total_read_bytes: self.read_bytes,
         }
     }
 }
@@ -498,7 +439,7 @@ fn get_cmd_line(handle: HANDLE) -> Vec<String> {
     use winapi::um::memoryapi::ReadProcessMemory;
 
     unsafe {
-        let mut pinfo = std::mem::MaybeUninit::<PROCESS_BASIC_INFORMATION>::uninit();
+        let mut pinfo = MaybeUninit::<PROCESS_BASIC_INFORMATION>::uninit();
         if NtQueryInformationProcess(
             handle,
             0, // ProcessBasicInformation
@@ -512,7 +453,7 @@ fn get_cmd_line(handle: HANDLE) -> Vec<String> {
         let pinfo = pinfo.assume_init();
 
         let ppeb: PPEB = pinfo.PebBaseAddress;
-        let mut peb_copy = std::mem::MaybeUninit::<PEB>::uninit();
+        let mut peb_copy = MaybeUninit::<PEB>::uninit();
         if ReadProcessMemory(
             handle,
             ppeb as *mut _,
@@ -526,8 +467,7 @@ fn get_cmd_line(handle: HANDLE) -> Vec<String> {
         let peb_copy = peb_copy.assume_init();
 
         let proc_param = peb_copy.ProcessParameters;
-        let mut rtl_proc_param_copy =
-            std::mem::MaybeUninit::<RTL_USER_PROCESS_PARAMETERS>::uninit();
+        let mut rtl_proc_param_copy = MaybeUninit::<RTL_USER_PROCESS_PARAMETERS>::uninit();
         if ReadProcessMemory(
             handle,
             proc_param as *mut PRTL_USER_PROCESS_PARAMETERS as *mut _,
@@ -716,6 +656,21 @@ pub fn get_handle(p: &Process) -> HANDLE {
 
 pub fn update_proc_info(p: &mut Process) {
     update_memory(p);
+    update_disk_usage(p);
+}
+
+pub fn update_disk_usage(p: &mut Process) {
+    let mut counters = MaybeUninit::<IO_COUNTERS>::uninit();
+    let ret = unsafe { GetProcessIoCounters(*p.handle, counters.as_mut_ptr()) };
+    if ret == 0 {
+        sysinfo_debug!("GetProcessIoCounters call failed on process {}", p.pid());
+    } else {
+        let counters = unsafe { counters.assume_init() };
+        p.old_read_bytes = p.read_bytes;
+        p.old_written_bytes = p.written_bytes;
+        p.read_bytes = counters.ReadTransferCount;
+        p.written_bytes = counters.WriteTransferCount;
+    }
 }
 
 pub fn update_memory(p: &mut Process) {

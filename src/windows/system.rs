@@ -23,7 +23,7 @@ use SystemExt;
 use User;
 
 use windows::process::{
-    compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info,
+    compute_cpu_usage, get_handle, get_system_computation_time, update_disk_usage, update_proc_info,
     Process,
 };
 use windows::tools::*;
@@ -39,8 +39,6 @@ use winapi::um::processthreadsapi::GetExitCodeProcess;
 use winapi::um::sysinfoapi::{GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSEX};
 use winapi::um::winnt::HANDLE;
 use rayon::prelude::*;
-use winrt::windows::system::{AppDiagnosticInfo, DiagnosticAccessStatus};
-use winrt::{RtAsyncOperation, RtActivatable};
 
 /// Struct containing the system's information.
 pub struct System {
@@ -75,79 +73,9 @@ unsafe fn boot_time() -> u64 {
     }
 }
 
-// To be removed once winrt PR is merged!
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum RegistrationStatus {
-    Ok,
-    NotRegistered,
-    Error(u32),
-}
-
-// To be removed once winrt PR is merged!
-pub(crate) fn can_be_registered<T: RtActivatable<T>>() -> RegistrationStatus {
-    use std::ptr;
-    use winapi::shared::ntdef::VOID;
-    use winapi::shared::winerror::{S_OK, CO_E_NOTINITIALIZED, REGDB_E_CLASSNOTREG};
-    use winapi::um::combaseapi::CoIncrementMTAUsage;
-    use winapi::winrt::roapi::RoGetActivationFactory;
-    use winrt::{ComIid, HStringReference, RtType};
-
-    let mut res: <T as RtType>::Abi = unsafe {
-        <T as RtType>::uninitialized()
-    };
-    let class_id = unsafe { HStringReference::from_utf16_unchecked(T::name()) };
-    let mut hr = unsafe {
-        RoGetActivationFactory(
-            class_id.get(),
-            <T as ComIid>::iid().as_ref(),
-            &mut res as *mut *mut _ as *mut *mut VOID,
-        )
-    };
-    if hr == CO_E_NOTINITIALIZED {
-        let mut cookie = ptr::null_mut();
-        unsafe { CoIncrementMTAUsage(&mut cookie); }
-        hr = unsafe {
-            RoGetActivationFactory(
-                class_id.get(),
-                <T as ComIid>::iid().as_ref(),
-                &mut res as *mut *mut _ as *mut *mut VOID,
-            )
-        };
-    }
-    if hr == S_OK {
-        RegistrationStatus::Ok
-    } else if hr == REGDB_E_CLASSNOTREG {
-        RegistrationStatus::NotRegistered
-    } else {
-        RegistrationStatus::Error(hr as u32)
-    }
-}
-
 impl SystemExt for System {
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {
-        match can_be_registered::<AppDiagnosticInfo>() {
-            RegistrationStatus::Ok => {
-                match AppDiagnosticInfo::request_access_async() {
-                    Ok(x) => {
-                        match x.blocking_get() {
-                            Ok(DiagnosticAccessStatus::Unspecified) => {
-                                sysinfo_debug!("app diagnostic access refused: Unspecified");
-                            }
-                            Ok(DiagnosticAccessStatus::Denied) => {
-                                sysinfo_debug!("app diagnostic access refused: Denied");
-                            }
-                            Ok(_) => {}
-                            Err(_e) => {
-                                sysinfo_debug!("failed to get access request status: {:?}", _e);
-                            }
-                        }
-                    }
-                    Err(_e) => sysinfo_debug!("failed to request app diagnostic access: {:?}", _e),
-                }
-            }
-            _x => sysinfo_debug!("Cannot register AppDiagnosticInfo: {:?}", _x),
-        }
         let (processors, vendor_id, brand) = init_processors();
         let mut s = System {
             process_list: HashMap::with_capacity(500),
@@ -252,6 +180,7 @@ impl SystemExt for System {
         } else if let Some(mut p) = Process::new_from_pid(pid) {
             let system_time = get_system_computation_time();
             compute_cpu_usage(&mut p, self.processors.len() as u64, system_time);
+            update_disk_usage(&mut p);
             self.process_list.insert(pid, p);
             true
         } else {
@@ -320,6 +249,7 @@ impl SystemExt for System {
                             proc_.memory = (pi.WorkingSetSize as u64) >> 10u64;
                             proc_.virtual_memory = (pi.VirtualSize as u64) >> 10u64;
                             compute_cpu_usage(proc_, nb_processors, system_time);
+                            update_disk_usage(proc_);
                             proc_.updated = true;
                             return None;
                         }
@@ -336,6 +266,7 @@ impl SystemExt for System {
                             name,
                         );
                         compute_cpu_usage(&mut p, nb_processors, system_time);
+                        update_disk_usage(&mut p);
                         Some(p)
                     })
                     .collect::<Vec<_>>();

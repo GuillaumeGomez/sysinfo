@@ -90,7 +90,6 @@ cfg_if! {
 
         #[cfg(test)]
         const MIN_USERS: usize = 1;
-        extern crate winrt;
     } else if #[cfg(unix)] {
         mod linux;
         use linux as sys;
