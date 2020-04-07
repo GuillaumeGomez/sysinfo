@@ -23,7 +23,8 @@ use SystemExt;
 use User;
 
 use windows::process::{
-    compute_cpu_usage, get_handle, get_system_computation_time, update_proc_info, Process,
+    compute_cpu_usage, get_handle, get_system_computation_time, update_disk_usage, update_proc_info,
+    Process,
 };
 use windows::tools::*;
 
@@ -37,7 +38,6 @@ use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
 use winapi::um::sysinfoapi::{GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSEX};
 use winapi::um::winnt::HANDLE;
-
 use rayon::prelude::*;
 
 /// Struct containing the system's information.
@@ -67,10 +67,7 @@ unsafe fn boot_time() -> u64 {
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
         Ok(n) => n.as_secs() - GetTickCount64() / 1000,
         Err(_e) => {
-            #[cfg(feature = "debug")]
-            {
-                println!("Failed to compute boot time: {:?}", _e);
-            }
+            sysinfo_debug!("Failed to compute boot time: {:?}", _e);
             0
         }
     }
@@ -183,6 +180,7 @@ impl SystemExt for System {
         } else if let Some(mut p) = Process::new_from_pid(pid) {
             let system_time = get_system_computation_time();
             compute_cpu_usage(&mut p, self.processors.len() as u64, system_time);
+            update_disk_usage(&mut p);
             self.process_list.insert(pid, p);
             true
         } else {
@@ -251,6 +249,7 @@ impl SystemExt for System {
                             proc_.memory = (pi.WorkingSetSize as u64) >> 10u64;
                             proc_.virtual_memory = (pi.VirtualSize as u64) >> 10u64;
                             compute_cpu_usage(proc_, nb_processors, system_time);
+                            update_disk_usage(proc_);
                             proc_.updated = true;
                             return None;
                         }
@@ -267,6 +266,7 @@ impl SystemExt for System {
                             name,
                         );
                         compute_cpu_usage(&mut p, nb_processors, system_time);
+                        update_disk_usage(&mut p);
                         Some(p)
                     })
                     .collect::<Vec<_>>();

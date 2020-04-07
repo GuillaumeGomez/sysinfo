@@ -120,10 +120,7 @@ fn boot_time() -> u64 {
     if unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut up) } == 0 {
         up.tv_sec as u64
     } else {
-        #[cfg(feature = "debug")]
-        {
-            println!("clock_gettime failed: boot time cannot be retrieve...");
-        }
+        sysinfo_debug!("clock_gettime failed: boot time cannot be retrieve...");
         0
     }
 }
@@ -738,6 +735,7 @@ fn _get_process_data(
             uptime,
             now,
         );
+        update_process_disk_activity(entry, path);
         return Ok(None);
     }
 
@@ -821,6 +819,7 @@ fn _get_process_data(
         uptime,
         now,
     );
+    update_process_disk_activity(&mut p, path);
     Ok(Some(p))
 }
 

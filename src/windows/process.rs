@@ -14,6 +14,7 @@ use std::str;
 
 use libc::{c_void, memcpy};
 
+use DiskUsage;
 use Pid;
 use ProcessExt;
 
@@ -28,7 +29,8 @@ use winapi::um::psapi::{
     LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
-use winapi::um::winnt::{HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER};
+use winapi::um::winbase::GetProcessIoCounters;
+use winapi::um::winnt::{IO_COUNTERS, HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER};
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -66,21 +68,20 @@ fn get_process_handler(pid: Pid) -> Option<HANDLE> {
 }
 
 #[derive(Clone)]
-struct HandleWrapper(HANDLE);
+struct PtrWrapper<T: Clone>(T);
 
-impl Deref for HandleWrapper {
-    type Target = HANDLE;
+impl<T: Clone> Deref for PtrWrapper<T> {
+    type Target = T;
 
-    fn deref(&self) -> &HANDLE {
+    fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-unsafe impl Send for HandleWrapper {}
-unsafe impl Sync for HandleWrapper {}
+unsafe impl<T: Clone> Send for PtrWrapper<T> {}
+unsafe impl<T: Clone> Sync for PtrWrapper<T> {}
 
 /// Struct containing a process' information.
-#[derive(Clone)]
 pub struct Process {
     name: String,
     cmd: Vec<String>,
@@ -93,13 +94,17 @@ pub struct Process {
     pub(crate) virtual_memory: u64,
     parent: Option<Pid>,
     status: ProcessStatus,
-    handle: HandleWrapper,
+    handle: PtrWrapper<HANDLE>,
     old_cpu: u64,
     old_sys_cpu: u64,
     old_user_cpu: u64,
     start_time: u64,
     cpu_usage: f32,
     pub(crate) updated: bool,
+    old_read_bytes: u64,
+    old_written_bytes: u64,
+    read_bytes: u64,
+    written_bytes: u64,
 }
 
 unsafe fn get_process_name(process_handler: HANDLE, h_mod: *mut c_void) -> String {
@@ -200,7 +205,7 @@ impl Process {
             let mut root = exe.clone();
             root.pop();
             Process {
-                handle: HandleWrapper(handle),
+                handle: PtrWrapper(handle),
                 name,
                 pid,
                 parent,
@@ -218,10 +223,14 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: unsafe { get_start_time(handle) },
                 updated: true,
+                old_read_bytes: 0,
+                old_written_bytes: 0,
+                read_bytes: 0,
+                written_bytes: 0,
             }
         } else {
             Process {
-                handle: HandleWrapper(null_mut()),
+                handle: PtrWrapper(null_mut()),
                 name,
                 pid,
                 parent,
@@ -239,6 +248,10 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
+                old_read_bytes: 0,
+                old_written_bytes: 0,
+                read_bytes: 0,
+                written_bytes: 0,
             }
         }
     }
@@ -258,7 +271,7 @@ impl Process {
             let mut root = exe.clone();
             root.pop();
             Process {
-                handle: HandleWrapper(process_handler),
+                handle: PtrWrapper(process_handler),
                 name,
                 pid,
                 parent,
@@ -276,6 +289,10 @@ impl Process {
                 old_user_cpu: 0,
                 start_time: get_start_time(process_handler),
                 updated: true,
+                old_read_bytes: 0,
+                old_written_bytes: 0,
+                read_bytes: 0,
+                written_bytes: 0,
             }
         }
     }
@@ -292,7 +309,7 @@ impl ProcessExt for Process {
             Process::new_with_handle(pid, parent, process_handler)
         } else {
             Process {
-                handle: HandleWrapper(null_mut()),
+                handle: PtrWrapper(null_mut()),
                 name: String::new(),
                 pid,
                 parent,
@@ -310,6 +327,10 @@ impl ProcessExt for Process {
                 old_user_cpu: 0,
                 start_time: 0,
                 updated: true,
+                old_read_bytes: 0,
+                old_written_bytes: 0,
+                read_bytes: 0,
+                written_bytes: 0,
             }
         }
     }
@@ -374,6 +395,15 @@ impl ProcessExt for Process {
     fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
+
+    fn get_disk_usage(&self) -> DiskUsage {
+        DiskUsage {
+            written_bytes: self.written_bytes - self.old_written_bytes,
+            total_written_bytes: self.written_bytes,
+            read_bytes: self.read_bytes - self.old_read_bytes,
+            total_read_bytes: self.read_bytes,
+        }
+    }
 }
 
 impl Drop for Process {
@@ -409,7 +439,7 @@ fn get_cmd_line(handle: HANDLE) -> Vec<String> {
     use winapi::um::memoryapi::ReadProcessMemory;
 
     unsafe {
-        let mut pinfo = std::mem::MaybeUninit::<PROCESS_BASIC_INFORMATION>::uninit();
+        let mut pinfo = MaybeUninit::<PROCESS_BASIC_INFORMATION>::uninit();
         if NtQueryInformationProcess(
             handle,
             0, // ProcessBasicInformation
@@ -423,7 +453,7 @@ fn get_cmd_line(handle: HANDLE) -> Vec<String> {
         let pinfo = pinfo.assume_init();
 
         let ppeb: PPEB = pinfo.PebBaseAddress;
-        let mut peb_copy = std::mem::MaybeUninit::<PEB>::uninit();
+        let mut peb_copy = MaybeUninit::<PEB>::uninit();
         if ReadProcessMemory(
             handle,
             ppeb as *mut _,
@@ -437,8 +467,7 @@ fn get_cmd_line(handle: HANDLE) -> Vec<String> {
         let peb_copy = peb_copy.assume_init();
 
         let proc_param = peb_copy.ProcessParameters;
-        let mut rtl_proc_param_copy =
-            std::mem::MaybeUninit::<RTL_USER_PROCESS_PARAMETERS>::uninit();
+        let mut rtl_proc_param_copy = MaybeUninit::<RTL_USER_PROCESS_PARAMETERS>::uninit();
         if ReadProcessMemory(
             handle,
             proc_param as *mut PRTL_USER_PROCESS_PARAMETERS as *mut _,
@@ -627,6 +656,21 @@ pub fn get_handle(p: &Process) -> HANDLE {
 
 pub fn update_proc_info(p: &mut Process) {
     update_memory(p);
+    update_disk_usage(p);
+}
+
+pub fn update_disk_usage(p: &mut Process) {
+    let mut counters = MaybeUninit::<IO_COUNTERS>::uninit();
+    let ret = unsafe { GetProcessIoCounters(*p.handle, counters.as_mut_ptr()) };
+    if ret == 0 {
+        sysinfo_debug!("GetProcessIoCounters call failed on process {}", p.pid());
+    } else {
+        let counters = unsafe { counters.assume_init() };
+        p.old_read_bytes = p.read_bytes;
+        p.old_written_bytes = p.written_bytes;
+        p.read_bytes = counters.ReadTransferCount;
+        p.written_bytes = counters.WriteTransferCount;
+    }
 }
 
 pub fn update_memory(p: &mut Process) {

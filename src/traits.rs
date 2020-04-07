@@ -6,6 +6,7 @@
 
 use sys::{Component, Disk, Networks, Process, Processor};
 use DiskType;
+use DiskUsage;
 use LoadAvg;
 use NetworksIter;
 use Pid;
@@ -295,6 +296,28 @@ pub trait ProcessExt: Debug {
     /// }
     /// ```
     fn cpu_usage(&self) -> f32;
+
+    /// Returns number of bytes read and written to disk.
+    ///
+    /// /!\\ On Windows, this method actually returns **ALL** I/O read and written bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// if let Some(process) = s.get_process(1337) {
+    ///     let disk_usage = process.get_disk_usage();
+    ///     println!("read bytes   : new/total => {}/{}",
+    ///         disk_usage.read_bytes,
+    ///         disk_usage.total_read_bytes,
+    ///     );
+    ///     println!("written bytes: new/total => {}/{}",
+    ///         disk_usage.written_bytes,
+    ///         disk_usage.total_written_bytes,
+    ///     );
+    /// }
+    /// ```
+    fn get_disk_usage(&self) -> DiskUsage;
 }
 
 /// Contains all the methods of the [`Processor`][crate::Processor] struct.

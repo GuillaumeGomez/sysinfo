@@ -131,11 +131,17 @@ impl fmt::Debug for NetworkData {
             .field("packets income", &self.get_packets_received())
             .field("total packets income", &self.get_total_packets_received())
             .field("packets outcome", &self.get_packets_transmitted())
-            .field("total packets outcome", &self.get_total_packets_transmitted())
+            .field(
+                "total packets outcome",
+                &self.get_total_packets_transmitted(),
+            )
             .field("errors income", &self.get_errors_on_received())
             .field("total errors income", &self.get_total_errors_on_received())
             .field("errors outcome", &self.get_errors_on_transmitted())
-            .field("total errors outcome", &self.get_total_errors_on_transmitted())
+            .field(
+                "total errors outcome",
+                &self.get_total_errors_on_transmitted(),
+            )
             .finish()
     }
 }
