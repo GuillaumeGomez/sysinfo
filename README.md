@@ -136,21 +136,21 @@ test bench_refresh_users_list      ... bench:   2,479,582 ns/iter (+/- 1,063,982
 <details>
 
 ```text
-test bench_new                     ... bench:   7,335,755 ns/iter (+/- 469,000)
-test bench_new_all                 ... bench:  32,233,480 ns/iter (+/- 1,567,239)
-test bench_refresh_all             ... bench:   1,433,015 ns/iter (+/- 126,322)
-test bench_refresh_components      ... bench:           1 ns/iter (+/- 0)
-test bench_refresh_components_list ... bench:   9,835,060 ns/iter (+/- 407,072)
-test bench_refresh_cpu             ... bench:      33,873 ns/iter (+/- 2,177)
-test bench_refresh_disks           ... bench:      58,951 ns/iter (+/- 6,128)
-test bench_refresh_disks_list      ... bench:     125,199 ns/iter (+/- 2,741)
-test bench_refresh_memory          ... bench:       1,004 ns/iter (+/- 56)
-test bench_refresh_networks        ... bench:      39,013 ns/iter (+/- 2,676)
-test bench_refresh_networks_list   ... bench:   1,341,850 ns/iter (+/- 78,258)
-test bench_refresh_process         ... bench:       2,116 ns/iter (+/- 58)
-test bench_refresh_processes       ... bench:   1,032,447 ns/iter (+/- 57,695)
-test bench_refresh_system          ... bench:      35,374 ns/iter (+/- 3,200)
-test bench_refresh_users_list      ... bench:   3,321,140 ns/iter (+/- 135,160)
+test bench_new                     ... bench:   7,119,215 ns/iter (+/- 283,002)
+test bench_new_all                 ... bench:  27,364,010 ns/iter (+/- 1,353,879)
+test bench_refresh_all             ... bench:   3,125,085 ns/iter (+/- 92,479)
+test bench_refresh_components      ... bench:   1,239,478 ns/iter (+/- 45,790)
+test bench_refresh_components_list ... bench:   3,197,295 ns/iter (+/- 91,662)
+test bench_refresh_cpu             ... bench:      24,973 ns/iter (+/- 1,844)
+test bench_refresh_disks           ... bench:      52,321 ns/iter (+/- 1,533)
+test bench_refresh_disks_list      ... bench:     114,756 ns/iter (+/- 3,900)
+test bench_refresh_memory          ... bench:         581 ns/iter (+/- 25)
+test bench_refresh_networks        ... bench:      35,231 ns/iter (+/- 2,210)
+test bench_refresh_networks_list   ... bench:     661,170 ns/iter (+/- 56,636)
+test bench_refresh_process         ... bench:       1,531 ns/iter (+/- 154)
+test bench_refresh_processes       ... bench:   1,070,742 ns/iter (+/- 57,539)
+test bench_refresh_system          ... bench:   1,303,291 ns/iter (+/- 44,538)
+test bench_refresh_users_list      ... bench:   2,340,562 ns/iter (+/- 83,992)
 ```
 </details>
 
