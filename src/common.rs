@@ -52,6 +52,9 @@ assert_eq!(r.", stringify!($name), "(), false);
 
 let r = r.with_", stringify!($name), "();
 assert_eq!(r.", stringify!($name), "(), true);
+
+let r = r.without_", stringify!($name), "();
+assert_eq!(r.", stringify!($name), "(), false);
 ```"),
                     pub fn $name(&self) -> bool {
                         self.$name
@@ -402,14 +405,14 @@ impl UserExt for User {
 
 /// Type containing read and written bytes.
 ///
-/// It is returned by [`ProcessExt::get_disk_usage`][crate::ProcessExt::get_disk_usage].
+/// It is returned by [`ProcessExt::disk_usage`][crate::ProcessExt::disk_usage].
 ///
 /// ```no_run
 /// use sysinfo::{ProcessExt, System, SystemExt};
 ///
 /// let s = System::new_all();
 /// for (pid, process) in s.get_processes() {
-///     let disk_usage = process.get_disk_usage();
+///     let disk_usage = process.disk_usage();
 ///     println!("[{}] read bytes   : new/total => {}/{}",
 ///         pid,
 ///         disk_usage.read_bytes,

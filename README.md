@@ -47,9 +47,9 @@ cargo build --target=armv7-unknown-linux-gnueabihf
 You have an example into the `examples` folder. Just run `cargo run` inside the `examples` folder to start it. Otherwise, here is a little code sample:
 
 ```rust
-use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+use sysinfo::{NetworkExt, NetworksExt, ProcessExt, System, SystemExt};
 
-let mut sys = System::new();
+let mut sys = System::new_all();
 
 // We display the disks:
 println!("=> disk list:");
@@ -78,6 +78,11 @@ println!("NB processors: {}", sys.get_processors().len());
 
 // To refresh all system information:
 sys.refresh_all();
+
+// We show the processes and some of their information:
+for (pid, process) in sys.get_processes() {
+    println!("[{}] {} {:?}", pid, process.name(), process.disk_usage());
+}
 ```
 
 ## C interface

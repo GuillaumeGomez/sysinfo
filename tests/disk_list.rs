@@ -10,7 +10,6 @@ extern crate sysinfo;
 fn test_disks() {
     use sysinfo::SystemExt;
 
-    let s = sysinfo::System::new();
-    println!("total memory: {}", s.get_total_memory());
-    println!("total cpu cores: {}", s.get_processors().len());
+    let s = sysinfo::System::new_all();
+    assert!(s.get_disks().len() > 0);
 }

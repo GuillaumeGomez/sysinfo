@@ -306,7 +306,7 @@ pub trait ProcessExt: Debug {
     ///
     /// let s = System::new();
     /// if let Some(process) = s.get_process(1337) {
-    ///     let disk_usage = process.get_disk_usage();
+    ///     let disk_usage = process.disk_usage();
     ///     println!("read bytes   : new/total => {}/{}",
     ///         disk_usage.read_bytes,
     ///         disk_usage.total_read_bytes,
@@ -317,7 +317,7 @@ pub trait ProcessExt: Debug {
     ///     );
     /// }
     /// ```
-    fn get_disk_usage(&self) -> DiskUsage;
+    fn disk_usage(&self) -> DiskUsage;
 }
 
 /// Contains all the methods of the [`Processor`][crate::Processor] struct.

@@ -81,7 +81,7 @@ impl ProcessExt for Process {
         0.0
     }
 
-    fn get_disk_usage(&self) -> DiskUsage {
+    fn disk_usage(&self) -> DiskUsage {
         DiskUsage::default()
     }
 }
