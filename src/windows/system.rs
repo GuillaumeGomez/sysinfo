@@ -23,7 +23,7 @@ use SystemExt;
 use User;
 
 use windows::process::{
-    compute_cpu_usage, get_handle, get_system_computation_time, update_disk_usage, update_proc_info,
+    compute_cpu_usage, get_handle, get_system_computation_time, update_disk_usage, update_memory,
     Process,
 };
 use windows::tools::*;
@@ -172,7 +172,7 @@ impl SystemExt for System {
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
         if self.process_list.contains_key(&pid) {
-            if refresh_existing_process(self, pid, true) == false {
+            if refresh_existing_process(self, pid) == false {
                 self.process_list.remove(&pid);
                 return false;
             }
@@ -394,19 +394,18 @@ fn is_proc_running(handle: HANDLE) -> bool {
     !(ret == FALSE || exit_code != STILL_ACTIVE)
 }
 
-fn refresh_existing_process(s: &mut System, pid: Pid, compute_cpu: bool) -> bool {
+fn refresh_existing_process(s: &mut System, pid: Pid) -> bool {
     if let Some(ref mut entry) = s.process_list.get_mut(&(pid as usize)) {
         if !is_proc_running(get_handle(entry)) {
             return false;
         }
-        update_proc_info(entry);
-        if compute_cpu {
-            compute_cpu_usage(
-                entry,
-                s.processors.len() as u64,
-                get_system_computation_time(),
-            );
-        }
+        update_memory(entry);
+        update_disk_usage(entry);
+        compute_cpu_usage(
+            entry,
+            s.processors.len() as u64,
+            get_system_computation_time(),
+        );
         true
     } else {
         false

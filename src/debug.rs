@@ -81,6 +81,7 @@ impl fmt::Debug for Process {
             .field("CPU usage", &self.cpu_usage())
             .field("status", &self.status())
             .field("root", &self.root())
+            .field("disk_usage", &self.disk_usage())
             .finish()
     }
 }

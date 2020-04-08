@@ -225,7 +225,7 @@ impl ProcessExt for Process {
         self.cpu_usage
     }
 
-    fn get_disk_usage(&self) -> DiskUsage {
+    fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             written_bytes: self.written_bytes - self.old_written_bytes,
             total_written_bytes: self.written_bytes,

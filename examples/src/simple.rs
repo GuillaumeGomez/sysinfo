@@ -113,7 +113,7 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
-        "boot_time           : Displays system boot time"
+        "boot_time          : Displays system boot time"
     );
     writeln!(
         &mut io::stdout(),

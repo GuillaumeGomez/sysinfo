@@ -396,7 +396,7 @@ impl ProcessExt for Process {
         self.cpu_usage
     }
 
-    fn get_disk_usage(&self) -> DiskUsage {
+    fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             written_bytes: self.written_bytes - self.old_written_bytes,
             total_written_bytes: self.written_bytes,
@@ -652,11 +652,6 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, now: ULARGE
 
 pub fn get_handle(p: &Process) -> HANDLE {
     *p.handle
-}
-
-pub fn update_proc_info(p: &mut Process) {
-    update_memory(p);
-    update_disk_usage(p);
 }
 
 pub fn update_disk_usage(p: &mut Process) {

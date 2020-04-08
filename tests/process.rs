@@ -78,7 +78,7 @@ fn test_process_disk_usage() {
     use std::fs;
     use std::fs::File;
     use std::io::prelude::*;
-    use sysinfo::{get_current_pid, ProcessExt, SystemExt};
+        use sysinfo::{get_current_pid, ProcessExt, SystemExt};
     {
         let mut file = File::create("test.txt").unwrap();
         file.write_all(b"This is a test file\nwith test data.\n")
@@ -94,13 +94,13 @@ fn test_process_disk_usage() {
         .expect("failed to get process");
 
     assert!(
-        p.get_disk_usage().total_written_bytes > 0,
+        p.disk_usage().total_written_bytes > 0,
         "found {} total written bytes...",
-        p.get_disk_usage().total_written_bytes
+        p.disk_usage().total_written_bytes
     );
     assert!(
-        p.get_disk_usage().written_bytes > 0,
+        p.disk_usage().written_bytes > 0,
         "found {} written bytes...",
-        p.get_disk_usage().written_bytes
+        p.disk_usage().written_bytes
     );
 }
