@@ -30,10 +30,7 @@ unsafe fn to_str(p: LPWSTR) -> String {
         i += 1;
     }
     String::from_utf16(&s).unwrap_or_else(|_e| {
-        #[cfg(feature = "debug")]
-        {
-            println!("Failed to convert to UTF-16 string: {}", _e);
-        }
+        sysinfo_debug!("Failed to convert to UTF-16 string: {}", _e);
         String::new()
     })
 }
@@ -70,10 +67,7 @@ unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<String> {
         }
     } else {
         groups = Vec::new();
-        #[cfg(feature = "debug")]
-        {
-            println!("NetUserGetLocalGroups failed with ret code {}", status);
-        }
+        sysinfo_debug!("NetUserGetLocalGroups failed with ret code {}", status);
     }
     if !buf.is_null() {
         NetApiBufferFree(buf as *mut _);
@@ -114,12 +108,8 @@ pub unsafe fn get_users() -> Vec<User> {
             }
             NetApiBufferFree(buf as *mut _);
         } else {
-            // An error occur
-            #[cfg(feature = "debug")]
-            {
-                println!("NetQueryDisplayInformation failed with ret code {}", res);
-                break;
-            }
+            sysinfo_debug!("NetQueryDisplayInformation failed with ret code {}", res);
+            break;
         }
     }
     users

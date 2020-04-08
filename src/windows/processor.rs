@@ -202,7 +202,7 @@ impl Query {
             if ret == ERROR_SUCCESS as _ {
                 self.internal.data.insert(name.clone(), counter);
             } else {
-                eprintln!("failed to add counter '{}': {:x}...", name, ret);
+                sysinfo_debug!("failed to add counter '{}': {:x}...", name, ret);
                 return false;
             }
         }
@@ -212,7 +212,7 @@ impl Query {
     pub fn refresh(&self) {
         unsafe {
             if PdhCollectQueryData(self.internal.query) != ERROR_SUCCESS as _ {
-                eprintln!("failed to refresh CPU data");
+                sysinfo_debug!("failed to refresh CPU data");
             }
         }
     }

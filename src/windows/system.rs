@@ -117,7 +117,7 @@ impl SystemExt for System {
                     }
                 }
             } else {
-                eprintln!("failed to get `Processor` translation");
+                sysinfo_debug!("failed to get `Processor` translation");
             }
         }
         s.refresh_specifics(refreshes);
@@ -209,7 +209,7 @@ impl SystemExt for System {
 
             if ntstatus != STATUS_INFO_LENGTH_MISMATCH {
                 if ntstatus < 0 {
-                    eprintln!(
+                    sysinfo_debug!(
                         "Couldn't get process infos: NtQuerySystemInformation returned {}",
                         ntstatus
                     );
