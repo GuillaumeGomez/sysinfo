@@ -86,7 +86,7 @@ fn get_disk_types() -> HashMap<OsString, DiskType> {
             &mut media_iterator,
         );
         if result != ffi::KERN_SUCCESS as i32 {
-            //println!("Error: IOServiceGetMatchingServices() = {}", result);
+            sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
             return ret;
         }
 

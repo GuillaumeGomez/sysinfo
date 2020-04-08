@@ -404,14 +404,14 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
         let result =
             ffi::IOServiceGetMatchingServices(master_port, matching_dictionary, &mut iterator);
         if result != ffi::KIO_RETURN_SUCCESS {
-            //println!("Error: IOServiceGetMatchingServices() = {}", result);
+            sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
             return None;
         }
 
         let device = ffi::IOIteratorNext(iterator);
         ffi::IOObjectRelease(iterator);
         if device == 0 {
-            //println!("Error: no SMC found");
+            sysinfo_debug!("Error: no SMC found");
             return None;
         }
 
@@ -419,7 +419,7 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
         let result = ffi::IOServiceOpen(device, ffi::mach_task_self(), 0, &mut conn);
         ffi::IOObjectRelease(device);
         if result != ffi::KIO_RETURN_SUCCESS {
-            //println!("Error: IOServiceOpen() = {}", result);
+            sysinfo_debug!("Error: IOServiceOpen() = {}", result);
             return None;
         }
 
