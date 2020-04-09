@@ -413,12 +413,12 @@ impl UserExt for User {
 /// let s = System::new_all();
 /// for (pid, process) in s.get_processes() {
 ///     let disk_usage = process.disk_usage();
-///     println!("[{}] read bytes   : new/total => {}/{}",
+///     println!("[{}] read bytes   : new/total => {}/{} B",
 ///         pid,
 ///         disk_usage.read_bytes,
 ///         disk_usage.total_read_bytes,
 ///     );
-///     println!("[{}] written bytes: new/total => {}/{}",
+///     println!("[{}] written bytes: new/total => {}/{} B",
 ///         pid,
 ///         disk_usage.written_bytes,
 ///         disk_usage.total_written_bytes,
@@ -429,10 +429,10 @@ impl UserExt for User {
 pub struct DiskUsage {
     /// Total number of written bytes.
     pub total_written_bytes: u64,
-    /// Number of written bytes.
+    /// Number of written bytes since the last refresh.
     pub written_bytes: u64,
     /// Total number of read bytes.
     pub total_read_bytes: u64,
-    /// Number of read bytes.
+    /// Number of read bytes since the last refresh.
     pub read_bytes: u64,
 }
