@@ -15,6 +15,9 @@ use std::path::{Path, PathBuf};
 /// More information can be found at [kernel.org][k].
 ///
 /// [k]: https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface
+/// Note: these may not be present on virtual Linux systems, such as Docker
+/// or Windows Subsystem for Linux. These hosts do not expose this information
+/// and therefore Components may be missing or not as expected.
 pub struct Component {
     temperature: f32,
     max: f32,
