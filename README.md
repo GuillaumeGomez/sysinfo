@@ -10,19 +10,19 @@
 
 A system handler to interact with processes.
 
-Support the following platforms:
+Supports the following platforms:
 
  * Linux
- * Raspberry
+ * Raspberry Pi
  * Android
  * macOS
  * Windows
 
 It also compiles for Android but never been tested on it.
 
-### Running on Raspberry
+### Running on Raspberry Pi
 
-It'll be difficult to build on Raspberry. A good way-around is to be build on Linux before sending it to your Raspberry.
+It'll be difficult to build on Raspberry Pi. A good way-around is to be build on Linux before sending it to your Raspberry Pi.
 
 First install the arm toolchain, for example on Ubuntu: `sudo apt-get install gcc-multilib-arm-linux-gnueabihf`.
 
@@ -41,6 +41,10 @@ Finally, cross compile:
 rustup target add armv7-unknown-linux-gnueabihf
 cargo build --target=armv7-unknown-linux-gnueabihf
 ```
+
+### Linux on Docker & Windows Subsystem for Linux (WSL)
+
+Virtual Linux systems, such as those run through Docker and Windows Subsystem for Linux (WSL), do not receive host hardware information via `/sys/class/hwmon` or `/sys/class/thermal`. As such, querying for components may return no results (or unexpected results) when using this library on virtual systems.
 
 ## Code example
 
