@@ -855,17 +855,10 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 
 fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
     use std::io::Seek;
-
-    let mut data = Vec::with_capacity(size);
-    unsafe {
-        data.set_len(size);
-    }
-
+    let mut buf = String::with_capacity(size);
     file.seek(::std::io::SeekFrom::Start(0))?;
-    let size = file.read(&mut data)?;
-    data.truncate(size);
-    Ok(String::from_utf8(data)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?)
+    file.read_to_string(&mut buf)?;
+    Ok(buf)
 }
 
 pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
@@ -875,22 +868,38 @@ pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<Str
 
 fn get_all_disks() -> Vec<Disk> {
     let content = get_all_data("/proc/mounts", 16_385).unwrap_or_default();
+
     let disks = content.lines().filter(|line| {
         let line = line.trim_start();
-        // While the `sd` prefix is most common, some disks instead use the `nvme` prefix. This
-        // prefix refers to NVM (non-volatile memory) cabale SSDs. These disks run on the NVMe
-        // storage controller protocol (not the scsi protocol) and as a result use a different
-        // prefix to support NVMe namespaces.
-        //
-        // In some other cases, it uses a device mapper to map physical block devices onto
-        // higher-level virtual block devices (on `/dev/mapper`).
-        //
-        // Raspbian uses root and mmcblk for physical disks
-        line.starts_with("/dev/sd")
-            || line.starts_with("/dev/nvme")
-            || line.starts_with("/dev/mapper/")
-            || line.starts_with("/dev/root")
-            || line.starts_with("/dev/mmcblk")
+        // mounts format
+        //http://man7.org/linux/man-pages/man5/fstab.5.html
+        //fs_spec<tab>fs_file<tab>fs_vfstype<tab>other fields
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        // Check if fs_vfstype is one of our 'ignored' file systems
+        let skip = match fields[2]{ 
+            "sysfs" => true, // pseudo file system for kernel objects
+            "proc" => true, // another pseudo file system
+            "tmpfs" => true,
+            "cgroup" => true,
+            "cgroup2" => true,
+            "pstore" => true, //https://www.kernel.org/doc/Documentation/ABI/testing/pstore
+            "squashfs" => true, //Squashfs is a compressed read-only file system (for snaps)
+            "iso9660" => true, // optical media
+            _ => false
+        };
+        // check if fs_file is an 'ignored' mount point
+        if skip ||
+           fields[1].starts_with("/sys") ||
+           fields[1].starts_with("/proc") ||
+           fields[1].starts_with("/run") ||
+           fields[1].starts_with("/dev") ||
+           fields[0].starts_with("sunrpc")
+           {
+               false
+           }
+           else{
+               true
+           }
     });
     let mut ret = vec![];
 
