@@ -898,7 +898,7 @@ fn get_all_disks() -> Vec<Disk> {
         let mut split = line.split(' ');
         if let (Some(name), Some(mountpt), Some(fs)) = (split.next(), split.next(), split.next()) {
             ret.push(disk::new(
-                name[5..].as_ref(),
+                name.as_ref(),
                 Path::new(mountpt),
                 fs.as_bytes(),
             ));

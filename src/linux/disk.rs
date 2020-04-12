@@ -11,20 +11,56 @@ use DiskType;
 
 use libc::statvfs;
 use std::ffi::{OsStr, OsString};
+use std::fs;
 use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
 fn find_type_for_name(name: &OsStr) -> DiskType {
-    /* turn "sda1" into "sda": */
-    let mut trimmed: &[u8] = name.as_bytes();
-    while trimmed.len() > 1
-        && trimmed[trimmed.len() - 1] >= b'0'
-        && trimmed[trimmed.len() - 1] <= b'9'
-    {
-        trimmed = &trimmed[..trimmed.len() - 1]
+    /*
+        The format of devices are as follows:
+         - name_path is symbolic link in the case of /dev/mapper/
+            and /dev/root, and the target is corresponding device under
+            /sys/block/
+         - In the case of /dev/sd, the format is /dev/sd[a-z][1-9],
+            corresponding to /sys/block/sd[a-z]
+         - In the case of /dev/nvme, the format is /dev/nvme[0-9]n[0-9]p[0-9],
+            corresponding to /sys/block/nvme[0-9]n[0-9]
+         - In the case of /dev/mmcblk, the format is /dev/mmcblk[0-9]p[0-9],
+            corresponding to /sys/block/mmcblk[0-9]
+    */
+    let name_path = name.to_str().unwrap_or_default();
+    let real_path = fs::canonicalize(name_path).unwrap_or(PathBuf::from(name_path));
+    let mut real_path = real_path.to_str().unwrap_or_default();
+    if name_path.starts_with("/dev/mapper/")  {
+        /* Recursively solve, for example /dev/dm-0 */
+        return find_type_for_name(OsStr::new(&real_path));
+    } else if name_path.starts_with("/dev/sd") {
+        /* Turn "sda1" into "sda" */
+        real_path = real_path.trim_start_matches("/dev/");
+        real_path = real_path.trim_end_matches(|c| c >= '0' && c <= '9');
+    } else if name_path.starts_with("/dev/nvme") {
+        /* Turn "nvme0n1p1" into "nvme0n1" */
+        real_path = real_path.trim_start_matches("/dev/");
+        real_path = real_path.trim_end_matches(|c| c >= '0' && c <= '9');
+        real_path = real_path.trim_end_matches(|c| c == 'p');
+    } else if name_path.starts_with("/dev/root") {
+        /* Recursively solve, for example /dev/mmcblk0p1 */
+        return find_type_for_name(OsStr::new(&real_path));
+    } else if name_path.starts_with("/dev/mmcblk") {
+        /* Turn "mmcblk0p1" into "mmcblk0" */
+        real_path = real_path.trim_start_matches("/dev/");
+        real_path = real_path.trim_end_matches(|c| c >= '0' && c <= '9');
+        real_path = real_path.trim_end_matches(|c| c == 'p');
+    } else {
+        /*
+            Default case: remove /dev/ and expects the name presents under /sys/block/
+            For example, /dev/dm-0 to dm-0
+        */
+        real_path = real_path.trim_start_matches("/dev/");
     }
-    let trimmed: &OsStr = OsStrExt::from_bytes(trimmed);
+
+    let trimmed: &OsStr = OsStrExt::from_bytes(real_path.as_bytes());
 
     let path = Path::new("/sys/block/")
         .to_owned()
