@@ -902,12 +902,12 @@ fn get_all_disks() -> Vec<Disk> {
                fs_file.starts_with("/proc") ||
                fs_file.starts_with("/run") ||
                fs_file.starts_with("/dev") ||
-               fs_spec.starts_with("sunrpc") 
-                    {
-                        false
-                    } else {
-                        true
-                    }
+               fs_spec.starts_with("sunrpc")
+            {
+                false
+            } else {
+                true
+            }
         })
         .map(|(fs_spec, fs_file, fs_vfstype)| {
             disk::new(fs_spec.as_ref(), Path::new(fs_file), fs_vfstype.as_bytes())
