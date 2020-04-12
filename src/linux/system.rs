@@ -885,28 +885,29 @@ fn get_all_disks() -> Vec<Disk> {
         .filter(|(fs_spec, fs_file, fs_vfstype)| {
             // Check if fs_vfstype is one of our 'ignored' file systems
             let filtered = match *fs_vfstype {
-                "sysfs" => true, // pseudo file system for kernel objects
-                "proc" => true,  // another pseudo file system
-                "tmpfs" => true,
-                "cgroup" => true,
-                "cgroup2" => true,
-                "pstore" => true, //https://www.kernel.org/doc/Documentation/ABI/testing/pstore
-                "squashfs" => true, //Squashfs is a compressed read-only file system (for snaps)
+                "sysfs" | // pseudo file system for kernel objects
+                "proc" |  // another pseudo file system
+                "tmpfs" |
+                "cgroup" |
+                "cgroup2" |
+                "pstore" | //https://www.kernel.org/doc/Documentation/ABI/testing/pstore
+                "squashfs" | //Squashfs is a compressed read-only file system (for snaps)
+                "rpc_pipefs" | // the pipefs pseudo file system service
                 "iso9660" => true, // optical media
                 _ => false,
             };
 
             if filtered ||
-        fs_file.starts_with("/sys") || // check if fs_file is an 'ignored' mount point
-        fs_file.starts_with("/proc") ||
-        fs_file.starts_with("/run") ||
-        fs_file.starts_with("/dev") ||
-        fs_spec.starts_with("sunrpc")
-            {
-                false
-            } else {
-                true
-            }
+               fs_file.starts_with("/sys") || // check if fs_file is an 'ignored' mount point
+               fs_file.starts_with("/proc") ||
+               fs_file.starts_with("/run") ||
+               fs_file.starts_with("/dev") ||
+               fs_spec.starts_with("sunrpc") 
+                    {
+                        false
+                    } else {
+                        true
+                    }
         })
         .map(|(fs_spec, fs_file, fs_vfstype)| {
             disk::new(fs_spec.as_ref(), Path::new(fs_file), fs_vfstype.as_bytes())
