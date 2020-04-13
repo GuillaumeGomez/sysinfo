@@ -4,7 +4,7 @@ extern crate sysinfo;
 extern crate test;
 
 use sysinfo::get_current_pid;
-use sysinfo::SystemExt;
+use sysinfo::{DiskExt, SystemExt};
 
 #[bench]
 fn bench_new(b: &mut test::Bencher) {
@@ -58,6 +58,17 @@ fn bench_refresh_process(b: &mut test::Bencher) {
     let pid = get_current_pid().expect("failed to get current pid");
     b.iter(move || {
         s.refresh_process(pid, );
+    });
+}
+
+#[bench]
+fn bench_refresh_disk(b: &mut test::Bencher) {
+    let mut s = sysinfo::System::new_all();
+
+    let disks = s.get_disks_mut();
+    let disk = &mut disks[0];
+    b.iter(move || {
+        disk.refresh();
     });
 }
 
