@@ -855,17 +855,10 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 
 fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
     use std::io::Seek;
-
-    let mut data = Vec::with_capacity(size);
-    unsafe {
-        data.set_len(size);
-    }
-
+    let mut buf = String::with_capacity(size);
     file.seek(::std::io::SeekFrom::Start(0))?;
-    let size = file.read(&mut data)?;
-    data.truncate(size);
-    Ok(String::from_utf8(data)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?)
+    file.read_to_string(&mut buf)?;
+    Ok(buf)
 }
 
 pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
@@ -875,36 +868,51 @@ pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<Str
 
 fn get_all_disks() -> Vec<Disk> {
     let content = get_all_data("/proc/mounts", 16_385).unwrap_or_default();
-    let disks = content.lines().filter(|line| {
-        let line = line.trim_start();
-        // While the `sd` prefix is most common, some disks instead use the `nvme` prefix. This
-        // prefix refers to NVM (non-volatile memory) cabale SSDs. These disks run on the NVMe
-        // storage controller protocol (not the scsi protocol) and as a result use a different
-        // prefix to support NVMe namespaces.
-        //
-        // In some other cases, it uses a device mapper to map physical block devices onto
-        // higher-level virtual block devices (on `/dev/mapper`).
-        //
-        // Raspbian uses root and mmcblk for physical disks
-        line.starts_with("/dev/sd")
-            || line.starts_with("/dev/nvme")
-            || line.starts_with("/dev/mapper/")
-            || line.starts_with("/dev/root")
-            || line.starts_with("/dev/mmcblk")
-    });
-    let mut ret = vec![];
 
-    for line in disks {
-        let mut split = line.split(' ');
-        if let (Some(name), Some(mountpt), Some(fs)) = (split.next(), split.next(), split.next()) {
-            ret.push(disk::new(
-                name.as_ref(),
-                Path::new(mountpt),
-                fs.as_bytes(),
-            ));
-        }
-    }
-    ret
+    content
+        .lines()
+        .map(|line| {
+            let line = line.trim_start();
+            // mounts format
+            //http://man7.org/linux/man-pages/man5/fstab.5.html
+            //fs_spec<tab>fs_file<tab>fs_vfstype<tab>other fields
+            let mut fields = line.split_whitespace();
+            let fs_spec = fields.next().unwrap_or("");
+            let fs_file = fields.next().unwrap_or("");
+            let fs_vfstype = fields.next().unwrap_or("");
+            (fs_spec, fs_file, fs_vfstype)
+        })
+        .filter(|(fs_spec, fs_file, fs_vfstype)| {
+            // Check if fs_vfstype is one of our 'ignored' file systems
+            let filtered = match *fs_vfstype {
+                "sysfs" | // pseudo file system for kernel objects
+                "proc" |  // another pseudo file system
+                "tmpfs" |
+                "cgroup" |
+                "cgroup2" |
+                "pstore" | //https://www.kernel.org/doc/Documentation/ABI/testing/pstore
+                "squashfs" | //Squashfs is a compressed read-only file system (for snaps)
+                "rpc_pipefs" | // the pipefs pseudo file system service
+                "iso9660" => true, // optical media
+                _ => false,
+            };
+
+            if filtered ||
+               fs_file.starts_with("/sys") || // check if fs_file is an 'ignored' mount point
+               fs_file.starts_with("/proc") ||
+               fs_file.starts_with("/run") ||
+               fs_file.starts_with("/dev") ||
+               fs_spec.starts_with("sunrpc")
+            {
+                false
+            } else {
+                true
+            }
+        })
+        .map(|(fs_spec, fs_file, fs_vfstype)| {
+            disk::new(fs_spec.as_ref(), Path::new(fs_file), fs_vfstype.as_bytes())
+        })
+        .collect()
 }
 
 fn get_uptime() -> u64 {
