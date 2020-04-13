@@ -874,8 +874,8 @@ fn get_all_disks() -> Vec<Disk> {
         .map(|line| {
             let line = line.trim_start();
             // mounts format
-            //http://man7.org/linux/man-pages/man5/fstab.5.html
-            //fs_spec<tab>fs_file<tab>fs_vfstype<tab>other fields
+            // http://man7.org/linux/man-pages/man5/fstab.5.html
+            // fs_spec<tab>fs_file<tab>fs_vfstype<tab>other fields
             let mut fields = line.split_whitespace();
             let fs_spec = fields.next().unwrap_or("");
             let fs_file = fields.next().unwrap_or("");
@@ -883,16 +883,16 @@ fn get_all_disks() -> Vec<Disk> {
             (fs_spec, fs_file, fs_vfstype)
         })
         .filter(|(fs_spec, fs_file, fs_vfstype)| {
-            // Check if fs_vfstype is one of our 'ignored' file systems
+            // Check if fs_vfstype is one of our 'ignored' file systems.
             let filtered = match *fs_vfstype {
                 "sysfs" | // pseudo file system for kernel objects
                 "proc" |  // another pseudo file system
                 "tmpfs" |
                 "cgroup" |
                 "cgroup2" |
-                "pstore" | //https://www.kernel.org/doc/Documentation/ABI/testing/pstore
-                "squashfs" | //Squashfs is a compressed read-only file system (for snaps)
-                "rpc_pipefs" | // the pipefs pseudo file system service
+                "pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
+                "squashfs" | // squashfs is a compressed read-only file system (for snaps)
+                "rpc_pipefs" | // The pipefs pseudo file system service
                 "iso9660" => true, // optical media
                 _ => false,
             };
