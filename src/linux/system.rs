@@ -371,7 +371,7 @@ impl SystemExt for System {
     }
 
     fn refresh_disks_list(&mut self) {
-        self.disks = get_all_disks();
+        self.disks = disk::get_all_disks();
     }
 
     fn refresh_users_list(&mut self) {
@@ -864,55 +864,6 @@ fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
 pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
     let mut file = File::open(file_path.as_ref())?;
     get_all_data_from_file(&mut file, size)
-}
-
-fn get_all_disks() -> Vec<Disk> {
-    let content = get_all_data("/proc/mounts", 16_385).unwrap_or_default();
-
-    content
-        .lines()
-        .map(|line| {
-            let line = line.trim_start();
-            // mounts format
-            // http://man7.org/linux/man-pages/man5/fstab.5.html
-            // fs_spec<tab>fs_file<tab>fs_vfstype<tab>other fields
-            let mut fields = line.split_whitespace();
-            let fs_spec = fields.next().unwrap_or("");
-            let fs_file = fields.next().unwrap_or("");
-            let fs_vfstype = fields.next().unwrap_or("");
-            (fs_spec, fs_file, fs_vfstype)
-        })
-        .filter(|(fs_spec, fs_file, fs_vfstype)| {
-            // Check if fs_vfstype is one of our 'ignored' file systems.
-            let filtered = match *fs_vfstype {
-                "sysfs" | // pseudo file system for kernel objects
-                "proc" |  // another pseudo file system
-                "tmpfs" |
-                "cgroup" |
-                "cgroup2" |
-                "pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
-                "squashfs" | // squashfs is a compressed read-only file system (for snaps)
-                "rpc_pipefs" | // The pipefs pseudo file system service
-                "iso9660" => true, // optical media
-                _ => false,
-            };
-
-            if filtered ||
-               fs_file.starts_with("/sys") || // check if fs_file is an 'ignored' mount point
-               fs_file.starts_with("/proc") ||
-               fs_file.starts_with("/run") ||
-               fs_file.starts_with("/dev") ||
-               fs_spec.starts_with("sunrpc")
-            {
-                false
-            } else {
-                true
-            }
-        })
-        .map(|(fs_spec, fs_file, fs_vfstype)| {
-            disk::new(fs_spec.as_ref(), Path::new(fs_file), fs_vfstype.as_bytes())
-        })
-        .collect()
 }
 
 fn get_uptime() -> u64 {
