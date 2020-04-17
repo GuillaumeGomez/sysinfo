@@ -57,7 +57,7 @@ fn bench_refresh_process(b: &mut test::Bencher) {
     // to be sure it'll exist for at least as long as we run
     let pid = get_current_pid().expect("failed to get current pid");
     b.iter(move || {
-        s.refresh_process(pid, );
+        s.refresh_process(pid);
     });
 }
 

@@ -198,7 +198,8 @@ pub fn get_all_disks() -> Vec<Disk> {
 
 #[test]
 fn check_all_disks() {
-    let disks = get_all_disks_inner(r#"tmpfs /proc tmpfs rw,seclabel,relatime 0 0
+    let disks = get_all_disks_inner(
+        r#"tmpfs /proc tmpfs rw,seclabel,relatime 0 0
 proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
 systemd-1 /proc/sys/fs/binfmt_misc autofs rw,relatime,fd=29,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=17771 0 0
 tmpfs /sys tmpfs rw,seclabel,relatime 0 0
@@ -214,14 +215,18 @@ tmpfs /dev/shm tmpfs rw,seclabel,relatime 0 0
 devpts /dev/pts devpts rw,seclabel,relatime,gid=5,mode=620,ptmxmode=666 0 0
 tmpfs /sys/fs/selinux tmpfs rw,seclabel,relatime 0 0
 /dev/vda2 /proc/filesystems xfs rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0
-"#);
+"#,
+    );
     assert_eq!(disks.len(), 1);
-    assert_eq!(disks[0], Disk {
-        type_: DiskType::Unknown(-1),
-        name: OsString::from("devpts"),
-        file_system: vec![100, 101, 118, 112, 116, 115],
-        mount_point: PathBuf::from("/dev/pts"),
-        total_space: 0,
-        available_space: 0,
-    });
+    assert_eq!(
+        disks[0],
+        Disk {
+            type_: DiskType::Unknown(-1),
+            name: OsString::from("devpts"),
+            file_system: vec![100, 101, 118, 112, 116, 115],
+            mount_point: PathBuf::from("/dev/pts"),
+            total_space: 0,
+            available_space: 0,
+        }
+    );
 }

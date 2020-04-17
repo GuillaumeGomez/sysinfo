@@ -31,6 +31,7 @@ use windows::tools::*;
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemProcessInformation, SYSTEM_PROCESS_INFORMATION,
 };
+use rayon::prelude::*;
 use winapi::shared::minwindef::FALSE;
 use winapi::shared::ntdef::{PVOID, ULONG};
 use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
@@ -38,7 +39,6 @@ use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
 use winapi::um::sysinfoapi::{GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSEX};
 use winapi::um::winnt::HANDLE;
-use rayon::prelude::*;
 
 /// Struct containing the system's information.
 pub struct System {
