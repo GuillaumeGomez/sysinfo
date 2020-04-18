@@ -160,13 +160,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
             let handle = open_drive(&drive_name, 0);
             if handle == INVALID_HANDLE_VALUE {
                 CloseHandle(handle);
-                return Some(new_disk(
-                    name,
-                    &mount_point,
-                    &file_system,
-                    DiskType::Unknown(-1),
-                    0,
-                ));
+                return new_disk(name, &mount_point, &file_system, DiskType::Unknown(-1), 0);
             }
             let disk_size = get_drive_size(handle);
             /*let mut spq_trim: ffi::STORAGE_PROPERTY_QUERY = ::std::mem::zeroed();
@@ -208,23 +202,23 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 || dw_size != size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD
             {
                 CloseHandle(handle);
-                return Some(new_disk(
+                return new_disk(
                     name,
                     &mount_point,
                     &file_system,
                     DiskType::Unknown(-1),
                     disk_size,
-                ));
+                );
             }
             let is_ssd = dtd.TrimEnabled != 0;
             CloseHandle(handle);
-            Some(new_disk(
+            new_disk(
                 name,
                 &mount_point,
                 &file_system,
                 if is_ssd { DiskType::SSD } else { DiskType::HDD },
                 disk_size,
-            ))
+            )
         })
         .collect::<Vec<_>>()
 }

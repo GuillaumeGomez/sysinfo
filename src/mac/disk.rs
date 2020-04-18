@@ -149,7 +149,7 @@ pub(crate) fn get_disks() -> Vec<Disk> {
                             .get(&name)
                             .cloned()
                             .unwrap_or(DiskType::Unknown(-2));
-                        Some(new_disk(name, &mount_point, type_))
+                        new_disk(name, &mount_point, type_)
                     }
                 } else {
                     None
@@ -175,7 +175,7 @@ unsafe fn check_value(dict: ffi::CFMutableDictionaryRef, key: &[u8]) -> bool {
     ret
 }
 
-fn new_disk(name: OsString, mount_point: &Path, type_: DiskType) -> Disk {
+fn new_disk(name: OsString, mount_point: &Path, type_: DiskType) -> Option<Disk> {
     let mount_point_cpath = utils::to_cpath(mount_point);
     let mut total_space = 0;
     let mut available_space = 0;
@@ -195,12 +195,15 @@ fn new_disk(name: OsString, mount_point: &Path, type_: DiskType) -> Disk {
             file_system = Some(vec);
         }
     }
-    Disk {
+    if total_space == 0 {
+        return None;
+    }
+    Some(Disk {
         type_,
         name,
         file_system: file_system.unwrap_or_else(|| b"<Unknown>".to_vec()),
         mount_point: mount_point.to_owned(),
         total_space,
         available_space,
-    }
+    })
 }

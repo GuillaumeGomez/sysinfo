@@ -73,7 +73,7 @@ impl DiskExt for Disk {
     }
 }
 
-fn new_disk(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Disk {
+fn new_disk(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Option<Disk> {
     let mount_point_cpath = utils::to_cpath(mount_point);
     let type_ = find_type_for_name(name);
     let mut total = 0;
@@ -85,14 +85,17 @@ fn new_disk(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Disk {
             available = cast!(stat.f_bsize) * cast!(stat.f_bavail);
         }
     }
-    Disk {
+    if total == 0 {
+        return None;
+    }
+    Some(Disk {
         type_,
         name: name.to_owned(),
         file_system: file_system.to_owned(),
         mount_point: mount_point.to_owned(),
         total_space: cast!(total),
         available_space: cast!(available),
-    }
+    })
 }
 
 fn find_type_for_name(name: &OsStr) -> DiskType {
@@ -186,7 +189,7 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
                 true
             }
         })
-        .map(|(fs_spec, fs_file, fs_vfstype)| {
+        .filter_map(|(fs_spec, fs_file, fs_vfstype)| {
             new_disk(fs_spec.as_ref(), Path::new(fs_file), fs_vfstype.as_bytes())
         })
         .collect()
