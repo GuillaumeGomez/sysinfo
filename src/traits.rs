@@ -225,26 +225,26 @@ pub trait ProcessExt: Debug {
     /// ```
     fn root(&self) -> &Path;
 
-    /// Returns the memory usage (in KiB).
+    /// Returns the memory usage (in kB).
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
     /// if let Some(process) = s.get_process(1337) {
-    ///     println!("{} KiB", process.memory());
+    ///     println!("{} kB", process.memory());
     /// }
     /// ```
     fn memory(&self) -> u64;
 
-    /// Returns the virtual memory usage (in KiB).
+    /// Returns the virtual memory usage (in kB).
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
     /// if let Some(process) = s.get_process(1337) {
-    ///     println!("{} KiB", process.virtual_memory());
+    ///     println!("{} kB", process.virtual_memory());
     /// }
     /// ```
     fn virtual_memory(&self) -> u64;
@@ -733,63 +733,63 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_processors(&self) -> &[Processor];
 
-    /// Returns the RAM size in KiB.
+    /// Returns the RAM size in kB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KiB", s.get_total_memory());
+    /// println!("{} kB", s.get_total_memory());
     /// ```
     fn get_total_memory(&self) -> u64;
 
-    /// Returns the amount of free RAM in KiB.
+    /// Returns the amount of free RAM in kB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KiB", s.get_free_memory());
+    /// println!("{} kB", s.get_free_memory());
     /// ```
     fn get_free_memory(&self) -> u64;
 
-    /// Returns the amound of used RAM in KiB.
+    /// Returns the amound of used RAM in kB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KiB", s.get_used_memory());
+    /// println!("{} kB", s.get_used_memory());
     /// ```
     fn get_used_memory(&self) -> u64;
 
-    /// Returns the SWAP size in KiB.
+    /// Returns the SWAP size in kB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KiB", s.get_total_swap());
+    /// println!("{} kB", s.get_total_swap());
     /// ```
     fn get_total_swap(&self) -> u64;
 
-    /// Returns the amount of free SWAP in KiB.
+    /// Returns the amount of free SWAP in kB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KiB", s.get_free_swap());
+    /// println!("{} kB", s.get_free_swap());
     /// ```
     fn get_free_swap(&self) -> u64;
 
-    /// Returns the amount of used SWAP in KiB.
+    /// Returns the amount of used SWAP in kB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KiB", s.get_used_swap());
+    /// println!("{} kB", s.get_used_swap());
     /// ```
     fn get_used_swap(&self) -> u64;
 

@@ -159,8 +159,8 @@ impl SystemExt for System {
             let mut mem_info: MEMORYSTATUSEX = zeroed();
             mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
             GlobalMemoryStatusEx(&mut mem_info);
-            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64);
-            self.mem_free = auto_cast!(mem_info.ullAvailPhys, u64);
+            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_000;
+            self.mem_free = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
             //self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
             //self.swap_free = auto_cast!(mem_info.ullAvailPageFile, u64);
         }
@@ -246,8 +246,8 @@ impl SystemExt for System {
                         let pi = *pi.0;
                         let pid = pi.UniqueProcessId as usize;
                         if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
-                            proc_.memory = (pi.WorkingSetSize as u64) >> 10u64;
-                            proc_.virtual_memory = (pi.VirtualSize as u64) >> 10u64;
+                            proc_.memory = (pi.WorkingSetSize as u64) / 1_000;
+                            proc_.virtual_memory = (pi.VirtualSize as u64) / 1_000;
                             compute_cpu_usage(proc_, nb_processors, system_time);
                             update_disk_usage(proc_);
                             proc_.updated = true;
@@ -261,8 +261,8 @@ impl SystemExt for System {
                             } else {
                                 None
                             },
-                            (pi.WorkingSetSize as u64) >> 10u64,
-                            (pi.VirtualSize as u64) >> 10u64,
+                            (pi.WorkingSetSize as u64) / 1_000,
+                            (pi.VirtualSize as u64) / 1_000,
                             name,
                         );
                         compute_cpu_usage(&mut p, nb_processors, system_time);
@@ -318,27 +318,27 @@ impl SystemExt for System {
     }
 
     fn get_total_memory(&self) -> u64 {
-        self.mem_total >> 10
+        self.mem_total
     }
 
     fn get_free_memory(&self) -> u64 {
-        self.mem_free >> 10
+        self.mem_free
     }
 
     fn get_used_memory(&self) -> u64 {
-        (self.mem_total - self.mem_free) >> 10
+        self.mem_total - self.mem_free
     }
 
     fn get_total_swap(&self) -> u64 {
-        self.swap_total >> 10
+        self.swap_total
     }
 
     fn get_free_swap(&self) -> u64 {
-        self.swap_free >> 10
+        self.swap_free
     }
 
     fn get_used_swap(&self) -> u64 {
-        (self.swap_total - self.swap_free) >> 10
+        self.swap_total - self.swap_free
     }
 
     fn get_components(&self) -> &[Component] {

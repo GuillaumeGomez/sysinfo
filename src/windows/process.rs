@@ -680,8 +680,8 @@ pub fn update_memory(p: &mut Process) {
             size_of::<PROCESS_MEMORY_COUNTERS_EX>() as DWORD,
         ) != 0
         {
-            p.memory = (pmc.WorkingSetSize as u64) >> 10u64; // / 1024;
-            p.virtual_memory = (pmc.PrivateUsage as u64) >> 10u64; // / 1024;
+            p.memory = (pmc.WorkingSetSize as u64) / 1_000;
+            p.virtual_memory = (pmc.PrivateUsage as u64) / 1_000;
         }
     }
 }
