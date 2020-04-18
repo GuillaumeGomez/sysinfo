@@ -199,37 +199,37 @@ pub fn get_all_disks() -> Vec<Disk> {
     get_all_disks_inner(&get_all_data("/proc/mounts", 16_385).unwrap_or_default())
 }
 
-#[test]
-fn check_all_disks() {
-    let disks = get_all_disks_inner(
-        r#"tmpfs /proc tmpfs rw,seclabel,relatime 0 0
-proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
-systemd-1 /proc/sys/fs/binfmt_misc autofs rw,relatime,fd=29,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=17771 0 0
-tmpfs /sys tmpfs rw,seclabel,relatime 0 0
-sysfs /sys sysfs rw,seclabel,nosuid,nodev,noexec,relatime 0 0
-securityfs /sys/kernel/security securityfs rw,nosuid,nodev,noexec,relatime 0 0
-cgroup2 /sys/fs/cgroup cgroup2 rw,seclabel,nosuid,nodev,noexec,relatime,nsdelegate 0 0
-pstore /sys/fs/pstore pstore rw,seclabel,nosuid,nodev,noexec,relatime 0 0
-none /sys/fs/bpf bpf rw,nosuid,nodev,noexec,relatime,mode=700 0 0
-configfs /sys/kernel/config configfs rw,nosuid,nodev,noexec,relatime 0 0
-selinuxfs /sys/fs/selinux selinuxfs rw,relatime 0 0
-debugfs /sys/kernel/debug debugfs rw,seclabel,nosuid,nodev,noexec,relatime 0 0
-tmpfs /dev/shm tmpfs rw,seclabel,relatime 0 0
-devpts /dev/pts devpts rw,seclabel,relatime,gid=5,mode=620,ptmxmode=666 0 0
-tmpfs /sys/fs/selinux tmpfs rw,seclabel,relatime 0 0
-/dev/vda2 /proc/filesystems xfs rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0
-"#,
-    );
-    assert_eq!(disks.len(), 1);
-    assert_eq!(
-        disks[0],
-        Disk {
-            type_: DiskType::Unknown(-1),
-            name: OsString::from("devpts"),
-            file_system: vec![100, 101, 118, 112, 116, 115],
-            mount_point: PathBuf::from("/dev/pts"),
-            total_space: 0,
-            available_space: 0,
-        }
-    );
-}
+// #[test]
+// fn check_all_disks() {
+//     let disks = get_all_disks_inner(
+//         r#"tmpfs /proc tmpfs rw,seclabel,relatime 0 0
+// proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+// systemd-1 /proc/sys/fs/binfmt_misc autofs rw,relatime,fd=29,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=17771 0 0
+// tmpfs /sys tmpfs rw,seclabel,relatime 0 0
+// sysfs /sys sysfs rw,seclabel,nosuid,nodev,noexec,relatime 0 0
+// securityfs /sys/kernel/security securityfs rw,nosuid,nodev,noexec,relatime 0 0
+// cgroup2 /sys/fs/cgroup cgroup2 rw,seclabel,nosuid,nodev,noexec,relatime,nsdelegate 0 0
+// pstore /sys/fs/pstore pstore rw,seclabel,nosuid,nodev,noexec,relatime 0 0
+// none /sys/fs/bpf bpf rw,nosuid,nodev,noexec,relatime,mode=700 0 0
+// configfs /sys/kernel/config configfs rw,nosuid,nodev,noexec,relatime 0 0
+// selinuxfs /sys/fs/selinux selinuxfs rw,relatime 0 0
+// debugfs /sys/kernel/debug debugfs rw,seclabel,nosuid,nodev,noexec,relatime 0 0
+// tmpfs /dev/shm tmpfs rw,seclabel,relatime 0 0
+// devpts /dev/pts devpts rw,seclabel,relatime,gid=5,mode=620,ptmxmode=666 0 0
+// tmpfs /sys/fs/selinux tmpfs rw,seclabel,relatime 0 0
+// /dev/vda2 /proc/filesystems xfs rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0
+// "#,
+//     );
+//     assert_eq!(disks.len(), 1);
+//     assert_eq!(
+//         disks[0],
+//         Disk {
+//             type_: DiskType::Unknown(-1),
+//             name: OsString::from("devpts"),
+//             file_system: vec![100, 101, 118, 112, 116, 115],
+//             mount_point: PathBuf::from("/dev/pts"),
+//             total_space: 0,
+//             available_space: 0,
+//         }
+//     );
+// }
