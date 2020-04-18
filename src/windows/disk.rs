@@ -19,7 +19,10 @@ pub fn new_disk(
     file_system: &[u8],
     type_: DiskType,
     total_space: u64,
-) -> Disk {
+) -> Option<Disk> {
+    if total_space == 0 {
+        return None;
+    }
     let mut d = Disk {
         type_: type_,
         name: name.to_owned(),
@@ -30,7 +33,7 @@ pub fn new_disk(
         available_space: 0,
     };
     d.refresh();
-    d
+    Some(d)
 }
 
 /// Struct containing a disk information.
