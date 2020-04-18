@@ -609,7 +609,8 @@ fn update_proc_disk_activity(p: &mut Process) {
     p.old_written_bytes = p.written_bytes;
 
     let mut pidrusage: ffi::RUsageInfoV2 = unsafe { MaybeUninit::uninit().assume_init() };
-    let retval = unsafe { ffi::proc_pid_rusage(p.pid() as c_int, 2, &mut pidrusage as *mut _ as _) };
+    let retval =
+        unsafe { ffi::proc_pid_rusage(p.pid() as c_int, 2, &mut pidrusage as *mut _ as _) };
 
     if retval < 0 {
         sysinfo_debug!("proc_pid_rusage failed: {:?}", retval);

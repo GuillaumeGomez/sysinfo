@@ -98,7 +98,8 @@ macro_rules! to_str {
 fn boot_time() -> u64 {
     if let Ok(f) = File::open("/proc/stat") {
         let buf = BufReader::new(f);
-        let line = buf.split(b'\n')
+        let line = buf
+            .split(b'\n')
             .filter_map(|r| r.ok())
             .find(|l| l.starts_with(b"btime"));
 

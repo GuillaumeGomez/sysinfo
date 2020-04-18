@@ -276,11 +276,17 @@ pub(crate) fn update_process_disk_activity(p: &mut Process, path: &Path) {
         match parts.next() {
             Some("read_bytes") => {
                 p.old_read_bytes = p.read_bytes;
-                p.read_bytes = parts.next().and_then(|x| x.parse::<u64>().ok()).unwrap_or(0);
+                p.read_bytes = parts
+                    .next()
+                    .and_then(|x| x.parse::<u64>().ok())
+                    .unwrap_or(p.old_read_bytes);
             }
             Some("write_bytes") => {
                 p.old_written_bytes = p.written_bytes;
-                p.written_bytes = parts.next().and_then(|x| x.parse::<u64>().ok()).unwrap_or(0);
+                p.written_bytes = parts
+                    .next()
+                    .and_then(|x| x.parse::<u64>().ok())
+                    .unwrap_or(p.old_written_bytes);
             }
             _ => continue,
         }

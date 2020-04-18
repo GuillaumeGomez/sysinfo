@@ -30,7 +30,9 @@ use winapi::um::psapi::{
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
 use winapi::um::winbase::GetProcessIoCounters;
-use winapi::um::winnt::{IO_COUNTERS, HANDLE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER};
+use winapi::um::winnt::{
+    HANDLE, IO_COUNTERS, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER,
+};
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
