@@ -108,7 +108,7 @@ impl SystemExt for System {
             swap_free: 0,
             global_processor,
             processors,
-            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 >> 10 }, // divide by 1024
+            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1_000 },
             components: Vec::with_capacity(2),
             connection: get_io_service_connection(),
             disks: Vec::with_capacity(1),
@@ -135,8 +135,8 @@ impl SystemExt for System {
                 &mut xs as *mut ffi::xsw_usage as *mut c_void,
                 &mut mib,
             ) {
-                self.swap_total = xs.xsu_total >> 10; // divide by 1024
-                self.swap_free = xs.xsu_avail >> 10; // divide by 1024
+                self.swap_total = xs.xsu_total / 1_000;
+                self.swap_free = xs.xsu_avail / 1_000;
             }
             // get ram info
             if self.mem_total < 1 {
@@ -147,7 +147,7 @@ impl SystemExt for System {
                     &mut self.mem_total as *mut u64 as *mut c_void,
                     &mut mib,
                 );
-                self.mem_total >>= 10; // divide by 1024
+                self.mem_total /= 1_000;
             }
             let count: u32 = ffi::HOST_VM_INFO64_COUNT;
             let mut stat = mem::zeroed::<ffi::vm_statistics64>();

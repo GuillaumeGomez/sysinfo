@@ -408,8 +408,8 @@ pub(crate) fn update_process(
             let time = ffi::mach_absolute_time();
             compute_cpu_usage(p, time, task_time);
 
-            p.memory = task_info.pti_resident_size >> 10; // divide by 1024
-            p.virtual_memory = task_info.pti_virtual_size >> 10; // divide by 1024
+            p.memory = task_info.pti_resident_size / 1_000;
+            p.virtual_memory = task_info.pti_virtual_size / 1_000;
             update_proc_disk_activity(p);
             return Ok(None);
         }
@@ -593,8 +593,8 @@ pub(crate) fn update_process(
 
         let task_info = get_task_info(pid);
 
-        p.memory = task_info.pti_resident_size >> 10; // divide by 1024
-        p.virtual_memory = task_info.pti_virtual_size >> 10; // divide by 1024
+        p.memory = task_info.pti_resident_size / 1_000;
+        p.virtual_memory = task_info.pti_virtual_size / 1_000;
 
         p.uid = info.pbi_uid;
         p.gid = info.pbi_gid;
