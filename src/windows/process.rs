@@ -22,6 +22,7 @@ use ntapi::ntpsapi::{
     NtQueryInformationProcess, ProcessBasicInformation, ProcessCommandLineInformation,
     PROCESSINFOCLASS, PROCESS_BASIC_INFORMATION,
 };
+use ntapi::ntrtl::RtlGetVersion;
 use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH, TRUE, ULONG};
 use winapi::shared::ntdef::{NT_SUCCESS, UNICODE_STRING};
 use winapi::shared::ntstatus::{
@@ -37,6 +38,7 @@ use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
 use winapi::um::winbase::GetProcessIoCounters;
 use winapi::um::winnt::{
     HANDLE, IO_COUNTERS, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER,
+    RTL_OSVERSIONINFOEXW
 };
 
 /// Enum describing the different status of a process.
@@ -112,6 +114,23 @@ pub struct Process {
     old_written_bytes: u64,
     read_bytes: u64,
     written_bytes: u64,
+}
+
+lazy_static! {
+    static ref WINDOWS_8_1_OR_NEWER: bool = {
+        let mut version_info: RTL_OSVERSIONINFOEXW = unsafe {MaybeUninit::zeroed().assume_init()};
+
+        version_info.dwOSVersionInfoSize = std::mem::size_of::<RTL_OSVERSIONINFOEXW>() as u32;
+        if !NT_SUCCESS(
+            unsafe {RtlGetVersion(&mut version_info as *mut RTL_OSVERSIONINFOEXW as *mut _)})
+        {
+            return true;
+        }
+
+        // Windows 8.1 is 6.3
+        version_info.dwMajorVersion > 6 || 
+            version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 3
+    };
 }
 
 unsafe fn get_process_name(process_handler: HANDLE, h_mod: *mut c_void) -> String {
@@ -588,7 +607,14 @@ fn get_cmd_line_new(handle: HANDLE) -> Vec<String> {
 }
 
 fn get_cmd_line(handle: HANDLE) -> Vec<String> {
-    get_cmd_line_new(handle)
+    if *WINDOWS_8_1_OR_NEWER
+    {
+        get_cmd_line_new(handle)
+    }
+    else
+    {
+        get_cmd_line_old(handle)
+    }
 }
 
 unsafe fn get_proc_env(_handle: HANDLE, _pid: u32, _name: &str) -> Vec<String> {
