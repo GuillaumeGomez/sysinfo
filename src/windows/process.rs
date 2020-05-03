@@ -14,6 +14,8 @@ use std::str;
 
 use libc::{c_void, memcpy};
 
+use once_cell::sync::Lazy;
+
 use DiskUsage;
 use Pid;
 use ProcessExt;
@@ -37,8 +39,8 @@ use winapi::um::psapi::{
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
 use winapi::um::winbase::GetProcessIoCounters;
 use winapi::um::winnt::{
-    HANDLE, IO_COUNTERS, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER,
-    RTL_OSVERSIONINFOEXW
+    HANDLE, IO_COUNTERS, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, RTL_OSVERSIONINFOEXW,
+    ULARGE_INTEGER,
 };
 
 /// Enum describing the different status of a process.
@@ -116,22 +118,20 @@ pub struct Process {
     written_bytes: u64,
 }
 
-lazy_static! {
-    static ref WINDOWS_8_1_OR_NEWER: bool = {
-        let mut version_info: RTL_OSVERSIONINFOEXW = unsafe {MaybeUninit::zeroed().assume_init()};
+static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| {
+    let mut version_info: RTL_OSVERSIONINFOEXW = unsafe { MaybeUninit::zeroed().assume_init() };
 
-        version_info.dwOSVersionInfoSize = std::mem::size_of::<RTL_OSVERSIONINFOEXW>() as u32;
-        if !NT_SUCCESS(
-            unsafe {RtlGetVersion(&mut version_info as *mut RTL_OSVERSIONINFOEXW as *mut _)})
-        {
-            return true;
-        }
+    version_info.dwOSVersionInfoSize = std::mem::size_of::<RTL_OSVERSIONINFOEXW>() as u32;
+    if !NT_SUCCESS(unsafe {
+        RtlGetVersion(&mut version_info as *mut RTL_OSVERSIONINFOEXW as *mut _)
+    }) {
+        return true;
+    }
 
-        // Windows 8.1 is 6.3
-        version_info.dwMajorVersion > 6 || 
-            version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 3
-    };
-}
+    // Windows 8.1 is 6.3
+    version_info.dwMajorVersion > 6
+        || version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 3
+});
 
 unsafe fn get_process_name(process_handler: HANDLE, h_mod: *mut c_void) -> String {
     let mut process_name = [0u16; MAX_PATH + 1];
@@ -501,8 +501,7 @@ unsafe fn ph_query_process_variable_size(
 unsafe fn get_cmdline_from_buffer(buffer: *const u16) -> Vec<String> {
     // Get argc and argv from the command line
     let mut argc = MaybeUninit::<i32>::uninit();
-    let argv_p =
-        winapi::um::shellapi::CommandLineToArgvW(buffer, argc.as_mut_ptr());
+    let argv_p = winapi::um::shellapi::CommandLineToArgvW(buffer, argc.as_mut_ptr());
     if argv_p.is_null() {
         return Vec::new();
     }
@@ -594,9 +593,8 @@ fn get_cmd_line_old(handle: HANDLE) -> Vec<String> {
 #[allow(clippy::cast_ptr_alignment)]
 fn get_cmd_line_new(handle: HANDLE) -> Vec<String> {
     unsafe {
-        if let Some(buffer) = 
-            ph_query_process_variable_size(handle, ProcessCommandLineInformation) {
-
+        if let Some(buffer) = ph_query_process_variable_size(handle, ProcessCommandLineInformation)
+        {
             let buffer = (*(buffer.as_ptr() as *const UNICODE_STRING)).Buffer;
 
             get_cmdline_from_buffer(buffer)
@@ -607,12 +605,9 @@ fn get_cmd_line_new(handle: HANDLE) -> Vec<String> {
 }
 
 fn get_cmd_line(handle: HANDLE) -> Vec<String> {
-    if *WINDOWS_8_1_OR_NEWER
-    {
+    if *WINDOWS_8_1_OR_NEWER {
         get_cmd_line_new(handle)
-    }
-    else
-    {
+    } else {
         get_cmd_line_old(handle)
     }
 }

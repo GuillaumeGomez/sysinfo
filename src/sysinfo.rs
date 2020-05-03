@@ -58,8 +58,7 @@ extern crate rayon;
 #[macro_use]
 extern crate doc_comment;
 
-#[macro_use]
-extern crate lazy_static;
+extern crate once_cell;
 
 #[cfg(doctest)]
 doctest!("../README.md");
