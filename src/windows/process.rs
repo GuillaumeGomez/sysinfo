@@ -14,14 +14,22 @@ use std::str;
 
 use libc::{c_void, memcpy};
 
+use once_cell::sync::Lazy;
+
 use DiskUsage;
 use Pid;
 use ProcessExt;
 
 use ntapi::ntpsapi::{
-    NtQueryInformationProcess, ProcessBasicInformation, PROCESS_BASIC_INFORMATION,
+    NtQueryInformationProcess, ProcessBasicInformation, ProcessCommandLineInformation,
+    PROCESSINFOCLASS, PROCESS_BASIC_INFORMATION,
 };
-use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH, TRUE};
+use ntapi::ntrtl::RtlGetVersion;
+use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH, TRUE, ULONG};
+use winapi::shared::ntdef::{NT_SUCCESS, UNICODE_STRING};
+use winapi::shared::ntstatus::{
+    STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH,
+};
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess};
 use winapi::um::psapi::{
@@ -31,7 +39,8 @@ use winapi::um::psapi::{
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
 use winapi::um::winbase::GetProcessIoCounters;
 use winapi::um::winnt::{
-    HANDLE, IO_COUNTERS, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, ULARGE_INTEGER,
+    HANDLE, IO_COUNTERS, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, RTL_OSVERSIONINFOEXW,
+    ULARGE_INTEGER,
 };
 
 /// Enum describing the different status of a process.
@@ -108,6 +117,21 @@ pub struct Process {
     read_bytes: u64,
     written_bytes: u64,
 }
+
+static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| {
+    let mut version_info: RTL_OSVERSIONINFOEXW = unsafe { MaybeUninit::zeroed().assume_init() };
+
+    version_info.dwOSVersionInfoSize = std::mem::size_of::<RTL_OSVERSIONINFOEXW>() as u32;
+    if !NT_SUCCESS(unsafe {
+        RtlGetVersion(&mut version_info as *mut RTL_OSVERSIONINFOEXW as *mut _)
+    }) {
+        return true;
+    }
+
+    // Windows 8.1 is 6.3
+    version_info.dwMajorVersion > 6
+        || version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 3
+});
 
 unsafe fn get_process_name(process_handler: HANDLE, h_mod: *mut c_void) -> String {
     let mut process_name = [0u16; MAX_PATH + 1];
@@ -434,7 +458,69 @@ unsafe fn get_start_time(handle: HANDLE) -> u64 {
     tmp / 10_000_000 - 11_644_473_600
 }
 
-fn get_cmd_line(handle: HANDLE) -> Vec<String> {
+unsafe fn ph_query_process_variable_size(
+    process_handle: HANDLE,
+    process_information_class: PROCESSINFOCLASS,
+) -> Option<Vec<u16>> {
+    let mut return_length = MaybeUninit::<ULONG>::uninit();
+
+    let mut status = NtQueryInformationProcess(
+        process_handle,
+        process_information_class,
+        std::ptr::null_mut(),
+        0,
+        return_length.as_mut_ptr() as *mut _,
+    );
+
+    if status != STATUS_BUFFER_OVERFLOW
+        && status != STATUS_BUFFER_TOO_SMALL
+        && status != STATUS_INFO_LENGTH_MISMATCH
+    {
+        return None;
+    }
+
+    let mut return_length = return_length.assume_init();
+    let buf_len = (return_length as usize) / 2;
+    let mut buffer: Vec<u16> = Vec::with_capacity(buf_len + 1);
+    buffer.set_len(buf_len);
+
+    status = NtQueryInformationProcess(
+        process_handle,
+        process_information_class,
+        buffer.as_mut_ptr() as *mut _,
+        return_length,
+        &mut return_length as *mut _,
+    );
+    if !NT_SUCCESS(status) {
+        return None;
+    }
+    buffer.push(0);
+    return Some(buffer);
+}
+
+unsafe fn get_cmdline_from_buffer(buffer: *const u16) -> Vec<String> {
+    // Get argc and argv from the command line
+    let mut argc = MaybeUninit::<i32>::uninit();
+    let argv_p = winapi::um::shellapi::CommandLineToArgvW(buffer, argc.as_mut_ptr());
+    if argv_p.is_null() {
+        return Vec::new();
+    }
+    let argc = argc.assume_init();
+    let argv = std::slice::from_raw_parts(argv_p, argc as usize);
+
+    let mut res = Vec::new();
+    for arg in argv {
+        let len = libc::wcslen(*arg);
+        let str_slice = std::slice::from_raw_parts(*arg, len);
+        res.push(String::from_utf16_lossy(str_slice));
+    }
+
+    winapi::um::winbase::LocalFree(argv_p as *mut _);
+
+    res
+}
+
+fn get_cmd_line_old(handle: HANDLE) -> Vec<String> {
     use ntapi::ntpebteb::{PEB, PPEB};
     use ntapi::ntrtl::{PRTL_USER_PROCESS_PARAMETERS, RTL_USER_PROCESS_PARAMETERS};
     use winapi::shared::basetsd::SIZE_T;
@@ -500,26 +586,29 @@ fn get_cmd_line(handle: HANDLE) -> Vec<String> {
         }
         buffer_copy.push(0);
 
-        // Get argc and argv from command line
-        let mut argc = MaybeUninit::<i32>::uninit();
-        let argv_p =
-            winapi::um::shellapi::CommandLineToArgvW(buffer_copy.as_ptr(), argc.as_mut_ptr());
-        if argv_p.is_null() {
-            return Vec::new();
+        get_cmdline_from_buffer(buffer_copy.as_ptr())
+    }
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+fn get_cmd_line_new(handle: HANDLE) -> Vec<String> {
+    unsafe {
+        if let Some(buffer) = ph_query_process_variable_size(handle, ProcessCommandLineInformation)
+        {
+            let buffer = (*(buffer.as_ptr() as *const UNICODE_STRING)).Buffer;
+
+            get_cmdline_from_buffer(buffer)
+        } else {
+            vec![]
         }
-        let argc = argc.assume_init();
-        let argv = std::slice::from_raw_parts(argv_p, argc as usize);
+    }
+}
 
-        let mut res = Vec::new();
-        for arg in argv {
-            let len = libc::wcslen(*arg);
-            let str_slice = std::slice::from_raw_parts(*arg, len);
-            res.push(String::from_utf16_lossy(str_slice));
-        }
-
-        winapi::um::winbase::LocalFree(argv_p as *mut _);
-
-        res
+fn get_cmd_line(handle: HANDLE) -> Vec<String> {
+    if *WINDOWS_8_1_OR_NEWER {
+        get_cmd_line_new(handle)
+    } else {
+        get_cmd_line_old(handle)
     }
 }
 
