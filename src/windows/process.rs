@@ -475,6 +475,7 @@ unsafe fn ph_query_process_variable_size(
     if !NT_SUCCESS(status) {
         return None;
     }
+    buffer.push(0);
     return Some(buffer);
 }
 
@@ -571,13 +572,15 @@ fn get_cmd_line_old(handle: HANDLE) -> Vec<String> {
     }
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 fn get_cmd_line_new(handle: HANDLE) -> Vec<String> {
     unsafe {
         if let Some(buffer) = 
             ph_query_process_variable_size(handle, ProcessCommandLineInformation) {
+
             let buffer = (*(buffer.as_ptr() as *const UNICODE_STRING)).Buffer;
 
-            return get_cmdline_from_buffer(buffer);
+            get_cmdline_from_buffer(buffer)
         } else {
             vec![]
         }
