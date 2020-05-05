@@ -17,7 +17,6 @@ pub fn get_users_list() -> Vec<User> {
 
     let _ = File::open("/etc/passwd").and_then(|mut f| f.read_to_string(&mut s));
     s.lines()
-        .into_iter()
         .filter_map(|line| {
             let mut parts = line.split(':');
             if let Some(username) = parts.next() {

@@ -112,7 +112,7 @@ assert_eq!(r.", stringify!($name), "(), false);
 /// ```
 ///
 /// [`System`]: crate::System
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RefreshKind {
     networks: bool,
     networks_list: bool,
@@ -146,18 +146,7 @@ impl RefreshKind {
     /// assert_eq!(r.users_list(), false);
     /// ```
     pub fn new() -> RefreshKind {
-        RefreshKind {
-            networks: false,
-            networks_list: false,
-            processes: false,
-            disks: false,
-            disks_list: false,
-            memory: false,
-            cpu: false,
-            components: false,
-            components_list: false,
-            users_list: false,
-        }
+        RefreshKind::default()
     }
 
     /// Creates a new `RefreshKind` with every refresh set to `true`.

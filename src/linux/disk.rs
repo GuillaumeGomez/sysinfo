@@ -110,7 +110,7 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
     //  - In the case of /dev/mmcblk, the format is /dev/mmcblk[0-9]p[0-9],
     //     corresponding to /sys/block/mmcblk[0-9]
     let name_path = name.to_str().unwrap_or_default();
-    let real_path = fs::canonicalize(name_path).unwrap_or(PathBuf::from(name_path));
+    let real_path = fs::canonicalize(name_path).unwrap_or_else(|_| PathBuf::from(name_path));
     let mut real_path = real_path.to_str().unwrap_or_default();
     if name_path.starts_with("/dev/mapper/") {
         // Recursively solve, for example /dev/dm-0
@@ -178,16 +178,11 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
                 _ => false,
             };
 
-            if filtered ||
+            !(filtered ||
                fs_file.starts_with("/sys") || // check if fs_file is an 'ignored' mount point
                fs_file.starts_with("/proc") ||
                fs_file.starts_with("/run") ||
-               fs_spec.starts_with("sunrpc")
-            {
-                false
-            } else {
-                true
-            }
+               fs_spec.starts_with("sunrpc"))
         })
         .filter_map(|(fs_spec, fs_file, fs_vfstype)| {
             new_disk(fs_spec.as_ref(), Path::new(fs_file), fs_vfstype.as_bytes())

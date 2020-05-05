@@ -271,7 +271,7 @@ pub(crate) fn update_process_disk_activity(p: &mut Process, path: &Path) {
         Err(_) => return,
     };
     let mut done = 0;
-    for line in data.split("\n") {
+    for line in data.split('\n') {
         let mut parts = line.split(": ");
         match parts.next() {
             Some("read_bytes") => {

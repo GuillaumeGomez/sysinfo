@@ -107,8 +107,7 @@ fn boot_time() -> u64 {
             return line
                 .split(|x| *x == b' ')
                 .filter(|s| !s.is_empty())
-                .skip(1)
-                .next()
+                .nth(1)
                 .map(|v| to_u64(v))
                 .unwrap_or(0);
         }
@@ -707,7 +706,7 @@ fn _get_process_data(
         p.status = part
             .chars()
             .next()
-            .and_then(|c| Some(ProcessStatus::from(c)))
+            .map(ProcessStatus::from)
             .unwrap_or_else(|| ProcessStatus::Unknown(0));
     };
     let parent_memory = proc_list.memory;

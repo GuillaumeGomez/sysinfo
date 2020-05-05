@@ -24,6 +24,7 @@ pub fn realpath(original: &Path) -> PathBuf {
         x & y
     }
 
+    #[allow(clippy::identity_conversion)]
     if let Some(original_str) = original.to_str() {
         let ori = Path::new(original_str);
 
