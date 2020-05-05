@@ -30,8 +30,9 @@ use utils::realpath;
 
 use rayon::prelude::*;
 
-// This whole thing is to prevent having too much files open at once. It could be problematic
+// This whole thing is to prevent having too many files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
+#[allow(clippy::mutex_atomic)]
 pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<isize>>> =
     once_cell::sync::Lazy::new(|| {
         #[cfg(target_os = "android")]
