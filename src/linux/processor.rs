@@ -179,12 +179,11 @@ impl Processor {
         guest_nice: u64,
     ) {
         fn min(a: u64, b: u64) -> f32 {
-            (if a == b {
-                1
-            } else if a > b {
-                a - b
-            } else {
-                b - a
+            use std::cmp::Ordering;
+            (match a.cmp(&b) {
+                Ordering::Equal => 1,
+                Ordering::Greater => a - b,
+                Ordering::Less => b - a,
             }) as f32
         }
         //if !self.new_values.is_zero() {
