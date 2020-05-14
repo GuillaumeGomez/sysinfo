@@ -14,12 +14,12 @@ fn test_process() {
     let mut s = sysinfo::System::new();
     assert_eq!(s.get_processes().len(), 0);
     s.refresh_processes();
-    assert!(s.get_processes().len() != 0);
+    assert!(!s.get_processes().is_empty());
     #[cfg(not(windows))]
     assert!(s
         .get_processes()
         .values()
-        .any(|p| p.exe().to_str().unwrap_or_else(|| "").len() != 0));
+        .any(|p| !p.exe().to_str().unwrap_or("").is_empty()));
 }
 
 #[test]
@@ -66,9 +66,9 @@ fn unix_like_cmd() {
         .spawn()
         .unwrap();
     let mut s = sysinfo::System::new();
-    assert!(s.get_processes().len() == 0);
+    assert!(s.get_processes().is_empty());
     s.refresh_processes();
-    assert!(s.get_processes().len() > 0);
+    assert!(!s.get_processes().is_empty());
     let process = s.get_process(p.id() as sysinfo::Pid).unwrap();
     assert_eq!(process.cmd(), &["sleep", "3"]);
 }
@@ -86,9 +86,9 @@ fn test_process_disk_usage() {
     }
     fs::remove_file("test.txt").ok();
     let mut system = sysinfo::System::new();
-    assert!(system.get_processes().len() == 0);
+    assert!(system.get_processes().is_empty());
     system.refresh_processes();
-    assert!(system.get_processes().len() > 0);
+    assert!(!system.get_processes().is_empty());
     let p = system
         .get_process(get_current_pid().expect("Failed retrieving current pid."))
         .expect("failed to get process");

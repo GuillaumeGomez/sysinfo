@@ -30,8 +30,9 @@ use utils::realpath;
 
 use rayon::prelude::*;
 
-// This whole thing is to prevent having too much files open at once. It could be problematic
+// This whole thing is to prevent having too many files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
+#[allow(clippy::mutex_atomic)]
 pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<isize>>> =
     once_cell::sync::Lazy::new(|| {
         #[cfg(target_os = "android")]
@@ -107,8 +108,7 @@ fn boot_time() -> u64 {
             return line
                 .split(|x| *x == b' ')
                 .filter(|s| !s.is_empty())
-                .skip(1)
-                .next()
+                .nth(1)
                 .map(|v| to_u64(v))
                 .unwrap_or(0);
         }
@@ -707,7 +707,7 @@ fn _get_process_data(
         p.status = part
             .chars()
             .next()
-            .and_then(|c| Some(ProcessStatus::from(c)))
+            .map(ProcessStatus::from)
             .unwrap_or_else(|| ProcessStatus::Unknown(0));
     };
     let parent_memory = proc_list.memory;

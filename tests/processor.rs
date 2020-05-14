@@ -14,7 +14,7 @@ fn test_processor() {
     use sysinfo::SystemExt;
 
     let s = sysinfo::System::new();
-    assert!(s.get_processors().len() > 0);
+    assert!(!s.get_processors().is_empty());
     let s = sysinfo::System::new_all();
-    assert!(s.get_processors().len() > 0);
+    assert!(!s.get_processors().is_empty());
 }
