@@ -705,6 +705,15 @@ pub(crate) fn get_system_computation_time() -> ULARGE_INTEGER {
     }
 }
 
+#[inline]
+fn check_sub(a: u64, b: u64) -> u64 {
+    if a < b {
+        a
+    } else {
+        a - b
+    }
+}
+
 pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, now: ULARGE_INTEGER) {
     unsafe {
         let mut sys: ULARGE_INTEGER = ::std::mem::zeroed();
@@ -730,9 +739,9 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, now: ULARGE
             &mut fuser as *mut FILETIME as *mut c_void,
             size_of::<FILETIME>(),
         );
-        p.cpu_usage = ((*sys.QuadPart() - p.old_sys_cpu) as f32
-            + (*user.QuadPart() - p.old_user_cpu) as f32)
-            / (*now.QuadPart() - p.old_cpu) as f32
+        p.cpu_usage = (check_sub(*sys.QuadPart(), p.old_sys_cpu) as f32
+            + check_sub(*user.QuadPart(), p.old_user_cpu) as f32)
+            / check_sub(*now.QuadPart(), p.old_cpu) as f32
             / nb_processors as f32
             * 100.;
         p.old_cpu = *now.QuadPart();
