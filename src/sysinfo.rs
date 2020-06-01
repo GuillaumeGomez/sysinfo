@@ -92,7 +92,7 @@ cfg_if! {
 
         #[cfg(test)]
         const MIN_USERS: usize = 1;
-    } else if #[cfg(unix)] {
+    } else if #[cfg(any(target_os = "linux", target_os = "android"))] {
         mod linux;
         use linux as sys;
 
@@ -151,7 +151,7 @@ mod utils;
 /// let s = System::new_all();
 /// ```
 pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
-    #[cfg(all(not(target_os = "macos"), unix))]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     {
         if _new_limit < 0 {
             _new_limit = 0;
@@ -170,7 +170,7 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
             false
         }
     }
-    #[cfg(any(not(unix), target_os = "macos"))]
+    #[cfg(all(not(target_os = "linux"), not(target_os = "android")))]
     {
         false
     }
