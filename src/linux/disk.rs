@@ -126,7 +126,9 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
         real_path = real_path.trim_end_matches(|c| c == 'p');
     } else if name_path.starts_with("/dev/root") {
         // Recursively solve, for example /dev/mmcblk0p1
-        return find_type_for_name(OsStr::new(&real_path));
+        if real_path != name_path {
+            return find_type_for_name(OsStr::new(&real_path));
+        }
     } else if name_path.starts_with("/dev/mmcblk") {
         // Turn "mmcblk0p1" into "mmcblk0"
         real_path = real_path.trim_start_matches("/dev/");
