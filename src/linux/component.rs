@@ -209,9 +209,5 @@ pub fn get_components() -> Vec<Component> {
             None,
         ));
     }
-    if components.len() != 0 {
-        components
-    } else {
-        Vec::new()
-    }
+    components
 }
