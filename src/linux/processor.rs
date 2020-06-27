@@ -234,9 +234,26 @@ pub fn get_cpu_frequency() -> u64 {
         .and_then(|mut f| f.read_to_string(&mut s))
         .is_err()
     {
-        return 0;
-    }
+        if File::open("/proc/cpuinfo")
+            .and_then(|mut f| f.read_to_string(&mut s))
+            .is_err()
+        {
+            return 0;
+        }
 
+        let find_cpu_mhz = s.split('\n').find(|line| {
+            line.starts_with("cpu MHz\t")
+                || line.starts_with("BogoMIPS")
+                || line.starts_with("clock\t")
+                || line.starts_with("bogomips per cpu")
+        });
+
+        return find_cpu_mhz
+            .and_then(|line| line.split(':').last())
+            .and_then(|val| val.replace("MHz", "").trim().parse::<f64>().ok())
+            .map(|speed| speed as u64)
+            .unwrap_or_default();
+    }
     let freq_option = s.trim().split('\n').next();
     if let Some(freq_string) = freq_option {
         if let Ok(freq) = freq_string.parse::<u64>() {
