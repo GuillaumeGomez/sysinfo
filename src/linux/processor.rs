@@ -246,10 +246,10 @@ pub fn get_cpu_frequency() -> u64 {
         .is_ok()
     {
         let find_cpu_mhz = s.split('\n').find(|line| {
-        line.starts_with("cpu MHz\t")
-            || line.starts_with("BogoMIPS")
-            || line.starts_with("clock\t")
-            || line.starts_with("bogomips per cpu")
+            line.starts_with("cpu MHz\t")
+                || line.starts_with("BogoMIPS")
+                || line.starts_with("clock\t")
+                || line.starts_with("bogomips per cpu")
         });
         return find_cpu_mhz
             .and_then(|line| line.split(':').last())
