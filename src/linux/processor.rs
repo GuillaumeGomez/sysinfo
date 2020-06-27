@@ -228,37 +228,34 @@ pub fn get_raw_times(p: &Processor) -> (u64, u64) {
 }
 
 pub fn get_cpu_frequency() -> u64 {
-
     let mut s = String::new();
     if File::open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq")
         .and_then(|mut f| f.read_to_string(&mut s))
-        .is_err()
+        .is_ok()
     {
-        if File::open("/proc/cpuinfo")
-            .and_then(|mut f| f.read_to_string(&mut s))
-            .is_err()
-        {
-            return 0;
+        let freq_option = s.trim().split('\n').next();
+        if let Some(freq_string) = freq_option {
+            if let Ok(freq) = freq_string.parse::<u64>() {
+                return freq / 1000;
+            }
         }
-
+    }
+    s.clear();
+    if File::open("/proc/cpuinfo")
+        .and_then(|mut f| f.read_to_string(&mut s))
+        .is_ok()
+    {
         let find_cpu_mhz = s.split('\n').find(|line| {
-            line.starts_with("cpu MHz\t")
-                || line.starts_with("BogoMIPS")
-                || line.starts_with("clock\t")
-                || line.starts_with("bogomips per cpu")
+        line.starts_with("cpu MHz\t")
+            || line.starts_with("BogoMIPS")
+            || line.starts_with("clock\t")
+            || line.starts_with("bogomips per cpu")
         });
-
         return find_cpu_mhz
             .and_then(|line| line.split(':').last())
             .and_then(|val| val.replace("MHz", "").trim().parse::<f64>().ok())
             .map(|speed| speed as u64)
             .unwrap_or_default();
-    }
-    let freq_option = s.trim().split('\n').next();
-    if let Some(freq_string) = freq_option {
-        if let Ok(freq) = freq_string.parse::<u64>() {
-            return freq / 1000;
-        }
     }
     0
 }
