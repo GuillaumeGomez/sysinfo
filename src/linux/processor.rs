@@ -257,7 +257,7 @@ pub fn get_cpu_frequency() -> u64 {
         .and_then(|line| line.split(':').last())
         .and_then(|val| val.replace("MHz", "").trim().parse::<f64>().ok())
         .map(|speed| speed as u64)
-        .unwrap_or_default();
+        .unwrap_or_default()
 }
 
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
