@@ -170,11 +170,11 @@ impl System {
     fn refresh_processors(&mut self, limit: Option<u32>) {
         if let Ok(f) = File::open("/proc/stat") {
             let buf = BufReader::new(f);
-            let mut i = 0;
+            let mut i: usize = 0;
             let first = self.processors.is_empty();
             let mut it = buf.split(b'\n');
             let mut count = 0;
-            let frequency = if first { get_cpu_frequency() } else { 0 };
+            let frequency = if first { get_cpu_frequency(0) } else { 0 };
             let (vendor_id, brand) = if first {
                 get_vendor_id_and_brand()
             } else {
@@ -228,10 +228,11 @@ impl System {
                         parts.next().map(|v| to_u64(v)).unwrap_or(0),
                         parts.next().map(|v| to_u64(v)).unwrap_or(0),
                         parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        frequency,
+                        get_cpu_frequency(i),
                         vendor_id.clone(),
                         brand.clone(),
                     ));
+                    i += 1;
                 } else {
                     parts.next(); // we don't want the name again
                     self.processors[i].set(
@@ -246,6 +247,7 @@ impl System {
                         parts.next().map(|v| to_u64(v)).unwrap_or(0),
                         parts.next().map(|v| to_u64(v)).unwrap_or(0),
                     );
+                    self.processors[i].frequency = get_cpu_frequency(i);
                     i += 1;
                 }
                 if let Some(limit) = limit {
