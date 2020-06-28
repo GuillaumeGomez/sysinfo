@@ -243,21 +243,21 @@ pub fn get_cpu_frequency() -> u64 {
     s.clear();
     if File::open("/proc/cpuinfo")
         .and_then(|mut f| f.read_to_string(&mut s))
-        .is_ok()
+        .is_err()
     {
-        let find_cpu_mhz = s.split('\n').find(|line| {
-            line.starts_with("cpu MHz\t")
-                || line.starts_with("BogoMIPS")
-                || line.starts_with("clock\t")
-                || line.starts_with("bogomips per cpu")
-        });
-        return find_cpu_mhz
-            .and_then(|line| line.split(':').last())
-            .and_then(|val| val.replace("MHz", "").trim().parse::<f64>().ok())
-            .map(|speed| speed as u64)
-            .unwrap_or_default();
+        return 0;
     }
-    0
+    let find_cpu_mhz = s.split('\n').find(|line| {
+        line.starts_with("cpu MHz\t")
+            || line.starts_with("BogoMIPS")
+            || line.starts_with("clock\t")
+            || line.starts_with("bogomips per cpu")
+    });
+    find_cpu_mhz
+        .and_then(|line| line.split(':').last())
+        .and_then(|val| val.replace("MHz", "").trim().parse::<f64>().ok())
+        .map(|speed| speed as u64)
+        .unwrap_or_default();
 }
 
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
