@@ -4,6 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use doc_comment::doc_comment;
 use NetworkData;
 use Networks;
 use NetworksExt;
@@ -40,63 +41,57 @@ cfg_if! {
 }
 
 macro_rules! impl_get_set {
-    ($name:ident, $with:ident, $without:ident) => {
-        doc_comment! {
-        concat!("Returns the value of the \"", stringify!($name), "\" refresh kind.
+    ($name:ident, $with:ident, $without:ident) => (
+        #[doc_comment("Returns the value of the \"", $name, "\" refresh kind.
 
 ```
 use sysinfo::RefreshKind;
 
 let r = RefreshKind::new();
-assert_eq!(r.", stringify!($name), "(), false);
+assert_eq!(r.", $name, "(), false);
 
-let r = r.with_", stringify!($name), "();
-assert_eq!(r.", stringify!($name), "(), true);
+let r = r.with_", $name, "();
+assert_eq!(r.", $name, "(), true);
 
-let r = r.without_", stringify!($name), "();
-assert_eq!(r.", stringify!($name), "(), false);
-```"),
-                    pub fn $name(&self) -> bool {
-                        self.$name
-                    }
-                }
+let r = r.without_", $name, "();
+assert_eq!(r.", $name, "(), false);
+```")]
+        pub fn $name(&self) -> bool {
+            self.$name
+        }
 
-        doc_comment! {
-        concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `true`.
+        #[doc_comment("Sets the value of the \"", $name, "\" refresh kind to `true`.
 
 ```
 use sysinfo::RefreshKind;
 
 let r = RefreshKind::new();
-assert_eq!(r.", stringify!($name), "(), false);
+assert_eq!(r.", $name, "(), false);
 
-let r = r.with_", stringify!($name), "();
-assert_eq!(r.", stringify!($name), "(), true);
-```"),
-                    pub fn $with(mut self) -> RefreshKind {
-                        self.$name = true;
-                        self
-                    }
-                }
+let r = r.with_", $name, "();
+assert_eq!(r.", $name, "(), true);
+```")]
+        pub fn $with(mut self) -> RefreshKind {
+            self.$name = true;
+            self
+        }
 
-        doc_comment! {
-        concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `false`.
+        #[doc_comment("Sets the value of the \"", $name, "\" refresh kind to `false`.
 
 ```
 use sysinfo::RefreshKind;
 
 let r = RefreshKind::everything();
-assert_eq!(r.", stringify!($name), "(), true);
+assert_eq!(r.", $name, "(), true);
 
-let r = r.without_", stringify!($name), "();
-assert_eq!(r.", stringify!($name), "(), false);
-```"),
-                    pub fn $without(mut self) -> RefreshKind {
-                        self.$name = false;
-                        self
-                    }
-                }
-    };
+let r = r.without_", $name, "();
+assert_eq!(r.", $name, "(), false);
+```")]
+        pub fn $without(mut self) -> RefreshKind {
+            self.$name = false;
+            self
+        }
+    );
 }
 
 /// Used to determine what you want to refresh specifically on [`System`] type.

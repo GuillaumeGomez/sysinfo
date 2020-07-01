@@ -15,7 +15,7 @@ build = "build.rs"
 [dependencies]
 cfg-if = "0.1"
 rayon = "^1.0"
-doc-comment = "0.3"
+doc-comment = "0.4"
 once_cell = "1.0"
 
 [target.'cfg(windows)'.dependencies]

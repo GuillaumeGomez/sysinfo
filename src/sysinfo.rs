@@ -55,13 +55,12 @@ extern crate cfg_if;
 extern crate libc;
 extern crate rayon;
 
-#[macro_use]
 extern crate doc_comment;
 
 extern crate once_cell;
 
 #[cfg(doctest)]
-doctest!("../README.md");
+doc_comment::doctest! { "../README.md", readme }
 
 #[cfg(feature = "debug")]
 #[doc(hidden)]
@@ -212,7 +211,7 @@ mod test {
 
 // Used to check that System is Send and Sync.
 #[cfg(doctest)]
-doc_comment!(
+#[doc_comment::doc_comment(
     "
 ```
 fn is_send<T: Send>() {}
@@ -223,4 +222,5 @@ is_send::<sysinfo::System>();
 fn is_sync<T: Sync>() {}
 is_sync::<sysinfo::System>();
 ```"
-);
+)]
+extern {}
