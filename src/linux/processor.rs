@@ -128,7 +128,7 @@ pub struct Processor {
     cpu_usage: f32,
     total_time: u64,
     old_total_time: u64,
-    frequency: u64,
+    pub(crate) frequency: u64,
     pub(crate) vendor_id: String,
     pub(crate) brand: String,
 }
@@ -227,11 +227,14 @@ pub fn get_raw_times(p: &Processor) -> (u64, u64) {
     (p.new_values.total_time(), p.old_values.total_time())
 }
 
-pub fn get_cpu_frequency() -> u64 {
+pub fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
     let mut s = String::new();
-    if File::open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq")
-        .and_then(|mut f| f.read_to_string(&mut s))
-        .is_ok()
+    if File::open(format!(
+        "/sys/devices/system/cpu/cpu{}/cpufreq/scaling_cur_freq",
+        cpu_core_index
+    ))
+    .and_then(|mut f| f.read_to_string(&mut s))
+    .is_ok()
     {
         let freq_option = s.trim().split('\n').next();
         if let Some(freq_string) = freq_option {
