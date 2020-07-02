@@ -37,7 +37,7 @@ macro_rules! old_and_new {
     }};
 }
 
-fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> usize {
+fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
     if let Ok(mut f) = File::open(parent.as_ref().join(path)) {
         if let Ok(size) = f.read(data) {
             let mut i = 0;
@@ -45,7 +45,7 @@ fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> usize {
 
             while i < size && i < data.len() && data[i] >= b'0' && data[i] <= b'9' {
                 ret *= 10;
-                ret += (data[i] - b'0') as usize;
+                ret += (data[i] - b'0') as u64;
                 i += 1;
             }
             return ret;
@@ -128,25 +128,25 @@ impl NetworksExt for Networks {
 /// Contains network information.
 pub struct NetworkData {
     /// Total number of bytes received over interface.
-    rx_bytes: usize,
-    old_rx_bytes: usize,
+    rx_bytes: u64,
+    old_rx_bytes: u64,
     /// Total number of bytes transmitted over interface.
-    tx_bytes: usize,
-    old_tx_bytes: usize,
+    tx_bytes: u64,
+    old_tx_bytes: u64,
     /// Total number of packets received.
-    rx_packets: usize,
-    old_rx_packets: usize,
+    rx_packets: u64,
+    old_rx_packets: u64,
     /// Total number of packets transmitted.
-    tx_packets: usize,
-    old_tx_packets: usize,
+    tx_packets: u64,
+    old_tx_packets: u64,
     /// Shows the total number of packets received with error. This includes
     /// too-long-frames errors, ring-buffer overflow errors, CRC errors,
     /// frame alignment errors, fifo overruns, and missed packets.
-    rx_errors: usize,
-    old_rx_errors: usize,
+    rx_errors: u64,
+    old_rx_errors: u64,
     /// similar to `rx_errors`
-    tx_errors: usize,
-    old_tx_errors: usize,
+    tx_errors: u64,
+    old_tx_errors: u64,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
     // /// that support packet compression (e.g: PPP).
@@ -205,50 +205,50 @@ impl NetworkData {
 
 impl NetworkExt for NetworkData {
     fn get_received(&self) -> u64 {
-        self.rx_bytes as u64 - self.old_rx_bytes as u64
+        self.rx_bytes - self.old_rx_bytes
     }
 
     fn get_total_received(&self) -> u64 {
-        self.rx_bytes as u64
+        self.rx_bytes 
     }
 
     fn get_transmitted(&self) -> u64 {
-        self.tx_bytes as u64 - self.old_tx_bytes as u64
+        self.tx_bytes  - self.old_tx_bytes 
     }
 
     fn get_total_transmitted(&self) -> u64 {
-        self.tx_bytes as u64
+        self.tx_bytes 
     }
 
     fn get_packets_received(&self) -> u64 {
-        self.rx_packets as u64 - self.old_rx_packets as u64
+        self.rx_packets  - self.old_rx_packets 
     }
 
     fn get_total_packets_received(&self) -> u64 {
-        self.rx_packets as u64
+        self.rx_packets 
     }
 
     fn get_packets_transmitted(&self) -> u64 {
-        self.tx_packets as u64 - self.old_tx_packets as u64
+        self.tx_packets  - self.old_tx_packets 
     }
 
     fn get_total_packets_transmitted(&self) -> u64 {
-        self.tx_packets as u64
+        self.tx_packets 
     }
 
     fn get_errors_on_received(&self) -> u64 {
-        self.rx_errors as u64 - self.old_rx_errors as u64
+        self.rx_errors  - self.old_rx_errors 
     }
 
     fn get_total_errors_on_received(&self) -> u64 {
-        self.rx_errors as u64
+        self.rx_errors 
     }
 
     fn get_errors_on_transmitted(&self) -> u64 {
-        self.tx_errors as u64 - self.old_tx_errors as u64
+        self.tx_errors  - self.old_tx_errors 
     }
 
     fn get_total_errors_on_transmitted(&self) -> u64 {
-        self.tx_errors as u64
+        self.tx_errors 
     }
 }
