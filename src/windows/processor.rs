@@ -33,8 +33,8 @@ use winapi::um::winnt::{ProcessorInformation, BOOLEAN, HANDLE, PVOID, WT_EXECUTE
 // This formula comes from linux's include/linux/sched/loadavg.h
 // https://github.com/torvalds/linux/blob/345671ea0f9258f410eb057b9ced9cefbbe5dc78/include/linux/sched/loadavg.h#L20-L23
 const LOADAVG_FACTOR_1F: f64 = 0.9200444146293232478931553241;
-const LOADAVG_FACTOR_5F: f64 = 0.6592406302004437462547604110;
-const LOADAVG_FACTOR_15F: f64 = 0.2865047968601901003248854266;
+const LOADAVG_FACTOR_5F: f64 = 0.9834714538216174894737477501;
+const LOADAVG_FACTOR_15F: f64 = 0.9944598480048967508795473394;
 // The time interval in seconds between taking load counts, same as Linux
 const SAMPLING_INTERVAL: usize = 5;
 
