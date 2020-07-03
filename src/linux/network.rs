@@ -209,46 +209,46 @@ impl NetworkExt for NetworkData {
     }
 
     fn get_total_received(&self) -> u64 {
-        self.rx_bytes 
+        self.rx_bytes
     }
 
     fn get_transmitted(&self) -> u64 {
-        self.tx_bytes - self.old_tx_bytes 
+        self.tx_bytes - self.old_tx_bytes
     }
 
     fn get_total_transmitted(&self) -> u64 {
-        self.tx_bytes 
+        self.tx_bytes
     }
 
     fn get_packets_received(&self) -> u64 {
-        self.rx_packets - self.old_rx_packets 
+        self.rx_packets - self.old_rx_packets
     }
 
     fn get_total_packets_received(&self) -> u64 {
-        self.rx_packets 
+        self.rx_packets
     }
 
     fn get_packets_transmitted(&self) -> u64 {
-        self.tx_packets - self.old_tx_packets 
+        self.tx_packets - self.old_tx_packets
     }
 
     fn get_total_packets_transmitted(&self) -> u64 {
-        self.tx_packets 
+        self.tx_packets
     }
 
     fn get_errors_on_received(&self) -> u64 {
-        self.rx_errors - self.old_rx_errors 
+        self.rx_errors - self.old_rx_errors
     }
 
     fn get_total_errors_on_received(&self) -> u64 {
-        self.rx_errors 
+        self.rx_errors
     }
 
     fn get_errors_on_transmitted(&self) -> u64 {
-        self.tx_errors - self.old_tx_errors 
+        self.tx_errors - self.old_tx_errors
     }
 
     fn get_total_errors_on_transmitted(&self) -> u64 {
-        self.tx_errors 
+        self.tx_errors
     }
 }
