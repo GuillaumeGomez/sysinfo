@@ -174,7 +174,6 @@ impl System {
             let first = self.processors.is_empty();
             let mut it = buf.split(b'\n');
             let mut count = 0;
-            let frequency = if first { get_cpu_frequency(0) } else { 0 };
             let (vendor_id, brand) = if first {
                 get_vendor_id_and_brand()
             } else {
@@ -182,13 +181,14 @@ impl System {
             };
 
             if let Some(Ok(line)) = it.next() {
-                if &line[..3] != b"cpu" {
+                if &line[..4] != b"cpu " {
                     return;
                 }
-                count += 1;
                 let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
                 if first {
                     self.global_processor.name = to_str!(parts.next().unwrap_or(&[])).to_owned();
+                } else {
+                    parts.next();
                 }
                 self.global_processor.set(
                     parts.next().map(|v| to_u64(v)).unwrap_or(0),
@@ -202,6 +202,7 @@ impl System {
                     parts.next().map(|v| to_u64(v)).unwrap_or(0),
                     parts.next().map(|v| to_u64(v)).unwrap_or(0),
                 );
+                count += 1;
                 if let Some(limit) = limit {
                     if count >= limit {
                         return;
@@ -213,7 +214,6 @@ impl System {
                     break;
                 }
 
-                count += 1;
                 let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
                 if first {
                     self.processors.push(Processor::new_with_values(
@@ -250,6 +250,7 @@ impl System {
                     self.processors[i].frequency = get_cpu_frequency(i);
                     i += 1;
                 }
+                count += 1;
                 if let Some(limit) = limit {
                     if count >= limit {
                         break;
