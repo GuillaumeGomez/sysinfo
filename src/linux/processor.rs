@@ -104,19 +104,16 @@ impl CpuValues {
 
     /// Returns work time.
     pub fn work_time(&self) -> u64 {
-        self.user + self.nice + self.system
+        self.user + self.nice + self.system + self.irq + self.softirq + self.steal
     }
 
     /// Returns total time.
     pub fn total_time(&self) -> u64 {
+        // `guest` is already included in `user`
+        // `guest_nice` is already included in `nice`
         self.work_time()
             + self.idle
             + self.iowait
-            + self.irq
-            + self.softirq
-            + self.steal
-            + self.guest
-            + self.guest_nice
     }
 }
 
@@ -178,25 +175,28 @@ impl Processor {
         guest: u64,
         guest_nice: u64,
     ) {
-        fn min(a: u64, b: u64) -> f32 {
-            use std::cmp::Ordering;
-            (match a.cmp(&b) {
-                Ordering::Equal => 1,
-                Ordering::Greater => a - b,
-                Ordering::Less => b - a,
-            }) as f32
+        macro_rules! min {
+            ($a:expr, $b:expr) => (
+                if $a > $b {
+                    ($a - $b) as f32
+                } else {
+                    1.
+                }
+            )
         }
-        //if !self.new_values.is_zero() {
         self.old_values = self.new_values;
-        //}
         self.new_values.set(
             user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
         );
-        self.cpu_usage = min(self.new_values.work_time(), self.old_values.work_time())
-            / min(self.new_values.total_time(), self.old_values.total_time())
-            * 100.;
-        self.old_total_time = self.old_values.total_time();
         self.total_time = self.new_values.total_time();
+        self.old_total_time = self.old_values.total_time();
+        self.cpu_usage =
+            min!(self.new_values.work_time(), self.old_values.work_time())
+                / min!(self.total_time, self.old_total_time)
+                * 100.;
+        if self.cpu_usage > 100. {
+            self.cpu_usage = 100.; // to prevent the pourcentage to go above 100%
+        }
     }
 }
 
@@ -224,7 +224,7 @@ impl ProcessorExt for Processor {
 }
 
 pub fn get_raw_times(p: &Processor) -> (u64, u64) {
-    (p.new_values.total_time(), p.old_values.total_time())
+    (p.total_time, p.old_total_time)
 }
 
 pub fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
