@@ -111,9 +111,7 @@ impl CpuValues {
     pub fn total_time(&self) -> u64 {
         // `guest` is already included in `user`
         // `guest_nice` is already included in `nice`
-        self.work_time()
-            + self.idle
-            + self.iowait
+        self.work_time() + self.idle + self.iowait
     }
 }
 
@@ -176,13 +174,13 @@ impl Processor {
         guest_nice: u64,
     ) {
         macro_rules! min {
-            ($a:expr, $b:expr) => (
+            ($a:expr, $b:expr) => {
                 if $a > $b {
                     ($a - $b) as f32
                 } else {
                     1.
                 }
-            )
+            };
         }
         self.old_values = self.new_values;
         self.new_values.set(
@@ -190,10 +188,9 @@ impl Processor {
         );
         self.total_time = self.new_values.total_time();
         self.old_total_time = self.old_values.total_time();
-        self.cpu_usage =
-            min!(self.new_values.work_time(), self.old_values.work_time())
-                / min!(self.total_time, self.old_total_time)
-                * 100.;
+        self.cpu_usage = min!(self.new_values.work_time(), self.old_values.work_time())
+            / min!(self.total_time, self.old_total_time)
+            * 100.;
         if self.cpu_usage > 100. {
             self.cpu_usage = 100.; // to prevent the pourcentage to go above 100%
         }
