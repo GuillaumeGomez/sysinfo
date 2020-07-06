@@ -260,8 +260,8 @@ pub enum DiskType {
 impl From<isize> for DiskType {
     fn from(t: isize) -> DiskType {
         match t {
-            0 => DiskType::HDD,
-            1 => DiskType::SSD,
+            0 => DiskType::SSD,
+            1 => DiskType::HDD,
             id => DiskType::Unknown(id),
         }
     }

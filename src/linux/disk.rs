@@ -171,6 +171,7 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
                 "sysfs" | // pseudo file system for kernel objects
                 "proc" |  // another pseudo file system
                 "tmpfs" |
+                "devtmpfs" |
                 "cgroup" |
                 "cgroup2" |
                 "pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
