@@ -147,8 +147,16 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
         .join(trimmed)
         .join("queue/rotational");
     // Normally, this file only contains '0' or '1' but just in case, we get 8 bytes...
-    let rotational_int = get_all_data(path, 8).unwrap_or_default().trim().parse();
-    DiskType::from(rotational_int.unwrap_or(-1))
+    match get_all_data(path, 8).unwrap_or_default().trim().parse().ok() {
+        // The disk is marked as rotational so it's a HDD.
+        Some(1) => DiskType::HDD,
+        // The disk is marked as non-rotational so it's very likely a SSD.
+        Some(0) => DiskType::SSD,
+        // Normally it shouldn't happen but welcome to the wonderful world of IT! :D
+        Some(x) => DiskType::Unknown(x),
+        // The information isn't available...
+        None => DiskType::Unknown(-1),
+    }
 }
 
 fn get_all_disks_inner(content: &str) -> Vec<Disk> {

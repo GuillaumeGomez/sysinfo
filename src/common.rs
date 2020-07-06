@@ -257,16 +257,6 @@ pub enum DiskType {
     Unknown(isize),
 }
 
-impl From<isize> for DiskType {
-    fn from(t: isize) -> DiskType {
-        match t {
-            0 => DiskType::SSD,
-            1 => DiskType::HDD,
-            id => DiskType::Unknown(id),
-        }
-    }
-}
-
 /// An enum representing signal on UNIX-like systems.
 #[repr(C)]
 #[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
