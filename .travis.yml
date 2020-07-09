@@ -67,6 +67,7 @@ script:
     fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
     cargo build --features debug;
+    fi
   - if [[ -n "$TARGET" ]]; then
     rustup target add $TARGET;export EXTRA="--target=$TARGET";
     fi
