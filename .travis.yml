@@ -55,41 +55,45 @@ matrix:
       rust: stable
     - os: osx
       rust: nightly
+    - os: osx
+      env: TARGET=aarch64-apple-ios
+      rust: stable
+      dist: trusty
 script:
   - rustc --version
   - sysctl -a | grep mem
   - if [[ "$TRAVIS_RUST_VERSION" == "nightly" ]]; then
-      (rustup component add clippy && cargo clippy) || touch clippy_install_failed;
+    (rustup component add clippy && cargo clippy) || touch clippy_install_failed;
     fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      cargo build --features debug;
-    elif [[ -n "$TARGET" ]]; then
-      rustup target add $TARGET;export EXTRA="--target=$TARGET";
+    cargo build --features debug;
+  - if [[ -n "$TARGET" ]]; then
+    rustup target add $TARGET;export EXTRA="--target=$TARGET";
     fi
   - echo $EXTRA
   - if [[ -n "$EXTRA" ]]; then
-      RUST_BACKTRACE=1 cargo check $EXTRA;
+    RUST_BACKTRACE=1 cargo check $EXTRA;
     else
-      RUST_BACKTRACE=1 cargo build;
+    RUST_BACKTRACE=1 cargo build;
     fi
   - if [[ "$TRAVIS_RUST_VERSION" == "nightly" && -z "$EXTRA" ]]; then
-      RUST_BACKTRACE=1 cargo bench;
+    RUST_BACKTRACE=1 cargo bench;
     fi
   - if [[ -z "$EXTRA" ]]; then
-      RUST_BACKTRACE=1 cargo test;
+    RUST_BACKTRACE=1 cargo test;
     fi
   - cargo doc
   - cd examples
   - if [[ -z "$EXTRA" ]]; then
-      RUST_BACKTRACE=1 cargo build;
+    RUST_BACKTRACE=1 cargo build;
     fi
   - if [[ "$TRAVIS_RUST_VERSION" == "nightly" && -z "$EXTRA" && ! -f clippy_install_failed ]]; then
-      cargo clippy $EXTRA || echo "clippy failed";
+    cargo clippy $EXTRA || echo "clippy failed";
     fi
   - cd ..
   - if [[ -z "$EXTRA" ]]; then
-      make;
+    make;
     fi
   - if [[ -z "$EXTRA" ]]; then
-      LD_LIBRARY_PATH=./target/debug ./simple;
+    LD_LIBRARY_PATH=./target/debug ./simple;
     fi
