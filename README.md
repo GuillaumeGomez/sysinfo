@@ -23,7 +23,7 @@ It also compiles for Android but never been tested on it.
 
 ### Running on Raspberry Pi
 
-It'll be difficult to build on Raspberry Pi. A good way-around is to be build on Linux before sending it to your Raspberry Pi.
+It'll be difficult to build on Raspberry Pi. A good way-around is to cross compile, then send the executable to your Raspberry Pi.
 
 First install the arm toolchain, for example on Ubuntu: `sudo apt-get install gcc-multilib-arm-linux-gnueabihf`.
 
