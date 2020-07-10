@@ -55,6 +55,10 @@ matrix:
       rust: stable
     - os: osx
       rust: nightly
+    - os: osx
+      env: TARGET=aarch64-apple-ios
+      rust: stable
+      dist: trusty
 script:
   - rustc --version
   - sysctl -a | grep mem
@@ -63,7 +67,8 @@ script:
     fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
       cargo build --features debug;
-    elif [[ -n "$TARGET" ]]; then
+    fi
+  - if [[ -n "$TARGET" ]]; then
       rustup target add $TARGET;export EXTRA="--target=$TARGET";
     fi
   - echo $EXTRA

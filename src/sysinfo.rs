@@ -78,7 +78,7 @@ macro_rules! sysinfo_debug {
 }
 
 cfg_if! {
-    if #[cfg(target_os = "macos")] {
+    if #[cfg(any(target_os = "macos", target_os = "ios"))] {
         mod mac;
         use mac as sys;
 
