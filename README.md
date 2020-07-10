@@ -16,6 +16,7 @@ Supports the following platforms:
  * Raspberry Pi
  * Android
  * macOS
+ * iOS
  * Windows
 
 It also compiles for Android but never been tested on it.
