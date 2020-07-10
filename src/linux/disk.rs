@@ -114,7 +114,9 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
     let mut real_path = real_path.to_str().unwrap_or_default();
     if name_path.starts_with("/dev/mapper/") {
         // Recursively solve, for example /dev/dm-0
-        return find_type_for_name(OsStr::new(&real_path));
+        if real_path != name_path {
+            return find_type_for_name(OsStr::new(&real_path));
+        }
     } else if name_path.starts_with("/dev/sd") {
         // Turn "sda1" into "sda"
         real_path = real_path.trim_start_matches("/dev/");
