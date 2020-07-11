@@ -19,7 +19,7 @@ use {ProcessExt, RefreshKind, SystemExt};
 use libc::{self, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::fs::{self, read_link, File};
+use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -706,6 +706,26 @@ fn check_nb_open_files(f: File) -> Option<File> {
     None
 }
 
+fn get_exe_name(p: &Process) -> String {
+    p.cmd
+        .get(0)
+        .map(|x| {
+            let cmd = x.split('\0').next().unwrap_or_else(|| "");
+            if cmd.starts_with('/') {
+                // If this is an absolute path, it means we were able to get the path through
+                // /proc/[PID]/exe
+                cmd.split('/')
+                    .last()
+                    .map(|x| x.to_owned())
+                    .unwrap_or_else(String::new)
+            } else {
+                // Apparently we couldn't get the path so we can assume this is the full name...
+                cmd.to_owned()
+            }
+        })
+        .unwrap_or_else(String::new)
+}
+
 fn _get_process_data(
     path: &Path,
     proc_list: &mut Process,
@@ -805,18 +825,27 @@ fn _get_process_data(
         tmp.pop();
         tmp.push("cmdline");
         p.cmd = copy_from_file(&tmp);
-        p.name = p
-            .cmd
-            .get(0)
-            .map(|x| x.split('/').last().unwrap_or_else(|| "").to_owned())
-            .unwrap_or_default();
+        tmp.pop();
+        tmp.push("exe");
+        match tmp.read_link() {
+            Ok(exe_path) => {
+                p.name = exe_path
+                    .file_name()
+                    .and_then(|s| {
+                        let s: &str = s.to_str()?;
+                        Some(s.to_owned())
+                    })
+                    .unwrap_or_else(|| get_exe_name(&p));
+                p.exe = exe_path;
+            }
+            Err(_) => {
+                p.exe = PathBuf::new();
+                p.name = get_exe_name(&p);
+            }
+        }
         tmp.pop();
         tmp.push("environ");
         p.environ = copy_from_file(&tmp);
-        tmp.pop();
-        tmp.push("exe");
-        p.exe = read_link(tmp.to_str().unwrap_or_else(|| "")).unwrap_or_else(|_| PathBuf::new());
-
         tmp.pop();
         tmp.push("cwd");
         p.cwd = realpath(&tmp);
