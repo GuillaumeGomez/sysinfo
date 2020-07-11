@@ -149,7 +149,12 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
         .join(trimmed)
         .join("queue/rotational");
     // Normally, this file only contains '0' or '1' but just in case, we get 8 bytes...
-    match get_all_data(path, 8).unwrap_or_default().trim().parse().ok() {
+    match get_all_data(path, 8)
+        .unwrap_or_default()
+        .trim()
+        .parse()
+        .ok()
+    {
         // The disk is marked as rotational so it's a HDD.
         Some(1) => DiskType::HDD,
         // The disk is marked as non-rotational so it's very likely a SSD.
