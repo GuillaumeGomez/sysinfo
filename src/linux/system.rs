@@ -344,7 +344,7 @@ impl SystemExt for System {
         self.uptime = get_uptime();
         if refresh_procs(
             &mut self.process_list,
-            "/proc",
+            Path::new("/proc"),
             self.page_size_kb,
             0,
             self.uptime,
@@ -525,15 +525,15 @@ impl<'a, T> Wrap<'a, T> {
 unsafe impl<'a, T> Send for Wrap<'a, T> {}
 unsafe impl<'a, T> Sync for Wrap<'a, T> {}
 
-fn refresh_procs<P: AsRef<Path>>(
+fn refresh_procs(
     proc_list: &mut Process,
-    path: P,
+    path: &Path,
     page_size_kb: u64,
     pid: Pid,
     uptime: u64,
     now: u64,
 ) -> bool {
-    if let Ok(d) = fs::read_dir(path.as_ref()) {
+    if let Ok(d) = fs::read_dir(path) {
         let folders = d
             .filter_map(|entry| {
                 if let Ok(entry) = entry {
@@ -622,7 +622,7 @@ fn update_time_and_memory(
     }
     refresh_procs(
         entry,
-        path.join(Path::new("task")),
+        &path.join("task"),
         page_size_kb,
         pid,
         uptime,
