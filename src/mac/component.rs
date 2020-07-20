@@ -10,7 +10,8 @@ use sys::ffi;
 use ComponentExt;
 
 pub(crate) const COMPONENTS_TEMPERATURE_IDS: &[(&str, &[i8])] = &[
-    ("CPU", &['T' as i8, 'C' as i8, '0' as i8, 'P' as i8]), // CPU "TC0P"
+    ("CPU", &['T' as i8, 'C' as i8, '0' as i8, 'F' as i8]), // CPU Die "TC0F"
+    ("CPU Proximity", &['T' as i8, 'C' as i8, '0' as i8, 'P' as i8]), // CPU Proximity (heat spreader) "TC0P"
     ("GPU", &['T' as i8, 'G' as i8, '0' as i8, 'P' as i8]), // GPU "TG0P"
     ("Battery", &['T' as i8, 'B' as i8, '0' as i8, 'T' as i8]), // Battery "TB0T"
 ];
