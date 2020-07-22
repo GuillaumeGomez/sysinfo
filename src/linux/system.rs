@@ -364,8 +364,8 @@ impl SystemExt for System {
             self.uptime,
             get_secs_since_epoch(),
         ) {
-            Ok(Some(p)) => {
-                self.process_list.tasks.insert(p.pid(), p);
+            Ok((Some(p), pid)) => {
+                self.process_list.tasks.insert(pid, p);
                 false
             }
             Ok(_) => true,
@@ -554,7 +554,7 @@ fn refresh_procs(
             folders
                 .par_iter()
                 .filter_map(|e| {
-                    if let Ok(p) = _get_process_data(
+                    if let Ok((p, _)) = _get_process_data(
                         e.as_path(),
                         proc_list.get(),
                         page_size_kb,
@@ -569,18 +569,25 @@ fn refresh_procs(
                 })
                 .collect::<Vec<_>>()
         } else {
-            folders
+            let mut updated_pids = Vec::with_capacity(folders.len());
+            let new_tasks = folders
                 .iter()
                 .filter_map(|e| {
-                    if let Ok(p) =
+                    if let Ok((p, pid)) =
                         _get_process_data(e.as_path(), proc_list, page_size_kb, pid, uptime, now)
                     {
+                        updated_pids.push(pid);
                         p
                     } else {
                         None
                     }
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+            // Sub-tasks are not cleaned up outside so we do it here directly.
+            proc_list
+                .tasks
+                .retain(|&pid, _| updated_pids.iter().any(|&x| x == pid));
+            new_tasks
         }
         .into_iter()
         .for_each(|e| {
@@ -620,14 +627,7 @@ fn update_time_and_memory(
             u64::from_str(parts[14]).unwrap_or(0),
         );
     }
-    refresh_procs(
-        entry,
-        &path.join("task"),
-        page_size_kb,
-        pid,
-        uptime,
-        now,
-    );
+    refresh_procs(entry, &path.join("task"), page_size_kb, pid, uptime, now);
 }
 
 macro_rules! unwrap_or_return {
@@ -733,7 +733,7 @@ fn _get_process_data(
     pid: Pid,
     uptime: u64,
     now: u64,
-) -> Result<Option<Process>, ()> {
+) -> Result<(Option<Process>, Pid), ()> {
     let nb = match path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
         Some(Ok(nb)) if nb != pid => nb,
         _ => return Err(()),
@@ -754,7 +754,7 @@ fn _get_process_data(
         } else {
             let mut tmp = PathBuf::from(path);
             tmp.push("stat");
-            let mut file = ::std::fs::File::open(tmp).map_err(|_| ())?;
+            let mut file = File::open(tmp).map_err(|_| ())?;
             let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
             entry.stat_file = check_nb_open_files(file);
             data
@@ -773,7 +773,7 @@ fn _get_process_data(
             now,
         );
         update_process_disk_activity(entry, path);
-        return Ok(None);
+        return Ok((None, nb));
     }
 
     let mut tmp = PathBuf::from(path);
@@ -866,7 +866,7 @@ fn _get_process_data(
         now,
     );
     update_process_disk_activity(&mut p, path);
-    Ok(Some(p))
+    Ok((Some(p), nb))
 }
 
 fn copy_from_file(entry: &Path) -> Vec<String> {
