@@ -27,6 +27,7 @@ pub struct System {
     process_list: HashMap<Pid, Process>,
     mem_total: u64,
     mem_free: u64,
+    mem_available: u64,
     swap_total: u64,
     swap_free: u64,
     global_processor: Processor,
@@ -104,6 +105,7 @@ impl SystemExt for System {
             process_list: HashMap::with_capacity(200),
             mem_total: 0,
             mem_free: 0,
+            mem_available: 0,
             swap_total: 0,
             swap_free: 0,
             global_processor,
@@ -166,14 +168,14 @@ impl SystemExt for System {
                 //  * used to hold data that was read speculatively from disk but
                 //  * haven't actually been used by anyone so far.
                 //  */
-                // self.mem_free = u64::from(stat.free_count) * self.page_size_kb;
-                self.mem_free = self.mem_total
+                self.mem_available = self.mem_total
                     - (u64::from(stat.active_count)
                         + u64::from(stat.inactive_count)
                         + u64::from(stat.wire_count)
                         + u64::from(stat.speculative_count)
                         - u64::from(stat.purgeable_count))
                         * self.page_size_kb;
+                self.mem_free = u64::from(stat.free_count) * self.page_size_kb;
             }
         }
     }
@@ -324,6 +326,10 @@ impl SystemExt for System {
 
     fn get_free_memory(&self) -> u64 {
         self.mem_free
+    }
+
+    fn get_available_memory(&self) -> u64 {
+        self.mem_available
     }
 
     fn get_used_memory(&self) -> u64 {

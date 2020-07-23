@@ -753,6 +753,16 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_free_memory(&self) -> u64;
 
+    /// Returns the amount of available RAM in kB.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// println!("{} kB", s.get_available_memory());
+    /// ```
+    fn get_available_memory(&self) -> u64;
+
     /// Returns the amound of used RAM in kB.
     ///
     /// ```no_run

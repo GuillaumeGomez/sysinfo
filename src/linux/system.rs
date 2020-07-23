@@ -131,6 +131,7 @@ pub struct System {
     process_list: Process,
     mem_total: u64,
     mem_free: u64,
+    mem_available: u64,
     mem_buffers: u64,
     mem_page_cache: u64,
     mem_slab_reclaimable: u64,
@@ -271,6 +272,7 @@ impl SystemExt for System {
             process_list: Process::new(0, None, 0),
             mem_total: 0,
             mem_free: 0,
+            mem_available: 0,
             mem_buffers: 0,
             mem_page_cache: 0,
             mem_slab_reclaimable: 0,
@@ -319,6 +321,7 @@ impl SystemExt for System {
                 let field = match line.split(':').next() {
                     Some("MemTotal") => &mut self.mem_total,
                     Some("MemFree") => &mut self.mem_free,
+                    Some("MemAvailable") => &mut self.mem_available,
                     Some("Buffers") => &mut self.mem_buffers,
                     Some("Cached") => &mut self.mem_page_cache,
                     Some("SReclaimable") => &mut self.mem_slab_reclaimable,
@@ -425,6 +428,10 @@ impl SystemExt for System {
 
     fn get_free_memory(&self) -> u64 {
         self.mem_free
+    }
+
+    fn get_available_memory(&self) -> u64 {
+        self.mem_available
     }
 
     fn get_used_memory(&self) -> u64 {
