@@ -44,7 +44,7 @@ use winapi::um::winnt::HANDLE;
 pub struct System {
     process_list: HashMap<usize, Process>,
     mem_total: u64,
-    mem_free: u64,
+    mem_available: u64,
     swap_total: u64,
     swap_free: u64,
     global_processor: Processor,
@@ -80,7 +80,7 @@ impl SystemExt for System {
         let mut s = System {
             process_list: HashMap::with_capacity(500),
             mem_total: 0,
-            mem_free: 0,
+            mem_available: 0,
             swap_total: 0,
             swap_free: 0,
             global_processor: Processor::new_with_values("Total CPU", vendor_id, brand, 0),
@@ -160,7 +160,7 @@ impl SystemExt for System {
             mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
             GlobalMemoryStatusEx(&mut mem_info);
             self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_000;
-            self.mem_free = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
+            self.mem_available = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
             //self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
             //self.swap_free = auto_cast!(mem_info.ullAvailPageFile, u64);
         }
@@ -322,11 +322,16 @@ impl SystemExt for System {
     }
 
     fn get_free_memory(&self) -> u64 {
-        self.mem_free
+        // MEMORYSTATUSEX doesn't report free memory
+        self.mem_available
+    }
+
+    fn get_available_memory(&self) -> u64 {
+        self.mem_available
     }
 
     fn get_used_memory(&self) -> u64 {
-        self.mem_total - self.mem_free
+        self.mem_total - self.mem_available
     }
 
     fn get_total_swap(&self) -> u64 {

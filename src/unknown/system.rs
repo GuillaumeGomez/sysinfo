@@ -84,6 +84,10 @@ impl SystemExt for System {
         0
     }
 
+    fn get_available_memory(&self) -> u64 {
+        0
+    }
+
     fn get_used_memory(&self) -> u64 {
         0
     }
