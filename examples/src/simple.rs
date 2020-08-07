@@ -171,22 +171,22 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "memory" => {
             writeln!(
                 &mut io::stdout(),
-                "total memory: {} KiB",
+                "total memory: {} KB",
                 sys.get_total_memory()
             );
             writeln!(
                 &mut io::stdout(),
-                "used memory : {} KiB",
+                "used memory : {} KB",
                 sys.get_used_memory()
             );
             writeln!(
                 &mut io::stdout(),
-                "total swap  : {} KiB",
+                "total swap  : {} KB",
                 sys.get_total_swap()
             );
             writeln!(
                 &mut io::stdout(),
-                "used swap   : {} KiB",
+                "used swap   : {} KB",
                 sys.get_used_swap()
             );
         }
