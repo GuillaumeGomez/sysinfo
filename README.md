@@ -73,10 +73,10 @@ for component in sys.get_components() {
 }
 
 // Memory information:
-println!("total memory: {} KiB", sys.get_total_memory());
-println!("used memory : {} KiB", sys.get_used_memory());
-println!("total swap  : {} KiB", sys.get_total_swap());
-println!("used swap   : {} KiB", sys.get_used_swap());
+println!("total memory: {} KB", sys.get_total_memory());
+println!("used memory : {} KB", sys.get_used_memory());
+println!("total swap  : {} KB", sys.get_total_swap());
+println!("used swap   : {} KB", sys.get_used_swap());
 
 // Number of processors
 println!("NB processors: {}", sys.get_processors().len());

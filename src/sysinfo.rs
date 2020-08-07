@@ -35,10 +35,10 @@
 //! }
 //!
 //! // And finally the RAM and SWAP information:
-//! println!("total memory: {} KiB", system.get_total_memory());
-//! println!("used memory : {} KiB", system.get_used_memory());
-//! println!("total swap  : {} KiB", system.get_total_swap());
-//! println!("used swap   : {} KiB", system.get_used_swap());
+//! println!("total memory: {} KB", system.get_total_memory());
+//! println!("used memory : {} KB", system.get_used_memory());
+//! println!("total swap  : {} KB", system.get_total_swap());
+//! println!("used swap   : {} KB", system.get_used_swap());
 //! ```
 
 #![crate_name = "sysinfo"]
