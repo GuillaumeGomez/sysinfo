@@ -184,7 +184,7 @@ fn new_disk(name: OsString, mount_point: &Path, type_: DiskType) -> Option<Disk>
         let mut stat: statfs = mem::zeroed();
         if statfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
             total_space = u64::from(stat.f_bsize) * stat.f_blocks;
-            available_space = stat.f_bfree * stat.f_blocks;
+            available_space = u64::from(stat.f_bsize) * stat.f_bavail;
             let mut vec = Vec::with_capacity(stat.f_fstypename.len());
             for x in &stat.f_fstypename {
                 if *x == 0 {
