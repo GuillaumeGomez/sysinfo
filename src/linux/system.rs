@@ -377,7 +377,7 @@ impl SystemExt for System {
         if found && !self.processors.is_empty() {
             self.refresh_processors(Some(1));
             let (new, old) = get_raw_times(&self.global_processor);
-            let total_time = (if old > new { 1 } else { new - old }) as f32;
+            let total_time = (if old >= new { 1 } else { new - old }) as f32;
 
             if let Some(p) = self.process_list.tasks.get_mut(&pid) {
                 compute_cpu_usage(p, self.processors.len() as u64, total_time);

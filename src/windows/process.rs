@@ -739,9 +739,10 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, now: ULARGE
             &mut fuser as *mut FILETIME as *mut c_void,
             size_of::<FILETIME>(),
         );
+        let old = check_sub(*now.QuadPart(), p.old_cpu);
         p.cpu_usage = (check_sub(*sys.QuadPart(), p.old_sys_cpu) as f32
             + check_sub(*user.QuadPart(), p.old_user_cpu) as f32)
-            / check_sub(*now.QuadPart(), p.old_cpu) as f32
+            / if old == 0 { 1 } else { old } as f32
             / nb_processors as f32
             * 100.;
         p.old_cpu = *now.QuadPart();

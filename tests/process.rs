@@ -104,3 +104,25 @@ fn test_process_disk_usage() {
         p.disk_usage().written_bytes
     );
 }
+
+#[test]
+fn cpu_usage_is_not_nan() {
+    let mut system = sysinfo::System::new();
+    system.refresh_processes();
+
+    let first_pids = system.get_processes()
+        .iter()
+        .take(10)
+        .map(|(&pid, _)| pid)
+        .collect::<Vec<_>>();
+    let mut checked = 0;
+
+    first_pids.into_iter().for_each(|pid| {
+        system.refresh_process(pid);
+        if let Some(p) = system.get_process(pid) {
+            assert!(!p.cpu_usage().is_nan());
+            checked += 1;
+        }
+    });
+    assert!(checked > 0);
+}
