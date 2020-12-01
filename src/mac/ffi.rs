@@ -7,11 +7,11 @@
 use libc::{c_char, c_int, c_uchar, c_uint, c_ushort, c_void, size_t};
 
 extern "C" {
-    #[no_mangle]
+    // #[no_mangle]
     pub static kCFAllocatorDefault: CFAllocatorRef;
     // #[no_mangle]
     // pub static kODSessionDefault: ODSessionRef;
-    #[no_mangle]
+    // #[no_mangle]
     pub static kCFAllocatorNull: CFAllocatorRef;
     // from https://github.com/apple/ccs-pyosxframeworks/blob/ccbacc3408bd7583a7535bbaca4020bdfe94bd2f/osx/frameworks/_opendirectory_cffi.py
     // #[no_mangle]
