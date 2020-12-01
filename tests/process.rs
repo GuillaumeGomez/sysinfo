@@ -110,7 +110,8 @@ fn cpu_usage_is_not_nan() {
     let mut system = sysinfo::System::new();
     system.refresh_processes();
 
-    let first_pids = system.get_processes()
+    let first_pids = system
+        .get_processes()
         .iter()
         .take(10)
         .map(|(&pid, _)| pid)

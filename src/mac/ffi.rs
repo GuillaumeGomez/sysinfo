@@ -117,6 +117,8 @@ extern "C" {
     ) -> kern_return_t;
     //pub fn host_statistics(host_priv: u32, flavor: u32, host_info: *mut c_void,
     //                       host_count: *const u32) -> u32;
+    // pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
+    // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
     pub fn sysctlbyname(
         name: *const c_char,
@@ -126,9 +128,6 @@ extern "C" {
         newlen: usize,
     ) -> kern_return_t;
     pub fn getloadavg(loads: *const f64, size: c_int);
-
-// pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
-// pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
