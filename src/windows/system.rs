@@ -128,7 +128,7 @@ impl SystemExt for System {
         if let Some(ref mut query) = self.query {
             query.refresh();
             let mut used_time = None;
-            if let &mut Some(ref key_used) = get_key_used(&mut self.global_processor) {
+            if let Some(ref key_used) = *get_key_used(&mut self.global_processor) {
                 used_time = Some(
                     query
                         .get(&key_used.unique_id)
@@ -140,7 +140,7 @@ impl SystemExt for System {
             }
             for p in self.processors.iter_mut() {
                 let mut used_time = None;
-                if let &mut Some(ref key_used) = get_key_used(p) {
+                if let Some(ref key_used) = *get_key_used(p) {
                     used_time = Some(
                         query
                             .get(&key_used.unique_id)
@@ -170,9 +170,10 @@ impl SystemExt for System {
         self.components = component::get_components();
     }
 
+    #[allow(clippy::map_entry)]
     fn refresh_process(&mut self, pid: Pid) -> bool {
         if self.process_list.contains_key(&pid) {
-            if refresh_existing_process(self, pid) == false {
+            if !refresh_existing_process(self, pid) {
                 self.process_list.remove(&pid);
                 return false;
             }

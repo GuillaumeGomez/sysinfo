@@ -353,7 +353,7 @@ pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> pid_t {
 pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> pid_t {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).parent().unwrap_or_else(|| 0) }
+    unsafe { (*process).parent().unwrap_or(0) }
 }
 
 /// Equivalent of [`Process::cpu_usage()`][crate::Process#method.cpu_usage].

@@ -606,6 +606,7 @@ fn refresh_procs(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_time_and_memory(
     path: &Path,
     entry: &mut Process,
@@ -717,7 +718,7 @@ fn get_exe_name(p: &Process) -> String {
     p.cmd
         .get(0)
         .map(|x| {
-            let cmd = x.split('\0').next().unwrap_or_else(|| "");
+            let cmd = x.split('\0').next().unwrap_or("");
             if cmd.starts_with('/') {
                 // If this is an absolute path, it means we were able to get the path through
                 // /proc/[PID]/exe
@@ -802,9 +803,7 @@ fn _get_process_data(
 
     let clock_cycle = unsafe { sysconf(_SC_CLK_TCK) } as u64;
     let since_boot = u64::from_str(parts[21]).unwrap_or(0) / clock_cycle;
-    let start_time = now
-        .checked_sub(uptime.checked_sub(since_boot).unwrap_or_else(|| 0))
-        .unwrap_or_else(|| 0);
+    let start_time = now.saturating_sub(uptime.saturating_sub(since_boot));
     let mut p = Process::new(nb, parent_pid, start_time);
 
     p.stat_file = stat_file;
@@ -921,7 +920,7 @@ pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<Str
 
 fn get_uptime() -> u64 {
     let content = get_all_data("/proc/uptime", 50).unwrap_or_default();
-    u64::from_str_radix(content.split('.').next().unwrap_or_else(|| "0"), 10).unwrap_or_else(|_| 0)
+    u64::from_str_radix(content.split('.').next().unwrap_or("0"), 10).unwrap_or(0)
 }
 
 fn get_secs_since_epoch() -> u64 {

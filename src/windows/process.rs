@@ -495,7 +495,7 @@ unsafe fn ph_query_process_variable_size(
         return None;
     }
     buffer.push(0);
-    return Some(buffer);
+    Some(buffer)
 }
 
 unsafe fn get_cmdline_from_buffer(buffer: *const u16) -> Vec<String> {
@@ -578,7 +578,7 @@ fn get_cmd_line_old(handle: HANDLE) -> Vec<String> {
             handle,
             rtl_proc_param_copy.CommandLine.Buffer as *mut _,
             buffer_copy.as_mut_ptr() as *mut _,
-            len * 2 as SIZE_T,
+            len * 2,
             ::std::ptr::null_mut(),
         ) != TRUE
         {
@@ -612,6 +612,7 @@ fn get_cmd_line(handle: HANDLE) -> Vec<String> {
     }
 }
 
+#[allow(clippy::let_and_return)]
 unsafe fn get_proc_env(_handle: HANDLE, _pid: u32, _name: &str) -> Vec<String> {
     let ret = Vec::new();
     /*

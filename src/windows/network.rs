@@ -42,6 +42,7 @@ impl Networks {
 }
 
 impl NetworksExt for Networks {
+    #[allow(clippy::needless_lifetimes)]
     fn iter<'a>(&'a self) -> NetworksIter<'a> {
         NetworksIter::new(self.interfaces.iter())
     }

@@ -163,6 +163,7 @@ unsafe impl Send for Connection {}
 unsafe impl Sync for Connection {}
 
 impl Connection {
+    #[allow(clippy::unnecessary_wraps)]
     fn new() -> Option<Connection> {
         // "Funnily", this function returns ok, false or "this function has already been called".
         // So whatever, let's just ignore whatever it might return then!

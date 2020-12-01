@@ -7,7 +7,6 @@
 use ComponentExt;
 
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::fs::{metadata, read_dir, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -41,10 +40,7 @@ fn get_file_line(file: &Path, capacity: usize) -> Option<String> {
 }
 
 fn is_file<T: AsRef<Path>>(path: T) -> bool {
-    metadata(path)
-        .ok()
-        .map(|m| m.is_file())
-        .unwrap_or_else(|| false)
+    metadata(path).ok().map(|m| m.is_file()).unwrap_or(false)
 }
 
 fn append_files(components: &mut Vec<Component>, folder: &Path) {
@@ -57,8 +53,7 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                 if entry.is_dir()
                     || !entry
                         .file_name()
-                        .unwrap_or_else(|| OsStr::new("/"))
-                        .to_str()
+                        .and_then(|x| x.to_str())
                         .unwrap_or("")
                         .starts_with("temp")
                 {
@@ -188,8 +183,7 @@ pub fn get_components() -> Vec<Component> {
                 if !entry.is_dir()
                     || !entry
                         .file_name()
-                        .unwrap_or_else(|| OsStr::new("/"))
-                        .to_str()
+                        .and_then(|x| x.to_str())
                         .unwrap_or("")
                         .starts_with("hwmon")
                 {
