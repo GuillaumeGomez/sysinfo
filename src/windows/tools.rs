@@ -38,10 +38,7 @@ pub struct KeyHandler {
 
 impl KeyHandler {
     pub fn new(unique_id: String, win_key: Vec<u16>) -> KeyHandler {
-        KeyHandler {
-            unique_id: unique_id,
-            win_key: win_key,
-        }
+        KeyHandler { unique_id, win_key }
     }
 }
 
@@ -274,6 +271,7 @@ pub unsafe fn load_symbols() -> HashMap<String, u32> {
     ret
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn get_translation(s: &String, map: &HashMap<String, u32>) -> Option<String> {
     use winapi::um::pdh::PdhLookupPerfNameByIndexW;
 

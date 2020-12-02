@@ -16,6 +16,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use Pid;
 
+#[allow(clippy::useless_conversion)]
 #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 pub fn realpath(original: &Path) -> PathBuf {
     use std::mem::MaybeUninit;
@@ -24,7 +25,6 @@ pub fn realpath(original: &Path) -> PathBuf {
         x & y
     }
 
-    #[allow(clippy::identity_conversion)]
     if let Some(original_str) = original.to_str() {
         let ori = Path::new(original_str);
 
@@ -76,6 +76,7 @@ pub fn to_cpath(path: &Path) -> Vec<u8> {
 ///     }
 /// }
 /// ```
+#[allow(clippy::unnecessary_wraps)]
 pub fn get_current_pid() -> Result<Pid, &'static str> {
     cfg_if! {
         if #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))] {

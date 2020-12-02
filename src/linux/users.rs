@@ -45,9 +45,7 @@ pub fn get_users_list() -> Vec<User> {
                             } == -1
                             {
                                 if current > ngroups {
-                                    for _ in 0..current - ngroups {
-                                        groups.push(0);
-                                    }
+                                    groups.resize(current as _, 0);
                                     ngroups = current;
                                     continue;
                                 }

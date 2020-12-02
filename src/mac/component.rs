@@ -16,8 +16,8 @@ pub(crate) const COMPONENTS_TEMPERATURE_IDS: &[(&str, &[i8])] = &[
         "CPU Proximity",
         &['T' as i8, 'C' as i8, '0' as i8, 'P' as i8],
     ), // CPU Proximity (heat spreader) "TC0P"
-    ("GPU", &['T' as i8, 'G' as i8, '0' as i8, 'P' as i8]), // GPU "TG0P"
-    ("Battery", &['T' as i8, 'B' as i8, '0' as i8, 'T' as i8]), // Battery "TB0T"
+    ("GPU", &['T' as i8, 'G' as i8, '0' as i8, 'P' as i8]),      // GPU "TG0P"
+    ("Battery", &['T' as i8, 'B' as i8, '0' as i8, 'T' as i8]),  // Battery "TB0T"
 ];
 
 pub struct ComponentFFI {
@@ -121,10 +121,12 @@ unsafe fn perform_call(
 // Adapted from https://github.com/lavoiesl/osx-cpu-temp/blob/master/smc.c#L28
 #[inline]
 fn strtoul(s: &[i8]) -> u32 {
-    ((s[0] as u32) << (3u32 << 3))
-        + ((s[1] as u32) << (2u32 << 3))
-        + ((s[2] as u32) << (1u32 << 3))
-        + ((s[3] as u32) << (0u32 << 3))
+    unsafe {
+        ((*s.get_unchecked(0) as u32) << (3u32 << 3))
+            + ((*s.get_unchecked(1) as u32) << (2u32 << 3))
+            + ((*s.get_unchecked(2) as u32) << (1u32 << 3))
+            + (*s.get_unchecked(3) as u32)
+    }
 }
 
 #[inline]

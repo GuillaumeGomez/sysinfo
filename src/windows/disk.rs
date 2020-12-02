@@ -24,12 +24,12 @@ pub fn new_disk(
         return None;
     }
     let mut d = Disk {
-        type_: type_,
+        type_,
         name: name.to_owned(),
         file_system: file_system.to_vec(),
         mount_point: mount_point.to_vec(),
         s_mount_point: String::from_utf16_lossy(&mount_point[..mount_point.len() - 1]),
-        total_space: total_space,
+        total_space,
         available_space: 0,
     };
     d.refresh();

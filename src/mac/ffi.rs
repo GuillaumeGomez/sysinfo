@@ -7,11 +7,11 @@
 use libc::{c_char, c_int, c_uchar, c_uint, c_ushort, c_void, size_t};
 
 extern "C" {
-    #[no_mangle]
+    // #[no_mangle]
     pub static kCFAllocatorDefault: CFAllocatorRef;
     // #[no_mangle]
     // pub static kODSessionDefault: ODSessionRef;
-    #[no_mangle]
+    // #[no_mangle]
     pub static kCFAllocatorNull: CFAllocatorRef;
     // from https://github.com/apple/ccs-pyosxframeworks/blob/ccbacc3408bd7583a7535bbaca4020bdfe94bd2f/osx/frameworks/_opendirectory_cffi.py
     // #[no_mangle]
@@ -117,6 +117,8 @@ extern "C" {
     ) -> kern_return_t;
     //pub fn host_statistics(host_priv: u32, flavor: u32, host_info: *mut c_void,
     //                       host_count: *const u32) -> u32;
+    // pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
+    // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
     pub fn sysctlbyname(
         name: *const c_char,
@@ -126,9 +128,6 @@ extern "C" {
         newlen: usize,
     ) -> kern_return_t;
     pub fn getloadavg(loads: *const f64, size: c_int);
-
-// pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
-// pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678

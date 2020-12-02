@@ -45,7 +45,7 @@
 #![crate_type = "lib"]
 #![crate_type = "rlib"]
 #![deny(missing_docs)]
-#![deny(intra_doc_link_resolution_failure)]
+#![deny(broken_intra_doc_links)]
 //#![deny(warnings)]
 #![allow(unknown_lints)]
 

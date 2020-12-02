@@ -5,7 +5,6 @@
 //
 
 use std::borrow::Borrow;
-use std::ffi::OsStr;
 use std::fmt;
 use std::mem::{self, MaybeUninit};
 use std::ops::Deref;
@@ -187,6 +186,7 @@ impl Process {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new_with(
         pid: Pid,
         parent: Option<Pid>,
@@ -443,9 +443,8 @@ pub(crate) fn update_process(
                     let exe = PathBuf::from(tmp);
                     let name = exe
                         .file_name()
-                        .unwrap_or_else(|| OsStr::new(""))
-                        .to_str()
-                        .unwrap_or_else(|| "")
+                        .and_then(|x| x.to_str())
+                        .unwrap_or("")
                         .to_owned();
                     return Ok(Some(Process::new_empty(pid, exe, name)));
                 }
@@ -520,9 +519,8 @@ pub(crate) fn update_process(
             let exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
             let name = exe
                 .file_name()
-                .unwrap_or_else(|| OsStr::new(""))
-                .to_str()
-                .unwrap_or_else(|| "")
+                .and_then(|x| x.to_str())
+                .unwrap_or("")
                 .to_owned();
             while cp < ptr.add(size) && *cp == 0 {
                 cp = cp.offset(1);
@@ -616,13 +614,13 @@ fn update_proc_disk_activity(p: &mut Process) {
     p.old_read_bytes = p.read_bytes;
     p.old_written_bytes = p.written_bytes;
 
-    let mut pidrusage: ffi::RUsageInfoV2 = unsafe { MaybeUninit::uninit().assume_init() };
-    let retval =
-        unsafe { ffi::proc_pid_rusage(p.pid() as c_int, 2, &mut pidrusage as *mut _ as _) };
+    let mut pidrusage = MaybeUninit::<ffi::RUsageInfoV2>::uninit();
+    let retval = unsafe { ffi::proc_pid_rusage(p.pid() as c_int, 2, pidrusage.as_mut_ptr() as _) };
 
     if retval < 0 {
         sysinfo_debug!("proc_pid_rusage failed: {:?}", retval);
     } else {
+        let pidrusage = unsafe { pidrusage.assume_init() };
         p.read_bytes = pidrusage.ri_diskio_bytesread;
         p.written_bytes = pidrusage.ri_diskio_byteswritten;
     }

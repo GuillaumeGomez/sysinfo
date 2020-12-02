@@ -98,6 +98,7 @@ fn new_disk(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Option<Disk
     })
 }
 
+#[allow(clippy::manual_range_contains)]
 fn find_type_for_name(name: &OsStr) -> DiskType {
     // The format of devices are as follows:
     //  - name_path is symbolic link in the case of /dev/mapper/
@@ -182,7 +183,8 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
         })
         .filter(|(fs_spec, fs_file, fs_vfstype)| {
             // Check if fs_vfstype is one of our 'ignored' file systems.
-            let filtered = match *fs_vfstype {
+            let filtered = matches!(
+                *fs_vfstype,
                 "sysfs" | // pseudo file system for kernel objects
                 "proc" |  // another pseudo file system
                 "tmpfs" |
@@ -192,9 +194,8 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
                 "pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
                 "squashfs" | // squashfs is a compressed read-only file system (for snaps)
                 "rpc_pipefs" | // The pipefs pseudo file system service
-                "iso9660" => true, // optical media
-                _ => false,
-            };
+                "iso9660" // optical media
+            );
 
             !(filtered ||
                fs_file.starts_with("/sys") || // check if fs_file is an 'ignored' mount point

@@ -32,8 +32,11 @@ use winapi::um::winnt::{ProcessorInformation, BOOLEAN, HANDLE, PVOID, WT_EXECUTE
 
 // This formula comes from linux's include/linux/sched/loadavg.h
 // https://github.com/torvalds/linux/blob/345671ea0f9258f410eb057b9ced9cefbbe5dc78/include/linux/sched/loadavg.h#L20-L23
+#[allow(clippy::excessive_precision)]
 const LOADAVG_FACTOR_1F: f64 = 0.9200444146293232478931553241;
+#[allow(clippy::excessive_precision)]
 const LOADAVG_FACTOR_5F: f64 = 0.9834714538216174894737477501;
+#[allow(clippy::excessive_precision)]
 const LOADAVG_FACTOR_15F: f64 = 0.9944598480048967508795473394;
 // The time interval in seconds between taking load counts, same as Linux
 const SAMPLING_INTERVAL: usize = 5;
@@ -48,7 +51,7 @@ pub(crate) fn get_load_average() -> LoadAvg {
             return avg.clone();
         }
     }
-    return LoadAvg::default();
+    LoadAvg::default()
 }
 
 unsafe extern "system" fn load_avg_callback(counter: PVOID, _: BOOLEAN) {
@@ -168,6 +171,7 @@ impl Query {
         }
     }
 
+    #[allow(clippy::ptr_arg)]
     pub fn get(&self, name: &String) -> Option<f32> {
         if let Some(ref counter) = self.internal.data.get(name) {
             unsafe {
@@ -192,6 +196,7 @@ impl Query {
         None
     }
 
+    #[allow(clippy::ptr_arg)]
     pub fn add_counter(&mut self, name: &String, getter: Vec<u16>) -> bool {
         if self.internal.data.contains_key(name) {
             return false;
@@ -324,11 +329,11 @@ pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
         }
 
         let mut out = Vec::with_capacity(4 * 4 * 3); // 4 * u32 * nb_entries
-        for i in 2..5 {
-            add_u32(&mut out, extdata[i].eax);
-            add_u32(&mut out, extdata[i].ebx);
-            add_u32(&mut out, extdata[i].ecx);
-            add_u32(&mut out, extdata[i].edx);
+        for data in extdata.iter().take(5).skip(2) {
+            add_u32(&mut out, data.eax);
+            add_u32(&mut out, data.ebx);
+            add_u32(&mut out, data.ecx);
+            add_u32(&mut out, data.edx);
         }
         let mut pos = 0;
         for e in out.iter() {
