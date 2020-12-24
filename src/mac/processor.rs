@@ -121,7 +121,7 @@ pub fn get_cpu_frequency() -> u64 {
     let mut speed: u64 = 0;
     let mut len = std::mem::size_of::<u64>();
     unsafe {
-        ffi::sysctlbyname(
+        libc::sysctlbyname(
             b"hw.cpufrequency\0".as_ptr() as *const c_char,
             &mut speed as *mut _ as _,
             &mut len,
@@ -204,7 +204,7 @@ fn get_sysctl_str(s: &[u8]) -> String {
     let mut len = 0;
 
     unsafe {
-        ffi::sysctlbyname(
+        libc::sysctlbyname(
             s.as_ptr() as *const c_char,
             std::ptr::null_mut(),
             &mut len,
@@ -217,7 +217,7 @@ fn get_sysctl_str(s: &[u8]) -> String {
     }
     let mut buf = Vec::with_capacity(len);
     unsafe {
-        ffi::sysctlbyname(
+        libc::sysctlbyname(
             s.as_ptr() as *const c_char,
             buf.as_mut_ptr() as _,
             &mut len,

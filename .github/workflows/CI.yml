@@ -78,7 +78,7 @@ jobs:
 
   tests:
     needs: [check]
-    name: Test ${{ matrix.os }}
+    name: Test ${{ matrix.os }} (rust ${{matrix.toolchain}})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
