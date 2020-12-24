@@ -372,9 +372,9 @@ impl SystemExt for System {
     }
 
     fn get_load_average(&self) -> LoadAvg {
-        let loads = vec![0f64; 3];
+        let mut loads = vec![0f64; 3];
         unsafe {
-            ffi::getloadavg(loads.as_ptr() as *const f64, 3);
+            libc::getloadavg(loads.as_mut_ptr(), 3);
         }
         LoadAvg {
             one: loads[0],
