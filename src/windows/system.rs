@@ -418,6 +418,8 @@ fn refresh_existing_process(s: &mut System, pid: Pid) -> bool {
     }
 }
 
+#[allow(clippy::size_of_in_element_count)]
+//^ needed for "name.Length as usize / std::mem::size_of::<u16>()"
 pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: usize) -> String {
     let name = &process.ImageName;
     if name.Buffer.is_null() {
@@ -430,7 +432,7 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
         let slice = unsafe {
             std::slice::from_raw_parts(
                 name.Buffer,
-                //The length is in bytes, not the length of string
+                // The length is in bytes, not the length of string
                 name.Length as usize / std::mem::size_of::<u16>(),
             )
         };
