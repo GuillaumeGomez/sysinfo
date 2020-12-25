@@ -5,6 +5,7 @@
 //
 
 use libc::{c_char, c_int, c_uchar, c_uint, c_ushort, c_void, size_t};
+use core_foundation::url::CFURLRef;
 
 extern "C" {
     // #[no_mangle]
@@ -120,6 +121,20 @@ extern "C" {
     // pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
     // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
+    pub fn DASessionCreate(allocator: CFAllocatorRef) -> DASessionRef;
+    pub fn mountedVolumeURLsIncludingResourceValuesForKeys(
+        propertyKeys: *mut c_void,
+        options: usize,
+    ) -> NSArray;
+    pub fn NSArrayObjectAtIndex(obj: NSArray, index: usize) -> *mut c_void;
+    pub fn NSArrayCount(obj: NSArray) -> usize;
+    pub fn DADiskCreateFromVolumePath(
+        allocator: CFAllocatorRef,
+        session: DASessionRef,
+        path: CFURLRef,
+    ) -> DADiskRef;
+    pub fn DADiskGetBSDName(disk: DADiskRef) -> *const c_char;
+    pub fn DADiskCopyDescription(disk: DADiskRef) -> CFMutableDictionaryRef;
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
@@ -264,6 +279,16 @@ pub struct __ODQuery {
     __private: c_void,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
+#[repr(C)]
+pub struct __NSArray {
+    __private: c_void,
+}
+#[repr(C)]
+pub struct __DADisk(c_void);
+#[repr(C)]
+pub struct __DASession(c_void);
+
 pub type CFAllocatorRef = *const __CFAllocator;
 pub type CFMutableDictionaryRef = *mut __CFDictionary;
 pub type CFDictionaryRef = *const __CFDictionary;
@@ -273,6 +298,9 @@ pub type io_name_t = [u8; 128];
 pub type io_registry_entry_t = io_object_t;
 pub type CFTypeRef = *const c_void;
 pub type CFStringRef = *const __CFString;
+pub type NSArray = *const __NSArray;
+pub type DADiskRef = *const __DADisk;
+pub type DASessionRef = *const __DASession;
 // pub type ODNodeRef = *const __ODNode;
 // pub type ODSessionRef = *const __ODSession;
 // pub type CFErrorRef = *const __CFError;
