@@ -22,6 +22,12 @@ use libc::{self, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
 use rayon::prelude::*;
 
+// We need to wrap `DASessionRef` to be sure `System` remains Send+Sync.
+struct SessionWrap(ffi::DASessionRef);
+
+unsafe impl Send for SessionWrap {}
+unsafe impl Sync for SessionWrap {}
+
 /// Structs containing system's information.
 pub struct System {
     process_list: HashMap<Pid, Process>,
@@ -42,7 +48,7 @@ pub struct System {
     boot_time: u64,
     // Used to get disk information, to be more specific, it's needed by the
     // DADiskCreateFromVolumePath function.
-    session: ffi::DASessionRef,
+    session: SessionWrap,
 }
 
 impl Drop for System {
@@ -52,9 +58,9 @@ impl Drop for System {
                 ffi::IOServiceClose(conn);
             }
         }
-        if !self.session.is_null() {
+        if !self.session.0.is_null() {
             unsafe {
-                ffi::CFRelease(self.session as _);
+                ffi::CFRelease(self.session.0 as _);
             }
         }
     }
@@ -126,7 +132,7 @@ impl SystemExt for System {
             port,
             users: Vec::new(),
             boot_time: boot_time(),
-            session: ::std::ptr::null_mut(),
+            session: SessionWrap(::std::ptr::null_mut()),
         };
         s.refresh_specifics(refreshes);
         s
@@ -294,10 +300,10 @@ impl SystemExt for System {
     }
 
     fn refresh_disks_list(&mut self) {
-        if self.session.is_null() {
-            self.session = unsafe { ffi::DASessionCreate(ffi::kCFAllocatorDefault) };
+        if self.session.0.is_null() {
+            self.session.0 = unsafe { ffi::DASessionCreate(ffi::kCFAllocatorDefault) };
         }
-        self.disks = crate::mac::disk::get_disks(self.session);
+        self.disks = crate::mac::disk::get_disks(self.session.0);
     }
 
     fn refresh_users_list(&mut self) {
