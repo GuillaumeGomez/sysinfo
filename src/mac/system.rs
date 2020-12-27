@@ -40,6 +40,9 @@ pub struct System {
     port: ffi::mach_port_t,
     users: Vec<User>,
     boot_time: u64,
+    // Used to get disk information, to be more specific, it's needed by the
+    // DADiskCreateFromVolumePath function.
+    session: ffi::DASessionRef,
 }
 
 impl Drop for System {
@@ -47,6 +50,11 @@ impl Drop for System {
         if let Some(conn) = self.connection {
             unsafe {
                 ffi::IOServiceClose(conn);
+            }
+        }
+        if !self.session.is_null() {
+            unsafe {
+                ffi::CFRelease(self.session as _);
             }
         }
     }
@@ -118,6 +126,7 @@ impl SystemExt for System {
             port,
             users: Vec::new(),
             boot_time: boot_time(),
+            session: ::std::ptr::null_mut(),
         };
         s.refresh_specifics(refreshes);
         s
@@ -285,7 +294,10 @@ impl SystemExt for System {
     }
 
     fn refresh_disks_list(&mut self) {
-        self.disks = crate::mac::disk::get_disks();
+        if self.session.is_null() {
+            self.session = unsafe { ffi::DASessionCreate(ffi::kCFAllocatorDefault) };
+        }
+        self.disks = crate::mac::disk::get_disks(self.session);
     }
 
     fn refresh_users_list(&mut self) {

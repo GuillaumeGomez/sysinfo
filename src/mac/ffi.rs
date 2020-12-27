@@ -4,8 +4,8 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use libc::{c_char, c_int, c_uchar, c_uint, c_ushort, c_void, size_t};
 use core_foundation::url::CFURLRef;
+use libc::{c_char, c_int, c_long, c_uchar, c_uint, c_ushort, c_void, size_t};
 
 extern "C" {
     // #[no_mangle]
@@ -52,15 +52,20 @@ extern "C" {
         outputStruct: *mut KeyData_t,
         outputStructCnt: *mut size_t,
     ) -> i32;
-    pub fn IORegistryEntryCreateCFProperties(
-        entry: io_registry_entry_t,
-        properties: *mut CFMutableDictionaryRef,
-        allocator: CFAllocatorRef,
-        options: IOOptionBits,
-    ) -> kern_return_t;
-    pub fn CFDictionaryContainsKey(d: CFDictionaryRef, key: *const c_void) -> Boolean;
-    pub fn CFDictionaryGetValue(d: CFDictionaryRef, key: *const c_void) -> *const c_void;
-    pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: *mut c_char) -> kern_return_t;
+    // pub fn IORegistryEntryCreateCFProperties(
+    //     entry: io_registry_entry_t,
+    //     properties: *mut CFMutableDictionaryRef,
+    //     allocator: CFAllocatorRef,
+    //     options: IOOptionBits,
+    // ) -> kern_return_t;
+    pub fn CFDictionaryGetValueIfPresent(
+        d: CFDictionaryRef,
+        key: *const c_void,
+        value: *mut *const c_void,
+    ) -> Boolean;
+    // pub fn CFDictionaryContainsKey(d: CFDictionaryRef, key: *const c_void) -> Boolean;
+    // pub fn CFDictionaryGetValue(d: CFDictionaryRef, key: *const c_void) -> *const c_void;
+    // pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: *mut c_char) -> kern_return_t;
     pub fn CFRelease(cf: CFTypeRef);
     pub fn CFStringCreateWithCStringNoCopy(
         alloc: *mut c_void,
@@ -94,8 +99,8 @@ extern "C" {
     //     maxResults: CFIndex,
     //     error: *mut CFErrorRef,
     // ) -> ODQueryRef;
-    // pub fn CFArrayGetCount(theArray: CFArrayRef) -> CFIndex;
-    // pub fn CFArrayGetValueAtIndex(theArray: CFArrayRef, idx: CFIndex) -> *const c_void;
+    pub fn CFArrayGetCount(theArray: CFArrayRef) -> CFIndex;
+    pub fn CFArrayGetValueAtIndex(theArray: CFArrayRef, idx: CFIndex) -> *const c_void;
     // pub fn ODRecordGetRecordName(record: ODRecordRef) -> CFStringRef;
 
     pub fn mach_absolute_time() -> u64;
@@ -122,18 +127,17 @@ extern "C" {
     // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
     pub fn DASessionCreate(allocator: CFAllocatorRef) -> DASessionRef;
-    pub fn mountedVolumeURLsIncludingResourceValuesForKeys(
-        propertyKeys: *mut c_void,
-        options: usize,
-    ) -> NSArray;
-    pub fn NSArrayObjectAtIndex(obj: NSArray, index: usize) -> *mut c_void;
-    pub fn NSArrayCount(obj: NSArray) -> usize;
+    // pub fn NSFileManagerMountedVolumeURLsIncludingResourceValuesForKeys(
+    //     propertyKeys: *mut c_void,
+    //     options: usize,
+    // ) -> CFArrayRef;
+    pub fn macos_get_disks() -> CFArrayRef;
     pub fn DADiskCreateFromVolumePath(
         allocator: CFAllocatorRef,
         session: DASessionRef,
         path: CFURLRef,
     ) -> DADiskRef;
-    pub fn DADiskGetBSDName(disk: DADiskRef) -> *const c_char;
+    // pub fn DADiskGetBSDName(disk: DADiskRef) -> *const c_char;
     pub fn DADiskCopyDescription(disk: DADiskRef) -> CFMutableDictionaryRef;
 }
 
@@ -292,19 +296,19 @@ pub struct __DASession(c_void);
 pub type CFAllocatorRef = *const __CFAllocator;
 pub type CFMutableDictionaryRef = *mut __CFDictionary;
 pub type CFDictionaryRef = *const __CFDictionary;
-#[allow(non_camel_case_types)]
-pub type io_name_t = [u8; 128];
-#[allow(non_camel_case_types)]
-pub type io_registry_entry_t = io_object_t;
+// #[allow(non_camel_case_types)]
+// pub type io_name_t = [u8; 128];
+// #[allow(non_camel_case_types)]
+// pub type io_registry_entry_t = io_object_t;
 pub type CFTypeRef = *const c_void;
 pub type CFStringRef = *const __CFString;
-pub type NSArray = *const __NSArray;
+// pub type NSArray = *const __NSArray;
 pub type DADiskRef = *const __DADisk;
 pub type DASessionRef = *const __DASession;
 // pub type ODNodeRef = *const __ODNode;
 // pub type ODSessionRef = *const __ODSession;
 // pub type CFErrorRef = *const __CFError;
-// pub type CFArrayRef = *const __CFArray;
+pub type CFArrayRef = *const __CFArray;
 // pub type ODRecordRef = *const __ODRecord;
 // pub type ODQueryRef = *const __ODQuery;
 
@@ -337,12 +341,15 @@ pub type boolean_t = c_uint;
 #[allow(non_camel_case_types)]
 pub type kern_return_t = c_int;
 pub type Boolean = c_uchar;
-pub type IOOptionBits = u32;
+// pub type IOOptionBits = u32;
 pub type CFStringEncoding = u32;
 // pub type ODRecordType = CFStringRef;
 // pub type ODAttributeType = CFStringRef;
 // pub type ODMatchType = u32;
-// pub type CFIndex = c_long;
+pub type CFIndex = c_long;
+#[repr(C)]
+pub struct __CFBoolean(c_void);
+// pub type CFBooleanRef = *const __CFBoolean;
 
 /*#[repr(C)]
 pub struct task_thread_times_info {

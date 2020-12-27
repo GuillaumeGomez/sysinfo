@@ -57,7 +57,10 @@ impl fmt::Debug for Disk {
             fmt,
             "Disk({:?})[FS: {:?}][Type: {:?}] mounted on {:?}: {}/{} B",
             self.get_name(),
-            self.get_file_system(),
+            self.get_file_system()
+                .iter()
+                .map(|c| *c as char)
+                .collect::<Vec<_>>(),
             self.get_type(),
             self.get_mount_point(),
             self.get_available_space(),
