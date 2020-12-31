@@ -81,6 +81,7 @@ cfg_if! {
     if #[cfg(any(target_os = "macos", target_os = "ios"))] {
         mod mac;
         use mac as sys;
+        extern crate core_foundation;
 
         #[cfg(test)]
         const MIN_USERS: usize = 1;

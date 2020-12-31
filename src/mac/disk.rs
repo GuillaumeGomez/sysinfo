@@ -4,17 +4,18 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use utils;
+use sys::utils;
+use utils::to_cpath;
 use DiskExt;
 use DiskType;
 
-use libc::{c_char, c_void, statfs};
-use std::collections::HashMap;
+use core_foundation::boolean as cfb;
+use core_foundation::string as cfs;
+use core_foundation::url::{CFURLGetFileSystemRepresentation, CFURLRef};
+use libc::{c_char, c_void, statfs, strlen, PATH_MAX};
 use std::ffi::{OsStr, OsString};
-use std::fs;
 use std::mem;
-use std::mem::MaybeUninit;
-use std::os::unix::ffi::OsStringExt;
+use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use sys::ffi;
@@ -57,7 +58,7 @@ impl DiskExt for Disk {
     fn refresh(&mut self) -> bool {
         unsafe {
             let mut stat: statfs = mem::zeroed();
-            let mount_point_cpath = utils::to_cpath(&self.mount_point);
+            let mount_point_cpath = to_cpath(&self.mount_point);
             if statfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
                 self.available_space = u64::from(stat.f_bsize) * stat.f_bavail;
                 true
@@ -68,115 +69,116 @@ impl DiskExt for Disk {
     }
 }
 
-static DISK_TYPES: once_cell::sync::Lazy<HashMap<OsString, DiskType>> =
-    once_cell::sync::Lazy::new(get_disk_types);
+unsafe fn to_path(url: CFURLRef) -> Option<PathBuf> {
+    let mut buf = [0u8; PATH_MAX as usize];
+    let result =
+        CFURLGetFileSystemRepresentation(url, true as u8, buf.as_mut_ptr(), buf.len() as _);
+    if result == false as u8 {
+        return None;
+    }
+    let len = strlen(buf.as_ptr() as *const c_char);
+    let path = OsStr::from_bytes(&buf[0..len]);
+    Some(PathBuf::from(path))
+}
 
-fn get_disk_types() -> HashMap<OsString, DiskType> {
-    let mut master_port: ffi::mach_port_t = 0;
-    let mut media_iterator: ffi::io_iterator_t = 0;
-    let mut ret = HashMap::with_capacity(1);
-
-    unsafe {
-        ffi::IOMasterPort(ffi::MACH_PORT_NULL, &mut master_port);
-
-        let matching_dictionary = ffi::IOServiceMatching(b"IOMedia\0".as_ptr() as *const i8);
-        let result = ffi::IOServiceGetMatchingServices(
-            master_port,
-            matching_dictionary,
-            &mut media_iterator,
-        );
-        if result != ffi::KERN_SUCCESS as i32 {
-            sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
-            return ret;
+pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
+    if session.is_null() {
+        return Vec::new();
+    }
+    let arr = unsafe { ffi::macos_get_disks() };
+    if arr.is_null() {
+        return Vec::new();
+    }
+    let mut disks = Vec::new();
+    for i in 0..unsafe { ffi::CFArrayGetCount(arr) } {
+        let url = unsafe { ffi::CFArrayGetValueAtIndex(arr, i) } as CFURLRef;
+        if url.is_null() {
+            continue;
         }
-
-        loop {
-            let next_media = ffi::IOIteratorNext(media_iterator);
-            if next_media == 0 {
-                break;
-            }
-            let mut props = MaybeUninit::<ffi::CFMutableDictionaryRef>::uninit();
-            let result = ffi::IORegistryEntryCreateCFProperties(
-                next_media,
-                props.as_mut_ptr(),
-                ffi::kCFAllocatorDefault,
-                0,
-            );
-            let props = props.assume_init();
-            if result == ffi::KERN_SUCCESS as i32 && check_value(props, b"Whole\0") {
-                let mut name: ffi::io_name_t = mem::zeroed();
-                if ffi::IORegistryEntryGetName(next_media, name.as_mut_ptr() as *mut c_char)
-                    == ffi::KERN_SUCCESS as i32
-                {
-                    ret.insert(
-                        make_name(&name),
-                        if check_value(props, b"RAID\0") {
-                            DiskType::Unknown(-1)
-                        } else {
+        if let Some(mount_point) = unsafe { to_path(url) } {
+            unsafe {
+                let disk = ffi::DADiskCreateFromVolumePath(ffi::kCFAllocatorDefault, session, url);
+                let dict = ffi::DADiskCopyDescription(disk);
+                if !dict.is_null() {
+                    // Keeping this around in case one might want the list of the available
+                    // keys in "dict".
+                    // ::core_foundation::base::CFShow(dict as _);
+                    let name = match get_str_value(dict, b"DAMediaName\0").map(OsString::from) {
+                        Some(n) => n,
+                        None => continue,
+                    };
+                    let removable = get_bool_value(dict, b"DAMediaRemovable\0").unwrap_or(false);
+                    let ejectable = get_bool_value(dict, b"DAMediaEjectable\0").unwrap_or(false);
+                    // This is very hackish but still better than nothing...
+                    let type_ = if let Some(model) = get_str_value(dict, b"DADeviceModel\0") {
+                        if model.contains("SSD") {
                             DiskType::SSD
-                        },
-                    );
-                }
-                ffi::CFRelease(props as *mut _);
-            }
-            ffi::IOObjectRelease(next_media);
-        }
-        ffi::IOObjectRelease(media_iterator);
-    }
-    ret
-}
-
-fn make_name(v: &[u8]) -> OsString {
-    for (pos, x) in v.iter().enumerate() {
-        if *x == 0 {
-            return OsStringExt::from_vec(v[0..pos].to_vec());
-        }
-    }
-    OsStringExt::from_vec(v.to_vec())
-}
-
-pub(crate) fn get_disks() -> Vec<Disk> {
-    match fs::read_dir("/Volumes") {
-        Ok(d) => d
-            .flat_map(|x| {
-                if let Ok(ref entry) = x {
-                    let mount_point = utils::realpath(&entry.path());
-                    if mount_point.as_os_str().is_empty() {
-                        None
+                        } else if removable || ejectable {
+                            DiskType::Removable
+                        } else {
+                            // We just assume by default that this is a HDD
+                            DiskType::HDD
+                        }
+                    } else if removable || ejectable {
+                        DiskType::Removable
                     } else {
-                        let name = entry.path().file_name()?.to_owned();
-                        let type_ = DISK_TYPES
-                            .get(&name)
-                            .cloned()
-                            .unwrap_or(DiskType::Unknown(-2));
-                        new_disk(name, &mount_point, type_)
+                        DiskType::Unknown(-1)
+                    };
+
+                    if let Some(disk) = new_disk(name, mount_point, type_) {
+                        disks.push(disk);
                     }
-                } else {
-                    None
+                    ffi::CFRelease(dict as *const c_void);
                 }
-            })
-            .collect(),
-        _ => Vec::new(),
+            }
+        }
     }
+    unsafe {
+        ffi::CFRelease(arr as *const c_void);
+    }
+    disks
 }
 
-unsafe fn check_value(dict: ffi::CFMutableDictionaryRef, key: &[u8]) -> bool {
+unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
+    dict: ffi::CFDictionaryRef,
+    key: &[u8],
+    callback: F,
+) -> Option<T> {
     let key = ffi::CFStringCreateWithCStringNoCopy(
         ptr::null_mut(),
         key.as_ptr() as *const c_char,
         ffi::kCFStringEncodingMacRoman,
         ffi::kCFAllocatorNull as *mut c_void,
     );
-    let ret = ffi::CFDictionaryContainsKey(dict as ffi::CFDictionaryRef, key as *const c_void) != 0
-        && *(ffi::CFDictionaryGetValue(dict as ffi::CFDictionaryRef, key as *const c_void)
-            as *const ffi::Boolean)
-            != 0;
+    let mut value = ::std::ptr::null();
+    let ret = if ffi::CFDictionaryGetValueIfPresent(dict, key as _, &mut value) != 0 {
+        callback(value)
+    } else {
+        None
+    };
     ffi::CFRelease(key as *const c_void);
     ret
 }
 
-fn new_disk(name: OsString, mount_point: &Path, type_: DiskType) -> Option<Disk> {
-    let mount_point_cpath = utils::to_cpath(mount_point);
+unsafe fn get_str_value(dict: ffi::CFDictionaryRef, key: &[u8]) -> Option<String> {
+    get_dict_value(dict, key, |v| {
+        let v = v as cfs::CFStringRef;
+        let len = cfs::CFStringGetLength(v);
+        utils::cstr_to_rust_with_size(
+            cfs::CFStringGetCStringPtr(v, cfs::kCFStringEncodingUTF8),
+            Some(len as _),
+        )
+    })
+}
+
+unsafe fn get_bool_value(dict: ffi::CFDictionaryRef, key: &[u8]) -> Option<bool> {
+    get_dict_value(dict, key, |v| {
+        Some(v as cfb::CFBooleanRef == cfb::kCFBooleanTrue)
+    })
+}
+
+fn new_disk(name: OsString, mount_point: PathBuf, type_: DiskType) -> Option<Disk> {
+    let mount_point_cpath = to_cpath(&mount_point);
     let mut total_space = 0;
     let mut available_space = 0;
     let mut file_system = None;
@@ -202,7 +204,7 @@ fn new_disk(name: OsString, mount_point: &Path, type_: DiskType) -> Option<Disk>
         type_,
         name,
         file_system: file_system.unwrap_or_else(|| b"<Unknown>".to_vec()),
-        mount_point: mount_point.to_owned(),
+        mount_point,
         total_space,
         available_space,
     })

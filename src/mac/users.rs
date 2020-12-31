@@ -7,20 +7,7 @@
 use crate::User;
 
 use libc::{c_char, endpwent, getgrgid, getgrouplist, getpwent, gid_t, setpwent, strlen};
-
-fn cstr_to_rust(c: *const c_char) -> Option<String> {
-    let mut s = Vec::new();
-    let mut i = 0;
-    loop {
-        let value = unsafe { *c.offset(i) } as u8;
-        if value == 0 {
-            break;
-        }
-        s.push(value);
-        i += 1;
-    }
-    String::from_utf8(s).ok()
-}
+use sys::utils;
 
 fn get_user_groups(name: *const c_char, group_id: gid_t) -> Vec<String> {
     let mut add = 0;
@@ -42,7 +29,7 @@ fn get_user_groups(name: *const c_char, group_id: gid_t) -> Vec<String> {
                 if group.is_null() {
                     return None;
                 }
-                cstr_to_rust(unsafe { (*group).gr_name })
+                utils::cstr_to_rust(unsafe { (*group).gr_name })
             })
             .collect();
     }
@@ -78,7 +65,7 @@ where
             continue;
         }
         let groups = get_user_groups(unsafe { (*pw).pw_name }, unsafe { (*pw).pw_gid });
-        if let Some(name) = cstr_to_rust(unsafe { (*pw).pw_name }) {
+        if let Some(name) = utils::cstr_to_rust(unsafe { (*pw).pw_name }) {
             users.push(User { name, groups });
         }
     }

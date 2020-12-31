@@ -5,49 +5,49 @@
 //
 
 #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
-use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
-#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 use std::ffi::OsStr;
-#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
-use std::fs;
 #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 use std::os::unix::ffi::OsStrExt;
 #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use Pid;
 
 #[allow(clippy::useless_conversion)]
-#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
-pub fn realpath(original: &Path) -> PathBuf {
+#[cfg(not(any(
+    target_os = "windows",
+    target_os = "unknown",
+    target_arch = "wasm32",
+    target_os = "macos",
+    target_os = "ios"
+)))]
+pub fn realpath(original: &Path) -> ::std::path::PathBuf {
+    use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
+    use std::fs;
     use std::mem::MaybeUninit;
+    use std::path::PathBuf;
 
     fn and(x: u32, y: u32) -> u32 {
         x & y
     }
 
-    if let Some(original_str) = original.to_str() {
-        let ori = Path::new(original_str);
-
-        // Right now lstat on windows doesn't work quite well
-        if cfg!(windows) {
-            return PathBuf::from(ori);
-        }
-        let result = PathBuf::from(original);
-        let mut result_s = result.to_str().unwrap_or("").as_bytes().to_vec();
-        result_s.push(0);
-        let mut buf = MaybeUninit::<stat>::uninit();
-        let res = unsafe { lstat(result_s.as_ptr() as *const c_char, buf.as_mut_ptr()) };
-        let buf = unsafe { buf.assume_init() };
-        if res < 0 || and(buf.st_mode.into(), S_IFMT.into()) != S_IFLNK.into() {
-            PathBuf::new()
-        } else {
-            match fs::read_link(&result) {
-                Ok(f) => f,
-                Err(_) => PathBuf::new(),
-            }
-        }
-    } else {
+    // let ori = Path::new(original.to_str().unwrap());
+    // Right now lstat on windows doesn't work quite well
+    // if cfg!(windows) {
+    //     return PathBuf::from(ori);
+    // }
+    let result = PathBuf::from(original);
+    let mut result_s = result.to_str().unwrap_or("").as_bytes().to_vec();
+    result_s.push(0);
+    let mut buf = MaybeUninit::<stat>::uninit();
+    let res = unsafe { lstat(result_s.as_ptr() as *const c_char, buf.as_mut_ptr()) };
+    let buf = unsafe { buf.assume_init() };
+    if res < 0 || and(buf.st_mode.into(), S_IFMT.into()) != S_IFLNK.into() {
         PathBuf::new()
+    } else {
+        match fs::read_link(&result) {
+            Ok(f) => f,
+            Err(_) => PathBuf::new(),
+        }
     }
 }
 
