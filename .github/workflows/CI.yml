@@ -101,7 +101,13 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           override: true
 
-      - name: Execute tests
+      - name: Execute tests (not mac)
         run: cargo test
+        if: matrix.os != 'macos-latest'
+        env:
+          RUST_BACKTRACE: full
+      - name: Execute tests (mac)
+        run: cargo test -- --test-threads 1
+        if: matrix.os == 'macos-latest'
         env:
           RUST_BACKTRACE: full
