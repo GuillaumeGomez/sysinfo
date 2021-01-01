@@ -876,7 +876,7 @@ fn _get_process_data(
 }
 
 fn copy_from_file(entry: &Path) -> Vec<String> {
-    match File::open(entry.to_str().unwrap_or("/")) {
+    match File::open(entry) {
         Ok(mut f) => {
             let mut data = vec![0; 16_384];
 

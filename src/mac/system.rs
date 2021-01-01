@@ -20,6 +20,8 @@ use std::sync::Arc;
 
 use libc::{self, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
+use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
+
 use rayon::prelude::*;
 
 // We need to wrap `DASessionRef` to be sure `System` remains Send+Sync.
@@ -60,7 +62,7 @@ impl Drop for System {
         }
         if !self.session.0.is_null() {
             unsafe {
-                ffi::CFRelease(self.session.0 as _);
+                CFRelease(self.session.0 as _);
             }
         }
     }
@@ -301,7 +303,7 @@ impl SystemExt for System {
 
     fn refresh_disks_list(&mut self) {
         if self.session.0.is_null() {
-            self.session.0 = unsafe { ffi::DASessionCreate(ffi::kCFAllocatorDefault) };
+            self.session.0 = unsafe { ffi::DASessionCreate(kCFAllocatorDefault as _) };
         }
         self.disks = crate::mac::disk::get_disks(self.session.0);
     }
