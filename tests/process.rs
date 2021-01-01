@@ -43,9 +43,9 @@ fn test_get_cmd_line() {
         .spawn()
         .unwrap();
     let mut s = sysinfo::System::new();
-    assert!(s.get_processes().len() == 0);
+    assert!(s.get_processes().is_empty());
     s.refresh_processes();
-    assert!(s.get_processes().len() > 0);
+    assert!(!s.get_processes().is_empty());
     if let Some(process) = s.get_process(p.id() as sysinfo::Pid) {
         assert_eq!(process.cmd(), &["timeout", "/t", "3"]);
     } else {
@@ -70,7 +70,9 @@ fn unix_like_cmd() {
     s.refresh_processes();
     assert!(!s.get_processes().is_empty());
     let process = s.get_process(p.id() as sysinfo::Pid).unwrap();
-    assert_eq!(process.cmd(), &["sleep", "3"]);
+    if process.cmd() != &["sleep", "3"] {
+        panic!("cmd not equivalent to`[sleep, 3]`: {:?}", process);
+    }
 }
 
 #[test]
