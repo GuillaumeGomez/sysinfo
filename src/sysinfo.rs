@@ -53,6 +53,7 @@
 extern crate cfg_if;
 #[cfg(not(any(target_os = "unknown", target_arch = "wasm32")))]
 extern crate libc;
+#[cfg(feature = "multithread")]
 extern crate rayon;
 
 #[macro_use]

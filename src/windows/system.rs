@@ -31,7 +31,6 @@ use windows::tools::*;
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemProcessInformation, SYSTEM_PROCESS_INFORMATION,
 };
-use rayon::prelude::*;
 use winapi::shared::minwindef::{FALSE, TRUE};
 use winapi::shared::ntdef::{PVOID, ULONG};
 use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
@@ -39,6 +38,8 @@ use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
 use winapi::um::sysinfoapi::{GetTickCount64, GetVersionExW, GlobalMemoryStatusEx, MEMORYSTATUSEX};
 use winapi::um::winnt::{HANDLE, OSVERSIONINFOW};
+
+use utils::into_iter;
 
 /// Struct containing the system's information.
 pub struct System {
@@ -239,10 +240,13 @@ impl SystemExt for System {
                 let nb_processors = self.processors.len() as u64;
                 let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
                 let system_time = get_system_computation_time();
+
+                #[cfg(feature = "multithread")]
+                use rayon::iter::ParallelIterator;
+
                 // TODO: instead of using parallel iterator only here, would be better to be able
                 //       to run it over `process_information` directly!
-                let processes = process_ids
-                    .into_par_iter()
+                let processes = into_iter(process_ids)
                     .filter_map(|pi| unsafe {
                         let pi = *pi.0;
                         let pid = pi.UniqueProcessId as usize;

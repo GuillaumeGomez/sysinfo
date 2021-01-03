@@ -26,9 +26,8 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
+use utils::into_iter;
 use utils::realpath;
-
-use rayon::prelude::*;
 
 // This whole thing is to prevent having too many files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
@@ -566,8 +565,11 @@ fn refresh_procs(
             .collect::<Vec<_>>();
         if pid == 0 {
             let proc_list = Wrap(UnsafeCell::new(proc_list));
-            folders
-                .par_iter()
+
+            #[cfg(feature = "multithread")]
+            use rayon::iter::ParallelIterator;
+
+            into_iter(folders)
                 .filter_map(|e| {
                     if let Ok((p, _)) = _get_process_data(
                         e.as_path(),

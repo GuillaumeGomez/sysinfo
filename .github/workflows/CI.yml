@@ -100,7 +100,6 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           override: true
-
       - name: Execute tests (not mac)
         run: cargo test
         if: matrix.os != 'macos-latest'
@@ -108,6 +107,16 @@ jobs:
           RUST_BACKTRACE: full
       - name: Execute tests (mac)
         run: cargo test -- --test-threads 1
+        if: matrix.os == 'macos-latest'
+        env:
+          RUST_BACKTRACE: full
+      - name: Execute tests (not mac, no features)
+        run: cargo test --no-default-features
+        if: matrix.os != 'macos-latest'
+        env:
+          RUST_BACKTRACE: full
+      - name: Execute tests (mac, no features)
+        run: cargo test --no-default-features -- --test-threads 1
         if: matrix.os == 'macos-latest'
         env:
           RUST_BACKTRACE: full

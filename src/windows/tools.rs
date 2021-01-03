@@ -13,8 +13,6 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
 
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-
 use winapi::ctypes::c_void;
 
 use winapi::shared::minwindef::{BYTE, DWORD, MAX_PATH, TRUE};
@@ -101,8 +99,11 @@ pub unsafe fn get_disks() -> Vec<Disk> {
     if drives == 0 {
         return Vec::new();
     }
-    (0..size_of::<DWORD>() * 8)
-        .into_par_iter()
+
+    #[cfg(feature = "multithread")]
+    use rayon::iter::ParallelIterator;
+
+    crate::utils::into_iter(0..size_of::<DWORD>() * 8)
         .filter_map(|x| {
             if (drives >> x) & 1 == 0 {
                 return None;
