@@ -61,10 +61,14 @@ fn test_get_cmd_line() {
 }
 
 fn unix_like_cmd() {
+    use std::{thread, time};
+
     let p = std::process::Command::new("sleep")
         .arg("3")
         .spawn()
         .unwrap();
+    // To ensure that the system data are filled correctly...
+    thread::sleep(time::Duration::from_millis(250));
     let mut s = sysinfo::System::new();
     assert!(s.get_processes().is_empty());
     s.refresh_processes();
