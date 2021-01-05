@@ -503,6 +503,14 @@ impl SystemExt for System {
     fn get_users(&self) -> &[User] {
         &self.users
     }
+
+    fn get_name(&self) -> Option<String> {
+        get_system_info("NAME=")
+    }
+
+    fn get_version(&self) -> Option<String> {
+        get_system_info("VERSION_ID=")
+    }
 }
 
 impl Default for System {
@@ -732,6 +740,19 @@ fn get_exe_name(p: &Process) -> String {
             }
         })
         .unwrap_or_else(String::new)
+}
+
+fn get_system_info(info: &str) -> Option<String> {
+    let buf = BufReader::new(File::open("/etc/os-release").ok()?);
+
+    for line in buf.lines() {
+        if let Ok(line) = line {
+            if let Some(stripped) = line.strip_prefix(info) {
+                return Some(stripped.replace("\"", ""));
+            }
+        }
+    }
+    None
 }
 
 fn _get_process_data(

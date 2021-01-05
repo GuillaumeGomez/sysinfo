@@ -934,6 +934,30 @@ pub trait SystemExt: Sized + Debug + Default {
     /// );
     /// ```
     fn get_load_average(&self) -> LoadAvg;
+
+    /// Returns the system name.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// println!("OS: {:?}", s.get_name());
+    /// ```
+    fn get_name(&self) -> Option<String>;
+
+    /// Returns the system version.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// println!("OS version: {:?}", s.get_version());
+    /// ```
+    fn get_version(&self) -> Option<String>;
 }
 
 /// Getting volume of received and transmitted data.

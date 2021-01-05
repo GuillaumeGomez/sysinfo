@@ -209,6 +209,19 @@ mod test {
         let s = ::System::new_all();
         assert!(s.get_users().len() >= MIN_USERS);
     }
+
+    #[test]
+    fn check_system_info() {
+        // We don't want to test on unknown systems.
+        if MIN_USERS > 0 {
+            let s = ::System::new();
+            assert!(!s.get_name().expect("Failed to get system name").is_empty());
+            assert!(!s
+                .get_version()
+                .expect("Failed to get system version")
+                .is_empty());
+        }
+    }
 }
 
 // Used to check that System is Send and Sync.
