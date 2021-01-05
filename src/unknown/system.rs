@@ -139,6 +139,14 @@ impl SystemExt for System {
     fn get_users(&self) -> &[User] {
         &[]
     }
+
+    fn get_name(&self) -> Option<String> {
+        None
+    }
+
+    fn get_version(&self) -> Option<String> {
+        None
+    }
 }
 
 impl Default for System {

@@ -410,6 +410,14 @@ impl SystemExt for System {
     fn get_boot_time(&self) -> u64 {
         self.boot_time
     }
+
+    fn get_name(&self) -> Option<String> {
+        get_system_info(libc::KERN_OSTYPE, Some("Darwin"))
+    }
+
+    fn get_version(&self) -> Option<String> {
+        get_system_info(libc::KERN_OSRELEASE, None)
+    }
 }
 
 impl Default for System {
@@ -491,4 +499,29 @@ pub(crate) unsafe fn get_sys_value(
         ::std::ptr::null_mut(),
         0,
     ) == 0
+}
+
+fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
+    let len = 256;
+    let mut mib: [c_int; 2] = [libc::CTL_KERN, value];
+    let mut buf: Vec<u8> = Vec::with_capacity(len);
+    let mut size = len;
+    if unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            2,
+            buf.as_mut_ptr() as _,
+            &mut size,
+            ::std::ptr::null_mut(),
+            0,
+        )
+    } == -1
+    {
+        default.map(|s| s.to_owned())
+    } else {
+        unsafe {
+            buf.set_len(size);
+        }
+        String::from_utf8(buf).ok()
+    }
 }

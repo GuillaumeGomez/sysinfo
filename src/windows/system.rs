@@ -11,7 +11,7 @@ use sys::users::get_users;
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::mem::{size_of, zeroed};
+use std::mem::{size_of, zeroed, MaybeUninit};
 use std::time::SystemTime;
 
 use LoadAvg;
@@ -32,13 +32,13 @@ use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemProcessInformation, SYSTEM_PROCESS_INFORMATION,
 };
 use rayon::prelude::*;
-use winapi::shared::minwindef::FALSE;
+use winapi::shared::minwindef::{FALSE, TRUE};
 use winapi::shared::ntdef::{PVOID, ULONG};
 use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
 use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
-use winapi::um::sysinfoapi::{GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSEX};
-use winapi::um::winnt::HANDLE;
+use winapi::um::sysinfoapi::{GetTickCount64, GetVersionExW, GlobalMemoryStatusEx, MEMORYSTATUSEX};
+use winapi::um::winnt::{HANDLE, OSVERSIONINFOW};
 
 /// Struct containing the system's information.
 pub struct System {
@@ -386,6 +386,14 @@ impl SystemExt for System {
     fn get_load_average(&self) -> LoadAvg {
         get_load_average()
     }
+
+    fn get_name(&self) -> Option<String> {
+        Some("Windows".to_owned())
+    }
+
+    fn get_version(&self) -> Option<String> {
+        get_system_version()
+    }
 }
 
 impl Default for System {
@@ -438,5 +446,18 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
         };
 
         String::from_utf16_lossy(slice)
+    }
+}
+
+fn get_system_version() -> Option<String> {
+    let mut info: OSVERSIONINFOW = unsafe { MaybeUninit::zeroed().assume_init() };
+    info.dwOSVersionInfoSize = size_of::<OSVERSIONINFOW>() as _;
+    if unsafe { GetVersionExW(&mut info) } == TRUE {
+        Some(format!(
+            "{}.{}.{}",
+            info.dwMajorVersion, info.dwMinorVersion, info.dwBuildNumber
+        ))
+    } else {
+        None
     }
 }

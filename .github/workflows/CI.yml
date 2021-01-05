@@ -57,7 +57,7 @@ jobs:
           - { os: 'ubuntu-latest', target: 'arm-unknown-linux-gnueabihf',  cross: true }
           - { os: 'ubuntu-latest', target: 'arm-unknown-linux-musleabihf', cross: true }
         toolchain:
-          - "1.42.0"  # minimum supported rust version
+          - "1.45.0"  # minimum supported rust version
           - stable
           - beta
           - nightly
@@ -88,7 +88,7 @@ jobs:
           - macos-latest
           - windows-latest
         toolchain:
-          - "1.42.0"  # minimum supported rust version
+          - "1.45.0"  # minimum supported rust version
           - stable
           - beta
           - nightly
