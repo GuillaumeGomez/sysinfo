@@ -92,8 +92,6 @@ for (pid, process) in sys.get_processes() {
 
 By default, `sysinfo` uses multiple threads. However, this can increase the memory usage on some platforms (macOS for example).  The behavior can be disabled by setting `default-features = false` in `Cargo.toml` (which disables the `multithread` cargo feature).
 
-Sysinfo supports parallel retrieval of system processes with the `multithread` cargo feature, which is enabled by default.
-
 ## C interface
 
 It's possible to use this crate directly from C. Take a look at the `Makefile` and at the `examples/src/simple.c` file.
