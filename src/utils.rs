@@ -101,3 +101,23 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
     }
     inner()
 }
+
+/// Converts the value into a parallel iterator (if the multithread feature is enabled)
+/// Uses the rayon::iter::IntoParallelIterator trait
+#[cfg(feature = "multithread")]
+pub fn into_iter<T>(val: T) -> T::Iter
+where
+    T: rayon::iter::IntoParallelIterator,
+{
+    val.into_par_iter()
+}
+
+/// Converts the value into a sequential iterator (if the multithread feature is disabled)
+/// Uses the std::iter::IntoIterator trait
+#[cfg(not(feature = "multithread"))]
+pub fn into_iter<T>(val: T) -> T::IntoIter
+where
+    T: IntoIterator,
+{
+    val.into_iter()
+}

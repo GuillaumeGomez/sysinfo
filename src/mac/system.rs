@@ -22,7 +22,7 @@ use libc::{self, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
 use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
 
-use rayon::prelude::*;
+use utils::into_iter;
 
 // We need to wrap `DASessionRef` to be sure `System` remains Send+Sync.
 struct SessionWrap(ffi::DASessionRef);
@@ -272,8 +272,12 @@ impl SystemExt for System {
             let arg_max = get_arg_max();
             let entries: Vec<Process> = {
                 let wrap = &Wrap(UnsafeCell::new(&mut self.process_list));
-                pids.par_iter()
-                    .flat_map(|pid| match update_process(wrap, *pid, arg_max as size_t) {
+
+                #[cfg(feature = "multithread")]
+                use rayon::iter::ParallelIterator;
+
+                into_iter(pids)
+                    .flat_map(|pid| match update_process(wrap, pid, arg_max as size_t) {
                         Ok(x) => x,
                         Err(_) => None,
                     })
