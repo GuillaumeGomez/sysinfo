@@ -507,6 +507,17 @@ impl SystemExt for System {
         get_system_info("NAME=")
     }
 
+    fn get_host_name(&self) -> Option<String> {
+        let hostname_max = unsafe { sysconf(_SC_HOST_NAME_MAX) } as usize;
+        let mut buffer = Vec::with_capacity(hostname_max + 1);
+        if unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut c_char, buffer.len()) }
+        == 0 {
+            String::from_utf8(buffer).ok()
+        } else {
+            None
+        }
+    }
+
     fn get_version(&self) -> Option<String> {
         get_system_info("VERSION_ID=")
     }
