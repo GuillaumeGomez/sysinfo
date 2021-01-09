@@ -959,7 +959,14 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_version(&self) -> Option<String>;
 
-    /// Testing
+    /// Returns the system hostname based off DNS 
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// println!("Hostname: {:?}", s.get_host_name());
+    /// ```
     fn get_host_name(&self) -> Option<String>;
 }
 
