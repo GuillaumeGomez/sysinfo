@@ -97,9 +97,6 @@ cfg_if! {
     } else if #[cfg(any(target_os = "linux", target_os = "android"))] {
         mod linux;
         use linux as sys;
-        // Can remove once `slice_internals` is stabilized
-        // https://doc.rust-lang.org/core/slice/memchr/fn.memchr.html
-        extern crate memchr;
 
         #[cfg(test)]
         const MIN_USERS: usize = 1;

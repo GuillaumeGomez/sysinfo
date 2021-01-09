@@ -511,10 +511,10 @@ impl SystemExt for System {
         let hostname_max = unsafe { sysconf(_SC_HOST_NAME_MAX) };
         let mut buffer = vec![0_u8; hostname_max as usize];
         if unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut c_char, buffer.len()) } == 0 {
-            //shrink buffer to terminate the null bytes
-            let null_position = memchr::memchr(0, &buffer)?;
-            buffer.resize(null_position, 0);
-
+            if let Some(pos) = buffer.iter().position(|x| *x == 0) {
+                // Shrink buffer to terminate the null bytes
+                buffer.resize(pos, 0);
+            }
             String::from_utf8(buffer).ok()
         } else {
             sysinfo_debug!("gethostname failed: hostname cannot be retrieved...");
