@@ -132,6 +132,10 @@ fn print_help() {
         "frequency          : Displays processor frequency"
     );
     writeln!(&mut io::stdout(), "users              : Displays all users");
+    writeln!(
+        &mut io::stdout(),
+        "system             : Displays system information (such as name, version and hostname)"
+    );
     writeln!(&mut io::stdout(), "quit               : exit the program");
 }
 
@@ -373,6 +377,24 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                     x
                 );
             }
+        }
+        "system" => {
+            writeln!(
+                &mut io::stdout(),
+                "System name:      {}",
+                sys.get_name().unwrap_or_else(|| "<unknown>".to_owned())
+            );
+            writeln!(
+                &mut io::stdout(),
+                "System version:   {}",
+                sys.get_version().unwrap_or_else(|| "<unknown>".to_owned())
+            );
+            writeln!(
+                &mut io::stdout(),
+                "System host name: {}",
+                sys.get_host_name()
+                    .unwrap_or_else(|| "<unknown>".to_owned())
+            );
         }
         e => {
             writeln!(
