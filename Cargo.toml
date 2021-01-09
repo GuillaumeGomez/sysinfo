@@ -41,7 +41,3 @@ default = ["multithread"]
 c-interface = []
 multithread = ["rayon"]
 debug = ["libc/extra_traits"]
-
-[badges]
-travis-ci = { repository = "GuillaumeGomez/sysinfo" }
-appveyor = { repository = "GuillaumeGomez/sysinfo", service = "github" }
