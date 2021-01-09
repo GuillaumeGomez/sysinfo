@@ -509,7 +509,7 @@ impl SystemExt for System {
 
     fn get_host_name(&self) -> Option<String> {
         let hostname_max = unsafe { sysconf(_SC_HOST_NAME_MAX) };
-        let mut buffer = vec![0 as u8; (hostname_max as usize) + 1];
+        let mut buffer = vec![0_u8; (hostname_max as usize) + 1];
         if unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut c_char, buffer.len()) } == 0 {
             String::from_utf8(buffer).ok()
         } else {
