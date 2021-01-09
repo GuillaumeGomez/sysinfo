@@ -961,6 +961,8 @@ pub trait SystemExt: Sized + Debug + Default {
 
     /// Returns the system hostname based off DNS
     ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
