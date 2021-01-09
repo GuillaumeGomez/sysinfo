@@ -16,7 +16,7 @@ use Pid;
 use User;
 use {ProcessExt, RefreshKind, SystemExt};
 
-use libc::{self, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
+use libc::{self, gid_t, sysconf, c_char, uid_t, _SC_CLK_TCK, _SC_PAGESIZE, _SC_HOST_NAME_MAX};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -508,12 +508,12 @@ impl SystemExt for System {
     }
 
     fn get_host_name(&self) -> Option<String> {
-        let hostname_max = unsafe { sysconf(_SC_HOST_NAME_MAX) } as usize;
-        let mut buffer = Vec::with_capacity(hostname_max + 1);
-        if unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut c_char, buffer.len()) }
-        == 0 {
+        let hostname_max = unsafe { sysconf(_SC_HOST_NAME_MAX) };
+        let mut buffer = vec![0 as u8; (hostname_max as usize) + 1];
+        if unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut c_char, buffer.len()) } == 0 {
             String::from_utf8(buffer).ok()
         } else {
+            sysinfo_debug!("gethostname failed: hostname cannot be retrieved...");
             None
         }
     }
