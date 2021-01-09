@@ -39,6 +39,11 @@
 //! println!("used memory : {} KB", system.get_used_memory());
 //! println!("total swap  : {} KB", system.get_total_swap());
 //! println!("used swap   : {} KB", system.get_used_swap());
+//!
+//! // Display system information:
+//! println!("System name:      {:?}", system.get_name());
+//! println!("System version:   {:?}", system.get_version());
+//! println!("System host name: {:?}", system.get_host_name());
 //! ```
 
 #![crate_name = "sysinfo"]
