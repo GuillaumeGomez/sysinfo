@@ -37,7 +37,10 @@ use winapi::shared::ntdef::{PVOID, ULONG};
 use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
 use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
-use winapi::um::sysinfoapi::{ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetTickCount64, GetVersionExW, GlobalMemoryStatusEx, MEMORYSTATUSEX};
+use winapi::um::sysinfoapi::{
+    ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetTickCount64, GetVersionExW,
+    GlobalMemoryStatusEx, MEMORYSTATUSEX,
+};
 use winapi::um::winnt::{HANDLE, OSVERSIONINFOW};
 
 use utils::into_iter;
@@ -473,16 +476,29 @@ fn get_system_version() -> Option<String> {
 
 fn get_dns_hostname() -> Option<String> {
     let mut buffer_size = 0;
-    // Running this first to get the buffer size since the DNS name can be longer than MAX_COMPUTERNAME_LENGTH 
+    // Running this first to get the buffer size since the DNS name can be longer than MAX_COMPUTERNAME_LENGTH
     // setting the `lpBuffer` to null will return the buffer size
     // https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getcomputernameexw
-    unsafe{GetComputerNameExW(ComputerNamePhysicalDnsHostname, std::ptr::null_mut(), &mut buffer_size)};
+    unsafe {
+        GetComputerNameExW(
+            ComputerNamePhysicalDnsHostname,
+            std::ptr::null_mut(),
+            &mut buffer_size,
+        )
+    };
 
     // Setting the buffer with the new length
     let mut buffer = vec![0 as wchar_t; buffer_size as usize];
 
     // https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/ne-sysinfoapi-computer_name_format
-    if unsafe {GetComputerNameExW(ComputerNamePhysicalDnsHostname, buffer.as_mut_ptr() as *mut wchar_t, &mut buffer_size)} == TRUE {
+    if unsafe {
+        GetComputerNameExW(
+            ComputerNamePhysicalDnsHostname,
+            buffer.as_mut_ptr() as *mut wchar_t,
+            &mut buffer_size,
+        )
+    } == TRUE
+    {
         String::from_utf16(&buffer).ok()
     } else {
         sysinfo_debug!("Failed to get computer hostname");

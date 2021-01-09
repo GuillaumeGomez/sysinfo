@@ -16,7 +16,7 @@ use Pid;
 use User;
 use {ProcessExt, RefreshKind, SystemExt};
 
-use libc::{self, gid_t, sysconf, c_char, uid_t, _SC_CLK_TCK, _SC_PAGESIZE, _SC_HOST_NAME_MAX};
+use libc::{self, c_char, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::fs::{self, File};
