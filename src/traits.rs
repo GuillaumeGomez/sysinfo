@@ -958,6 +958,18 @@ pub trait SystemExt: Sized + Debug + Default {
     /// println!("OS version: {:?}", s.get_version());
     /// ```
     fn get_version(&self) -> Option<String>;
+
+    /// Returns the system hostname based off DNS
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// println!("Hostname: {:?}", s.get_host_name());
+    /// ```
+    fn get_host_name(&self) -> Option<String>;
 }
 
 /// Getting volume of received and transmitted data.

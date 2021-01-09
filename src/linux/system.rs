@@ -16,7 +16,7 @@ use Pid;
 use User;
 use {ProcessExt, RefreshKind, SystemExt};
 
-use libc::{self, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_PAGESIZE};
+use libc::{self, c_char, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -505,6 +505,21 @@ impl SystemExt for System {
 
     fn get_name(&self) -> Option<String> {
         get_system_info("NAME=")
+    }
+
+    fn get_host_name(&self) -> Option<String> {
+        let hostname_max = unsafe { sysconf(_SC_HOST_NAME_MAX) };
+        let mut buffer = vec![0_u8; hostname_max as usize];
+        if unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut c_char, buffer.len()) } == 0 {
+            //shrink buffer to terminate the null bytes
+            let null_position = memchr::memchr(0, &buffer)?;
+            buffer.resize(null_position, 0);
+
+            String::from_utf8(buffer).ok()
+        } else {
+            sysinfo_debug!("gethostname failed: hostname cannot be retrieved...");
+            None
+        }
     }
 
     fn get_version(&self) -> Option<String> {

@@ -31,6 +31,9 @@ core-foundation-sys = "0.8"
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.build-dependencies]
 cc = "1.0"
 
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
+memchr = "2.3"
+
 [lib]
 name = "sysinfo"
 crate_type = ["rlib", "cdylib"]

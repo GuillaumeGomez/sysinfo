@@ -419,6 +419,10 @@ impl SystemExt for System {
         get_system_info(libc::KERN_OSTYPE, Some("Darwin"))
     }
 
+    fn get_host_name(&self) -> Option<String> {
+        get_system_info(libc::KERN_HOSTNAME, None)
+    }
+
     fn get_version(&self) -> Option<String> {
         get_system_info(libc::KERN_OSRELEASE, None)
     }
