@@ -488,7 +488,7 @@ fn get_dns_hostname() -> Option<String> {
     };
 
     // Setting the buffer with the new length
-    let mut buffer = vec![0 as wchar_t; buffer_size as usize];
+    let mut buffer = vec![0_u16; buffer_size as usize];
 
     // https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/ne-sysinfoapi-computer_name_format
     if unsafe {
