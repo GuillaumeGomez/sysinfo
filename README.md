@@ -21,6 +21,8 @@ Supports the following platforms:
 
 It also compiles for Android but never been tested on it.
 
+The minimum-supported version fo `rustc` is 1.45 (because of `strip_prefix`).
+
 ### Running on Raspberry Pi
 
 It'll be difficult to build on Raspberry Pi. A good way-around is to cross-build, then send the executable to your Raspberry Pi.
