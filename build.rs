@@ -1,14 +1,23 @@
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(target_os = "macos")]
 extern crate cc;
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(target_os = "macos")]
 fn main() {
-    cc::Build::new().file("src/mac/disk.m").compile("disk");
-    println!("cargo:rustc-link-lib=framework=IOKit");
-    println!("cargo:rustc-link-lib=framework=CoreFoundation");
+    let is_ios = std::env::var("CARGO_CFG_TARGET_OS")
+        .map(|s| s == "ios")
+        .unwrap_or(false);
+
+    if !is_ios {
+        cc::Build::new().file("src/mac/disk/disk.m").compile("disk");
+        // DiskArbitration is not available on iOS: https://developer.apple.com/documentation/diskarbitration
+        println!("cargo:rustc-link-lib=framework=DiskArbitration");
+        // IOKit is not available on iOS: https://developer.apple.com/documentation/iokit
+        println!("cargo:rustc-link-lib=framework=IOKit");
+    }
+
     println!("cargo:rustc-link-lib=framework=Foundation");
-    println!("cargo:rustc-link-lib=framework=DiskArbitration");
+    println!("cargo:rustc-link-lib=framework=CoreFoundation");
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+#[cfg(not(target_os = "macos"))]
 fn main() {}

@@ -20,10 +20,9 @@ use std::sync::Arc;
 
 use libc::{self, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
-use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
+use core_foundation_sys::base::CFRelease;
 
 use utils::into_iter;
-
 // We need to wrap `DASessionRef` to be sure `System` remains Send+Sync.
 struct SessionWrap(ffi::DASessionRef);
 
@@ -60,6 +59,7 @@ impl Drop for System {
                 ffi::IOServiceClose(conn);
             }
         }
+
         if !self.session.0.is_null() {
             unsafe {
                 CFRelease(self.session.0 as _);
@@ -305,7 +305,13 @@ impl SystemExt for System {
         }
     }
 
+    #[cfg(target_os = "ios")]
+    fn refresh_disks_list(&mut self) {}
+
+    #[cfg(target_os = "macos")]
     fn refresh_disks_list(&mut self) {
+        use core_foundation_sys::base::kCFAllocatorDefault;
+
         if self.session.0.is_null() {
             self.session.0 = unsafe { ffi::DASessionCreate(kCFAllocatorDefault as _) };
         }

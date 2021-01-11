@@ -4,11 +4,16 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use core_foundation_sys::array::__CFArray;
-use core_foundation_sys::base::CFAllocatorRef;
-use core_foundation_sys::dictionary::CFMutableDictionaryRef;
-use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
-use core_foundation_sys::url::CFURLRef;
+cfg_if! {
+    if #[cfg(target_os = "macos")] {
+        use core_foundation_sys::array::__CFArray;
+        use core_foundation_sys::base::CFAllocatorRef;
+        use core_foundation_sys::dictionary::CFMutableDictionaryRef;
+        use core_foundation_sys::url::CFURLRef;
+        use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
+    } else {}
+}
+
 use libc::{c_char, c_int, c_uchar, c_uint, c_ushort, c_void, size_t};
 
 extern "C" {
@@ -53,6 +58,7 @@ extern "C" {
     //     options: IOOptionBits,
     // ) -> kern_return_t;
     // pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: *mut c_char) -> kern_return_t;
+    #[cfg(target_os = "macos")]
     pub fn CFStringCreateWithCStringNoCopy(
         alloc: *mut c_void,
         cStr: *const c_char,
@@ -84,14 +90,22 @@ extern "C" {
     // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
 
+    // Disk information functions are non-operational on iOS because of the sandboxing
+    // restrictions of apps, so they don't can't filesystem information. This results in
+    // mountedVolumeURLs and similar returning `nil`.
+
+    #[cfg(target_os = "macos")]
     pub fn DASessionCreate(allocator: CFAllocatorRef) -> DASessionRef;
+    #[cfg(target_os = "macos")]
     pub fn DADiskCreateFromVolumePath(
         allocator: CFAllocatorRef,
         session: DASessionRef,
         path: CFURLRef,
     ) -> DADiskRef;
     // pub fn DADiskGetBSDName(disk: DADiskRef) -> *const c_char;
+    #[cfg(target_os = "macos")]
     pub fn DADiskCopyDescription(disk: DADiskRef) -> CFMutableDictionaryRef;
+    #[cfg(target_os = "macos")]
     pub fn macos_get_disks() -> CFArrayRef;
 }
 
@@ -192,9 +206,14 @@ pub struct __DASession(c_void);
 // pub type io_name_t = [u8; 128];
 // #[allow(non_camel_case_types)]
 // pub type io_registry_entry_t = io_object_t;
-pub type DADiskRef = *const __DADisk;
 pub type DASessionRef = *const __DASession;
-pub type CFArrayRef = *const __CFArray;
+
+cfg_if! {
+    if #[cfg(target_os = "macos")] {
+        pub type DADiskRef = *const __DADisk;
+        pub type CFArrayRef = *const __CFArray;
+    } else {}
+}
 
 //#[allow(non_camel_case_types)]
 //pub type policy_t = i32;
