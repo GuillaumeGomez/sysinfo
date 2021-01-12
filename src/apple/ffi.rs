@@ -144,7 +144,6 @@ pub struct __DASession(c_void);
 // pub type io_name_t = [u8; 128];
 // #[allow(non_camel_case_types)]
 // pub type io_registry_entry_t = io_object_t;
-pub type DASessionRef = *const __DASession;
 
 //#[allow(non_camel_case_types)]
 //pub type policy_t = i32;
@@ -164,11 +163,7 @@ pub type DASessionRef = *const __DASession;
 pub type natural_t = u32;
 #[allow(non_camel_case_types)]
 pub type mach_port_t = u32;
-#[allow(non_camel_case_types)]
-pub type io_object_t = mach_port_t;
 
-#[allow(non_camel_case_types)]
-pub type io_connect_t = io_object_t;
 #[allow(non_camel_case_types)]
 pub type boolean_t = c_uint;
 #[allow(non_camel_case_types)]

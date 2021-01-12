@@ -6,10 +6,18 @@
 
 use sys::component::Component;
 use sys::disk::Disk;
-use sys::ffi;
 use sys::network::Networks;
 use sys::process::*;
 use sys::processor::*;
+
+cfg_if! {
+    if #[cfg(target_os = "macos")] {
+        use super::macos::ffi;
+        use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
+    } else {
+        use sys::ffi;
+    }
+}
 
 use {LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt, User};
 
@@ -20,14 +28,7 @@ use std::sync::Arc;
 
 use libc::{self, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
-use core_foundation_sys::base::CFRelease;
-
 use utils::into_iter;
-// We need to wrap `DASessionRef` to be sure `System` remains Send+Sync.
-struct SessionWrap(ffi::DASessionRef);
-
-unsafe impl Send for SessionWrap {}
-unsafe impl Sync for SessionWrap {}
 
 /// Structs containing system's information.
 pub struct System {
@@ -42,6 +43,7 @@ pub struct System {
     page_size_kb: u64,
     components: Vec<Component>,
     // Used to get CPU information, not supported on iOS.
+    #[cfg(target_os = "macos")]
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
     networks: Networks,
@@ -49,22 +51,21 @@ pub struct System {
     users: Vec<User>,
     boot_time: u64,
     // Used to get disk information, to be more specific, it's needed by the
-    // DADiskCreateFromVolumePath function.
-    session: SessionWrap,
+    // DADiskCreateFromVolumePath function. Not supported on iOS.
+    #[cfg(target_os = "macos")]
+    session: ffi::SessionWrap,
 }
 
 impl Drop for System {
     fn drop(&mut self) {
-        if let Some(_conn) = self.connection {
-            #[cfg(target_os = "macos")]
-            {
-                use super::macos::ffi;
-                unsafe {
-                    ffi::IOServiceClose(_conn);
-                }
+        #[cfg(target_os = "macos")]
+        if let Some(conn) = self.connection {
+            unsafe {
+                ffi::IOServiceClose(conn);
             }
         }
 
+        #[cfg(target_os = "macos")]
         if !self.session.0.is_null() {
             unsafe {
                 CFRelease(self.session.0 as _);
@@ -133,13 +134,15 @@ impl SystemExt for System {
             processors,
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1_000 },
             components: Vec::with_capacity(2),
+            #[cfg(target_os = "macos")]
             connection: get_io_service_connection(),
             disks: Vec::with_capacity(1),
             networks: Networks::new(),
             port,
             users: Vec::new(),
             boot_time: boot_time(),
-            session: SessionWrap(::std::ptr::null_mut()),
+            #[cfg(target_os = "macos")]
+            session: ffi::SessionWrap(::std::ptr::null_mut()),
         };
         s.refresh_specifics(refreshes);
         s
@@ -319,10 +322,6 @@ impl SystemExt for System {
 
     #[cfg(target_os = "macos")]
     fn refresh_disks_list(&mut self) {
-        use super::macos::ffi;
-
-        use core_foundation_sys::base::kCFAllocatorDefault;
-
         if self.session.0.is_null() {
             self.session.0 = unsafe { ffi::DASessionCreate(kCFAllocatorDefault as _) };
         }
@@ -451,17 +450,10 @@ impl Default for System {
     }
 }
 
-// Not supported on iOS.
-#[cfg(target_os = "ios")]
-fn get_io_service_connection() -> Option<ffi::io_connect_t> {
-    None
-}
-
 // code from https://github.com/Chris911/iStats
+// Not supported on iOS
 #[cfg(target_os = "macos")]
 fn get_io_service_connection() -> Option<ffi::io_connect_t> {
-    use super::macos::ffi;
-
     let mut master_port: ffi::mach_port_t = 0;
     let mut iterator: ffi::io_iterator_t = 0;
 

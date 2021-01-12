@@ -11,7 +11,7 @@ use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
 use core_foundation_sys::url::CFURLRef;
 use libc::{c_char, size_t};
 
-pub(crate) use super::super::ffi::*;
+pub(crate) use crate::sys::ffi::*;
 
 extern "C" {
     // IOKit is only available on MacOS: https://developer.apple.com/documentation/iokit
@@ -79,7 +79,19 @@ pub type DADiskRef = *const __DADisk;
 pub type CFArrayRef = *const __CFArray;
 
 #[allow(non_camel_case_types)]
+pub type io_object_t = mach_port_t;
+#[allow(non_camel_case_types)]
+pub type io_connect_t = io_object_t;
+#[allow(non_camel_case_types)]
 pub type io_iterator_t = io_object_t;
+
+pub type DASessionRef = *const __DASession;
+
+// We need to wrap `DASessionRef` to be sure `System` remains Send+Sync.
+pub struct SessionWrap(pub DASessionRef);
+
+unsafe impl Send for SessionWrap {}
+unsafe impl Sync for SessionWrap {}
 
 #[cfg(target_os = "macos")]
 #[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
