@@ -8,7 +8,9 @@ fn main() {
         .unwrap_or(false);
 
     if !is_ios {
-        cc::Build::new().file("src/mac/disk/disk.m").compile("disk");
+        cc::Build::new()
+            .file("src/apple/macos/disk.m")
+            .compile("disk");
         // DiskArbitration is not available on iOS: https://developer.apple.com/documentation/diskarbitration
         println!("cargo:rustc-link-lib=framework=DiskArbitration");
         // IOKit is not available on iOS: https://developer.apple.com/documentation/iokit

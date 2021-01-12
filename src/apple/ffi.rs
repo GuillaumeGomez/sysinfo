@@ -4,18 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-cfg_if! {
-    if #[cfg(target_os = "macos")] {
-        use core_foundation_sys::array::__CFArray;
-        use core_foundation_sys::base::CFAllocatorRef;
-        use core_foundation_sys::dictionary::CFMutableDictionaryRef;
-        use core_foundation_sys::url::CFURLRef;
-        use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
-        use libc::{c_char, size_t};
-    } else {}
-}
-
-use libc::{c_int, c_uchar, c_uint, c_ushort, c_void};
+pub(crate) use libc::{c_int, c_uchar, c_uint, c_ushort, c_void};
 
 extern "C" {
     pub fn proc_pidinfo(
@@ -32,51 +21,6 @@ extern "C" {
     //                           buffersize: u32) -> c_int;
     pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
     pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
-
-    // IOKit is only available on MacOS: https://developer.apple.com/documentation/iokit
-
-    #[cfg(target_os = "macos")]
-    pub fn IOMasterPort(a: i32, b: *mut mach_port_t) -> i32;
-    #[cfg(target_os = "macos")]
-    pub fn IOServiceMatching(a: *const c_char) -> *mut c_void;
-    #[cfg(target_os = "macos")]
-    pub fn IOServiceGetMatchingServices(
-        a: mach_port_t,
-        b: *mut c_void,
-        c: *mut io_iterator_t,
-    ) -> i32;
-    #[cfg(target_os = "macos")]
-    pub fn IOIteratorNext(iterator: io_iterator_t) -> io_object_t;
-    #[cfg(target_os = "macos")]
-    pub fn IOObjectRelease(obj: io_object_t) -> i32;
-    #[cfg(target_os = "macos")]
-    pub fn IOServiceOpen(device: io_object_t, a: u32, t: u32, x: *mut io_connect_t) -> i32;
-    #[cfg(target_os = "macos")]
-    pub fn IOServiceClose(a: io_connect_t) -> i32;
-    #[cfg(target_os = "macos")]
-    pub fn IOConnectCallStructMethod(
-        connection: mach_port_t,
-        selector: u32,
-        inputStruct: *const KeyData_t,
-        inputStructCnt: size_t,
-        outputStruct: *mut KeyData_t,
-        outputStructCnt: *mut size_t,
-    ) -> i32;
-    // pub fn IORegistryEntryCreateCFProperties(
-    //     entry: io_registry_entry_t,
-    //     properties: *mut CFMutableDictionaryRef,
-    //     allocator: CFAllocatorRef,
-    //     options: IOOptionBits,
-    // ) -> kern_return_t;
-    // pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: *mut c_char) -> kern_return_t;
-
-    #[cfg(target_os = "macos")]
-    pub fn CFStringCreateWithCStringNoCopy(
-        alloc: *mut c_void,
-        cStr: *const c_char,
-        encoding: CFStringEncoding,
-        contentsDeallocator: *mut c_void,
-    ) -> CFStringRef;
 
     pub fn mach_absolute_time() -> u64;
     //pub fn task_for_pid(host: u32, pid: pid_t, task: *mut task_t) -> u32;
@@ -101,24 +45,6 @@ extern "C" {
     // pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
     // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
-
-    // Disk information functions are non-operational on iOS because of the sandboxing
-    // restrictions of apps, so they don't can't filesystem information. This results in
-    // mountedVolumeURLs and similar returning `nil`.
-
-    #[cfg(target_os = "macos")]
-    pub fn DASessionCreate(allocator: CFAllocatorRef) -> DASessionRef;
-    #[cfg(target_os = "macos")]
-    pub fn DADiskCreateFromVolumePath(
-        allocator: CFAllocatorRef,
-        session: DASessionRef,
-        path: CFURLRef,
-    ) -> DADiskRef;
-    // pub fn DADiskGetBSDName(disk: DADiskRef) -> *const c_char;
-    #[cfg(target_os = "macos")]
-    pub fn DADiskCopyDescription(disk: DADiskRef) -> CFMutableDictionaryRef;
-    #[cfg(target_os = "macos")]
-    pub fn macos_get_disks() -> CFArrayRef;
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
@@ -220,13 +146,6 @@ pub struct __DASession(c_void);
 // pub type io_registry_entry_t = io_object_t;
 pub type DASessionRef = *const __DASession;
 
-cfg_if! {
-    if #[cfg(target_os = "macos")] {
-        pub type DADiskRef = *const __DADisk;
-        pub type CFArrayRef = *const __CFArray;
-    } else {}
-}
-
 //#[allow(non_camel_case_types)]
 //pub type policy_t = i32;
 #[allow(non_camel_case_types)]
@@ -248,9 +167,6 @@ pub type mach_port_t = u32;
 #[allow(non_camel_case_types)]
 pub type io_object_t = mach_port_t;
 
-#[cfg(target_os = "macos")]
-#[allow(non_camel_case_types)]
-pub type io_iterator_t = io_object_t;
 #[allow(non_camel_case_types)]
 pub type io_connect_t = io_object_t;
 #[allow(non_camel_case_types)]
@@ -314,52 +230,6 @@ pub struct Val_t {
     pub bytes: [i8; 32],    // SMCBytes_t
 }
 
-#[cfg(target_os = "macos")]
-#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
-#[repr(C)]
-pub struct KeyData_vers_t {
-    pub major: u8,
-    pub minor: u8,
-    pub build: u8,
-    pub reserved: [u8; 1],
-    pub release: u16,
-}
-
-#[cfg(target_os = "macos")]
-#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
-#[repr(C)]
-pub struct KeyData_pLimitData_t {
-    pub version: u16,
-    pub length: u16,
-    pub cpu_plimit: u32,
-    pub gpu_plimit: u32,
-    pub mem_plimit: u32,
-}
-
-#[cfg(target_os = "macos")]
-#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
-#[repr(C)]
-pub struct KeyData_keyInfo_t {
-    pub data_size: u32,
-    pub data_type: u32,
-    pub data_attributes: u8,
-}
-
-#[cfg(target_os = "macos")]
-#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
-#[repr(C)]
-pub struct KeyData_t {
-    pub key: u32,
-    pub vers: KeyData_vers_t,
-    pub p_limit_data: KeyData_pLimitData_t,
-    pub key_info: KeyData_keyInfo_t,
-    pub result: u8,
-    pub status: u8,
-    pub data8: u8,
-    pub data32: u32,
-    pub bytes: [i8; 32], // SMCBytes_t
-}
-
 #[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct xsw_usage {
@@ -420,16 +290,5 @@ pub const PROC_PIDTBSDINFO: c_int = 3;
 //pub const TASK_BASIC_INFO_64_COUNT: u32 = 10;
 pub const HOST_VM_INFO64: u32 = 4;
 pub const HOST_VM_INFO64_COUNT: u32 = 38;
-
-cfg_if! {
-    if #[cfg(target_os = "macos")] {
-        pub const MACH_PORT_NULL: i32 = 0;
-        pub const KERNEL_INDEX_SMC: i32 = 2;
-        pub const SMC_CMD_READ_KEYINFO: u8 = 9;
-        pub const SMC_CMD_READ_BYTES: u8 = 5;
-
-        pub const KIO_RETURN_SUCCESS: i32 = 0;
-    } else {}
-}
 
 pub const PROC_PIDPATHINFO_MAXSIZE: u32 = 4096;

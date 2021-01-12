@@ -13,21 +13,14 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use utils::to_cpath;
 
-cfg_if! {
-    if #[cfg(target_os = "macos")] {
-        mod macos;
-        pub(crate) use self::macos::get_disks;
-    } else {}
-}
-
 /// Struct containing a disk information.
 pub struct Disk {
-    type_: DiskType,
-    name: OsString,
-    file_system: Vec<u8>,
-    mount_point: PathBuf,
-    total_space: u64,
-    available_space: u64,
+    pub(crate) type_: DiskType,
+    pub(crate) name: OsString,
+    pub(crate) file_system: Vec<u8>,
+    pub(crate) mount_point: PathBuf,
+    pub(crate) total_space: u64,
+    pub(crate) available_space: u64,
 }
 
 impl DiskExt for Disk {

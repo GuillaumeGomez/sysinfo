@@ -9,6 +9,7 @@ use utils::to_cpath;
 use Disk;
 use DiskType;
 
+use super::ffi;
 use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex};
 use core_foundation_sys::base::{kCFAllocatorDefault, kCFAllocatorNull, CFRelease};
 use core_foundation_sys::dictionary::{CFDictionaryGetValueIfPresent, CFDictionaryRef};
@@ -21,7 +22,6 @@ use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 use std::ptr;
-use sys::ffi;
 
 unsafe fn to_path(url: CFURLRef) -> Option<PathBuf> {
     let mut buf = [0u8; PATH_MAX as usize];

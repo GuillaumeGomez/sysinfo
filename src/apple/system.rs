@@ -57,8 +57,11 @@ impl Drop for System {
     fn drop(&mut self) {
         if let Some(_conn) = self.connection {
             #[cfg(target_os = "macos")]
-            unsafe {
-                ffi::IOServiceClose(_conn);
+            {
+                use super::macos::ffi;
+                unsafe {
+                    ffi::IOServiceClose(_conn);
+                }
             }
         }
 
@@ -207,12 +210,12 @@ impl SystemExt for System {
         if let Some(con) = self.connection {
             self.components.clear();
             // getting CPU critical temperature
-            let critical_temp = crate::mac::component::get_temperature(
+            let critical_temp = crate::apple::component::get_temperature(
                 con,
                 &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0],
             );
 
-            for (id, v) in crate::mac::component::COMPONENTS_TEMPERATURE_IDS.iter() {
+            for (id, v) in crate::apple::component::COMPONENTS_TEMPERATURE_IDS.iter() {
                 if let Some(c) = Component::new((*id).to_owned(), None, critical_temp, v, con) {
                     self.components.push(c);
                 }
@@ -316,16 +319,18 @@ impl SystemExt for System {
 
     #[cfg(target_os = "macos")]
     fn refresh_disks_list(&mut self) {
+        use super::macos::ffi;
+
         use core_foundation_sys::base::kCFAllocatorDefault;
 
         if self.session.0.is_null() {
             self.session.0 = unsafe { ffi::DASessionCreate(kCFAllocatorDefault as _) };
         }
-        self.disks = crate::mac::disk::get_disks(self.session.0);
+        self.disks = super::macos::get_disks(self.session.0);
     }
 
     fn refresh_users_list(&mut self) {
-        self.users = crate::mac::users::get_users_list();
+        self.users = crate::apple::users::get_users_list();
     }
 
     // COMMON PART
@@ -455,6 +460,8 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
 // code from https://github.com/Chris911/iStats
 #[cfg(target_os = "macos")]
 fn get_io_service_connection() -> Option<ffi::io_connect_t> {
+    use super::macos::ffi;
+
     let mut master_port: ffi::mach_port_t = 0;
     let mut iterator: ffi::io_iterator_t = 0;
 
