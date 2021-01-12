@@ -41,6 +41,7 @@ pub struct System {
     processors: Vec<Processor>,
     page_size_kb: u64,
     components: Vec<Component>,
+    // Used to get CPU information, not supported on iOS.
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
     networks: Networks,
@@ -54,9 +55,10 @@ pub struct System {
 
 impl Drop for System {
     fn drop(&mut self) {
-        if let Some(conn) = self.connection {
+        if let Some(_conn) = self.connection {
+            #[cfg(target_os = "macos")]
             unsafe {
-                ffi::IOServiceClose(conn);
+                ffi::IOServiceClose(_conn);
             }
         }
 
@@ -197,6 +199,10 @@ impl SystemExt for System {
         }
     }
 
+    #[cfg(target_os = "ios")]
+    fn refresh_components_list(&mut self) {}
+
+    #[cfg(target_os = "macos")]
     fn refresh_components_list(&mut self) {
         if let Some(con) = self.connection {
             self.components.clear();
@@ -440,7 +446,14 @@ impl Default for System {
     }
 }
 
+// Not supported on iOS.
+#[cfg(target_os = "ios")]
+fn get_io_service_connection() -> Option<ffi::io_connect_t> {
+    None
+}
+
 // code from https://github.com/Chris911/iStats
+#[cfg(target_os = "macos")]
 fn get_io_service_connection() -> Option<ffi::io_connect_t> {
     let mut master_port: ffi::mach_port_t = 0;
     let mut iterator: ffi::io_iterator_t = 0;

@@ -11,10 +11,11 @@ cfg_if! {
         use core_foundation_sys::dictionary::CFMutableDictionaryRef;
         use core_foundation_sys::url::CFURLRef;
         use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
+        use libc::{c_char, size_t};
     } else {}
 }
 
-use libc::{c_char, c_int, c_uchar, c_uint, c_ushort, c_void, size_t};
+use libc::{c_int, c_uchar, c_uint, c_ushort, c_void};
 
 extern "C" {
     pub fn proc_pidinfo(
@@ -32,17 +33,27 @@ extern "C" {
     pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
     pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
 
+    // IOKit is only available on MacOS: https://developer.apple.com/documentation/iokit
+
+    #[cfg(target_os = "macos")]
     pub fn IOMasterPort(a: i32, b: *mut mach_port_t) -> i32;
+    #[cfg(target_os = "macos")]
     pub fn IOServiceMatching(a: *const c_char) -> *mut c_void;
+    #[cfg(target_os = "macos")]
     pub fn IOServiceGetMatchingServices(
         a: mach_port_t,
         b: *mut c_void,
         c: *mut io_iterator_t,
     ) -> i32;
+    #[cfg(target_os = "macos")]
     pub fn IOIteratorNext(iterator: io_iterator_t) -> io_object_t;
+    #[cfg(target_os = "macos")]
     pub fn IOObjectRelease(obj: io_object_t) -> i32;
+    #[cfg(target_os = "macos")]
     pub fn IOServiceOpen(device: io_object_t, a: u32, t: u32, x: *mut io_connect_t) -> i32;
+    #[cfg(target_os = "macos")]
     pub fn IOServiceClose(a: io_connect_t) -> i32;
+    #[cfg(target_os = "macos")]
     pub fn IOConnectCallStructMethod(
         connection: mach_port_t,
         selector: u32,
@@ -58,6 +69,7 @@ extern "C" {
     //     options: IOOptionBits,
     // ) -> kern_return_t;
     // pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: *mut c_char) -> kern_return_t;
+
     #[cfg(target_os = "macos")]
     pub fn CFStringCreateWithCStringNoCopy(
         alloc: *mut c_void,
@@ -235,6 +247,8 @@ pub type natural_t = u32;
 pub type mach_port_t = u32;
 #[allow(non_camel_case_types)]
 pub type io_object_t = mach_port_t;
+
+#[cfg(target_os = "macos")]
 #[allow(non_camel_case_types)]
 pub type io_iterator_t = io_object_t;
 #[allow(non_camel_case_types)]
@@ -300,6 +314,7 @@ pub struct Val_t {
     pub bytes: [i8; 32],    // SMCBytes_t
 }
 
+#[cfg(target_os = "macos")]
 #[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_vers_t {
@@ -310,6 +325,7 @@ pub struct KeyData_vers_t {
     pub release: u16,
 }
 
+#[cfg(target_os = "macos")]
 #[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_pLimitData_t {
@@ -320,6 +336,7 @@ pub struct KeyData_pLimitData_t {
     pub mem_plimit: u32,
 }
 
+#[cfg(target_os = "macos")]
 #[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_keyInfo_t {
@@ -328,6 +345,7 @@ pub struct KeyData_keyInfo_t {
     pub data_attributes: u8,
 }
 
+#[cfg(target_os = "macos")]
 #[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
 #[repr(C)]
 pub struct KeyData_t {
@@ -403,11 +421,15 @@ pub const PROC_PIDTBSDINFO: c_int = 3;
 pub const HOST_VM_INFO64: u32 = 4;
 pub const HOST_VM_INFO64_COUNT: u32 = 38;
 
-pub const MACH_PORT_NULL: i32 = 0;
-pub const KERNEL_INDEX_SMC: i32 = 2;
-pub const SMC_CMD_READ_KEYINFO: u8 = 9;
-pub const SMC_CMD_READ_BYTES: u8 = 5;
+cfg_if! {
+    if #[cfg(target_os = "macos")] {
+        pub const MACH_PORT_NULL: i32 = 0;
+        pub const KERNEL_INDEX_SMC: i32 = 2;
+        pub const SMC_CMD_READ_KEYINFO: u8 = 9;
+        pub const SMC_CMD_READ_BYTES: u8 = 5;
+
+        pub const KIO_RETURN_SUCCESS: i32 = 0;
+    } else {}
+}
 
 pub const PROC_PIDPATHINFO_MAXSIZE: u32 = 4096;
-
-pub const KIO_RETURN_SUCCESS: i32 = 0;
