@@ -41,7 +41,7 @@ pub struct System {
     swap_free: u64,
     global_processor: Processor,
     processors: Vec<Processor>,
-    physical_core_numbers: usize,
+    physical_core_numbers: u64,
     page_size_kb: u64,
     components: Vec<Component>,
     connection: Option<ffi::io_connect_t>,
@@ -339,7 +339,7 @@ impl SystemExt for System {
         &self.processors
     }
 
-    fn get_physical_core_numbers(&self) -> usize {
+    fn get_physical_core_numbers(&self) -> u64 {
         self.physical_core_numbers
     }
 

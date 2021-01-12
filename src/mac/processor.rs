@@ -132,12 +132,12 @@ pub fn get_cpu_frequency() -> u64 {
     speed / 1_000_000
 }
 
-pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>, usize) {
+pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>, u64) {
     let mut num_cpu = 0;
     let mut processors = Vec::new();
     let mut pourcent = 0f32;
     let mut mib = [0, 0];
-    let mut physical_core_numbers = 0;
+    let mut physical_core_numbers = 0u64;
 
     let (vendor_id, brand) = get_vendor_id_and_brand();
     let frequency = get_cpu_frequency();

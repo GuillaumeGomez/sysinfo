@@ -742,7 +742,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// let s = System::new();
     /// println!("{}", s.get_physical_core_numbers());
     /// ```
-    fn get_physical_core_numbers(&self) -> usize;
+    fn get_physical_core_numbers(&self) -> u64;
 
     /// Returns the RAM size in kB.
     ///

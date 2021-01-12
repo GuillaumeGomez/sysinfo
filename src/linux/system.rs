@@ -138,6 +138,7 @@ pub struct System {
     swap_free: u64,
     global_processor: Processor,
     processors: Vec<Processor>,
+    physical_core_numbers: u64,
     page_size_kb: u64,
     components: Vec<Component>,
     disks: Vec<Disk>,
@@ -168,6 +169,7 @@ impl System {
     }
 
     fn refresh_processors(&mut self, limit: Option<u32>) {
+        self.physical_core_numbers = get_physical_core_numbers();
         if let Ok(f) = File::open("/proc/stat") {
             let buf = BufReader::new(f);
             let mut i: usize = 0;
@@ -294,6 +296,7 @@ impl SystemExt for System {
                 String::new(),
             ),
             processors: Vec::with_capacity(4),
+            physical_core_numbers: 0,
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
             components: Vec::new(),
             disks: Vec::with_capacity(2),
@@ -419,6 +422,10 @@ impl SystemExt for System {
 
     fn get_processors(&self) -> &[Processor] {
         &self.processors
+    }
+
+    fn get_physical_core_numbers(&self) -> u64 {
+        self.physical_core_numbers
     }
 
     fn get_total_memory(&self) -> u64 {

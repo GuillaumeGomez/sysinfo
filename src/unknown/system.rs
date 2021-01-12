@@ -76,7 +76,7 @@ impl SystemExt for System {
         &[]
     }
 
-    fn get_physical_core_numbers(&self) -> usize {
+    fn get_physical_core_numbers(&self) -> u64 {
         0
     }
 
