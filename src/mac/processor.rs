@@ -156,7 +156,7 @@ pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>, u6
         if !get_sys_value_by_name(
             "hw.physicalcpu",
             mem::size_of::<u32>(),
-            &mut physical_core_numbers as *mut usize as *mut c_void,
+            &mut physical_core_numbers as *mut u64 as *mut c_void,
         ) {
             physical_core_numbers = 0;
         }
