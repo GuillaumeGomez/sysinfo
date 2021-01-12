@@ -4,6 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use std::ffi::CString;
 use sys::component::Component;
 use sys::disk::Disk;
 use sys::ffi;
@@ -40,6 +41,7 @@ pub struct System {
     swap_free: u64,
     global_processor: Processor,
     processors: Vec<Processor>,
+    physical_core_numbers: usize,
     page_size_kb: u64,
     components: Vec<Component>,
     connection: Option<ffi::io_connect_t>,
@@ -115,7 +117,7 @@ fn boot_time() -> u64 {
 impl SystemExt for System {
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let port = unsafe { ffi::mach_host_self() };
-        let (global_processor, processors) = init_processors(port);
+        let (global_processor, processors, physical_core_numbers) = init_processors(port);
 
         let mut s = System {
             process_list: HashMap::with_capacity(200),
@@ -126,6 +128,7 @@ impl SystemExt for System {
             swap_free: 0,
             global_processor,
             processors,
+            physical_core_numbers,
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1_000 },
             components: Vec::with_capacity(2),
             connection: get_io_service_connection(),
@@ -336,6 +339,10 @@ impl SystemExt for System {
         &self.processors
     }
 
+    fn get_physical_core_numbers(&self) -> usize {
+        self.physical_core_numbers
+    }
+
     fn get_networks(&self) -> &Networks {
         &self.networks
     }
@@ -502,6 +509,21 @@ pub(crate) unsafe fn get_sys_value(
     libc::sysctl(
         mib.as_mut_ptr(),
         2,
+        value,
+        &mut len as *mut usize,
+        ::std::ptr::null_mut(),
+        0,
+    ) == 0
+}
+
+pub(crate) unsafe fn get_sys_value_by_name(
+    name: &str,
+    mut len: usize,
+    value: *mut libc::c_void,
+) -> bool {
+    let c_name = CString::new(name).unwrap_or(CString::default());
+    libc::sysctlbyname(
+        c_name.as_ptr(),
         value,
         &mut len as *mut usize,
         ::std::ptr::null_mut(),
