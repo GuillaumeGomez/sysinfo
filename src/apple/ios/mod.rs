@@ -4,5 +4,6 @@
 // Copyright (c) 2021 Guillaume Gomez
 //
 
-mod component;
-pub use self::component::Component;
+pub mod component;
+pub mod ffi {}
+pub mod disk {}
