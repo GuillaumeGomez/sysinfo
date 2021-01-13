@@ -40,12 +40,13 @@ impl KeyHandler {
     }
 }
 
-pub fn init_processors() -> (Vec<Processor>, String, String) {
+pub fn init_processors() -> (Vec<Processor>, String, String, u64) {
     unsafe {
         let mut sys_info: SYSTEM_INFO = zeroed();
         GetSystemInfo(&mut sys_info);
         let (vendor_id, brand) = processor::get_vendor_id_and_brand(&sys_info);
         let frequencies = processor::get_frequencies(sys_info.dwNumberOfProcessors as usize);
+        let physical_core_numbers = processor::get_physical_core_numbers();
         let mut ret = Vec::with_capacity(sys_info.dwNumberOfProcessors as usize + 1);
         for nb in 0..sys_info.dwNumberOfProcessors {
             ret.push(Processor::new_with_values(
@@ -55,7 +56,7 @@ pub fn init_processors() -> (Vec<Processor>, String, String) {
                 frequencies[nb as usize],
             ));
         }
-        (ret, vendor_id, brand)
+        (ret, vendor_id, brand, physical_core_numbers)
     }
 }
 

@@ -54,6 +54,7 @@ pub struct System {
     swap_free: u64,
     global_processor: Processor,
     processors: Vec<Processor>,
+    physical_core_numbers: u64,
     components: Vec<Component>,
     disks: Vec<Disk>,
     query: Option<Query>,
@@ -81,7 +82,7 @@ unsafe fn boot_time() -> u64 {
 impl SystemExt for System {
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {
-        let (processors, vendor_id, brand) = init_processors();
+        let (processors, vendor_id, brand, physical_core_numbers) = init_processors();
         let mut s = System {
             process_list: HashMap::with_capacity(500),
             mem_total: 0,
@@ -90,6 +91,7 @@ impl SystemExt for System {
             swap_free: 0,
             global_processor: Processor::new_with_values("Total CPU", vendor_id, brand, 0),
             processors,
+            physical_core_numbers,
             components: Vec::new(),
             disks: Vec::with_capacity(2),
             query: Query::new(),
@@ -324,6 +326,10 @@ impl SystemExt for System {
 
     fn get_processors(&self) -> &[Processor] {
         &self.processors
+    }
+
+    fn get_physical_core_numbers(&self) -> u64 {
+        self.physical_core_numbers
     }
 
     fn get_total_memory(&self) -> u64 {
