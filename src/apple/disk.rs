@@ -13,6 +13,7 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use utils::to_cpath;
 
+#[cfg(target_os = "macos")]
 pub(crate) use sys::inner::disk::*;
 
 /// Struct containing a disk information.
