@@ -533,7 +533,7 @@ pub(crate) unsafe fn get_sys_value_by_name(
     mut len: usize,
     value: *mut libc::c_void,
 ) -> bool {
-    let c_name = CString::new(name).unwrap_or(CString::default());
+    let c_name = CString::new(name).unwrap_or_default();
     libc::sysctlbyname(
         c_name.as_ptr(),
         value,
