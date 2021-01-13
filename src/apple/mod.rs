@@ -4,6 +4,16 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+#[cfg(target_os = "macos")]
+pub(crate) mod macos;
+#[cfg(target_os = "macos")]
+pub(crate) use self::macos as inner;
+
+#[cfg(target_os = "ios")]
+pub(crate) mod ios;
+#[cfg(target_os = "ios")]
+pub(crate) use self::ios as inner;
+
 pub mod component;
 pub mod disk;
 mod ffi;
