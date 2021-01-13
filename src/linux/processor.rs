@@ -279,7 +279,7 @@ pub fn get_physical_core_numbers() -> u64 {
         } else if line.starts_with("physical id") {
             physical_id = line.split(':').last().map(|x| x.trim()).unwrap_or_default();
         }
-        if core_id.len() > 0 && physical_id.len() > 0 {
+        if !core_id.is_empty() && !physical_id.is_empty() {
             core_ids_and_physical_ids.insert(format!("{} {}", core_id, physical_id));
             core_id = "";
             physical_id = "";
