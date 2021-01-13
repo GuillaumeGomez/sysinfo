@@ -9,7 +9,7 @@ use core_foundation_sys::base::CFAllocatorRef;
 use core_foundation_sys::dictionary::CFMutableDictionaryRef;
 use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
 use core_foundation_sys::url::CFURLRef;
-use libc::{c_char, size_t};
+use libc::{c_char, c_void, size_t};
 
 pub(crate) use crate::sys::ffi::*;
 

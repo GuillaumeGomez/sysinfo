@@ -4,20 +4,14 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+#[cfg(target_os = "macos")]
+use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
 use sys::component::Component;
-use sys::disk::Disk;
+use sys::disk::*;
+use sys::ffi;
 use sys::network::Networks;
 use sys::process::*;
 use sys::processor::*;
-
-cfg_if! {
-    if #[cfg(target_os = "macos")] {
-        use super::macos::ffi;
-        use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
-    } else {
-        use sys::ffi;
-    }
-}
 
 use {LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt, User};
 
@@ -325,7 +319,7 @@ impl SystemExt for System {
         if self.session.0.is_null() {
             self.session.0 = unsafe { ffi::DASessionCreate(kCFAllocatorDefault as _) };
         }
-        self.disks = super::macos::get_disks(self.session.0);
+        self.disks = get_disks(self.session.0);
     }
 
     fn refresh_users_list(&mut self) {

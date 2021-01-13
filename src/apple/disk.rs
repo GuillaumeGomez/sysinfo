@@ -13,6 +13,8 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use utils::to_cpath;
 
+pub(crate) use sys::inner::disk::*;
+
 /// Struct containing a disk information.
 pub struct Disk {
     pub(crate) type_: DiskType,

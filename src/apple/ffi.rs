@@ -4,7 +4,10 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-pub(crate) use libc::{c_int, c_uchar, c_uint, c_ushort, c_void};
+use libc::{c_int, c_uchar, c_uint, c_ushort, c_void};
+
+// Reexport items defined in either macos or ios ffi module.
+pub use sys::inner::ffi::*;
 
 extern "C" {
     pub fn proc_pidinfo(

@@ -4,9 +4,9 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use super::ffi;
 use libc::{c_char, c_int, c_void};
 use std::mem;
+use sys::ffi;
 use ComponentExt;
 
 pub(crate) const COMPONENTS_TEMPERATURE_IDS: &[(&str, &[i8])] = &[
