@@ -4,6 +4,12 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+#[cfg(target_os = "macos")]
+pub(crate) mod macos;
+
+#[cfg(target_os = "ios")]
+pub(crate) mod ios;
+
 pub mod component;
 pub mod disk;
 mod ffi;

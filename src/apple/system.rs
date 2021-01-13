@@ -6,10 +6,18 @@
 
 use sys::component::Component;
 use sys::disk::Disk;
-use sys::ffi;
 use sys::network::Networks;
 use sys::process::*;
 use sys::processor::*;
+
+cfg_if! {
+    if #[cfg(target_os = "macos")] {
+        use super::macos::ffi;
+        use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
+    } else {
+        use sys::ffi;
+    }
+}
 
 use {LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt, User};
 
@@ -20,15 +28,7 @@ use std::sync::Arc;
 
 use libc::{self, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
-use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
-
 use utils::into_iter;
-
-// We need to wrap `DASessionRef` to be sure `System` remains Send+Sync.
-struct SessionWrap(ffi::DASessionRef);
-
-unsafe impl Send for SessionWrap {}
-unsafe impl Sync for SessionWrap {}
 
 /// Structs containing system's information.
 pub struct System {
@@ -42,6 +42,8 @@ pub struct System {
     processors: Vec<Processor>,
     page_size_kb: u64,
     components: Vec<Component>,
+    // Used to get CPU information, not supported on iOS.
+    #[cfg(target_os = "macos")]
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
     networks: Networks,
@@ -49,17 +51,21 @@ pub struct System {
     users: Vec<User>,
     boot_time: u64,
     // Used to get disk information, to be more specific, it's needed by the
-    // DADiskCreateFromVolumePath function.
-    session: SessionWrap,
+    // DADiskCreateFromVolumePath function. Not supported on iOS.
+    #[cfg(target_os = "macos")]
+    session: ffi::SessionWrap,
 }
 
 impl Drop for System {
     fn drop(&mut self) {
+        #[cfg(target_os = "macos")]
         if let Some(conn) = self.connection {
             unsafe {
                 ffi::IOServiceClose(conn);
             }
         }
+
+        #[cfg(target_os = "macos")]
         if !self.session.0.is_null() {
             unsafe {
                 CFRelease(self.session.0 as _);
@@ -128,13 +134,15 @@ impl SystemExt for System {
             processors,
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1_000 },
             components: Vec::with_capacity(2),
+            #[cfg(target_os = "macos")]
             connection: get_io_service_connection(),
             disks: Vec::with_capacity(1),
             networks: Networks::new(),
             port,
             users: Vec::new(),
             boot_time: boot_time(),
-            session: SessionWrap(::std::ptr::null_mut()),
+            #[cfg(target_os = "macos")]
+            session: ffi::SessionWrap(::std::ptr::null_mut()),
         };
         s.refresh_specifics(refreshes);
         s
@@ -197,16 +205,20 @@ impl SystemExt for System {
         }
     }
 
+    #[cfg(target_os = "ios")]
+    fn refresh_components_list(&mut self) {}
+
+    #[cfg(target_os = "macos")]
     fn refresh_components_list(&mut self) {
         if let Some(con) = self.connection {
             self.components.clear();
             // getting CPU critical temperature
-            let critical_temp = crate::mac::component::get_temperature(
+            let critical_temp = crate::apple::component::get_temperature(
                 con,
                 &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0],
             );
 
-            for (id, v) in crate::mac::component::COMPONENTS_TEMPERATURE_IDS.iter() {
+            for (id, v) in crate::apple::component::COMPONENTS_TEMPERATURE_IDS.iter() {
                 if let Some(c) = Component::new((*id).to_owned(), None, critical_temp, v, con) {
                     self.components.push(c);
                 }
@@ -305,15 +317,19 @@ impl SystemExt for System {
         }
     }
 
+    #[cfg(target_os = "ios")]
+    fn refresh_disks_list(&mut self) {}
+
+    #[cfg(target_os = "macos")]
     fn refresh_disks_list(&mut self) {
         if self.session.0.is_null() {
             self.session.0 = unsafe { ffi::DASessionCreate(kCFAllocatorDefault as _) };
         }
-        self.disks = crate::mac::disk::get_disks(self.session.0);
+        self.disks = super::macos::get_disks(self.session.0);
     }
 
     fn refresh_users_list(&mut self) {
-        self.users = crate::mac::users::get_users_list();
+        self.users = crate::apple::users::get_users_list();
     }
 
     // COMMON PART
@@ -435,6 +451,8 @@ impl Default for System {
 }
 
 // code from https://github.com/Chris911/iStats
+// Not supported on iOS
+#[cfg(target_os = "macos")]
 fn get_io_service_connection() -> Option<ffi::io_connect_t> {
     let mut master_port: ffi::mach_port_t = 0;
     let mut iterator: ffi::io_iterator_t = 0;

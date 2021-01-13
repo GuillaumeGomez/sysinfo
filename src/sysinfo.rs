@@ -85,8 +85,8 @@ macro_rules! sysinfo_debug {
 
 cfg_if! {
     if #[cfg(any(target_os = "macos", target_os = "ios"))] {
-        mod mac;
-        use mac as sys;
+        mod apple;
+        use apple as sys;
         extern crate core_foundation_sys;
 
         #[cfg(test)]
