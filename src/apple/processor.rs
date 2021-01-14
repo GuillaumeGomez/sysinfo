@@ -9,7 +9,7 @@ use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
 use sys::ffi;
-use sys::system::{get_sys_value, get_sys_value_by_name};
+use sys::system::get_sys_value;
 
 use ProcessorExt;
 
