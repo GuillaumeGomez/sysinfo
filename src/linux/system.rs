@@ -422,7 +422,7 @@ impl SystemExt for System {
     }
 
     fn get_physical_core_numbers(&self) -> u64 {
-        self.get_physical_core_numbers();
+        get_physical_core_numbers()
     }
 
     fn get_total_memory(&self) -> u64 {
