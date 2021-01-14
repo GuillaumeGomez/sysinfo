@@ -35,7 +35,6 @@ pub struct System {
     swap_free: u64,
     global_processor: Processor,
     processors: Vec<Processor>,
-    physical_core_numbers: u64,
     page_size_kb: u64,
     components: Vec<Component>,
     // Used to get CPU information, not supported on iOS.
@@ -117,7 +116,7 @@ fn boot_time() -> u64 {
 impl SystemExt for System {
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let port = unsafe { ffi::mach_host_self() };
-        let (global_processor, processors, physical_core_numbers) = init_processors(port);
+        let (global_processor, processors) = init_processors(port);
 
         let mut s = System {
             process_list: HashMap::with_capacity(200),
@@ -128,7 +127,6 @@ impl SystemExt for System {
             swap_free: 0,
             global_processor,
             processors,
-            physical_core_numbers,
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1_000 },
             components: Vec::with_capacity(2),
             #[cfg(target_os = "macos")]
@@ -350,7 +348,16 @@ impl SystemExt for System {
     }
 
     fn get_physical_core_numbers(&self) -> u64 {
-        self.physical_core_numbers
+        let mut physical_core_numbers = 0u64;
+        if get_sys_value_by_name(
+            "hw.physicalcpu",
+            mem::size_of::<u32>(),
+            &mut physical_core_numbers as *mut u64 as *mut c_void,
+        ) {
+            physical_core_numbers
+        } else {
+            0
+        }
     }
 
     fn get_networks(&self) -> &Networks {

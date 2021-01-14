@@ -132,13 +132,11 @@ pub fn get_cpu_frequency() -> u64 {
     speed / 1_000_000
 }
 
-pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>, u64) {
+pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>) {
     let mut num_cpu = 0;
     let mut processors = Vec::new();
     let mut pourcent = 0f32;
     let mut mib = [0, 0];
-    let mut physical_core_numbers = 0u64;
-
     let (vendor_id, brand) = get_vendor_id_and_brand();
     let frequency = get_cpu_frequency();
 
@@ -151,14 +149,6 @@ pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>, u6
             &mut mib,
         ) {
             num_cpu = 1;
-        }
-
-        if !get_sys_value_by_name(
-            "hw.physicalcpu",
-            mem::size_of::<u32>(),
-            &mut physical_core_numbers as *mut u64 as *mut c_void,
-        ) {
-            physical_core_numbers = 0;
         }
 
         let mut num_cpu_u = 0u32;
@@ -206,7 +196,7 @@ pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>, u6
     );
     global_processor.set_cpu_usage(pourcent / processors.len() as f32);
 
-    (global_processor, processors, physical_core_numbers)
+    (global_processor, processors)
 }
 
 fn get_sysctl_str(s: &[u8]) -> String {
