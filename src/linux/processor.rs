@@ -275,9 +275,17 @@ pub fn get_physical_core_numbers() -> usize {
     let mut physical_id = "";
     for line in s.split('\n') {
         if line.starts_with("core id") {
-            core_id = line.split(':').last().map(|x| x.trim()).unwrap_or_default();
+            core_id = line
+                .splitn(2, ':')
+                .last()
+                .map(|x| x.trim())
+                .unwrap_or_default();
         } else if line.starts_with("physical id") {
-            physical_id = line.split(':').last().map(|x| x.trim()).unwrap_or_default();
+            physical_id = line
+                .splitn(2, ':')
+                .last()
+                .map(|x| x.trim())
+                .unwrap_or_default();
         }
         if !core_id.is_empty() && !physical_id.is_empty() {
             core_ids_and_physical_ids.insert(format!("{} {}", core_id, physical_id));
