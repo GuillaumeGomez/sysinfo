@@ -137,6 +137,7 @@ pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>) {
     let mut processors = Vec::new();
     let mut pourcent = 0f32;
     let mut mib = [0, 0];
+
     let (vendor_id, brand) = get_vendor_id_and_brand();
     let frequency = get_cpu_frequency();
 
