@@ -347,14 +347,14 @@ impl SystemExt for System {
         &self.processors
     }
 
-    fn get_physical_core_numbers(&self) -> u64 {
-        let mut physical_core_numbers = 0u64;
+    fn get_physical_core_numbers(&self) -> usize {
+        let mut physical_core_numbers = 0;
 
         if unsafe {
             get_sys_value_by_name(
                 "hw.physicalcpu",
                 mem::size_of::<u32>(),
-                &mut physical_core_numbers as *mut u64 as *mut c_void,
+                &mut physical_core_numbers as *mut usize as *mut c_void,
             )
         } {
             physical_core_numbers
@@ -544,13 +544,7 @@ pub(crate) unsafe fn get_sys_value_by_name(
     value: *mut libc::c_void,
 ) -> bool {
     let c_name = CString::new(name).unwrap_or_default();
-    libc::sysctlbyname(
-        c_name.as_ptr(),
-        value,
-        &mut len,
-        ::std::ptr::null_mut(),
-        0,
-    ) == 0
+    libc::sysctlbyname(c_name.as_ptr(), value, &mut len, ::std::ptr::null_mut(), 0) == 0
 }
 
 fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {

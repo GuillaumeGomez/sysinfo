@@ -415,7 +415,7 @@ pub fn get_frequencies(nb_processors: usize) -> Vec<u64> {
     }
 }
 
-pub fn get_physical_core_numbers() -> u64 {
+pub fn get_physical_core_numbers() -> usize {
     // we cannot use the number of processors here to pre calculate the buf size
     // GetLogicalProcessorInformationEx with RelationProcessorCore passed to it not only returns the logical cores but also numa nodes
     //
@@ -441,5 +441,5 @@ pub fn get_physical_core_numbers() -> u64 {
     }
     buf.iter()
         .filter(|proc_info| proc_info.Relationship == 0) // Only get the physical cores
-        .count() as u64
+        .count()
 }
