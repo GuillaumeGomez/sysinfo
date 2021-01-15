@@ -547,7 +547,7 @@ pub(crate) unsafe fn get_sys_value_by_name(
     libc::sysctlbyname(
         c_name.as_ptr(),
         value,
-        &mut len as *mut usize,
+        &mut len,
         ::std::ptr::null_mut(),
         0,
     ) == 0
