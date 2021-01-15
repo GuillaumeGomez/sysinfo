@@ -347,17 +347,17 @@ impl SystemExt for System {
         &self.processors
     }
 
-    fn get_physical_core_numbers(&self) -> usize {
-        let mut physical_core_numbers = 0;
+    fn get_physical_core_count(&self) -> usize {
+        let mut physical_core_count = 0;
 
         if unsafe {
             get_sys_value_by_name(
                 "hw.physicalcpu",
                 mem::size_of::<u32>(),
-                &mut physical_core_numbers as *mut usize as *mut c_void,
+                &mut physical_core_count as *mut usize as *mut c_void,
             )
         } {
-            physical_core_numbers
+            physical_core_count
         } else {
             0
         }

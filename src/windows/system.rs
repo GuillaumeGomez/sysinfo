@@ -326,8 +326,8 @@ impl SystemExt for System {
         &self.processors
     }
 
-    fn get_physical_core_numbers(&self) -> usize {
-        get_physical_core_numbers()
+    fn get_physical_core_count(&self) -> usize {
+        get_physical_core_count()
     }
 
     fn get_total_memory(&self) -> u64 {
