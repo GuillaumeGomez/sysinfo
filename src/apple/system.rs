@@ -4,8 +4,8 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
 #[cfg(target_os = "macos")]
+use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
 use libc::c_char;
 use sys::component::Component;
 use sys::disk::*;
