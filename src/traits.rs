@@ -733,7 +733,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_processors(&self) -> &[Processor];
 
-    /// Returns the physical numer of cores on the processor.
+    /// Returns the number of physical cores on the processor.
     ///
     /// In case there are multiple CPUs, it will combine the physical core count of all the CPUs.
     ///
