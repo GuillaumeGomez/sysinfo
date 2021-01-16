@@ -4,9 +4,9 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-#[cfg(target_os = "macos")]
 use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
-use std::ffi::CString;
+#[cfg(target_os = "macos")]
+use libc::c_char;
 use sys::component::Component;
 use sys::disk::*;
 use sys::ffi;
@@ -538,12 +538,14 @@ pub(crate) unsafe fn get_sys_value(
     ) == 0
 }
 
-unsafe fn get_sys_value_by_name(
-    c_name: &[u8],
-    mut len: usize,
-    value: *mut libc::c_void,
-) -> bool {
-    libc::sysctlbyname(name.as_ptr(), value, &mut len, ::std::ptr::null_mut(), 0) == 0
+unsafe fn get_sys_value_by_name(name: &[u8], mut len: usize, value: *mut libc::c_void) -> bool {
+    libc::sysctlbyname(
+        name.as_ptr() as *const c_char,
+        value,
+        &mut len,
+        ::std::ptr::null_mut(),
+        0,
+    ) == 0
 }
 
 fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
