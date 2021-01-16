@@ -18,3 +18,13 @@ fn test_processor() {
     let s = sysinfo::System::new_all();
     assert!(!s.get_processors().is_empty());
 }
+
+#[test]
+fn test_physical_core_numbers() {
+    use sysinfo::SystemExt;
+
+    let s = sysinfo::System::new();
+    assert_ne!(s.get_physical_core_count(), 0);
+    let s = sysinfo::System::new_all();
+    assert_ne!(s.get_physical_core_count(), 0);
+}

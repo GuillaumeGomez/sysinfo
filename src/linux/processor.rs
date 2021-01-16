@@ -6,6 +6,7 @@
 
 #![allow(clippy::too_many_arguments)]
 
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read;
 
@@ -258,6 +259,42 @@ pub fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
         .and_then(|val| val.replace("MHz", "").trim().parse::<f64>().ok())
         .map(|speed| speed as u64)
         .unwrap_or_default()
+}
+
+pub fn get_physical_core_count() -> usize {
+    let mut s = String::new();
+    if File::open("/proc/cpuinfo")
+        .and_then(|mut f| f.read_to_string(&mut s))
+        .is_err()
+    {
+        return 0;
+    }
+
+    let mut core_ids_and_physical_ids: HashSet<String> = HashSet::new();
+    let mut core_id = "";
+    let mut physical_id = "";
+    for line in s.lines() {
+        if line.starts_with("core id") {
+            core_id = line
+                .splitn(2, ':')
+                .last()
+                .map(|x| x.trim())
+                .unwrap_or_default();
+        } else if line.starts_with("physical id") {
+            physical_id = line
+                .splitn(2, ':')
+                .last()
+                .map(|x| x.trim())
+                .unwrap_or_default();
+        }
+        if !core_id.is_empty() && !physical_id.is_empty() {
+            core_ids_and_physical_ids.insert(format!("{} {}", core_id, physical_id));
+            core_id = "";
+            physical_id = "";
+        }
+    }
+
+    core_ids_and_physical_ids.len()
 }
 
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).

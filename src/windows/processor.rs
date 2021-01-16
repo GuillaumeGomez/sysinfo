@@ -26,9 +26,13 @@ use winapi::um::pdh::{
 };
 use winapi::um::powerbase::CallNtPowerInformation;
 use winapi::um::synchapi::CreateEventA;
+use winapi::um::sysinfoapi::GetLogicalProcessorInformationEx;
 use winapi::um::sysinfoapi::SYSTEM_INFO;
 use winapi::um::winbase::{RegisterWaitForSingleObject, INFINITE};
-use winapi::um::winnt::{ProcessorInformation, BOOLEAN, HANDLE, PVOID, WT_EXECUTEDEFAULT};
+use winapi::um::winnt::{
+    ProcessorInformation, BOOLEAN, HANDLE, PVOID, SYSTEM_LOGICAL_PROCESSOR_INFORMATION,
+    WT_EXECUTEDEFAULT,
+};
 
 // This formula comes from linux's include/linux/sched/loadavg.h
 // https://github.com/torvalds/linux/blob/345671ea0f9258f410eb057b9ced9cefbbe5dc78/include/linux/sched/loadavg.h#L20-L23
@@ -409,4 +413,33 @@ pub fn get_frequencies(nb_processors: usize) -> Vec<u64> {
     } else {
         vec![0; nb_processors]
     }
+}
+
+pub fn get_physical_core_count() -> usize {
+    // we cannot use the number of processors here to pre calculate the buf size
+    // GetLogicalProcessorInformationEx with RelationProcessorCore passed to it not only returns the logical cores but also numa nodes
+    //
+    // GetLogicalProcessorInformationEx: https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex
+
+    let mut needed_size = 0;
+    unsafe { GetLogicalProcessorInformationEx(0, null_mut(), &mut needed_size) };
+    let size = mem::size_of::<SYSTEM_LOGICAL_PROCESSOR_INFORMATION>() as u32;
+    if needed_size == 0 || needed_size < size || needed_size % size != 0 {
+        return 0;
+    }
+
+    let count = needed_size / size;
+    let mut buf = Vec::with_capacity(count as usize);
+
+    let result = unsafe { GetLogicalProcessorInformationEx(0, buf.as_mut_ptr(), &mut needed_size) };
+    if result == 0 {
+        return 0;
+    }
+
+    unsafe {
+        buf.set_len(count as usize);
+    }
+    buf.iter()
+        .filter(|proc_info| proc_info.Relationship == 0) // Only get the physical cores
+        .count()
 }

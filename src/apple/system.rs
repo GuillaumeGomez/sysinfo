@@ -6,6 +6,7 @@
 
 #[cfg(target_os = "macos")]
 use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
+use libc::c_char;
 use sys::component::Component;
 use sys::disk::*;
 use sys::ffi;
@@ -346,6 +347,22 @@ impl SystemExt for System {
         &self.processors
     }
 
+    fn get_physical_core_count(&self) -> usize {
+        let mut physical_core_count = 0;
+
+        if unsafe {
+            get_sys_value_by_name(
+                b"hw.physicalcpu\0",
+                mem::size_of::<u32>(),
+                &mut physical_core_count as *mut usize as *mut c_void,
+            )
+        } {
+            physical_core_count
+        } else {
+            0
+        }
+    }
+
     fn get_networks(&self) -> &Networks {
         &self.networks
     }
@@ -516,6 +533,16 @@ pub(crate) unsafe fn get_sys_value(
         2,
         value,
         &mut len as *mut usize,
+        ::std::ptr::null_mut(),
+        0,
+    ) == 0
+}
+
+unsafe fn get_sys_value_by_name(name: &[u8], mut len: usize, value: *mut libc::c_void) -> bool {
+    libc::sysctlbyname(
+        name.as_ptr() as *const c_char,
+        value,
+        &mut len,
         ::std::ptr::null_mut(),
         0,
     ) == 0
