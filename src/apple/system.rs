@@ -352,7 +352,7 @@ impl SystemExt for System {
 
         if unsafe {
             get_sys_value_by_name(
-                "hw.physicalcpu",
+                b"hw.physicalcpu\0",
                 mem::size_of::<u32>(),
                 &mut physical_core_count as *mut usize as *mut c_void,
             )
