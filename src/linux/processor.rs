@@ -273,7 +273,7 @@ pub fn get_physical_core_count() -> usize {
     let mut core_ids_and_physical_ids: HashSet<String> = HashSet::new();
     let mut core_id = "";
     let mut physical_id = "";
-    for line in s.split('\n') {
+    for line in s.lines() {
         if line.starts_with("core id") {
             core_id = line
                 .splitn(2, ':')
