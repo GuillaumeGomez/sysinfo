@@ -538,13 +538,12 @@ pub(crate) unsafe fn get_sys_value(
     ) == 0
 }
 
-pub(crate) unsafe fn get_sys_value_by_name(
-    name: &str,
+unsafe fn get_sys_value_by_name(
+    c_name: &[u8],
     mut len: usize,
     value: *mut libc::c_void,
 ) -> bool {
-    let c_name = CString::new(name).unwrap_or_default();
-    libc::sysctlbyname(c_name.as_ptr(), value, &mut len, ::std::ptr::null_mut(), 0) == 0
+    libc::sysctlbyname(name.as_ptr(), value, &mut len, ::std::ptr::null_mut(), 0) == 0
 }
 
 fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
