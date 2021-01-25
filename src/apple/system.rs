@@ -458,11 +458,7 @@ impl SystemExt for System {
         unsafe {
             // get the size for the buffer first
             let mut size = 0;
-            get_sys_value_by_name(
-                b"kern.osproductversion\0",
-                &mut size,
-                std::ptr::null_mut(),
-            );
+            get_sys_value_by_name(b"kern.osproductversion\0", &mut size, std::ptr::null_mut());
             // now create a buffer with the size and get the real value
             let mut buf = vec![0_u8; size as usize];
             get_sys_value_by_name(
