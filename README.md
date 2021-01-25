@@ -92,7 +92,8 @@ for (pid, process) in sys.get_processes() {
 
 // Display system information:
 println!("System name:      {:?}", sys.get_name());
-println!("System version:   {:?}", sys.get_version());
+println!("System kernel version:   {:?}", sys.get_kernel_version());
+println!("System OS version:   {:?}", sys.get_os_version());
 println!("System host name: {:?}", sys.get_host_name());
 ```
 

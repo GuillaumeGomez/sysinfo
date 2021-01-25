@@ -961,7 +961,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_name(&self) -> Option<String>;
 
-    /// Returns the system version.
+    /// Returns the system's kernel version.
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
@@ -969,7 +969,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new();
-    /// println!("OS version: {:?}", s.get_version());
+    /// println!("kernel version: {:?}", s.get_kernel_version());
     /// ```
     fn get_kernel_version(&self) -> Option<String>;
 
