@@ -733,7 +733,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_processors(&self) -> &[Processor];
 
-    /// Returns the number of physical cores on the processor.
+    /// Returns the number of physical cores on the processor or `None` if it couldn't get it.
     ///
     /// In case there are multiple CPUs, it will combine the physical core count of all the CPUs.
     ///
@@ -743,9 +743,9 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// println!("{}", s.get_physical_core_count());
+    /// println!("{:?}", s.get_physical_core_count());
     /// ```
-    fn get_physical_core_count(&self) -> usize;
+    fn get_physical_core_count(&self) -> Option<usize>;
 
     /// Returns the RAM size in kB.
     ///

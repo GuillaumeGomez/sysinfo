@@ -347,7 +347,7 @@ impl SystemExt for System {
         &self.processors
     }
 
-    fn get_physical_core_count(&self) -> usize {
+    fn get_physical_core_count(&self) -> Option<usize> {
         let mut physical_core_count = 0;
 
         if unsafe {
@@ -357,9 +357,9 @@ impl SystemExt for System {
                 &mut physical_core_count as *mut usize as *mut c_void,
             )
         } {
-            physical_core_count
+            Some(physical_core_count)
         } else {
-            0
+            None
         }
     }
 

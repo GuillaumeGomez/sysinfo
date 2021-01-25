@@ -415,7 +415,7 @@ pub fn get_frequencies(nb_processors: usize) -> Vec<u64> {
     }
 }
 
-pub fn get_physical_core_count() -> usize {
+pub fn get_physical_core_count() -> Option<usize> {
     // we cannot use the number of processors here to pre calculate the buf size
     // GetLogicalProcessorInformationEx with RelationProcessorCore passed to it not only returns the logical cores but also numa nodes
     //
@@ -425,21 +425,22 @@ pub fn get_physical_core_count() -> usize {
     unsafe { GetLogicalProcessorInformationEx(0, null_mut(), &mut needed_size) };
     let size = mem::size_of::<SYSTEM_LOGICAL_PROCESSOR_INFORMATION>() as u32;
     if needed_size == 0 || needed_size < size || needed_size % size != 0 {
-        return 0;
+        return None;
     }
 
     let count = needed_size / size;
-    let mut buf = Vec::with_capacity(count as usize);
+    let mut buf = Vec::with_capacity(count as _);
 
-    let result = unsafe { GetLogicalProcessorInformationEx(0, buf.as_mut_ptr(), &mut needed_size) };
-    if result == 0 {
-        return 0;
+    if unsafe { GetLogicalProcessorInformationEx(0, buf.as_mut_ptr(), &mut needed_size) } == 0 {
+        return None;
     }
 
     unsafe {
-        buf.set_len(count as usize);
+        buf.set_len(count as _);
     }
-    buf.iter()
-        .filter(|proc_info| proc_info.Relationship == 0) // Only get the physical cores
-        .count()
+    Some(
+        buf.iter()
+            .filter(|proc_info| proc_info.Relationship == 0) // Only get the physical cores
+            .count(),
+    )
 }
