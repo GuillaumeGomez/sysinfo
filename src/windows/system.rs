@@ -407,7 +407,11 @@ impl SystemExt for System {
         get_dns_hostname()
     }
 
-    fn get_version(&self) -> Option<String> {
+    fn get_kernel_version(&self) -> Option<String> {
+        get_system_version()
+    }
+
+    fn get_os_version(&self) -> Option<String> {
         get_system_version()
     }
 }

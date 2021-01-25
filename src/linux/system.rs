@@ -526,7 +526,24 @@ impl SystemExt for System {
         }
     }
 
-    fn get_version(&self) -> Option<String> {
+    fn get_kernel_version(&self) -> Option<String> {
+        let mut s = String::new();
+    
+        if File::open("/proc/version")
+            .and_then(|mut f| f.read_to_string(&mut s))
+            .is_err()
+        {
+            return None;
+        }
+        
+        Some(s
+            .trim()
+            .split(' ')
+            .nth(2)
+            .map(String::from))
+    } 
+
+    fn get_os_version(&self) -> Option<String> {
         get_system_info("VERSION_ID=")
     }
 }

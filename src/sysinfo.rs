@@ -42,7 +42,8 @@
 //!
 //! // Display system information:
 //! println!("System name:      {:?}", system.get_name());
-//! println!("System version:   {:?}", system.get_version());
+//! println!("System kernel version:   {:?}", system.get_kernel_version());
+//! println!("System os version:   {:?}", system.get_os_version());
 //! println!("System host name: {:?}", system.get_host_name());
 //! ```
 
@@ -223,7 +224,7 @@ mod test {
             let s = ::System::new();
             assert!(!s.get_name().expect("Failed to get system name").is_empty());
             assert!(!s
-                .get_version()
+                .get_kernel_version()
                 .expect("Failed to get system version")
                 .is_empty());
         }

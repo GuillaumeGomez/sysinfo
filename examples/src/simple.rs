@@ -386,8 +386,13 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             );
             writeln!(
                 &mut io::stdout(),
-                "System version:   {}",
-                sys.get_version().unwrap_or_else(|| "<unknown>".to_owned())
+                "System kernel version:   {}",
+                sys.get_kernel_version().unwrap_or_else(|| "<unknown>".to_owned())
+            );
+            writeln!(
+                &mut io::stdout(),
+                "System OS version:   {}",
+                sys.get_os_version().unwrap_or_else(|| "<unknown>".to_owned())
             );
             writeln!(
                 &mut io::stdout(),
