@@ -24,7 +24,7 @@ fn test_physical_core_numbers() {
     use sysinfo::SystemExt;
 
     let s = sysinfo::System::new();
-    assert_ne!(s.get_physical_core_count(), 0);
-    let s = sysinfo::System::new_all();
-    assert_ne!(s.get_physical_core_count(), 0);
+    let count = s.get_physical_core_count();
+    assert_ne!(count, None);
+    assert!(count.unwrap() > 0);
 }

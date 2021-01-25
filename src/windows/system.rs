@@ -326,7 +326,7 @@ impl SystemExt for System {
         &self.processors
     }
 
-    fn get_physical_core_count(&self) -> usize {
+    fn get_physical_core_count(&self) -> Option<usize> {
         get_physical_core_count()
     }
 
