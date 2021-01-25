@@ -453,6 +453,28 @@ impl SystemExt for System {
     fn get_version(&self) -> Option<String> {
         get_system_info(libc::KERN_OSRELEASE, None)
     }
+
+    fn get_os_version(&self) -> Option<String> {
+        unsafe {
+            // get the size for the buffer first
+            let mut size = 0;
+            libc::sysctlbyname(
+                b"kern.osproductversion\0".as_ptr() as *const c_char,
+                std::ptr::null_mut(),
+                &mut size,
+                std::ptr::null_mut(),
+                0,
+            );
+            // now create a buffer with the size and get the real value
+            let mut buf = vec![0_u8; size as usize];
+            get_sys_value_by_name(
+                b"kern.osproductversion\0",
+                size,
+                buf.as_mut_ptr() as *mut c_void,
+            );
+            String::from_utf8(buf).ok()
+        }
+    }
 }
 
 impl Default for System {
