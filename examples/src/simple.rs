@@ -381,24 +381,12 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "system" => {
             writeln!(
                 &mut io::stdout(),
-                "System name:      {}",
-                sys.get_name().unwrap_or_else(|| "<unknown>".to_owned())
-            );
-            writeln!(
-                &mut io::stdout(),
-                "System kernel version:   {}",
-                sys.get_kernel_version().unwrap_or_else(|| "<unknown>".to_owned())
-            );
-            writeln!(
-                &mut io::stdout(),
-                "System OS version:   {}",
-                sys.get_os_version().unwrap_or_else(|| "<unknown>".to_owned())
-            );
-            writeln!(
-                &mut io::stdout(),
-                "System host name: {}",
+                "System name:           {}\nSystem kernel version: {}\nSystem OS version:     {}\nSystem host name:      {}",
+                sys.get_name().unwrap_or_else(|| "<unknown>".to_owned()),
+                sys.get_kernel_version().unwrap_or_else(|| "<unknown>".to_owned()),
+                sys.get_os_version().unwrap_or_else(|| "<unknown>".to_owned()),
                 sys.get_host_name()
-                    .unwrap_or_else(|| "<unknown>".to_owned())
+                    .unwrap_or_else(|| "<unknown>".to_owned()),
             );
         }
         e => {

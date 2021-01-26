@@ -458,15 +458,26 @@ impl SystemExt for System {
         unsafe {
             // get the size for the buffer first
             let mut size = 0;
-            get_sys_value_by_name(b"kern.osproductversion\0", &mut size, std::ptr::null_mut());
-            // now create a buffer with the size and get the real value
-            let mut buf = vec![0_u8; size as usize];
-            get_sys_value_by_name(
-                b"kern.osproductversion\0",
-                &mut size,
-                buf.as_mut_ptr() as *mut c_void,
-            );
-            String::from_utf8(buf).ok()
+            if get_sys_value_by_name(b"kern.osproductversion\0", &mut size, std::ptr::null_mut())
+                && size > 0
+            {
+                // now create a buffer with the size and get the real value
+                let mut buf = vec![0_u8; size as usize];
+
+                if get_sys_value_by_name(
+                    b"kern.osproductversion\0",
+                    &mut size,
+                    buf.as_mut_ptr() as *mut c_void,
+                ) {
+                    String::from_utf8(buf).ok()
+                } else {
+                    // getting the system value failed
+                    None
+                }
+            } else {
+                // getting the system value failed, or did not return a buffer size
+                None
+            }
         }
     }
 }

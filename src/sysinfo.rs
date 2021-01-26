@@ -41,10 +41,10 @@
 //! println!("used swap   : {} KB", system.get_used_swap());
 //!
 //! // Display system information:
-//! println!("System name:      {:?}", system.get_name());
+//! println!("System name:             {:?}", system.get_name());
 //! println!("System kernel version:   {:?}", system.get_kernel_version());
-//! println!("System os version:   {:?}", system.get_os_version());
-//! println!("System host name: {:?}", system.get_host_name());
+//! println!("System OS version:       {:?}", system.get_os_version());
+//! println!("System host name:        {:?}", system.get_host_name());
 //! ```
 
 #![crate_name = "sysinfo"]
@@ -225,6 +225,10 @@ mod test {
             assert!(!s.get_name().expect("Failed to get system name").is_empty());
             assert!(!s
                 .get_kernel_version()
+                .expect("Failed to get system version")
+                .is_empty());
+            assert!(!s
+                .get_os_version()
                 .expect("Failed to get system version")
                 .is_empty());
         }
