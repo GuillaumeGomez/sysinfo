@@ -223,7 +223,7 @@ mod test {
         if MIN_USERS > 0 {
             let s = System::new();
             assert!(!s.get_name().expect("Failed to get system name").is_empty());
-            
+
             cfg_if! {
                 if #[cfg(not(target_os = "windows"))] {
                     assert!(!s

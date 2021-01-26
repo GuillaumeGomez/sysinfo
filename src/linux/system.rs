@@ -13,7 +13,7 @@ use crate::{Disk, LoadAvg, Networks, Pid, ProcessExt, RefreshKind, SystemExt, Us
 use libc::{self, c_char, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::fs::{self, File, read_to_string};
+use std::fs::{self, read_to_string, File};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
