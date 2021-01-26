@@ -217,6 +217,10 @@ mod test {
         assert!(s.get_users().len() >= MIN_USERS);
     }
 
+    // FIXME we are still working out the windows API for proper version info
+    // see https://github.com/GuillaumeGomez/sysinfo/issues/415
+    // and https://github.com/GuillaumeGomez/sysinfo/issues/410
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn check_system_info() {
         // We don't want to test on unknown systems.
