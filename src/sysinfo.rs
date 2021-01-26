@@ -185,11 +185,11 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use crate::*;
 
     #[test]
     fn check_memory_usage() {
-        let mut s = ::System::new();
+        let mut s = System::new();
 
         s.refresh_all();
         assert_eq!(
@@ -202,17 +202,17 @@ mod test {
 
     #[test]
     fn check_users() {
-        let mut s = ::System::new();
+        let mut s = System::new();
         assert!(s.get_users().is_empty());
         s.refresh_users_list();
         assert!(s.get_users().len() >= MIN_USERS);
 
-        let mut s = ::System::new();
+        let mut s = System::new();
         assert!(s.get_users().is_empty());
         s.refresh_all();
         assert!(s.get_users().is_empty());
 
-        let s = ::System::new_all();
+        let s = System::new_all();
         assert!(s.get_users().len() >= MIN_USERS);
     }
 
@@ -220,7 +220,7 @@ mod test {
     fn check_system_info() {
         // We don't want to test on unknown systems.
         if MIN_USERS > 0 {
-            let s = ::System::new();
+            let s = System::new();
             assert!(!s.get_name().expect("Failed to get system name").is_empty());
             assert!(!s
                 .get_version()
@@ -233,7 +233,7 @@ mod test {
     fn check_host_name() {
         // We don't want to test on unknown systems.
         if MIN_USERS > 0 {
-            let s = ::System::new();
+            let s = System::new();
             assert!(!s
                 .get_host_name()
                 .expect("Failed to get host name")

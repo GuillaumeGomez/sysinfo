@@ -4,6 +4,8 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
+use crate::ComponentExt;
+
 use std::ptr::null_mut;
 
 use winapi::shared::rpcdce::{
@@ -22,8 +24,6 @@ use winapi::um::wbemcli::{
     CLSID_WbemLocator, IEnumWbemClassObject, IID_IWbemLocator, IWbemClassObject, IWbemLocator,
     IWbemServices, WBEM_FLAG_FORWARD_ONLY, WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY,
 };
-
-use ComponentExt;
 
 /// Struct containing a component information (temperature and name for the moment).
 ///
@@ -325,7 +325,7 @@ impl Connection {
         unsafe {
             (*p_obj).BeginEnumeration(WBEM_FLAG_NONSYSTEM_ONLY as _);
 
-            let mut p_val: VARIANT = ::std::mem::MaybeUninit::uninit().assume_init();
+            let mut p_val: VARIANT = std::mem::MaybeUninit::uninit().assume_init();
             // "CurrentTemperature"
             let temp = bstr!(
                 'C', 'u', 'r', 'r', 'e', 'n', 't', 'T', 'e', 'm', 'p', 'e', 'r', 'a', 't', 'u',

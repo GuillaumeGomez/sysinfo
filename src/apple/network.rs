@@ -4,15 +4,14 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
+use crate::sys::ffi;
+
 use libc::{self, c_char, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
 
 use std::collections::HashMap;
 use std::ptr::null_mut;
-use sys::ffi;
 
-use NetworkExt;
-use NetworksExt;
-use NetworksIter;
+use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $new_val:expr) => {{

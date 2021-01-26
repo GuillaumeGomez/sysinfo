@@ -4,10 +4,10 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use windows::processor::{self, Processor, Query};
+use crate::DiskType;
 
-use sys::disk::{new_disk, Disk};
-use DiskType;
+use crate::sys::disk::{new_disk, Disk};
+use crate::sys::processor::{self, Processor, Query};
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -64,25 +64,25 @@ pub unsafe fn open_drive(drive_name: &[u16], open_rights: DWORD) -> HANDLE {
         drive_name.as_ptr(),
         open_rights,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
-        ::std::ptr::null_mut(),
+        std::ptr::null_mut(),
         OPEN_EXISTING,
         0,
-        ::std::ptr::null_mut(),
+        std::ptr::null_mut(),
     )
 }
 
 pub unsafe fn get_drive_size(handle: HANDLE) -> u64 {
-    let mut pdg: DISK_GEOMETRY = ::std::mem::zeroed();
+    let mut pdg: DISK_GEOMETRY = std::mem::zeroed();
     let mut junk = 0;
     let result = DeviceIoControl(
         handle,
         IOCTL_DISK_GET_DRIVE_GEOMETRY,
-        ::std::ptr::null_mut(),
+        std::ptr::null_mut(),
         0,
         &mut pdg as *mut DISK_GEOMETRY as *mut c_void,
         size_of::<DISK_GEOMETRY>() as DWORD,
         &mut junk,
-        ::std::ptr::null_mut(),
+        std::ptr::null_mut(),
     );
     if result == TRUE {
         *pdg.Cylinders.QuadPart() as u64
@@ -118,9 +118,9 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 mount_point.as_ptr(),
                 name.as_mut_ptr(),
                 name.len() as DWORD,
-                ::std::ptr::null_mut(),
-                ::std::ptr::null_mut(),
-                ::std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
                 file_system.as_mut_ptr(),
                 file_system.len() as DWORD,
             ) == 0
@@ -161,10 +161,10 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 return new_disk(name, &mount_point, &file_system, DiskType::Unknown(-1), 0);
             }
             let disk_size = get_drive_size(handle);
-            /*let mut spq_trim: ffi::STORAGE_PROPERTY_QUERY = ::std::mem::zeroed();
+            /*let mut spq_trim: ffi::STORAGE_PROPERTY_QUERY = std::mem::zeroed();
             spq_trim.PropertyId = ffi::StorageDeviceTrimProperty;
             spq_trim.QueryType = ffi::PropertyStandardQuery;
-            let mut dtd: ffi::DEVICE_TRIM_DESCRIPTOR = ::std::mem::zeroed();*/
+            let mut dtd: ffi::DEVICE_TRIM_DESCRIPTOR = std::mem::zeroed();*/
             #[allow(non_snake_case)]
             #[repr(C)]
             struct STORAGE_PROPERTY_QUERY {
@@ -184,7 +184,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 QueryType: 0i32,
                 AdditionalParameters: [0],
             };
-            let mut dtd: DEVICE_TRIM_DESCRIPTOR = ::std::mem::zeroed();
+            let mut dtd: DEVICE_TRIM_DESCRIPTOR = std::mem::zeroed();
 
             let mut dw_size = 0;
             if DeviceIoControl(
@@ -195,7 +195,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 &mut dtd as *mut DEVICE_TRIM_DESCRIPTOR as *mut c_void,
                 size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD,
                 &mut dw_size,
-                ::std::ptr::null_mut(),
+                std::ptr::null_mut(),
             ) == 0
                 || dw_size != size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD
             {
@@ -232,9 +232,9 @@ pub unsafe fn load_symbols() -> HashMap<String, u32> {
     let _dwStatus = RegQueryValueExA(
         HKEY_PERFORMANCE_DATA,
         b"Counter 009\0".as_ptr() as *const _,
-        ::std::ptr::null_mut(),
+        std::ptr::null_mut(),
         &mut dwType as *mut i32 as *mut _,
-        ::std::ptr::null_mut(),
+        std::ptr::null_mut(),
         &mut cbCounters as *mut i32 as *mut _,
     );
 
@@ -243,7 +243,7 @@ pub unsafe fn load_symbols() -> HashMap<String, u32> {
     let _dwStatus = RegQueryValueExA(
         HKEY_PERFORMANCE_DATA,
         b"Counter 009\0".as_ptr() as *const _,
-        ::std::ptr::null_mut(),
+        std::ptr::null_mut(),
         &mut dwType as *mut i32 as *mut _,
         lpmszCounters.as_mut_ptr(),
         &mut cbCounters as *mut i32 as *mut _,
@@ -280,9 +280,9 @@ pub fn get_translation(s: &String, map: &HashMap<String, u32>) -> Option<String>
         let mut size: usize = 0;
         unsafe {
             let _res = PdhLookupPerfNameByIndexW(
-                ::std::ptr::null(),
+                std::ptr::null(),
                 *index,
-                ::std::ptr::null_mut(),
+                std::ptr::null_mut(),
                 &mut size as *mut usize as *mut _,
             );
             if size == 0 {
@@ -291,7 +291,7 @@ pub fn get_translation(s: &String, map: &HashMap<String, u32>) -> Option<String>
                 let mut v = Vec::with_capacity(size);
                 v.set_len(size);
                 let _res = PdhLookupPerfNameByIndexW(
-                    ::std::ptr::null(),
+                    std::ptr::null(),
                     *index,
                     v.as_mut_ptr() as *mut _,
                     &mut size as *mut usize as *mut _,

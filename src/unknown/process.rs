@@ -4,10 +4,9 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use crate::{DiskUsage, Pid, ProcessExt, Signal};
+
 use std::path::Path;
-use DiskUsage;
-use Pid;
-use ProcessExt;
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -25,7 +24,7 @@ impl ProcessExt for Process {
         Process { pid, parent }
     }
 
-    fn kill(&self, _signal: ::Signal) -> bool {
+    fn kill(&self, _signal: Signal) -> bool {
         false
     }
 

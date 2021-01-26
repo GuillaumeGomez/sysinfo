@@ -4,17 +4,16 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use DiskExt;
-use DiskType;
+use crate::utils::to_cpath;
+use crate::{DiskExt, DiskType};
+
+#[cfg(target_os = "macos")]
+pub(crate) use crate::sys::inner::disk::*;
 
 use libc::statfs;
 use std::ffi::{OsStr, OsString};
 use std::mem;
 use std::path::{Path, PathBuf};
-use utils::to_cpath;
-
-#[cfg(target_os = "macos")]
-pub(crate) use sys::inner::disk::*;
 
 /// Struct containing a disk information.
 pub struct Disk {

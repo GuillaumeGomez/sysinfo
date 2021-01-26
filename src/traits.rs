@@ -4,15 +4,10 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use sys::{Component, Disk, Networks, Process, Processor};
-use DiskType;
-use DiskUsage;
-use LoadAvg;
-use NetworksIter;
-use Pid;
-use ProcessStatus;
-use RefreshKind;
-use User;
+use crate::sys::{Component, Disk, Networks, Process, Processor};
+use crate::{
+    DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessStatus, RefreshKind, Signal, User,
+};
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -133,7 +128,7 @@ pub trait ProcessExt: Debug {
     ///     process.kill(Signal::Kill);
     /// }
     /// ```
-    fn kill(&self, signal: ::Signal) -> bool;
+    fn kill(&self, signal: Signal) -> bool;
 
     /// Returns the name of the process.
     ///

@@ -4,10 +4,9 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use sys::utils;
-use utils::to_cpath;
-use Disk;
-use DiskType;
+use crate::sys::{ffi, utils};
+use crate::utils::to_cpath;
+use crate::{Disk, DiskType};
 
 use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex};
 use core_foundation_sys::base::{kCFAllocatorDefault, kCFAllocatorNull, CFRelease};
@@ -15,13 +14,14 @@ use core_foundation_sys::dictionary::{CFDictionaryGetValueIfPresent, CFDictionar
 use core_foundation_sys::number::{kCFBooleanTrue, CFBooleanRef};
 use core_foundation_sys::string as cfs;
 use core_foundation_sys::url::{CFURLGetFileSystemRepresentation, CFURLRef};
+
 use libc::{c_char, c_void, statfs, strlen, PATH_MAX};
+
 use std::ffi::{OsStr, OsString};
 use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 use std::ptr;
-use sys::ffi;
 
 unsafe fn to_path(url: CFURLRef) -> Option<PathBuf> {
     let mut buf = [0u8; PATH_MAX as usize];
@@ -56,7 +56,7 @@ pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
                 if !dict.is_null() {
                     // Keeping this around in case one might want the list of the available
                     // keys in "dict".
-                    // ::core_foundation::base::CFShow(dict as _);
+                    // core_foundation::base::CFShow(dict as _);
                     let name = match get_str_value(dict, b"DAMediaName\0").map(OsString::from) {
                         Some(n) => n,
                         None => continue,
@@ -104,7 +104,7 @@ unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
         cfs::kCFStringEncodingUTF8,
         kCFAllocatorNull as _,
     );
-    let mut value = ::std::ptr::null();
+    let mut value = std::ptr::null();
     let ret = if CFDictionaryGetValueIfPresent(dict, key as _, &mut value) != 0 {
         callback(value)
     } else {

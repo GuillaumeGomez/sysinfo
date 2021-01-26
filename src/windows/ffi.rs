@@ -35,7 +35,7 @@ macro_rules! BITFIELD {
         impl $base {$(
             #[inline]
             pub fn $thing(&self) -> $fieldtype {
-                let size = ::std::mem::size_of::<$fieldtype>() * 8;
+                let size = std::mem::size_of::<$fieldtype>() * 8;
                 self.$field << (size - $r.end) >> (size - $r.end + $r.start)
             }
             #[inline]

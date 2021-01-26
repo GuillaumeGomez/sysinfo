@@ -4,12 +4,10 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use std::collections::{HashMap, HashSet};
+use crate::sys::ffi::{self, MIB_IF_ROW2, PMIB_IF_TABLE2};
+use crate::{NetworkExt, NetworksExt, NetworksIter};
 
-use windows::ffi::{self, MIB_IF_ROW2, PMIB_IF_TABLE2};
-use NetworkExt;
-use NetworksExt;
-use NetworksIter;
+use std::collections::{HashMap, HashSet};
 
 use winapi::shared::ifdef::NET_LUID;
 use winapi::shared::winerror::NO_ERROR;
@@ -48,7 +46,7 @@ impl NetworksExt for Networks {
     }
 
     fn refresh_networks_list(&mut self) {
-        let mut table: PMIB_IF_TABLE2 = ::std::ptr::null_mut();
+        let mut table: PMIB_IF_TABLE2 = std::ptr::null_mut();
         if unsafe { ffi::GetIfTable2(&mut table) } != NO_ERROR {
             return;
         }
@@ -152,7 +150,7 @@ impl NetworksExt for Networks {
     }
 
     fn refresh(&mut self) {
-        let mut entry: MIB_IF_ROW2 = unsafe { ::std::mem::MaybeUninit::uninit().assume_init() };
+        let mut entry: MIB_IF_ROW2 = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
         for (_, interface) in self.interfaces.iter_mut() {
             entry.InterfaceLuid = interface.id;
             entry.InterfaceIndex = 0; // to prevent the function to pick this one as index

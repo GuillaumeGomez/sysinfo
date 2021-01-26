@@ -4,15 +4,14 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
+use crate::sys::tools::KeyHandler;
+use crate::{LoadAvg, ProcessorExt};
+
 use std::collections::HashMap;
 use std::mem;
 use std::ops::DerefMut;
 use std::ptr::null_mut;
 use std::sync::Mutex;
-
-use windows::tools::KeyHandler;
-use LoadAvg;
-use ProcessorExt;
 
 use ntapi::ntpoapi::PROCESSOR_POWER_INFORMATION;
 
@@ -206,7 +205,7 @@ impl Query {
             return false;
         }
         unsafe {
-            let mut counter: PDH_HCOUNTER = ::std::mem::zeroed();
+            let mut counter: PDH_HCOUNTER = std::mem::zeroed();
             let ret = PdhAddCounterW(self.internal.query, getter.as_ptr(), 0, &mut counter);
             if ret == ERROR_SUCCESS as _ {
                 self.internal.data.insert(name.clone(), counter);
@@ -346,7 +345,7 @@ pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
             }
             pos += 1;
         }
-        match ::std::str::from_utf8(&out[..pos]) {
+        match std::str::from_utf8(&out[..pos]) {
             Ok(s) => s.to_owned(),
             _ => String::new(),
         }
@@ -367,7 +366,7 @@ pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
         }
         pos += 1;
     }
-    let vendor_id = match ::std::str::from_utf8(&x[..pos]) {
+    let vendor_id = match std::str::from_utf8(&x[..pos]) {
         Ok(s) => s.to_owned(),
         Err(_) => get_vendor_id_not_great(info),
     };

@@ -4,14 +4,15 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use crate::sys::ffi;
+use crate::sys::system::get_sys_value;
+
+use crate::ProcessorExt;
+
 use libc::{c_char, c_void};
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
-use sys::ffi;
-use sys::system::get_sys_value;
-
-use ProcessorExt;
 
 pub struct UnsafePtr<T>(*mut T);
 
@@ -43,11 +44,11 @@ impl ProcessorData {
 impl Drop for ProcessorData {
     fn drop(&mut self) {
         if !self.cpu_info.0.is_null() {
-            let prev_cpu_info_size = ::std::mem::size_of::<i32>() as u32 * self.num_cpu_info;
+            let prev_cpu_info_size = std::mem::size_of::<i32>() as u32 * self.num_cpu_info;
             unsafe {
                 ffi::vm_deallocate(ffi::mach_task_self(), self.cpu_info.0, prev_cpu_info_size);
             }
-            self.cpu_info.0 = ::std::ptr::null_mut();
+            self.cpu_info.0 = std::ptr::null_mut();
         }
     }
 }
@@ -153,7 +154,7 @@ pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>) {
         }
 
         let mut num_cpu_u = 0u32;
-        let mut cpu_info: *mut i32 = ::std::ptr::null_mut();
+        let mut cpu_info: *mut i32 = std::ptr::null_mut();
         let mut num_cpu_info = 0u32;
 
         if ffi::host_processor_info(
