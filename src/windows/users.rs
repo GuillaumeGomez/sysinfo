@@ -4,7 +4,8 @@
 // Copyright (c) 2020 Guillaume Gomez
 //
 
-use User;
+use crate::sys::ffi::NetUserGetLocalGroups;
+use crate::User;
 
 use winapi::shared::lmcons::MAX_PREFERRED_LENGTH;
 use winapi::shared::winerror::{ERROR_MORE_DATA, ERROR_SUCCESS};
@@ -14,8 +15,6 @@ use winapi::um::lmaccess::{
 };
 use winapi::um::lmapibuf::NetApiBufferFree;
 use winapi::um::winnt::LPWSTR;
-
-use sys::ffi::NetUserGetLocalGroups;
 
 unsafe fn to_str(p: LPWSTR) -> String {
     let mut i = 0;
@@ -36,7 +35,7 @@ unsafe fn to_str(p: LPWSTR) -> String {
 }
 
 unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<String> {
-    let mut buf: LPLOCALGROUP_USERS_INFO_0 = ::std::ptr::null_mut();
+    let mut buf: LPLOCALGROUP_USERS_INFO_0 = std::ptr::null_mut();
     let mut nb_entries = 0;
     let mut total_entries = 0;
     let mut groups;
@@ -79,7 +78,7 @@ unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<String> {
 pub unsafe fn get_users() -> Vec<User> {
     let mut users = Vec::new();
     let mut i = 0;
-    let mut buf: PNET_DISPLAY_USER = ::std::ptr::null_mut();
+    let mut buf: PNET_DISPLAY_USER = std::ptr::null_mut();
     let mut nb_entries = 0;
     let mut res = ERROR_MORE_DATA;
 

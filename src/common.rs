@@ -4,10 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use NetworkData;
-use Networks;
-use NetworksExt;
-use UserExt;
+use crate::{NetworkData, Networks, NetworksExt, UserExt};
 
 /// Trait to have a common fallback for the [`Pid`][crate::Pid] type.
 pub trait AsU32 {

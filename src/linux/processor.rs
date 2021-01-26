@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read;
 
-use ProcessorExt;
+use crate::ProcessorExt;
 
 /// Struct containing values to compute a CPU usage.
 #[derive(Clone, Copy)]
@@ -261,13 +261,13 @@ pub fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
         .unwrap_or_default()
 }
 
-pub fn get_physical_core_count() -> usize {
+pub fn get_physical_core_count() -> Option<usize> {
     let mut s = String::new();
     if File::open("/proc/cpuinfo")
         .and_then(|mut f| f.read_to_string(&mut s))
         .is_err()
     {
-        return 0;
+        return None;
     }
 
     let mut core_ids_and_physical_ids: HashSet<String> = HashSet::new();
@@ -294,7 +294,7 @@ pub fn get_physical_core_count() -> usize {
         }
     }
 
-    core_ids_and_physical_ids.len()
+    Some(core_ids_and_physical_ids.len())
 }
 
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).

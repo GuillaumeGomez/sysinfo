@@ -4,10 +4,12 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
+use crate::sys::ffi;
+use crate::ComponentExt;
+
 use libc::{c_char, c_int, c_void};
+
 use std::mem;
-use sys::ffi;
-use ComponentExt;
 
 pub(crate) const COMPONENTS_TEMPERATURE_IDS: &[(&str, &[i8])] = &[
     ("PECI CPU", &['T' as i8, 'C' as i8, 'X' as i8, 'C' as i8]), // PECI CPU "TCXC"

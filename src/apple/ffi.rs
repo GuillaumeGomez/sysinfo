@@ -7,7 +7,7 @@
 use libc::{c_int, c_uchar, c_uint, c_ushort, c_void};
 
 // Reexport items defined in either macos or ios ffi module.
-pub use sys::inner::ffi::*;
+pub use crate::sys::inner::ffi::*;
 
 extern "C" {
     pub fn proc_pidinfo(
@@ -84,7 +84,7 @@ macro_rules! __cfg_if_apply {
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
 cfg_if! {
     if #[cfg(any(target_arch = "arm", target_arch = "x86"))] {
-        pub type timeval32 = ::libc::timeval;
+        pub type timeval32 = libc::timeval;
     } else {
         use libc::timeval32;
     }

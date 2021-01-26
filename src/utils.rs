@@ -4,13 +4,13 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
+use crate::Pid;
 #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 use std::ffi::OsStr;
 #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 use std::os::unix::ffi::OsStrExt;
 #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
 use std::path::Path;
-use Pid;
 
 #[allow(clippy::useless_conversion)]
 #[cfg(not(any(
@@ -20,7 +20,7 @@ use Pid;
     target_os = "macos",
     target_os = "ios"
 )))]
-pub fn realpath(original: &Path) -> ::std::path::PathBuf {
+pub fn realpath(original: &Path) -> std::path::PathBuf {
     use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
     use std::fs;
     use std::mem::MaybeUninit;

@@ -76,8 +76,8 @@ impl SystemExt for System {
         &[]
     }
 
-    fn get_physical_core_count(&self) -> usize {
-        0
+    fn get_physical_core_count(&self) -> Option<usize> {
+        None
     }
 
     fn get_total_memory(&self) -> u64 {

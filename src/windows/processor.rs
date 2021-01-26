@@ -4,15 +4,14 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
+use crate::sys::tools::KeyHandler;
+use crate::{LoadAvg, ProcessorExt};
+
 use std::collections::HashMap;
 use std::mem;
 use std::ops::DerefMut;
 use std::ptr::null_mut;
 use std::sync::Mutex;
-
-use windows::tools::KeyHandler;
-use LoadAvg;
-use ProcessorExt;
 
 use ntapi::ntpoapi::PROCESSOR_POWER_INFORMATION;
 
@@ -206,7 +205,7 @@ impl Query {
             return false;
         }
         unsafe {
-            let mut counter: PDH_HCOUNTER = ::std::mem::zeroed();
+            let mut counter: PDH_HCOUNTER = std::mem::zeroed();
             let ret = PdhAddCounterW(self.internal.query, getter.as_ptr(), 0, &mut counter);
             if ret == ERROR_SUCCESS as _ {
                 self.internal.data.insert(name.clone(), counter);
@@ -346,7 +345,7 @@ pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
             }
             pos += 1;
         }
-        match ::std::str::from_utf8(&out[..pos]) {
+        match std::str::from_utf8(&out[..pos]) {
             Ok(s) => s.to_owned(),
             _ => String::new(),
         }
@@ -367,7 +366,7 @@ pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
         }
         pos += 1;
     }
-    let vendor_id = match ::std::str::from_utf8(&x[..pos]) {
+    let vendor_id = match std::str::from_utf8(&x[..pos]) {
         Ok(s) => s.to_owned(),
         Err(_) => get_vendor_id_not_great(info),
     };
@@ -415,7 +414,7 @@ pub fn get_frequencies(nb_processors: usize) -> Vec<u64> {
     }
 }
 
-pub fn get_physical_core_count() -> usize {
+pub fn get_physical_core_count() -> Option<usize> {
     // we cannot use the number of processors here to pre calculate the buf size
     // GetLogicalProcessorInformationEx with RelationProcessorCore passed to it not only returns the logical cores but also numa nodes
     //
@@ -425,21 +424,22 @@ pub fn get_physical_core_count() -> usize {
     unsafe { GetLogicalProcessorInformationEx(0, null_mut(), &mut needed_size) };
     let size = mem::size_of::<SYSTEM_LOGICAL_PROCESSOR_INFORMATION>() as u32;
     if needed_size == 0 || needed_size < size || needed_size % size != 0 {
-        return 0;
+        return None;
     }
 
     let count = needed_size / size;
-    let mut buf = Vec::with_capacity(count as usize);
+    let mut buf = Vec::with_capacity(count as _);
 
-    let result = unsafe { GetLogicalProcessorInformationEx(0, buf.as_mut_ptr(), &mut needed_size) };
-    if result == 0 {
-        return 0;
+    if unsafe { GetLogicalProcessorInformationEx(0, buf.as_mut_ptr(), &mut needed_size) } == 0 {
+        return None;
     }
 
     unsafe {
-        buf.set_len(count as usize);
+        buf.set_len(count as _);
     }
-    buf.iter()
-        .filter(|proc_info| proc_info.Relationship == 0) // Only get the physical cores
-        .count()
+    Some(
+        buf.iter()
+            .filter(|proc_info| proc_info.Relationship == 0) // Only get the physical cores
+            .count(),
+    )
 }

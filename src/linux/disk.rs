@@ -4,10 +4,8 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use super::system::get_all_data;
-use utils;
-use DiskExt;
-use DiskType;
+use crate::sys::system::get_all_data;
+use crate::{utils, DiskExt, DiskType};
 
 use libc::statvfs;
 use std::ffi::{OsStr, OsString};

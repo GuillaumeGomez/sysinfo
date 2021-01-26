@@ -306,7 +306,7 @@ pub extern "C" fn sysinfo_get_process_by_pid(system: CSystem, pid: pid_t) -> CPr
     let ret = if let Some(process) = system.get_process(pid) {
         process as *const Process as CProcess
     } else {
-        ::std::ptr::null()
+        std::ptr::null()
     };
     Box::into_raw(system);
     ret
@@ -391,7 +391,7 @@ pub extern "C" fn sysinfo_process_get_executable_path(process: CProcess) -> RStr
                 return c.into_raw() as _;
             }
         }
-        ::std::ptr::null()
+        std::ptr::null()
     }
 }
 
@@ -406,7 +406,7 @@ pub extern "C" fn sysinfo_process_get_root_directory(process: CProcess) -> RStri
                 return c.into_raw() as _;
             }
         }
-        ::std::ptr::null()
+        std::ptr::null()
     }
 }
 
@@ -421,7 +421,7 @@ pub extern "C" fn sysinfo_process_get_current_directory(process: CProcess) -> RS
                 return c.into_raw() as _;
             }
         }
-        ::std::ptr::null()
+        std::ptr::null()
     }
 }
 

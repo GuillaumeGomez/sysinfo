@@ -4,6 +4,8 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
+use crate::{DiskUsage, Pid, ProcessExt, Signal};
+
 use std::fmt::{self, Debug};
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::ops::Deref;
@@ -15,10 +17,6 @@ use std::str;
 use libc::{c_void, memcpy};
 
 use once_cell::sync::Lazy;
-
-use DiskUsage;
-use Pid;
-use ProcessExt;
 
 use ntapi::ntpsapi::{
     NtQueryInformationProcess, ProcessBasicInformation, ProcessCommandLineInformation,
@@ -361,7 +359,7 @@ impl ProcessExt for Process {
         }
     }
 
-    fn kill(&self, _signal: ::Signal) -> bool {
+    fn kill(&self, _signal: Signal) -> bool {
         let mut kill = process::Command::new("taskkill.exe");
         kill.arg("/PID").arg(self.pid().to_string()).arg("/F");
         match kill.output() {
@@ -547,7 +545,7 @@ fn get_cmd_line_old(handle: HANDLE) -> Vec<String> {
             ppeb as *mut _,
             peb_copy.as_mut_ptr() as *mut _,
             size_of::<PEB>() as SIZE_T,
-            ::std::ptr::null_mut(),
+            std::ptr::null_mut(),
         ) != TRUE
         {
             return Vec::new();
@@ -561,7 +559,7 @@ fn get_cmd_line_old(handle: HANDLE) -> Vec<String> {
             proc_param as *mut PRTL_USER_PROCESS_PARAMETERS as *mut _,
             rtl_proc_param_copy.as_mut_ptr() as *mut _,
             size_of::<RTL_USER_PROCESS_PARAMETERS>() as SIZE_T,
-            ::std::ptr::null_mut(),
+            std::ptr::null_mut(),
         ) != TRUE
         {
             return Vec::new();
@@ -579,7 +577,7 @@ fn get_cmd_line_old(handle: HANDLE) -> Vec<String> {
             rtl_proc_param_copy.CommandLine.Buffer as *mut _,
             buffer_copy.as_mut_ptr() as *mut _,
             len * 2,
-            ::std::ptr::null_mut(),
+            std::ptr::null_mut(),
         ) != TRUE
         {
             return Vec::new();
@@ -693,7 +691,7 @@ pub(crate) fn get_executable_path(_pid: Pid) -> PathBuf {
 
 pub(crate) fn get_system_computation_time() -> ULARGE_INTEGER {
     unsafe {
-        let mut now: ULARGE_INTEGER = ::std::mem::zeroed();
+        let mut now: ULARGE_INTEGER = std::mem::zeroed();
         let mut ftime: FILETIME = zeroed();
 
         GetSystemTimeAsFileTime(&mut ftime);
@@ -717,8 +715,8 @@ fn check_sub(a: u64, b: u64) -> u64 {
 
 pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, now: ULARGE_INTEGER) {
     unsafe {
-        let mut sys: ULARGE_INTEGER = ::std::mem::zeroed();
-        let mut user: ULARGE_INTEGER = ::std::mem::zeroed();
+        let mut sys: ULARGE_INTEGER = std::mem::zeroed();
+        let mut user: ULARGE_INTEGER = std::mem::zeroed();
         let mut ftime: FILETIME = zeroed();
         let mut fsys: FILETIME = zeroed();
         let mut fuser: FILETIME = zeroed();

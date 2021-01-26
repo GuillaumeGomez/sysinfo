@@ -4,7 +4,7 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use ComponentExt;
+use crate::ComponentExt;
 
 use std::collections::HashMap;
 use std::fs::{metadata, read_dir, File};

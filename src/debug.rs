@@ -4,20 +4,10 @@
 // Copyright (c) 2020 Guillaume Gomez
 //
 
-use Component;
-use ComponentExt;
-use Disk;
-use DiskExt;
-use NetworkData;
-use NetworkExt;
-use Networks;
-use NetworksExt;
-use Process;
-use ProcessExt;
-use Processor;
-use ProcessorExt;
-use System;
-use SystemExt;
+use crate::{
+    Component, ComponentExt, Disk, DiskExt, NetworkData, NetworkExt, Networks, NetworksExt,
+    Process, ProcessExt, Processor, ProcessorExt, System, SystemExt,
+};
 
 use std::fmt;
 

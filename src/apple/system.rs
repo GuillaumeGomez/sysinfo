@@ -4,26 +4,25 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use crate::sys::component::Component;
+use crate::sys::disk::*;
+use crate::sys::ffi;
+use crate::sys::network::Networks;
+use crate::sys::process::*;
+use crate::sys::processor::*;
 #[cfg(target_os = "macos")]
 use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
-use libc::c_char;
-use sys::component::Component;
-use sys::disk::*;
-use sys::ffi;
-use sys::network::Networks;
-use sys::process::*;
-use sys::processor::*;
 
-use {LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt, User};
+use crate::utils::into_iter;
+
+use crate::{LoadAvg, Pid, ProcessExt, ProcessorExt, RefreshKind, SystemExt, User};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
 
-use libc::{self, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
-
-use utils::into_iter;
+use libc::{self, c_char, c_int, c_void, size_t, sysconf, _SC_PAGESIZE};
 
 /// Structs containing system's information.
 pub struct System {
@@ -94,7 +93,7 @@ fn boot_time() -> u64 {
         tv_sec: 0,
         tv_usec: 0,
     };
-    let mut len = ::std::mem::size_of::<libc::timeval>();
+    let mut len = std::mem::size_of::<libc::timeval>();
     let mut mib: [libc::c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
     if unsafe {
         libc::sysctl(
@@ -102,7 +101,7 @@ fn boot_time() -> u64 {
             2,
             &mut boot_time as *mut libc::timeval as *mut _,
             &mut len,
-            ::std::ptr::null_mut(),
+            std::ptr::null_mut(),
             0,
         )
     } < 0
@@ -224,7 +223,7 @@ impl SystemExt for System {
     fn refresh_cpu(&mut self) {
         // get processor values
         let mut num_cpu_u = 0u32;
-        let mut cpu_info: *mut i32 = ::std::ptr::null_mut();
+        let mut cpu_info: *mut i32 = std::ptr::null_mut();
         let mut num_cpu_info = 0u32;
 
         let mut pourcent = 0f32;
@@ -347,7 +346,7 @@ impl SystemExt for System {
         &self.processors
     }
 
-    fn get_physical_core_count(&self) -> usize {
+    fn get_physical_core_count(&self) -> Option<usize> {
         let mut physical_core_count = 0;
 
         if unsafe {
@@ -357,9 +356,9 @@ impl SystemExt for System {
                 &mut physical_core_count as *mut usize as *mut c_void,
             )
         } {
-            physical_core_count
+            Some(physical_core_count)
         } else {
-            0
+            None
         }
     }
 
@@ -535,7 +534,7 @@ fn get_arg_max() -> usize {
             2,
             (&mut arg_max) as *mut i32 as *mut c_void,
             &mut size,
-            ::std::ptr::null_mut(),
+            std::ptr::null_mut(),
             0,
         ) == -1
         {
@@ -560,7 +559,7 @@ pub(crate) unsafe fn get_sys_value(
         2,
         value,
         &mut len as *mut usize,
-        ::std::ptr::null_mut(),
+        std::ptr::null_mut(),
         0,
     ) == 0
 }
@@ -586,7 +585,7 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
             2,
             buf.as_mut_ptr() as _,
             &mut size,
-            ::std::ptr::null_mut(),
+            std::ptr::null_mut(),
             0,
         )
     } == -1
