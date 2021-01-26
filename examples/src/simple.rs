@@ -381,7 +381,10 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "system" => {
             writeln!(
                 &mut io::stdout(),
-                "System name:           {}\nSystem kernel version: {}\nSystem OS version:     {}\nSystem host name:      {}",
+                "System name:           {}\n\
+                System kernel version: {}\n\
+                System OS version:     {}\n\
+                System host name:      {}",
                 sys.get_name().unwrap_or_else(|| "<unknown>".to_owned()),
                 sys.get_kernel_version().unwrap_or_else(|| "<unknown>".to_owned()),
                 sys.get_os_version().unwrap_or_else(|| "<unknown>".to_owned()),

@@ -217,20 +217,22 @@ mod test {
         assert!(s.get_users().len() >= MIN_USERS);
     }
 
-    // FIXME we are still working out the windows API for proper version info
-    // see https://github.com/GuillaumeGomez/sysinfo/issues/415
-    // and https://github.com/GuillaumeGomez/sysinfo/issues/410
-    #[cfg(not(target_os = "windows"))]
     #[test]
     fn check_system_info() {
         // We don't want to test on unknown systems.
         if MIN_USERS > 0 {
             let s = System::new();
             assert!(!s.get_name().expect("Failed to get system name").is_empty());
-            assert!(!s
-                .get_kernel_version()
-                .expect("Failed to get system version")
-                .is_empty());
+            
+            cfg_if! {
+                if #[cfg(not(target_os = "windows"))] {
+                    assert!(!s
+                    .get_kernel_version()
+                    .expect("Failed to get system version")
+                    .is_empty());
+                    }
+            }
+
             assert!(!s
                 .get_os_version()
                 .expect("Failed to get system version")
