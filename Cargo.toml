@@ -11,6 +11,7 @@ readme = "README.md"
 categories = ["filesystem", "os", "api-bindings"]
 
 build = "build.rs"
+edition = "2018"
 
 [dependencies]
 cfg-if = "1.0"

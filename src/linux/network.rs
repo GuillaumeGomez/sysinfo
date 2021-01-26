@@ -8,10 +8,8 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
+use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::HashMap;
-use NetworkExt;
-use NetworksExt;
-use NetworksIter;
 
 /// Network interfaces.
 ///

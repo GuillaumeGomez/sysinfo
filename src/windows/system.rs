@@ -4,29 +4,24 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use sys::component::{self, Component};
-use sys::disk::Disk;
-use sys::processor::*;
-use sys::users::get_users;
+use crate::{LoadAvg, Networks, Pid, ProcessExt, RefreshKind, SystemExt, User};
+
+use crate::sys::component::{self, Component};
+use crate::sys::disk::Disk;
+use crate::sys::process::{
+    compute_cpu_usage, get_handle, get_system_computation_time, update_disk_usage, update_memory,
+    Process,
+};
+use crate::sys::processor::*;
+use crate::sys::tools::*;
+use crate::sys::users::get_users;
+
+use crate::utils::into_iter;
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::time::SystemTime;
-
-use LoadAvg;
-use Networks;
-use Pid;
-use ProcessExt;
-use RefreshKind;
-use SystemExt;
-use User;
-
-use windows::process::{
-    compute_cpu_usage, get_handle, get_system_computation_time, update_disk_usage, update_memory,
-    Process,
-};
-use windows::tools::*;
 
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemProcessInformation, SYSTEM_PROCESS_INFORMATION,
@@ -42,8 +37,6 @@ use winapi::um::sysinfoapi::{
     GlobalMemoryStatusEx, MEMORYSTATUSEX,
 };
 use winapi::um::winnt::{HANDLE, OSVERSIONINFOW};
-
-use utils::into_iter;
 
 /// Struct containing the system's information.
 pub struct System {

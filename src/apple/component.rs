@@ -4,4 +4,4 @@
 // Copyright (c) 2021 Guillaume Gomez
 //
 
-pub use sys::inner::component::*;
+pub use crate::sys::inner::component::*;

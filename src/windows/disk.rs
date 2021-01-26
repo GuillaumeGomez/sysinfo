@@ -4,11 +4,10 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
+use crate::{DiskExt, DiskType};
+
 use std::ffi::{OsStr, OsString};
 use std::path::Path;
-
-use DiskExt;
-use DiskType;
 
 use winapi::um::fileapi::GetDiskFreeSpaceExW;
 use winapi::um::winnt::ULARGE_INTEGER;
@@ -75,11 +74,11 @@ impl DiskExt for Disk {
     fn refresh(&mut self) -> bool {
         if self.total_space != 0 {
             unsafe {
-                let mut tmp: ULARGE_INTEGER = ::std::mem::zeroed();
+                let mut tmp: ULARGE_INTEGER = std::mem::zeroed();
                 if GetDiskFreeSpaceExW(
                     self.mount_point.as_ptr(),
-                    ::std::ptr::null_mut(),
-                    ::std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
                     &mut tmp,
                 ) != 0
                 {

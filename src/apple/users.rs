@@ -6,8 +6,8 @@
 
 use crate::User;
 
+use crate::sys::utils;
 use libc::{c_char, endpwent, getgrgid, getgrouplist, getpwent, gid_t, setpwent, strlen};
-use sys::utils;
 
 fn get_user_groups(name: *const c_char, group_id: gid_t) -> Vec<String> {
     let mut add = 0;
@@ -86,7 +86,7 @@ pub fn get_users_list() -> Vec<User> {
 
 //     unsafe {
 //         let node_name = ffi::CFStringCreateWithCStringNoCopy(
-//             ::std::ptr::null_mut(),
+//             std::ptr::null_mut(),
 //             node_name.as_ptr() as *const c_char,
 //             ffi::kCFStringEncodingMacRoman,
 //             ffi::kCFAllocatorNull as *mut c_void,
@@ -95,18 +95,18 @@ pub fn get_users_list() -> Vec<User> {
 //             ffi::kCFAllocatorDefault,
 //             ffi::kODSessionDefault,
 //             node_name,
-//             ::std::ptr::null_mut(),
+//             std::ptr::null_mut(),
 //         );
 //         let query = ffi::ODQueryCreateWithNode(
 //             ffi::kCFAllocatorDefault,
 //             node_ref,
 //             ffi::kODRecordTypeUsers as _, // kODRecordTypeGroups
-//             ::std::ptr::null(),
+//             std::ptr::null(),
 //             0,
-//             ::std::ptr::null(),
-//             ::std::ptr::null(),
+//             std::ptr::null(),
+//             std::ptr::null(),
 //             0,
-//             ::std::ptr::null_mut(),
+//             std::ptr::null_mut(),
 //         );
 //         if query.is_null() {
 //             return users;
@@ -114,7 +114,7 @@ pub fn get_users_list() -> Vec<User> {
 //         let results = ffi::ODQueryCopyResults(
 //             query,
 //             false as _,
-//             ::std::ptr::null_mut(),
+//             std::ptr::null_mut(),
 //         );
 //         let len = ffi::CFArrayGetCount(results);
 //         for i in 0..len {

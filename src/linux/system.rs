@@ -4,17 +4,11 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use sys::component::{self, Component};
-use sys::disk;
-use sys::process::*;
-use sys::processor::*;
-
-use Disk;
-use LoadAvg;
-use Networks;
-use Pid;
-use User;
-use {ProcessExt, RefreshKind, SystemExt};
+use crate::sys::component::{self, Component};
+use crate::sys::disk;
+use crate::sys::process::*;
+use crate::sys::processor::*;
+use crate::{Disk, LoadAvg, Networks, Pid, ProcessExt, RefreshKind, SystemExt, User};
 
 use libc::{self, c_char, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
@@ -26,8 +20,7 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
-use utils::into_iter;
-use utils::realpath;
+use crate::utils::{into_iter, realpath};
 
 // This whole thing is to prevent having too many files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
@@ -91,7 +84,7 @@ pub(crate) fn get_max_nb_fds() -> isize {
 
 macro_rules! to_str {
     ($e:expr) => {
-        unsafe { ::std::str::from_utf8_unchecked($e) }
+        unsafe { std::str::from_utf8_unchecked($e) }
     };
 }
 
@@ -829,7 +822,7 @@ fn _get_process_data(
     let mut tmp = PathBuf::from(path);
 
     tmp.push("stat");
-    let mut file = ::std::fs::File::open(&tmp).map_err(|_| ())?;
+    let mut file = std::fs::File::open(&tmp).map_err(|_| ())?;
     let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
     let stat_file = check_nb_open_files(file);
     let parts = parse_stat_file(&data)?;
@@ -929,8 +922,8 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
                 for (pos, x) in data.iter().enumerate() {
                     if *x == 0 {
                         if pos - start >= 1 {
-                            if let Ok(s) = ::std::str::from_utf8(&data[start..pos])
-                                .map(|x| x.trim().to_owned())
+                            if let Ok(s) =
+                                std::str::from_utf8(&data[start..pos]).map(|x| x.trim().to_owned())
                             {
                                 out.push(s);
                             }

@@ -4,7 +4,7 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use ComponentExt;
+use crate::ComponentExt;
 
 /// Dummy struct representing a component since iOS doesn't support
 /// obtaining CPU information.

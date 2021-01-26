@@ -12,12 +12,10 @@ use std::path::{Path, PathBuf};
 
 use libc::{c_int, c_void, gid_t, kill, size_t, uid_t};
 
-use DiskUsage;
-use Pid;
-use ProcessExt;
+use crate::{DiskUsage, Pid, ProcessExt, Signal};
 
-use sys::ffi;
-use sys::system::Wrap;
+use crate::sys::ffi;
+use crate::sys::system::Wrap;
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -258,7 +256,7 @@ impl ProcessExt for Process {
         }
     }
 
-    fn kill(&self, signal: ::Signal) -> bool {
+    fn kill(&self, signal: Signal) -> bool {
         unsafe { kill(self.pid, signal as c_int) == 0 }
     }
 
@@ -496,7 +494,7 @@ pub(crate) fn update_process(
             3,
             ptr as *mut c_void,
             &mut size,
-            ::std::ptr::null_mut(),
+            std::ptr::null_mut(),
             0,
         ) == -1
         {

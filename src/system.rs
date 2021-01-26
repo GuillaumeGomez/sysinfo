@@ -9,8 +9,7 @@
 
 #[cfg(test)]
 mod tests {
-    use utils;
-    use {ProcessExt, System, SystemExt};
+    use crate::{utils, ProcessExt, System, SystemExt};
 
     #[test]
     fn test_refresh_system() {

@@ -11,9 +11,7 @@ use std::path::{Path, PathBuf};
 
 use libc::{c_int, gid_t, kill, uid_t};
 
-use DiskUsage;
-use Pid;
-use ProcessExt;
+use crate::{DiskUsage, Pid, ProcessExt, Signal};
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug)]
@@ -167,7 +165,7 @@ impl ProcessExt for Process {
         }
     }
 
-    fn kill(&self, signal: ::Signal) -> bool {
+    fn kill(&self, signal: Signal) -> bool {
         unsafe { kill(self.pid, signal as c_int) == 0 }
     }
 
@@ -238,7 +236,7 @@ impl ProcessExt for Process {
 impl Drop for Process {
     fn drop(&mut self) {
         if self.stat_file.is_some() {
-            if let Ok(ref mut x) = unsafe { ::linux::system::REMAINING_FILES.lock() } {
+            if let Ok(ref mut x) = unsafe { crate::sys::system::REMAINING_FILES.lock() } {
                 **x += 1;
             }
         }

@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read;
 
-use ProcessorExt;
+use crate::ProcessorExt;
 
 /// Struct containing values to compute a CPU usage.
 #[derive(Clone, Copy)]
