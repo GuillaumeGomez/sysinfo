@@ -956,7 +956,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_name(&self) -> Option<String>;
 
-    /// Returns the system version.
+    /// Returns the system's kernel version.
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
@@ -964,9 +964,21 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new();
-    /// println!("OS version: {:?}", s.get_version());
+    /// println!("kernel version: {:?}", s.get_kernel_version());
     /// ```
-    fn get_version(&self) -> Option<String>;
+    fn get_kernel_version(&self) -> Option<String>;
+
+    /// Returns the system version (e.g. for MacOS this will return 11.1 rather than the kernel version).
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// println!("OS version: {:?}", s.get_os_version());
+    /// ```
+    fn get_os_version(&self) -> Option<String>;
 
     /// Returns the system hostname based off DNS
     ///

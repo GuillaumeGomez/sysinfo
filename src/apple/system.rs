@@ -352,7 +352,7 @@ impl SystemExt for System {
         if unsafe {
             get_sys_value_by_name(
                 b"hw.physicalcpu\0",
-                mem::size_of::<u32>(),
+                &mut mem::size_of::<u32>(),
                 &mut physical_core_count as *mut usize as *mut c_void,
             )
         } {
@@ -449,8 +449,35 @@ impl SystemExt for System {
         get_system_info(libc::KERN_HOSTNAME, None)
     }
 
-    fn get_version(&self) -> Option<String> {
+    fn get_kernel_version(&self) -> Option<String> {
         get_system_info(libc::KERN_OSRELEASE, None)
+    }
+
+    fn get_os_version(&self) -> Option<String> {
+        unsafe {
+            // get the size for the buffer first
+            let mut size = 0;
+            if get_sys_value_by_name(b"kern.osproductversion\0", &mut size, std::ptr::null_mut())
+                && size > 0
+            {
+                // now create a buffer with the size and get the real value
+                let mut buf = vec![0_u8; size as usize];
+
+                if get_sys_value_by_name(
+                    b"kern.osproductversion\0",
+                    &mut size,
+                    buf.as_mut_ptr() as *mut c_void,
+                ) {
+                    String::from_utf8(buf).ok()
+                } else {
+                    // getting the system value failed
+                    None
+                }
+            } else {
+                // getting the system value failed, or did not return a buffer size
+                None
+            }
+        }
     }
 }
 
@@ -537,11 +564,11 @@ pub(crate) unsafe fn get_sys_value(
     ) == 0
 }
 
-unsafe fn get_sys_value_by_name(name: &[u8], mut len: usize, value: *mut libc::c_void) -> bool {
+unsafe fn get_sys_value_by_name(name: &[u8], len: &mut usize, value: *mut libc::c_void) -> bool {
     libc::sysctlbyname(
         name.as_ptr() as *const c_char,
         value,
-        &mut len,
+        len,
         std::ptr::null_mut(),
         0,
     ) == 0

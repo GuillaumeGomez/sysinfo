@@ -400,7 +400,18 @@ impl SystemExt for System {
         get_dns_hostname()
     }
 
-    fn get_version(&self) -> Option<String> {
+    // FIXME currently we are figuring out the best way to return kernel version for Windows
+    // see https://github.com/GuillaumeGomez/sysinfo/issues/415
+    // and https://github.com/GuillaumeGomez/sysinfo/issues/410
+    // this function currently returns None
+    fn get_kernel_version(&self) -> Option<String> {
+        None
+    }
+
+    // FIXME currently we are figuring out the best way to return OS version for Windows
+    // see https://github.com/GuillaumeGomez/sysinfo/issues/415
+    // and https://github.com/GuillaumeGomez/sysinfo/issues/410
+    fn get_os_version(&self) -> Option<String> {
         get_system_version()
     }
 }

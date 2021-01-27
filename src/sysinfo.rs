@@ -41,9 +41,10 @@
 //! println!("used swap   : {} KB", system.get_used_swap());
 //!
 //! // Display system information:
-//! println!("System name:      {:?}", system.get_name());
-//! println!("System version:   {:?}", system.get_version());
-//! println!("System host name: {:?}", system.get_host_name());
+//! println!("System name:             {:?}", system.get_name());
+//! println!("System kernel version:   {:?}", system.get_kernel_version());
+//! println!("System OS version:       {:?}", system.get_os_version());
+//! println!("System host name:        {:?}", system.get_host_name());
 //! ```
 
 #![crate_name = "sysinfo"]
@@ -222,8 +223,18 @@ mod test {
         if MIN_USERS > 0 {
             let s = System::new();
             assert!(!s.get_name().expect("Failed to get system name").is_empty());
+
+            cfg_if! {
+                if #[cfg(not(target_os = "windows"))] {
+                    assert!(!s
+                    .get_kernel_version()
+                    .expect("Failed to get system version")
+                    .is_empty());
+                    }
+            }
+
             assert!(!s
-                .get_version()
+                .get_os_version()
                 .expect("Failed to get system version")
                 .is_empty());
         }

@@ -91,9 +91,10 @@ for (pid, process) in sys.get_processes() {
 }
 
 // Display system information:
-println!("System name:      {:?}", sys.get_name());
-println!("System version:   {:?}", sys.get_version());
-println!("System host name: {:?}", sys.get_host_name());
+println!("System name:             {:?}", sys.get_name());
+println!("System kernel version:   {:?}", sys.get_kernel_version());
+println!("System OS version:       {:?}", sys.get_os_version());
+println!("System host name:        {:?}", sys.get_host_name());
 ```
 
 By default, `sysinfo` uses multiple threads. However, this can increase the memory usage on some platforms (macOS for example).  The behavior can be disabled by setting `default-features = false` in `Cargo.toml` (which disables the `multithread` cargo feature).
