@@ -112,6 +112,8 @@ pub unsafe fn get_disks() -> Vec<Disk> {
 
             let drive_type = GetDriveTypeW(mount_point.as_ptr());
 
+            let is_removable = drive_type == DRIVE_REMOVABLE;
+
             if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
                 return None;
             }
@@ -161,7 +163,17 @@ pub unsafe fn get_disks() -> Vec<Disk> {
             let handle = open_drive(&drive_name, 0);
             if handle == INVALID_HANDLE_VALUE {
                 CloseHandle(handle);
-                return new_disk(name, &mount_point, &file_system, DiskType::Unknown(-1), 0);
+                return new_disk(
+                    name,
+                    &mount_point,
+                    &file_system,
+                    if is_removable {
+                        DiskType::Removable
+                    } else {
+                        DiskType::Unknown(-1)
+                    },
+                    0,
+                );
             }
             let disk_size = get_drive_size(handle);
             /*let mut spq_trim: ffi::STORAGE_PROPERTY_QUERY = std::mem::zeroed();
@@ -207,7 +219,11 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                     name,
                     &mount_point,
                     &file_system,
-                    DiskType::Unknown(-1),
+                    if is_removable {
+                        DiskType::Removable
+                    } else {
+                        DiskType::Unknown(-1)
+                    },
                     disk_size,
                 );
             }
@@ -217,7 +233,11 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 name,
                 &mount_point,
                 &file_system,
-                if is_ssd { DiskType::SSD } else { DiskType::HDD },
+                match (is_removable, is_ssd) {
+                    (true, _) => DiskType::Removable,
+                    (false, true) => DiskType::SSD,
+                    (false, false) => DiskType::HDD,
+                },
                 disk_size,
             )
         })
