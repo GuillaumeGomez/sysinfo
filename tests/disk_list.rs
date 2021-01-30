@@ -4,8 +4,6 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-extern crate sysinfo;
-
 #[test]
 fn test_disks() {
     use sysinfo::SystemExt;

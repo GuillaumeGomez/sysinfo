@@ -12,7 +12,7 @@ pub trait AsU32 {
     fn as_u32(&self) -> u32;
 }
 
-cfg_if! {
+cfg_if::cfg_if! {
     if #[cfg(any(windows, target_os = "unknown", target_arch = "wasm32"))] {
         /// Process id.
         pub type Pid = usize;
@@ -38,7 +38,7 @@ cfg_if! {
 
 macro_rules! impl_get_set {
     ($name:ident, $with:ident, $without:ident) => {
-        doc_comment! {
+        doc_comment::doc_comment! {
         concat!("Returns the value of the \"", stringify!($name), "\" refresh kind.
 
 ```
@@ -58,7 +58,7 @@ assert_eq!(r.", stringify!($name), "(), false);
                     }
                 }
 
-        doc_comment! {
+        doc_comment::doc_comment! {
         concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `true`.
 
 ```
@@ -76,7 +76,7 @@ assert_eq!(r.", stringify!($name), "(), true);
                     }
                 }
 
-        doc_comment! {
+        doc_comment::doc_comment! {
         concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `false`.
 
 ```

@@ -55,20 +55,8 @@
 //#![deny(warnings)]
 #![allow(unknown_lints)]
 
-#[macro_use]
-extern crate cfg_if;
-#[cfg(not(any(target_os = "unknown", target_arch = "wasm32")))]
-extern crate libc;
-#[cfg(feature = "multithread")]
-extern crate rayon;
-
-#[macro_use]
-extern crate doc_comment;
-
-extern crate once_cell;
-
 #[cfg(doctest)]
-doctest!("../README.md");
+doc_comment::doctest!("../README.md");
 
 #[cfg(feature = "debug")]
 #[doc(hidden)]
@@ -84,7 +72,7 @@ macro_rules! sysinfo_debug {
     ($($x:tt)*) => {{}};
 }
 
-cfg_if! {
+cfg_if::cfg_if! {
     if #[cfg(any(target_os = "macos", target_os = "ios"))] {
         mod apple;
         use apple as sys;
@@ -251,7 +239,7 @@ mod test {
 
 // Used to check that System is Send and Sync.
 #[cfg(doctest)]
-doc_comment!(
+doc_comment::doc_comment!(
     "
 ```
 fn is_send<T: Send>() {}

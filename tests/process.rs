@@ -4,8 +4,6 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-extern crate sysinfo;
-
 use sysinfo::ProcessExt;
 use sysinfo::SystemExt;
 

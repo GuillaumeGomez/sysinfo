@@ -78,7 +78,7 @@ pub fn to_cpath(path: &Path) -> Vec<u8> {
 /// ```
 #[allow(clippy::unnecessary_wraps)]
 pub fn get_current_pid() -> Result<Pid, &'static str> {
-    cfg_if! {
+    cfg_if::cfg_if! {
         if #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))] {
             fn inner() -> Result<Pid, &'static str> {
                 unsafe { Ok(::libc::getpid()) }
