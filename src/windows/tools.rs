@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
 
-use winapi::ctypes::c_void;
+use winapi::{ctypes::c_void, um::winbase::DRIVE_REMOVABLE};
 
 use winapi::shared::minwindef::{BYTE, DWORD, MAX_PATH, TRUE};
 use winapi::um::fileapi::{
@@ -109,7 +109,12 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 return None;
             }
             let mount_point = [b'A' as u16 + x as u16, b':' as u16, b'\\' as u16, 0];
-            if GetDriveTypeW(mount_point.as_ptr()) != DRIVE_FIXED {
+
+            let drive_type = GetDriveTypeW(mount_point.as_ptr());
+
+            let is_removable = drive_type == DRIVE_REMOVABLE;
+
+            if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
                 return None;
             }
             let mut name = [0u16; MAX_PATH + 1];
@@ -158,7 +163,17 @@ pub unsafe fn get_disks() -> Vec<Disk> {
             let handle = open_drive(&drive_name, 0);
             if handle == INVALID_HANDLE_VALUE {
                 CloseHandle(handle);
-                return new_disk(name, &mount_point, &file_system, DiskType::Unknown(-1), 0);
+                return new_disk(
+                    name,
+                    &mount_point,
+                    &file_system,
+                    if is_removable {
+                        DiskType::Removable
+                    } else {
+                        DiskType::Unknown(-1)
+                    },
+                    0,
+                );
             }
             let disk_size = get_drive_size(handle);
             /*let mut spq_trim: ffi::STORAGE_PROPERTY_QUERY = std::mem::zeroed();
@@ -204,7 +219,11 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                     name,
                     &mount_point,
                     &file_system,
-                    DiskType::Unknown(-1),
+                    if is_removable {
+                        DiskType::Removable
+                    } else {
+                        DiskType::Unknown(-1)
+                    },
                     disk_size,
                 );
             }
@@ -214,7 +233,11 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 name,
                 &mount_point,
                 &file_system,
-                if is_ssd { DiskType::SSD } else { DiskType::HDD },
+                match (is_removable, is_ssd) {
+                    (true, _) => DiskType::Removable,
+                    (false, true) => DiskType::SSD,
+                    (false, false) => DiskType::HDD,
+                },
                 disk_size,
             )
         })
