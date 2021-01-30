@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
 
-use winapi::ctypes::c_void;
+use winapi::{ctypes::c_void, um::winbase::DRIVE_REMOVABLE};
 
 use winapi::shared::minwindef::{BYTE, DWORD, MAX_PATH, TRUE};
 use winapi::um::fileapi::{
@@ -109,7 +109,10 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 return None;
             }
             let mount_point = [b'A' as u16 + x as u16, b':' as u16, b'\\' as u16, 0];
-            if GetDriveTypeW(mount_point.as_ptr()) != DRIVE_FIXED {
+
+            let drive_type = GetDriveTypeW(mount_point.as_ptr());
+
+            if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
                 return None;
             }
             let mut name = [0u16; MAX_PATH + 1];
