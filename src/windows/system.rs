@@ -508,14 +508,14 @@ fn get_reg_string_value(hkey: HKEY, path: &str, field_name: &str) -> Option<Stri
         } {
             0 => break,
             winerror::ERROR_MORE_DATA => {
-                buf.reserve(buf_len as usize);
+                buf.reserve(buf_len as _);
             }
             _ => return None,
-        };
+        }
     }
 
     unsafe {
-        buf.set_len(buf_len as usize);
+        buf.set_len(buf_len as _);
     }
 
     let words = unsafe { from_raw_parts(buf.as_ptr() as *const u16, buf.len() / 2) };
