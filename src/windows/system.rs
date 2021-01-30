@@ -5,6 +5,7 @@
 //
 
 use crate::{LoadAvg, Networks, Pid, ProcessExt, RefreshKind, SystemExt, User};
+use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
 use crate::sys::component::{self, Component};
 use crate::sys::disk::Disk;
@@ -20,23 +21,28 @@ use crate::utils::into_iter;
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::mem::{size_of, zeroed, MaybeUninit};
+use std::ffi::OsStr;
+use std::mem::{size_of, zeroed};
+use std::os::windows::ffi::OsStrExt;
+use std::slice::from_raw_parts;
 use std::time::SystemTime;
 
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemProcessInformation, SYSTEM_PROCESS_INFORMATION,
 };
 use winapi::ctypes::wchar_t;
-use winapi::shared::minwindef::{FALSE, TRUE};
+use winapi::shared::minwindef::{DWORD, FALSE, HKEY, LPBYTE, TRUE};
 use winapi::shared::ntdef::{PVOID, ULONG};
 use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
+use winapi::shared::winerror;
 use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
 use winapi::um::sysinfoapi::{
-    ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetTickCount64, GetVersionExW,
-    GlobalMemoryStatusEx, MEMORYSTATUSEX,
+    ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetTickCount64, GlobalMemoryStatusEx,
+    MEMORYSTATUSEX,
 };
-use winapi::um::winnt::{HANDLE, OSVERSIONINFOW};
+use winapi::um::winnt::{HANDLE, KEY_READ};
+use winapi::um::winreg::{RegOpenKeyExW, RegQueryValueExW};
 
 /// Struct containing the system's information.
 pub struct System {
@@ -405,14 +411,22 @@ impl SystemExt for System {
     // and https://github.com/GuillaumeGomez/sysinfo/issues/410
     // this function currently returns None
     fn get_kernel_version(&self) -> Option<String> {
-        None
+        get_reg_string_value(
+            HKEY_LOCAL_MACHINE,
+            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+            "CurrentBuildNumber",
+        )
     }
 
     // FIXME currently we are figuring out the best way to return OS version for Windows
     // see https://github.com/GuillaumeGomez/sysinfo/issues/415
     // and https://github.com/GuillaumeGomez/sysinfo/issues/410
     fn get_os_version(&self) -> Option<String> {
-        get_system_version()
+        get_reg_string_value(
+            HKEY_LOCAL_MACHINE,
+            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+            "ProductName",
+        )
     }
 }
 
@@ -469,17 +483,54 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
     }
 }
 
-fn get_system_version() -> Option<String> {
-    let mut info: OSVERSIONINFOW = unsafe { MaybeUninit::zeroed().assume_init() };
-    info.dwOSVersionInfoSize = size_of::<OSVERSIONINFOW>() as _;
-    if unsafe { GetVersionExW(&mut info) } == TRUE {
-        Some(format!(
-            "{}.{}.{}",
-            info.dwMajorVersion, info.dwMinorVersion, info.dwBuildNumber
-        ))
-    } else {
-        None
+fn utf16_str<S: AsRef<OsStr> + ?Sized>(text: &S) -> Vec<u16> {
+    OsStr::new(text)
+        .encode_wide()
+        .chain(Some(0).into_iter())
+        .collect::<Vec<_>>()
+}
+
+fn get_reg_string_value(hkey: HKEY, path: &str, field_name: &str) -> Option<String> {
+    let c_path = utf16_str(path);
+    let c_field_name = utf16_str(field_name);
+
+    let mut new_hkey: HKEY = std::ptr::null_mut();
+    if unsafe { RegOpenKeyExW(hkey, c_path.as_ptr(), 0, KEY_READ, &mut new_hkey) } != 0 {
+        return None;
     }
+
+    let mut buf_len: DWORD = 2048;
+    let mut buf_type: DWORD = 0;
+    let mut buf: Vec<u8> = Vec::with_capacity(buf_len as usize);
+    loop {
+        match unsafe {
+            RegQueryValueExW(
+                new_hkey,
+                c_field_name.as_ptr(),
+                std::ptr::null_mut(),
+                &mut buf_type,
+                buf.as_mut_ptr() as LPBYTE,
+                &mut buf_len,
+            ) as DWORD
+        } {
+            0 => break,
+            winerror::ERROR_MORE_DATA => {
+                buf.reserve(buf_len as usize);
+            }
+            _ => return None,
+        };
+    }
+
+    unsafe {
+        buf.set_len(buf_len as usize);
+    }
+
+    let words = unsafe { from_raw_parts(buf.as_ptr() as *const u16, buf.len() / 2) };
+    let mut s = String::from_utf16_lossy(words);
+    while s.ends_with('\u{0}') {
+        s.pop();
+    }
+    Some(s)
 }
 
 fn get_dns_hostname() -> Option<String> {
