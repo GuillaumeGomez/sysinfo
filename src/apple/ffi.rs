@@ -51,38 +51,7 @@ extern "C" {
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
-macro_rules! cfg_if {
-    ($(
-        if #[cfg($($meta:meta),*)] { $($it:item)* }
-    ) else * else {
-        $($it2:item)*
-    }) => {
-        __cfg_if_items! {
-            () ;
-            $( ( ($($meta),*) ($($it)*) ), )*
-            ( () ($($it2)*) ),
-        }
-    }
-}
-
-// TODO: waiting for https://github.com/rust-lang/libc/pull/678
-macro_rules! __cfg_if_items {
-    (($($not:meta,)*) ; ) => {};
-    (($($not:meta,)*) ; ( ($($m:meta),*) ($($it:item)*) ), $($rest:tt)*) => {
-        __cfg_if_apply! { cfg(all(not(any($($not),*)), $($m,)*)), $($it)* }
-        __cfg_if_items! { ($($not,)* $($m,)*) ; $($rest)* }
-    }
-}
-
-// TODO: waiting for https://github.com/rust-lang/libc/pull/678
-macro_rules! __cfg_if_apply {
-    ($m:meta, $($it:item)*) => {
-        $(#[$m] $it)*
-    }
-}
-
-// TODO: waiting for https://github.com/rust-lang/libc/pull/678
-cfg_if! {
+cfg_if::cfg_if! {
     if #[cfg(any(target_arch = "arm", target_arch = "x86"))] {
         pub type timeval32 = libc::timeval;
     } else {

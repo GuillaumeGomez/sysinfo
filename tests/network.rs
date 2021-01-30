@@ -7,8 +7,6 @@
 // This test is used to ensure that the processors are loaded whatever the method
 // used to initialize `System`.
 
-extern crate sysinfo;
-
 #[test]
 fn test_processor() {
     use sysinfo::{NetworksExt, SystemExt};

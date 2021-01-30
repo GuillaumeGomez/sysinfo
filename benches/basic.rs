@@ -1,8 +1,5 @@
 #![feature(test)]
 
-extern crate sysinfo;
-extern crate test;
-
 use sysinfo::get_current_pid;
 use sysinfo::{DiskExt, SystemExt};
 

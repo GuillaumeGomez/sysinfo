@@ -1,5 +1,3 @@
-extern crate cc;
-
 fn main() {
     let is_apple = std::env::var("TARGET")
         .map(|t| t.contains("-apple"))

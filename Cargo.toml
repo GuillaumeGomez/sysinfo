@@ -38,7 +38,6 @@ cc = "1.0"
 [lib]
 name = "sysinfo"
 crate_type = ["rlib", "cdylib"]
-path = "src/sysinfo.rs"
 
 [features]
 default = ["multithread"]
