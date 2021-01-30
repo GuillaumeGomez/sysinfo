@@ -224,14 +224,10 @@ mod test {
             let s = System::new();
             assert!(!s.get_name().expect("Failed to get system name").is_empty());
 
-            cfg_if! {
-                if #[cfg(not(target_os = "windows"))] {
-                    assert!(!s
-                    .get_kernel_version()
-                    .expect("Failed to get system version")
-                    .is_empty());
-                    }
-            }
+            assert!(!s
+                .get_kernel_version()
+                .expect("Failed to get system version")
+                .is_empty());
 
             assert!(!s
                 .get_os_version()
