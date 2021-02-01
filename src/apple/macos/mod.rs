@@ -7,3 +7,4 @@
 pub mod component;
 pub mod disk;
 pub mod ffi;
+pub mod process;

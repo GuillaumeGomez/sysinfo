@@ -66,6 +66,7 @@ macro_rules! sysinfo_debug {
     }}
 }
 
+#[cfg(not(target_os = "ios"))]
 #[cfg(not(feature = "debug"))]
 #[doc(hidden)]
 macro_rules! sysinfo_debug {
