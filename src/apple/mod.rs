@@ -14,6 +14,9 @@ pub(crate) mod ios;
 #[cfg(target_os = "ios")]
 pub(crate) use self::ios as inner;
 
+#[cfg(any(target_os = "ios", feature = "apple-app-store"))]
+pub(crate) mod app_store;
+
 pub mod component;
 pub mod disk;
 mod ffi;

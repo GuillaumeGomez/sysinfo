@@ -104,7 +104,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 
 /// Converts the value into a parallel iterator (if the multithread feature is enabled)
 /// Uses the rayon::iter::IntoParallelIterator trait
-#[cfg_attr(target_os = "ios", allow(dead_code))]
+#[cfg_attr(any(target_os = "ios", feature = "apple-app-store"), allow(dead_code))]
 #[cfg(feature = "multithread")]
 pub fn into_iter<T>(val: T) -> T::Iter
 where
@@ -115,7 +115,7 @@ where
 
 /// Converts the value into a sequential iterator (if the multithread feature is disabled)
 /// Uses the std::iter::IntoIterator trait
-#[cfg_attr(target_os = "ios", allow(dead_code))]
+#[cfg_attr(any(target_os = "ios", feature = "apple-app-store"), allow(dead_code))]
 #[cfg(not(feature = "multithread"))]
 pub fn into_iter<T>(val: T) -> T::IntoIter
 where

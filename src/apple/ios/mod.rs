@@ -6,4 +6,4 @@
 
 pub mod component;
 pub mod ffi {}
-pub mod process;
+pub use crate::sys::app_store::process;

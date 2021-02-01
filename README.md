@@ -22,6 +22,12 @@ It also compiles for Android but never been tested on it.
 
 The minimum-supported version fo `rustc` is **1.45**.
 
+### Use in binaries distributed on the MacOS App Store
+
+Apple has restrictions as to which APIs can be used in binaries distributed through the app store.
+By default, `sysinfo` is not compatiable with these restrictions. You can use the `apple-app-store` feature
+flag to disable the Apple prohibited features.
+
 ### Running on Raspberry Pi
 
 It'll be difficult to build on Raspberry Pi. A good way-around is to cross-build, then send the executable to your Raspberry Pi.

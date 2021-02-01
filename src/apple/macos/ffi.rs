@@ -10,13 +10,20 @@ use core_foundation_sys::dictionary::CFMutableDictionaryRef;
 use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
 use core_foundation_sys::url::CFURLRef;
 
-use libc::{c_char, c_int, c_void, size_t};
+#[cfg(not(feature = "apple-app-store"))]
+use libc::c_int;
+use libc::{c_char, c_void, size_t};
 
 pub(crate) use crate::sys::ffi::*;
 
 extern "C" {
+    #[cfg(not(feature = "apple-app-store"))]
     pub fn mach_absolute_time() -> u64;
 
+    // The proc_* PID functions are internal Apple APIs which are not
+    // allowed in App store releases as Apple blocks any binary using them.
+
+    #[cfg(not(feature = "apple-app-store"))]
     pub fn proc_pidinfo(
         pid: c_int,
         flavor: c_int,
@@ -25,14 +32,17 @@ extern "C" {
         buffersize: c_int,
     ) -> c_int;
 
+    #[cfg(not(feature = "apple-app-store"))]
     pub fn proc_listallpids(buffer: *mut c_void, buffersize: c_int) -> c_int;
     //pub fn proc_listpids(kind: u32, x: u32, buffer: *mut c_void, buffersize: c_int) -> c_int;
     //pub fn proc_name(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
     //pub fn proc_regionfilename(pid: c_int, address: u64, buffer: *mut c_void,
     //                           buffersize: u32) -> c_int;
 
+    #[cfg(not(feature = "apple-app-store"))]
     pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
 
+    #[cfg(not(feature = "apple-app-store"))]
     pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
 
     // IOKit is only available on MacOS: https://developer.apple.com/documentation/iokit
@@ -165,6 +175,8 @@ pub const SMC_CMD_READ_BYTES: u8 = 5;
 pub const KIO_RETURN_SUCCESS: i32 = 0;
 
 //pub const PROC_ALL_PIDS: c_uint = 1;
+#[cfg(not(feature = "apple-app-store"))]
 pub const PROC_PIDTBSDINFO: c_int = 3;
 
+#[cfg(not(feature = "apple-app-store"))]
 pub const PROC_PIDPATHINFO_MAXSIZE: u32 = 4096;

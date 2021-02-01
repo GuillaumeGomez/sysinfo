@@ -15,7 +15,7 @@ use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
 
 use crate::{LoadAvg, Pid, ProcessorExt, RefreshKind, SystemExt, User};
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
 use crate::ProcessExt;
 
 use std::cell::UnsafeCell;
@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
 use libc::size_t;
 
 use libc::{self, c_char, c_int, c_void, sysconf, _SC_PAGESIZE};
@@ -77,7 +77,7 @@ pub(crate) struct Wrap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
 unsafe impl<'a> Send for Wrap<'a> {}
 unsafe impl<'a> Sync for Wrap<'a> {}
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
 impl System {
     fn clear_procs(&mut self) {
         use crate::sys::macos::process;
@@ -276,10 +276,10 @@ impl SystemExt for System {
             .set_cpu_usage(pourcent / self.processors.len() as f32);
     }
 
-    #[cfg(target_os = "ios")]
+    #[cfg(any(target_os = "ios", feature = "apple-app-store"))]
     fn refresh_processes(&mut self) {}
 
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
     fn refresh_processes(&mut self) {
         use crate::utils::into_iter;
 
@@ -309,12 +309,12 @@ impl SystemExt for System {
         }
     }
 
-    #[cfg(target_os = "ios")]
+    #[cfg(any(target_os = "ios", feature = "apple-app-store"))]
     fn refresh_process(&mut self, _: Pid) -> bool {
         false
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
     fn refresh_process(&mut self, pid: Pid) -> bool {
         let arg_max = get_arg_max();
         match {
@@ -543,7 +543,7 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
 fn get_arg_max() -> usize {
     let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
     let mut arg_max = 0i32;
