@@ -41,6 +41,7 @@ crate_type = ["rlib", "cdylib"]
 
 [features]
 default = ["multithread"]
+apple-app-store = []
 c-interface = []
 multithread = ["rayon"]
 debug = ["libc/extra_traits"]

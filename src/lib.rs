@@ -54,6 +54,7 @@
 #![deny(broken_intra_doc_links)]
 //#![deny(warnings)]
 #![allow(unknown_lints)]
+#![allow(clippy::upper_case_acronyms)]
 
 #[cfg(doctest)]
 doc_comment::doctest!("../README.md");
@@ -66,6 +67,7 @@ macro_rules! sysinfo_debug {
     }}
 }
 
+#[cfg(not(target_os = "ios"))]
 #[cfg(not(feature = "debug"))]
 #[doc(hidden)]
 macro_rules! sysinfo_debug {

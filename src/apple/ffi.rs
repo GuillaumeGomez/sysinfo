@@ -10,22 +10,6 @@ use libc::{c_int, c_uchar, c_uint, c_ushort, c_void};
 pub use crate::sys::inner::ffi::*;
 
 extern "C" {
-    pub fn proc_pidinfo(
-        pid: c_int,
-        flavor: c_int,
-        arg: u64,
-        buffer: *mut c_void,
-        buffersize: c_int,
-    ) -> c_int;
-    pub fn proc_listallpids(buffer: *mut c_void, buffersize: c_int) -> c_int;
-    //pub fn proc_listpids(kind: u32, x: u32, buffer: *mut c_void, buffersize: c_int) -> c_int;
-    //pub fn proc_name(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
-    //pub fn proc_regionfilename(pid: c_int, address: u64, buffer: *mut c_void,
-    //                           buffersize: u32) -> c_int;
-    pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
-    pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
-
-    pub fn mach_absolute_time() -> u64;
     //pub fn task_for_pid(host: u32, pid: pid_t, task: *mut task_t) -> u32;
     pub fn mach_task_self() -> u32;
     pub fn mach_host_self() -> u32;
@@ -248,14 +232,9 @@ pub const CPU_STATE_NICE: u32 = 3;
 pub const CPU_STATE_MAX: usize = 4;
 pub const HW_MEMSIZE: u32 = 24;
 
-//pub const PROC_ALL_PIDS: c_uint = 1;
-pub const PROC_PIDTBSDINFO: c_int = 3;
-
 //pub const TASK_THREAD_TIMES_INFO: u32 = 3;
 //pub const TASK_THREAD_TIMES_INFO_COUNT: u32 = 4;
 //pub const TASK_BASIC_INFO_64: u32 = 5;
 //pub const TASK_BASIC_INFO_64_COUNT: u32 = 10;
 pub const HOST_VM_INFO64: u32 = 4;
 pub const HOST_VM_INFO64_COUNT: u32 = 38;
-
-pub const PROC_PIDPATHINFO_MAXSIZE: u32 = 4096;

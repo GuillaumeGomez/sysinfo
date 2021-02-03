@@ -23,8 +23,8 @@ pub struct CpuValues {
     irq: u64,
     softirq: u64,
     steal: u64,
-    guest: u64,
-    guest_nice: u64,
+    _guest: u64,
+    _guest_nice: u64,
 }
 
 impl CpuValues {
@@ -39,8 +39,8 @@ impl CpuValues {
             irq: 0,
             softirq: 0,
             steal: 0,
-            guest: 0,
-            guest_nice: 0,
+            _guest: 0,
+            _guest_nice: 0,
         }
     }
 
@@ -66,8 +66,8 @@ impl CpuValues {
             irq,
             softirq,
             steal,
-            guest,
-            guest_nice,
+            _guest: guest,
+            _guest_nice: guest_nice,
         }
     }
 
@@ -99,8 +99,8 @@ impl CpuValues {
         self.irq = irq;
         self.softirq = softirq;
         self.steal = steal;
-        self.guest = guest;
-        self.guest_nice = guest_nice;
+        self._guest = guest;
+        self._guest_nice = guest_nice;
     }
 
     /// Returns work time.
