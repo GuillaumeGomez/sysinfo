@@ -13,7 +13,7 @@ use crate::{Disk, LoadAvg, Networks, Pid, ProcessExt, RefreshKind, SystemExt, Us
 use libc::{self, c_char, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::fs::{self, read_to_string, File};
+use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -27,13 +27,6 @@ use crate::utils::{into_iter, realpath};
 #[allow(clippy::mutex_atomic)]
 pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<isize>>> =
     once_cell::sync::Lazy::new(|| {
-        #[cfg(target_os = "android")]
-        {
-            // The constant "RLIMIT_NOFILE" doesn't exist on Android so we have to return a value.
-            // The default value seems to be 1024 so let's return 50% of it...
-            Arc::new(Mutex::new(1024 / 2))
-        }
-        #[cfg(not(target_os = "android"))]
         unsafe {
             let mut limits = libc::rlimit {
                 rlim_cur: 0,
@@ -61,13 +54,6 @@ pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<isize>>> 
     });
 
 pub(crate) fn get_max_nb_fds() -> isize {
-    #[cfg(target_os = "android")]
-    {
-        // The constant "RLIMIT_NOFILE" doesn't exist on Android so we have to return a value.
-        // The default value seems to be 1024...
-        1024 / 2
-    }
-    #[cfg(not(target_os = "android"))]
     unsafe {
         let mut limits = libc::rlimit {
             rlim_cur: 0,
@@ -501,7 +487,7 @@ impl SystemExt for System {
     }
 
     fn get_name(&self) -> Option<String> {
-        get_system_info("NAME=")
+        get_system_info(InfoType::Name)
     }
 
     fn get_host_name(&self) -> Option<String> {
@@ -520,14 +506,26 @@ impl SystemExt for System {
     }
 
     fn get_kernel_version(&self) -> Option<String> {
-        match read_to_string("/proc/version") {
-            Ok(s) => s.trim().split(' ').nth(2).map(String::from),
-            Err(_) => None,
+        let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
+
+        if unsafe { libc::uname(raw.as_mut_ptr()) } == 0 {
+            let info = unsafe { raw.assume_init() };
+
+            let release = info
+                .release
+                .iter()
+                .filter(|c| **c != 0)
+                .map(|c| *c as u8 as char)
+                .collect::<String>();
+
+            Some(release)
+        } else {
+            None
         }
     }
 
     fn get_os_version(&self) -> Option<String> {
-        get_system_info("VERSION_ID=")
+        get_system_info(InfoType::OsVersion)
     }
 }
 
@@ -763,7 +761,21 @@ fn get_exe_name(p: &Process) -> String {
         .unwrap_or_else(String::new)
 }
 
-fn get_system_info(info: &str) -> Option<String> {
+enum InfoType {
+    /// The end-user friendly name of:
+    /// - Android: The device model
+    /// - Linux: The distributions name
+    Name,
+    OsVersion,
+}
+
+#[cfg(not(target_os = "android"))]
+fn get_system_info(info: InfoType) -> Option<String> {
+    let info = match info {
+        InfoType::Name => "NAME=",
+        InfoType::OsVersion => "VERSION_ID=",
+    };
+
     let buf = BufReader::new(File::open("/etc/os-release").ok()?);
 
     for line in buf.lines() {
@@ -774,6 +786,41 @@ fn get_system_info(info: &str) -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(target_os = "android")]
+fn get_system_info(info: InfoType) -> Option<String> {
+    use libc::c_int;
+
+    // https://android.googlesource.com/platform/bionic/+/refs/heads/master/libc/include/sys/system_properties.h#41
+    const PROP_VALUE_MAX: usize = 92;
+
+    extern "C" {
+        fn __system_property_get(name: *const c_char, value: *mut c_char) -> c_int;
+    }
+
+    // https://android.googlesource.com/platform/frameworks/base/+/refs/heads/master/core/java/android/os/Build.java#58
+    let name: &'static [u8] = match info {
+        InfoType::Name => b"ro.product.model\0",
+        InfoType::OsVersion => b"ro.build.version.release\0",
+    };
+
+    let mut value_buffer = vec![0u8; PROP_VALUE_MAX];
+    let len = unsafe {
+        __system_property_get(
+            name.as_ptr() as *const c_char,
+            value_buffer.as_mut_ptr() as *mut c_char,
+        )
+    };
+
+    if len != 0 {
+        if let Some(pos) = value_buffer.iter().position(|c| *c == 0) {
+            value_buffer.resize(pos, 0);
+        }
+        String::from_utf8(value_buffer).ok()
+    } else {
+        None
+    }
 }
 
 fn _get_process_data(

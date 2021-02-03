@@ -18,8 +18,6 @@ Supports the following platforms:
  * iOS
  * Windows
 
-It also compiles for Android but never been tested on it.
-
 The minimum-supported version fo `rustc` is **1.45**.
 
 ### Use in binaries distributed on the MacOS App Store

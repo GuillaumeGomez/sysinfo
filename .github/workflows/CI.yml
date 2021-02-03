@@ -59,6 +59,11 @@ jobs:
           ## ARMv6
           - { os: 'ubuntu-latest', target: 'arm-unknown-linux-gnueabihf',  cross: true }
           - { os: 'ubuntu-latest', target: 'arm-unknown-linux-musleabihf', cross: true }
+          # Android
+          - { os: 'ubuntu-latest', target: 'aarch64-linux-android', cross: true }
+          - { os: 'ubuntu-latest', target: 'armv7-linux-androideabi', cross: true }
+          - { os: 'ubuntu-latest', target: 'x86_64-linux-android', cross: true }
+          - { os: 'ubuntu-latest', target: 'i686-linux-android', cross: true }
         toolchain:
           - "1.45.0"  # minimum supported rust version
           - stable
