@@ -25,7 +25,7 @@ use winapi::um::ioapiset::DeviceIoControl;
 use winapi::um::sysinfoapi::{GetSystemInfo, SYSTEM_INFO};
 use winapi::um::winbase::DRIVE_FIXED;
 use winapi::um::winioctl::{
-    DISK_GEOMETRY, IOCTL_DISK_GET_DRIVE_GEOMETRY, IOCTL_STORAGE_QUERY_PROPERTY,
+    IOCTL_DISK_GET_PARTITION_INFO_EX, IOCTL_STORAGE_QUERY_PROPERTY, PARTITION_INFORMATION_EX,
 };
 use winapi::um::winnt::{BOOLEAN, FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE};
 
@@ -72,23 +72,20 @@ pub unsafe fn open_drive(drive_name: &[u16], open_rights: DWORD) -> HANDLE {
 }
 
 pub unsafe fn get_drive_size(handle: HANDLE) -> u64 {
-    let mut pdg: DISK_GEOMETRY = std::mem::zeroed();
+    let mut pdg: PARTITION_INFORMATION_EX = std::mem::zeroed();
     let mut junk = 0;
     let result = DeviceIoControl(
         handle,
-        IOCTL_DISK_GET_DRIVE_GEOMETRY,
+        IOCTL_DISK_GET_PARTITION_INFO_EX,
         std::ptr::null_mut(),
         0,
-        &mut pdg as *mut DISK_GEOMETRY as *mut c_void,
-        size_of::<DISK_GEOMETRY>() as DWORD,
+        &mut pdg as *mut PARTITION_INFORMATION_EX as *mut c_void,
+        size_of::<PARTITION_INFORMATION_EX>() as DWORD,
         &mut junk,
         std::ptr::null_mut(),
     );
     if result == TRUE {
-        *pdg.Cylinders.QuadPart() as u64
-            * pdg.TracksPerCylinder as u64
-            * pdg.SectorsPerTrack as u64
-            * pdg.BytesPerSector as u64
+        *pdg.PartitionLength.QuadPart() as u64
     } else {
         0
     }
