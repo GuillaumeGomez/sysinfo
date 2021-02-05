@@ -175,7 +175,13 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
             // fs_spec<tab>fs_file<tab>fs_vfstype<tab>other fields
             let mut fields = line.split_whitespace();
             let fs_spec = fields.next().unwrap_or("");
-            let fs_file = fields.next().unwrap_or("");
+            let fs_file = fields
+                .next()
+                .unwrap_or("")
+                .replace("\\134", "\\")
+                .replace("\\040", " ")
+                .replace("\\011", "\t")
+                .replace("\\012", "\n");
             let fs_vfstype = fields.next().unwrap_or("");
             (fs_spec, fs_file, fs_vfstype)
         })
@@ -198,11 +204,11 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
             !(filtered ||
                fs_file.starts_with("/sys") || // check if fs_file is an 'ignored' mount point
                fs_file.starts_with("/proc") ||
-               fs_file.starts_with("/run") ||
+               (fs_file.starts_with("/run") && !fs_file.starts_with("/run/media")) ||
                fs_spec.starts_with("sunrpc"))
         })
         .filter_map(|(fs_spec, fs_file, fs_vfstype)| {
-            new_disk(fs_spec.as_ref(), Path::new(fs_file), fs_vfstype.as_bytes())
+            new_disk(fs_spec.as_ref(), Path::new(&fs_file), fs_vfstype.as_bytes())
         })
         .collect()
 }
