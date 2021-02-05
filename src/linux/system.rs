@@ -652,7 +652,7 @@ fn update_time_and_memory(
             entry.memory -= parent_memory;
         }
         // vsz
-        entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0) * page_size_kb;
+        entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0);
         if entry.virtual_memory >= parent_virtual_memory {
             entry.virtual_memory -= parent_virtual_memory;
         }
