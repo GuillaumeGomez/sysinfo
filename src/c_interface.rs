@@ -4,10 +4,10 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use libc::{self, c_char, c_float, c_uint, c_void, pid_t, size_t};
-use std::borrow::BorrowMut;
+use libc::{self, c_char, c_float, c_uint, c_void, size_t};
+use std::{borrow::BorrowMut, usize};
 use std::ffi::CString;
-use {NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
+use crate::{NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 
 /// Equivalent of [`System`][crate::System] struct.
 pub type CSystem = *mut c_void;
@@ -16,7 +16,7 @@ pub type CProcess = *const c_void;
 /// C string returned from `CString::into_raw`.
 pub type RString = *const c_char;
 /// Callback used by [`get_processes`][crate::System#method.get_processes].
-pub type ProcessLoop = extern "C" fn(pid: pid_t, process: CProcess, data: *mut c_void) -> bool;
+pub type ProcessLoop = extern "C" fn(pid: usize, process: CProcess, data: *mut c_void) -> bool;
 
 /// Equivalent of [`System::new()`][crate::System#method.new].
 #[no_mangle]
@@ -109,7 +109,7 @@ pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
 /// Equivalent of [`System::refresh_process()`][crate::System#method.refresh_process].
 #[cfg(target_os = "linux")]
 #[no_mangle]
-pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: pid_t) {
+pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: i32) {
     assert!(!system.is_null());
     let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     {
@@ -300,7 +300,7 @@ pub extern "C" fn sysinfo_get_processes(
 /// While having this method returned process, you should *never* call any
 /// refresh method!
 #[no_mangle]
-pub extern "C" fn sysinfo_get_process_by_pid(system: CSystem, pid: pid_t) -> CProcess {
+pub extern "C" fn sysinfo_get_process_by_pid(system: CSystem, pid: usize) -> CProcess {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     let ret = if let Some(process) = system.get_process(pid) {
@@ -340,7 +340,7 @@ pub extern "C" fn sysinfo_process_get_tasks(
 
 /// Equivalent of [`Process::pid()`][crate::Process#method.pid].
 #[no_mangle]
-pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> pid_t {
+pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> usize {
     assert!(!process.is_null());
     let process = process as *const Process;
     unsafe { (*process).pid() }
@@ -350,7 +350,7 @@ pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> pid_t {
 ///
 /// In case there is no known parent, it returns `0`.
 #[no_mangle]
-pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> pid_t {
+pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> usize {
     assert!(!process.is_null());
     let process = process as *const Process;
     unsafe { (*process).parent().unwrap_or(0) }
