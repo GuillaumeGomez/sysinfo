@@ -7,8 +7,8 @@
 use libc::{self, c_char, c_float, c_uint, c_void, size_t};
 use std::{borrow::BorrowMut, usize};
 use std::ffi::CString;
-use crate::{NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
-
+use crate::{AsU32, NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
+use crate::{Pid};
 /// Equivalent of [`System`][crate::System] struct.
 pub type CSystem = *mut c_void;
 /// Equivalent of [`Process`][crate::Process] struct.
@@ -16,7 +16,7 @@ pub type CProcess = *const c_void;
 /// C string returned from `CString::into_raw`.
 pub type RString = *const c_char;
 /// Callback used by [`get_processes`][crate::System#method.get_processes].
-pub type ProcessLoop = extern "C" fn(pid: usize, process: CProcess, data: *mut c_void) -> bool;
+pub type ProcessLoop = extern "C" fn(pid: u32, process: CProcess, data: *mut c_void) -> bool;
 
 /// Equivalent of [`System::new()`][crate::System#method.new].
 #[no_mangle]
@@ -273,18 +273,18 @@ pub extern "C" fn sysinfo_get_processes(
     system: CSystem,
     fn_pointer: Option<ProcessLoop>,
     data: *mut c_void,
-) -> size_t {
+) -> usize {
     assert!(!system.is_null());
     if let Some(fn_pointer) = fn_pointer {
         let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
         let len = {
             let entries = system.get_processes();
             for (pid, process) in entries {
-                if !fn_pointer(*pid, process as *const Process as CProcess, data) {
+                if !fn_pointer((*pid).as_u32(), process as *const Process as CProcess, data) {
                     break;
                 }
             }
-            entries.len() as size_t
+            entries.len()
         };
         Box::into_raw(system);
         len
@@ -300,10 +300,10 @@ pub extern "C" fn sysinfo_get_processes(
 /// While having this method returned process, you should *never* call any
 /// refresh method!
 #[no_mangle]
-pub extern "C" fn sysinfo_get_process_by_pid(system: CSystem, pid: usize) -> CProcess {
+pub extern "C" fn sysinfo_get_process_by_pid(system: CSystem, pid: u32) -> CProcess {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = if let Some(process) = system.get_process(pid) {
+    let ret = if let Some(process) = system.get_process(pid as Pid) {
         process as *const Process as CProcess
     } else {
         std::ptr::null()
@@ -323,16 +323,16 @@ pub extern "C" fn sysinfo_process_get_tasks(
     process: CProcess,
     fn_pointer: Option<ProcessLoop>,
     data: *mut c_void,
-) -> size_t {
+) -> usize {
     assert!(!process.is_null());
     if let Some(fn_pointer) = fn_pointer {
         let process = process as *const Process;
         for (pid, process) in unsafe { (*process).tasks.iter() } {
-            if !fn_pointer(*pid, process as *const Process as CProcess, data) {
+            if !fn_pointer((*pid).as_u32(), process as *const Process as CProcess, data) {
                 break;
             }
         }
-        unsafe { (*process).tasks.len() as size_t }
+        unsafe { (*process).tasks.len() }
     } else {
         0
     }
@@ -340,20 +340,20 @@ pub extern "C" fn sysinfo_process_get_tasks(
 
 /// Equivalent of [`Process::pid()`][crate::Process#method.pid].
 #[no_mangle]
-pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> usize {
+pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> u32 {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).pid() }
+    unsafe { (*process).pid().as_u32()}
 }
 
 /// Equivalent of [`Process::parent()`][crate::Process#method.parent].
 ///
 /// In case there is no known parent, it returns `0`.
 #[no_mangle]
-pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> usize {
+pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> u32 {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).parent().unwrap_or(0) }
+    unsafe { (*process).parent().unwrap_or(0).as_u32()}
 }
 
 /// Equivalent of [`Process::cpu_usage()`][crate::Process#method.cpu_usage].
