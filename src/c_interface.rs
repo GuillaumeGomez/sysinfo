@@ -4,11 +4,11 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use libc::{self, c_char, c_float, c_uint, c_void, size_t};
-use std::{borrow::BorrowMut, usize};
-use std::ffi::CString;
+use crate::Pid;
 use crate::{AsU32, NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
-use crate::{Pid};
+use libc::{self, c_char, c_float, c_uint, c_void, size_t};
+use std::ffi::CString;
+use std::{borrow::BorrowMut, usize};
 /// Equivalent of [`System`][crate::System] struct.
 pub type CSystem = *mut c_void;
 /// Equivalent of [`Process`][crate::Process] struct.
@@ -343,7 +343,7 @@ pub extern "C" fn sysinfo_process_get_tasks(
 pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> u32 {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).pid().as_u32()}
+    unsafe { (*process).pid().as_u32() }
 }
 
 /// Equivalent of [`Process::parent()`][crate::Process#method.parent].
@@ -353,7 +353,7 @@ pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> u32 {
 pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> u32 {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).parent().unwrap_or(0).as_u32()}
+    unsafe { (*process).parent().unwrap_or(0).as_u32() }
 }
 
 /// Equivalent of [`Process::cpu_usage()`][crate::Process#method.cpu_usage].
