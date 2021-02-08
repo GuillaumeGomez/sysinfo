@@ -464,6 +464,39 @@ impl SystemExt for System {
         get_system_info(libc::KERN_OSTYPE, Some("Darwin"))
     }
 
+    fn get_long_os_version(&self) -> Option<String> {
+        #[cfg(target_os = "macos")]
+        let friendly_name = match self.get_os_version().unwrap_or_default() {
+            f_n if f_n.starts_with("10.16") | f_n.starts_with("11.0") |  f_n.starts_with("11.1") | f_n.starts_with("11.2") => "Big Sur",
+            f_n if f_n.starts_with("10.15") => "Catalina",
+            f_n if f_n.starts_with("10.14") => "Mojave",
+            f_n if f_n.starts_with("10.13") => "High Sierra",
+            f_n if f_n.starts_with("10.12") => "Sierra",
+            f_n if f_n.starts_with("10.11") => "El Capitan",
+            f_n if f_n.starts_with("10.10") => "Yosemite",
+            f_n if f_n.starts_with("10.9") => "Mavericks",
+            f_n if f_n.starts_with("10.8") => "Mountain Lion",
+            f_n if f_n.starts_with("10.7") => "Lion",
+            f_n if f_n.starts_with("10.6") => "Snow Leopard",
+            f_n if f_n.starts_with("10.5") => "Leopard",
+            f_n if f_n.starts_with("10.4") => "Tiger",
+            f_n if f_n.starts_with("10.3") => "Panther",
+            f_n if f_n.starts_with("10.2") => "Jaguar",
+            f_n if f_n.starts_with("10.1") => "Puma",
+            f_n if f_n.starts_with("10.0") => "Cheetah",
+            _ => "",
+        };
+
+        #[cfg(target_os = "macos")]
+        let long_name = Some(format!("MacOS {} {}", self.get_os_version().unwrap_or_default(), friendly_name)); 
+
+        #[cfg(target_os = "ios")]
+        let long_name = Some(format!("iOS {}", self.get_os_version().unwrap_or_default()));
+
+        long_name
+        
+    }
+
     fn get_host_name(&self) -> Option<String> {
         get_system_info(libc::KERN_HOSTNAME, None)
     }
@@ -487,6 +520,11 @@ impl SystemExt for System {
                     &mut size,
                     buf.as_mut_ptr() as *mut c_void,
                 ) {
+                    if let Some(pos) = buf.iter().position(|x| *x == 0) {
+                        // Shrink buffer to terminate the null bytes
+                        buf.resize(pos, 0);
+                    }
+
                     String::from_utf8(buf).ok()
                 } else {
                     // getting the system value failed
@@ -595,26 +633,47 @@ unsafe fn get_sys_value_by_name(name: &[u8], len: &mut usize, value: *mut libc::
 }
 
 fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
-    let len = 256;
     let mut mib: [c_int; 2] = [libc::CTL_KERN, value];
-    let mut buf: Vec<u8> = Vec::with_capacity(len);
-    let mut size = len;
-    if unsafe {
+    let mut size = 0;
+
+    // Call first to get size 
+    unsafe {
         libc::sysctl(
             mib.as_mut_ptr(),
             2,
-            buf.as_mut_ptr() as _,
+            std::ptr::null_mut(),
             &mut size,
             std::ptr::null_mut(),
             0,
         )
-    } == -1
-    {
+    }; 
+
+    // exit early if we did not update the size 
+    if size == 0 {
         default.map(|s| s.to_owned())
     } else {
-        unsafe {
-            buf.set_len(size);
+        // set the buffer to the correct size 
+        let mut buf = vec![0_u8; size as usize];
+
+        if unsafe {
+            libc::sysctl(
+                mib.as_mut_ptr(),
+                2,
+                buf.as_mut_ptr() as _,
+                &mut size,
+                std::ptr::null_mut(),
+                0,
+            )
+        } == -1 {
+            // If command fails return default
+            default.map(|s| s.to_owned())
+        } else {
+            if let Some(pos) = buf.iter().position(|x| *x == 0) {
+                // Shrink buffer to terminate the null bytes
+                buf.resize(pos, 0);
+            }
+
+            String::from_utf8(buf).ok()
         }
-        String::from_utf8(buf).ok()
     }
 }

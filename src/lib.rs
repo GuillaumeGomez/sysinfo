@@ -237,6 +237,18 @@ mod test {
                 .is_empty());
         }
     }
+
+    #[test]
+    fn check_long_os_version() {
+        // We don't want to test on unknown systems.
+        if MIN_USERS > 0 {
+            let s = System::new();
+            assert!(!s
+                .get_long_os_version()
+                .expect("Failed to get host name")
+                .is_empty());
+        }
+    }
 }
 
 // Used to check that System is Send and Sync.

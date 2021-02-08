@@ -148,6 +148,10 @@ impl SystemExt for System {
         None
     }
 
+    fn get_long_os_version(&self) -> Option<String> {
+        None
+    }
+
     fn get_kernel_version(&self) -> Option<String> {
         None
     }

@@ -490,6 +490,16 @@ impl SystemExt for System {
         get_system_info(InfoType::Name)
     }
 
+    fn get_long_os_version(&self) -> Option<String> {
+        #[cfg(target_os = "android")]
+        let long_name = format!("Android {} {}", get_os_version(), get_name());
+
+        #[cfg(target_os = "linux")]
+        let long_name = format!("Linux {} {}", get_os_version(), get_name());
+
+        Some(long_name)
+    }
+
     fn get_host_name(&self) -> Option<String> {
         let hostname_max = unsafe { sysconf(_SC_HOST_NAME_MAX) };
         let mut buffer = vec![0_u8; hostname_max as usize];
