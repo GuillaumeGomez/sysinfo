@@ -29,12 +29,6 @@ libc = "0.2"
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 core-foundation-sys = "0.8"
 
-[build-dependencies]
-# This is required in all targets, even though it is only used when `--target`
-# is an Apple system, since the build script must be built for the compilation
-# system no matter what the target of the library is.
-cc = "1.0"
-
 [lib]
 name = "sysinfo"
 crate_type = ["rlib", "cdylib"]
