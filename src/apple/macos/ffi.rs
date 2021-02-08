@@ -4,11 +4,9 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use core_foundation_sys::array::__CFArray;
 use core_foundation_sys::base::CFAllocatorRef;
 use core_foundation_sys::dictionary::CFMutableDictionaryRef;
 use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
-use core_foundation_sys::url::CFURLRef;
 
 #[cfg(not(feature = "apple-app-store"))]
 use libc::c_int;
@@ -94,20 +92,22 @@ extern "C" {
 
     pub fn DASessionCreate(allocator: CFAllocatorRef) -> DASessionRef;
 
-    pub fn DADiskCreateFromVolumePath(
+    // pub fn DADiskCreateFromVolumePath(
+    //     allocator: CFAllocatorRef,
+    //     session: DASessionRef,
+    //     path: CFURLRef,
+    // ) -> DADiskRef;
+    pub fn DADiskCreateFromBSDName(
         allocator: CFAllocatorRef,
         session: DASessionRef,
-        path: CFURLRef,
+        path: *const c_char,
     ) -> DADiskRef;
     // pub fn DADiskGetBSDName(disk: DADiskRef) -> *const c_char;
 
     pub fn DADiskCopyDescription(disk: DADiskRef) -> CFMutableDictionaryRef;
-
-    pub fn macos_get_disks() -> CFArrayRef;
 }
 
 pub type DADiskRef = *const __DADisk;
-pub type CFArrayRef = *const __CFArray;
 
 #[allow(non_camel_case_types)]
 pub type io_object_t = mach_port_t;

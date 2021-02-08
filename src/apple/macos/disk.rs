@@ -8,14 +8,12 @@ use crate::sys::{ffi, utils};
 use crate::utils::to_cpath;
 use crate::{Disk, DiskType};
 
-use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex};
 use core_foundation_sys::base::{kCFAllocatorDefault, kCFAllocatorNull, CFRelease};
 use core_foundation_sys::dictionary::{CFDictionaryGetValueIfPresent, CFDictionaryRef};
 use core_foundation_sys::number::{kCFBooleanTrue, CFBooleanRef};
 use core_foundation_sys::string as cfs;
-use core_foundation_sys::url::{CFURLGetFileSystemRepresentation, CFURLRef};
 
-use libc::{c_char, c_void, statfs, strlen, PATH_MAX};
+use libc::{c_char, c_int, c_void, statfs};
 
 use std::ffi::{OsStr, OsString};
 use std::mem;
@@ -23,74 +21,83 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 use std::ptr;
 
-unsafe fn to_path(url: CFURLRef) -> Option<PathBuf> {
-    let mut buf = [0u8; PATH_MAX as usize];
-    let result =
-        CFURLGetFileSystemRepresentation(url, true as u8, buf.as_mut_ptr(), buf.len() as _);
-    if result == false as u8 {
-        return None;
+fn to_path(mount_path: &[c_char]) -> Option<PathBuf> {
+    let mut tmp = Vec::with_capacity(mount_path.len());
+    for &c in mount_path {
+        if c == 0 {
+            break;
+        }
+        tmp.push(c as u8);
     }
-    let len = strlen(buf.as_ptr() as *const c_char);
-    let path = OsStr::from_bytes(&buf[0..len]);
-    Some(PathBuf::from(path))
+    if tmp.is_empty() {
+        None
+    } else {
+        let path = OsStr::from_bytes(&tmp);
+        Some(PathBuf::from(path))
+    }
 }
 
 pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
     if session.is_null() {
         return Vec::new();
     }
-    let arr = unsafe { ffi::macos_get_disks() };
-    if arr.is_null() {
+    let count = unsafe { libc::getfsstat(ptr::null_mut(), 0, libc::MNT_NOWAIT) };
+    if count < 1 {
         return Vec::new();
     }
-    let mut disks = Vec::new();
-    for i in 0..unsafe { CFArrayGetCount(arr) } {
-        let url = unsafe { CFArrayGetValueAtIndex(arr, i) } as CFURLRef;
-        if url.is_null() {
-            continue;
-        }
-        if let Some(mount_point) = unsafe { to_path(url) } {
+    let bufsize = count * mem::size_of::<libc::statfs>() as c_int;
+    let mut disks = Vec::with_capacity(count as _);
+    let count = unsafe { libc::getfsstat(disks.as_mut_ptr(), bufsize, libc::MNT_NOWAIT) };
+    if count < 1 {
+        return Vec::new();
+    }
+    unsafe {
+        disks.set_len(count as _);
+    }
+    disks
+        .into_iter()
+        .filter_map(|c_disk| {
+            let mount_point = to_path(&c_disk.f_mntonname)?;
             unsafe {
-                let disk = ffi::DADiskCreateFromVolumePath(kCFAllocatorDefault as _, session, url);
+                let disk = ffi::DADiskCreateFromBSDName(
+                    kCFAllocatorDefault as _,
+                    session,
+                    c_disk.f_mntfromname.as_ptr(),
+                );
                 let dict = ffi::DADiskCopyDescription(disk);
-                if !dict.is_null() {
-                    // Keeping this around in case one might want the list of the available
-                    // keys in "dict".
-                    // core_foundation::base::CFShow(dict as _);
-                    let name = match get_str_value(dict, b"DAMediaName\0").map(OsString::from) {
-                        Some(n) => n,
-                        None => continue,
-                    };
-                    let removable = get_bool_value(dict, b"DAMediaRemovable\0").unwrap_or(false);
-                    let ejectable = get_bool_value(dict, b"DAMediaEjectable\0").unwrap_or(false);
-                    // This is very hackish but still better than nothing...
-                    let type_ = if let Some(model) = get_str_value(dict, b"DADeviceModel\0") {
-                        if model.contains("SSD") {
-                            DiskType::SSD
-                        } else if removable || ejectable {
-                            DiskType::Removable
-                        } else {
-                            // We just assume by default that this is a HDD
-                            DiskType::HDD
-                        }
+                if dict.is_null() {
+                    return None;
+                }
+                // Keeping this around in case one might want the list of the available
+                // keys in "dict".
+                // core_foundation_sys::base::CFShow(dict as _);
+                let name = match get_str_value(dict, b"DAMediaName\0").map(OsString::from) {
+                    Some(n) => n,
+                    None => return None,
+                };
+                let removable = get_bool_value(dict, b"DAMediaRemovable\0").unwrap_or(false);
+                let ejectable = get_bool_value(dict, b"DAMediaEjectable\0").unwrap_or(false);
+                // This is very hackish but still better than nothing...
+                let type_ = if let Some(model) = get_str_value(dict, b"DADeviceModel\0") {
+                    if model.contains("SSD") {
+                        DiskType::SSD
                     } else if removable || ejectable {
                         DiskType::Removable
                     } else {
-                        DiskType::Unknown(-1)
-                    };
-
-                    if let Some(disk) = new_disk(name, mount_point, type_) {
-                        disks.push(disk);
+                        // We just assume by default that this is a HDD
+                        DiskType::HDD
                     }
-                    CFRelease(dict as _);
-                }
+                } else if removable || ejectable {
+                    DiskType::Removable
+                } else {
+                    DiskType::Unknown(-1)
+                };
+
+                CFRelease(dict as _);
+                new_disk(name, mount_point, type_)
             }
-        }
-    }
-    unsafe {
-        CFRelease(arr as _);
-    }
-    disks
+        })
+        .collect::<Vec<_>>()
 }
 
 unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
