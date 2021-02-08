@@ -492,10 +492,10 @@ impl SystemExt for System {
 
     fn get_long_os_version(&self) -> Option<String> {
         #[cfg(target_os = "android")]
-        let long_name = format!("Android {} {}", get_os_version(), get_name());
+        let long_name = format!("Android {} {}", self.get_os_version().unwrap_or_default(), self.get_name().unwrap_or_default());
 
         #[cfg(target_os = "linux")]
-        let long_name = format!("Linux {} {}", get_os_version(), get_name());
+        let long_name = format!("Linux {} {}", self.get_os_version().unwrap_or_default(), self.get_name().unwrap_or_default());
 
         Some(long_name)
     }
