@@ -429,16 +429,16 @@ impl SystemExt for System {
             "CurrentMajorVersionNumber",
         );
 
-        let minor = get_reg_value_u32(
+        let build_number = get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
-            "CurrentMinorVersionNumber",
+            "CurrentBuildNumber",
         );
 
         Some(format!(
-            "{}.{}",
+            "{} ({})",
             u32::from_le_bytes(major.unwrap_or_default()),
-            u32::from_le_bytes(minor.unwrap_or_default())
+            build_number.unwrap_or_default()
         ))
     }
 }
@@ -558,23 +558,20 @@ fn get_reg_value_u32(hkey: HKEY, path: &str, field_name: &str) -> Option<[u8; 4]
     let mut buf_len: DWORD = 4;
     let mut buf_type: DWORD = 0;
     let mut buf = [0u8; 4];
-    loop {
-        match unsafe {
-            RegQueryValueExW(
-                new_hkey,
-                c_field_name.as_ptr(),
-                std::ptr::null_mut(),
-                &mut buf_type,
-                buf.as_mut_ptr() as LPBYTE,
-                &mut buf_len,
-            ) as DWORD
-        } {
-            0 => break,
-            _ => return None,
-        }
-    }
 
-    Some(buf)
+    match unsafe {
+        RegQueryValueExW(
+            new_hkey,
+            c_field_name.as_ptr(),
+            std::ptr::null_mut(),
+            &mut buf_type,
+            buf.as_mut_ptr() as LPBYTE,
+            &mut buf_len,
+        ) as DWORD
+    } {
+        0 => Some(buf),
+        _ => None,
+    }
 }
 
 fn get_dns_hostname() -> Option<String> {
