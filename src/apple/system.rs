@@ -467,7 +467,13 @@ impl SystemExt for System {
     fn get_long_os_version(&self) -> Option<String> {
         #[cfg(target_os = "macos")]
         let friendly_name = match self.get_os_version().unwrap_or_default() {
-            f_n if f_n.starts_with("10.16") | f_n.starts_with("11.0") |  f_n.starts_with("11.1") | f_n.starts_with("11.2") => "Big Sur",
+            f_n if f_n.starts_with("10.16")
+                | f_n.starts_with("11.0")
+                | f_n.starts_with("11.1")
+                | f_n.starts_with("11.2") =>
+            {
+                "Big Sur"
+            }
             f_n if f_n.starts_with("10.15") => "Catalina",
             f_n if f_n.starts_with("10.14") => "Mojave",
             f_n if f_n.starts_with("10.13") => "High Sierra",
@@ -488,13 +494,16 @@ impl SystemExt for System {
         };
 
         #[cfg(target_os = "macos")]
-        let long_name = Some(format!("MacOS {} {}", self.get_os_version().unwrap_or_default(), friendly_name)); 
+        let long_name = Some(format!(
+            "MacOS {} {}",
+            self.get_os_version().unwrap_or_default(),
+            friendly_name
+        ));
 
         #[cfg(target_os = "ios")]
         let long_name = Some(format!("iOS {}", self.get_os_version().unwrap_or_default()));
 
         long_name
-        
     }
 
     fn get_host_name(&self) -> Option<String> {
@@ -636,7 +645,7 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
     let mut mib: [c_int; 2] = [libc::CTL_KERN, value];
     let mut size = 0;
 
-    // Call first to get size 
+    // Call first to get size
     unsafe {
         libc::sysctl(
             mib.as_mut_ptr(),
@@ -646,13 +655,13 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
             std::ptr::null_mut(),
             0,
         )
-    }; 
+    };
 
-    // exit early if we did not update the size 
+    // exit early if we did not update the size
     if size == 0 {
         default.map(|s| s.to_owned())
     } else {
-        // set the buffer to the correct size 
+        // set the buffer to the correct size
         let mut buf = vec![0_u8; size as usize];
 
         if unsafe {
@@ -664,7 +673,8 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
                 std::ptr::null_mut(),
                 0,
             )
-        } == -1 {
+        } == -1
+        {
             // If command fails return default
             default.map(|s| s.to_owned())
         } else {

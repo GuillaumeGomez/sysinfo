@@ -433,9 +433,13 @@ impl SystemExt for System {
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
             "CurrentMinorVersionNumber",
-        ); 
+        );
 
-        Some(format!("{}.{}", u32::from_le_bytes(major.unwrap_or_default()), u32::from_le_bytes(minor.unwrap_or_default())))
+        Some(format!(
+            "{}.{}",
+            u32::from_le_bytes(major.unwrap_or_default()),
+            u32::from_le_bytes(minor.unwrap_or_default())
+        ))
     }
 }
 
@@ -553,7 +557,7 @@ fn get_reg_value_u32(hkey: HKEY, path: &str, field_name: &str) -> Option<[u8; 4]
 
     let mut buf_len: DWORD = 4;
     let mut buf_type: DWORD = 0;
-    let mut buf= [0u8; 4];
+    let mut buf = [0u8; 4];
     loop {
         match unsafe {
             RegQueryValueExW(
