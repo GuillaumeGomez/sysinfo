@@ -402,6 +402,14 @@ impl SystemExt for System {
         Some("Windows".to_owned())
     }
 
+    fn get_long_os_version(&self) -> Option<String> {
+        get_reg_string_value(
+            HKEY_LOCAL_MACHINE,
+            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+            "ProductName",
+        )
+    }
+
     fn get_host_name(&self) -> Option<String> {
         get_dns_hostname()
     }
@@ -415,11 +423,23 @@ impl SystemExt for System {
     }
 
     fn get_os_version(&self) -> Option<String> {
-        get_reg_string_value(
+        let major = get_reg_value_u32(
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
-            "ProductName",
-        )
+            "CurrentMajorVersionNumber",
+        );
+
+        let build_number = get_reg_string_value(
+            HKEY_LOCAL_MACHINE,
+            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+            "CurrentBuildNumber",
+        );
+
+        Some(format!(
+            "{} ({})",
+            u32::from_le_bytes(major.unwrap_or_default()),
+            build_number.unwrap_or_default()
+        ))
     }
 }
 
@@ -524,6 +544,34 @@ fn get_reg_string_value(hkey: HKEY, path: &str, field_name: &str) -> Option<Stri
         s.pop();
     }
     Some(s)
+}
+
+fn get_reg_value_u32(hkey: HKEY, path: &str, field_name: &str) -> Option<[u8; 4]> {
+    let c_path = utf16_str(path);
+    let c_field_name = utf16_str(field_name);
+
+    let mut new_hkey: HKEY = std::ptr::null_mut();
+    if unsafe { RegOpenKeyExW(hkey, c_path.as_ptr(), 0, KEY_READ, &mut new_hkey) } != 0 {
+        return None;
+    }
+
+    let mut buf_len: DWORD = 4;
+    let mut buf_type: DWORD = 0;
+    let mut buf = [0u8; 4];
+
+    match unsafe {
+        RegQueryValueExW(
+            new_hkey,
+            c_field_name.as_ptr(),
+            std::ptr::null_mut(),
+            &mut buf_type,
+            buf.as_mut_ptr() as LPBYTE,
+            &mut buf_len,
+        ) as DWORD
+    } {
+        0 => Some(buf),
+        _ => None,
+    }
 }
 
 fn get_dns_hostname() -> Option<String> {

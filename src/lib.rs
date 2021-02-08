@@ -216,12 +216,17 @@ mod test {
 
             assert!(!s
                 .get_kernel_version()
-                .expect("Failed to get system version")
+                .expect("Failed to get kernel version")
                 .is_empty());
 
             assert!(!s
                 .get_os_version()
-                .expect("Failed to get system version")
+                .expect("Failed to get os version")
+                .is_empty());
+
+            assert!(!s
+                .get_long_os_version()
+                .expect("Failed to get long OS version")
                 .is_empty());
         }
     }

@@ -980,6 +980,18 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn get_os_version(&self) -> Option<String>;
 
+    /// Returns the system long os version (e.g "MacOS 11.2 BigSur").
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// println!("Long OS Version: {:?}", s.get_long_os_version());
+    /// ```
+    fn get_long_os_version(&self) -> Option<String>;
+
     /// Returns the system hostname based off DNS
     ///
     /// **Important**: this information is computed every time this function is called.
