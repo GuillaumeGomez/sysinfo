@@ -309,7 +309,8 @@ impl SystemExt for System {
                 };
                 if let Some(val_str) = line.rsplit(' ').nth(1) {
                     if let Ok(value) = u64::from_str(val_str) {
-                        *field = value;
+                        // /proc/meminfo reports KiB, though it says "kB". Convert it.
+                        *field = value * 128 / 125;
                     }
                 }
             }
