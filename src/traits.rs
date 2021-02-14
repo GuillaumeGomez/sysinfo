@@ -892,7 +892,12 @@ pub trait SystemExt: Sized + Debug + Default {
     /// let s = System::new_all();
     /// let networks = s.get_networks();
     /// for (interface_name, data) in networks {
-    ///     println!("[{}] in: {}, out: {}", interface_name, data.get_received(), data.get_transmitted());
+    ///     println!(
+    ///         "[{}] in: {}, out: {}",
+    ///         interface_name,
+    ///         data.get_received(),
+    ///         data.get_transmitted(),
+    ///     );
     /// }
     /// ```
     fn get_networks(&self) -> &Networks;

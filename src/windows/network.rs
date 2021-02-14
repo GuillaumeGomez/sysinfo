@@ -196,7 +196,7 @@ pub struct NetworkData {
 
 impl NetworkExt for NetworkData {
     fn get_received(&self) -> u64 {
-        self.current_in - self.old_in
+        self.current_in.saturating_sub(self.old_in)
     }
 
     fn get_total_received(&self) -> u64 {
@@ -204,7 +204,7 @@ impl NetworkExt for NetworkData {
     }
 
     fn get_transmitted(&self) -> u64 {
-        self.current_out - self.old_out
+        self.current_out.saturating_sub(self.old_out)
     }
 
     fn get_total_transmitted(&self) -> u64 {
@@ -212,7 +212,7 @@ impl NetworkExt for NetworkData {
     }
 
     fn get_packets_received(&self) -> u64 {
-        self.packets_in - self.old_packets_in
+        self.packets_in.saturating_sub(self.old_packets_in)
     }
 
     fn get_total_packets_received(&self) -> u64 {
@@ -220,7 +220,7 @@ impl NetworkExt for NetworkData {
     }
 
     fn get_packets_transmitted(&self) -> u64 {
-        self.packets_out - self.old_packets_out
+        self.packets_out.saturating_sub(self.old_packets_out)
     }
 
     fn get_total_packets_transmitted(&self) -> u64 {
@@ -228,7 +228,7 @@ impl NetworkExt for NetworkData {
     }
 
     fn get_errors_on_received(&self) -> u64 {
-        self.errors_in - self.old_errors_in
+        self.errors_in.saturating_sub(self.old_errors_in)
     }
 
     fn get_total_errors_on_received(&self) -> u64 {
@@ -236,7 +236,7 @@ impl NetworkExt for NetworkData {
     }
 
     fn get_errors_on_transmitted(&self) -> u64 {
-        self.errors_out - self.old_errors_out
+        self.errors_out.saturating_sub(self.old_errors_out)
     }
 
     fn get_total_errors_on_transmitted(&self) -> u64 {
