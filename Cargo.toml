@@ -1,6 +1,6 @@
 [package]
 name = "sysinfo"
-version = "0.16.2"
+version = "0.16.3"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 
 description = "Library to get system information such as processes, processors, disks, components and networks"
@@ -24,7 +24,7 @@ winapi = { version = "0.3", features = ["fileapi", "handleapi", "ifdef", "ioapis
 ntapi = "0.3"
 
 [target.'cfg(not(any(target_os = "unknown", target_arch = "wasm32")))'.dependencies]
-libc = "0.2"
+libc = "^0.2.86"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 core-foundation-sys = "0.8"
