@@ -230,6 +230,9 @@ fn get_sysctl_str(s: &[u8]) -> String {
         unsafe {
             buf.set_len(len);
         }
+        while buf.last() == Some(&b'\0') {
+            buf.pop();
+        }
         String::from_utf8(buf).unwrap_or_else(|_| String::new())
     } else {
         String::new()
