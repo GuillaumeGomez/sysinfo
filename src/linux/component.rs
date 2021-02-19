@@ -47,32 +47,30 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
     let mut matchings: HashMap<u32, Vec<String>> = HashMap::with_capacity(10);
 
     if let Ok(dir) = read_dir(folder) {
-        for entry in dir {
-            if let Ok(entry) = entry {
-                let entry = entry.path();
-                if entry.is_dir()
-                    || !entry
-                        .file_name()
-                        .and_then(|x| x.to_str())
-                        .unwrap_or("")
-                        .starts_with("temp")
-                {
-                    continue;
-                }
-                if let Some(entry) = entry.file_name() {
-                    if let Some(entry) = entry.to_str() {
-                        let mut parts = entry.split('_');
-                        if let Some(Some(id)) = parts.next().map(|s| s[4..].parse::<u32>().ok()) {
-                            matchings
-                                .entry(id)
-                                .or_insert_with(|| Vec::with_capacity(5))
-                                .push(
-                                    parts
-                                        .next()
-                                        .map(|s| format!("_{}", s))
-                                        .unwrap_or_else(String::new),
-                                );
-                        }
+        for entry in dir.flatten() {
+            let entry = entry.path();
+            if entry.is_dir()
+                || !entry
+                    .file_name()
+                    .and_then(|x| x.to_str())
+                    .unwrap_or("")
+                    .starts_with("temp")
+            {
+                continue;
+            }
+            if let Some(entry) = entry.file_name() {
+                if let Some(entry) = entry.to_str() {
+                    let mut parts = entry.split('_');
+                    if let Some(Some(id)) = parts.next().map(|s| s[4..].parse::<u32>().ok()) {
+                        matchings
+                            .entry(id)
+                            .or_insert_with(|| Vec::with_capacity(5))
+                            .push(
+                                parts
+                                    .next()
+                                    .map(|s| format!("_{}", s))
+                                    .unwrap_or_else(String::new),
+                            );
                     }
                 }
             }
@@ -177,20 +175,18 @@ impl ComponentExt for Component {
 pub fn get_components() -> Vec<Component> {
     let mut components = Vec::with_capacity(10);
     if let Ok(dir) = read_dir(&Path::new("/sys/class/hwmon/")) {
-        for entry in dir {
-            if let Ok(entry) = entry {
-                let entry = entry.path();
-                if !entry.is_dir()
-                    || !entry
-                        .file_name()
-                        .and_then(|x| x.to_str())
-                        .unwrap_or("")
-                        .starts_with("hwmon")
-                {
-                    continue;
-                }
-                append_files(&mut components, &entry);
+        for entry in dir.flatten() {
+            let entry = entry.path();
+            if !entry.is_dir()
+                || !entry
+                    .file_name()
+                    .and_then(|x| x.to_str())
+                    .unwrap_or("")
+                    .starts_with("hwmon")
+            {
+                continue;
             }
+            append_files(&mut components, &entry);
         }
         components.sort_by(|c1, c2| c1.label.to_lowercase().cmp(&c2.label.to_lowercase()));
     }

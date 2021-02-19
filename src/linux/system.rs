@@ -794,11 +794,9 @@ fn get_system_info(info: InfoType) -> Option<String> {
 
     let buf = BufReader::new(File::open("/etc/os-release").ok()?);
 
-    for line in buf.lines() {
-        if let Ok(line) = line {
-            if let Some(stripped) = line.strip_prefix(info) {
-                return Some(stripped.replace("\"", ""));
-            }
+    for line in buf.lines().flatten() {
+        if let Some(stripped) = line.strip_prefix(info) {
+            return Some(stripped.replace("\"", ""));
         }
     }
     None

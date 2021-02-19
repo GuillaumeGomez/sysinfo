@@ -76,48 +76,46 @@ impl NetworksExt for Networks {
     fn refresh_networks_list(&mut self) {
         if let Ok(dir) = std::fs::read_dir("/sys/class/net/") {
             let mut data = vec![0; 30];
-            for entry in dir {
-                if let Ok(entry) = entry {
-                    let parent = &entry.path().join("statistics");
-                    let entry = match entry.file_name().into_string() {
-                        Ok(entry) => entry,
-                        Err(_) => continue,
-                    };
-                    let rx_bytes = read(parent, "rx_bytes", &mut data);
-                    let tx_bytes = read(parent, "tx_bytes", &mut data);
-                    let rx_packets = read(parent, "rx_packets", &mut data);
-                    let tx_packets = read(parent, "tx_packets", &mut data);
-                    let rx_errors = read(parent, "rx_errors", &mut data);
-                    let tx_errors = read(parent, "tx_errors", &mut data);
-                    // let rx_compressed = read(parent, "rx_compressed", &mut data);
-                    // let tx_compressed = read(parent, "tx_compressed", &mut data);
-                    let interface = self.interfaces.entry(entry).or_insert_with(|| NetworkData {
-                        rx_bytes,
-                        old_rx_bytes: rx_bytes,
-                        tx_bytes,
-                        old_tx_bytes: tx_bytes,
-                        rx_packets,
-                        old_rx_packets: rx_packets,
-                        tx_packets,
-                        old_tx_packets: tx_packets,
-                        rx_errors,
-                        old_rx_errors: rx_errors,
-                        tx_errors,
-                        old_tx_errors: tx_errors,
-                        // rx_compressed,
-                        // old_rx_compressed: rx_compressed,
-                        // tx_compressed,
-                        // old_tx_compressed: tx_compressed,
-                    });
-                    old_and_new!(interface, rx_bytes, old_rx_bytes);
-                    old_and_new!(interface, tx_bytes, old_tx_bytes);
-                    old_and_new!(interface, rx_packets, old_rx_packets);
-                    old_and_new!(interface, tx_packets, old_tx_packets);
-                    old_and_new!(interface, rx_errors, old_rx_errors);
-                    old_and_new!(interface, tx_errors, old_tx_errors);
-                    // old_and_new!(interface, rx_compressed, old_rx_compressed);
-                    // old_and_new!(interface, tx_compressed, old_tx_compressed);
-                }
+            for entry in dir.flatten() {
+                let parent = &entry.path().join("statistics");
+                let entry = match entry.file_name().into_string() {
+                    Ok(entry) => entry,
+                    Err(_) => continue,
+                };
+                let rx_bytes = read(parent, "rx_bytes", &mut data);
+                let tx_bytes = read(parent, "tx_bytes", &mut data);
+                let rx_packets = read(parent, "rx_packets", &mut data);
+                let tx_packets = read(parent, "tx_packets", &mut data);
+                let rx_errors = read(parent, "rx_errors", &mut data);
+                let tx_errors = read(parent, "tx_errors", &mut data);
+                // let rx_compressed = read(parent, "rx_compressed", &mut data);
+                // let tx_compressed = read(parent, "tx_compressed", &mut data);
+                let interface = self.interfaces.entry(entry).or_insert_with(|| NetworkData {
+                    rx_bytes,
+                    old_rx_bytes: rx_bytes,
+                    tx_bytes,
+                    old_tx_bytes: tx_bytes,
+                    rx_packets,
+                    old_rx_packets: rx_packets,
+                    tx_packets,
+                    old_tx_packets: tx_packets,
+                    rx_errors,
+                    old_rx_errors: rx_errors,
+                    tx_errors,
+                    old_tx_errors: tx_errors,
+                    // rx_compressed,
+                    // old_rx_compressed: rx_compressed,
+                    // tx_compressed,
+                    // old_tx_compressed: tx_compressed,
+                });
+                old_and_new!(interface, rx_bytes, old_rx_bytes);
+                old_and_new!(interface, tx_bytes, old_tx_bytes);
+                old_and_new!(interface, rx_packets, old_rx_packets);
+                old_and_new!(interface, tx_packets, old_tx_packets);
+                old_and_new!(interface, rx_errors, old_rx_errors);
+                old_and_new!(interface, tx_errors, old_tx_errors);
+                // old_and_new!(interface, rx_compressed, old_rx_compressed);
+                // old_and_new!(interface, tx_compressed, old_tx_compressed);
             }
         }
     }
