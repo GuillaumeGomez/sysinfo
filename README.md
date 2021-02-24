@@ -23,7 +23,7 @@ The minimum-supported version of `rustc` is **1.45**.
 ### Use in binaries distributed on the MacOS App Store
 
 Apple has restrictions as to which APIs can be used in binaries distributed through the app store.
-By default, `sysinfo` is not compatiable with these restrictions. You can use the `apple-app-store` feature
+By default, `sysinfo` is not compatible with these restrictions. You can use the `apple-app-store` feature
 flag to disable the Apple prohibited features.
 
 ### Running on Raspberry Pi
