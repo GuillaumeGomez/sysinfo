@@ -4,7 +4,10 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use crate::sys::{Component, Disk, Networks, Process, Processor};
+use crate::{
+    common::{Gid, Uid},
+    sys::{Component, Disk, Networks, Process, Processor},
+};
 use crate::{
     DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessStatus, RefreshKind, Signal, User,
 };
@@ -1283,6 +1286,35 @@ pub trait ComponentExt: Debug {
 /// }
 /// ```
 pub trait UserExt: Debug {
+    /// Return the user id of the user.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt, UserExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for user in s.get_users() {
+    ///     println!("{}", *user.get_uid());
+    /// }
+    /// ```
+    fn get_uid(&self) -> Uid;
+
+    /// Return the group id of the user.
+    ///
+    /// *NOTE* - On Windows, this value defaults to 0.  Windows doesn't have a `username` specific group assigned to the user.
+    /// They do however have unique [Security Identifiers](https://docs.microsoft.com/en-us/windows/win32/secauthz/security-identifiers)
+    /// made up of various [Components](https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-components).
+    /// Pieces of the SID may be a candidate for this field, but it doesn't map well to a single group id.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt, UserExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for user in s.get_users() {
+    ///     println!("{}", *user.get_gid());
+    /// }
+    /// ```
+    fn get_gid(&self) -> Gid;
+
     /// Returns the name of the user.
     ///
     /// ```no_run

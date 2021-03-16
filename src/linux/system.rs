@@ -787,7 +787,7 @@ enum InfoType {
 
 #[cfg(not(target_os = "android"))]
 fn get_system_info(info: InfoType) -> Option<String> {
-    let info = match info {
+    let info_str = match info {
         InfoType::Name => "NAME=",
         InfoType::OsVersion => "VERSION_ID=",
     };
@@ -795,7 +795,7 @@ fn get_system_info(info: InfoType) -> Option<String> {
     let buf = BufReader::new(File::open("/etc/os-release").ok()?);
 
     for line in buf.lines().flatten() {
-        if let Some(stripped) = line.strip_prefix(info) {
+        if let Some(stripped) = line.strip_prefix(info_str) {
             return Some(stripped.replace("\"", ""));
         }
     }
