@@ -10,6 +10,7 @@ use crate::sys::process::*;
 use crate::sys::processor::*;
 use crate::{Disk, LoadAvg, Networks, Pid, ProcessExt, RefreshKind, SystemExt, User};
 
+use cfg_if::cfg_if;
 use libc::{self, c_char, gid_t, sysconf, uid_t, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -490,8 +491,13 @@ impl SystemExt for System {
     }
 
     fn get_name(&self) -> Option<String> {
-        let buf = BufReader::new(File::open("/etc/os-release").ok()?);
-        get_system_info(InfoType::Name, Some(buf))
+        cfg_if! {
+            if #[cfg(not(target_os = "android"))] {
+                get_system_info(InfoType::Name, Some(BufReader::new(File::open("/etc/os-release").ok()?)))
+            } else {
+                get_system_info(InfoType::Name, None)
+            }
+        }
     }
 
     fn get_long_os_version(&self) -> Option<String> {
@@ -544,8 +550,13 @@ impl SystemExt for System {
     }
 
     fn get_os_version(&self) -> Option<String> {
-        let buf = BufReader::new(File::open("/etc/os-release").ok()?);
-        get_system_info(InfoType::OsVersion, Some(buf))
+        cfg_if! {
+            if #[cfg(not(target_os = "android"))] {
+                get_system_info(InfoType::OsVersion, Some(BufReader::new(File::open("/etc/os-release").ok()?)))
+            } else {
+                get_system_info(InfoType::OsVersion, None)
+            }
+        }
     }
 }
 
