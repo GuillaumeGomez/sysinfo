@@ -1023,7 +1023,11 @@ pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<Str
 
 fn get_uptime() -> u64 {
     let content = get_all_data("/proc/uptime", 50).unwrap_or_default();
-    u64::from_str_radix(content.split('.').next().unwrap_or("0"), 10).unwrap_or(0)
+    content
+        .split('.')
+        .next()
+        .and_then(|t| t.parse().ok())
+        .unwrap_or_default()
 }
 
 fn get_secs_since_epoch() -> u64 {
