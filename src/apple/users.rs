@@ -4,7 +4,10 @@
 // Copyright (c) 2020 Guillaume Gomez
 //
 
-use crate::User;
+use crate::{
+    common::{Gid, Uid},
+    User,
+};
 
 use crate::sys::utils;
 use libc::{c_char, endpwent, getgrgid, getgrouplist, getpwent, gid_t, setpwent, strlen};
@@ -65,8 +68,15 @@ where
             continue;
         }
         let groups = get_user_groups(unsafe { (*pw).pw_name }, unsafe { (*pw).pw_gid });
+        let uid = unsafe { (*pw).pw_uid };
+        let gid = unsafe { (*pw).pw_gid };
         if let Some(name) = utils::cstr_to_rust(unsafe { (*pw).pw_name }) {
-            users.push(User { name, groups });
+            users.push(User {
+                uid: Uid(uid),
+                gid: Gid(gid),
+                name,
+                groups,
+            });
         }
     }
     unsafe { endpwent() };

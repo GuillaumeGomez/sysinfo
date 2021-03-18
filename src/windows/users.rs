@@ -5,7 +5,10 @@
 //
 
 use crate::sys::ffi::NetUserGetLocalGroups;
-use crate::User;
+use crate::{
+    common::{Gid, Uid},
+    User,
+};
 
 use winapi::shared::lmcons::MAX_PREFERRED_LENGTH;
 use winapi::shared::winerror::{ERROR_MORE_DATA, ERROR_SUCCESS};
@@ -99,6 +102,8 @@ pub unsafe fn get_users() -> Vec<User> {
                 if (*buf).usri1_flags & UF_NORMAL_ACCOUNT != 0 {
                     let groups = get_groups_for_user((*buf).usri1_name);
                     users.push(User {
+                        uid: Uid((*buf).usri1_user_id),
+                        gid: Gid(0),
                         name: to_str((*buf).usri1_name),
                         groups,
                     });

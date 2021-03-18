@@ -355,6 +355,50 @@ pub struct LoadAvg {
     pub fifteen: f64,
 }
 
+macro_rules! xid {
+    ($(#[$outer:meta])+ $name:ident, $type:ty) => {
+        $(#[$outer])+
+        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+        pub struct $name(pub(crate) $type);
+
+        impl std::ops::Deref for $name {
+            type Target = $type;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+    };
+}
+
+#[cfg(not(target_os = "windows"))]
+xid!(
+    /// A user id wrapping a platform specific type
+    Uid,
+    libc::uid_t
+);
+
+#[cfg(target_os = "windows")]
+xid!(
+    /// A user id wrapping a platform specific type
+    Uid,
+    u32
+);
+
+#[cfg(not(target_os = "windows"))]
+xid!(
+    /// A group id wrapping a platform specific type
+    Gid,
+    libc::gid_t
+);
+
+#[cfg(target_os = "windows")]
+xid!(
+    /// A group id wrapping a platform specific type
+    Gid,
+    u32
+);
+
 /// Type containing user information.
 ///
 /// It is returned by [`SystemExt::get_users`][crate::SystemExt::get_users].
@@ -367,11 +411,21 @@ pub struct LoadAvg {
 /// ```
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct User {
+    pub(crate) uid: Uid,
+    pub(crate) gid: Gid,
     pub(crate) name: String,
     pub(crate) groups: Vec<String>,
 }
 
 impl UserExt for User {
+    fn get_uid(&self) -> Uid {
+        self.uid
+    }
+
+    fn get_gid(&self) -> Gid {
+        self.gid
+    }
+
     fn get_name(&self) -> &str {
         &self.name
     }

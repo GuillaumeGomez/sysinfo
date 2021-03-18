@@ -107,7 +107,7 @@ cfg_if::cfg_if! {
 }
 
 pub use common::{
-    AsU32, DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, RefreshKind, Signal, User,
+    AsU32, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid, RefreshKind, Signal, Uid, User,
 };
 pub use sys::{Component, Disk, NetworkData, Networks, Process, ProcessStatus, Processor, System};
 pub use traits::{
@@ -206,6 +206,29 @@ mod test {
 
         let s = System::new_all();
         assert!(s.get_users().len() >= MIN_USERS);
+    }
+
+    #[test]
+    fn check_uid_gid() {
+        let mut s = System::new();
+        assert!(s.get_users().is_empty());
+        s.refresh_users_list();
+        let users = s.get_users();
+        assert!(users.len() >= MIN_USERS);
+
+        for user in users {
+            match user.get_name() {
+                "root" => {
+                    assert_eq!(*user.get_uid(), 0);
+                    assert_eq!(*user.get_gid(), 0);
+                }
+                _ => {
+                    assert!(*user.get_uid() > 0);
+                    #[cfg(not(target_os = "windows"))]
+                    assert!(*user.get_gid() > 0);
+                }
+            }
+        }
     }
 
     #[test]
