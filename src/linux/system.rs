@@ -16,6 +16,8 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
+#[cfg(not(target_os = "android"))]
+use std::process::Command;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
@@ -488,7 +490,8 @@ impl SystemExt for System {
     }
 
     fn get_name(&self) -> Option<String> {
-        get_system_info(InfoType::Name)
+        let buf = BufReader::new(File::open("/etc/os-release").ok()?);
+        get_system_info(InfoType::Name, Some(buf))
     }
 
     fn get_long_os_version(&self) -> Option<String> {
@@ -541,7 +544,8 @@ impl SystemExt for System {
     }
 
     fn get_os_version(&self) -> Option<String> {
-        get_system_info(InfoType::OsVersion)
+        let buf = BufReader::new(File::open("/etc/os-release").ok()?);
+        get_system_info(InfoType::OsVersion, Some(buf))
     }
 }
 
@@ -777,6 +781,7 @@ fn get_exe_name(p: &Process) -> String {
         .unwrap_or_else(String::new)
 }
 
+#[derive(PartialEq)]
 enum InfoType {
     /// The end-user friendly name of:
     /// - Android: The device model
@@ -786,24 +791,42 @@ enum InfoType {
 }
 
 #[cfg(not(target_os = "android"))]
-fn get_system_info(info: InfoType) -> Option<String> {
+fn get_system_info<T>(info: InfoType, buf_read: Option<T>) -> Option<String>
+where
+    T: BufRead,
+{
     let info_str = match info {
         InfoType::Name => "NAME=",
         InfoType::OsVersion => "VERSION_ID=",
     };
 
-    let buf = BufReader::new(File::open("/etc/os-release").ok()?);
+    if let Some(reader) = buf_read {
+        for line in reader.lines().flatten() {
+            if let Some(stripped) = line.strip_prefix(info_str) {
+                return Some(stripped.replace("\"", ""));
+            }
+        }
+    }
 
-    for line in buf.lines().flatten() {
-        if let Some(stripped) = line.strip_prefix(info_str) {
-            return Some(stripped.replace("\"", ""));
+    // Fallback to `lsb_release -r` for systems where VERSION_ID is not included.
+    // VERSION_ID is no required per https://www.linux.org/docs/man5/os-release.html
+    // If this fails for some reason, fallback to None
+    if info == InfoType::OsVersion {
+        if let Ok(lsb_out) = Command::new("lsb_release").args(&["-r"]).output() {
+            let release = String::from_utf8_lossy(&lsb_out.stdout);
+            if let Some(stripped) = release.strip_prefix("Release:") {
+                return Some(stripped.trim().replace("\"", ""));
+            }
         }
     }
     None
 }
 
 #[cfg(target_os = "android")]
-fn get_system_info(info: InfoType) -> Option<String> {
+fn get_system_info<T>(info: InfoType, _buf_read: Option<T>) -> Option<String>
+where
+    T: BufRead,
+{
     use libc::c_int;
 
     // https://android.googlesource.com/platform/bionic/+/refs/heads/master/libc/include/sys/system_properties.h#41
@@ -1034,5 +1057,19 @@ fn get_secs_since_epoch() -> u64 {
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
         Ok(n) => n.as_secs(),
         _ => panic!("SystemTime before UNIX EPOCH!"),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{get_system_info, InfoType};
+    use std::io::Cursor;
+
+    #[test]
+    fn lsb_release_fallback() {
+        // Simulate an empty file for get_system_info.
+        // This will fallback to `lsb_release -r` to get the os version
+        let buf = Cursor::new(vec![]);
+        assert!(get_system_info(InfoType::OsVersion, Some(buf)).is_some());
     }
 }
