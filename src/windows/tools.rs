@@ -277,7 +277,7 @@ pub unsafe fn load_symbols() -> HashMap<String, u32> {
         .filter_map(
             |x| match (std::str::from_utf8(x[0]), String::from_utf8(x[1].to_vec())) {
                 (Ok(n), Ok(s)) => {
-                    if let Ok(n) = u32::from_str_radix(n, 10) {
+                    if let Ok(n) = n.parse::<u32>() {
                         Some((n, s))
                     } else {
                         None
@@ -287,7 +287,7 @@ pub unsafe fn load_symbols() -> HashMap<String, u32> {
             },
         )
     {
-        ret.insert(s, pos as u32);
+        ret.insert(s, pos);
     }
     ret
 }
