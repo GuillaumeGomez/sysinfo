@@ -55,6 +55,7 @@
 //#![deny(warnings)]
 #![allow(unknown_lints)]
 #![allow(clippy::upper_case_acronyms)]
+#![allow(renamed_and_removed_lints)]
 
 #[cfg(doctest)]
 doc_comment::doctest!("../README.md");
