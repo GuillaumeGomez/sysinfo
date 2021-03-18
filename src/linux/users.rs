@@ -21,7 +21,7 @@ pub fn get_users_list() -> Vec<User> {
             let mut parts = line.split(':');
             if let Some(username) = parts.next() {
                 let mut parts = parts.skip(2);
-                if let Some(group_id) = parts.next().and_then(|x| u32::from_str_radix(x, 10).ok()) {
+                if let Some(group_id) = parts.next().and_then(|x| x.parse::<u32>().ok()) {
                     if let Some(command) = parts.last() {
                         if command.is_empty()
                             || command.ends_with("/false")

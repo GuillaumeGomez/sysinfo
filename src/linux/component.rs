@@ -104,16 +104,12 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                     let label = get_file_line(p_label.as_path(), 10)
                         .unwrap_or_else(|| format!("Component {}", key)) // needed for raspberry pi
                         .replace("\n", "");
-                    let max = if let Some(max) = get_file_line(p_max.as_path(), 10) {
-                        Some(max.replace("\n", "").parse::<f32>().unwrap_or(100_000f32) / 1000f32)
-                    } else {
-                        None
-                    };
-                    let crit = if let Some(crit) = get_file_line(p_crit.as_path(), 10) {
-                        Some(crit.replace("\n", "").parse::<f32>().unwrap_or(100_000f32) / 1000f32)
-                    } else {
-                        None
-                    };
+                    let max = get_file_line(p_max.as_path(), 10).map(|max| {
+                        max.replace("\n", "").parse::<f32>().unwrap_or(100_000f32) / 1000f32
+                    });
+                    let crit = get_file_line(p_crit.as_path(), 10).map(|crit| {
+                        crit.replace("\n", "").parse::<f32>().unwrap_or(100_000f32) / 1000f32
+                    });
                     components.push(Component::new(label, p_input.as_path(), max, crit));
                 }
             }

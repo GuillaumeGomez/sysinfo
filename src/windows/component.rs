@@ -40,25 +40,21 @@ pub struct Component {
 impl Component {
     /// Creates a new `Component` with the given information.
     fn new() -> Option<Component> {
-        match Connection::new()
+        let mut c = Connection::new()
             .and_then(|x| x.initialize_security())
             .and_then(|x| x.create_instance())
             .and_then(|x| x.connect_server())
             .and_then(|x| x.set_proxy_blanket())
-            .and_then(|x| x.exec_query())
-        {
-            Some(mut c) => match c.get_temperature(true) {
-                Some((temperature, critical)) => Some(Component {
-                    temperature,
-                    label: "Computer".to_owned(),
-                    max: temperature,
-                    critical,
-                    connection: Some(c),
-                }),
-                None => None,
-            },
-            None => None,
-        }
+            .and_then(|x| x.exec_query())?;
+
+        c.get_temperature(true)
+            .map(|(temperature, critical)| Component {
+                temperature,
+                label: "Computer".to_owned(),
+                max: temperature,
+                critical,
+                connection: Some(c),
+            })
     }
 }
 

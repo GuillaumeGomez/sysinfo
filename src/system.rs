@@ -68,4 +68,13 @@ mod tests {
         p.bar(); // If this doesn't compile, it'll simply mean that the Process type
                  // doesn't implement the Sync trait.
     }
+
+    #[test]
+    fn check_hostname_has_no_nuls() {
+        let sys = System::new();
+
+        if let Some(hostname) = sys.get_host_name() {
+            assert!(!hostname.contains('\u{0}'))
+        }
+    }
 }

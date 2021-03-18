@@ -599,6 +599,10 @@ fn get_dns_hostname() -> Option<String> {
         )
     } == TRUE
     {
+        if let Some(pos) = buffer.iter().position(|c| *c == 0) {
+            buffer.resize(pos, 0);
+        }
+
         String::from_utf16(&buffer).ok()
     } else {
         sysinfo_debug!("Failed to get computer hostname");
