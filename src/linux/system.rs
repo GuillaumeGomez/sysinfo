@@ -487,6 +487,15 @@ impl SystemExt for System {
         &self.users
     }
 
+    #[cfg(not(target_os = "android"))]
+    fn get_name(&self) -> Option<String> {
+        get_system_info(
+            InfoType::Name,
+            Some(BufReader::new(File::open("/etc/os-release").ok()?)),
+        )
+    }
+
+    #[cfg(target_os = "android")]
     fn get_name(&self) -> Option<String> {
         get_system_info(InfoType::Name)
     }
@@ -540,6 +549,15 @@ impl SystemExt for System {
         }
     }
 
+    #[cfg(not(target_os = "android"))]
+    fn get_os_version(&self) -> Option<String> {
+        get_system_info(
+            InfoType::OsVersion,
+            Some(BufReader::new(File::open("/etc/os-release").ok()?)),
+        )
+    }
+
+    #[cfg(target_os = "android")]
     fn get_os_version(&self) -> Option<String> {
         get_system_info(InfoType::OsVersion)
     }
@@ -777,6 +795,7 @@ fn get_exe_name(p: &Process) -> String {
         .unwrap_or_else(String::new)
 }
 
+#[derive(PartialEq)]
 enum InfoType {
     /// The end-user friendly name of:
     /// - Android: The device model
@@ -786,17 +805,32 @@ enum InfoType {
 }
 
 #[cfg(not(target_os = "android"))]
-fn get_system_info(info: InfoType) -> Option<String> {
+fn get_system_info<T>(info: InfoType, buf_read: Option<T>) -> Option<String>
+where
+    T: BufRead,
+{
     let info_str = match info {
         InfoType::Name => "NAME=",
         InfoType::OsVersion => "VERSION_ID=",
     };
 
-    let buf = BufReader::new(File::open("/etc/os-release").ok()?);
+    if let Some(reader) = buf_read {
+        for line in reader.lines().flatten() {
+            if let Some(stripped) = line.strip_prefix(info_str) {
+                return Some(stripped.replace("\"", ""));
+            }
+        }
+    }
 
-    for line in buf.lines().flatten() {
-        if let Some(stripped) = line.strip_prefix(info_str) {
-            return Some(stripped.replace("\"", ""));
+    // Fallback to `/etc/lsb-release` file for systems where VERSION_ID is not included.
+    // VERSION_ID is not required in the `/etc/os-release` file per https://www.linux.org/docs/man5/os-release.html
+    // If this fails for some reason, fallback to None
+    if info == InfoType::OsVersion {
+        let lr_reader = BufReader::new(File::open("/etc/lsb-release").ok()?);
+        for line in lr_reader.lines().flatten() {
+            if let Some(stripped) = line.strip_prefix("DISTRIB_RELEASE=") {
+                return Some(stripped.replace("\"", ""));
+            }
         }
     }
     None
@@ -1034,5 +1068,19 @@ fn get_secs_since_epoch() -> u64 {
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
         Ok(n) => n.as_secs(),
         _ => panic!("SystemTime before UNIX EPOCH!"),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{get_system_info, InfoType};
+    use std::io::Cursor;
+
+    #[test]
+    fn lsb_release_fallback() {
+        // Simulate an empty file for get_system_info.
+        // This will fallback to `lsb_release -r` to get the os version
+        let buf = Cursor::new(vec![]);
+        assert!(get_system_info(InfoType::OsVersion, Some(buf)).is_some());
     }
 }
