@@ -17,8 +17,6 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
-#[cfg(not(target_os = "android"))]
-use std::process::Command;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
@@ -819,14 +817,14 @@ where
         }
     }
 
-    // Fallback to `lsb_release -r` for systems where VERSION_ID is not included.
-    // VERSION_ID is no required per https://www.linux.org/docs/man5/os-release.html
+    // Fallback to `/etc/lsb-release` file for systems where VERSION_ID is not included.
+    // VERSION_ID is not required in the `/etc/os-release` file per https://www.linux.org/docs/man5/os-release.html
     // If this fails for some reason, fallback to None
     if info == InfoType::OsVersion {
-        if let Ok(lsb_out) = Command::new("lsb_release").args(&["-r"]).output() {
-            let release = String::from_utf8_lossy(&lsb_out.stdout);
-            if let Some(stripped) = release.strip_prefix("Release:") {
-                return Some(stripped.trim().replace("\"", ""));
+        let lr_reader = BufReader::new(File::open("/etc/lsb-release").ok()?);
+        for line in lr_reader.lines().flatten() {
+            if let Some(stripped) = line.strip_prefix("DISTRIB_RELEASE=") {
+                return Some(stripped.replace("\"", ""));
             }
         }
     }
