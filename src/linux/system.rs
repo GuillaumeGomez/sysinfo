@@ -552,7 +552,7 @@ impl SystemExt for System {
             if #[cfg(not(target_os = "android"))] {
                 get_system_info(InfoType::OsVersion, Some(BufReader::new(File::open("/etc/os-release").ok()?)))
             } else {
-                get_system_info(InfoType::OsVersion, None)
+                get_system_info::<BufRead<File>>(InfoType::OsVersion, None)
             }
         }
     }
