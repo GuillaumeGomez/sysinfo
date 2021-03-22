@@ -837,10 +837,7 @@ where
 }
 
 #[cfg(target_os = "android")]
-fn get_system_info<T>(info: InfoType) -> Option<String>
-where
-    T: BufRead,
-{
+fn get_system_info(info: InfoType) -> Option<String> {
     use libc::c_int;
 
     // https://android.googlesource.com/platform/bionic/+/refs/heads/master/libc/include/sys/system_properties.h#41
