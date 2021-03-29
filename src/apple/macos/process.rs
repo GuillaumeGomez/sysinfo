@@ -223,24 +223,49 @@ impl ProcessExt for Process {
     }
 }
 
-pub(crate) fn compute_cpu_usage(p: &mut Process, time: u64, task_time: u64) {
-    let system_time_delta = if task_time < p.old_utime {
-        task_time
+pub(crate) fn compute_cpu_usage(
+    p: &mut Process,
+    task_info: libc::proc_taskinfo,
+    system_time: u64,
+    user_time: u64,
+    time_interval: Option<f64>,
+) {
+    if let Some(time_interval) = time_interval {
+        let total_existing_time = p.old_stime + p.old_utime;
+        if time_interval > 0.000001 && total_existing_time > 0 {
+            let total_current_time = task_info.pti_total_system + task_info.pti_total_user;
+
+            let total_time_diff = total_current_time.saturating_sub(total_existing_time);
+            p.cpu_usage = (total_time_diff as f64 / time_interval * 100.) as f32;
+        } else {
+            p.cpu_usage = 0.;
+        }
+        p.old_stime = task_info.pti_total_system;
+        p.old_utime = task_info.pti_total_user;
     } else {
-        task_time - p.old_utime
-    };
-    let time_delta = if time < p.old_stime {
-        time
-    } else {
-        time - p.old_stime
-    };
-    p.old_utime = task_time;
-    p.old_stime = time;
-    p.cpu_usage = if time_delta == 0 {
-        0f32
-    } else {
-        (system_time_delta as f64 * 100f64 / time_delta as f64) as f32
-    };
+        // This is the "backup way" of CPU computation.
+        let time = unsafe { ffi::mach_absolute_time() };
+        let task_time =
+            user_time + system_time + task_info.pti_total_user + task_info.pti_total_system;
+
+        let system_time_delta = if task_time < p.old_utime {
+            task_time
+        } else {
+            task_time - p.old_utime
+        };
+        let time_delta = if time < p.old_stime {
+            time
+        } else {
+            time - p.old_stime
+        };
+        p.old_utime = task_time;
+        p.old_stime = time;
+        p.cpu_usage = if time_delta == 0 {
+            0f32
+        } else {
+            (system_time_delta as f64 * 100f64 / time_delta as f64) as f32
+        };
+    }
     p.updated = true;
 }
 
@@ -280,6 +305,7 @@ pub(crate) fn update_process(
     wrap: &Wrap,
     pid: Pid,
     mut size: size_t,
+    time_interval: Option<f64>,
 ) -> Result<Option<Process>, ()> {
     let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
     let mut proc_args = Vec::with_capacity(size as usize);
@@ -310,10 +336,7 @@ pub(crate) fn update_process(
                 (0, 0, None)
             };
             p.status = thread_status;
-            let task_time =
-                user_time + system_time + task_info.pti_total_user + task_info.pti_total_system;
-            let time = ffi::mach_absolute_time();
-            compute_cpu_usage(p, time, task_time);
+            compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
 
             p.memory = task_info.pti_resident_size / 1_000;
             p.virtual_memory = task_info.pti_virtual_size / 1_000;

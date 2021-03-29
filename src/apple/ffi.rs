@@ -4,7 +4,10 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use libc::{c_int, c_uchar, c_uint, c_ushort, c_void};
+use libc::{
+    c_int, c_uchar, c_ushort, c_void, mach_msg_type_number_t, natural_t, processor_flavor_t,
+    processor_info_array_t,
+};
 
 // Reexport items defined in either macos or ios ffi module.
 pub use crate::sys::inner::ffi::*;
@@ -21,17 +24,20 @@ extern "C" {
         z: *const u32,
     ) -> kern_return_t;
     pub fn host_processor_info(
-        host_info: u32,
-        t: u32,
-        num_cpu_u: *mut u32,
-        cpu_info: *mut *mut i32,
-        num_cpu_info: *mut u32,
+        host: u32,
+        flavor: processor_flavor_t,
+        out_processor_count: *mut natural_t,
+        out_processor_info: *mut processor_info_array_t,
+        out_processor_infoCnt: *mut mach_msg_type_number_t,
     ) -> kern_return_t;
     //pub fn host_statistics(host_priv: u32, flavor: u32, host_info: *mut c_void,
     //                       host_count: *const u32) -> u32;
     // pub fn proc_pidpath(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
     // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
+
+    #[allow(deprecated)]
+    pub static vm_page_size: libc::vm_size_t;
 }
 
 // TODO: waiting for https://github.com/rust-lang/libc/pull/678
@@ -116,13 +122,6 @@ pub struct __DASession(c_void);
 //#[allow(non_camel_case_types)]
 //pub type pid_t = i32;
 #[allow(non_camel_case_types)]
-pub type natural_t = u32;
-#[allow(non_camel_case_types)]
-pub type mach_port_t = u32;
-
-#[allow(non_camel_case_types)]
-pub type boolean_t = c_uint;
-#[allow(non_camel_case_types)]
 pub type kern_return_t = c_int;
 // pub type IOOptionBits = u32;
 
@@ -188,7 +187,7 @@ pub struct xsw_usage {
     pub xsu_avail: u64,
     pub xsu_used: u64,
     pub xsu_pagesize: u32,
-    pub xsu_encrypted: boolean_t,
+    pub xsu_encrypted: libc::boolean_t,
 }
 
 // https://github.com/andrewdavidmackenzie/libproc-rs/blob/master/src/libproc/pid_rusage.rs
@@ -219,18 +218,6 @@ pub struct RUsageInfoV2 {
 //pub const HOST_CPU_LOAD_INFO_COUNT: usize = 4;
 //pub const HOST_CPU_LOAD_INFO: u32 = 3;
 pub const KERN_SUCCESS: kern_return_t = 0;
-
-pub const HW_NCPU: u32 = 3;
-pub const CTL_HW: u32 = 6;
-pub const CTL_VM: u32 = 2;
-pub const VM_SWAPUSAGE: u32 = 5;
-pub const PROCESSOR_CPU_LOAD_INFO: u32 = 2;
-pub const CPU_STATE_USER: u32 = 0;
-pub const CPU_STATE_SYSTEM: u32 = 1;
-pub const CPU_STATE_IDLE: u32 = 2;
-pub const CPU_STATE_NICE: u32 = 3;
-pub const CPU_STATE_MAX: usize = 4;
-pub const HW_MEMSIZE: u32 = 24;
 
 //pub const TASK_THREAD_TIMES_INFO: u32 = 3;
 //pub const TASK_THREAD_TIMES_INFO_COUNT: u32 = 4;
