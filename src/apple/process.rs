@@ -40,7 +40,7 @@ impl From<u32> for ProcessStatus {
 
 impl ProcessStatus {
     /// Used to display `ProcessStatus`.
-    pub fn to_string(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         match *self {
             ProcessStatus::Idle => "Idle",
             ProcessStatus::Run => "Runnable",
@@ -54,7 +54,7 @@ impl ProcessStatus {
 
 impl fmt::Display for ProcessStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        f.write_str(self.as_str())
     }
 }
 
