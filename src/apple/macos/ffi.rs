@@ -10,7 +10,7 @@ use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
 
 #[cfg(not(feature = "apple-app-store"))]
 use libc::c_int;
-use libc::{c_char, c_void, size_t};
+use libc::{c_char, c_void, mach_port_t, size_t};
 
 pub(crate) use crate::sys::ffi::*;
 

@@ -9,7 +9,7 @@ use crate::sys::system::get_sys_value;
 
 use crate::ProcessorExt;
 
-use libc::{c_char, c_void};
+use libc::c_char;
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -133,7 +133,7 @@ pub fn get_cpu_frequency() -> u64 {
     speed / 1_000_000
 }
 
-pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>) {
+pub fn init_processors(port: libc::mach_port_t) -> (Processor, Vec<Processor>) {
     let mut num_cpu = 0;
     let mut processors = Vec::new();
     let mut pourcent = 0f32;
@@ -144,10 +144,10 @@ pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>) {
 
     unsafe {
         if !get_sys_value(
-            ffi::CTL_HW,
-            ffi::HW_NCPU,
+            libc::CTL_HW as _,
+            libc::HW_NCPU as _,
             mem::size_of::<u32>(),
-            &mut num_cpu as *mut usize as *mut c_void,
+            &mut num_cpu as *mut _ as *mut _,
             &mut mib,
         ) {
             num_cpu = 1;
@@ -159,7 +159,7 @@ pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>) {
 
         if ffi::host_processor_info(
             port,
-            ffi::PROCESSOR_CPU_LOAD_INFO,
+            libc::PROCESSOR_CPU_LOAD_INFO,
             &mut num_cpu_u as *mut u32,
             &mut cpu_info as *mut *mut i32,
             &mut num_cpu_info as *mut u32,
@@ -175,14 +175,15 @@ pub fn init_processors(port: ffi::mach_port_t) -> (Processor, Vec<Processor>) {
                     brand.clone(),
                 );
                 let in_use = *cpu_info
-                    .offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_USER as isize)
+                    .offset((libc::CPU_STATE_MAX * i) as isize + libc::CPU_STATE_USER as isize)
+                    + *cpu_info.offset(
+                        (libc::CPU_STATE_MAX * i) as isize + libc::CPU_STATE_SYSTEM as isize,
+                    )
                     + *cpu_info
-                        .offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_SYSTEM as isize)
-                    + *cpu_info
-                        .offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_NICE as isize);
+                        .offset((libc::CPU_STATE_MAX * i) as isize + libc::CPU_STATE_NICE as isize);
                 let total = in_use
                     + *cpu_info
-                        .offset((ffi::CPU_STATE_MAX * i) as isize + ffi::CPU_STATE_IDLE as isize);
+                        .offset((libc::CPU_STATE_MAX * i) as isize + libc::CPU_STATE_IDLE as isize);
                 p.set_cpu_usage(in_use as f32 / total as f32 * 100.);
                 pourcent += p.get_cpu_usage();
                 processors.push(p);
