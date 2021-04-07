@@ -7,6 +7,7 @@
 pub mod component;
 pub mod disk;
 pub mod ffi;
+pub mod system;
 
 #[cfg(not(feature = "apple-app-store"))]
 pub mod process;

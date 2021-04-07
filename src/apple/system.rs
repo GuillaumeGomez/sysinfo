@@ -26,134 +26,9 @@ use std::sync::Arc;
 #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
 use libc::size_t;
 
-use libc::{self, c_char, c_int, c_void, natural_t, sysconf, _SC_PAGESIZE};
-
-unsafe fn free_cpu_load_info(cpu_load: &mut libc::processor_cpu_load_info_t) {
-    if !cpu_load.is_null() {
-        libc::munmap(*cpu_load as _, ffi::vm_page_size);
-        *cpu_load = std::ptr::null_mut();
-    }
-}
-
-struct SystemTimeInfo {
-    timebase_to_ns: f64,
-    clock_per_sec: f64,
-    old_cpu_load: libc::processor_cpu_load_info_t,
-    old_cpu_count: natural_t,
-}
-
-unsafe impl Send for SystemTimeInfo {}
-unsafe impl Sync for SystemTimeInfo {}
-
-impl SystemTimeInfo {
-    #[allow(deprecated)] // Everything related to mach_timebase_info_data_t
-    fn new(port: libc::mach_port_t) -> Option<Self> {
-        let clock_ticks_per_sec = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
-
-        // FIXME: Maybe check errno here? Problem is that if errno is not 0 before this call,
-        //        we will get an error which isn't related...
-        // if let Some(er) = std::io::Error::last_os_error().raw_os_error() {
-        //     if err != 0 {
-        //         println!("==> {:?}", er);
-        //         sysinfo_debug!("Failed to get _SC_CLK_TCK value, using old CPU tick measure system");
-        //         return None;
-        //     }
-        // }
-
-        let mut info = libc::mach_timebase_info_data_t { numer: 0, denom: 0 };
-        if unsafe { libc::mach_timebase_info(&mut info) } != ffi::KERN_SUCCESS {
-            sysinfo_debug!("mach_timebase_info failed, using default value of 1");
-            info.numer = 1;
-            info.denom = 1;
-        }
-
-        let mut old_cpu_load = std::ptr::null_mut();
-        let old_cpu_count = match Self::update_ticks(port, &mut old_cpu_load) {
-            Some(c) => c,
-            None => {
-                sysinfo_debug!("host_processor_info failed, using old CPU tick measure system");
-                return None;
-            }
-        };
-
-        let nano_per_seconds = 1_000_000_000.;
-        sysinfo_debug!("");
-        Some(Self {
-            timebase_to_ns: info.numer as f64 / info.denom as f64,
-            clock_per_sec: nano_per_seconds / clock_ticks_per_sec as f64,
-            old_cpu_load,
-            old_cpu_count,
-        })
-    }
-
-    fn update_ticks(
-        port: libc::mach_port_t,
-        cpu_load: &mut libc::processor_cpu_load_info_t,
-    ) -> Option<natural_t> {
-        let mut info_size = std::mem::size_of::<libc::processor_cpu_load_info_t>() as _;
-        let mut cpu_count = 0;
-
-        unsafe {
-            free_cpu_load_info(cpu_load);
-        }
-
-        if unsafe {
-            ffi::host_processor_info(
-                port,
-                libc::PROCESSOR_CPU_LOAD_INFO,
-                &mut cpu_count,
-                cpu_load as *mut _ as *mut _,
-                &mut info_size,
-            )
-        } != 0
-        {
-            sysinfo_debug!("host_processor_info failed, not updating CPU ticks usage...");
-            None
-        } else if cpu_count < 1 || cpu_load.is_null() {
-            None
-        } else {
-            Some(cpu_count)
-        }
-    }
-
-    fn get_time_interval(&mut self, port: libc::mach_port_t) -> f64 {
-        let mut total = 0;
-        let mut new_cpu_load = std::ptr::null_mut();
-
-        let new_cpu_count = match Self::update_ticks(port, &mut new_cpu_load) {
-            Some(c) => c,
-            None => return 0.,
-        };
-        let cpu_count = std::cmp::min(self.old_cpu_count, new_cpu_count);
-        for i in 0..cpu_count {
-            let new_load: &libc::processor_cpu_load_info = unsafe { &*new_cpu_load.offset(i as _) };
-            let old_load: &libc::processor_cpu_load_info =
-                unsafe { &*self.old_cpu_load.offset(i as _) };
-            for (new, old) in new_load.cpu_ticks.iter().zip(old_load.cpu_ticks.iter()) {
-                if new > old {
-                    total += new - old;
-                }
-            }
-        }
-
-        unsafe {
-            free_cpu_load_info(&mut self.old_cpu_load);
-        }
-        self.old_cpu_load = new_cpu_load;
-        self.old_cpu_count = new_cpu_count;
-
-        // Now we convert the ticks to nanoseconds:
-        total as f64 / self.timebase_to_ns * self.clock_per_sec / cpu_count as f64
-    }
-}
-
-impl Drop for SystemTimeInfo {
-    fn drop(&mut self) {
-        unsafe {
-            free_cpu_load_info(&mut self.old_cpu_load);
-        }
-    }
-}
+use libc::{
+    c_char, c_int, c_void, mach_port_t, sysconf, sysctl, sysctlbyname, timeval, _SC_PAGESIZE,
+};
 
 /// Structs containing system's information.
 pub struct System {
@@ -172,14 +47,15 @@ pub struct System {
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
     networks: Networks,
-    port: libc::mach_port_t,
+    port: mach_port_t,
     users: Vec<User>,
     boot_time: u64,
     // Used to get disk information, to be more specific, it's needed by the
     // DADiskCreateFromVolumePath function. Not supported on iOS.
     #[cfg(target_os = "macos")]
     session: ffi::SessionWrap,
-    clock_info: Option<SystemTimeInfo>,
+    #[cfg(target_os = "macos")]
+    clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
 }
 
 impl Drop for System {
@@ -224,17 +100,17 @@ impl System {
 }
 
 fn boot_time() -> u64 {
-    let mut boot_time = libc::timeval {
+    let mut boot_time = timeval {
         tv_sec: 0,
         tv_usec: 0,
     };
-    let mut len = std::mem::size_of::<libc::timeval>();
-    let mut mib: [libc::c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
+    let mut len = std::mem::size_of::<timeval>();
+    let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
     if unsafe {
-        libc::sysctl(
+        sysctl(
             mib.as_mut_ptr(),
             2,
-            &mut boot_time as *mut libc::timeval as *mut _,
+            &mut boot_time as *mut timeval as *mut _,
             &mut len,
             std::ptr::null_mut(),
             0,
@@ -272,7 +148,8 @@ impl SystemExt for System {
             boot_time: boot_time(),
             #[cfg(target_os = "macos")]
             session: ffi::SessionWrap(::std::ptr::null_mut()),
-            clock_info: SystemTimeInfo::new(port),
+            #[cfg(target_os = "macos")]
+            clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
         };
         s.refresh_specifics(refreshes);
         s
@@ -692,7 +569,7 @@ impl Default for System {
 // Not supported on iOS
 #[cfg(target_os = "macos")]
 fn get_io_service_connection() -> Option<ffi::io_connect_t> {
-    let mut master_port: libc::mach_port_t = 0;
+    let mut master_port: mach_port_t = 0;
     let mut iterator: ffi::io_iterator_t = 0;
 
     unsafe {
@@ -731,7 +608,7 @@ fn get_arg_max() -> usize {
     let mut arg_max = 0i32;
     let mut size = mem::size_of::<c_int>();
     unsafe {
-        if libc::sysctl(
+        if sysctl(
             mib.as_mut_ptr(),
             2,
             (&mut arg_max) as *mut i32 as *mut c_void,
@@ -751,12 +628,12 @@ pub(crate) unsafe fn get_sys_value(
     high: u32,
     low: u32,
     mut len: usize,
-    value: *mut libc::c_void,
+    value: *mut c_void,
     mib: &mut [i32; 2],
 ) -> bool {
     mib[0] = high as i32;
     mib[1] = low as i32;
-    libc::sysctl(
+    sysctl(
         mib.as_mut_ptr(),
         2,
         value,
@@ -766,8 +643,8 @@ pub(crate) unsafe fn get_sys_value(
     ) == 0
 }
 
-unsafe fn get_sys_value_by_name(name: &[u8], len: &mut usize, value: *mut libc::c_void) -> bool {
-    libc::sysctlbyname(
+unsafe fn get_sys_value_by_name(name: &[u8], len: &mut usize, value: *mut c_void) -> bool {
+    sysctlbyname(
         name.as_ptr() as *const c_char,
         value,
         len,
@@ -782,7 +659,7 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
 
     // Call first to get size
     unsafe {
-        libc::sysctl(
+        sysctl(
             mib.as_mut_ptr(),
             2,
             std::ptr::null_mut(),
@@ -800,7 +677,7 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
         let mut buf = vec![0_u8; size as usize];
 
         if unsafe {
-            libc::sysctl(
+            sysctl(
                 mib.as_mut_ptr(),
                 2,
                 buf.as_mut_ptr() as _,
