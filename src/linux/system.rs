@@ -489,7 +489,7 @@ impl SystemExt for System {
 
     #[cfg(not(target_os = "android"))]
     fn get_name(&self) -> Option<String> {
-        get_system_info(
+        get_system_info_linux(
             InfoType::Name,
             Path::new("/etc/os-release"),
             Path::new("/etc/lsb-release"),
@@ -498,7 +498,7 @@ impl SystemExt for System {
 
     #[cfg(target_os = "android")]
     fn get_name(&self) -> Option<String> {
-        get_system_info(InfoType::Name)
+        get_system_info_android(InfoType::Name)
     }
 
     fn get_long_os_version(&self) -> Option<String> {
@@ -552,7 +552,7 @@ impl SystemExt for System {
 
     #[cfg(not(target_os = "android"))]
     fn get_os_version(&self) -> Option<String> {
-        get_system_info(
+        get_system_info_linux(
             InfoType::OsVersion,
             Path::new("/etc/os-release"),
             Path::new("/etc/lsb-release"),
@@ -561,7 +561,7 @@ impl SystemExt for System {
 
     #[cfg(target_os = "android")]
     fn get_os_version(&self) -> Option<String> {
-        get_system_info(InfoType::OsVersion)
+        get_system_info_android(InfoType::OsVersion)
     }
 }
 
@@ -807,7 +807,7 @@ enum InfoType {
 }
 
 #[cfg(not(target_os = "android"))]
-fn get_system_info(info: InfoType, path: &Path, fallback_path: &Path) -> Option<String> {
+fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> Option<String> {
     if let Ok(f) = File::open(path) {
         let reader = BufReader::new(f);
 
@@ -842,7 +842,7 @@ fn get_system_info(info: InfoType, path: &Path, fallback_path: &Path) -> Option<
 }
 
 #[cfg(target_os = "android")]
-fn get_system_info(info: InfoType) -> Option<String> {
+fn get_system_info_android(info: InfoType) -> Option<String> {
     use libc::c_int;
 
     // https://android.googlesource.com/platform/bionic/+/refs/heads/master/libc/include/sys/system_properties.h#41
@@ -1078,13 +1078,17 @@ fn get_secs_since_epoch() -> u64 {
 
 #[cfg(test)]
 mod test {
-    use super::{get_system_info, InfoType};
+    #[cfg(target_os = "android")]
+    use super::get_system_info_android;
+    #[cfg(not(target_os = "android"))]
+    use super::get_system_info_linux;
+    use super::InfoType;
 
     #[test]
     #[cfg(target_os = "android")]
     fn lsb_release_fallback_android() {
-        assert!(get_system_info(InfoType::OsVersion).is_some());
-        assert!(get_system_info(InfoType::Name).is_some());
+        assert!(get_system_info_android(InfoType::OsVersion).is_some());
+        assert!(get_system_info_android(InfoType::Name).is_some());
     }
 
     #[test]
@@ -1124,21 +1128,21 @@ DISTRIB_DESCRIPTION="Ubuntu 20.10"
 
         // Check for the "normal" path: "/etc/os-release"
         assert_eq!(
-            get_system_info(InfoType::OsVersion, &tmp1, Path::new("")),
+            get_system_info_linux(InfoType::OsVersion, &tmp1, Path::new("")),
             Some("20.10".to_owned())
         );
         assert_eq!(
-            get_system_info(InfoType::Name, &tmp1, Path::new("")),
+            get_system_info_linux(InfoType::Name, &tmp1, Path::new("")),
             Some("Ubuntu".to_owned())
         );
 
         // Check for the "fallback" path: "/etc/lsb-release"
         assert_eq!(
-            get_system_info(InfoType::OsVersion, Path::new(""), &tmp2),
+            get_system_info_linux(InfoType::OsVersion, Path::new(""), &tmp2),
             Some("20.10".to_owned())
         );
         assert_eq!(
-            get_system_info(InfoType::Name, Path::new(""), &tmp2),
+            get_system_info_linux(InfoType::Name, Path::new(""), &tmp2),
             Some("Ubuntu".to_owned())
         );
     }
