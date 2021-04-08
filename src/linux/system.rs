@@ -491,7 +491,8 @@ impl SystemExt for System {
     fn get_name(&self) -> Option<String> {
         get_system_info(
             InfoType::Name,
-            Some(BufReader::new(File::open("/etc/os-release").ok()?)),
+            Path::new("/etc/os-release"),
+            Path::new("/etc/lsb-release"),
         )
     }
 
@@ -553,7 +554,8 @@ impl SystemExt for System {
     fn get_os_version(&self) -> Option<String> {
         get_system_info(
             InfoType::OsVersion,
-            Some(BufReader::new(File::open("/etc/os-release").ok()?)),
+            Path::new("/etc/os-release"),
+            Path::new("/etc/lsb-release"),
         )
     }
 
@@ -805,16 +807,15 @@ enum InfoType {
 }
 
 #[cfg(not(target_os = "android"))]
-fn get_system_info<T>(info: InfoType, buf_read: Option<T>) -> Option<String>
-where
-    T: BufRead,
-{
-    let info_str = match info {
-        InfoType::Name => "NAME=",
-        InfoType::OsVersion => "VERSION_ID=",
-    };
+fn get_system_info(info: InfoType, path: &Path, fallback_path: &Path) -> Option<String> {
+    if let Ok(f) = File::open(path) {
+        let reader = BufReader::new(f);
 
-    if let Some(reader) = buf_read {
+        let info_str = match info {
+            InfoType::Name => "NAME=",
+            InfoType::OsVersion => "VERSION_ID=",
+        };
+
         for line in reader.lines().flatten() {
             if let Some(stripped) = line.strip_prefix(info_str) {
                 return Some(stripped.replace("\"", ""));
@@ -823,14 +824,18 @@ where
     }
 
     // Fallback to `/etc/lsb-release` file for systems where VERSION_ID is not included.
-    // VERSION_ID is not required in the `/etc/os-release` file per https://www.linux.org/docs/man5/os-release.html
+    // VERSION_ID is not required in the `/etc/os-release` file
+    // per https://www.linux.org/docs/man5/os-release.html
     // If this fails for some reason, fallback to None
-    if info == InfoType::OsVersion {
-        let lr_reader = BufReader::new(File::open("/etc/lsb-release").ok()?);
-        for line in lr_reader.lines().flatten() {
-            if let Some(stripped) = line.strip_prefix("DISTRIB_RELEASE=") {
-                return Some(stripped.replace("\"", ""));
-            }
+    let reader = BufReader::new(File::open(fallback_path).ok()?);
+
+    let info_str = match info {
+        InfoType::OsVersion => "DISTRIB_RELEASE=",
+        InfoType::Name => "DISTRIB_ID=",
+    };
+    for line in reader.lines().flatten() {
+        if let Some(stripped) = line.strip_prefix(info_str) {
+            return Some(stripped.replace("\"", ""));
         }
     }
     None
@@ -1074,13 +1079,67 @@ fn get_secs_since_epoch() -> u64 {
 #[cfg(test)]
 mod test {
     use super::{get_system_info, InfoType};
-    use std::io::Cursor;
 
     #[test]
-    fn lsb_release_fallback() {
-        // Simulate an empty file for get_system_info.
-        // This will fallback to `lsb_release -r` to get the os version
-        let buf = Cursor::new(vec![]);
-        assert!(get_system_info(InfoType::OsVersion, Some(buf)).is_some());
+    #[cfg(target_os = "android")]
+    fn lsb_release_fallback_android() {
+        assert!(get_system_info(InfoType::OsVersion).is_some());
+        assert!(get_system_info(InfoType::Name).is_some());
+    }
+
+    #[test]
+    #[cfg(not(target_os = "android"))]
+    fn lsb_release_fallback_not_android() {
+        use std::path::Path;
+
+        let dir = tempfile::tempdir().expect("failed to create temporary directory");
+        let tmp1 = dir.path().join("tmp1");
+        let tmp2 = dir.path().join("tmp2");
+
+        // /etc/os-release
+        std::fs::write(
+            &tmp1,
+            r#"NAME="Ubuntu"
+VERSION="20.10 (Groovy Gorilla)"
+ID=ubuntu
+ID_LIKE=debian
+PRETTY_NAME="Ubuntu 20.10"
+VERSION_ID="20.10"
+VERSION_CODENAME=groovy
+UBUNTU_CODENAME=groovy
+"#,
+        )
+        .expect("Failed to create tmp1");
+
+        // /etc/lsb-release
+        std::fs::write(
+            &tmp2,
+            r#"DISTRIB_ID=Ubuntu
+DISTRIB_RELEASE=20.10
+DISTRIB_CODENAME=groovy
+DISTRIB_DESCRIPTION="Ubuntu 20.10"
+"#,
+        )
+        .expect("Failed to create tmp2");
+
+        // Check for the "normal" path: "/etc/os-release"
+        assert_eq!(
+            get_system_info(InfoType::OsVersion, &tmp1, Path::new("")),
+            Some("20.10".to_owned())
+        );
+        assert_eq!(
+            get_system_info(InfoType::Name, &tmp1, Path::new("")),
+            Some("Ubuntu".to_owned())
+        );
+
+        // Check for the "fallback" path: "/etc/lsb-release"
+        assert_eq!(
+            get_system_info(InfoType::OsVersion, Path::new(""), &tmp2),
+            Some("20.10".to_owned())
+        );
+        assert_eq!(
+            get_system_info(InfoType::Name, Path::new(""), &tmp2),
+            Some("Ubuntu".to_owned())
+        );
     }
 }
