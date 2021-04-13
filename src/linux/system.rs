@@ -211,7 +211,6 @@ impl System {
                         vendor_id.clone(),
                         brand.clone(),
                     ));
-                    i += 1;
                 } else {
                     parts.next(); // we don't want the name again
                     self.processors[i].set(
@@ -227,8 +226,8 @@ impl System {
                         parts.next().map(|v| to_u64(v)).unwrap_or(0),
                     );
                     self.processors[i].frequency = get_cpu_frequency(i);
-                    i += 1;
                 }
+                i += 1;
                 count += 1;
                 if let Some(limit) = limit {
                     if count >= limit {
