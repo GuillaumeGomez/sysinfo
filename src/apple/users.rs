@@ -64,7 +64,7 @@ where
             break;
         }
 
-        if !filter(unsafe { (*pw).pw_shell}, unsafe { (*pw).pw_uid }) {
+        if !filter(unsafe { (*pw).pw_shell }, unsafe { (*pw).pw_uid }) {
             // This is not a "real" or "local" user.
             continue;
         }
@@ -88,7 +88,9 @@ where
 }
 
 pub fn get_users_list() -> Vec<User> {
-    users_list(|shell, uid| !endswith(shell, b"/false") && !endswith(shell, b"/uucico") && uid < 65536)
+    users_list(|shell, uid| {
+        !endswith(shell, b"/false") && !endswith(shell, b"/uucico") && uid < 65536
+    })
 }
 
 // This was the OSX-based solution. It provides enough information, but what a mess!
