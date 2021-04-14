@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process;
 use std::ptr::null_mut;
 use std::str;
+use std::time;
 
 use libc::{c_void, memcpy};
 
@@ -29,7 +30,7 @@ use winapi::shared::ntstatus::{
     STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH,
 };
 use winapi::um::handleapi::CloseHandle;
-use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess};
+use winapi::um::processthreadsapi::{GetProcessTimes, OpenProcess,GetSystemTimes};
 use winapi::um::psapi::{
     EnumProcessModulesEx, GetModuleBaseNameW, GetModuleFileNameExW, GetProcessMemoryInfo,
     LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
@@ -104,9 +105,7 @@ pub struct Process {
     parent: Option<Pid>,
     status: ProcessStatus,
     handle: PtrWrapper<HANDLE>,
-    old_cpu: u64,
-    old_sys_cpu: u64,
-    old_user_cpu: u64,
+    cpu_calc_values: CPUsageCalculationValues,
     start_time: u64,
     cpu_usage: f32,
     pub(crate) updated: bool,
@@ -115,7 +114,24 @@ pub struct Process {
     read_bytes: u64,
     written_bytes: u64,
 }
-
+struct CPUsageCalculationValues{
+    old_process_sys_cpu: u64,
+    old_process_user_cpu: u64,
+    old_system_sys_cpu: u64,
+    old_system_user_cpu: u64,
+    last_call: time::Instant,
+}
+impl CPUsageCalculationValues{
+    fn new()->Self{
+        CPUsageCalculationValues{
+            old_process_sys_cpu: 0,
+            old_process_user_cpu: 0,
+            old_system_sys_cpu: 0,
+            old_system_user_cpu: 0,
+            last_call: time::Instant::now(),
+        }
+    }
+}
 static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| {
     let mut version_info: RTL_OSVERSIONINFOEXW = unsafe { MaybeUninit::zeroed().assume_init() };
 
@@ -242,9 +258,7 @@ impl Process {
                 memory,
                 virtual_memory,
                 cpu_usage: 0.,
-                old_cpu: 0,
-                old_sys_cpu: 0,
-                old_user_cpu: 0,
+                cpu_calc_values: CPUsageCalculationValues::new(),
                 start_time: unsafe { get_start_time(handle) },
                 updated: true,
                 old_read_bytes: 0,
@@ -267,9 +281,7 @@ impl Process {
                 memory,
                 virtual_memory,
                 cpu_usage: 0.,
-                old_cpu: 0,
-                old_sys_cpu: 0,
-                old_user_cpu: 0,
+                cpu_calc_values: CPUsageCalculationValues::new(),
                 start_time: 0,
                 updated: true,
                 old_read_bytes: 0,
@@ -308,9 +320,7 @@ impl Process {
                 memory: 0,
                 virtual_memory: 0,
                 cpu_usage: 0.,
-                old_cpu: 0,
-                old_sys_cpu: 0,
-                old_user_cpu: 0,
+                cpu_calc_values: CPUsageCalculationValues::new(),
                 start_time: get_start_time(process_handler),
                 updated: true,
                 old_read_bytes: 0,
@@ -346,9 +356,7 @@ impl ProcessExt for Process {
                 memory: 0,
                 virtual_memory: 0,
                 cpu_usage: 0.,
-                old_cpu: 0,
-                old_sys_cpu: 0,
-                old_user_cpu: 0,
+                cpu_calc_values: CPUsageCalculationValues::new(),
                 start_time: 0,
                 updated: true,
                 old_read_bytes: 0,
@@ -712,15 +720,21 @@ fn check_sub(a: u64, b: u64) -> u64 {
         a - b
     }
 }
-
-pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, now: ULARGE_INTEGER) {
+///Before changing this function, you must consider the following:
+/// https://github.com/GuillaumeGomez/sysinfo/issues/459
+pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, _now: ULARGE_INTEGER) {
     unsafe {
-        let mut sys: ULARGE_INTEGER = std::mem::zeroed();
-        let mut user: ULARGE_INTEGER = std::mem::zeroed();
+        //the 500 ms can be changed to another value but not in a completly arbitrary way, you must check that the new value does not produce this issue:
+        // https://github.com/GuillaumeGomez/sysinfo/issues/459
+        if p.cpu_calc_values.last_call.elapsed().as_millis() < 500{
+            return;
+        }
         let mut ftime: FILETIME = zeroed();
         let mut fsys: FILETIME = zeroed();
         let mut fuser: FILETIME = zeroed();
-
+        let mut fglobal_idle_time: FILETIME = zeroed();
+        let mut fglobal_kernel_time: FILETIME = zeroed(); //notice that it includes idle time
+        let mut fglobal_user_time: FILETIME = zeroed();
         GetProcessTimes(
             *p.handle,
             &mut ftime as *mut FILETIME,
@@ -728,26 +742,97 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, now: ULARGE
             &mut fsys as *mut FILETIME,
             &mut fuser as *mut FILETIME,
         );
+        GetSystemTimes(
+            &mut fglobal_idle_time as *mut FILETIME,
+            &mut fglobal_kernel_time as *mut FILETIME,
+            &mut fglobal_user_time as *mut FILETIME
+        );
+        let mut sys: ULARGE_INTEGER = std::mem::zeroed();
         memcpy(
             &mut sys as *mut ULARGE_INTEGER as *mut c_void,
             &mut fsys as *mut FILETIME as *mut c_void,
             size_of::<FILETIME>(),
         );
+        let mut user: ULARGE_INTEGER= std::mem::zeroed();
         memcpy(
             &mut user as *mut ULARGE_INTEGER as *mut c_void,
             &mut fuser as *mut FILETIME as *mut c_void,
             size_of::<FILETIME>(),
-        );
-        let old = check_sub(*now.QuadPart(), p.old_cpu);
-        p.cpu_usage = (check_sub(*sys.QuadPart(), p.old_sys_cpu) as f32
-            + check_sub(*user.QuadPart(), p.old_user_cpu) as f32)
-            / if old == 0 { 1 } else { old } as f32
-            / nb_processors as f32
-            * 100.;
-        p.old_cpu = *now.QuadPart();
-        p.old_user_cpu = *user.QuadPart();
-        p.old_sys_cpu = *sys.QuadPart();
+        );        
+        let mut global_kernel_time: ULARGE_INTEGER = std::mem::zeroed();
+        memcpy(
+            &mut global_kernel_time as *mut ULARGE_INTEGER as *mut c_void,
+            &mut fglobal_kernel_time as *mut FILETIME as *mut c_void,
+            size_of::<FILETIME>(),
+        ); 
+        let mut global_user_time: ULARGE_INTEGER = std::mem::zeroed();
+        memcpy(
+            &mut global_user_time as *mut ULARGE_INTEGER as *mut c_void,
+            &mut fglobal_user_time as *mut FILETIME as *mut c_void,
+            size_of::<FILETIME>(),
+        );  
+
+        let sys = *sys.QuadPart();
+        let user = *user.QuadPart();
+        let global_kernel_time = *global_kernel_time.QuadPart();
+        let global_user_time = *global_user_time.QuadPart();
+
+        let delta_global_kernel_time = check_sub(global_kernel_time,p.cpu_calc_values.old_system_sys_cpu);
+        let delta_global_user_time = check_sub(global_user_time,p.cpu_calc_values.old_system_user_cpu);
+        let delta_user_time = check_sub(user,p.cpu_calc_values.old_process_user_cpu);
+        let delta_sys_time = check_sub(sys,p.cpu_calc_values.old_process_sys_cpu);
+
+        let denominator = (delta_global_user_time + delta_global_kernel_time) as f64;
+
+        p.cpu_usage = 100.0 *
+            ((delta_user_time+delta_sys_time) as f64 / 
+            if denominator == 0.0{p.cpu_usage = 0.0;return;}else{denominator}
+        ) as f32 * nb_processors as f32;
+        p.cpu_calc_values.old_process_user_cpu = user;
+        p.cpu_calc_values.old_process_sys_cpu = sys;
+        p.cpu_calc_values.old_system_user_cpu = global_user_time;
+        p.cpu_calc_values.old_system_sys_cpu = global_kernel_time;
+        p.cpu_calc_values.last_call = time::Instant::now();
     }
+}
+///Notice that this test was specifically developed to avoid this issue in the future: 
+/// https://github.com/GuillaumeGomez/sysinfo/issues/459
+#[test]
+fn cpu_usage_windows() {
+    use std::{
+        thread::spawn,
+        process::id,
+        time,
+    };
+    use crate::{SystemExt,System};
+    fn expensive_computation(){
+        let mut a = 0.0;
+        let mut i = 1;
+        loop{
+            a += (1.0+1.0/i as f64).powi(i as i32); //e
+            i += 1;
+            if i % 1000000 == 0{ //avoid optimizations
+                println!("{}",a);
+            }
+        }
+    }
+
+    let mut system = System::new();
+    let _handler = spawn(|| expensive_computation());
+    let _handler1 = spawn(|| expensive_computation());
+    let _handler2 = spawn(|| expensive_computation());
+    let _handler3 = spawn(|| expensive_computation());
+    
+    let now = time::Instant::now();
+    while now.elapsed().as_secs_f64() < 10.0{
+        system.refresh_process(id() as usize);
+        let usage = system.get_process(id() as usize).unwrap().cpu_usage();
+        if usage > (100.0 * system.get_processors().len() as f32) || usage < 0.0{
+            panic!("Invalid cpu usage for process: {}",usage);
+        }
+    }
+
+
 }
 
 pub fn get_handle(p: &Process) -> HANDLE {
