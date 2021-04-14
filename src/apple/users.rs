@@ -53,7 +53,7 @@ fn endswith(s1: *const c_char, s2: &[u8]) -> bool {
 
 fn users_list<F>(filter: F) -> Vec<User>
 where
-    F: Fn(*const c_char) -> bool,
+    F: Fn(*const c_char, u32) -> bool,
 {
     let mut users = Vec::new();
 
@@ -63,10 +63,12 @@ where
         if pw.is_null() {
             break;
         }
-        if !filter(unsafe { (*pw).pw_shell }) {
-            // This is not a "real" user.
+
+        if !filter(unsafe { (*pw).pw_shell }, unsafe { (*pw).pw_uid }) {
+            // This is not a "real" or "local" user.
             continue;
         }
+
         let groups = get_user_groups(unsafe { (*pw).pw_name }, unsafe { (*pw).pw_gid });
         let uid = unsafe { (*pw).pw_uid };
         let gid = unsafe { (*pw).pw_gid };
@@ -86,7 +88,9 @@ where
 }
 
 pub fn get_users_list() -> Vec<User> {
-    users_list(|shell| !endswith(shell, b"/false") && !endswith(shell, b"/uucico"))
+    users_list(|shell, uid| {
+        !endswith(shell, b"/false") && !endswith(shell, b"/uucico") && uid < 65536
+    })
 }
 
 // This was the OSX-based solution. It provides enough information, but what a mess!
