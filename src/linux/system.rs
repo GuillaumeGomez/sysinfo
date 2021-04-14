@@ -756,12 +756,14 @@ fn parse_stat_file(data: &str) -> Result<Vec<&str>, ()> {
     let mut parts = Vec::with_capacity(52);
     let mut data_it = data.splitn(2, ' ');
     parts.push(unwrap_or_return!(data_it.next()));
-    // The following loses the ) from the input, but that's ok because
-    // we're not using it anyway.
     let mut data_it = unwrap_or_return!(data_it.next()).rsplitn(2, ')');
     let data = unwrap_or_return!(data_it.next());
     parts.push(unwrap_or_return!(data_it.next()));
     parts.extend(data.split_whitespace());
+    // Remove command name '('
+    if let Some(name) = parts[1].strip_prefix("(") {
+        parts[1] = name;
+    }
     Ok(parts)
 }
 
@@ -774,26 +776,6 @@ fn check_nb_open_files(f: File) -> Option<File> {
     }
     // Something bad happened...
     None
-}
-
-fn get_exe_name(p: &Process) -> String {
-    p.cmd
-        .get(0)
-        .map(|x| {
-            let cmd = x.split('\0').next().unwrap_or("");
-            if cmd.starts_with('/') {
-                // If this is an absolute path, it means we were able to get the path through
-                // /proc/[PID]/exe
-                cmd.split('/')
-                    .last()
-                    .map(|x| x.to_owned())
-                    .unwrap_or_else(String::new)
-            } else {
-                // Apparently we couldn't get the path so we can assume this is the full name...
-                cmd.to_owned()
-            }
-        })
-        .unwrap_or_else(String::new)
 }
 
 #[derive(PartialEq)]
@@ -932,6 +914,7 @@ fn _get_process_data(
     let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
     let stat_file = check_nb_open_files(file);
     let parts = parse_stat_file(&data)?;
+    let name = parts[1];
 
     let parent_pid = if proc_list.pid != 0 {
         Some(proc_list.pid)
@@ -969,6 +952,7 @@ fn _get_process_data(
         p.cwd = proc_list.cwd.clone();
         p.root = proc_list.root.clone();
     } else {
+        p.name = name.into();
         tmp.pop();
         tmp.push("cmdline");
         p.cmd = copy_from_file(&tmp);
@@ -976,18 +960,10 @@ fn _get_process_data(
         tmp.push("exe");
         match tmp.read_link() {
             Ok(exe_path) => {
-                p.name = exe_path
-                    .file_name()
-                    .and_then(|s| {
-                        let s: &str = s.to_str()?;
-                        Some(s.to_owned())
-                    })
-                    .unwrap_or_else(|| get_exe_name(&p));
                 p.exe = exe_path;
             }
             Err(_) => {
                 p.exe = PathBuf::new();
-                p.name = get_exe_name(&p);
             }
         }
         tmp.pop();
