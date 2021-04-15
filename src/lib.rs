@@ -50,10 +50,9 @@
 #![crate_name = "sysinfo"]
 #![crate_type = "lib"]
 #![crate_type = "rlib"]
+#![allow(unknown_lints)]
 #![deny(missing_docs)]
 #![deny(broken_intra_doc_links)]
-//#![deny(warnings)]
-#![allow(unknown_lints)]
 #![allow(clippy::upper_case_acronyms)]
 #![allow(renamed_and_removed_lints)]
 
@@ -62,6 +61,7 @@ doc_comment::doctest!("../README.md");
 
 #[cfg(feature = "debug")]
 #[doc(hidden)]
+#[allow(unused)]
 macro_rules! sysinfo_debug {
     ($($x:tt)*) => {{
         eprintln!($($x)*);
