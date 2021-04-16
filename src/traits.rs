@@ -283,7 +283,14 @@ pub trait ProcessExt: Debug {
     /// ```
     fn start_time(&self) -> u64;
 
-    /// Returns the total CPU usage (in %).
+    /// Returns the total CPU usage (in %). Notice that it might be bigger than 100 if run on a
+    /// multicore machine.
+    ///
+    /// If you want a value between 0% and 100%, divide the returned value by the number of CPU
+    /// processors.
+    ///
+    /// **Warning**: If you want accurate CPU usage number, better leave a bit of time
+    /// between two calls of this method (200 ms for example).
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};

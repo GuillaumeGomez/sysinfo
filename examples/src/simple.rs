@@ -136,7 +136,11 @@ fn print_help() {
         &mut io::stdout(),
         "system             : Displays system information (such as name, version and hostname)"
     );
-    writeln!(&mut io::stdout(), "quit               : exit the program");
+    writeln!(
+        &mut io::stdout(),
+        "pid                : Display this example's PID"
+    );
+    writeln!(&mut io::stdout(), "quit               : Exit the program");
 }
 
 fn interpret_input(input: &str, sys: &mut System) -> bool {
@@ -378,6 +382,13 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 );
             }
         }
+        "pid" => {
+            writeln!(
+                &mut io::stdout(),
+                "PID: {}",
+                sysinfo::get_current_pid().expect("failed to get PID")
+            );
+        }
         "system" => {
             writeln!(
                 &mut io::stdout(),
@@ -386,8 +397,10 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 System OS version:     {}\n\
                 System host name:      {}",
                 sys.get_name().unwrap_or_else(|| "<unknown>".to_owned()),
-                sys.get_kernel_version().unwrap_or_else(|| "<unknown>".to_owned()),
-                sys.get_os_version().unwrap_or_else(|| "<unknown>".to_owned()),
+                sys.get_kernel_version()
+                    .unwrap_or_else(|| "<unknown>".to_owned()),
+                sys.get_os_version()
+                    .unwrap_or_else(|| "<unknown>".to_owned()),
                 sys.get_host_name()
                     .unwrap_or_else(|| "<unknown>".to_owned()),
             );
