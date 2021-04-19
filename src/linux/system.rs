@@ -347,7 +347,7 @@ impl SystemExt for System {
         ) {
             Ok((Some(p), pid)) => {
                 self.process_list.tasks.insert(pid, p);
-                false
+                true
             }
             Ok(_) => true,
             Err(_) => false,
