@@ -291,6 +291,20 @@ mod test {
                 .is_empty());
         }
     }
+
+    #[test]
+    fn check_refresh_process_return_value() {
+        // We don't want to test on unknown systems.
+        if MIN_USERS > 0 {
+            let pid = get_current_pid().expect("Failed to get current PID");
+            let mut s = System::new();
+
+            // First check what happens in case the process isn't already in our process list.
+            assert!(s.refresh_process(pid));
+            // Then check that it still returns true if the process is already in our process list.
+            assert!(s.refresh_process(pid));
+        }
+    }
 }
 
 // Used to check that System is Send and Sync.
