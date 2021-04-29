@@ -138,3 +138,14 @@ jobs:
         if: matrix.os == 'macos-latest'
         env:
           RUST_BACKTRACE: full
+
+  c_interface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: cargo build --features=c-interface

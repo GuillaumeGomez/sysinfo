@@ -4,10 +4,10 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
+use crate::{NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 use libc::{self, c_char, c_float, c_uint, c_void, pid_t, size_t};
 use std::borrow::BorrowMut;
 use std::ffi::CString;
-use {NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
 
 /// Equivalent of [`System`][crate::System] struct.
 pub type CSystem = *mut c_void;
