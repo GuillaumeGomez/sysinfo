@@ -6,9 +6,7 @@
 
 use std::collections::HashMap;
 
-use NetworkExt;
-use NetworksExt;
-use NetworksIter;
+use crate::{NetworkExt,NetworksExt,NetworksIter};
 
 /// Network interfaces.
 ///

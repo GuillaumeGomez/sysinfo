@@ -75,7 +75,13 @@ macro_rules! sysinfo_debug {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(any(target_os = "macos", target_os = "ios"))] {
+    if #[cfg(feature = "force-unknown")] {
+        mod unknown;
+        use unknown as sys;
+
+        #[cfg(test)]
+        const MIN_USERS: usize = 0;
+    } else if #[cfg(any(target_os = "macos", target_os = "ios"))] {
         mod apple;
         use apple as sys;
         extern crate core_foundation_sys;
@@ -149,7 +155,7 @@ mod utils;
 /// let s = System::new_all();
 /// ```
 pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(all(any(target_os = "linux", target_os = "android"), not(feature = "force-unknown")))]
     {
         if _new_limit < 0 {
             _new_limit = 0;
@@ -169,6 +175,10 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
         }
     }
     #[cfg(all(not(target_os = "linux"), not(target_os = "android")))]
+    {
+        false
+    }
+    #[cfg(feature = "force-unknown")]
     {
         false
     }
