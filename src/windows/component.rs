@@ -321,13 +321,14 @@ impl Connection {
         unsafe {
             (*p_obj).BeginEnumeration(WBEM_FLAG_NONSYSTEM_ONLY as _);
 
-            let mut p_val: VARIANT = std::mem::MaybeUninit::uninit().assume_init();
+            let mut p_val = std::mem::MaybeUninit::<VARIANT>::uninit();
             // "CurrentTemperature"
             let temp = bstr!(
                 'C', 'u', 'r', 'r', 'e', 'n', 't', 'T', 'e', 'm', 'p', 'e', 'r', 'a', 't', 'u',
                 'r', 'e'
             );
-            let res = (*p_obj).Get(temp, 0, &mut p_val, null_mut(), null_mut());
+            let res = (*p_obj).Get(temp, 0, p_val.as_mut_ptr(), null_mut(), null_mut());
+            let mut p_val = p_val.assume_init();
 
             SysFreeString(temp);
             VariantClear(&mut p_val as *mut _ as *mut _);

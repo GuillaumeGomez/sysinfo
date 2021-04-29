@@ -58,13 +58,18 @@ pub(crate) fn get_load_average() -> LoadAvg {
 }
 
 unsafe extern "system" fn load_avg_callback(counter: PVOID, _: BOOLEAN) {
-    let mut display_value: PDH_FMT_COUNTERVALUE = mem::MaybeUninit::uninit().assume_init();
+    let mut display_value = mem::MaybeUninit::<PDH_FMT_COUNTERVALUE>::uninit();
 
-    if PdhGetFormattedCounterValue(counter as _, PDH_FMT_DOUBLE, null_mut(), &mut display_value)
-        != ERROR_SUCCESS as _
+    if PdhGetFormattedCounterValue(
+        counter as _,
+        PDH_FMT_DOUBLE,
+        null_mut(),
+        display_value.as_mut_ptr(),
+    ) != ERROR_SUCCESS as _
     {
         return;
     }
+    let display_value = display_value.assume_init();
     if let Ok(mut avg) = LOAD_AVG.lock() {
         if let Some(avg) = avg.deref_mut() {
             let current_load = display_value.u.doubleValue();
@@ -178,16 +183,16 @@ impl Query {
     pub fn get(&self, name: &String) -> Option<f32> {
         if let Some(ref counter) = self.internal.data.get(name) {
             unsafe {
-                let mut display_value: PDH_FMT_COUNTERVALUE =
-                    mem::MaybeUninit::uninit().assume_init();
+                let mut display_value = mem::MaybeUninit::<PDH_FMT_COUNTERVALUE>::uninit();
                 let counter: PDH_HCOUNTER = **counter;
 
                 let ret = PdhGetFormattedCounterValue(
                     counter,
                     PDH_FMT_DOUBLE,
                     null_mut(),
-                    &mut display_value,
+                    display_value.as_mut_ptr(),
                 ) as u32;
+                let display_value = display_value.assume_init();
                 return if ret == ERROR_SUCCESS as _ {
                     let data = *display_value.u.doubleValue();
                     Some(data as f32)
