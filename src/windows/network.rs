@@ -149,8 +149,9 @@ impl NetworksExt for Networks {
         }
     }
 
+    #[allow(clippy::uninit_assumed_init)]
     fn refresh(&mut self) {
-        let mut entry: MIB_IF_ROW2 = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        let mut entry = unsafe { std::mem::MaybeUninit::<MIB_IF_ROW2>::uninit().assume_init() };
         for (_, interface) in self.interfaces.iter_mut() {
             entry.InterfaceLuid = interface.id;
             entry.InterfaceIndex = 0; // to prevent the function to pick this one as index
