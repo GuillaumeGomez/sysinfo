@@ -15,7 +15,7 @@ use std::mem::{size_of, zeroed};
 
 use winapi::{ctypes::c_void, um::winbase::DRIVE_REMOVABLE};
 
-use winapi::shared::minwindef::{BYTE, DWORD, MAX_PATH, TRUE};
+use winapi::shared::minwindef::{DWORD, MAX_PATH, TRUE};
 use winapi::um::fileapi::{
     CreateFileW, GetDriveTypeW, GetLogicalDrives, GetVolumeInformationW, OPEN_EXISTING,
 };
@@ -25,9 +25,10 @@ use winapi::um::ioapiset::DeviceIoControl;
 use winapi::um::sysinfoapi::{GetSystemInfo, SYSTEM_INFO};
 use winapi::um::winbase::DRIVE_FIXED;
 use winapi::um::winioctl::{
-    IOCTL_DISK_GET_PARTITION_INFO_EX, IOCTL_STORAGE_QUERY_PROPERTY, PARTITION_INFORMATION_EX,
+    DEVICE_TRIM_DESCRIPTOR, IOCTL_DISK_GET_PARTITION_INFO_EX, IOCTL_STORAGE_QUERY_PROPERTY,
+    PARTITION_INFORMATION_EX, STORAGE_PROPERTY_QUERY,
 };
-use winapi::um::winnt::{BOOLEAN, FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE};
+use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE};
 
 pub struct KeyHandler {
     pub unique_id: String,
@@ -173,27 +174,13 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 );
             }
             let disk_size = get_drive_size(handle);
-            /*let mut spq_trim: ffi::STORAGE_PROPERTY_QUERY = std::mem::zeroed();
-            spq_trim.PropertyId = ffi::StorageDeviceTrimProperty;
-            spq_trim.QueryType = ffi::PropertyStandardQuery;
-            let mut dtd: ffi::DEVICE_TRIM_DESCRIPTOR = std::mem::zeroed();*/
-            #[allow(non_snake_case)]
-            #[repr(C)]
-            struct STORAGE_PROPERTY_QUERY {
-                PropertyId: i32,
-                QueryType: i32,
-                AdditionalParameters: [BYTE; 1],
-            }
-            #[allow(non_snake_case)]
-            #[repr(C)]
-            struct DEVICE_TRIM_DESCRIPTOR {
-                Version: DWORD,
-                Size: DWORD,
-                TrimEnabled: BOOLEAN,
-            }
+            /*let mut spq_trim: STORAGE_PROPERTY_QUERY = std::mem::zeroed();
+            spq_trim.PropertyId = StorageDeviceTrimProperty;
+            spq_trim.QueryType = PropertyStandardQuery;
+            let mut dtd: DEVICE_TRIM_DESCRIPTOR = std::mem::zeroed();*/
             let mut spq_trim = STORAGE_PROPERTY_QUERY {
-                PropertyId: 8i32,
-                QueryType: 0i32,
+                PropertyId: 8,
+                QueryType: 0,
                 AdditionalParameters: [0],
             };
             let mut dtd: DEVICE_TRIM_DESCRIPTOR = std::mem::zeroed();

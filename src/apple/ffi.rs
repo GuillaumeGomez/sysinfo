@@ -180,16 +180,6 @@ pub struct Val_t {
     pub bytes: [i8; 32],    // SMCBytes_t
 }
 
-#[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
-#[repr(C)]
-pub struct xsw_usage {
-    pub xsu_total: u64,
-    pub xsu_avail: u64,
-    pub xsu_used: u64,
-    pub xsu_pagesize: u32,
-    pub xsu_encrypted: libc::boolean_t,
-}
-
 // https://github.com/andrewdavidmackenzie/libproc-rs/blob/master/src/libproc/pid_rusage.rs
 #[derive(Debug, Default)]
 #[repr(C)]

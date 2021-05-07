@@ -161,12 +161,12 @@ impl SystemExt for System {
         unsafe {
             // get system values
             // get swap info
-            let mut xs: ffi::xsw_usage = mem::zeroed::<ffi::xsw_usage>();
+            let mut xs: libc::xsw_usage = mem::zeroed::<libc::xsw_usage>();
             if get_sys_value(
                 libc::CTL_VM as _,
                 libc::VM_SWAPUSAGE as _,
-                mem::size_of::<ffi::xsw_usage>(),
-                &mut xs as *mut ffi::xsw_usage as *mut c_void,
+                mem::size_of::<libc::xsw_usage>(),
+                &mut xs as *mut _ as *mut c_void,
                 &mut mib,
             ) {
                 self.swap_total = xs.xsu_total / 1_000;

@@ -4,7 +4,6 @@
 // Copyright (c) 2020 Guillaume Gomez
 //
 
-use crate::sys::ffi::NetUserGetLocalGroups;
 use crate::{
     common::{Gid, Uid},
     User,
@@ -12,7 +11,7 @@ use crate::{
 
 use winapi::shared::lmcons::MAX_PREFERRED_LENGTH;
 use winapi::shared::winerror::{ERROR_MORE_DATA, ERROR_SUCCESS};
-use winapi::um::lmaccess::NetQueryDisplayInformation;
+use winapi::um::lmaccess::{NetQueryDisplayInformation, NetUserGetLocalGroups};
 use winapi::um::lmaccess::{
     LG_INCLUDE_INDIRECT, LPLOCALGROUP_USERS_INFO_0, PNET_DISPLAY_USER, UF_NORMAL_ACCOUNT,
 };
