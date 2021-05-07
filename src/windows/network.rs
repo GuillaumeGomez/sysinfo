@@ -4,12 +4,14 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use crate::sys::ffi::{self, MIB_IF_ROW2, PMIB_IF_TABLE2};
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 use std::collections::{HashMap, HashSet};
 
-use winapi::shared::ifdef::NET_LUID;
+use winapi::shared::ifdef::{MediaConnectStateDisconnected, NET_LUID};
+use winapi::shared::netioapi::{
+    FreeMibTable, GetIfEntry2, GetIfTable2, MIB_IF_ROW2, PMIB_IF_TABLE2,
+};
 use winapi::shared::winerror::NO_ERROR;
 
 macro_rules! old_and_new {
@@ -47,7 +49,7 @@ impl NetworksExt for Networks {
 
     fn refresh_networks_list(&mut self) {
         let mut table: PMIB_IF_TABLE2 = std::ptr::null_mut();
-        if unsafe { ffi::GetIfTable2(&mut table) } != NO_ERROR {
+        if unsafe { GetIfTable2(&mut table) } != NO_ERROR {
             return;
         }
         let mut to_be_removed = HashSet::with_capacity(self.interfaces.len());
@@ -65,7 +67,7 @@ impl NetworksExt for Networks {
         for i in 0..unsafe { *table }.NumEntries {
             let ptr = unsafe { &*ptr.offset(i as _) };
             if (ptr.TransmitLinkSpeed == 0 && ptr.ReceiveLinkSpeed == 0)
-                || ptr.MediaConnectState == ffi::MediaConnectStateDisconnected
+                || ptr.MediaConnectState == MediaConnectStateDisconnected
                 || ptr.PhysicalAddressLength == 0
             {
                 continue;
@@ -142,7 +144,7 @@ impl NetworksExt for Networks {
             old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
         }
         unsafe {
-            ffi::FreeMibTable(table as _);
+            FreeMibTable(table as _);
         }
         for key in to_be_removed {
             self.interfaces.remove(&key);
@@ -155,7 +157,7 @@ impl NetworksExt for Networks {
         for (_, interface) in self.interfaces.iter_mut() {
             entry.InterfaceLuid = interface.id;
             entry.InterfaceIndex = 0; // to prevent the function to pick this one as index
-            if unsafe { ffi::GetIfEntry2(&mut entry) } != NO_ERROR {
+            if unsafe { GetIfEntry2(&mut entry) } != NO_ERROR {
                 continue;
             }
             old_and_new!(interface, current_out, old_out, entry.OutOctets);

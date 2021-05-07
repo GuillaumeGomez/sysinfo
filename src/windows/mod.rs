@@ -15,8 +15,6 @@ mod system;
 mod tools;
 mod users;
 
-mod ffi;
-
 pub use self::component::Component;
 pub use self::disk::Disk;
 pub use self::network::{NetworkData, Networks};
