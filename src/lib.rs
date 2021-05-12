@@ -82,7 +82,7 @@ cfg_if::cfg_if! {
         extern crate core_foundation_sys;
 
         #[cfg(test)]
-        const MIN_USERS: usize = 1;
+        pub(crate) const MIN_USERS: usize = 1;
     } else if #[cfg(windows)] {
         mod windows;
         use windows as sys;
@@ -90,19 +90,19 @@ cfg_if::cfg_if! {
         extern crate ntapi;
 
         #[cfg(test)]
-        const MIN_USERS: usize = 1;
+        pub(crate) const MIN_USERS: usize = 1;
     } else if #[cfg(any(target_os = "linux", target_os = "android"))] {
         mod linux;
         use linux as sys;
 
         #[cfg(test)]
-        const MIN_USERS: usize = 1;
+        pub(crate) const MIN_USERS: usize = 1;
     } else {
         mod unknown;
         use unknown as sys;
 
         #[cfg(test)]
-        const MIN_USERS: usize = 0;
+        pub(crate) const MIN_USERS: usize = 0;
     }
 }
 
@@ -184,12 +184,15 @@ mod test {
         let mut s = System::new();
 
         s.refresh_all();
-        assert_eq!(
-            s.get_processes()
-                .iter()
-                .all(|(_, proc_)| proc_.memory() == 0),
-            false
-        );
+        // We don't want to test on unsupported systems.
+        if MIN_USERS > 0 {
+            assert_eq!(
+                s.get_processes()
+                    .iter()
+                    .all(|(_, proc_)| proc_.memory() == 0),
+                false
+            );
+        }
     }
 
     #[cfg(target_os = "linux")]
@@ -259,7 +262,7 @@ mod test {
 
     #[test]
     fn check_system_info() {
-        // We don't want to test on unknown systems.
+        // We don't want to test on unsupported systems.
         if MIN_USERS > 0 {
             let s = System::new();
             assert!(!s.get_name().expect("Failed to get system name").is_empty());
@@ -283,7 +286,7 @@ mod test {
 
     #[test]
     fn check_host_name() {
-        // We don't want to test on unknown systems.
+        // We don't want to test on unsupported systems.
         if MIN_USERS > 0 {
             let s = System::new();
             assert!(!s
@@ -295,7 +298,7 @@ mod test {
 
     #[test]
     fn check_refresh_process_return_value() {
-        // We don't want to test on unknown systems.
+        // We don't want to test on unsupported systems.
         if MIN_USERS > 0 {
             let pid = get_current_pid().expect("Failed to get current PID");
             let mut s = System::new();
