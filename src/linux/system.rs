@@ -761,7 +761,7 @@ fn parse_stat_file(data: &str) -> Result<Vec<&str>, ()> {
     parts.push(unwrap_or_return!(data_it.next()));
     parts.extend(data.split_whitespace());
     // Remove command name '('
-    if let Some(name) = parts[1].strip_prefix("(") {
+    if let Some(name) = parts[1].strip_prefix('(') {
         parts[1] = name;
     }
     Ok(parts)

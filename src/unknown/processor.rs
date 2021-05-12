@@ -4,7 +4,7 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use ProcessorExt;
+use crate::ProcessorExt;
 
 /// Dummy struct that represents a processor.
 pub struct Processor {}
