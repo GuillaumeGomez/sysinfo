@@ -4,15 +4,10 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use sys::component::Component;
-use sys::process::*;
-use sys::processor::*;
-use sys::Disk;
-use sys::Networks;
-use LoadAvg;
-use Pid;
-use User;
-use {RefreshKind, SystemExt};
+use crate::{
+    sys::{component::Component, Disk, Networks, Process, Processor},
+    LoadAvg, Pid, RefreshKind, SystemExt, User,
+};
 
 use std::collections::HashMap;
 

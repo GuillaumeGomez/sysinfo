@@ -4,18 +4,21 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
+#[cfg(not(any(
+    target_os = "windows",
+    target_os = "unknown",
+    target_os = "freebsd",
+    target_arch = "wasm32"
+)))]
+use std::{ffi::OsStr, os::unix::ffi::OsStrExt, path::Path};
+
 use crate::Pid;
-#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
-use std::ffi::OsStr;
-#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
-use std::os::unix::ffi::OsStrExt;
-#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
-use std::path::Path;
 
 #[allow(clippy::useless_conversion)]
 #[cfg(not(any(
     target_os = "windows",
     target_os = "unknown",
+    target_os = "freebsd",
     target_arch = "wasm32",
     target_os = "macos",
     target_os = "ios"
@@ -52,7 +55,12 @@ pub fn realpath(original: &Path) -> std::path::PathBuf {
 }
 
 /* convert a path to a NUL-terminated Vec<u8> suitable for use with C functions */
-#[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))]
+#[cfg(not(any(
+    target_os = "windows",
+    target_os = "freebsd",
+    target_os = "unknown",
+    target_arch = "wasm32"
+)))]
 pub fn to_cpath(path: &Path) -> Vec<u8> {
     let path_os: &OsStr = path.as_ref();
     let mut cpath = path_os.as_bytes().to_vec();

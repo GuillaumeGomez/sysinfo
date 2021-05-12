@@ -4,11 +4,9 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use DiskExt;
-use DiskType;
+use crate::{DiskExt, DiskType};
 
-use std::ffi::OsStr;
-use std::path::Path;
+use std::{ffi::OsStr, path::Path};
 
 /// Struct containing a disk information.
 pub struct Disk {}
