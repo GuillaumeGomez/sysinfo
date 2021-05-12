@@ -4,7 +4,7 @@
 // Copyright (c) 2019 Guillaume Gomez
 //
 
-use std::fs::File;
+use std::fs::{DirEntry, File};
 use std::io::Read;
 use std::path::Path;
 
@@ -76,12 +76,30 @@ impl NetworksExt for Networks {
     fn refresh_networks_list(&mut self) {
         if let Ok(dir) = std::fs::read_dir("/sys/class/net/") {
             let mut data = vec![0; 30];
-            for entry in dir.flatten() {
+
+            let entries: Vec<DirEntry> = dir
+                .flatten()
+                .filter(|e| e.file_name().into_string().is_ok())
+                .collect();
+            let names: Vec<String> = entries
+                .iter()
+                .filter_map(|e| e.file_name().into_string().ok())
+                .collect();
+
+            // Remove interfaces that are gone
+            for name in self
+                .interfaces
+                .keys()
+                .filter(|n| !names.contains(n))
+                .map(|n| n.to_owned())
+                .collect::<Vec<String>>()
+            {
+                self.interfaces.remove(&name);
+            }
+
+            // Update the remaining or new ones
+            for (entry, name) in entries.iter().zip(names) {
                 let parent = &entry.path().join("statistics");
-                let entry = match entry.file_name().into_string() {
-                    Ok(entry) => entry,
-                    Err(_) => continue,
-                };
                 let rx_bytes = read(parent, "rx_bytes", &mut data);
                 let tx_bytes = read(parent, "tx_bytes", &mut data);
                 let rx_packets = read(parent, "rx_packets", &mut data);
@@ -90,7 +108,7 @@ impl NetworksExt for Networks {
                 let tx_errors = read(parent, "tx_errors", &mut data);
                 // let rx_compressed = read(parent, "rx_compressed", &mut data);
                 // let tx_compressed = read(parent, "tx_compressed", &mut data);
-                let interface = self.interfaces.entry(entry).or_insert_with(|| NetworkData {
+                let interface = self.interfaces.entry(name).or_insert_with(|| NetworkData {
                     rx_bytes,
                     old_rx_bytes: rx_bytes,
                     tx_bytes,
