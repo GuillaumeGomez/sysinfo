@@ -4,25 +4,13 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-#[cfg(not(any(
-    target_os = "windows",
-    target_os = "unknown",
-    target_os = "freebsd",
-    target_arch = "wasm32"
-)))]
+#[cfg(any(target_os = "linux", target_os = "android", target_vendor = "apple"))]
 use std::{ffi::OsStr, os::unix::ffi::OsStrExt, path::Path};
 
 use crate::Pid;
 
 #[allow(clippy::useless_conversion)]
-#[cfg(not(any(
-    target_os = "windows",
-    target_os = "unknown",
-    target_os = "freebsd",
-    target_arch = "wasm32",
-    target_os = "macos",
-    target_os = "ios"
-)))]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn realpath(original: &Path) -> std::path::PathBuf {
     use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
     use std::fs;
@@ -55,12 +43,7 @@ pub fn realpath(original: &Path) -> std::path::PathBuf {
 }
 
 /* convert a path to a NUL-terminated Vec<u8> suitable for use with C functions */
-#[cfg(not(any(
-    target_os = "windows",
-    target_os = "freebsd",
-    target_os = "unknown",
-    target_arch = "wasm32"
-)))]
+#[cfg(any(target_os = "linux", target_os = "android", target_vendor = "apple"))]
 pub fn to_cpath(path: &Path) -> Vec<u8> {
     let path_os: &OsStr = path.as_ref();
     let mut cpath = path_os.as_bytes().to_vec();
@@ -112,8 +95,18 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 
 /// Converts the value into a parallel iterator (if the multithread feature is enabled)
 /// Uses the rayon::iter::IntoParallelIterator trait
-#[cfg_attr(any(target_os = "ios", feature = "apple-app-store"), allow(dead_code))]
-#[cfg(feature = "multithread")]
+#[cfg(all(
+    all(
+        any(
+            target_os = "linux",
+            target_os = "android",
+            target_vendor = "apple",
+            target_os = "windows"
+        ),
+        feature = "multithread"
+    ),
+    not(feature = "apple-app-store")
+))]
 pub fn into_iter<T>(val: T) -> T::Iter
 where
     T: rayon::iter::IntoParallelIterator,
@@ -123,8 +116,18 @@ where
 
 /// Converts the value into a sequential iterator (if the multithread feature is disabled)
 /// Uses the std::iter::IntoIterator trait
-#[cfg_attr(any(target_os = "ios", feature = "apple-app-store"), allow(dead_code))]
-#[cfg(not(feature = "multithread"))]
+#[cfg(all(
+    all(
+        any(
+            target_os = "linux",
+            target_os = "android",
+            target_vendor = "apple",
+            target_os = "windows"
+        ),
+        not(feature = "multithread")
+    ),
+    not(feature = "apple-app-store")
+))]
 pub fn into_iter<T>(val: T) -> T::IntoIter
 where
     T: IntoIterator,

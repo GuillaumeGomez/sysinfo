@@ -70,6 +70,7 @@ macro_rules! sysinfo_debug {
 
 #[cfg(not(feature = "debug"))]
 #[doc(hidden)]
+#[allow(unused)]
 macro_rules! sysinfo_debug {
     ($($x:tt)*) => {{}};
 }
