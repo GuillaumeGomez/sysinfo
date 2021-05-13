@@ -123,14 +123,7 @@ fn refresh_networks_list_from_sysfs(
         }
 
         // Remove interfaces that are gone
-        for name in interfaces
-            .iter()
-            .filter(|(_n, s)| !s.updated)
-            .map(|(n, _s)| n.to_owned())
-            .collect::<Vec<_>>()
-        {
-            interfaces.remove(&name);
-        }
+        interfaces.retain(|_n, d| d.updated);
     }
 }
 
