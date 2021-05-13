@@ -9,7 +9,7 @@ use std::io::Read;
 use std::path::Path;
 
 use crate::{NetworkExt, NetworksExt, NetworksIter};
-use std::collections::HashMap;
+use std::collections::{hash_map, HashMap};
 
 /// Network interfaces.
 ///
@@ -60,6 +60,73 @@ impl Networks {
     }
 }
 
+fn refresh_networks_list_from_sysfs(
+    interfaces: &mut HashMap<String, NetworkData>,
+    sysfs_net: &Path,
+) {
+    if let Ok(dir) = std::fs::read_dir(sysfs_net) {
+        let mut data = vec![0; 30];
+
+        for stats in interfaces.values_mut() {
+            stats.updated = false;
+        }
+
+        for entry in dir.flatten() {
+            let parent = &entry.path().join("statistics");
+            let entry = match entry.file_name().into_string() {
+                Ok(entry) => entry,
+                Err(_) => continue,
+            };
+            let rx_bytes = read(parent, "rx_bytes", &mut data);
+            let tx_bytes = read(parent, "tx_bytes", &mut data);
+            let rx_packets = read(parent, "rx_packets", &mut data);
+            let tx_packets = read(parent, "tx_packets", &mut data);
+            let rx_errors = read(parent, "rx_errors", &mut data);
+            let tx_errors = read(parent, "tx_errors", &mut data);
+            // let rx_compressed = read(parent, "rx_compressed", &mut data);
+            // let tx_compressed = read(parent, "tx_compressed", &mut data);
+            match interfaces.entry(entry) {
+                hash_map::Entry::Occupied(mut e) => {
+                    let mut interface = e.get_mut();
+                    old_and_new!(interface, rx_bytes, old_rx_bytes);
+                    old_and_new!(interface, tx_bytes, old_tx_bytes);
+                    old_and_new!(interface, rx_packets, old_rx_packets);
+                    old_and_new!(interface, tx_packets, old_tx_packets);
+                    old_and_new!(interface, rx_errors, old_rx_errors);
+                    old_and_new!(interface, tx_errors, old_tx_errors);
+                    // old_and_new!(e, rx_compressed, old_rx_compressed);
+                    // old_and_new!(e, tx_compressed, old_tx_compressed);
+                    interface.updated = true;
+                }
+                hash_map::Entry::Vacant(e) => {
+                    e.insert(NetworkData {
+                        rx_bytes,
+                        old_rx_bytes: rx_bytes,
+                        tx_bytes,
+                        old_tx_bytes: tx_bytes,
+                        rx_packets,
+                        old_rx_packets: rx_packets,
+                        tx_packets,
+                        old_tx_packets: tx_packets,
+                        rx_errors,
+                        old_rx_errors: rx_errors,
+                        tx_errors,
+                        old_tx_errors: tx_errors,
+                        // rx_compressed,
+                        // old_rx_compressed: rx_compressed,
+                        // tx_compressed,
+                        // old_tx_compressed: tx_compressed,
+                        updated: true,
+                    });
+                }
+            };
+        }
+
+        // Remove interfaces that are gone
+        interfaces.retain(|_n, d| d.updated);
+    }
+}
+
 impl NetworksExt for Networks {
     fn iter(&self) -> NetworksIter {
         NetworksIter::new(self.interfaces.iter())
@@ -74,50 +141,7 @@ impl NetworksExt for Networks {
     }
 
     fn refresh_networks_list(&mut self) {
-        if let Ok(dir) = std::fs::read_dir("/sys/class/net/") {
-            let mut data = vec![0; 30];
-            for entry in dir.flatten() {
-                let parent = &entry.path().join("statistics");
-                let entry = match entry.file_name().into_string() {
-                    Ok(entry) => entry,
-                    Err(_) => continue,
-                };
-                let rx_bytes = read(parent, "rx_bytes", &mut data);
-                let tx_bytes = read(parent, "tx_bytes", &mut data);
-                let rx_packets = read(parent, "rx_packets", &mut data);
-                let tx_packets = read(parent, "tx_packets", &mut data);
-                let rx_errors = read(parent, "rx_errors", &mut data);
-                let tx_errors = read(parent, "tx_errors", &mut data);
-                // let rx_compressed = read(parent, "rx_compressed", &mut data);
-                // let tx_compressed = read(parent, "tx_compressed", &mut data);
-                let interface = self.interfaces.entry(entry).or_insert_with(|| NetworkData {
-                    rx_bytes,
-                    old_rx_bytes: rx_bytes,
-                    tx_bytes,
-                    old_tx_bytes: tx_bytes,
-                    rx_packets,
-                    old_rx_packets: rx_packets,
-                    tx_packets,
-                    old_tx_packets: tx_packets,
-                    rx_errors,
-                    old_rx_errors: rx_errors,
-                    tx_errors,
-                    old_tx_errors: tx_errors,
-                    // rx_compressed,
-                    // old_rx_compressed: rx_compressed,
-                    // tx_compressed,
-                    // old_tx_compressed: tx_compressed,
-                });
-                old_and_new!(interface, rx_bytes, old_rx_bytes);
-                old_and_new!(interface, tx_bytes, old_tx_bytes);
-                old_and_new!(interface, rx_packets, old_rx_packets);
-                old_and_new!(interface, tx_packets, old_tx_packets);
-                old_and_new!(interface, rx_errors, old_rx_errors);
-                old_and_new!(interface, tx_errors, old_tx_errors);
-                // old_and_new!(interface, rx_compressed, old_rx_compressed);
-                // old_and_new!(interface, tx_compressed, old_tx_compressed);
-            }
-        }
+        refresh_networks_list_from_sysfs(&mut self.interfaces, Path::new("/sys/class/net/"));
     }
 }
 
@@ -153,6 +177,8 @@ pub struct NetworkData {
     // /// compression (e.g: PPP).
     // tx_compressed: usize,
     // old_tx_compressed: usize,
+    /// Whether or not the above data has been updated during refresh
+    updated: bool,
 }
 
 impl NetworkData {
@@ -246,5 +272,53 @@ impl NetworkExt for NetworkData {
 
     fn get_total_errors_on_transmitted(&self) -> u64 {
         self.tx_errors
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::refresh_networks_list_from_sysfs;
+    use std::collections::HashMap;
+    use std::fs;
+
+    #[test]
+    fn refresh_networks_list_add_interface() {
+        let sys_net_dir = tempfile::tempdir().expect("failed to create temporary directory");
+
+        fs::create_dir(sys_net_dir.path().join("itf1")).expect("failed to create subdirectory");
+
+        let mut interfaces = HashMap::new();
+
+        refresh_networks_list_from_sysfs(&mut interfaces, sys_net_dir.path());
+        assert_eq!(interfaces.keys().collect::<Vec<_>>(), ["itf1"]);
+
+        fs::create_dir(sys_net_dir.path().join("itf2")).expect("failed to create subdirectory");
+
+        refresh_networks_list_from_sysfs(&mut interfaces, sys_net_dir.path());
+        let mut itf_names: Vec<String> = interfaces.keys().map(|n| n.to_owned()).collect();
+        itf_names.sort();
+        assert_eq!(itf_names, ["itf1", "itf2"]);
+    }
+
+    #[test]
+    fn refresh_networks_list_remove_interface() {
+        let sys_net_dir = tempfile::tempdir().expect("failed to create temporary directory");
+
+        let itf1_dir = sys_net_dir.path().join("itf1");
+        let itf2_dir = sys_net_dir.path().join("itf2");
+        fs::create_dir(&itf1_dir).expect("failed to create subdirectory");
+        fs::create_dir(&itf2_dir).expect("failed to create subdirectory");
+
+        let mut interfaces = HashMap::new();
+
+        refresh_networks_list_from_sysfs(&mut interfaces, sys_net_dir.path());
+        let mut itf_names: Vec<String> = interfaces.keys().map(|n| n.to_owned()).collect();
+        itf_names.sort();
+        assert_eq!(itf_names, ["itf1", "itf2"]);
+
+        fs::remove_dir(&itf1_dir).expect("failed to remove subdirectory");
+
+        refresh_networks_list_from_sysfs(&mut interfaces, sys_net_dir.path());
+        assert_eq!(interfaces.keys().collect::<Vec<_>>(), ["itf2"]);
     }
 }
