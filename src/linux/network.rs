@@ -4,12 +4,12 @@
 // Copyright (c) 2019 Guillaume Gomez
 //
 
-use std::fs::{DirEntry, File};
+use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
 use crate::{NetworkExt, NetworksExt, NetworksIter};
-use std::collections::HashMap;
+use std::collections::{hash_map, HashMap};
 
 /// Network interfaces.
 ///
@@ -67,28 +67,16 @@ fn refresh_networks_list_from_sysfs(
     if let Ok(dir) = std::fs::read_dir(sysfs_net) {
         let mut data = vec![0; 30];
 
-        let entries: Vec<DirEntry> = dir
-            .flatten()
-            .filter(|e| e.file_name().into_string().is_ok())
-            .collect();
-        let names: Vec<String> = entries
-            .iter()
-            .filter_map(|e| e.file_name().into_string().ok())
-            .collect();
-
-        // Remove interfaces that are gone
-        for name in interfaces
-            .keys()
-            .filter(|n| !names.contains(n))
-            .map(|n| n.to_owned())
-            .collect::<Vec<String>>()
-        {
-            interfaces.remove(&name);
+        for stats in interfaces.values_mut() {
+            stats.updated = false;
         }
 
-        // Update the remaining or new ones
-        for (entry, name) in entries.iter().zip(names) {
+        for entry in dir.flatten() {
             let parent = &entry.path().join("statistics");
+            let entry = match entry.file_name().into_string() {
+                Ok(entry) => entry,
+                Err(_) => continue,
+            };
             let rx_bytes = read(parent, "rx_bytes", &mut data);
             let tx_bytes = read(parent, "tx_bytes", &mut data);
             let rx_packets = read(parent, "rx_packets", &mut data);
@@ -97,32 +85,51 @@ fn refresh_networks_list_from_sysfs(
             let tx_errors = read(parent, "tx_errors", &mut data);
             // let rx_compressed = read(parent, "rx_compressed", &mut data);
             // let tx_compressed = read(parent, "tx_compressed", &mut data);
-            let interface = interfaces.entry(name).or_insert_with(|| NetworkData {
-                rx_bytes,
-                old_rx_bytes: rx_bytes,
-                tx_bytes,
-                old_tx_bytes: tx_bytes,
-                rx_packets,
-                old_rx_packets: rx_packets,
-                tx_packets,
-                old_tx_packets: tx_packets,
-                rx_errors,
-                old_rx_errors: rx_errors,
-                tx_errors,
-                old_tx_errors: tx_errors,
-                // rx_compressed,
-                // old_rx_compressed: rx_compressed,
-                // tx_compressed,
-                // old_tx_compressed: tx_compressed,
-            });
-            old_and_new!(interface, rx_bytes, old_rx_bytes);
-            old_and_new!(interface, tx_bytes, old_tx_bytes);
-            old_and_new!(interface, rx_packets, old_rx_packets);
-            old_and_new!(interface, tx_packets, old_tx_packets);
-            old_and_new!(interface, rx_errors, old_rx_errors);
-            old_and_new!(interface, tx_errors, old_tx_errors);
-            // old_and_new!(interface, rx_compressed, old_rx_compressed);
-            // old_and_new!(interface, tx_compressed, old_tx_compressed);
+            match interfaces.entry(entry) {
+                hash_map::Entry::Occupied(mut e) => {
+                    let mut interface = e.get_mut();
+                    old_and_new!(interface, rx_bytes, old_rx_bytes);
+                    old_and_new!(interface, tx_bytes, old_tx_bytes);
+                    old_and_new!(interface, rx_packets, old_rx_packets);
+                    old_and_new!(interface, tx_packets, old_tx_packets);
+                    old_and_new!(interface, rx_errors, old_rx_errors);
+                    old_and_new!(interface, tx_errors, old_tx_errors);
+                    // old_and_new!(e, rx_compressed, old_rx_compressed);
+                    // old_and_new!(e, tx_compressed, old_tx_compressed);
+                    interface.updated = true;
+                }
+                hash_map::Entry::Vacant(e) => {
+                    e.insert(NetworkData {
+                        rx_bytes,
+                        old_rx_bytes: rx_bytes,
+                        tx_bytes,
+                        old_tx_bytes: tx_bytes,
+                        rx_packets,
+                        old_rx_packets: rx_packets,
+                        tx_packets,
+                        old_tx_packets: tx_packets,
+                        rx_errors,
+                        old_rx_errors: rx_errors,
+                        tx_errors,
+                        old_tx_errors: tx_errors,
+                        // rx_compressed,
+                        // old_rx_compressed: rx_compressed,
+                        // tx_compressed,
+                        // old_tx_compressed: tx_compressed,
+                        updated: true,
+                    });
+                }
+            };
+        }
+
+        // Remove interfaces that are gone
+        for name in interfaces
+            .iter()
+            .filter(|(_n, s)| !s.updated)
+            .map(|(n, _s)| n.to_owned())
+            .collect::<Vec<_>>()
+        {
+            interfaces.remove(&name);
         }
     }
 }
@@ -177,6 +184,8 @@ pub struct NetworkData {
     // /// compression (e.g: PPP).
     // tx_compressed: usize,
     // old_tx_compressed: usize,
+    /// Whether or not the above data has been updated during refresh
+    updated: bool,
 }
 
 impl NetworkData {
