@@ -8,7 +8,7 @@ use crate::sys::ffi;
 
 use libc::{self, c_char, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
 
-use std::collections::HashMap;
+use std::collections::{hash_map, HashMap};
 use std::ptr::null_mut;
 
 use crate::{NetworkExt, NetworksExt, NetworksIter};
@@ -85,48 +85,72 @@ impl Networks {
                     }
                     name.set_len(libc::strlen(pname));
                     let name = String::from_utf8_unchecked(name);
-                    let interface = self.interfaces.entry(name).or_insert_with(|| NetworkData {
-                        current_in: (*if2m).ifm_data.ifi_ibytes,
-                        old_in: 0,
-                        current_out: (*if2m).ifm_data.ifi_obytes,
-                        old_out: 0,
-                        packets_in: (*if2m).ifm_data.ifi_ipackets,
-                        old_packets_in: 0,
-                        packets_out: (*if2m).ifm_data.ifi_opackets,
-                        old_packets_out: 0,
-                        errors_in: (*if2m).ifm_data.ifi_ierrors,
-                        old_errors_in: 0,
-                        errors_out: (*if2m).ifm_data.ifi_oerrors,
-                        old_errors_out: 0,
-                        updated: true,
-                    });
-                    old_and_new!(interface, current_out, old_out, (*if2m).ifm_data.ifi_obytes);
-                    old_and_new!(interface, current_in, old_in, (*if2m).ifm_data.ifi_ibytes);
-                    old_and_new!(
-                        interface,
-                        packets_in,
-                        old_packets_in,
-                        (*if2m).ifm_data.ifi_ipackets
-                    );
-                    old_and_new!(
-                        interface,
-                        packets_out,
-                        old_packets_out,
-                        (*if2m).ifm_data.ifi_opackets
-                    );
-                    old_and_new!(
-                        interface,
-                        errors_in,
-                        old_errors_in,
-                        (*if2m).ifm_data.ifi_ierrors
-                    );
-                    old_and_new!(
-                        interface,
-                        errors_out,
-                        old_errors_out,
-                        (*if2m).ifm_data.ifi_oerrors
-                    );
-                    interface.updated = true;
+                    match self.interfaces.entry(name) {
+                        hash_map::Entry::Occupied(mut e) => {
+                            let mut interface = e.get_mut();
+                            old_and_new!(
+                                interface,
+                                current_out,
+                                old_out,
+                                (*if2m).ifm_data.ifi_obytes
+                            );
+                            old_and_new!(
+                                interface,
+                                current_in,
+                                old_in,
+                                (*if2m).ifm_data.ifi_ibytes
+                            );
+                            old_and_new!(
+                                interface,
+                                packets_in,
+                                old_packets_in,
+                                (*if2m).ifm_data.ifi_ipackets
+                            );
+                            old_and_new!(
+                                interface,
+                                packets_out,
+                                old_packets_out,
+                                (*if2m).ifm_data.ifi_opackets
+                            );
+                            old_and_new!(
+                                interface,
+                                errors_in,
+                                old_errors_in,
+                                (*if2m).ifm_data.ifi_ierrors
+                            );
+                            old_and_new!(
+                                interface,
+                                errors_out,
+                                old_errors_out,
+                                (*if2m).ifm_data.ifi_oerrors
+                            );
+                            interface.updated = true;
+                        }
+                        hash_map::Entry::Vacant(e) => {
+                            let current_in = (*if2m).ifm_data.ifi_ibytes;
+                            let current_out = (*if2m).ifm_data.ifi_obytes;
+                            let packets_in = (*if2m).ifm_data.ifi_ipackets;
+                            let packets_out = (*if2m).ifm_data.ifi_opackets;
+                            let errors_in = (*if2m).ifm_data.ifi_ierrors;
+                            let errors_out = (*if2m).ifm_data.ifi_oerrors;
+
+                            e.insert(NetworkData {
+                                current_in,
+                                old_in: current_in,
+                                current_out,
+                                old_out: current_out,
+                                packets_in,
+                                old_packets_in: packets_in,
+                                packets_out,
+                                old_packets_out: packets_out,
+                                errors_in,
+                                old_errors_in: errors_in,
+                                errors_out,
+                                old_errors_out: errors_out,
+                                updated: true,
+                            });
+                        }
+                    }
                 }
             }
         }
