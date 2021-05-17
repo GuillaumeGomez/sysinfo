@@ -6,7 +6,7 @@
 
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map, HashMap};
 
 use winapi::shared::ifdef::{MediaConnectStateDisconnected, NET_LUID};
 use winapi::shared::netioapi::{
@@ -52,11 +52,11 @@ impl NetworksExt for Networks {
         if unsafe { GetIfTable2(&mut table) } != NO_ERROR {
             return;
         }
-        let mut to_be_removed = HashSet::with_capacity(self.interfaces.len());
 
-        for key in self.interfaces.keys() {
-            to_be_removed.insert(key.clone());
+        for (_, data) in self.interfaces.iter_mut() {
+            data.updated = false;
         }
+
         // In here, this is tricky: we have to filter out the software interfaces to only keep
         // the hardware ones. To do so, we first check the connection potential speed (if 0, not
         // interesting), then we check its state: if not open, not interesting either. And finally,
@@ -107,48 +107,55 @@ impl NetworksExt for Networks {
                 Ok(s) => s,
                 _ => continue,
             };
-            to_be_removed.remove(&interface_name);
-            let mut interface =
-                self.interfaces
-                    .entry(interface_name)
-                    .or_insert_with(|| NetworkData {
+            match self.interfaces.entry(interface_name) {
+                hash_map::Entry::Occupied(mut e) => {
+                    let mut interface = e.get_mut();
+                    old_and_new!(interface, current_out, old_out, ptr.OutOctets);
+                    old_and_new!(interface, current_in, old_in, ptr.InOctets);
+                    old_and_new!(
+                        interface,
+                        packets_in,
+                        old_packets_in,
+                        ptr.InUcastPkts + ptr.InNUcastPkts
+                    );
+                    old_and_new!(
+                        interface,
+                        packets_out,
+                        old_packets_out,
+                        ptr.OutUcastPkts + ptr.OutNUcastPkts
+                    );
+                    old_and_new!(interface, errors_in, old_errors_in, ptr.InErrors);
+                    old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
+                    interface.updated = true;
+                }
+                hash_map::Entry::Vacant(e) => {
+                    let packets_in = ptr.InUcastPkts + ptr.InNUcastPkts;
+                    let packets_out = ptr.OutUcastPkts + ptr.OutNUcastPkts;
+
+                    e.insert(NetworkData {
                         id: ptr.InterfaceLuid,
                         current_out: ptr.OutOctets,
-                        old_out: 0,
+                        old_out: ptr.OutOctets,
                         current_in: ptr.InOctets,
-                        old_in: 0,
-                        packets_in: ptr.InUcastPkts + ptr.InNUcastPkts,
-                        old_packets_in: 0,
-                        packets_out: ptr.OutUcastPkts + ptr.OutNUcastPkts,
-                        old_packets_out: 0,
+                        old_in: ptr.InOctets,
+                        packets_in,
+                        old_packets_in: packets_in,
+                        packets_out,
+                        old_packets_out: packets_out,
                         errors_in: ptr.InErrors,
-                        old_errors_in: 0,
+                        old_errors_in: ptr.InErrors,
                         errors_out: ptr.OutErrors,
-                        old_errors_out: 0,
+                        old_errors_out: ptr.OutErrors,
+                        updated: true,
                     });
-            old_and_new!(interface, current_out, old_out, ptr.OutOctets);
-            old_and_new!(interface, current_in, old_in, ptr.InOctets);
-            old_and_new!(
-                interface,
-                packets_in,
-                old_packets_in,
-                ptr.InUcastPkts + ptr.InNUcastPkts
-            );
-            old_and_new!(
-                interface,
-                packets_out,
-                old_packets_out,
-                ptr.OutUcastPkts + ptr.OutNUcastPkts
-            );
-            old_and_new!(interface, errors_in, old_errors_in, ptr.InErrors);
-            old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
+                }
+            }
         }
         unsafe {
             FreeMibTable(table as _);
         }
-        for key in to_be_removed {
-            self.interfaces.remove(&key);
-        }
+        // Remove interfaces which are gone.
+        self.interfaces.retain(|_, d| d.updated);
     }
 
     #[allow(clippy::uninit_assumed_init)]
@@ -195,6 +202,7 @@ pub struct NetworkData {
     old_errors_in: u64,
     errors_out: u64,
     old_errors_out: u64,
+    updated: bool,
 }
 
 impl NetworkExt for NetworkData {
