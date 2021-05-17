@@ -122,8 +122,8 @@ fn refresh_networks_list_from_sysfs(
             };
         }
 
-        // Remove interfaces that are gone
-        interfaces.retain(|_n, d| d.updated);
+        // Remove interfaces which are gone.
+        interfaces.retain(|_, d| d.updated);
     }
 }
 
