@@ -6,8 +6,12 @@
 
 //! `sysinfo` is a crate used to get a system's information.
 //!
-//! Before any attempt to read the different structs' information, you need to update them to
-//! get up-to-date information.
+//! /!\ Before any attempt to read the different structs' information, you need to update them to
+//! get up-to-date information because for most of them, it works on diff between the current value
+//! and the old one.
+//!
+//! Which is why, it's much better to keep the same instance of [`System`] around instead of
+//! recreating it multiple times.
 //!
 //! # Examples
 //!
