@@ -159,6 +159,5 @@ jobs:
           usesh: true
           prepare: pkg install -y curl
           run: |
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain none -y
-            $HOME/.cargo/bin/rustup toolchain install stable --profile minimal
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile minimal --default-toolchain stable -y
             $HOME/.cargo/bin/cargo check
