@@ -256,76 +256,78 @@ pub enum DiskType {
     Unknown(isize),
 }
 
-/// An enum representing signal on UNIX-like systems.
-#[repr(C)]
-#[derive(Clone, PartialEq, PartialOrd, Debug, Copy)]
+/// An enum representing signals on UNIX-like systems.
+///
+/// On non-unix systems, this enum is mostly useless and is only there to keep coherency between
+/// the different OSes.
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub enum Signal {
     /// Hangup detected on controlling terminal or death of controlling process.
-    Hangup = 1,
+    Hangup,
     /// Interrupt from keyboard.
-    Interrupt = 2,
+    Interrupt,
     /// Quit from keyboard.
-    Quit = 3,
+    Quit,
     /// Illegal instruction.
-    Illegal = 4,
+    Illegal,
     /// Trace/breakpoint trap.
-    Trap = 5,
+    Trap,
     /// Abort signal from C abort function.
-    Abort = 6,
-    // IOT trap. A synonym for SIGABRT.
-    // IOT = 6,
+    Abort,
+    /// IOT trap. A synonym for SIGABRT.
+    IOT,
     /// Bus error (bad memory access).
-    Bus = 7,
+    Bus,
     /// Floating point exception.
-    FloatingPointException = 8,
+    FloatingPointException,
     /// Kill signal.
-    Kill = 9,
+    Kill,
     /// User-defined signal 1.
-    User1 = 10,
+    User1,
     /// Invalid memory reference.
-    Segv = 11,
+    Segv,
     /// User-defined signal 2.
-    User2 = 12,
+    User2,
     /// Broken pipe: write to pipe with no readers.
-    Pipe = 13,
+    Pipe,
     /// Timer signal from C alarm function.
-    Alarm = 14,
+    Alarm,
     /// Termination signal.
-    Term = 15,
-    /// Stack fault on coprocessor (unused).
-    Stklft = 16,
+    Term,
     /// Child stopped or terminated.
-    Child = 17,
+    Child,
     /// Continue if stopped.
-    Continue = 18,
+    Continue,
     /// Stop process.
-    Stop = 19,
+    Stop,
     /// Stop typed at terminal.
-    TSTP = 20,
+    TSTP,
     /// Terminal input for background process.
-    TTIN = 21,
+    TTIN,
     /// Terminal output for background process.
-    TTOU = 22,
+    TTOU,
     /// Urgent condition on socket.
-    Urgent = 23,
+    Urgent,
     /// CPU time limit exceeded.
-    XCPU = 24,
+    XCPU,
     /// File size limit exceeded.
-    XFSZ = 25,
+    XFSZ,
     /// Virtual alarm clock.
-    VirtualAlarm = 26,
+    VirtualAlarm,
     /// Profiling time expired.
-    Profiling = 27,
+    Profiling,
     /// Windows resize signal.
-    Winch = 28,
+    Winch,
     /// I/O now possible.
-    IO = 29,
-    // Pollable event (Sys V). Synonym for IO
-    //Poll = 29,
+    IO,
+    /// Pollable event (Sys V). Synonym for IO
+    Poll,
     /// Power failure (System V).
-    Power = 30,
+    ///
+    /// Doesn't exist on apple systems so will be ignored.
+    Power,
     /// Bad argument to routine (SVr4).
-    Sys = 31,
+    Sys,
 }
 
 /// A struct representing system load average value.
