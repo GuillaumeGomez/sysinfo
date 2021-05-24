@@ -116,8 +116,8 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
         if real_path != name_path {
             return find_type_for_name(OsStr::new(&real_path));
         }
-    } else if name_path.starts_with("/dev/sd") {
-        // Turn "sda1" into "sda"
+    } else if name_path.starts_with("/dev/sd") || name_path.starts_with("/dev/vd") {
+        // Turn "sda1" into "sda" or "vda1" into "vda"
         real_path = real_path.trim_start_matches("/dev/");
         real_path = real_path.trim_end_matches(|c| c >= '0' && c <= '9');
     } else if name_path.starts_with("/dev/nvme") {
