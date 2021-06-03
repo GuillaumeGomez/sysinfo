@@ -78,6 +78,8 @@ unsafe fn boot_time() -> u64 {
 }
 
 impl SystemExt for System {
+    const IS_SUPPORTED: bool = true;
+
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let (processors, vendor_id, brand) = init_processors();

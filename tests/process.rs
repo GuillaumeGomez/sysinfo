@@ -12,6 +12,9 @@ fn test_process() {
     let mut s = sysinfo::System::new();
     assert_eq!(s.get_processes().len(), 0);
     s.refresh_processes();
+    if !sysinfo::System::IS_SUPPORTED {
+        return;
+    }
     assert!(!s.get_processes().is_empty());
     #[cfg(not(windows))]
     assert!(s
@@ -24,12 +27,14 @@ fn test_process() {
 fn test_process_refresh() {
     let mut s = sysinfo::System::new();
     assert_eq!(s.get_processes().len(), 0);
+
+    if !sysinfo::System::IS_SUPPORTED {
+        return;
+    }
     s.refresh_process(sysinfo::get_current_pid().expect("failed to get current pid"));
-    assert_eq!(
-        s.get_process(sysinfo::get_current_pid().expect("failed to get current pid"))
-            .is_some(),
-        true
-    );
+    assert!(s
+        .get_process(sysinfo::get_current_pid().expect("failed to get current pid"))
+        .is_some(),);
 }
 
 #[test]
@@ -55,7 +60,9 @@ fn test_get_cmd_line() {
 #[test]
 #[cfg(not(windows))]
 fn test_get_cmd_line() {
-    unix_like_cmd();
+    if sysinfo::System::IS_SUPPORTED {
+        unix_like_cmd();
+    }
 }
 
 fn unix_like_cmd() {
@@ -83,6 +90,11 @@ fn test_process_disk_usage() {
     use std::fs::File;
     use std::io::prelude::*;
     use sysinfo::{get_current_pid, ProcessExt, SystemExt};
+
+    if !sysinfo::System::IS_SUPPORTED {
+        return;
+    }
+
     {
         let mut file = File::create("test.txt").unwrap();
         file.write_all(b"This is a test file\nwith test data.\n")
@@ -113,6 +125,10 @@ fn test_process_disk_usage() {
 fn cpu_usage_is_not_nan() {
     let mut system = sysinfo::System::new();
     system.refresh_processes();
+
+    if !sysinfo::System::IS_SUPPORTED {
+        return;
+    }
 
     let first_pids = system
         .get_processes()

@@ -6,6 +6,21 @@
 
 //! `sysinfo` is a crate used to get a system's information.
 //!
+//! ## Supported Oses
+//!
+//! It currently supports the following OSes (alphabetically sorted):
+//!  * Android
+//!  * iOS
+//!  * Linux
+//!  * macOS
+//!  * Windows
+//!
+//! You can still use `sysinfo` on non-supported OSes, it'll simply do nothing and always return
+//! empty values. You can check in your program directly if an OS is supported by checking the
+//! [`SystemExt::IS_SUPPORTED`] constant.
+//!
+//! ## Usage
+//!
 //! /!\ Before any attempt to read the different structs' information, you need to update them to
 //! get up-to-date information because for most of them, it works on diff between the current value
 //! and the old one.
@@ -13,7 +28,7 @@
 //! Which is why, it's much better to keep the same instance of [`System`] around instead of
 //! recreating it multiple times.
 //!
-//! # Examples
+//! ## Examples
 //!
 //! ```
 //! use sysinfo::{ProcessExt, SystemExt};
@@ -185,11 +200,10 @@ mod test {
 
     #[test]
     fn check_memory_usage() {
-        let mut s = System::new();
-
-        s.refresh_all();
         // We don't want to test on unsupported systems.
-        if MIN_USERS > 0 {
+        if System::IS_SUPPORTED {
+            let mut s = System::new();
+            s.refresh_all();
             assert_eq!(
                 s.get_processes()
                     .iter()
@@ -267,7 +281,7 @@ mod test {
     #[test]
     fn check_system_info() {
         // We don't want to test on unsupported systems.
-        if MIN_USERS > 0 {
+        if System::IS_SUPPORTED {
             let s = System::new();
             assert!(!s.get_name().expect("Failed to get system name").is_empty());
 
@@ -291,7 +305,7 @@ mod test {
     #[test]
     fn check_host_name() {
         // We don't want to test on unsupported systems.
-        if MIN_USERS > 0 {
+        if System::IS_SUPPORTED {
             let s = System::new();
             assert!(!s
                 .get_host_name()
@@ -303,7 +317,7 @@ mod test {
     #[test]
     fn check_refresh_process_return_value() {
         // We don't want to test on unsupported systems.
-        if MIN_USERS > 0 {
+        if System::IS_SUPPORTED {
             let pid = get_current_pid().expect("Failed to get current PID");
             let mut s = System::new();
 
@@ -311,6 +325,15 @@ mod test {
             assert!(s.refresh_process(pid));
             // Then check that it still returns true if the process is already in our process list.
             assert!(s.refresh_process(pid));
+        }
+    }
+
+    #[test]
+    fn ensure_is_supported_is_set_correctly() {
+        if MIN_USERS > 0 {
+            assert!(System::IS_SUPPORTED);
+        } else {
+            assert!(!System::IS_SUPPORTED);
         }
     }
 }

@@ -393,6 +393,20 @@ pub trait ProcessorExt: Debug {
 
 /// Contains all the methods of the [`System`][crate::System] type.
 pub trait SystemExt: Sized + Debug + Default {
+    /// Returns `true` if this OS is supported. Please refer to the
+    /// [crate-level documentation](index.html) to get the list of supported OSes.
+    ///
+    /// ```
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// if System::IS_SUPPORTED {
+    ///     println!("This OS is supported!");
+    /// } else {
+    ///     println!("This OS isn't supported (yet?).");
+    /// }
+    /// ```
+    const IS_SUPPORTED: bool;
+
     /// Creates a new [`System`] instance with nothing loaded except the processors list. If you
     /// want to load components, network interfaces or the disks, you'll have to use the
     /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for example.
@@ -439,7 +453,9 @@ pub trait SystemExt: Sized + Debug + Default {
     /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
     ///
     /// assert_eq!(system.get_disks().len(), 0);
+    /// # if System::IS_SUPPORTED {
     /// assert!(system.get_processes().len() > 0);
+    /// # }
     ///
     /// // If you want the disks list afterwards, just call the corresponding
     /// // "refresh_disks_list":
