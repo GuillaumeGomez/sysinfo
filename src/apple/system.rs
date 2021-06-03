@@ -124,6 +124,8 @@ fn boot_time() -> u64 {
 }
 
 impl SystemExt for System {
+    const IS_SUPPORTED: bool = true;
+
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let port = unsafe { ffi::mach_host_self() };
         let (global_processor, processors) = init_processors(port);

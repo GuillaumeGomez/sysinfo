@@ -19,6 +19,8 @@ pub struct System {
 }
 
 impl SystemExt for System {
+    const IS_SUPPORTED: bool = false;
+
     fn new_with_specifics(_: RefreshKind) -> System {
         System {
             processes_list: Default::default(),

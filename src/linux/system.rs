@@ -244,6 +244,8 @@ impl System {
 }
 
 impl SystemExt for System {
+    const IS_SUPPORTED: bool = true;
+
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let mut s = System {
             process_list: Process::new(0, None, 0),
