@@ -16,7 +16,7 @@ mod tests {
         let mut sys = System::new();
         sys.refresh_system();
         // We don't want to test on unsupported systems.
-        if crate::MIN_USERS > 0 {
+        if System::IS_SUPPORTED {
             assert!(sys.get_total_memory() != 0);
             assert!(sys.get_free_memory() != 0);
         }
@@ -32,8 +32,8 @@ mod tests {
             "no process should be listed!"
         );
         sys.refresh_processes();
-        if crate::MIN_USERS > 0 {
-            // We don't want to test on unsupported systems.
+        // We don't want to test on unsupported systems.
+        if System::IS_SUPPORTED {
             assert!(
                 sys.refresh_process(utils::get_current_pid().expect("failed to get current pid")),
                 "process not listed",
@@ -49,9 +49,8 @@ mod tests {
             sys.get_process(utils::get_current_pid().expect("failed to get current pid"))
         {
             assert!(p.memory() > 0);
-        } else if crate::MIN_USERS > 0 {
-            // We don't want to test on unsupported systems.
-            panic!("didn't find process");
+        } else {
+            assert!(!System::IS_SUPPORTED);
         }
     }
 
@@ -77,9 +76,8 @@ mod tests {
                      // doesn't implement the Send trait.
             p.bar(); // If this doesn't compile, it'll simply mean that the Process type
                      // doesn't implement the Sync trait.
-        } else if crate::MIN_USERS > 0 {
-            // We don't want to test on unsupported systems.
-            panic!("didn't find process");
+        } else {
+            assert!(!System::IS_SUPPORTED);
         }
     }
 

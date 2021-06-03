@@ -200,11 +200,10 @@ mod test {
 
     #[test]
     fn check_memory_usage() {
-        let mut s = System::new();
-
-        s.refresh_all();
         // We don't want to test on unsupported systems.
-        if MIN_USERS > 0 {
+        if System::IS_SUPPORTED {
+            let mut s = System::new();
+            s.refresh_all();
             assert_eq!(
                 s.get_processes()
                     .iter()
@@ -282,7 +281,7 @@ mod test {
     #[test]
     fn check_system_info() {
         // We don't want to test on unsupported systems.
-        if MIN_USERS > 0 {
+        if System::IS_SUPPORTED {
             let s = System::new();
             assert!(!s.get_name().expect("Failed to get system name").is_empty());
 
@@ -306,7 +305,7 @@ mod test {
     #[test]
     fn check_host_name() {
         // We don't want to test on unsupported systems.
-        if MIN_USERS > 0 {
+        if System::IS_SUPPORTED {
             let s = System::new();
             assert!(!s
                 .get_host_name()
@@ -318,7 +317,7 @@ mod test {
     #[test]
     fn check_refresh_process_return_value() {
         // We don't want to test on unsupported systems.
-        if MIN_USERS > 0 {
+        if System::IS_SUPPORTED {
             let pid = get_current_pid().expect("Failed to get current PID");
             let mut s = System::new();
 
