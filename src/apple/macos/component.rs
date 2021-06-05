@@ -214,6 +214,6 @@ fn get_temperature_inner(
 }
 
 pub(crate) fn get_temperature(con: ffi::io_connect_t, key: &[i8]) -> Option<f32> {
-    let (input_structure, val) = unsafe { get_key_size(con, &key) }.ok()?;
+    let (input_structure, val) = unsafe { get_key_size(con, key) }.ok()?;
     get_temperature_inner(con, &input_structure, &val)
 }
