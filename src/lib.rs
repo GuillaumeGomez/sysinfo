@@ -336,6 +336,17 @@ mod test {
             assert!(!System::IS_SUPPORTED);
         }
     }
+
+    #[test]
+    fn check_processors_number() {
+        let s = System::new();
+
+        if System::IS_SUPPORTED {
+            assert!(!s.get_processors().is_empty());
+        } else {
+            assert!(s.get_processors().is_empty());
+        }
+    }
 }
 
 // Used to check that System is Send and Sync.
