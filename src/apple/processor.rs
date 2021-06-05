@@ -241,11 +241,44 @@ fn get_sysctl_str(s: &[u8]) -> String {
 }
 
 pub fn get_vendor_id_and_brand() -> (String, String) {
-    // On apple M1, `sysctl machdep.cpu.vendor` returns "", so fallback to "Apple" if the result is empty
+    // On apple M1, `sysctl machdep.cpu.vendor` returns "", so fallback to "Apple" if the result
+    // is empty.
     let mut vendor = get_sysctl_str(b"machdep.cpu.vendor\0");
     if vendor.is_empty() {
         vendor = "Apple".to_string();
     }
 
     (vendor, get_sysctl_str(b"machdep.cpu.brand_string\0"))
+}
+
+#[cfg(test)]
+mod test {
+    use crate::*;
+    use std::process::Command;
+
+    #[test]
+    fn check_vendor_and_brand() {
+        let child = Command::new("sysctl")
+            .arg("-a")
+            .output()
+            .expect("Failed to start command...");
+
+        assert!(child.status.success());
+        let stdout = String::from_utf8(child.stdout).expect("Not valid UTF8");
+
+        let sys = System::new();
+        let processors = sys.get_processors();
+        assert!(!processors.is_empty(), "no processor found");
+        if let Some(line) = stdout.lines().find(|l| l.contains("machdep.cpu.vendor")) {
+            let sysctl_value = line.split(":").skip(1).next().unwrap();
+            assert_eq!(processors[0].get_vendor_id(), sysctl_value.trim());
+        }
+        if let Some(line) = stdout
+            .lines()
+            .find(|l| l.contains("machdep.cpu.brand_string"))
+        {
+            let sysctl_value = line.split(":").skip(1).next().unwrap();
+            assert_eq!(processors[0].get_brand(), sysctl_value.trim());
+        }
+    }
 }
