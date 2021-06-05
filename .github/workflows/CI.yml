@@ -84,6 +84,14 @@ jobs:
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml
           use-cross: ${{ matrix.triple.cross }}
 
+      - name: Check example
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml
+          use-cross: ${{ matrix.triple.cross }}
+          working-directory: examples
+
       - name: Check (Apple app store restrictions)
         if: matrix.triple.os == 'macos-latest'
         uses: actions-rs/cargo@v1
@@ -162,3 +170,5 @@ jobs:
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | RUSTUP_IO_THREADS=1 sh -s -- --profile minimal --default-toolchain stable -y
             $HOME/.cargo/bin/cargo check    
             $HOME/.cargo/bin/cargo test
+            cd examples
+            $HOME/.cargo/bin/cargo check

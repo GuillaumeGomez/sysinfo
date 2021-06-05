@@ -181,10 +181,10 @@ impl Query {
 
     #[allow(clippy::ptr_arg)]
     pub fn get(&self, name: &String) -> Option<f32> {
-        if let Some(ref counter) = self.internal.data.get(name) {
+        if let Some(counter) = self.internal.data.get(name) {
             unsafe {
                 let mut display_value = mem::MaybeUninit::<PDH_FMT_COUNTERVALUE>::uninit();
-                let counter: PDH_HCOUNTER = **counter;
+                let counter: PDH_HCOUNTER = *counter;
 
                 let ret = PdhGetFormattedCounterValue(
                     counter,

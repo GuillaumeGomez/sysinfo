@@ -16,7 +16,7 @@ use sysinfo::{
     NetworkExt, NetworksExt, Pid, ProcessExt, ProcessorExt, Signal, System, SystemExt, UserExt,
 };
 
-const signals: [Signal; 31] = [
+const signals: &[Signal] = &[
     Hangup,
     Interrupt,
     Quit,
@@ -32,7 +32,6 @@ const signals: [Signal; 31] = [
     Pipe,
     Alarm,
     Term,
-    Stklft,
     Child,
     Continue,
     Stop,
@@ -159,7 +158,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "signals" => {
             let mut nb = 1i32;
 
-            for sig in &signals {
+            for sig in signals {
                 writeln!(&mut io::stdout(), "{:2}:{:?}", nb, sig);
                 nb += 1;
             }
