@@ -60,7 +60,7 @@ impl DiskExt for Disk {
     }
 
     fn get_mount_point(&self) -> &Path {
-        &Path::new(&self.s_mount_point)
+        Path::new(&self.s_mount_point)
     }
 
     fn get_total_space(&self) -> u64 {
