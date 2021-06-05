@@ -241,8 +241,11 @@ fn get_sysctl_str(s: &[u8]) -> String {
 }
 
 pub fn get_vendor_id_and_brand() -> (String, String) {
-    (
-        get_sysctl_str(b"machdep.cpu.vendor\0"),
-        get_sysctl_str(b"machdep.cpu.brand_string\0"),
-    )
+    // On apple M1, `sysctl machdep.cpu.vendor` returns "", so fallback to "Apple" if the result is empty
+    let mut vendor = get_sysctl_str(b"machdep.cpu.vendor\0");
+    if vendor.is_empty() {
+        vendor = "Apple".to_string();
+    }
+
+    (vendor, get_sysctl_str(b"machdep.cpu.brand_string\0"))
 }
