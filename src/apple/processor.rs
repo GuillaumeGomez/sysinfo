@@ -242,7 +242,7 @@ fn get_sysctl_str(s: &[u8]) -> String {
 
 pub fn get_vendor_id_and_brand() -> (String, String) {
     (
-        get_sysctl_str(b"machdep.cpu.brand_string\0"),
         get_sysctl_str(b"machdep.cpu.vendor\0"),
+        get_sysctl_str(b"machdep.cpu.brand_string\0"),
     )
 }
