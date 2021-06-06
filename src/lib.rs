@@ -316,6 +316,7 @@ mod test {
             assert!(s.processors().is_empty());
             assert_eq!(s.physical_core_count(), None);
         }
+        assert!(s.physical_core_count().unwrap_or(0) <= s.processors().len());
     }
 }
 
