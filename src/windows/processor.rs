@@ -8,6 +8,7 @@ use crate::sys::tools::KeyHandler;
 use crate::{LoadAvg, ProcessorExt};
 
 use std::collections::HashMap;
+use std::io::Error;
 use std::mem;
 use std::ops::DerefMut;
 use std::ptr::null_mut;
@@ -16,7 +17,7 @@ use std::sync::Mutex;
 use ntapi::ntpoapi::PROCESSOR_POWER_INFORMATION;
 
 use winapi::shared::minwindef::FALSE;
-use winapi::shared::winerror::ERROR_SUCCESS;
+use winapi::shared::winerror::{ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS};
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::{
     PdhAddCounterW, PdhAddEnglishCounterA, PdhCloseQuery, PdhCollectQueryData,
@@ -29,8 +30,8 @@ use winapi::um::sysinfoapi::GetLogicalProcessorInformationEx;
 use winapi::um::sysinfoapi::SYSTEM_INFO;
 use winapi::um::winbase::{RegisterWaitForSingleObject, INFINITE};
 use winapi::um::winnt::{
-    ProcessorInformation, BOOLEAN, HANDLE, PVOID, SYSTEM_LOGICAL_PROCESSOR_INFORMATION,
-    WT_EXECUTEDEFAULT,
+    ProcessorInformation, RelationAll, RelationProcessorCore, BOOLEAN, HANDLE,
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, PVOID, WT_EXECUTEDEFAULT,
 };
 
 // This formula comes from linux's include/linux/sched/loadavg.h
@@ -421,30 +422,51 @@ pub fn get_frequencies(nb_processors: usize) -> Vec<u64> {
 
 pub fn get_physical_core_count() -> Option<usize> {
     // we cannot use the number of processors here to pre calculate the buf size
-    // GetLogicalProcessorInformationEx with RelationProcessorCore passed to it not only returns the logical cores but also numa nodes
+    // GetLogicalProcessorInformationEx with RelationProcessorCore passed to it not only returns
+    // the logical cores but also numa nodes
     //
     // GetLogicalProcessorInformationEx: https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex
 
     let mut needed_size = 0;
-    unsafe { GetLogicalProcessorInformationEx(0, null_mut(), &mut needed_size) };
-    let size = mem::size_of::<SYSTEM_LOGICAL_PROCESSOR_INFORMATION>() as u32;
-    if needed_size == 0 || needed_size < size || needed_size % size != 0 {
-        return None;
-    }
+    unsafe { GetLogicalProcessorInformationEx(RelationAll, null_mut(), &mut needed_size) };
 
-    let count = needed_size / size;
-    let mut buf = Vec::with_capacity(count as _);
+    let mut buf: Vec<u8> = Vec::with_capacity(needed_size as _);
 
-    if unsafe { GetLogicalProcessorInformationEx(0, buf.as_mut_ptr(), &mut needed_size) } == 0 {
-        return None;
+    loop {
+        if unsafe {
+            GetLogicalProcessorInformationEx(
+                RelationAll,
+                buf.as_mut_ptr() as *mut _,
+                &mut needed_size,
+            )
+        } == FALSE
+        {
+            let e = Error::last_os_error();
+            // For some reasons, the function might return a size not big enough...
+            match e.raw_os_error() {
+                Some(value) if value == ERROR_INSUFFICIENT_BUFFER as _ => {}
+                _ => return None,
+            }
+        } else {
+            break;
+        }
+        buf.reserve(needed_size as usize - buf.capacity());
     }
 
     unsafe {
-        buf.set_len(count as _);
+        buf.set_len(needed_size as _);
     }
-    Some(
-        buf.iter()
-            .filter(|proc_info| proc_info.Relationship == 0) // Only get the physical cores
-            .count(),
-    )
+
+    let mut i = 0;
+    let raw_buf = buf.as_ptr();
+    let mut count = 0;
+    while i < buf.len() {
+        let p = unsafe { &*(raw_buf.add(i) as PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX) };
+        i += p.Size as usize;
+        if p.Relationship == RelationProcessorCore {
+            // Only count the physical cores.
+            count += 1;
+        }
+    }
+    Some(count)
 }
