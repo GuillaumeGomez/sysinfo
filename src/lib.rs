@@ -343,11 +343,11 @@ mod test {
 
         if System::IS_SUPPORTED {
             assert!(!s.get_processors().is_empty());
-            assert!(
-                s.get_physical_core_count()
-                    .expect("failed to get number of physical cores")
-                    <= s.get_processors().len()
-            );
+            let physical_cores_count = s
+                .get_physical_core_count()
+                .expect("failed to get number of physical cores");
+            assert!(physical_cores_count > 0);
+            assert!(physical_cores_count <= s.get_processors().len());
         } else {
             assert!(s.get_processors().is_empty());
             assert_eq!(s.get_physical_core_count(), None);
