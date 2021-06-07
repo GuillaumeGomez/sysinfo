@@ -168,6 +168,13 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             // can be ascertained
             writeln!(
                 &mut io::stdout(),
+                "number of physical cores: {}",
+                sys.get_physical_core_count()
+                    .map(|c| c.to_string())
+                    .unwrap_or_else(|| "Unknown".to_owned()),
+            );
+            writeln!(
+                &mut io::stdout(),
                 "total process usage: {}%",
                 sys.get_global_processor_info().get_cpu_usage()
             );
