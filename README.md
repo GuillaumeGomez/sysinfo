@@ -54,7 +54,7 @@ Virtual Linux systems, such as those run through Docker and Windows Subsystem fo
 
 ## Code example
 
-You have an example into the `examples` folder. Just run `cargo run` inside the `examples` folder to start it. Otherwise, here is a little code sample:
+You have an example into the `examples` folder. Just run `cargo run --example simple` to start it. Otherwise, here is a little code sample:
 
 ```rust
 use sysinfo::{NetworkExt, NetworksExt, ProcessExt, System, SystemExt};
@@ -101,11 +101,12 @@ println!("System OS version:       {:?}", sys.get_os_version());
 println!("System host name:        {:?}", sys.get_host_name());
 ```
 
-By default, `sysinfo` uses multiple threads. However, this can increase the memory usage on some platforms (macOS for example).  The behavior can be disabled by setting `default-features = false` in `Cargo.toml` (which disables the `multithread` cargo feature).
+By default, `sysinfo` uses multiple threads. However, this can increase the memory usage on some platforms (macOS for example).
+The behavior can be disabled by setting `default-features = false` in `Cargo.toml` (which disables the `multithread` cargo feature).
 
 ## C interface
 
-It's possible to use this crate directly from C. Take a look at the `Makefile` and at the `examples/src/simple.c` file.
+It's possible to use this crate directly from C. Take a look at the `Makefile` and at the `examples/simple.c` file.
 
 To build the C example, just run:
 
