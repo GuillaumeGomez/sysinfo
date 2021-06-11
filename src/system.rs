@@ -89,4 +89,15 @@ mod tests {
             assert!(!hostname.contains('\u{0}'))
         }
     }
+
+    #[test]
+    fn check_uptime() {
+        let sys = System::new();
+        let uptime = sys.get_uptime();
+        if System::IS_SUPPORTED {
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+            let new_uptime = sys.get_uptime();
+            assert!(uptime < new_uptime);
+        }
+    }
 }
