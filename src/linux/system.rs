@@ -121,7 +121,6 @@ pub struct System {
     components: Vec<Component>,
     disks: Vec<Disk>,
     networks: Networks,
-    uptime: u64,
     users: Vec<User>,
     boot_time: u64,
 }
@@ -278,7 +277,6 @@ impl SystemExt for System {
             components: Vec::new(),
             disks: Vec::with_capacity(2),
             networks: Networks::new(),
-            uptime: get_uptime(),
             users: Vec::new(),
             boot_time: boot_time(),
         };
@@ -294,7 +292,6 @@ impl SystemExt for System {
     }
 
     fn refresh_memory(&mut self) {
-        self.uptime = get_uptime();
         if let Ok(data) = get_all_data("/proc/meminfo", 16_385) {
             for line in data.split('\n') {
                 let field = match line.split(':').next() {
@@ -319,18 +316,17 @@ impl SystemExt for System {
     }
 
     fn refresh_cpu(&mut self) {
-        self.uptime = get_uptime();
         self.refresh_processors(None);
     }
 
     fn refresh_processes(&mut self) {
-        self.uptime = get_uptime();
+        let uptime = self.get_uptime();
         if refresh_procs(
             &mut self.process_list,
             Path::new("/proc"),
             self.page_size_kb,
             0,
-            self.uptime,
+            uptime,
             get_secs_since_epoch(),
         ) {
             self.clear_procs();
@@ -338,13 +334,13 @@ impl SystemExt for System {
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
-        self.uptime = get_uptime();
+        let uptime = self.get_uptime();
         let found = match _get_process_data(
             &Path::new("/proc/").join(pid.to_string()),
             &mut self.process_list,
             self.page_size_kb,
             0,
-            self.uptime,
+            uptime,
             get_secs_since_epoch(),
         ) {
             Ok((Some(p), pid)) => {
@@ -456,7 +452,12 @@ impl SystemExt for System {
     }
 
     fn get_uptime(&self) -> u64 {
-        self.uptime
+        let content = get_all_data("/proc/uptime", 50).unwrap_or_default();
+        content
+            .split('.')
+            .next()
+            .and_then(|t| t.parse().ok())
+            .unwrap_or_default()
     }
 
     fn get_boot_time(&self) -> u64 {
@@ -1035,15 +1036,6 @@ fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
 pub fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
     let mut file = File::open(file_path.as_ref())?;
     get_all_data_from_file(&mut file, size)
-}
-
-fn get_uptime() -> u64 {
-    let content = get_all_data("/proc/uptime", 50).unwrap_or_default();
-    content
-        .split('.')
-        .next()
-        .and_then(|t| t.parse().ok())
-        .unwrap_or_default()
 }
 
 fn get_secs_since_epoch() -> u64 {
