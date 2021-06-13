@@ -4,7 +4,7 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use crate::sys::system::get_all_data;
+use crate::sys::utils::get_all_data;
 use crate::{utils, DiskExt, DiskType};
 
 use libc::statvfs;
