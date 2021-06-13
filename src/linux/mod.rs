@@ -11,6 +11,7 @@ pub mod process;
 pub mod processor;
 pub mod system;
 pub mod users;
+pub(crate) mod utils;
 
 pub use self::component::Component;
 pub use self::disk::Disk;

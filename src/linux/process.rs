@@ -4,13 +4,19 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
+use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::fmt;
-use std::fs::File;
+use std::fs::{self, File};
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
-use libc::{gid_t, kill, uid_t};
+use libc::{gid_t, kill, sysconf, uid_t, _SC_CLK_TCK};
 
+use crate::sys::system::REMAINING_FILES;
+use crate::sys::utils::{get_all_data, get_all_data_from_file};
+use crate::utils::{into_iter, realpath};
 use crate::{DiskUsage, Pid, ProcessExt, Signal};
 
 /// Enum describing the different status of a process.
@@ -303,7 +309,7 @@ pub fn has_been_updated(p: &Process) -> bool {
 pub(crate) fn update_process_disk_activity(p: &mut Process, path: &Path) {
     let mut path = PathBuf::from(path);
     path.push("io");
-    let data = match super::system::get_all_data(&path, 16_384) {
+    let data = match get_all_data(&path, 16_384) {
         Ok(d) => d,
         Err(_) => return,
     };
@@ -333,4 +339,367 @@ pub(crate) fn update_process_disk_activity(p: &mut Process, path: &Path) {
             break;
         }
     }
+}
+
+struct Wrap<'a, T>(UnsafeCell<&'a mut T>);
+
+impl<'a, T> Wrap<'a, T> {
+    fn get(&self) -> &'a mut T {
+        unsafe { *(self.0.get()) }
+    }
+}
+
+unsafe impl<'a, T> Send for Wrap<'a, T> {}
+unsafe impl<'a, T> Sync for Wrap<'a, T> {}
+
+pub(crate) fn _get_process_data(
+    path: &Path,
+    proc_list: &mut Process,
+    page_size_kb: u64,
+    pid: Pid,
+    uptime: u64,
+    now: u64,
+) -> Result<(Option<Process>, Pid), ()> {
+    let nb = match path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
+        Some(Ok(nb)) if nb != pid => nb,
+        _ => return Err(()),
+    };
+
+    let get_status = |p: &mut Process, part: &str| {
+        p.status = part
+            .chars()
+            .next()
+            .map(ProcessStatus::from)
+            .unwrap_or_else(|| ProcessStatus::Unknown(0));
+    };
+    let parent_memory = proc_list.memory;
+    let parent_virtual_memory = proc_list.virtual_memory;
+    if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
+        let data = if let Some(ref mut f) = entry.stat_file {
+            get_all_data_from_file(f, 1024).map_err(|_| ())?
+        } else {
+            let mut tmp = PathBuf::from(path);
+            tmp.push("stat");
+            let mut file = File::open(tmp).map_err(|_| ())?;
+            let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
+            entry.stat_file = check_nb_open_files(file);
+            data
+        };
+        let parts = parse_stat_file(&data)?;
+        get_status(entry, parts[2]);
+        update_time_and_memory(
+            path,
+            entry,
+            &parts,
+            page_size_kb,
+            parent_memory,
+            parent_virtual_memory,
+            nb,
+            uptime,
+            now,
+        );
+        update_process_disk_activity(entry, path);
+        return Ok((None, nb));
+    }
+
+    let mut tmp = PathBuf::from(path);
+
+    tmp.push("stat");
+    let mut file = std::fs::File::open(&tmp).map_err(|_| ())?;
+    let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
+    let stat_file = check_nb_open_files(file);
+    let parts = parse_stat_file(&data)?;
+    let name = parts[1];
+
+    let parent_pid = if proc_list.pid != 0 {
+        Some(proc_list.pid)
+    } else {
+        match Pid::from_str(parts[3]) {
+            Ok(p) if p != 0 => Some(p),
+            _ => None,
+        }
+    };
+
+    let clock_cycle = unsafe { sysconf(_SC_CLK_TCK) } as u64;
+    let since_boot = u64::from_str(parts[21]).unwrap_or(0) / clock_cycle;
+    let start_time = now.saturating_sub(uptime.saturating_sub(since_boot));
+    let mut p = Process::new(nb, parent_pid, start_time);
+
+    p.stat_file = stat_file;
+    get_status(&mut p, parts[2]);
+
+    tmp.pop();
+    tmp.push("status");
+    if let Ok(data) = get_all_data(&tmp, 16_385) {
+        if let Some((uid, gid)) = _get_uid_and_gid(data) {
+            p.uid = uid;
+            p.gid = gid;
+        }
+    }
+
+    if proc_list.pid != 0 {
+        // If we're getting information for a child, no need to get those info since we
+        // already have them...
+        p.cmd = proc_list.cmd.clone();
+        p.name = proc_list.name.clone();
+        p.environ = proc_list.environ.clone();
+        p.exe = proc_list.exe.clone();
+        p.cwd = proc_list.cwd.clone();
+        p.root = proc_list.root.clone();
+    } else {
+        p.name = name.into();
+        tmp.pop();
+        tmp.push("cmdline");
+        p.cmd = copy_from_file(&tmp);
+        tmp.pop();
+        tmp.push("exe");
+        match tmp.read_link() {
+            Ok(exe_path) => {
+                p.exe = exe_path;
+            }
+            Err(_) => {
+                p.exe = PathBuf::new();
+            }
+        }
+        tmp.pop();
+        tmp.push("environ");
+        p.environ = copy_from_file(&tmp);
+        tmp.pop();
+        tmp.push("cwd");
+        p.cwd = realpath(&tmp);
+        tmp.pop();
+        tmp.push("root");
+        p.root = realpath(&tmp);
+    }
+
+    update_time_and_memory(
+        path,
+        &mut p,
+        &parts,
+        page_size_kb,
+        proc_list.memory,
+        proc_list.virtual_memory,
+        nb,
+        uptime,
+        now,
+    );
+    update_process_disk_activity(&mut p, path);
+    Ok((Some(p), nb))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn update_time_and_memory(
+    path: &Path,
+    entry: &mut Process,
+    parts: &[&str],
+    page_size_kb: u64,
+    parent_memory: u64,
+    parent_virtual_memory: u64,
+    pid: Pid,
+    uptime: u64,
+    now: u64,
+) {
+    {
+        // rss
+        entry.memory = u64::from_str(parts[23]).unwrap_or(0) * page_size_kb;
+        if entry.memory >= parent_memory {
+            entry.memory -= parent_memory;
+        }
+        // vsz
+        entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0);
+        if entry.virtual_memory >= parent_virtual_memory {
+            entry.virtual_memory -= parent_virtual_memory;
+        }
+        set_time(
+            entry,
+            u64::from_str(parts[13]).unwrap_or(0),
+            u64::from_str(parts[14]).unwrap_or(0),
+        );
+    }
+    refresh_procs(entry, &path.join("task"), page_size_kb, pid, uptime, now);
+}
+
+pub(crate) fn refresh_procs(
+    proc_list: &mut Process,
+    path: &Path,
+    page_size_kb: u64,
+    pid: Pid,
+    uptime: u64,
+    now: u64,
+) -> bool {
+    if let Ok(d) = fs::read_dir(path) {
+        let folders = d
+            .filter_map(|entry| {
+                if let Ok(entry) = entry {
+                    let entry = entry.path();
+
+                    if entry.is_dir() {
+                        Some(entry)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        if pid == 0 {
+            let proc_list = Wrap(UnsafeCell::new(proc_list));
+
+            #[cfg(feature = "multithread")]
+            use rayon::iter::ParallelIterator;
+
+            into_iter(folders)
+                .filter_map(|e| {
+                    if let Ok((p, _)) = _get_process_data(
+                        e.as_path(),
+                        proc_list.get(),
+                        page_size_kb,
+                        pid,
+                        uptime,
+                        now,
+                    ) {
+                        p
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+        } else {
+            let mut updated_pids = Vec::with_capacity(folders.len());
+            let new_tasks = folders
+                .iter()
+                .filter_map(|e| {
+                    if let Ok((p, pid)) =
+                        _get_process_data(e.as_path(), proc_list, page_size_kb, pid, uptime, now)
+                    {
+                        updated_pids.push(pid);
+                        p
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+            // Sub-tasks are not cleaned up outside so we do it here directly.
+            proc_list
+                .tasks
+                .retain(|&pid, _| updated_pids.iter().any(|&x| x == pid));
+            new_tasks
+        }
+        .into_iter()
+        .for_each(|e| {
+            proc_list.tasks.insert(e.pid(), e);
+        });
+        true
+    } else {
+        false
+    }
+}
+
+fn copy_from_file(entry: &Path) -> Vec<String> {
+    match File::open(entry) {
+        Ok(mut f) => {
+            let mut data = vec![0; 16_384];
+
+            if let Ok(size) = f.read(&mut data) {
+                data.truncate(size);
+                let mut out = Vec::with_capacity(20);
+                let mut start = 0;
+                for (pos, x) in data.iter().enumerate() {
+                    if *x == 0 {
+                        if pos - start >= 1 {
+                            if let Ok(s) =
+                                std::str::from_utf8(&data[start..pos]).map(|x| x.trim().to_owned())
+                            {
+                                out.push(s);
+                            }
+                        }
+                        start = pos + 1; // to keeping prevent '\0'
+                    }
+                }
+                out
+            } else {
+                Vec::new()
+            }
+        }
+        Err(_) => Vec::new(),
+    }
+}
+
+fn _get_uid_and_gid(status_data: String) -> Option<(uid_t, gid_t)> {
+    // We're only interested in the lines starting with Uid: and Gid:
+    // here. From these lines, we're looking at the second entry to get
+    // the effective u/gid.
+
+    let f = |h: &str, n: &str| -> Option<uid_t> {
+        if h.starts_with(n) {
+            h.split_whitespace().nth(2).unwrap_or("0").parse().ok()
+        } else {
+            None
+        }
+    };
+    let mut uid = None;
+    let mut gid = None;
+    for line in status_data.lines() {
+        if let Some(u) = f(line, "Uid:") {
+            assert!(uid.is_none());
+            uid = Some(u);
+        } else if let Some(g) = f(line, "Gid:") {
+            assert!(gid.is_none());
+            gid = Some(g);
+        } else {
+            continue;
+        }
+        if uid.is_some() && gid.is_some() {
+            break;
+        }
+    }
+    match (uid, gid) {
+        (Some(u), Some(g)) => Some((u, g)),
+        _ => None,
+    }
+}
+
+fn check_nb_open_files(f: File) -> Option<File> {
+    if let Ok(ref mut x) = unsafe { REMAINING_FILES.lock() } {
+        if **x > 0 {
+            **x -= 1;
+            return Some(f);
+        }
+    }
+    // Something bad happened...
+    None
+}
+
+macro_rules! unwrap_or_return {
+    ($data:expr) => {{
+        match $data {
+            Some(x) => x,
+            None => return Err(()),
+        }
+    }};
+}
+
+fn parse_stat_file(data: &str) -> Result<Vec<&str>, ()> {
+    // The stat file is "interesting" to parse, because spaces cannot
+    // be used as delimiters. The second field stores the command name
+    // surrounded by parentheses. Unfortunately, whitespace and
+    // parentheses are legal parts of the command, so parsing has to
+    // proceed like this: The first field is delimited by the first
+    // whitespace, the second field is everything until the last ')'
+    // in the entire string. All other fields are delimited by
+    // whitespace.
+
+    let mut parts = Vec::with_capacity(52);
+    let mut data_it = data.splitn(2, ' ');
+    parts.push(unwrap_or_return!(data_it.next()));
+    let mut data_it = unwrap_or_return!(data_it.next()).rsplitn(2, ')');
+    let data = unwrap_or_return!(data_it.next());
+    parts.push(unwrap_or_return!(data_it.next()));
+    parts.extend(data.split_whitespace());
+    // Remove command name '('
+    if let Some(name) = parts[1].strip_prefix('(') {
+        parts[1] = name;
+    }
+    Ok(parts)
 }
