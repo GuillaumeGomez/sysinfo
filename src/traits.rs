@@ -141,8 +141,8 @@ pub trait ProcessExt: Debug {
     ///  1. It is limited to 15 characters.
     ///  2. It is not always the exe name.
     ///
-    /// If you are looking for process, unless you know what you are doing, it's better to use
-    /// [`ProcessExt::exe`] instead.
+    /// If you are looking for a specific process, unless you know what you are doing, in most
+    /// cases it's better to use [`ProcessExt::exe`] instead (which can be empty sometimes!).
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
