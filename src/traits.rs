@@ -23,8 +23,8 @@ use std::path::Path;
 /// use sysinfo::{DiskExt, System, SystemExt};
 ///
 /// let s = System::new();
-/// for disk in s.get_disks() {
-///     println!("{:?}: {:?}", disk.get_name(), disk.get_type());
+/// for disk in s.disks() {
+///     println!("{:?}: {:?}", disk.name(), disk.type_());
 /// }
 /// ```
 pub trait DiskExt: Debug {
@@ -34,11 +34,11 @@ pub trait DiskExt: Debug {
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for disk in s.get_disks() {
-    ///     println!("{:?}", disk.get_type());
+    /// for disk in s.disks() {
+    ///     println!("{:?}", disk.type_());
     /// }
     /// ```
-    fn get_type(&self) -> DiskType;
+    fn type_(&self) -> DiskType;
 
     /// Returns the disk name.
     ///
@@ -46,11 +46,11 @@ pub trait DiskExt: Debug {
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for disk in s.get_disks() {
-    ///     println!("{:?}", disk.get_name());
+    /// for disk in s.disks() {
+    ///     println!("{:?}", disk.name());
     /// }
     /// ```
-    fn get_name(&self) -> &OsStr;
+    fn name(&self) -> &OsStr;
 
     /// Returns the file system used on this disk (so for example: `EXT4`, `NTFS`, etc...).
     ///
@@ -58,11 +58,11 @@ pub trait DiskExt: Debug {
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for disk in s.get_disks() {
-    ///     println!("{:?}", disk.get_file_system());
+    /// for disk in s.disks() {
+    ///     println!("{:?}", disk.file_system());
     /// }
     /// ```
-    fn get_file_system(&self) -> &[u8];
+    fn file_system(&self) -> &[u8];
 
     /// Returns the mount point of the disk (`/` for example).
     ///
@@ -70,11 +70,11 @@ pub trait DiskExt: Debug {
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for disk in s.get_disks() {
-    ///     println!("{:?}", disk.get_mount_point());
+    /// for disk in s.disks() {
+    ///     println!("{:?}", disk.mount_point());
     /// }
     /// ```
-    fn get_mount_point(&self) -> &Path;
+    fn mount_point(&self) -> &Path;
 
     /// Returns the total disk size, in bytes.
     ///
@@ -82,11 +82,11 @@ pub trait DiskExt: Debug {
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for disk in s.get_disks() {
-    ///     println!("{}", disk.get_total_space());
+    /// for disk in s.disks() {
+    ///     println!("{}", disk.total_space());
     /// }
     /// ```
-    fn get_total_space(&self) -> u64;
+    fn total_space(&self) -> u64;
 
     /// Returns the available disk size, in bytes.
     ///
@@ -94,11 +94,11 @@ pub trait DiskExt: Debug {
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for disk in s.get_disks() {
-    ///     println!("{}", disk.get_available_space());
+    /// for disk in s.disks() {
+    ///     println!("{}", disk.available_space());
     /// }
     /// ```
-    fn get_available_space(&self) -> u64;
+    fn available_space(&self) -> u64;
 
     /// Updates the disk' information.
     ///
@@ -106,7 +106,7 @@ pub trait DiskExt: Debug {
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// for disk in s.get_disks_mut() {
+    /// for disk in s.disks_mut() {
     ///     disk.refresh();
     /// }
     /// ```
@@ -127,7 +127,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, Signal, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     process.kill(Signal::Kill);
     /// }
     /// ```
@@ -148,7 +148,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("{}", process.name());
     /// }
     /// ```
@@ -160,7 +160,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("{:?}", process.cmd());
     /// }
     /// ```
@@ -172,7 +172,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("{}", process.exe().display());
     /// }
     /// ```
@@ -184,7 +184,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("{}", process.pid());
     /// }
     /// ```
@@ -198,7 +198,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("{:?}", process.environ());
     /// }
     /// ```
@@ -212,7 +212,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("{}", process.cwd().display());
     /// }
     /// ```
@@ -226,32 +226,32 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("{}", process.root().display());
     /// }
     /// ```
     fn root(&self) -> &Path;
 
-    /// Returns the memory usage (in kB).
+    /// Returns the memory usage (in KB).
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
-    ///     println!("{} kB", process.memory());
+    /// if let Some(process) = s.process(1337) {
+    ///     println!("{} KB", process.memory());
     /// }
     /// ```
     fn memory(&self) -> u64;
 
-    /// Returns the virtual memory usage (in kB).
+    /// Returns the virtual memory usage (in KB).
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
-    ///     println!("{} kB", process.virtual_memory());
+    /// if let Some(process) = s.process(1337) {
+    ///     println!("{} KB", process.virtual_memory());
     /// }
     /// ```
     fn virtual_memory(&self) -> u64;
@@ -262,7 +262,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("{:?}", process.parent());
     /// }
     /// ```
@@ -274,7 +274,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("{:?}", process.status());
     /// }
     /// ```
@@ -286,7 +286,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("Running since {} seconds", process.start_time());
     /// }
     /// ```
@@ -305,7 +305,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("{}%", process.cpu_usage());
     /// }
     /// ```
@@ -319,7 +319,7 @@ pub trait ProcessExt: Debug {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     let disk_usage = process.disk_usage();
     ///     println!("read bytes   : new/total => {}/{}",
     ///         disk_usage.read_bytes,
@@ -345,11 +345,11 @@ pub trait ProcessorExt: Debug {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processors() {
-    ///     println!("{}%", processor.get_cpu_usage());
+    /// for processor in s.processors() {
+    ///     println!("{}%", processor.cpu_usage());
     /// }
     /// ```
-    fn get_cpu_usage(&self) -> f32;
+    fn cpu_usage(&self) -> f32;
 
     /// Returns this processor's name.
     ///
@@ -357,11 +357,11 @@ pub trait ProcessorExt: Debug {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processors() {
-    ///     println!("{}", processor.get_name());
+    /// for processor in s.processors() {
+    ///     println!("{}", processor.name());
     /// }
     /// ```
-    fn get_name(&self) -> &str;
+    fn name(&self) -> &str;
 
     /// Returns the processor's vendor id.
     ///
@@ -369,11 +369,11 @@ pub trait ProcessorExt: Debug {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processors() {
-    ///     println!("{}", processor.get_vendor_id());
+    /// for processor in s.processors() {
+    ///     println!("{}", processor.vendor_id());
     /// }
     /// ```
-    fn get_vendor_id(&self) -> &str;
+    fn vendor_id(&self) -> &str;
 
     /// Returns the processor's brand.
     ///
@@ -381,11 +381,11 @@ pub trait ProcessorExt: Debug {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processors() {
-    ///     println!("{}", processor.get_brand());
+    /// for processor in s.processors() {
+    ///     println!("{}", processor.brand());
     /// }
     /// ```
-    fn get_brand(&self) -> &str;
+    fn brand(&self) -> &str;
 
     /// Returns the processor's frequency.
     ///
@@ -393,11 +393,11 @@ pub trait ProcessorExt: Debug {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processors() {
-    ///     println!("{}", processor.get_frequency());
+    /// for processor in s.processors() {
+    ///     println!("{}", processor.frequency());
     /// }
     /// ```
-    fn get_frequency(&self) -> u64;
+    fn frequency(&self) -> u64;
 }
 
 /// Contains all the methods of the [`System`][crate::System] type.
@@ -461,15 +461,15 @@ pub trait SystemExt: Sized + Debug + Default {
     /// // We want everything except disks.
     /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
     ///
-    /// assert_eq!(system.get_disks().len(), 0);
+    /// assert_eq!(system.disks().len(), 0);
     /// # if System::IS_SUPPORTED {
-    /// assert!(system.get_processes().len() > 0);
+    /// assert!(system.processes().len() > 0);
     /// # }
     ///
     /// // If you want the disks list afterwards, just call the corresponding
     /// // "refresh_disks_list":
     /// system.refresh_disks_list();
-    /// let disks = system.get_disks();
+    /// let disks = system.disks();
     /// ```
     fn new_with_specifics(refreshes: RefreshKind) -> Self;
 
@@ -564,7 +564,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// s.refresh_components();
     /// ```
     fn refresh_components(&mut self) {
-        for component in self.get_components_mut() {
+        for component in self.components_mut() {
             component.refresh();
         }
     }
@@ -609,7 +609,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// s.refresh_disks();
     /// ```
     fn refresh_disks(&mut self) {
-        for disk in self.get_disks_mut() {
+        for disk in self.disks_mut() {
             disk.refresh();
         }
     }
@@ -649,11 +649,11 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{NetworksExt, System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// let networks = s.get_networks_mut();
+    /// let networks = s.networks_mut();
     /// networks.refresh();
     /// ```
     fn refresh_networks(&mut self) {
-        self.get_networks_mut().refresh();
+        self.networks_mut().refresh();
     }
 
     /// The network list will be updated: removing not existing anymore interfaces and adding new
@@ -672,11 +672,11 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{NetworksExt, System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// let networks = s.get_networks_mut();
+    /// let networks = s.networks_mut();
     /// networks.refresh_networks_list();
     /// ```
     fn refresh_networks_list(&mut self) {
-        self.get_networks_mut().refresh_networks_list();
+        self.networks_mut().refresh_networks_list();
     }
 
     /// Refreshes all system, processes, disks and network interfaces information.
@@ -703,11 +703,11 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for (pid, process) in s.get_processes() {
+    /// for (pid, process) in s.processes() {
     ///     println!("{} {}", pid, process.name());
     /// }
     /// ```
-    fn get_processes(&self) -> &HashMap<Pid, Process>;
+    fn processes(&self) -> &HashMap<Pid, Process>;
 
     /// Returns the process corresponding to the given pid or `None` if no such process exists.
     ///
@@ -715,11 +715,11 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// if let Some(process) = s.get_process(1337) {
+    /// if let Some(process) = s.process(1337) {
     ///     println!("{}", process.name());
     /// }
     /// ```
-    fn get_process(&self, pid: Pid) -> Option<&Process>;
+    fn process(&self, pid: Pid) -> Option<&Process>;
 
     /// Returns a list of process containing the given `name`.
     ///
@@ -727,13 +727,13 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for process in s.get_process_by_name("htop") {
+    /// for process in s.process_by_name("htop") {
     ///     println!("{} {}", process.pid(), process.name());
     /// }
     /// ```
-    fn get_process_by_name(&self, name: &str) -> Vec<&Process> {
+    fn process_by_name(&self, name: &str) -> Vec<&Process> {
         let mut ret = vec![];
-        for val in self.get_processes().values() {
+        for val in self.processes().values() {
             if val.name().contains(name) {
                 ret.push(val);
             }
@@ -747,9 +747,9 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// println!("{}%", s.get_global_processor_info().get_cpu_usage());
+    /// println!("{}%", s.global_processor_info().cpu_usage());
     /// ```
-    fn get_global_processor_info(&self) -> &Processor;
+    fn global_processor_info(&self) -> &Processor;
 
     /// Returns the list of the processors.
     ///
@@ -757,11 +757,11 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.get_processors() {
-    ///     println!("{}%", processor.get_cpu_usage());
+    /// for processor in s.processors() {
+    ///     println!("{}%", processor.cpu_usage());
     /// }
     /// ```
-    fn get_processors(&self) -> &[Processor];
+    fn processors(&self) -> &[Processor];
 
     /// Returns the number of physical cores on the processor or `None` if it couldn't get it.
     ///
@@ -773,91 +773,91 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{ProcessorExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// println!("{:?}", s.get_physical_core_count());
+    /// println!("{:?}", s.physical_core_count());
     /// ```
-    fn get_physical_core_count(&self) -> Option<usize>;
+    fn physical_core_count(&self) -> Option<usize>;
 
-    /// Returns the RAM size in kB.
+    /// Returns the RAM size in KB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} kB", s.get_total_memory());
+    /// println!("{} KB", s.total_memory());
     /// ```
-    fn get_total_memory(&self) -> u64;
+    fn total_memory(&self) -> u64;
 
-    /// Returns the amount of free RAM in kB.
+    /// Returns the amount of free RAM in KB.
     ///
     /// Generally, "free" memory refers to unallocated memory whereas "available" memory refers to
     /// memory that is available for (re)use.
     ///
     /// Side note: Windows doesn't report "free" memory so this method returns the same value
-    /// as [`get_available_memory`](#tymethod.get_available_memory).
+    /// as [`get_available_memory`](#tymethod.available_memory).
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} kB", s.get_free_memory());
+    /// println!("{} KB", s.free_memory());
     /// ```
-    fn get_free_memory(&self) -> u64;
+    fn free_memory(&self) -> u64;
 
-    /// Returns the amount of available RAM in kB.
+    /// Returns the amount of available RAM in KB.
     ///
     /// Generally, "free" memory refers to unallocated memory whereas "available" memory refers to
     /// memory that is available for (re)use.
     ///
     /// Side note: Windows doesn't report "free" memory so
-    /// [`get_free_memory`](#tymethod.get_free_memory) returns the same value as this method.
+    /// [`get_free_memory`](#tymethod.free_memory) returns the same value as this method.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} kB", s.get_available_memory());
+    /// println!("{} KB", s.available_memory());
     /// ```
-    fn get_available_memory(&self) -> u64;
+    fn available_memory(&self) -> u64;
 
-    /// Returns the amound of used RAM in kB.
+    /// Returns the amound of used RAM in KB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} kB", s.get_used_memory());
+    /// println!("{} KB", s.used_memory());
     /// ```
-    fn get_used_memory(&self) -> u64;
+    fn used_memory(&self) -> u64;
 
-    /// Returns the SWAP size in kB.
+    /// Returns the SWAP size in KB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} kB", s.get_total_swap());
+    /// println!("{} KB", s.total_swap());
     /// ```
-    fn get_total_swap(&self) -> u64;
+    fn total_swap(&self) -> u64;
 
-    /// Returns the amount of free SWAP in kB.
+    /// Returns the amount of free SWAP in KB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} kB", s.get_free_swap());
+    /// println!("{} KB", s.free_swap());
     /// ```
-    fn get_free_swap(&self) -> u64;
+    fn free_swap(&self) -> u64;
 
-    /// Returns the amount of used SWAP in kB.
+    /// Returns the amount of used SWAP in KB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} kB", s.get_used_swap());
+    /// println!("{} KB", s.used_swap());
     /// ```
-    fn get_used_swap(&self) -> u64;
+    fn used_swap(&self) -> u64;
 
     /// Returns the components list.
     ///
@@ -865,11 +865,11 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for component in s.get_components() {
-    ///     println!("{}: {}°C", component.get_label(), component.get_temperature());
+    /// for component in s.components() {
+    ///     println!("{}: {}°C", component.label(), component.temperature());
     /// }
     /// ```
-    fn get_components(&self) -> &[Component];
+    fn components(&self) -> &[Component];
 
     /// Returns a mutable components list.
     ///
@@ -877,11 +877,11 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// for component in s.get_components_mut() {
+    /// for component in s.components_mut() {
     ///     component.refresh();
     /// }
     /// ```
-    fn get_components_mut(&mut self) -> &mut [Component];
+    fn components_mut(&mut self) -> &mut [Component];
 
     /// Returns the disks list.
     ///
@@ -889,11 +889,11 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for disk in s.get_disks() {
-    ///     println!("{:?}", disk.get_name());
+    /// for disk in s.disks() {
+    ///     println!("{:?}", disk.name());
     /// }
     /// ```
-    fn get_disks(&self) -> &[Disk];
+    fn disks(&self) -> &[Disk];
 
     /// Returns the users list.
     ///
@@ -901,11 +901,11 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{System, SystemExt, UserExt};
     ///
     /// let mut s = System::new_all();
-    /// for user in s.get_users() {
-    ///     println!("{} is in {} groups", user.get_name(), user.get_groups().len());
+    /// for user in s.users() {
+    ///     println!("{} is in {} groups", user.name(), user.groups().len());
     /// }
     /// ```
-    fn get_users(&self) -> &[User];
+    fn users(&self) -> &[User];
 
     /// Returns the disks list.
     ///
@@ -913,11 +913,11 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// for disk in s.get_disks_mut() {
+    /// for disk in s.disks_mut() {
     ///     disk.refresh();
     /// }
     /// ```
-    fn get_disks_mut(&mut self) -> &mut [Disk];
+    fn disks_mut(&mut self) -> &mut [Disk];
 
     /// Returns the network interfaces object.
     ///
@@ -925,17 +925,17 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, data) in networks {
     ///     println!(
     ///         "[{}] in: {}, out: {}",
     ///         interface_name,
-    ///         data.get_received(),
-    ///         data.get_transmitted(),
+    ///         data.received(),
+    ///         data.transmitted(),
     ///     );
     /// }
     /// ```
-    fn get_networks(&self) -> &Networks;
+    fn networks(&self) -> &Networks;
 
     /// Returns a mutable access to network interfaces.
     ///
@@ -943,10 +943,10 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// let networks = s.get_networks_mut();
+    /// let networks = s.networks_mut();
     /// networks.refresh_networks_list();
     /// ```
-    fn get_networks_mut(&mut self) -> &mut Networks;
+    fn networks_mut(&mut self) -> &mut Networks;
 
     /// Returns system uptime (in seconds).
     ///
@@ -954,9 +954,9 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("System running since {} seconds", s.get_uptime());
+    /// println!("System running since {} seconds", s.uptime());
     /// ```
-    fn get_uptime(&self) -> u64;
+    fn uptime(&self) -> u64;
 
     /// Returns the time (in seconds) when the system booted since UNIX epoch.
     ///
@@ -964,9 +964,9 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new();
-    /// println!("System booted at {} seconds", s.get_boot_time());
+    /// println!("System booted at {} seconds", s.boot_time());
     /// ```
-    fn get_boot_time(&self) -> u64;
+    fn boot_time(&self) -> u64;
 
     /// Returns the system load average value.
     ///
@@ -974,7 +974,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let load_avg = s.get_load_average();
+    /// let load_avg = s.load_average();
     /// println!(
     ///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
     ///     load_avg.one,
@@ -982,7 +982,7 @@ pub trait SystemExt: Sized + Debug + Default {
     ///     load_avg.fifteen,
     /// );
     /// ```
-    fn get_load_average(&self) -> LoadAvg;
+    fn load_average(&self) -> LoadAvg;
 
     /// Returns the system name.
     ///
@@ -992,9 +992,9 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new();
-    /// println!("OS: {:?}", s.get_name());
+    /// println!("OS: {:?}", s.name());
     /// ```
-    fn get_name(&self) -> Option<String>;
+    fn name(&self) -> Option<String>;
 
     /// Returns the system's kernel version.
     ///
@@ -1004,9 +1004,9 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new();
-    /// println!("kernel version: {:?}", s.get_kernel_version());
+    /// println!("kernel version: {:?}", s.kernel_version());
     /// ```
-    fn get_kernel_version(&self) -> Option<String>;
+    fn kernel_version(&self) -> Option<String>;
 
     /// Returns the system version (e.g. for MacOS this will return 11.1 rather than the kernel version).
     ///
@@ -1016,9 +1016,9 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new();
-    /// println!("OS version: {:?}", s.get_os_version());
+    /// println!("OS version: {:?}", s.os_version());
     /// ```
-    fn get_os_version(&self) -> Option<String>;
+    fn os_version(&self) -> Option<String>;
 
     /// Returns the system long os version (e.g "MacOS 11.2 BigSur").
     ///
@@ -1028,9 +1028,9 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new();
-    /// println!("Long OS Version: {:?}", s.get_long_os_version());
+    /// println!("Long OS Version: {:?}", s.long_os_version());
     /// ```
-    fn get_long_os_version(&self) -> Option<String>;
+    fn long_os_version(&self) -> Option<String>;
 
     /// Returns the system hostname based off DNS
     ///
@@ -1040,9 +1040,9 @@ pub trait SystemExt: Sized + Debug + Default {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new();
-    /// println!("Hostname: {:?}", s.get_host_name());
+    /// println!("Hostname: {:?}", s.host_name());
     /// ```
-    fn get_host_name(&self) -> Option<String>;
+    fn host_name(&self) -> Option<String>;
 }
 
 /// Getting volume of received and transmitted data.
@@ -1053,12 +1053,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {} B", network.get_received());
+    ///     println!("in: {} B", network.received());
     /// }
     /// ```
-    fn get_received(&self) -> u64;
+    fn received(&self) -> u64;
 
     /// Returns the total number of received bytes.
     ///
@@ -1066,12 +1066,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {} B", network.get_total_received());
+    ///     println!("in: {} B", network.total_received());
     /// }
     /// ```
-    fn get_total_received(&self) -> u64;
+    fn total_received(&self) -> u64;
 
     /// Returns the number of transmitted bytes since the last refresh.
     ///
@@ -1079,12 +1079,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {} B", network.get_transmitted());
+    ///     println!("out: {} B", network.transmitted());
     /// }
     /// ```
-    fn get_transmitted(&self) -> u64;
+    fn transmitted(&self) -> u64;
 
     /// Returns the total number of transmitted bytes.
     ///
@@ -1092,12 +1092,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {} B", network.get_total_transmitted());
+    ///     println!("out: {} B", network.total_transmitted());
     /// }
     /// ```
-    fn get_total_transmitted(&self) -> u64;
+    fn total_transmitted(&self) -> u64;
 
     /// Returns the number of incoming packets since the last refresh.
     ///
@@ -1105,12 +1105,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {}", network.get_packets_received());
+    ///     println!("in: {}", network.packets_received());
     /// }
     /// ```
-    fn get_packets_received(&self) -> u64;
+    fn packets_received(&self) -> u64;
 
     /// Returns the total number of incoming packets.
     ///
@@ -1118,12 +1118,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {}", network.get_total_packets_received());
+    ///     println!("in: {}", network.total_packets_received());
     /// }
     /// ```
-    fn get_total_packets_received(&self) -> u64;
+    fn total_packets_received(&self) -> u64;
 
     /// Returns the number of outcoming packets since the last refresh.
     ///
@@ -1131,12 +1131,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {}", network.get_packets_transmitted());
+    ///     println!("out: {}", network.packets_transmitted());
     /// }
     /// ```
-    fn get_packets_transmitted(&self) -> u64;
+    fn packets_transmitted(&self) -> u64;
 
     /// Returns the total number of outcoming packets.
     ///
@@ -1144,12 +1144,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {}", network.get_total_packets_transmitted());
+    ///     println!("out: {}", network.total_packets_transmitted());
     /// }
     /// ```
-    fn get_total_packets_transmitted(&self) -> u64;
+    fn total_packets_transmitted(&self) -> u64;
 
     /// Returns the number of incoming errors since the last refresh.
     ///
@@ -1157,12 +1157,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {}", network.get_errors_on_received());
+    ///     println!("in: {}", network.errors_on_received());
     /// }
     /// ```
-    fn get_errors_on_received(&self) -> u64;
+    fn errors_on_received(&self) -> u64;
 
     /// Returns the total number of incoming errors.
     ///
@@ -1170,12 +1170,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {}", network.get_total_errors_on_received());
+    ///     println!("in: {}", network.total_errors_on_received());
     /// }
     /// ```
-    fn get_total_errors_on_received(&self) -> u64;
+    fn total_errors_on_received(&self) -> u64;
 
     /// Returns the number of outcoming errors since the last refresh.
     ///
@@ -1183,12 +1183,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {}", network.get_errors_on_transmitted());
+    ///     println!("out: {}", network.errors_on_transmitted());
     /// }
     /// ```
-    fn get_errors_on_transmitted(&self) -> u64;
+    fn errors_on_transmitted(&self) -> u64;
 
     /// Returns the total number of outcoming errors.
     ///
@@ -1196,12 +1196,12 @@ pub trait NetworkExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {}", network.get_total_errors_on_transmitted());
+    ///     println!("out: {}", network.total_errors_on_transmitted());
     /// }
     /// ```
-    fn get_total_errors_on_transmitted(&self) -> u64;
+    fn total_errors_on_transmitted(&self) -> u64;
 }
 
 /// Interacting with network interfaces.
@@ -1212,9 +1212,9 @@ pub trait NetworksExt: Debug {
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// let networks = s.get_networks();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("in: {} B", network.get_received());
+    ///     println!("in: {} B", network.received());
     /// }
     /// ```
     fn iter(&self) -> NetworksIter;
@@ -1225,7 +1225,7 @@ pub trait NetworksExt: Debug {
     /// use sysinfo::{NetworksExt, System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// let networks = s.get_networks_mut();
+    /// let networks = s.networks_mut();
     /// networks.refresh_networks_list();
     /// ```
     fn refresh_networks_list(&mut self);
@@ -1236,7 +1236,7 @@ pub trait NetworksExt: Debug {
     /// use sysinfo::{NetworksExt, System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// let networks = s.get_networks_mut();
+    /// let networks = s.networks_mut();
     /// networks.refresh();
     /// ```
     fn refresh(&mut self);
@@ -1250,11 +1250,11 @@ pub trait ComponentExt: Debug {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for component in s.get_components() {
-    ///     println!("{}°C", component.get_temperature());
+    /// for component in s.components() {
+    ///     println!("{}°C", component.temperature());
     /// }
     /// ```
-    fn get_temperature(&self) -> f32;
+    fn temperature(&self) -> f32;
 
     /// Returns the maximum temperature of the component (in celsius degree).
     ///
@@ -1262,11 +1262,11 @@ pub trait ComponentExt: Debug {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for component in s.get_components() {
-    ///     println!("{}°C", component.get_max());
+    /// for component in s.components() {
+    ///     println!("{}°C", component.max());
     /// }
     /// ```
-    fn get_max(&self) -> f32;
+    fn max(&self) -> f32;
 
     /// Returns the highest temperature before the component halts (in celsius degree).
     ///
@@ -1274,11 +1274,11 @@ pub trait ComponentExt: Debug {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for component in s.get_components() {
-    ///     println!("{:?}°C", component.get_critical());
+    /// for component in s.components() {
+    ///     println!("{:?}°C", component.critical());
     /// }
     /// ```
-    fn get_critical(&self) -> Option<f32>;
+    fn critical(&self) -> Option<f32>;
 
     /// Returns the label of the component.
     ///
@@ -1286,11 +1286,11 @@ pub trait ComponentExt: Debug {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for component in s.get_components() {
-    ///     println!("{}", component.get_label());
+    /// for component in s.components() {
+    ///     println!("{}", component.label());
     /// }
     /// ```
-    fn get_label(&self) -> &str;
+    fn label(&self) -> &str;
 
     /// Refreshes component.
     ///
@@ -1298,7 +1298,7 @@ pub trait ComponentExt: Debug {
     /// use sysinfo::{ComponentExt, System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// for component in s.get_components_mut() {
+    /// for component in s.components_mut() {
     ///     component.refresh();
     /// }
     /// ```
@@ -1313,8 +1313,8 @@ pub trait ComponentExt: Debug {
 /// use sysinfo::{System, SystemExt, UserExt};
 ///
 /// let mut s = System::new_all();
-/// for user in s.get_users() {
-///     println!("{} is in {} groups", user.get_name(), user.get_groups().len());
+/// for user in s.users() {
+///     println!("{} is in {} groups", user.name(), user.groups().len());
 /// }
 /// ```
 pub trait UserExt: Debug {
@@ -1324,11 +1324,11 @@ pub trait UserExt: Debug {
     /// use sysinfo::{System, SystemExt, UserExt};
     ///
     /// let mut s = System::new_all();
-    /// for user in s.get_users() {
-    ///     println!("{}", *user.get_uid());
+    /// for user in s.users() {
+    ///     println!("{}", *user.uid());
     /// }
     /// ```
-    fn get_uid(&self) -> Uid;
+    fn uid(&self) -> Uid;
 
     /// Return the group id of the user.
     ///
@@ -1341,11 +1341,11 @@ pub trait UserExt: Debug {
     /// use sysinfo::{System, SystemExt, UserExt};
     ///
     /// let mut s = System::new_all();
-    /// for user in s.get_users() {
-    ///     println!("{}", *user.get_gid());
+    /// for user in s.users() {
+    ///     println!("{}", *user.gid());
     /// }
     /// ```
-    fn get_gid(&self) -> Gid;
+    fn gid(&self) -> Gid;
 
     /// Returns the name of the user.
     ///
@@ -1353,11 +1353,11 @@ pub trait UserExt: Debug {
     /// use sysinfo::{System, SystemExt, UserExt};
     ///
     /// let mut s = System::new_all();
-    /// for user in s.get_users() {
-    ///     println!("{}", user.get_name());
+    /// for user in s.users() {
+    ///     println!("{}", user.name());
     /// }
     /// ```
-    fn get_name(&self) -> &str;
+    fn name(&self) -> &str;
 
     /// Returns the groups of the user.
     ///
@@ -1365,9 +1365,9 @@ pub trait UserExt: Debug {
     /// use sysinfo::{System, SystemExt, UserExt};
     ///
     /// let mut s = System::new_all();
-    /// for user in s.get_users() {
-    ///     println!("{} is in {:?}", user.get_name(), user.get_groups());
+    /// for user in s.users() {
+    ///     println!("{} is in {:?}", user.name(), user.groups());
     /// }
     /// ```
-    fn get_groups(&self) -> &[String];
+    fn groups(&self) -> &[String];
 }

@@ -27,7 +27,7 @@ macro_rules! old_and_new {
 /// use sysinfo::{NetworksExt, System, SystemExt};
 ///
 /// let s = System::new_all();
-/// let networks = s.get_networks();
+/// let networks = s.networks();
 /// ```
 pub struct Networks {
     interfaces: HashMap<String, NetworkData>,
@@ -206,51 +206,51 @@ pub struct NetworkData {
 }
 
 impl NetworkExt for NetworkData {
-    fn get_received(&self) -> u64 {
+    fn received(&self) -> u64 {
         self.current_in.saturating_sub(self.old_in)
     }
 
-    fn get_total_received(&self) -> u64 {
+    fn total_received(&self) -> u64 {
         self.current_in
     }
 
-    fn get_transmitted(&self) -> u64 {
+    fn transmitted(&self) -> u64 {
         self.current_out.saturating_sub(self.old_out)
     }
 
-    fn get_total_transmitted(&self) -> u64 {
+    fn total_transmitted(&self) -> u64 {
         self.current_out
     }
 
-    fn get_packets_received(&self) -> u64 {
+    fn packets_received(&self) -> u64 {
         self.packets_in.saturating_sub(self.old_packets_in)
     }
 
-    fn get_total_packets_received(&self) -> u64 {
+    fn total_packets_received(&self) -> u64 {
         self.packets_in
     }
 
-    fn get_packets_transmitted(&self) -> u64 {
+    fn packets_transmitted(&self) -> u64 {
         self.packets_out.saturating_sub(self.old_packets_out)
     }
 
-    fn get_total_packets_transmitted(&self) -> u64 {
+    fn total_packets_transmitted(&self) -> u64 {
         self.packets_out
     }
 
-    fn get_errors_on_received(&self) -> u64 {
+    fn errors_on_received(&self) -> u64 {
         self.errors_in.saturating_sub(self.old_errors_in)
     }
 
-    fn get_total_errors_on_received(&self) -> u64 {
+    fn total_errors_on_received(&self) -> u64 {
         self.errors_in
     }
 
-    fn get_errors_on_transmitted(&self) -> u64 {
+    fn errors_on_transmitted(&self) -> u64 {
         self.errors_out.saturating_sub(self.old_errors_out)
     }
 
-    fn get_total_errors_on_transmitted(&self) -> u64 {
+    fn total_errors_on_transmitted(&self) -> u64 {
         self.errors_out
     }
 }

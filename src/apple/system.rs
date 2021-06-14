@@ -255,7 +255,7 @@ impl SystemExt for System {
                 let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
                 let mut add = 0;
                 for proc_ in self.processors.iter_mut() {
-                    let old_proc_data = &*proc_.get_data();
+                    let old_proc_data = &*proc_.data();
                     let in_use = (*cpu_info.offset(add as isize + libc::CPU_STATE_USER as isize)
                         - *old_proc_data
                             .cpu_info
@@ -274,7 +274,7 @@ impl SystemExt for System {
                                 .cpu_info
                                 .offset(add as isize + libc::CPU_STATE_IDLE as isize));
                     proc_.update(in_use as f32 / total as f32 * 100., Arc::clone(&proc_data));
-                    pourcent += proc_.get_cpu_usage();
+                    pourcent += proc_.cpu_usage();
 
                     add += libc::CPU_STATE_MAX;
                 }
@@ -363,23 +363,23 @@ impl SystemExt for System {
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    fn get_processes(&self) -> &HashMap<Pid, Process> {
+    fn processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
 
-    fn get_process(&self, pid: Pid) -> Option<&Process> {
+    fn process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.get(&pid)
     }
 
-    fn get_global_processor_info(&self) -> &Processor {
+    fn global_processor_info(&self) -> &Processor {
         &self.global_processor
     }
 
-    fn get_processors(&self) -> &[Processor] {
+    fn processors(&self) -> &[Processor] {
         &self.processors
     }
 
-    fn get_physical_core_count(&self) -> Option<usize> {
+    fn physical_core_count(&self) -> Option<usize> {
         let mut physical_core_count = 0;
 
         if unsafe {
@@ -395,66 +395,66 @@ impl SystemExt for System {
         }
     }
 
-    fn get_networks(&self) -> &Networks {
+    fn networks(&self) -> &Networks {
         &self.networks
     }
 
-    fn get_networks_mut(&mut self) -> &mut Networks {
+    fn networks_mut(&mut self) -> &mut Networks {
         &mut self.networks
     }
 
-    fn get_total_memory(&self) -> u64 {
+    fn total_memory(&self) -> u64 {
         self.mem_total
     }
 
-    fn get_free_memory(&self) -> u64 {
+    fn free_memory(&self) -> u64 {
         self.mem_free
     }
 
-    fn get_available_memory(&self) -> u64 {
+    fn available_memory(&self) -> u64 {
         self.mem_available
     }
 
-    fn get_used_memory(&self) -> u64 {
+    fn used_memory(&self) -> u64 {
         self.mem_total - self.mem_free
     }
 
-    fn get_total_swap(&self) -> u64 {
+    fn total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    fn get_free_swap(&self) -> u64 {
+    fn free_swap(&self) -> u64 {
         self.swap_free
     }
 
     // need to be checked
-    fn get_used_swap(&self) -> u64 {
+    fn used_swap(&self) -> u64 {
         self.swap_total - self.swap_free
     }
 
-    fn get_components(&self) -> &[Component] {
+    fn components(&self) -> &[Component] {
         &self.components
     }
 
-    fn get_components_mut(&mut self) -> &mut [Component] {
+    fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
     }
 
-    fn get_disks(&self) -> &[Disk] {
+    fn disks(&self) -> &[Disk] {
         &self.disks
     }
 
-    fn get_disks_mut(&mut self) -> &mut [Disk] {
+    fn disks_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
     }
 
-    fn get_uptime(&self) -> u64 {
+    fn uptime(&self) -> u64 {
         let csec = unsafe { libc::time(::std::ptr::null_mut()) };
 
         unsafe { libc::difftime(csec, self.boot_time as _) as u64 }
     }
 
-    fn get_load_average(&self) -> LoadAvg {
+    fn load_average(&self) -> LoadAvg {
         let mut loads = vec![0f64; 3];
         unsafe {
             libc::getloadavg(loads.as_mut_ptr(), 3);
@@ -466,21 +466,21 @@ impl SystemExt for System {
         }
     }
 
-    fn get_users(&self) -> &[User] {
+    fn users(&self) -> &[User] {
         &self.users
     }
 
-    fn get_boot_time(&self) -> u64 {
+    fn boot_time(&self) -> u64 {
         self.boot_time
     }
 
-    fn get_name(&self) -> Option<String> {
+    fn name(&self) -> Option<String> {
         get_system_info(libc::KERN_OSTYPE, Some("Darwin"))
     }
 
-    fn get_long_os_version(&self) -> Option<String> {
+    fn long_os_version(&self) -> Option<String> {
         #[cfg(target_os = "macos")]
-        let friendly_name = match self.get_os_version().unwrap_or_default() {
+        let friendly_name = match self.os_version().unwrap_or_default() {
             f_n if f_n.starts_with("10.16")
                 | f_n.starts_with("11.0")
                 | f_n.starts_with("11.1")
@@ -510,25 +510,25 @@ impl SystemExt for System {
         #[cfg(target_os = "macos")]
         let long_name = Some(format!(
             "MacOS {} {}",
-            self.get_os_version().unwrap_or_default(),
+            self.os_version().unwrap_or_default(),
             friendly_name
         ));
 
         #[cfg(target_os = "ios")]
-        let long_name = Some(format!("iOS {}", self.get_os_version().unwrap_or_default()));
+        let long_name = Some(format!("iOS {}", self.os_version().unwrap_or_default()));
 
         long_name
     }
 
-    fn get_host_name(&self) -> Option<String> {
+    fn host_name(&self) -> Option<String> {
         get_system_info(libc::KERN_HOSTNAME, None)
     }
 
-    fn get_kernel_version(&self) -> Option<String> {
+    fn kernel_version(&self) -> Option<String> {
         get_system_info(libc::KERN_OSRELEASE, None)
     }
 
-    fn get_os_version(&self) -> Option<String> {
+    fn os_version(&self) -> Option<String> {
         unsafe {
             // get the size for the buffer first
             let mut size = 0;

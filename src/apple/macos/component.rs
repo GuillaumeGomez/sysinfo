@@ -37,7 +37,7 @@ impl ComponentFFI {
             })
     }
 
-    fn get_temperature(&self, con: ffi::io_connect_t) -> Option<f32> {
+    fn temperature(&self, con: ffi::io_connect_t) -> Option<f32> {
         get_temperature_inner(con, &self.input_structure, &self.val)
     }
 }
@@ -63,7 +63,7 @@ impl Component {
     ) -> Option<Component> {
         let ffi_part = ComponentFFI::new(key, connection)?;
         ffi_part
-            .get_temperature(connection)
+            .temperature(connection)
             .map(|temperature| Component {
                 temperature,
                 label,
@@ -76,24 +76,24 @@ impl Component {
 }
 
 impl ComponentExt for Component {
-    fn get_temperature(&self) -> f32 {
+    fn temperature(&self) -> f32 {
         self.temperature
     }
 
-    fn get_max(&self) -> f32 {
+    fn max(&self) -> f32 {
         self.max
     }
 
-    fn get_critical(&self) -> Option<f32> {
+    fn critical(&self) -> Option<f32> {
         self.critical
     }
 
-    fn get_label(&self) -> &str {
+    fn label(&self) -> &str {
         &self.label
     }
 
     fn refresh(&mut self) {
-        if let Some(temp) = self.ffi_part.get_temperature(self.connection) {
+        if let Some(temp) = self.ffi_part.temperature(self.connection) {
             self.temperature = temp;
             if self.temperature > self.max {
                 self.max = self.temperature;

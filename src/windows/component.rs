@@ -47,7 +47,7 @@ impl Component {
             .and_then(|x| x.set_proxy_blanket())
             .and_then(|x| x.exec_query())?;
 
-        c.get_temperature(true)
+        c.temperature(true)
             .map(|(temperature, critical)| Component {
                 temperature,
                 label: "Computer".to_owned(),
@@ -59,19 +59,19 @@ impl Component {
 }
 
 impl ComponentExt for Component {
-    fn get_temperature(&self) -> f32 {
+    fn temperature(&self) -> f32 {
         self.temperature
     }
 
-    fn get_max(&self) -> f32 {
+    fn max(&self) -> f32 {
         self.max
     }
 
-    fn get_critical(&self) -> Option<f32> {
+    fn critical(&self) -> Option<f32> {
         self.critical
     }
 
-    fn get_label(&self) -> &str {
+    fn label(&self) -> &str {
         &self.label
     }
 
@@ -89,7 +89,7 @@ impl ComponentExt for Component {
             None
         };
         if let Some(ref mut connection) = self.connection {
-            if let Some((temperature, _)) = connection.get_temperature(false) {
+            if let Some((temperature, _)) = connection.temperature(false) {
                 self.temperature = temperature;
                 if self.temperature > self.max {
                     self.max = self.temperature;
@@ -294,7 +294,7 @@ impl Connection {
         Some(self)
     }
 
-    fn get_temperature(&mut self, get_critical: bool) -> Option<(f32, Option<f32>)> {
+    fn temperature(&mut self, get_critical: bool) -> Option<(f32, Option<f32>)> {
         let p_enum = match self.enumerator.take() {
             Some(x) => x,
             None => {

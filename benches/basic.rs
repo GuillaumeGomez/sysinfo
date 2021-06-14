@@ -62,7 +62,7 @@ fn bench_refresh_process(b: &mut test::Bencher) {
 fn bench_refresh_disk(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new_all();
 
-    let disks = s.get_disks_mut();
+    let disks = s.disks_mut();
     let disk = &mut disks[0];
     b.iter(move || {
         disk.refresh();

@@ -17,7 +17,7 @@ use std::collections::{hash_map, HashMap};
 /// use sysinfo::{NetworksExt, System, SystemExt};
 ///
 /// let s = System::new_all();
-/// let networks = s.get_networks();
+/// let networks = s.networks();
 /// ```
 pub struct Networks {
     interfaces: HashMap<String, NetworkData>,
@@ -226,51 +226,51 @@ impl NetworkData {
 }
 
 impl NetworkExt for NetworkData {
-    fn get_received(&self) -> u64 {
+    fn received(&self) -> u64 {
         self.rx_bytes.saturating_sub(self.old_rx_bytes)
     }
 
-    fn get_total_received(&self) -> u64 {
+    fn total_received(&self) -> u64 {
         self.rx_bytes
     }
 
-    fn get_transmitted(&self) -> u64 {
+    fn transmitted(&self) -> u64 {
         self.tx_bytes.saturating_sub(self.old_tx_bytes)
     }
 
-    fn get_total_transmitted(&self) -> u64 {
+    fn total_transmitted(&self) -> u64 {
         self.tx_bytes
     }
 
-    fn get_packets_received(&self) -> u64 {
+    fn packets_received(&self) -> u64 {
         self.rx_packets.saturating_sub(self.old_rx_packets)
     }
 
-    fn get_total_packets_received(&self) -> u64 {
+    fn total_packets_received(&self) -> u64 {
         self.rx_packets
     }
 
-    fn get_packets_transmitted(&self) -> u64 {
+    fn packets_transmitted(&self) -> u64 {
         self.tx_packets.saturating_sub(self.old_tx_packets)
     }
 
-    fn get_total_packets_transmitted(&self) -> u64 {
+    fn total_packets_transmitted(&self) -> u64 {
         self.tx_packets
     }
 
-    fn get_errors_on_received(&self) -> u64 {
+    fn errors_on_received(&self) -> u64 {
         self.rx_errors.saturating_sub(self.old_rx_errors)
     }
 
-    fn get_total_errors_on_received(&self) -> u64 {
+    fn total_errors_on_received(&self) -> u64 {
         self.rx_errors
     }
 
-    fn get_errors_on_transmitted(&self) -> u64 {
+    fn errors_on_transmitted(&self) -> u64 {
         self.tx_errors.saturating_sub(self.old_tx_errors)
     }
 
-    fn get_total_errors_on_transmitted(&self) -> u64 {
+    fn total_errors_on_transmitted(&self) -> u64 {
         self.tx_errors
     }
 }

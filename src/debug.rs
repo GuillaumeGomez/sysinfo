@@ -14,8 +14,8 @@ use std::fmt;
 impl fmt::Debug for Processor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Processor")
-            .field("name", &self.get_name())
-            .field("CPU usage", &self.get_cpu_usage())
+            .field("name", &self.name())
+            .field("CPU usage", &self.cpu_usage())
             .finish()
     }
 }
@@ -25,18 +25,18 @@ impl fmt::Debug for System {
         f.debug_struct("System")
             .field(
                 "global CPU usage",
-                &self.get_global_processor_info().get_cpu_usage(),
+                &self.global_processor_info().cpu_usage(),
             )
-            .field("load average", &self.get_load_average())
-            .field("total memory", &self.get_total_memory())
-            .field("free memory", &self.get_free_memory())
-            .field("total swap", &self.get_total_swap())
-            .field("free swap", &self.get_free_swap())
-            .field("nb CPUs", &self.get_processors().len())
-            .field("nb network interfaces", &self.get_networks().iter().count())
-            .field("nb processes", &self.get_processes().len())
-            .field("nb disks", &self.get_disks().len())
-            .field("nb components", &self.get_components().len())
+            .field("load average", &self.load_average())
+            .field("total memory", &self.total_memory())
+            .field("free memory", &self.free_memory())
+            .field("total swap", &self.total_swap())
+            .field("free swap", &self.free_swap())
+            .field("nb CPUs", &self.processors().len())
+            .field("nb network interfaces", &self.networks().iter().count())
+            .field("nb processes", &self.processes().len())
+            .field("nb disks", &self.disks().len())
+            .field("nb components", &self.components().len())
             .finish()
     }
 }
@@ -46,15 +46,15 @@ impl fmt::Debug for Disk {
         write!(
             fmt,
             "Disk({:?})[FS: {:?}][Type: {:?}] mounted on {:?}: {}/{} B",
-            self.get_name(),
-            self.get_file_system()
+            self.name(),
+            self.file_system()
                 .iter()
                 .map(|c| *c as char)
                 .collect::<Vec<_>>(),
-            self.get_type(),
-            self.get_mount_point(),
-            self.get_available_space(),
-            self.get_total_space()
+            self.type_(),
+            self.mount_point(),
+            self.available_space(),
+            self.total_space()
         )
     }
 }
@@ -81,22 +81,22 @@ impl fmt::Debug for Process {
 
 impl fmt::Debug for Component {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(critical) = self.get_critical() {
+        if let Some(critical) = self.critical() {
             write!(
                 f,
                 "{}: {}°C (max: {}°C / critical: {}°C)",
-                self.get_label(),
-                self.get_temperature(),
-                self.get_max(),
+                self.label(),
+                self.temperature(),
+                self.max(),
                 critical
             )
         } else {
             write!(
                 f,
                 "{}: {}°C (max: {}°C)",
-                self.get_label(),
-                self.get_temperature(),
-                self.get_max()
+                self.label(),
+                self.temperature(),
+                self.max()
             )
         }
     }
@@ -118,24 +118,18 @@ impl fmt::Debug for Networks {
 impl fmt::Debug for NetworkData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("NetworkData")
-            .field("income", &self.get_received())
-            .field("total income", &self.get_total_received())
-            .field("outcome", &self.get_transmitted())
-            .field("total outcome", &self.get_total_transmitted())
-            .field("packets income", &self.get_packets_received())
-            .field("total packets income", &self.get_total_packets_received())
-            .field("packets outcome", &self.get_packets_transmitted())
-            .field(
-                "total packets outcome",
-                &self.get_total_packets_transmitted(),
-            )
-            .field("errors income", &self.get_errors_on_received())
-            .field("total errors income", &self.get_total_errors_on_received())
-            .field("errors outcome", &self.get_errors_on_transmitted())
-            .field(
-                "total errors outcome",
-                &self.get_total_errors_on_transmitted(),
-            )
+            .field("income", &self.received())
+            .field("total income", &self.total_received())
+            .field("outcome", &self.transmitted())
+            .field("total outcome", &self.total_transmitted())
+            .field("packets income", &self.packets_received())
+            .field("total packets income", &self.total_packets_received())
+            .field("packets outcome", &self.packets_transmitted())
+            .field("total packets outcome", &self.total_packets_transmitted())
+            .field("errors income", &self.errors_on_received())
+            .field("total errors income", &self.total_errors_on_received())
+            .field("errors outcome", &self.errors_on_transmitted())
+            .field("total errors outcome", &self.total_errors_on_transmitted())
             .finish()
     }
 }

@@ -11,19 +11,19 @@ use crate::ComponentExt;
 pub struct Component {}
 
 impl ComponentExt for Component {
-    fn get_temperature(&self) -> f32 {
+    fn temperature(&self) -> f32 {
         0.0
     }
 
-    fn get_max(&self) -> f32 {
+    fn max(&self) -> f32 {
         0.0
     }
 
-    fn get_critical(&self) -> Option<f32> {
+    fn critical(&self) -> Option<f32> {
         None
     }
 
-    fn get_label(&self) -> &str {
+    fn label(&self) -> &str {
         ""
     }
 
