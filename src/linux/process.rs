@@ -458,7 +458,11 @@ pub(crate) fn _get_process_data(
                 p.exe = exe_path;
             }
             Err(_) => {
-                p.exe = PathBuf::new();
+                p.exe = if let Some(cmd) = p.cmd.get(0) {
+                    PathBuf::from(cmd)
+                } else {
+                    PathBuf::new()
+                };
             }
         }
         tmp.pop();
