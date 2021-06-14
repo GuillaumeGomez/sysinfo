@@ -135,6 +135,15 @@ pub trait ProcessExt: Debug {
 
     /// Returns the name of the process.
     ///
+    /// **⚠️ Important ⚠️**
+    ///
+    /// On **linux**, there are two things to know about processes' name:
+    ///  1. It is limited to 15 characters.
+    ///  2. It is not always the exe name.
+    ///
+    /// If you are looking for process, unless you know what you are doing, it's better to use
+    /// [`ProcessExt::exe`] instead.
+    ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
