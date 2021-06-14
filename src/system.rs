@@ -17,20 +17,17 @@ mod tests {
         sys.refresh_system();
         // We don't want to test on unsupported systems.
         if System::IS_SUPPORTED {
-            assert!(sys.get_total_memory() != 0);
-            assert!(sys.get_free_memory() != 0);
+            assert!(sys.total_memory() != 0);
+            assert!(sys.free_memory() != 0);
         }
-        assert!(sys.get_total_memory() >= sys.get_free_memory());
-        assert!(sys.get_total_swap() >= sys.get_free_swap());
+        assert!(sys.total_memory() >= sys.free_memory());
+        assert!(sys.total_swap() >= sys.free_swap());
     }
 
     #[test]
     fn test_refresh_process() {
         let mut sys = System::new();
-        assert!(
-            sys.get_processes().is_empty(),
-            "no process should be listed!"
-        );
+        assert!(sys.processes().is_empty(), "no process should be listed!");
         sys.refresh_processes();
         // We don't want to test on unsupported systems.
         if System::IS_SUPPORTED {
@@ -45,9 +42,7 @@ mod tests {
     fn test_get_process() {
         let mut sys = System::new();
         sys.refresh_processes();
-        if let Some(p) =
-            sys.get_process(utils::get_current_pid().expect("failed to get current pid"))
-        {
+        if let Some(p) = sys.process(utils::get_current_pid().expect("failed to get current pid")) {
             assert!(p.memory() > 0);
         } else {
             assert!(!System::IS_SUPPORTED);
@@ -69,9 +64,7 @@ mod tests {
 
         let mut sys = System::new();
         sys.refresh_processes();
-        if let Some(p) =
-            sys.get_process(utils::get_current_pid().expect("failed to get current pid"))
-        {
+        if let Some(p) = sys.process(utils::get_current_pid().expect("failed to get current pid")) {
             p.foo(); // If this doesn't compile, it'll simply mean that the Process type
                      // doesn't implement the Send trait.
             p.bar(); // If this doesn't compile, it'll simply mean that the Process type
@@ -85,7 +78,7 @@ mod tests {
     fn check_hostname_has_no_nuls() {
         let sys = System::new();
 
-        if let Some(hostname) = sys.get_host_name() {
+        if let Some(hostname) = sys.host_name() {
             assert!(!hostname.contains('\u{0}'))
         }
     }
@@ -93,10 +86,10 @@ mod tests {
     #[test]
     fn check_uptime() {
         let sys = System::new();
-        let uptime = sys.get_uptime();
+        let uptime = sys.uptime();
         if System::IS_SUPPORTED {
             std::thread::sleep(std::time::Duration::from_millis(1000));
-            let new_uptime = sys.get_uptime();
+            let new_uptime = sys.uptime();
             assert!(uptime < new_uptime);
         }
     }

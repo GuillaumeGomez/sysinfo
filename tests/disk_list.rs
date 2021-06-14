@@ -10,6 +10,6 @@ fn test_disks() {
 
     if sysinfo::System::IS_SUPPORTED {
         let s = sysinfo::System::new_all();
-        assert!(!s.get_disks().is_empty());
+        assert!(!s.disks().is_empty());
     }
 }

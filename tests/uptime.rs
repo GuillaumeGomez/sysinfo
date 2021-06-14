@@ -11,6 +11,6 @@ fn test_uptime() {
     if sysinfo::System::IS_SUPPORTED {
         let mut s = sysinfo::System::new();
         s.refresh_all();
-        assert!(s.get_uptime() != 0);
+        assert!(s.uptime() != 0);
     }
 }

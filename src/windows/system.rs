@@ -311,100 +311,100 @@ impl SystemExt for System {
         self.users = unsafe { get_users() };
     }
 
-    fn get_processes(&self) -> &HashMap<Pid, Process> {
+    fn processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
 
-    fn get_process(&self, pid: Pid) -> Option<&Process> {
+    fn process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.get(&(pid as usize))
     }
 
-    fn get_global_processor_info(&self) -> &Processor {
+    fn global_processor_info(&self) -> &Processor {
         &self.global_processor
     }
 
-    fn get_processors(&self) -> &[Processor] {
+    fn processors(&self) -> &[Processor] {
         &self.processors
     }
 
-    fn get_physical_core_count(&self) -> Option<usize> {
+    fn physical_core_count(&self) -> Option<usize> {
         get_physical_core_count()
     }
 
-    fn get_total_memory(&self) -> u64 {
+    fn total_memory(&self) -> u64 {
         self.mem_total
     }
 
-    fn get_free_memory(&self) -> u64 {
+    fn free_memory(&self) -> u64 {
         // MEMORYSTATUSEX doesn't report free memory
         self.mem_available
     }
 
-    fn get_available_memory(&self) -> u64 {
+    fn available_memory(&self) -> u64 {
         self.mem_available
     }
 
-    fn get_used_memory(&self) -> u64 {
+    fn used_memory(&self) -> u64 {
         self.mem_total - self.mem_available
     }
 
-    fn get_total_swap(&self) -> u64 {
+    fn total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    fn get_free_swap(&self) -> u64 {
+    fn free_swap(&self) -> u64 {
         self.swap_free
     }
 
-    fn get_used_swap(&self) -> u64 {
+    fn used_swap(&self) -> u64 {
         self.swap_total - self.swap_free
     }
 
-    fn get_components(&self) -> &[Component] {
+    fn components(&self) -> &[Component] {
         &self.components
     }
 
-    fn get_components_mut(&mut self) -> &mut [Component] {
+    fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
     }
 
-    fn get_disks(&self) -> &[Disk] {
+    fn disks(&self) -> &[Disk] {
         &self.disks
     }
 
-    fn get_disks_mut(&mut self) -> &mut [Disk] {
+    fn disks_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
     }
 
-    fn get_users(&self) -> &[User] {
+    fn users(&self) -> &[User] {
         &self.users
     }
 
-    fn get_networks(&self) -> &Networks {
+    fn networks(&self) -> &Networks {
         &self.networks
     }
 
-    fn get_networks_mut(&mut self) -> &mut Networks {
+    fn networks_mut(&mut self) -> &mut Networks {
         &mut self.networks
     }
 
-    fn get_uptime(&self) -> u64 {
+    fn uptime(&self) -> u64 {
         unsafe { GetTickCount64() / 1000 }
     }
 
-    fn get_boot_time(&self) -> u64 {
+    fn boot_time(&self) -> u64 {
         self.boot_time
     }
 
-    fn get_load_average(&self) -> LoadAvg {
+    fn load_average(&self) -> LoadAvg {
         get_load_average()
     }
 
-    fn get_name(&self) -> Option<String> {
+    fn name(&self) -> Option<String> {
         Some("Windows".to_owned())
     }
 
-    fn get_long_os_version(&self) -> Option<String> {
+    fn long_os_version(&self) -> Option<String> {
         get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
@@ -412,11 +412,11 @@ impl SystemExt for System {
         )
     }
 
-    fn get_host_name(&self) -> Option<String> {
+    fn host_name(&self) -> Option<String> {
         get_dns_hostname()
     }
 
-    fn get_kernel_version(&self) -> Option<String> {
+    fn kernel_version(&self) -> Option<String> {
         get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
@@ -424,7 +424,7 @@ impl SystemExt for System {
         )
     }
 
-    fn get_os_version(&self) -> Option<String> {
+    fn os_version(&self) -> Option<String> {
         let major = get_reg_value_u32(
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",

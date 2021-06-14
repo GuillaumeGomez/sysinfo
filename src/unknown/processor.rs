@@ -16,23 +16,23 @@ impl Processor {
 }
 
 impl ProcessorExt for Processor {
-    fn get_cpu_usage(&self) -> f32 {
+    fn cpu_usage(&self) -> f32 {
         0.0
     }
 
-    fn get_name(&self) -> &str {
+    fn name(&self) -> &str {
         ""
     }
 
-    fn get_frequency(&self) -> u64 {
+    fn frequency(&self) -> u64 {
         0
     }
 
-    fn get_vendor_id(&self) -> &str {
+    fn vendor_id(&self) -> &str {
         ""
     }
 
-    fn get_brand(&self) -> &str {
+    fn brand(&self) -> &str {
         ""
     }
 }

@@ -318,7 +318,7 @@ impl SystemExt for System {
     }
 
     fn refresh_processes(&mut self) {
-        let uptime = self.get_uptime();
+        let uptime = self.uptime();
         if refresh_procs(
             &mut self.process_list,
             Path::new("/proc"),
@@ -332,7 +332,7 @@ impl SystemExt for System {
     }
 
     fn refresh_process(&mut self, pid: Pid) -> bool {
-        let uptime = self.get_uptime();
+        let uptime = self.uptime();
         let found = match _get_process_data(
             &Path::new("/proc/").join(pid.to_string()),
             &mut self.process_list,
@@ -372,47 +372,47 @@ impl SystemExt for System {
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    fn get_processes(&self) -> &HashMap<Pid, Process> {
+    fn processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list.tasks
     }
 
-    fn get_process(&self, pid: Pid) -> Option<&Process> {
+    fn process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.tasks.get(&pid)
     }
 
-    fn get_networks(&self) -> &Networks {
+    fn networks(&self) -> &Networks {
         &self.networks
     }
 
-    fn get_networks_mut(&mut self) -> &mut Networks {
+    fn networks_mut(&mut self) -> &mut Networks {
         &mut self.networks
     }
 
-    fn get_global_processor_info(&self) -> &Processor {
+    fn global_processor_info(&self) -> &Processor {
         &self.global_processor
     }
 
-    fn get_processors(&self) -> &[Processor] {
+    fn processors(&self) -> &[Processor] {
         &self.processors
     }
 
-    fn get_physical_core_count(&self) -> Option<usize> {
+    fn physical_core_count(&self) -> Option<usize> {
         get_physical_core_count()
     }
 
-    fn get_total_memory(&self) -> u64 {
+    fn total_memory(&self) -> u64 {
         self.mem_total
     }
 
-    fn get_free_memory(&self) -> u64 {
+    fn free_memory(&self) -> u64 {
         self.mem_free
     }
 
-    fn get_available_memory(&self) -> u64 {
+    fn available_memory(&self) -> u64 {
         self.mem_available
     }
 
-    fn get_used_memory(&self) -> u64 {
+    fn used_memory(&self) -> u64 {
         self.mem_total
             - self.mem_free
             - self.mem_buffers
@@ -420,36 +420,36 @@ impl SystemExt for System {
             - self.mem_slab_reclaimable
     }
 
-    fn get_total_swap(&self) -> u64 {
+    fn total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    fn get_free_swap(&self) -> u64 {
+    fn free_swap(&self) -> u64 {
         self.swap_free
     }
 
     // need to be checked
-    fn get_used_swap(&self) -> u64 {
+    fn used_swap(&self) -> u64 {
         self.swap_total - self.swap_free
     }
 
-    fn get_components(&self) -> &[Component] {
+    fn components(&self) -> &[Component] {
         &self.components
     }
 
-    fn get_components_mut(&mut self) -> &mut [Component] {
+    fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
     }
 
-    fn get_disks(&self) -> &[Disk] {
+    fn disks(&self) -> &[Disk] {
         &self.disks
     }
 
-    fn get_disks_mut(&mut self) -> &mut [Disk] {
+    fn disks_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
     }
 
-    fn get_uptime(&self) -> u64 {
+    fn uptime(&self) -> u64 {
         let content = get_all_data("/proc/uptime", 50).unwrap_or_default();
         content
             .split('.')
@@ -458,11 +458,11 @@ impl SystemExt for System {
             .unwrap_or_default()
     }
 
-    fn get_boot_time(&self) -> u64 {
+    fn boot_time(&self) -> u64 {
         self.boot_time
     }
 
-    fn get_load_average(&self) -> LoadAvg {
+    fn load_average(&self) -> LoadAvg {
         let mut s = String::new();
         if File::open("/proc/loadavg")
             .and_then(|mut f| f.read_to_string(&mut s))
@@ -483,12 +483,12 @@ impl SystemExt for System {
         }
     }
 
-    fn get_users(&self) -> &[User] {
+    fn users(&self) -> &[User] {
         &self.users
     }
 
     #[cfg(not(target_os = "android"))]
-    fn get_name(&self) -> Option<String> {
+    fn name(&self) -> Option<String> {
         get_system_info_linux(
             InfoType::Name,
             Path::new("/etc/os-release"),
@@ -497,11 +497,11 @@ impl SystemExt for System {
     }
 
     #[cfg(target_os = "android")]
-    fn get_name(&self) -> Option<String> {
+    fn name(&self) -> Option<String> {
         get_system_info_android(InfoType::Name)
     }
 
-    fn get_long_os_version(&self) -> Option<String> {
+    fn long_os_version(&self) -> Option<String> {
         #[cfg(target_os = "android")]
         let system_name = "Android";
 
@@ -511,12 +511,12 @@ impl SystemExt for System {
         Some(format!(
             "{} {} {}",
             system_name,
-            self.get_os_version().unwrap_or_default(),
-            self.get_name().unwrap_or_default()
+            self.os_version().unwrap_or_default(),
+            self.name().unwrap_or_default()
         ))
     }
 
-    fn get_host_name(&self) -> Option<String> {
+    fn host_name(&self) -> Option<String> {
         let hostname_max = unsafe { sysconf(_SC_HOST_NAME_MAX) };
         let mut buffer = vec![0_u8; hostname_max as usize];
         if unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut c_char, buffer.len()) } == 0 {
@@ -531,7 +531,7 @@ impl SystemExt for System {
         }
     }
 
-    fn get_kernel_version(&self) -> Option<String> {
+    fn kernel_version(&self) -> Option<String> {
         let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
 
         if unsafe { libc::uname(raw.as_mut_ptr()) } == 0 {
@@ -551,7 +551,7 @@ impl SystemExt for System {
     }
 
     #[cfg(not(target_os = "android"))]
-    fn get_os_version(&self) -> Option<String> {
+    fn os_version(&self) -> Option<String> {
         get_system_info_linux(
             InfoType::OsVersion,
             Path::new("/etc/os-release"),
@@ -560,7 +560,7 @@ impl SystemExt for System {
     }
 
     #[cfg(target_os = "android")]
-    fn get_os_version(&self) -> Option<String> {
+    fn os_version(&self) -> Option<String> {
         get_system_info_android(InfoType::OsVersion)
     }
 }

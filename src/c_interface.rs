@@ -15,7 +15,7 @@ pub type CSystem = *mut c_void;
 pub type CProcess = *const c_void;
 /// C string returned from `CString::into_raw`.
 pub type RString = *const c_char;
-/// Callback used by [`get_processes`][crate::System#method.get_processes].
+/// Callback used by [`get_processes`][crate::System#method.processes].
 pub type ProcessLoop = extern "C" fn(pid: pid_t, process: CProcess, data: *mut c_void) -> bool;
 
 /// Equivalent of [`System::new()`][crate::System#method.new].
@@ -143,95 +143,95 @@ pub extern "C" fn sysinfo_refresh_disks_list(system: CSystem) {
     Box::into_raw(system);
 }
 
-/// Equivalent of [`System::get_total_memory()`][crate::System#method.get_total_memory].
+/// Equivalent of [`System::get_total_memory()`][crate::System#method.total_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_total_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.get_total_memory() as size_t;
+    let ret = system.total_memory() as size_t;
     Box::into_raw(system);
     ret
 }
 
-/// Equivalent of [`System::get_free_memory()`][crate::System#method.get_free_memory].
+/// Equivalent of [`System::get_free_memory()`][crate::System#method.free_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_free_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.get_free_memory() as size_t;
+    let ret = system.free_memory() as size_t;
     Box::into_raw(system);
     ret
 }
 
-/// Equivalent of [`System::get_used_memory()`][crate::System#method.get_used_memory].
+/// Equivalent of [`System::get_used_memory()`][crate::System#method.used_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_used_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.get_used_memory() as size_t;
+    let ret = system.used_memory() as size_t;
     Box::into_raw(system);
     ret
 }
 
-/// Equivalent of [`System::get_total_swap()`][crate::System#method.get_total_swap].
+/// Equivalent of [`System::get_total_swap()`][crate::System#method.total_swap].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_total_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.get_total_swap() as size_t;
+    let ret = system.total_swap() as size_t;
     Box::into_raw(system);
     ret
 }
 
-/// Equivalent of [`System::get_free_swap()`][crate::System#method.get_free_swap].
+/// Equivalent of [`System::get_free_swap()`][crate::System#method.free_swap].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_free_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.get_free_swap() as size_t;
+    let ret = system.free_swap() as size_t;
     Box::into_raw(system);
     ret
 }
 
-/// Equivalent of [`System::get_used_swap()`][crate::System#method.get_used_swap].
+/// Equivalent of [`System::get_used_swap()`][crate::System#method.used_swap].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_used_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.get_used_swap() as size_t;
+    let ret = system.used_swap() as size_t;
     Box::into_raw(system);
     ret
 }
 
 /// Equivalent of
-/// `system::get_networks().iter().fold(0, |acc, (_, data)| acc + data.get_received() as size_t)`.
+/// `system::get_networks().iter().fold(0, |acc, (_, data)| acc + data.received() as size_t)`.
 #[no_mangle]
 pub extern "C" fn sysinfo_get_networks_received(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     let ret = system
-        .get_networks()
+        .networks()
         .iter()
-        .fold(0, |acc, (_, data)| acc + data.get_received() as size_t);
+        .fold(0, |acc, (_, data)| acc + data.received() as size_t);
     Box::into_raw(system);
     ret
 }
 
 /// Equivalent of
-/// `system::get_networks().iter().fold(0, |acc, (_, data)| acc + data.get_transmitted() as size_t)`.
+/// `system::get_networks().iter().fold(0, |acc, (_, data)| acc + data.transmitted() as size_t)`.
 #[no_mangle]
 pub extern "C" fn sysinfo_get_networks_transmitted(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     let ret = system
-        .get_networks()
+        .networks()
         .iter()
-        .fold(0, |acc, (_, data)| acc + data.get_transmitted() as size_t);
+        .fold(0, |acc, (_, data)| acc + data.transmitted() as size_t);
     Box::into_raw(system);
     ret
 }
 
-/// Equivalent of [`System::get_processors_usage()`][crate::System#method.get_processors_usage].
+/// Equivalent of [`System::get_processors_usage()`][crate::System#method.processors_usage].
 ///
 /// * `length` will contain the number of cpu usage added into `procs`.
 /// * `procs` will be allocated if it's null and will contain of cpu usage.
@@ -247,14 +247,14 @@ pub extern "C" fn sysinfo_get_processors_usage(
     }
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     {
-        let processors = system.get_processors();
+        let processors = system.processors();
         unsafe {
             if (*procs).is_null() {
                 (*procs) = libc::malloc(::std::mem::size_of::<c_float>() * processors.len())
                     as *mut c_float;
             }
             for (pos, processor) in processors.iter().skip(1).enumerate() {
-                (*(*procs).offset(pos as isize)) = processor.get_cpu_usage();
+                (*(*procs).offset(pos as isize)) = processor.cpu_usage();
             }
             *length = processors.len() as c_uint - 1;
         }
@@ -262,7 +262,7 @@ pub extern "C" fn sysinfo_get_processors_usage(
     Box::into_raw(system);
 }
 
-/// Equivalent of [`System::get_processes()`][crate::System#method.get_processes]. Returns an
+/// Equivalent of [`System::get_processes()`][crate::System#method.processes]. Returns an
 /// array ended by a null pointer. Must be freed.
 ///
 /// # /!\ WARNING /!\
@@ -278,7 +278,7 @@ pub extern "C" fn sysinfo_get_processes(
     if let Some(fn_pointer) = fn_pointer {
         let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
         let len = {
-            let entries = system.get_processes();
+            let entries = system.processes();
             for (pid, process) in entries {
                 if !fn_pointer(*pid, process as *const Process as CProcess, data) {
                     break;
@@ -293,7 +293,7 @@ pub extern "C" fn sysinfo_get_processes(
     }
 }
 
-/// Equivalent of [`System::get_process()`][crate::System#method.get_process].
+/// Equivalent of [`System::get_process()`][crate::System#method.process].
 ///
 /// # /!\ WARNING /!\
 ///
@@ -303,7 +303,7 @@ pub extern "C" fn sysinfo_get_processes(
 pub extern "C" fn sysinfo_get_process_by_pid(system: CSystem, pid: pid_t) -> CProcess {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = if let Some(process) = system.get_process(pid) {
+    let ret = if let Some(process) = system.process(pid) {
         process as *const Process as CProcess
     } else {
         std::ptr::null()

@@ -13,12 +13,12 @@ fn test_processor() {
 
     if sysinfo::System::IS_SUPPORTED {
         let s = sysinfo::System::new();
-        assert!(!s.get_processors().is_empty());
+        assert!(!s.processors().is_empty());
         let s = sysinfo::System::new_all();
-        assert!(!s.get_processors().is_empty());
+        assert!(!s.processors().is_empty());
 
-        assert!(s.get_processors()[0]
-            .get_brand()
+        assert!(s.processors()[0]
+            .brand()
             .chars()
             .find(|c| *c == '\0')
             .is_none())
@@ -31,7 +31,7 @@ fn test_physical_core_numbers() {
 
     if sysinfo::System::IS_SUPPORTED {
         let s = sysinfo::System::new();
-        let count = s.get_physical_core_count();
+        let count = s.physical_core_count();
         assert_ne!(count, None);
         assert!(count.unwrap() > 0);
     }

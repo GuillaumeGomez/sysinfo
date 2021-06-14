@@ -39,31 +39,31 @@
 //! system.refresh_all();
 //!
 //! // Now let's print every process' id and name:
-//! for (pid, proc_) in system.get_processes() {
+//! for (pid, proc_) in system.processes() {
 //!     println!("{}:{} => status: {:?}", pid, proc_.name(), proc_.status());
 //! }
 //!
 //! // Then let's print the temperature of the different components:
-//! for component in system.get_components() {
+//! for component in system.components() {
 //!     println!("{:?}", component);
 //! }
 //!
 //! // And then all disks' information:
-//! for disk in system.get_disks() {
+//! for disk in system.disks() {
 //!     println!("{:?}", disk);
 //! }
 //!
 //! // And finally the RAM and SWAP information:
-//! println!("total memory: {} KB", system.get_total_memory());
-//! println!("used memory : {} KB", system.get_used_memory());
-//! println!("total swap  : {} KB", system.get_total_swap());
-//! println!("used swap   : {} KB", system.get_used_swap());
+//! println!("total memory: {} KB", system.total_memory());
+//! println!("used memory : {} KB", system.used_memory());
+//! println!("total swap  : {} KB", system.total_swap());
+//! println!("used swap   : {} KB", system.used_swap());
 //!
 //! // Display system information:
-//! println!("System name:             {:?}", system.get_name());
-//! println!("System kernel version:   {:?}", system.get_kernel_version());
-//! println!("System OS version:       {:?}", system.get_os_version());
-//! println!("System host name:        {:?}", system.get_host_name());
+//! println!("System name:             {:?}", system.name());
+//! println!("System kernel version:   {:?}", system.kernel_version());
+//! println!("System OS version:       {:?}", system.os_version());
+//! println!("System host name:        {:?}", system.host_name());
 //! ```
 
 #![crate_name = "sysinfo"]
@@ -205,9 +205,7 @@ mod test {
             let mut s = System::new();
             s.refresh_all();
             assert_eq!(
-                s.get_processes()
-                    .iter()
-                    .all(|(_, proc_)| proc_.memory() == 0),
+                s.processes().iter().all(|(_, proc_)| proc_.memory() == 0),
                 false
             );
         }
@@ -221,7 +219,7 @@ mod test {
         s.refresh_all();
         // All CPU usage will start at zero until the second refresh
         assert_eq!(
-            s.get_processes()
+            s.processes()
                 .iter()
                 .all(|(_, proc_)| proc_.cpu_usage() == 0.0),
             true
@@ -231,10 +229,10 @@ mod test {
         std::thread::sleep(std::time::Duration::from_millis(100));
         s.refresh_all();
         assert_eq!(
-            s.get_processes()
+            s.processes()
                 .iter()
                 .all(|(_, proc_)| proc_.cpu_usage() >= 0.0
-                    && proc_.cpu_usage() <= (s.get_processors().len() as f32) * 100.0),
+                    && proc_.cpu_usage() <= (s.processors().len() as f32) * 100.0),
             true
         );
     }
@@ -242,37 +240,37 @@ mod test {
     #[test]
     fn check_users() {
         let mut s = System::new();
-        assert!(s.get_users().is_empty());
+        assert!(s.users().is_empty());
         s.refresh_users_list();
-        assert!(s.get_users().len() >= MIN_USERS);
+        assert!(s.users().len() >= MIN_USERS);
 
         let mut s = System::new();
-        assert!(s.get_users().is_empty());
+        assert!(s.users().is_empty());
         s.refresh_all();
-        assert!(s.get_users().is_empty());
+        assert!(s.users().is_empty());
 
         let s = System::new_all();
-        assert!(s.get_users().len() >= MIN_USERS);
+        assert!(s.users().len() >= MIN_USERS);
     }
 
     #[test]
     fn check_uid_gid() {
         let mut s = System::new();
-        assert!(s.get_users().is_empty());
+        assert!(s.users().is_empty());
         s.refresh_users_list();
-        let users = s.get_users();
+        let users = s.users();
         assert!(users.len() >= MIN_USERS);
 
         for user in users {
-            match user.get_name() {
+            match user.name() {
                 "root" => {
-                    assert_eq!(*user.get_uid(), 0);
-                    assert_eq!(*user.get_gid(), 0);
+                    assert_eq!(*user.uid(), 0);
+                    assert_eq!(*user.gid(), 0);
                 }
                 _ => {
-                    assert!(*user.get_uid() > 0);
+                    assert!(*user.uid() > 0);
                     #[cfg(not(target_os = "windows"))]
-                    assert!(*user.get_gid() > 0);
+                    assert!(*user.gid() > 0);
                 }
             }
         }
@@ -283,20 +281,17 @@ mod test {
         // We don't want to test on unsupported systems.
         if System::IS_SUPPORTED {
             let s = System::new();
-            assert!(!s.get_name().expect("Failed to get system name").is_empty());
+            assert!(!s.name().expect("Failed to get system name").is_empty());
 
             assert!(!s
-                .get_kernel_version()
+                .kernel_version()
                 .expect("Failed to get kernel version")
                 .is_empty());
 
-            assert!(!s
-                .get_os_version()
-                .expect("Failed to get os version")
-                .is_empty());
+            assert!(!s.os_version().expect("Failed to get os version").is_empty());
 
             assert!(!s
-                .get_long_os_version()
+                .long_os_version()
                 .expect("Failed to get long OS version")
                 .is_empty());
         }
@@ -307,10 +302,7 @@ mod test {
         // We don't want to test on unsupported systems.
         if System::IS_SUPPORTED {
             let s = System::new();
-            assert!(!s
-                .get_host_name()
-                .expect("Failed to get host name")
-                .is_empty());
+            assert!(!s.host_name().expect("Failed to get host name").is_empty());
         }
     }
 
@@ -342,15 +334,15 @@ mod test {
         let s = System::new();
 
         if System::IS_SUPPORTED {
-            assert!(!s.get_processors().is_empty());
+            assert!(!s.processors().is_empty());
             let physical_cores_count = s
-                .get_physical_core_count()
+                .physical_core_count()
                 .expect("failed to get number of physical cores");
             assert!(physical_cores_count > 0);
-            assert!(physical_cores_count <= s.get_processors().len());
+            assert!(physical_cores_count <= s.processors().len());
         } else {
-            assert!(s.get_processors().is_empty());
-            assert_eq!(s.get_physical_core_count(), None);
+            assert!(s.processors().is_empty());
+            assert_eq!(s.physical_core_count(), None);
         }
     }
 }

@@ -90,30 +90,30 @@ impl Processor {
         self.processor_data = processor_data;
     }
 
-    pub(crate) fn get_data(&self) -> Arc<ProcessorData> {
+    pub(crate) fn data(&self) -> Arc<ProcessorData> {
         Arc::clone(&self.processor_data)
     }
 }
 
 impl ProcessorExt for Processor {
-    fn get_cpu_usage(&self) -> f32 {
+    fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    fn get_name(&self) -> &str {
+    fn name(&self) -> &str {
         &self.name
     }
 
     /// Returns the processor frequency in MHz.
-    fn get_frequency(&self) -> u64 {
+    fn frequency(&self) -> u64 {
         self.frequency
     }
 
-    fn get_vendor_id(&self) -> &str {
+    fn vendor_id(&self) -> &str {
         &self.vendor_id
     }
 
-    fn get_brand(&self) -> &str {
+    fn brand(&self) -> &str {
         &self.brand
     }
 }
@@ -185,7 +185,7 @@ pub fn init_processors(port: libc::mach_port_t) -> (Processor, Vec<Processor>) {
                     + *cpu_info
                         .offset((libc::CPU_STATE_MAX * i) as isize + libc::CPU_STATE_IDLE as isize);
                 p.set_cpu_usage(in_use as f32 / total as f32 * 100.);
-                pourcent += p.get_cpu_usage();
+                pourcent += p.cpu_usage();
                 processors.push(p);
             }
         }
@@ -267,18 +267,18 @@ mod test {
         let stdout = String::from_utf8(child.stdout).expect("Not valid UTF8");
 
         let sys = System::new();
-        let processors = sys.get_processors();
+        let processors = sys.processors();
         assert!(!processors.is_empty(), "no processor found");
         if let Some(line) = stdout.lines().find(|l| l.contains("machdep.cpu.vendor")) {
             let sysctl_value = line.split(":").skip(1).next().unwrap();
-            assert_eq!(processors[0].get_vendor_id(), sysctl_value.trim());
+            assert_eq!(processors[0].vendor_id(), sysctl_value.trim());
         }
         if let Some(line) = stdout
             .lines()
             .find(|l| l.contains("machdep.cpu.brand_string"))
         {
             let sysctl_value = line.split(":").skip(1).next().unwrap();
-            assert_eq!(processors[0].get_brand(), sysctl_value.trim());
+            assert_eq!(processors[0].brand(), sysctl_value.trim());
         }
     }
 }

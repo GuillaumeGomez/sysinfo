@@ -47,27 +47,27 @@ pub struct Disk {
 }
 
 impl DiskExt for Disk {
-    fn get_type(&self) -> DiskType {
+    fn type_(&self) -> DiskType {
         self.type_
     }
 
-    fn get_name(&self) -> &OsStr {
+    fn name(&self) -> &OsStr {
         &self.name
     }
 
-    fn get_file_system(&self) -> &[u8] {
+    fn file_system(&self) -> &[u8] {
         &self.file_system
     }
 
-    fn get_mount_point(&self) -> &Path {
+    fn mount_point(&self) -> &Path {
         Path::new(&self.s_mount_point)
     }
 
-    fn get_total_space(&self) -> u64 {
+    fn total_space(&self) -> u64 {
         self.total_space
     }
 
-    fn get_available_space(&self) -> u64 {
+    fn available_space(&self) -> u64 {
         self.available_space
     }
 

@@ -104,9 +104,9 @@ assert_eq!(r.", stringify!($name), "(), false);
 /// // We want everything except disks.
 /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
 ///
-/// assert_eq!(system.get_disks().len(), 0);
+/// assert_eq!(system.disks().len(), 0);
 /// # if System::IS_SUPPORTED {
-/// assert!(system.get_processes().len() > 0);
+/// assert!(system.processes().len() > 0);
 /// # }
 /// ```
 ///
@@ -205,7 +205,7 @@ impl RefreshKind {
 /// use sysinfo::{System, SystemExt, NetworksExt};
 ///
 /// let system = System::new_all();
-/// let networks_iter = system.get_networks().iter();
+/// let networks_iter = system.networks().iter();
 /// ```
 pub struct NetworksIter<'a> {
     inner: std::collections::hash_map::Iter<'a, String, NetworkData>,
@@ -236,14 +236,14 @@ impl<'a> IntoIterator for &'a Networks {
 
 /// Enum containing the different supported disks types.
 ///
-/// This type is returned by [`Disk::get_type`][crate::Disk#method.get_type].
+/// This type is returned by [`Disk::get_type`][crate::Disk#method.type].
 ///
 /// ```no_run
 /// use sysinfo::{System, SystemExt, DiskExt};
 ///
 /// let system = System::new_all();
-/// for disk in system.get_disks() {
-///     println!("{:?}: {:?}", disk.get_name(), disk.get_type());
+/// for disk in system.disks() {
+///     println!("{:?}: {:?}", disk.name(), disk.type_());
 /// }
 /// ```
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -340,7 +340,7 @@ pub enum Signal {
 /// use sysinfo::{System, SystemExt};
 ///
 /// let s = System::new_all();
-/// let load_avg = s.get_load_average();
+/// let load_avg = s.load_average();
 /// println!(
 ///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
 ///     load_avg.one,
@@ -411,7 +411,7 @@ xid!(
 /// use sysinfo::{System, SystemExt};
 ///
 /// let s = System::new_all();
-/// println!("users: {:?}", s.get_users());
+/// println!("users: {:?}", s.users());
 /// ```
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct User {
@@ -422,19 +422,19 @@ pub struct User {
 }
 
 impl UserExt for User {
-    fn get_uid(&self) -> Uid {
+    fn uid(&self) -> Uid {
         self.uid
     }
 
-    fn get_gid(&self) -> Gid {
+    fn gid(&self) -> Gid {
         self.gid
     }
 
-    fn get_name(&self) -> &str {
+    fn name(&self) -> &str {
         &self.name
     }
 
-    fn get_groups(&self) -> &[String] {
+    fn groups(&self) -> &[String] {
         &self.groups
     }
 }
@@ -447,7 +447,7 @@ impl UserExt for User {
 /// use sysinfo::{ProcessExt, System, SystemExt};
 ///
 /// let s = System::new_all();
-/// for (pid, process) in s.get_processes() {
+/// for (pid, process) in s.processes() {
 ///     let disk_usage = process.disk_usage();
 ///     println!("[{}] read bytes   : new/total => {}/{} B",
 ///         pid,

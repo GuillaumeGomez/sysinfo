@@ -49,87 +49,87 @@ impl SystemExt for System {
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    fn get_processes(&self) -> &HashMap<Pid, Process> {
+    fn processes(&self) -> &HashMap<Pid, Process> {
         &self.processes_list
     }
 
-    fn get_process(&self, _pid: Pid) -> Option<&Process> {
+    fn process(&self, _pid: Pid) -> Option<&Process> {
         None
     }
 
-    fn get_networks(&self) -> &Networks {
+    fn networks(&self) -> &Networks {
         &self.networks
     }
 
-    fn get_networks_mut(&mut self) -> &mut Networks {
+    fn networks_mut(&mut self) -> &mut Networks {
         &mut self.networks
     }
 
-    fn get_global_processor_info(&self) -> &Processor {
+    fn global_processor_info(&self) -> &Processor {
         &self.global_processor
     }
 
-    fn get_processors(&self) -> &[Processor] {
+    fn processors(&self) -> &[Processor] {
         &[]
     }
 
-    fn get_physical_core_count(&self) -> Option<usize> {
+    fn physical_core_count(&self) -> Option<usize> {
         None
     }
 
-    fn get_total_memory(&self) -> u64 {
+    fn total_memory(&self) -> u64 {
         0
     }
 
-    fn get_free_memory(&self) -> u64 {
+    fn free_memory(&self) -> u64 {
         0
     }
 
-    fn get_available_memory(&self) -> u64 {
+    fn available_memory(&self) -> u64 {
         0
     }
 
-    fn get_used_memory(&self) -> u64 {
+    fn used_memory(&self) -> u64 {
         0
     }
 
-    fn get_total_swap(&self) -> u64 {
+    fn total_swap(&self) -> u64 {
         0
     }
 
-    fn get_free_swap(&self) -> u64 {
+    fn free_swap(&self) -> u64 {
         0
     }
 
-    fn get_used_swap(&self) -> u64 {
+    fn used_swap(&self) -> u64 {
         0
     }
 
-    fn get_components(&self) -> &[Component] {
+    fn components(&self) -> &[Component] {
         &[]
     }
 
-    fn get_components_mut(&mut self) -> &mut [Component] {
+    fn components_mut(&mut self) -> &mut [Component] {
         &mut []
     }
 
-    fn get_disks(&self) -> &[Disk] {
+    fn disks(&self) -> &[Disk] {
         &[]
     }
 
-    fn get_disks_mut(&mut self) -> &mut [Disk] {
+    fn disks_mut(&mut self) -> &mut [Disk] {
         &mut []
     }
 
-    fn get_uptime(&self) -> u64 {
+    fn uptime(&self) -> u64 {
         0
     }
 
-    fn get_boot_time(&self) -> u64 {
+    fn boot_time(&self) -> u64 {
         0
     }
 
-    fn get_load_average(&self) -> LoadAvg {
+    fn load_average(&self) -> LoadAvg {
         LoadAvg {
             one: 0.,
             five: 0.,
@@ -137,27 +137,27 @@ impl SystemExt for System {
         }
     }
 
-    fn get_users(&self) -> &[User] {
+    fn users(&self) -> &[User] {
         &[]
     }
 
-    fn get_name(&self) -> Option<String> {
+    fn name(&self) -> Option<String> {
         None
     }
 
-    fn get_long_os_version(&self) -> Option<String> {
+    fn long_os_version(&self) -> Option<String> {
         None
     }
 
-    fn get_kernel_version(&self) -> Option<String> {
+    fn kernel_version(&self) -> Option<String> {
         None
     }
 
-    fn get_os_version(&self) -> Option<String> {
+    fn os_version(&self) -> Option<String> {
         None
     }
 
-    fn get_host_name(&self) -> Option<String> {
+    fn host_name(&self) -> Option<String> {
         None
     }
 }

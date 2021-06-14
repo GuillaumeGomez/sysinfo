@@ -63,42 +63,42 @@ let mut sys = System::new_all();
 
 // We display the disks:
 println!("=> disk list:");
-for disk in sys.get_disks() {
+for disk in sys.disks() {
     println!("{:?}", disk);
 }
 
 // Network data:
-for (interface_name, data) in sys.get_networks() {
-    println!("{}: {}/{} B", interface_name, data.get_received(), data.get_transmitted());
+for (interface_name, data) in sys.networks() {
+    println!("{}: {}/{} B", interface_name, data.received(), data.transmitted());
 }
 
 // Components temperature:
-for component in sys.get_components() {
+for component in sys.components() {
     println!("{:?}", component);
 }
 
 // Memory information:
-println!("total memory: {} KB", sys.get_total_memory());
-println!("used memory : {} KB", sys.get_used_memory());
-println!("total swap  : {} KB", sys.get_total_swap());
-println!("used swap   : {} KB", sys.get_used_swap());
+println!("total memory: {} KB", sys.total_memory());
+println!("used memory : {} KB", sys.used_memory());
+println!("total swap  : {} KB", sys.total_swap());
+println!("used swap   : {} KB", sys.used_swap());
 
 // Number of processors
-println!("NB processors: {}", sys.get_processors().len());
+println!("NB processors: {}", sys.processors().len());
 
 // To refresh all system information:
 sys.refresh_all();
 
 // We show the processes and some of their information:
-for (pid, process) in sys.get_processes() {
+for (pid, process) in sys.processes() {
     println!("[{}] {} {:?}", pid, process.name(), process.disk_usage());
 }
 
 // Display system information:
-println!("System name:             {:?}", sys.get_name());
-println!("System kernel version:   {:?}", sys.get_kernel_version());
-println!("System OS version:       {:?}", sys.get_os_version());
-println!("System host name:        {:?}", sys.get_host_name());
+println!("System name:             {:?}", sys.name());
+println!("System kernel version:   {:?}", sys.kernel_version());
+println!("System OS version:       {:?}", sys.os_version());
+println!("System host name:        {:?}", sys.host_name());
 ```
 
 By default, `sysinfo` uses multiple threads. However, this can increase the memory usage on some platforms (macOS for example).

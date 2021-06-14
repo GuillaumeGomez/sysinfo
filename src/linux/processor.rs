@@ -199,24 +199,24 @@ impl Processor {
 }
 
 impl ProcessorExt for Processor {
-    fn get_cpu_usage(&self) -> f32 {
+    fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    fn get_name(&self) -> &str {
+    fn name(&self) -> &str {
         &self.name
     }
 
     /// Returns the CPU frequency in MHz.
-    fn get_frequency(&self) -> u64 {
+    fn frequency(&self) -> u64 {
         self.frequency
     }
 
-    fn get_vendor_id(&self) -> &str {
+    fn vendor_id(&self) -> &str {
         &self.vendor_id
     }
 
-    fn get_brand(&self) -> &str {
+    fn brand(&self) -> &str {
         &self.brand
     }
 }

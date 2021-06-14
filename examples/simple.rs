@@ -169,44 +169,28 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             writeln!(
                 &mut io::stdout(),
                 "number of physical cores: {}",
-                sys.get_physical_core_count()
+                sys.physical_core_count()
                     .map(|c| c.to_string())
                     .unwrap_or_else(|| "Unknown".to_owned()),
             );
             writeln!(
                 &mut io::stdout(),
                 "total process usage: {}%",
-                sys.get_global_processor_info().get_cpu_usage()
+                sys.global_processor_info().cpu_usage()
             );
-            for proc_ in sys.get_processors() {
+            for proc_ in sys.processors() {
                 writeln!(&mut io::stdout(), "{:?}", proc_);
             }
         }
         "memory" => {
-            writeln!(
-                &mut io::stdout(),
-                "total memory: {} KB",
-                sys.get_total_memory()
-            );
-            writeln!(
-                &mut io::stdout(),
-                "used memory : {} KB",
-                sys.get_used_memory()
-            );
-            writeln!(
-                &mut io::stdout(),
-                "total swap  : {} KB",
-                sys.get_total_swap()
-            );
-            writeln!(
-                &mut io::stdout(),
-                "used swap   : {} KB",
-                sys.get_used_swap()
-            );
+            writeln!(&mut io::stdout(), "total memory: {} KB", sys.total_memory());
+            writeln!(&mut io::stdout(), "used memory : {} KB", sys.used_memory());
+            writeln!(&mut io::stdout(), "total swap  : {} KB", sys.total_swap());
+            writeln!(&mut io::stdout(), "used swap   : {} KB", sys.used_swap());
         }
         "quit" | "exit" => return true,
         "all" => {
-            for (pid, proc_) in sys.get_processes() {
+            for (pid, proc_) in sys.processes() {
                 writeln!(
                     &mut io::stdout(),
                     "{}:{} status={:?}",
@@ -217,28 +201,20 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "frequency" => {
-            writeln!(
-                &mut io::stdout(),
-                "{} MHz",
-                sys.get_processors()[0].get_frequency()
-            );
+            writeln!(&mut io::stdout(), "{} MHz", sys.processors()[0].frequency());
         }
         "vendor_id" => {
             writeln!(
                 &mut io::stdout(),
                 "vendor ID: {}",
-                sys.get_processors()[0].get_vendor_id()
+                sys.processors()[0].vendor_id()
             );
         }
         "brand" => {
-            writeln!(
-                &mut io::stdout(),
-                "brand: {}",
-                sys.get_processors()[0].get_brand()
-            );
+            writeln!(&mut io::stdout(), "brand: {}", sys.processors()[0].brand());
         }
         "load_avg" => {
-            let load_avg = sys.get_load_average();
+            let load_avg = sys.load_average();
             writeln!(&mut io::stdout(), "one minute     : {}%", load_avg.one);
             writeln!(&mut io::stdout(), "five minutes   : {}%", load_avg.five);
             writeln!(&mut io::stdout(), "fifteen minutes: {}%", load_avg.fifteen);
@@ -253,33 +229,33 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 );
                 writeln!(&mut io::stdout(), "example: show 1254");
             } else if let Ok(pid) = Pid::from_str(tmp[1]) {
-                match sys.get_process(pid) {
+                match sys.process(pid) {
                     Some(p) => writeln!(&mut io::stdout(), "{:?}", *p),
                     None => writeln!(&mut io::stdout(), "pid \"{:?}\" not found", pid),
                 };
             } else {
                 let proc_name = tmp[1];
-                for proc_ in sys.get_process_by_name(proc_name) {
+                for proc_ in sys.process_by_name(proc_name) {
                     writeln!(&mut io::stdout(), "==== {} ====", proc_.name());
                     writeln!(&mut io::stdout(), "{:?}", proc_);
                 }
             }
         }
         "temperature" => {
-            for component in sys.get_components() {
+            for component in sys.components() {
                 writeln!(&mut io::stdout(), "{:?}", component);
             }
         }
         "network" => {
-            for (interface_name, data) in sys.get_networks().iter() {
+            for (interface_name, data) in sys.networks().iter() {
                 writeln!(
                     &mut io::stdout(),
                     "{}:\n  input data  (new / total): {} / {} B\n  output data (new / total): {} / {} B",
                     interface_name,
-                    data.get_received(),
-                    data.get_total_received(),
-                    data.get_transmitted(),
-                    data.get_total_transmitted(),
+                    data.received(),
+                    data.total_received(),
+                    data.transmitted(),
+                    data.total_transmitted(),
                 );
             }
         }
@@ -309,7 +285,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                          signals command"
                     );
                 } else {
-                    match sys.get_process(pid) {
+                    match sys.process(pid) {
                         Some(p) => {
                             writeln!(
                                 &mut io::stdout(),
@@ -325,21 +301,21 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "disks" => {
-            for disk in sys.get_disks() {
+            for disk in sys.disks() {
                 writeln!(&mut io::stdout(), "{:?}", disk);
             }
         }
         "users" => {
-            for user in sys.get_users() {
-                writeln!(&mut io::stdout(), "{:?}", user.get_name());
+            for user in sys.users() {
+                writeln!(&mut io::stdout(), "{:?}", user.name());
             }
         }
         "boot_time" => {
-            writeln!(&mut io::stdout(), "{} seconds", sys.get_boot_time());
+            writeln!(&mut io::stdout(), "{} seconds", sys.boot_time());
         }
         "uptime" => {
-            let up = sys.get_uptime();
-            let mut uptime = sys.get_uptime();
+            let up = sys.uptime();
+            let mut uptime = sys.uptime();
             let days = uptime / 86400;
             uptime -= days * 86400;
             let hours = uptime / 3600;
@@ -402,13 +378,11 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 System kernel version: {}\n\
                 System OS version:     {}\n\
                 System host name:      {}",
-                sys.get_name().unwrap_or_else(|| "<unknown>".to_owned()),
-                sys.get_kernel_version()
+                sys.name().unwrap_or_else(|| "<unknown>".to_owned()),
+                sys.kernel_version()
                     .unwrap_or_else(|| "<unknown>".to_owned()),
-                sys.get_os_version()
-                    .unwrap_or_else(|| "<unknown>".to_owned()),
-                sys.get_host_name()
-                    .unwrap_or_else(|| "<unknown>".to_owned()),
+                sys.os_version().unwrap_or_else(|| "<unknown>".to_owned()),
+                sys.host_name().unwrap_or_else(|| "<unknown>".to_owned()),
             );
         }
         e => {

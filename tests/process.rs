@@ -10,15 +10,15 @@ use sysinfo::SystemExt;
 #[test]
 fn test_process() {
     let mut s = sysinfo::System::new();
-    assert_eq!(s.get_processes().len(), 0);
+    assert_eq!(s.processes().len(), 0);
     s.refresh_processes();
     if !sysinfo::System::IS_SUPPORTED {
         return;
     }
-    assert!(!s.get_processes().is_empty());
+    assert!(!s.processes().is_empty());
     #[cfg(not(windows))]
     assert!(s
-        .get_processes()
+        .processes()
         .values()
         .any(|p| !p.exe().to_str().unwrap_or("").is_empty()));
 }
@@ -26,14 +26,14 @@ fn test_process() {
 #[test]
 fn test_process_refresh() {
     let mut s = sysinfo::System::new();
-    assert_eq!(s.get_processes().len(), 0);
+    assert_eq!(s.processes().len(), 0);
 
     if !sysinfo::System::IS_SUPPORTED {
         return;
     }
     s.refresh_process(sysinfo::get_current_pid().expect("failed to get current pid"));
     assert!(s
-        .get_process(sysinfo::get_current_pid().expect("failed to get current pid"))
+        .process(sysinfo::get_current_pid().expect("failed to get current pid"))
         .is_some(),);
 }
 
@@ -46,10 +46,10 @@ fn test_get_cmd_line() {
         .spawn()
         .unwrap();
     let mut s = sysinfo::System::new();
-    assert!(s.get_processes().is_empty());
+    assert!(s.processes().is_empty());
     s.refresh_processes();
-    assert!(!s.get_processes().is_empty());
-    if let Some(process) = s.get_process(p.id() as sysinfo::Pid) {
+    assert!(!s.processes().is_empty());
+    if let Some(process) = s.process(p.id() as sysinfo::Pid) {
         assert_eq!(process.cmd(), &["timeout", "/t", "3"]);
     } else {
         // We're very likely on a "linux-like" shell so let's try some unix command...
@@ -75,10 +75,10 @@ fn unix_like_cmd() {
     // To ensure that the system data are filled correctly...
     thread::sleep(time::Duration::from_millis(250));
     let mut s = sysinfo::System::new();
-    assert!(s.get_processes().is_empty());
+    assert!(s.processes().is_empty());
     s.refresh_processes();
-    assert!(!s.get_processes().is_empty());
-    let process = s.get_process(p.id() as sysinfo::Pid).unwrap();
+    assert!(!s.processes().is_empty());
+    let process = s.process(p.id() as sysinfo::Pid).unwrap();
     if process.cmd() != &["sleep", "3"] {
         panic!("cmd not equivalent to`[sleep, 3]`: {:?}", process);
     }
@@ -102,11 +102,11 @@ fn test_process_disk_usage() {
     }
     fs::remove_file("test.txt").ok();
     let mut system = sysinfo::System::new();
-    assert!(system.get_processes().is_empty());
+    assert!(system.processes().is_empty());
     system.refresh_processes();
-    assert!(!system.get_processes().is_empty());
+    assert!(!system.processes().is_empty());
     let p = system
-        .get_process(get_current_pid().expect("Failed retrieving current pid."))
+        .process(get_current_pid().expect("Failed retrieving current pid."))
         .expect("failed to get process");
 
     assert!(
@@ -131,7 +131,7 @@ fn cpu_usage_is_not_nan() {
     }
 
     let first_pids = system
-        .get_processes()
+        .processes()
         .iter()
         .take(10)
         .map(|(&pid, _)| pid)
@@ -140,7 +140,7 @@ fn cpu_usage_is_not_nan() {
 
     first_pids.into_iter().for_each(|pid| {
         system.refresh_process(pid);
-        if let Some(p) = system.get_process(pid) {
+        if let Some(p) = system.process(pid) {
             assert!(!p.cpu_usage().is_nan());
             checked += 1;
         }
