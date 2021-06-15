@@ -334,7 +334,7 @@ pub enum Signal {
 
 /// A struct representing system load average value.
 ///
-/// It is returned by [`SystemExt::get_load_average`][crate::SystemExt::get_load_average].
+/// It is returned by [`SystemExt::load_average`][crate::SystemExt::load_average].
 ///
 /// ```no_run
 /// use sysinfo::{System, SystemExt};
@@ -405,7 +405,7 @@ xid!(
 
 /// Type containing user information.
 ///
-/// It is returned by [`SystemExt::get_users`][crate::SystemExt::get_users].
+/// It is returned by [`SystemExt::users`][crate::SystemExt::users].
 ///
 /// ```no_run
 /// use sysinfo::{System, SystemExt};
