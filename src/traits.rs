@@ -1307,7 +1307,7 @@ pub trait ComponentExt: Debug {
 
 /// Getting information for a user.
 ///
-/// It is returned from [`SystemExt::get_users`].
+/// It is returned from [`SystemExt::users`].
 ///
 /// ```no_run
 /// use sysinfo::{System, SystemExt, UserExt};
