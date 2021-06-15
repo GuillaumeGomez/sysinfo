@@ -124,6 +124,9 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           override: true
+      - name: Check docs
+        run: cargo doc
+        if: matrix.toolchain == 'nightly'
       - name: Execute tests (not mac)
         run: cargo test
         if: matrix.os != 'macos-latest'
