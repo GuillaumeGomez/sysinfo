@@ -261,17 +261,24 @@ mod test {
         let users = s.users();
         assert!(users.len() >= MIN_USERS);
 
-        for user in users {
-            match user.name() {
-                "root" => {
-                    assert_eq!(*user.uid(), 0);
-                    assert_eq!(*user.gid(), 0);
-                }
-                _ => {
-                    assert!(*user.uid() > 0);
-                    #[cfg(not(target_os = "windows"))]
-                    assert!(*user.gid() > 0);
-                }
+        println!("{:?}", users);
+
+        if System::IS_SUPPORTED {
+            #[cfg(not(target_os = "windows"))]
+            {
+                let user = users
+                    .iter()
+                    .find(|u| u.name() == "root")
+                    .expect("no root user");
+                assert_eq!(*user.uid(), 0);
+                assert_eq!(*user.gid(), 0);
+                let user = users.iter().find(|u| *u.gid() > 0).expect("no user found");
+                assert!(*user.uid() > 0);
+                assert!(*user.gid() > 0);
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                assert!(users.iter().filter(|u| *u.uid() > 0).count() > 0);
             }
         }
     }
