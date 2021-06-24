@@ -23,6 +23,7 @@ pub struct Disk {
     pub(crate) mount_point: PathBuf,
     pub(crate) total_space: u64,
     pub(crate) available_space: u64,
+    pub(crate) is_removable: bool,
 }
 
 impl DiskExt for Disk {
@@ -48,6 +49,10 @@ impl DiskExt for Disk {
 
     fn available_space(&self) -> u64 {
         self.available_space
+    }
+
+    fn is_removable(&self) -> bool {
+        self.is_removable
     }
 
     fn refresh(&mut self) -> bool {

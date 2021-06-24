@@ -100,6 +100,18 @@ pub trait DiskExt: Debug {
     /// ```
     fn available_space(&self) -> u64;
 
+    /// Returns `true` if the disk is removable.
+    ///
+    /// ```no_run
+    /// use sysinfo::{DiskExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// for disk in s.disks() {
+    ///     println!("{}", disk.is_removable());
+    /// }
+    /// ```
+    fn is_removable(&self) -> bool;
+
     /// Updates the disk' information.
     ///
     /// ```no_run

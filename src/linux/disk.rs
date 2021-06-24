@@ -29,6 +29,7 @@ pub struct Disk {
     mount_point: PathBuf,
     total_space: u64,
     available_space: u64,
+    is_removable: bool,
 }
 
 impl DiskExt for Disk {
@@ -54,6 +55,10 @@ impl DiskExt for Disk {
 
     fn available_space(&self) -> u64 {
         self.available_space
+    }
+
+    fn is_removable(&self) -> bool {
+        self.is_removable
     }
 
     fn refresh(&mut self) -> bool {
@@ -93,6 +98,7 @@ fn new_disk(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Option<Disk
         mount_point: mount_point.to_owned(),
         total_space: cast!(total),
         available_space: cast!(available),
+        is_removable: false,
     })
 }
 
