@@ -36,6 +36,10 @@ impl DiskExt for Disk {
         0
     }
 
+    fn is_removable(&self) -> bool {
+        false
+    }
+
     fn refresh(&mut self) -> bool {
         true
     }

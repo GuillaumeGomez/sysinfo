@@ -18,6 +18,7 @@ pub fn new_disk(
     file_system: &[u8],
     type_: DiskType,
     total_space: u64,
+    is_removable: bool,
 ) -> Option<Disk> {
     if total_space == 0 {
         return None;
@@ -30,6 +31,7 @@ pub fn new_disk(
         s_mount_point: String::from_utf16_lossy(&mount_point[..mount_point.len() - 1]),
         total_space,
         available_space: 0,
+        is_removable,
     };
     d.refresh();
     Some(d)
@@ -44,6 +46,7 @@ pub struct Disk {
     s_mount_point: String,
     total_space: u64,
     available_space: u64,
+    is_removable: bool,
 }
 
 impl DiskExt for Disk {
@@ -69,6 +72,10 @@ impl DiskExt for Disk {
 
     fn available_space(&self) -> u64 {
         self.available_space
+    }
+
+    fn is_removable(&self) -> bool {
+        self.is_removable
     }
 
     fn refresh(&mut self) -> bool {

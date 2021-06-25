@@ -165,12 +165,9 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                     name,
                     &mount_point,
                     &file_system,
-                    if is_removable {
-                        DiskType::Removable
-                    } else {
-                        DiskType::Unknown(-1)
-                    },
+                    DiskType::Unknown(-1),
                     0,
+                    is_removable,
                 );
             }
             let disk_size = get_drive_size(handle);
@@ -203,12 +200,9 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                     name,
                     &mount_point,
                     &file_system,
-                    if is_removable {
-                        DiskType::Removable
-                    } else {
-                        DiskType::Unknown(-1)
-                    },
+                    DiskType::Unknown(-1),
                     disk_size,
+                    is_removable,
                 );
             }
             let is_ssd = dtd.TrimEnabled != 0;
@@ -217,12 +211,9 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 name,
                 &mount_point,
                 &file_system,
-                match (is_removable, is_ssd) {
-                    (true, _) => DiskType::Removable,
-                    (false, true) => DiskType::SSD,
-                    (false, false) => DiskType::HDD,
-                },
+                if is_ssd { DiskType::SSD } else { DiskType::HDD },
                 disk_size,
+                is_removable,
             )
         })
         .collect::<Vec<_>>()

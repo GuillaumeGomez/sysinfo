@@ -252,8 +252,6 @@ pub enum DiskType {
     HDD,
     /// SSD type.
     SSD,
-    /// Removable disk.
-    Removable,
     /// Unknown type.
     Unknown(isize),
 }

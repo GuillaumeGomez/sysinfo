@@ -81,20 +81,16 @@ pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
                 let type_ = if let Some(model) = get_str_value(dict, b"DADeviceModel\0") {
                     if model.contains("SSD") {
                         DiskType::SSD
-                    } else if removable || ejectable {
-                        DiskType::Removable
                     } else {
                         // We just assume by default that this is a HDD
                         DiskType::HDD
                     }
-                } else if removable || ejectable {
-                    DiskType::Removable
                 } else {
                     DiskType::Unknown(-1)
                 };
 
                 CFRelease(dict as _);
-                new_disk(name, mount_point, type_)
+                new_disk(name, mount_point, type_, removable || ejectable)
             }
         })
         .collect::<Vec<_>>()
@@ -136,7 +132,12 @@ unsafe fn get_bool_value(dict: CFDictionaryRef, key: &[u8]) -> Option<bool> {
     get_dict_value(dict, key, |v| Some(v as CFBooleanRef == kCFBooleanTrue))
 }
 
-fn new_disk(name: OsString, mount_point: PathBuf, type_: DiskType) -> Option<Disk> {
+fn new_disk(
+    name: OsString,
+    mount_point: PathBuf,
+    type_: DiskType,
+    is_removable: bool,
+) -> Option<Disk> {
     let mount_point_cpath = to_cpath(&mount_point);
     let mut total_space = 0;
     let mut available_space = 0;
@@ -166,5 +167,6 @@ fn new_disk(name: OsString, mount_point: PathBuf, type_: DiskType) -> Option<Dis
         mount_point,
         total_space,
         available_space,
+        is_removable,
     })
 }
