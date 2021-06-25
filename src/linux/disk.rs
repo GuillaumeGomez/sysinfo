@@ -24,7 +24,7 @@ macro_rules! cast {
 #[derive(PartialEq)]
 pub struct Disk {
     type_: DiskType,
-    name: OsString,
+    device_name: OsString,
     file_system: Vec<u8>,
     mount_point: PathBuf,
     total_space: u64,
@@ -38,7 +38,7 @@ impl DiskExt for Disk {
     }
 
     fn name(&self) -> &OsStr {
-        &self.name
+        &self.device_name
     }
 
     fn file_system(&self) -> &[u8] {
@@ -76,9 +76,14 @@ impl DiskExt for Disk {
     }
 }
 
-fn new_disk(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Option<Disk> {
+fn new_disk(
+    device_name: &OsStr,
+    mount_point: &Path,
+    file_system: &[u8],
+    removable_entries: &[PathBuf],
+) -> Option<Disk> {
     let mount_point_cpath = utils::to_cpath(mount_point);
-    let type_ = find_type_for_name(name);
+    let type_ = find_type_for_device_name(device_name);
     let mut total = 0;
     let mut available = 0;
     unsafe {
@@ -91,21 +96,25 @@ fn new_disk(name: &OsStr, mount_point: &Path, file_system: &[u8]) -> Option<Disk
     if total == 0 {
         return None;
     }
+    let mount_point = mount_point.to_owned();
+    let is_removable = removable_entries
+        .iter()
+        .any(|e| e.as_os_str() == device_name);
     Some(Disk {
         type_,
-        name: name.to_owned(),
+        device_name: device_name.to_owned(),
         file_system: file_system.to_owned(),
-        mount_point: mount_point.to_owned(),
+        mount_point,
         total_space: cast!(total),
         available_space: cast!(available),
-        is_removable: false,
+        is_removable,
     })
 }
 
 #[allow(clippy::manual_range_contains)]
-fn find_type_for_name(name: &OsStr) -> DiskType {
+fn find_type_for_device_name(device_name: &OsStr) -> DiskType {
     // The format of devices are as follows:
-    //  - name_path is symbolic link in the case of /dev/mapper/
+    //  - device_name is symbolic link in the case of /dev/mapper/
     //     and /dev/root, and the target is corresponding device under
     //     /sys/block/
     //  - In the case of /dev/sd, the format is /dev/sd[a-z][1-9],
@@ -114,29 +123,29 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
     //     corresponding to /sys/block/nvme[0-9]n[0-9]
     //  - In the case of /dev/mmcblk, the format is /dev/mmcblk[0-9]p[0-9],
     //     corresponding to /sys/block/mmcblk[0-9]
-    let name_path = name.to_str().unwrap_or_default();
-    let real_path = fs::canonicalize(name_path).unwrap_or_else(|_| PathBuf::from(name_path));
+    let device_name_path = device_name.to_str().unwrap_or_default();
+    let real_path = fs::canonicalize(device_name).unwrap_or_else(|_| PathBuf::from(device_name));
     let mut real_path = real_path.to_str().unwrap_or_default();
-    if name_path.starts_with("/dev/mapper/") {
+    if device_name_path.starts_with("/dev/mapper/") {
         // Recursively solve, for example /dev/dm-0
-        if real_path != name_path {
-            return find_type_for_name(OsStr::new(&real_path));
+        if real_path != device_name_path {
+            return find_type_for_device_name(OsStr::new(&real_path));
         }
-    } else if name_path.starts_with("/dev/sd") || name_path.starts_with("/dev/vd") {
+    } else if device_name_path.starts_with("/dev/sd") || device_name_path.starts_with("/dev/vd") {
         // Turn "sda1" into "sda" or "vda1" into "vda"
         real_path = real_path.trim_start_matches("/dev/");
         real_path = real_path.trim_end_matches(|c| c >= '0' && c <= '9');
-    } else if name_path.starts_with("/dev/nvme") {
+    } else if device_name_path.starts_with("/dev/nvme") {
         // Turn "nvme0n1p1" into "nvme0n1"
         real_path = real_path.trim_start_matches("/dev/");
         real_path = real_path.trim_end_matches(|c| c >= '0' && c <= '9');
         real_path = real_path.trim_end_matches(|c| c == 'p');
-    } else if name_path.starts_with("/dev/root") {
+    } else if device_name_path.starts_with("/dev/root") {
         // Recursively solve, for example /dev/mmcblk0p1
-        if real_path != name_path {
-            return find_type_for_name(OsStr::new(&real_path));
+        if real_path != device_name_path {
+            return find_type_for_device_name(OsStr::new(&real_path));
         }
-    } else if name_path.starts_with("/dev/mmcblk") {
+    } else if device_name_path.starts_with("/dev/mmcblk") {
         // Turn "mmcblk0p1" into "mmcblk0"
         real_path = real_path.trim_start_matches("/dev/");
         real_path = real_path.trim_end_matches(|c| c >= '0' && c <= '9');
@@ -172,6 +181,25 @@ fn find_type_for_name(name: &OsStr) -> DiskType {
 }
 
 fn get_all_disks_inner(content: &str) -> Vec<Disk> {
+    // The goal of this array is to list all removable devices (the ones whose name starts with
+    // "usb-"). Then we check if
+    let removable_entries = match fs::read_dir("/dev/disk/by-id/") {
+        Ok(r) => r
+            .filter_map(|res| Some(res.ok()?.path()))
+            .filter_map(|e| {
+                if e.file_name()
+                    .and_then(|x| Some(x.to_str()?.starts_with("usb-")))
+                    .unwrap_or_default()
+                {
+                    e.canonicalize().ok()
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<PathBuf>>(),
+        _ => Vec::new(),
+    };
+
     content
         .lines()
         .map(|line| {
@@ -214,7 +242,12 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
                fs_spec.starts_with("sunrpc"))
         })
         .filter_map(|(fs_spec, fs_file, fs_vfstype)| {
-            new_disk(fs_spec.as_ref(), Path::new(&fs_file), fs_vfstype.as_bytes())
+            new_disk(
+                fs_spec.as_ref(),
+                Path::new(&fs_file),
+                fs_vfstype.as_bytes(),
+                &removable_entries,
+            )
         })
         .collect()
 }
