@@ -201,7 +201,11 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "frequency" => {
-            writeln!(&mut io::stdout(), "{} MHz", sys.processors()[0].frequency());
+            writeln!(
+                &mut io::stdout(),
+                "{} MHz",
+                sys.global_processor_info().frequency()
+            );
         }
         "vendor_id" => {
             writeln!(
