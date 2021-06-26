@@ -224,6 +224,14 @@ impl System {
                     );
                     self.processors[i].frequency = get_cpu_frequency(i);
                 }
+
+                self.global_processor.frequency = self
+                    .processors
+                    .iter()
+                    .map(|p| p.frequency)
+                    .max()
+                    .unwrap_or(0);
+
                 i += 1;
                 count += 1;
                 if let Some(limit) = limit {
