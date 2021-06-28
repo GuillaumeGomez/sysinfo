@@ -263,10 +263,8 @@ pub fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
 
 pub fn get_physical_core_count() -> Option<usize> {
     let mut s = String::new();
-    if File::open("/proc/cpuinfo")
-        .and_then(|mut f| f.read_to_string(&mut s))
-        .is_err()
-    {
+    if let Err(_e) = File::open("/proc/cpuinfo").and_then(|mut f| f.read_to_string(&mut s)) {
+        sysinfo_debug!("Cannot read `/proc/cpuinfo` file: {:?}", _e);
         return None;
     }
 
