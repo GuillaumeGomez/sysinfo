@@ -341,10 +341,11 @@ mod test {
 
         if System::IS_SUPPORTED {
             assert!(!s.processors().is_empty());
+            // In case we are running inside a VM, it's possible to not have a physical core, only
+            // logical ones, which is why we don't test `physical_cores_count > 0`.
             let physical_cores_count = s
                 .physical_core_count()
                 .expect("failed to get number of physical cores");
-            assert!(physical_cores_count > 0);
             assert!(physical_cores_count <= s.processors().len());
         } else {
             assert!(s.processors().is_empty());
