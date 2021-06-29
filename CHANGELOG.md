@@ -1,3 +1,15 @@
+# 0.19.0
+
+ * Renamed functions/methods to follow [Rust API guidelines on naming](https://rust-lang.github.io/api-guidelines/naming.html#getter-names-follow-rust-convention-c-getter).
+ * Linux: Set processes' executable path from command line if not found.
+ * Linux: Added extra information about `ProcessExt::name()`.
+ * macOS: Removed unneeded (re)import of CoreFoundation library at compile-time.
+ * Reworked `DiskType` enum: there is no more `Removable` variant, it's now set into the `Disk` struct. `DiskExt::is_removable` was added.
+ * Linux: Added support for removable disks.
+ * Linux: Ensured there's a value in `global_processor` frequency.
+ * Fixed tests to make them a bit less strict (which was problematic when run on VMs).
+ * Linux: Fixed CPU usage subtraction overflow.
+
 # 0.18.2
 
  * macOS: Brand and vendor ID information were reversed.
