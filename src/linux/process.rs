@@ -289,8 +289,10 @@ pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64, total_time: f32) {
         return;
     }
 
-    p.cpu_usage =
-        ((p.utime - p.old_utime + p.stime - p.old_stime) * nb_processors * 100) as f32 / total_time;
+    p.cpu_usage = ((p.utime.saturating_sub(p.old_utime) + p.stime.saturating_sub(p.old_stime))
+        * nb_processors
+        * 100) as f32
+        / total_time;
     p.updated = false;
 }
 
