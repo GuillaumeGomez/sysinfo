@@ -124,6 +124,16 @@ pub struct System {
 }
 
 impl System {
+    #[cfg(not(feature = "report_memory_in_kibi"))]
+    fn adjust_memory_value(value: u64) -> u64 {
+        value * 128 / 125
+    }
+
+    #[cfg(feature = "report_memory_in_kibi")]
+    fn adjust_memory_value(value: u64) -> u64 {
+        value
+    }
+
     fn clear_procs(&mut self) {
         if !self.processors.is_empty() {
             let (new, old) = get_raw_times(&self.global_processor);
@@ -314,7 +324,7 @@ impl SystemExt for System {
                 if let Some(val_str) = line.rsplit(' ').nth(1) {
                     if let Ok(value) = u64::from_str(val_str) {
                         // /proc/meminfo reports KiB, though it says "kB". Convert it.
-                        *field = value * 128 / 125;
+                        *field = Self::adjust_memory_value(value);
                     }
                 }
             }
