@@ -20,6 +20,7 @@ use crate::sys::users::get_users;
 use crate::utils::into_iter;
 
 use std::cell::UnsafeCell;
+use std::cmp;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
@@ -167,8 +168,11 @@ impl SystemExt for System {
             GlobalMemoryStatusEx(&mut mem_info);
             self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_000;
             self.mem_available = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
-            //self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
-            //self.swap_free = auto_cast!(mem_info.ullAvailPageFile, u64);
+            self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
+            self.swap_free = cmp::min(
+                self.swap_total,
+                auto_cast!(mem_info.ullAvailPageFile - mem_info.ullAvailPhys, u64),
+            );
         }
     }
 
