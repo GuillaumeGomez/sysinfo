@@ -17,11 +17,7 @@ fn test_processor() {
         let s = sysinfo::System::new_all();
         assert!(!s.processors().is_empty());
 
-        assert!(s.processors()[0]
-            .brand()
-            .chars()
-            .find(|c| *c == '\0')
-            .is_none())
+        assert!(!s.processors()[0].brand().chars().any(|c| c == '\0'));
     }
 }
 
