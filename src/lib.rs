@@ -199,15 +199,44 @@ mod test {
     use crate::*;
 
     #[test]
-    fn check_memory_usage() {
-        // We don't want to test on unsupported systems.
+    fn check_process_memory_usage() {
+        let mut s = System::new();
+        s.refresh_all();
+
         if System::IS_SUPPORTED {
-            let mut s = System::new();
-            s.refresh_all();
-            assert_eq!(
-                s.processes().iter().all(|(_, proc_)| proc_.memory() == 0),
-                false
-            );
+            // No process should have 0 as memory usage.
+            assert!(!s.processes().iter().all(|(_, proc_)| proc_.memory() == 0));
+        } else {
+            // There should be no process, but if there is one, its memory usage should be 0.
+            assert!(s.processes().iter().all(|(_, proc_)| proc_.memory() == 0));
+        }
+    }
+
+    #[test]
+    fn check_memory_usage() {
+        let mut s = System::new();
+
+        assert_eq!(s.total_memory(), 0);
+        assert_eq!(s.free_memory(), 0);
+        assert_eq!(s.available_memory(), 0);
+        assert_eq!(s.used_memory(), 0);
+        assert_eq!(s.total_swap(), 0);
+        assert_eq!(s.free_swap(), 0);
+        assert_eq!(s.used_swap(), 0);
+
+        s.refresh_memory();
+        if System::IS_SUPPORTED {
+            assert!(s.total_memory() > 0);
+            assert!(s.used_memory() > 0);
+            if s.total_swap() > 0 {
+                // I think it's pretty safe to assume that there is still some swap left...
+                assert!(s.free_swap() > 0);
+            }
+        } else {
+            assert_eq!(s.total_memory(), 0);
+            assert_eq!(s.used_memory(), 0);
+            assert_eq!(s.total_swap(), 0);
+            assert_eq!(s.free_swap(), 0);
         }
     }
 

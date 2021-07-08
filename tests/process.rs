@@ -79,7 +79,7 @@ fn unix_like_cmd() {
     s.refresh_processes();
     assert!(!s.processes().is_empty());
     let process = s.process(p.id() as sysinfo::Pid).unwrap();
-    if process.cmd() != &["sleep", "3"] {
+    if process.cmd() != ["sleep", "3"] {
         panic!("cmd not equivalent to`[sleep, 3]`: {:?}", process);
     }
 }
