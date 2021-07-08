@@ -77,6 +77,18 @@ unsafe fn boot_time() -> u64 {
     }
 }
 
+impl System {
+    #[cfg(not(feature = "report_memory_in_kibi"))]
+    fn adjust_memory_value(value: u64) -> u64 {
+        value / 1_000
+    }
+
+    #[cfg(feature = "report_memory_in_kibi")]
+    fn adjust_memory_value(value: u64) -> u64 {
+        value / 1_024
+    }
+}
+
 impl SystemExt for System {
     const IS_SUPPORTED: bool = true;
 
@@ -164,11 +176,12 @@ impl SystemExt for System {
         unsafe {
             let mut mem_info: MEMORYSTATUSEX = zeroed();
             mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
+            // nfx: Do something with the return value.  Ignoring it is not a good choice.
             GlobalMemoryStatusEx(&mut mem_info);
-            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_000;
-            self.mem_available = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
-            //self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
-            //self.swap_free = auto_cast!(mem_info.ullAvailPageFile, u64);
+            self.mem_total = Self::adjust_memory_value(auto_cast!(mem_info.ullTotalPhys, u64));
+            self.mem_available = Self::adjust_memory_value(auto_cast!(mem_info.ullAvailPhys, u64));
+            self.swap_total = Self::adjust_memory_value(auto_cast!(mem_info.ullTotalPageFile, u64));
+            self.swap_free = Self::adjust_memory_value(auto_cast!(mem_info.ullAvailPageFile, u64));
         }
     }
 
