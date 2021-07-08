@@ -1,3 +1,8 @@
+# 0.19.1
+
+ * Windows: Get swap memory information.
+ * Linux: Fix memory information gathering (bad parsing of `/proc/meminfo`).
+
 # 0.19.0
 
  * Renamed functions/methods to follow [Rust API guidelines on naming](https://rust-lang.github.io/api-guidelines/naming.html#getter-names-follow-rust-convention-c-getter).
