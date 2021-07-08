@@ -180,8 +180,10 @@ impl SystemExt for System {
             GlobalMemoryStatusEx(&mut mem_info);
             self.mem_total = Self::adjust_memory_value(auto_cast!(mem_info.ullTotalPhys, u64));
             self.mem_available = Self::adjust_memory_value(auto_cast!(mem_info.ullAvailPhys, u64));
-            self.swap_total = Self::adjust_memory_value(auto_cast!(mem_info.ullTotalPageFile, u64));
-            self.swap_free = Self::adjust_memory_value(auto_cast!(mem_info.ullAvailPageFile, u64));
+            let just_pagefile_total = mem_info.ullTotalPageFile - mem_info.ullTotalPhys;
+            let just_pagefile_free = mem_info.ullAvailPageFile - mem_info.ullAvailPhys;
+            self.swap_total = Self::adjust_memory_value(auto_cast!(just_pagefile_total, u64));
+            self.swap_free = Self::adjust_memory_value(auto_cast!(just_pagefile_free, u64));
         }
     }
 
