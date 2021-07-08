@@ -300,7 +300,8 @@ impl SystemExt for System {
     fn refresh_memory(&mut self) {
         if let Ok(data) = get_all_data("/proc/meminfo", 16_385) {
             for line in data.split('\n') {
-                let field = match line.split(':').next() {
+                let mut iter = line.split(':');
+                let field = match iter.next() {
                     Some("MemTotal") => &mut self.mem_total,
                     Some("MemFree") => &mut self.mem_free,
                     Some("MemAvailable") => &mut self.mem_available,
@@ -311,7 +312,7 @@ impl SystemExt for System {
                     Some("SwapFree") => &mut self.swap_free,
                     _ => continue,
                 };
-                if let Some(val_str) = line.rsplit(' ').nth(1) {
+                if let Some(val_str) = iter.next().and_then(|s| s.trim_start().split(' ').next()) {
                     if let Ok(value) = u64::from_str(val_str) {
                         // /proc/meminfo reports KiB, though it says "kB". Convert it.
                         *field = value * 128 / 125;
