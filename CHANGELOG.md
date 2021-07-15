@@ -1,3 +1,7 @@
+# 0.19.2
+
+ * Windows: Fix swap memory information computation
+
 # 0.19.1
 
  * Windows: Get swap memory information.
