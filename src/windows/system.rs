@@ -20,7 +20,6 @@ use crate::sys::users::get_users;
 use crate::utils::into_iter;
 
 use std::cell::UnsafeCell;
-use std::cmp;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
@@ -38,6 +37,7 @@ use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
 use winapi::shared::winerror;
 use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
+use winapi::um::psapi::{GetPerformanceInfo, PERFORMANCE_INFORMATION};
 use winapi::um::sysinfoapi::{
     ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetTickCount64, GlobalMemoryStatusEx,
     MEMORYSTATUSEX,
@@ -51,7 +51,7 @@ pub struct System {
     mem_total: u64,
     mem_available: u64,
     swap_total: u64,
-    swap_free: u64,
+    swap_used: u64,
     global_processor: Processor,
     processors: Vec<Processor>,
     components: Vec<Component>,
@@ -89,7 +89,7 @@ impl SystemExt for System {
             mem_total: 0,
             mem_available: 0,
             swap_total: 0,
-            swap_free: 0,
+            swap_used: 0,
             global_processor: Processor::new_with_values("Total CPU", vendor_id, brand, 0),
             processors,
             components: Vec::new(),
@@ -162,17 +162,28 @@ impl SystemExt for System {
     }
 
     fn refresh_memory(&mut self) {
+        let mut mem_info: MEMORYSTATUSEX = unsafe { zeroed() };
+        mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
         unsafe {
-            let mut mem_info: MEMORYSTATUSEX = zeroed();
-            mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
             GlobalMemoryStatusEx(&mut mem_info);
-            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_000;
-            self.mem_available = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
-            self.swap_total = auto_cast!(mem_info.ullTotalPageFile - mem_info.ullTotalPhys, u64);
-            self.swap_free = cmp::min(
-                self.swap_total,
-                auto_cast!(mem_info.ullAvailPageFile - mem_info.ullAvailPhys, u64),
-            );
+        }
+        self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_000;
+        self.mem_available = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
+        let mut perf_info: PERFORMANCE_INFORMATION = unsafe { zeroed() };
+        if unsafe {
+            GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as u32)
+        } == TRUE
+        {
+            let swap_total = perf_info.PageSize
+                * perf_info
+                    .CommitLimit
+                    .saturating_sub(perf_info.PhysicalTotal);
+            let swap_used = perf_info.PageSize
+                * perf_info
+                    .CommitTotal
+                    .saturating_sub(perf_info.PhysicalTotal);
+            self.swap_total = (swap_total / 1000) as u64;
+            self.swap_used = (swap_used / 1000) as u64;
         }
     }
 
@@ -357,11 +368,11 @@ impl SystemExt for System {
     }
 
     fn free_swap(&self) -> u64 {
-        self.swap_free
+        self.swap_total - self.swap_used
     }
 
     fn used_swap(&self) -> u64 {
-        self.swap_total - self.swap_free
+        self.swap_used
     }
 
     fn components(&self) -> &[Component] {
