@@ -236,52 +236,23 @@ impl SystemExt for System {
     }
 
     fn refresh_cpu(&mut self) {
-        // get processor values
-        let mut num_cpu_u = 0u32;
-        let mut cpu_info: *mut i32 = std::ptr::null_mut();
-        let mut num_cpu_info = 0u32;
+        let processors = &mut self.processors;
+        update_processor_usage(
+            self.port,
+            &mut self.global_processor,
+            |proc_data, cpu_info| {
+                let mut percentage = 0f32;
+                let mut offset = 0;
+                for proc_ in processors.iter_mut() {
+                    let cpu_usage = compute_processor_usage(proc_, cpu_info, offset);
+                    proc_.update(cpu_usage, Arc::clone(&proc_data));
+                    percentage += proc_.cpu_usage();
 
-        let mut pourcent = 0f32;
-
-        unsafe {
-            if ffi::host_processor_info(
-                self.port,
-                libc::PROCESSOR_CPU_LOAD_INFO,
-                &mut num_cpu_u as *mut u32,
-                &mut cpu_info as *mut *mut i32,
-                &mut num_cpu_info as *mut u32,
-            ) == ffi::KERN_SUCCESS
-            {
-                let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
-                let mut add = 0;
-                for proc_ in self.processors.iter_mut() {
-                    let old_proc_data = &*proc_.data();
-                    let in_use = (*cpu_info.offset(add as isize + libc::CPU_STATE_USER as isize)
-                        - *old_proc_data
-                            .cpu_info
-                            .offset(add as isize + libc::CPU_STATE_USER as isize))
-                        + (*cpu_info.offset(add as isize + libc::CPU_STATE_SYSTEM as isize)
-                            - *old_proc_data
-                                .cpu_info
-                                .offset(add as isize + libc::CPU_STATE_SYSTEM as isize))
-                        + (*cpu_info.offset(add as isize + libc::CPU_STATE_NICE as isize)
-                            - *old_proc_data
-                                .cpu_info
-                                .offset(add as isize + libc::CPU_STATE_NICE as isize));
-                    let total = in_use
-                        + (*cpu_info.offset(add as isize + libc::CPU_STATE_IDLE as isize)
-                            - *old_proc_data
-                                .cpu_info
-                                .offset(add as isize + libc::CPU_STATE_IDLE as isize));
-                    proc_.update(in_use as f32 / total as f32 * 100., Arc::clone(&proc_data));
-                    pourcent += proc_.cpu_usage();
-
-                    add += libc::CPU_STATE_MAX;
+                    offset += libc::CPU_STATE_MAX as isize;
                 }
-            }
-        }
-        self.global_processor
-            .set_cpu_usage(pourcent / self.processors.len() as f32);
+                (percentage, processors.len())
+            },
+        );
     }
 
     #[cfg(any(target_os = "ios", feature = "apple-app-store"))]

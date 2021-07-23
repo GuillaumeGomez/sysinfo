@@ -193,7 +193,7 @@ impl Processor {
             / min!(self.total_time, self.old_total_time)
             * 100.;
         if self.cpu_usage > 100. {
-            self.cpu_usage = 100.; // to prevent the pourcentage to go above 100%
+            self.cpu_usage = 100.; // to prevent the percentage to go above 100%
         }
     }
 }

@@ -133,14 +133,81 @@ pub fn get_cpu_frequency() -> u64 {
     speed / 1_000_000
 }
 
+#[inline]
+fn get_in_use(cpu_info: *mut i32, offset: isize) -> i32 {
+    unsafe {
+        *cpu_info.offset(offset + libc::CPU_STATE_USER as isize)
+            + *cpu_info.offset(offset + libc::CPU_STATE_SYSTEM as isize)
+            + *cpu_info.offset(offset + libc::CPU_STATE_NICE as isize)
+    }
+}
+
+#[inline]
+fn get_idle(cpu_info: *mut i32, offset: isize) -> i32 {
+    unsafe { *cpu_info.offset(offset + libc::CPU_STATE_IDLE as isize) }
+}
+
+pub(crate) fn compute_processor_usage(proc_: &Processor, cpu_info: *mut i32, offset: isize) -> f32 {
+    let old_cpu_info = proc_.data().cpu_info.0;
+    let in_use;
+    let total;
+
+    // In case we are initializing processors, there is no "old value" yet.
+    if old_cpu_info == cpu_info {
+        in_use = get_in_use(cpu_info, offset);
+        total = in_use + get_idle(cpu_info, offset);
+    } else {
+        in_use = get_in_use(cpu_info, offset) - get_in_use(old_cpu_info, offset);
+        total = in_use + (get_idle(cpu_info, offset) - get_idle(old_cpu_info, offset));
+    }
+    in_use as f32 / total as f32 * 100.
+}
+
+pub(crate) fn update_processor_usage<F: FnOnce(Arc<ProcessorData>, *mut i32) -> (f32, usize)>(
+    port: libc::mach_port_t,
+    global_processor: &mut Processor,
+    f: F,
+) {
+    let mut num_cpu_u = 0u32;
+    let mut cpu_info: *mut i32 = std::ptr::null_mut();
+    let mut num_cpu_info = 0u32;
+
+    let mut total_cpu_usage = 0f32;
+
+    if unsafe {
+        ffi::host_processor_info(
+            port,
+            libc::PROCESSOR_CPU_LOAD_INFO,
+            &mut num_cpu_u as *mut u32,
+            &mut cpu_info as *mut *mut i32,
+            &mut num_cpu_info as *mut u32,
+        )
+    } == ffi::KERN_SUCCESS
+    {
+        let (total_percentage, len) = f(
+            Arc::new(ProcessorData::new(cpu_info, num_cpu_info)),
+            cpu_info,
+        );
+        total_cpu_usage = total_percentage / len as f32;
+    }
+    global_processor.set_cpu_usage(total_cpu_usage);
+}
+
 pub fn init_processors(port: libc::mach_port_t) -> (Processor, Vec<Processor>) {
     let mut num_cpu = 0;
     let mut processors = Vec::new();
-    let mut pourcent = 0f32;
     let mut mib = [0, 0];
 
     let (vendor_id, brand) = get_vendor_id_and_brand();
     let frequency = get_cpu_frequency();
+
+    let mut global_processor = Processor::new(
+        "0".to_owned(),
+        Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0)),
+        frequency,
+        String::new(),
+        String::new(),
+    );
 
     unsafe {
         if !get_sys_value(
@@ -152,52 +219,31 @@ pub fn init_processors(port: libc::mach_port_t) -> (Processor, Vec<Processor>) {
         ) {
             num_cpu = 1;
         }
-
-        let mut num_cpu_u = 0u32;
-        let mut cpu_info: *mut i32 = std::ptr::null_mut();
-        let mut num_cpu_info = 0u32;
-
-        if ffi::host_processor_info(
-            port,
-            libc::PROCESSOR_CPU_LOAD_INFO,
-            &mut num_cpu_u as *mut u32,
-            &mut cpu_info as *mut *mut i32,
-            &mut num_cpu_info as *mut u32,
-        ) == ffi::KERN_SUCCESS
-        {
-            let proc_data = Arc::new(ProcessorData::new(cpu_info, num_cpu_info));
-            for i in 0..num_cpu {
-                let mut p = Processor::new(
-                    format!("{}", i + 1),
-                    Arc::clone(&proc_data),
-                    frequency,
-                    vendor_id.clone(),
-                    brand.clone(),
-                );
-                let in_use = *cpu_info
-                    .offset((libc::CPU_STATE_MAX * i) as isize + libc::CPU_STATE_USER as isize)
-                    + *cpu_info.offset(
-                        (libc::CPU_STATE_MAX * i) as isize + libc::CPU_STATE_SYSTEM as isize,
-                    )
-                    + *cpu_info
-                        .offset((libc::CPU_STATE_MAX * i) as isize + libc::CPU_STATE_NICE as isize);
-                let total = in_use
-                    + *cpu_info
-                        .offset((libc::CPU_STATE_MAX * i) as isize + libc::CPU_STATE_IDLE as isize);
-                p.set_cpu_usage(in_use as f32 / total as f32 * 100.);
-                pourcent += p.cpu_usage();
-                processors.push(p);
-            }
-        }
     }
-    let mut global_processor = Processor::new(
-        "0".to_owned(),
-        Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0)),
-        frequency,
-        vendor_id,
-        brand,
-    );
-    global_processor.set_cpu_usage(pourcent / processors.len() as f32);
+    update_processor_usage(port, &mut global_processor, |proc_data, cpu_info| {
+        let mut percentage = 0f32;
+        let mut offset = 0;
+        for i in 0..num_cpu {
+            let mut p = Processor::new(
+                format!("{}", i + 1),
+                Arc::clone(&proc_data),
+                frequency,
+                vendor_id.clone(),
+                brand.clone(),
+            );
+            let cpu_usage = compute_processor_usage(&p, cpu_info, offset);
+            p.set_cpu_usage(cpu_usage);
+            percentage += p.cpu_usage();
+            processors.push(p);
+
+            offset += libc::CPU_STATE_MAX as isize;
+        }
+        (percentage, processors.len())
+    });
+
+    // We didn't set them above to avoid cloning them unnecessarily.
+    global_processor.brand = brand;
+    global_processor.vendor_id = vendor_id;
 
     (global_processor, processors)
 }
