@@ -81,14 +81,20 @@ for (pid, process) in sys.processes() {
 
 ```
 
-By default, `sysinfo` uses multiple threads. However, this can increase the memory usage on some platforms (macOS for example).
-The behavior can be disabled by setting `default-features = false` in `Cargo.toml` (which disables the `multithread` cargo feature).
+By default, `sysinfo` uses multiple threads. However, this can increase the memory usage on some
+platforms (macOS for example). The behavior can be disabled by setting `default-features = false`
+in `Cargo.toml` (which disables the `multithread` cargo feature).
 
 ### Running on Raspberry Pi
 
-It'll be difficult to build on Raspberry Pi. A good way-around is to cross-build, then send the executable to your Raspberry Pi.
+It'll be difficult to build on Raspberry Pi. A good way-around is to cross-build, then send the
+executable to your Raspberry Pi.
 
-First install the arm toolchain, for example on Ubuntu: `sudo apt-get install gcc-multilib-arm-linux-gnueabihf`.
+First install the arm toolchain, for example on Ubuntu:
+
+```bash
+> sudo apt-get install gcc-multilib-arm-linux-gnueabihf`
+```
 
 Then configure cargo to use the corresponding toolchain:
 
@@ -108,17 +114,21 @@ cargo build --target=armv7-unknown-linux-gnueabihf
 
 ### Linux on Docker & Windows Subsystem for Linux (WSL)
 
-Virtual Linux systems, such as those run through Docker and Windows Subsystem for Linux (WSL), do not receive host hardware information via `/sys/class/hwmon` or `/sys/class/thermal`. As such, querying for components may return no results (or unexpected results) when using this library on virtual systems.
+Virtual Linux systems, such as those run through Docker and Windows Subsystem for Linux (WSL), do
+not receive host hardware information via `/sys/class/hwmon` or `/sys/class/thermal`. As such,
+querying for components may return no results (or unexpected results) when using this library on
+virtual systems.
 
 ### Use in binaries distributed on the MacOS App Store
 
 Apple has restrictions as to which APIs can be used in binaries distributed through the app store.
-By default, `sysinfo` is not compatible with these restrictions. You can use the `apple-app-store` feature
-flag to disable the Apple prohibited features.
+By default, `sysinfo` is not compatible with these restrictions. You can use the `apple-app-store`
+feature flag to disable the Apple prohibited features.
 
 ### C interface
 
-It's possible to use this crate directly from C. Take a look at the `Makefile` and at the `examples/simple.c` file.
+It's possible to use this crate directly from C. Take a look at the `Makefile` and at the
+`examples/simple.c` file.
 
 To build the C example, just run:
 
@@ -210,9 +220,9 @@ test bench_refresh_users_list      ... bench:  16,816,081 ns/iter (+/- 1,039,374
 
 ## Donations
 
-If you appreciate my work and want to support me, you can do it here:
-
-[![Become a patron](https://c5.patreon.com/external/logo/become_a_patron_button.png)](https://www.patreon.com/GuillaumeGomez)
+If you appreciate my work and want to support me, you can do it with
+[github sponsors](https://github.com/sponsors/GuillaumeGomez) or with
+[patreon](https://www.patreon.com/GuillaumeGomez).
 
 [img_github_ci]: https://github.com/GuillaumeGomez/sysinfo/workflows/CI/badge.svg
 [img_crates]: https://img.shields.io/crates/v/sysinfo.svg
