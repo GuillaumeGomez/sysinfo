@@ -4,79 +4,15 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-//! `sysinfo` is a crate used to get a system's information.
-//!
-//! ## Supported Oses
-//!
-//! It currently supports the following OSes (alphabetically sorted):
-//!  * Android
-//!  * iOS
-//!  * Linux
-//!  * macOS
-//!  * Windows
-//!
-//! You can still use `sysinfo` on non-supported OSes, it'll simply do nothing and always return
-//! empty values. You can check in your program directly if an OS is supported by checking the
-//! [`SystemExt::IS_SUPPORTED`] constant.
-//!
-//! ## Usage
-//!
-//! /!\ Before any attempt to read the different structs' information, you need to update them to
-//! get up-to-date information because for most of them, it works on diff between the current value
-//! and the old one.
-//!
-//! Which is why, it's much better to keep the same instance of [`System`] around instead of
-//! recreating it multiple times.
-//!
-//! ## Examples
-//!
-//! ```
-//! use sysinfo::{ProcessExt, SystemExt};
-//!
-//! let mut system = sysinfo::System::new_all();
-//!
-//! // First we update all information of our system struct.
-//! system.refresh_all();
-//!
-//! // Now let's print every process' id and name:
-//! for (pid, proc_) in system.processes() {
-//!     println!("{}:{} => status: {:?}", pid, proc_.name(), proc_.status());
-//! }
-//!
-//! // Then let's print the temperature of the different components:
-//! for component in system.components() {
-//!     println!("{:?}", component);
-//! }
-//!
-//! // And then all disks' information:
-//! for disk in system.disks() {
-//!     println!("{:?}", disk);
-//! }
-//!
-//! // And finally the RAM and SWAP information:
-//! println!("total memory: {} KB", system.total_memory());
-//! println!("used memory : {} KB", system.used_memory());
-//! println!("total swap  : {} KB", system.total_swap());
-//! println!("used swap   : {} KB", system.used_swap());
-//!
-//! // Display system information:
-//! println!("System name:             {:?}", system.name());
-//! println!("System kernel version:   {:?}", system.kernel_version());
-//! println!("System OS version:       {:?}", system.os_version());
-//! println!("System host name:        {:?}", system.host_name());
-//! ```
-
 #![crate_name = "sysinfo"]
 #![crate_type = "lib"]
 #![crate_type = "rlib"]
+#![doc = include_str!("../README.md")]
 #![allow(unknown_lints)]
 #![deny(missing_docs)]
-#![deny(broken_intra_doc_links)]
+#![deny(rustdoc::broken_intra_doc_links)]
 #![allow(clippy::upper_case_acronyms)]
 #![allow(renamed_and_removed_lints)]
-
-#[cfg(doctest)]
-doc_comment::doctest!("../README.md");
 
 #[cfg(feature = "debug")]
 #[doc(hidden)]
@@ -385,15 +321,13 @@ mod test {
 
 // Used to check that System is Send and Sync.
 #[cfg(doctest)]
-doc_comment::doc_comment!(
-    "
-```
-fn is_send<T: Send>() {}
-is_send::<sysinfo::System>();
-```
-
-```
-fn is_sync<T: Sync>() {}
-is_sync::<sysinfo::System>();
-```"
-);
+/// ```
+/// fn is_send<T: Send>() {}
+/// is_send::<sysinfo::System>();
+/// ```
+///
+/// ```
+/// fn is_sync<T: Sync>() {}
+/// is_sync::<sysinfo::System>();
+/// ```
+pub mod check_if_system_is_send_and_sync {}

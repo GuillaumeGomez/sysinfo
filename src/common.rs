@@ -38,8 +38,7 @@ cfg_if::cfg_if! {
 
 macro_rules! impl_get_set {
     ($name:ident, $with:ident, $without:ident) => {
-        doc_comment::doc_comment! {
-        concat!("Returns the value of the \"", stringify!($name), "\" refresh kind.
+        #[doc = concat!("Returns the value of the \"", stringify!($name), "\" refresh kind.
 
 ```
 use sysinfo::RefreshKind;
@@ -52,14 +51,12 @@ assert_eq!(r.", stringify!($name), "(), true);
 
 let r = r.without_", stringify!($name), "();
 assert_eq!(r.", stringify!($name), "(), false);
-```"),
-                    pub fn $name(&self) -> bool {
-                        self.$name
-                    }
-                }
+```")]
+        pub fn $name(&self) -> bool {
+            self.$name
+        }
 
-        doc_comment::doc_comment! {
-        concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `true`.
+        #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `true`.
 
 ```
 use sysinfo::RefreshKind;
@@ -69,15 +66,13 @@ assert_eq!(r.", stringify!($name), "(), false);
 
 let r = r.with_", stringify!($name), "();
 assert_eq!(r.", stringify!($name), "(), true);
-```"),
-                    pub fn $with(mut self) -> RefreshKind {
-                        self.$name = true;
-                        self
-                    }
-                }
+```")]
+        pub fn $with(mut self) -> RefreshKind {
+            self.$name = true;
+            self
+        }
 
-        doc_comment::doc_comment! {
-        concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `false`.
+        #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `false`.
 
 ```
 use sysinfo::RefreshKind;
@@ -87,12 +82,11 @@ assert_eq!(r.", stringify!($name), "(), true);
 
 let r = r.without_", stringify!($name), "();
 assert_eq!(r.", stringify!($name), "(), false);
-```"),
-                    pub fn $without(mut self) -> RefreshKind {
-                        self.$name = false;
-                        self
-                    }
-                }
+```")]
+        pub fn $without(mut self) -> RefreshKind {
+            self.$name = false;
+            self
+        }
     };
 }
 
