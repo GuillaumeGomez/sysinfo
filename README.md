@@ -17,7 +17,7 @@ You can still use `sysinfo` on non-supported OSes, it'll simply do nothing and a
 empty values. You can check in your program directly if an OS is supported by checking the
 [`SystemExt::IS_SUPPORTED`] constant.
 
-The minimum-supported version of `rustc` is **1.45**.
+The minimum-supported version of `rustc` is **1.54**.
 
 ## Usage
 

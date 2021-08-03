@@ -65,7 +65,7 @@ jobs:
           - { os: 'ubuntu-latest', target: 'x86_64-linux-android', cross: true }
           - { os: 'ubuntu-latest', target: 'i686-linux-android', cross: true }
         toolchain:
-          - "1.45.0"  # minimum supported rust version
+          - "1.54.0"  # minimum supported rust version
           - stable
           - nightly
     steps:
@@ -113,7 +113,7 @@ jobs:
           - macos-latest
           - windows-latest
         toolchain:
-          - "1.45.0"  # minimum supported rust version
+          - "1.54.0"  # minimum supported rust version
           - stable
           - nightly
     steps:
