@@ -1,6 +1,6 @@
 [package]
 name = "sysinfo"
-version = "0.19.3"
+version = "0.20.0"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 
 description = "Library to get system information such as processes, processors, disks, components and networks"
