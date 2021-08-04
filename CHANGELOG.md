@@ -1,3 +1,12 @@
+# 0.19.3
+
+ * macOS: improved code readability.
+ * Windows: Prevented the `taskkill.exe` console window from appearing when using `kill`.
+ * Fixed benchmarks compilation issue.
+ * Upgraded minimum supported Rust version to 1.54.
+ * Removed doc-comment dependency.
+ * Merged README and crate documentation.
+
 # 0.19.2
 
  * Windows: Fix swap memory information computation
