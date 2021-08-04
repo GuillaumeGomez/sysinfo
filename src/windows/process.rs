@@ -9,6 +9,7 @@ use crate::{DiskUsage, Pid, ProcessExt, Signal};
 use std::fmt::{self, Debug};
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::ops::Deref;
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::ptr::null_mut;
@@ -35,7 +36,7 @@ use winapi::um::psapi::{
     LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
 };
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
-use winapi::um::winbase::GetProcessIoCounters;
+use winapi::um::winbase::{GetProcessIoCounters, CREATE_NO_WINDOW};
 use winapi::um::winnt::{
     HANDLE, IO_COUNTERS, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, RTL_OSVERSIONINFOEXW,
     ULARGE_INTEGER,
@@ -369,6 +370,7 @@ impl ProcessExt for Process {
     fn kill(&self, _signal: Signal) -> bool {
         let mut kill = process::Command::new("taskkill.exe");
         kill.arg("/PID").arg(self.pid().to_string()).arg("/F");
+        kill.creation_flags(CREATE_NO_WINDOW);
         match kill.output() {
             Ok(o) => o.status.success(),
             Err(_) => false,
