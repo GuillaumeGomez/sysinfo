@@ -11,6 +11,7 @@ use std::mem::{size_of, zeroed, MaybeUninit};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::process;
+use std::os::windows::process::CommandExt;
 use std::ptr::null_mut;
 use std::str;
 
@@ -369,6 +370,7 @@ impl ProcessExt for Process {
     fn kill(&self, _signal: Signal) -> bool {
         let mut kill = process::Command::new("taskkill.exe");
         kill.arg("/PID").arg(self.pid().to_string()).arg("/F");
+        kill.creation_flags(0x08000000);  // CREATE_NO_WINDOW
         match kill.output() {
             Ok(o) => o.status.success(),
             Err(_) => false,
