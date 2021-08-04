@@ -105,7 +105,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
         ),
         feature = "multithread"
     ),
-    not(feature = "apple-app-store")
+    not(feature = "apple-sandbox")
 ))]
 pub fn into_iter<T>(val: T) -> T::Iter
 where
@@ -126,7 +126,7 @@ where
         ),
         not(feature = "multithread")
     ),
-    not(feature = "apple-app-store")
+    not(feature = "apple-sandbox")
 ))]
 pub fn into_iter<T>(val: T) -> T::IntoIter
 where

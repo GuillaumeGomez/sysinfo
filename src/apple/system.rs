@@ -15,7 +15,7 @@ use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
 
 use crate::{LoadAvg, Pid, ProcessorExt, RefreshKind, SystemExt, User};
 
-#[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::ProcessExt;
 
 use std::cell::UnsafeCell;
@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
 
-#[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use libc::size_t;
 
 use libc::{
@@ -43,7 +43,7 @@ pub struct System {
     page_size_kb: u64,
     components: Vec<Component>,
     // Used to get CPU information, not supported on iOS, or inside the default macOS sandbox.
-    #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
     networks: Networks,
@@ -54,13 +54,13 @@ pub struct System {
     // DADiskCreateFromVolumePath function. Not supported on iOS.
     #[cfg(target_os = "macos")]
     session: ffi::SessionWrap,
-    #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
 }
 
 impl Drop for System {
     fn drop(&mut self) {
-        #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+        #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
         if let Some(conn) = self.connection {
             unsafe {
                 ffi::IOServiceClose(conn);
@@ -81,7 +81,7 @@ pub(crate) struct Wrap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
 unsafe impl<'a> Send for Wrap<'a> {}
 unsafe impl<'a> Sync for Wrap<'a> {}
 
-#[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 impl System {
     fn clear_procs(&mut self) {
         use crate::sys::macos::process;
@@ -141,7 +141,7 @@ impl SystemExt for System {
             processors,
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1_000 },
             components: Vec::with_capacity(2),
-            #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+            #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
             connection: get_io_service_connection(),
             disks: Vec::with_capacity(1),
             networks: Networks::new(),
@@ -150,7 +150,7 @@ impl SystemExt for System {
             boot_time: boot_time(),
             #[cfg(target_os = "macos")]
             session: ffi::SessionWrap(::std::ptr::null_mut()),
-            #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+            #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
             clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
         };
         s.refresh_specifics(refreshes);
@@ -214,10 +214,10 @@ impl SystemExt for System {
         }
     }
 
-    #[cfg(any(target_os = "ios", feature = "apple-app-store"))]
+    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
     fn refresh_components_list(&mut self) {}
 
-    #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     fn refresh_components_list(&mut self) {
         if let Some(con) = self.connection {
             self.components.clear();
@@ -255,10 +255,10 @@ impl SystemExt for System {
         );
     }
 
-    #[cfg(any(target_os = "ios", feature = "apple-app-store"))]
+    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
     fn refresh_processes(&mut self) {}
 
-    #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     fn refresh_processes(&mut self) {
         use crate::utils::into_iter;
 
@@ -292,12 +292,12 @@ impl SystemExt for System {
         }
     }
 
-    #[cfg(any(target_os = "ios", feature = "apple-app-store"))]
+    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
     fn refresh_process(&mut self, _: Pid) -> bool {
         false
     }
 
-    #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     fn refresh_process(&mut self, pid: Pid) -> bool {
         let arg_max = get_arg_max();
         let port = self.port;
@@ -540,7 +540,7 @@ impl Default for System {
 
 // code from https://github.com/Chris911/iStats
 // Not supported on iOS, or in the default macOS
-#[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 fn get_io_service_connection() -> Option<ffi::io_connect_t> {
     let mut master_port: mach_port_t = 0;
     let mut iterator: ffi::io_iterator_t = 0;
@@ -575,7 +575,7 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
     }
 }
 
-#[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 fn get_arg_max() -> usize {
     let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
     let mut arg_max = 0i32;

@@ -12,7 +12,7 @@ fn test_process() {
     let mut s = sysinfo::System::new();
     assert_eq!(s.processes().len(), 0);
     s.refresh_processes();
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-app-store") {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     assert!(!s.processes().is_empty());
@@ -28,7 +28,7 @@ fn test_process_refresh() {
     let mut s = sysinfo::System::new();
     assert_eq!(s.processes().len(), 0);
 
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-app-store") {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     s.refresh_process(sysinfo::get_current_pid().expect("failed to get current pid"));
@@ -60,7 +60,7 @@ fn test_get_cmd_line() {
 #[test]
 #[cfg(not(windows))]
 fn test_get_cmd_line() {
-    if sysinfo::System::IS_SUPPORTED && !cfg!(feature = "apple-app-store") {
+    if sysinfo::System::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
         unix_like_cmd();
     }
 }
@@ -91,7 +91,7 @@ fn test_process_disk_usage() {
     use std::io::prelude::*;
     use sysinfo::{get_current_pid, ProcessExt, SystemExt};
 
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-app-store") {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
 
@@ -126,7 +126,7 @@ fn cpu_usage_is_not_nan() {
     let mut system = sysinfo::System::new();
     system.refresh_processes();
 
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-app-store") {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
 

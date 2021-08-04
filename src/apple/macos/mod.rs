@@ -7,15 +7,15 @@
 pub mod disk;
 pub mod ffi;
 
-#[cfg(not(feature = "apple-app-store"))]
+#[cfg(not(feature = "apple-sandbox"))]
 pub mod system;
 
-#[cfg(not(feature = "apple-app-store"))]
+#[cfg(not(feature = "apple-sandbox"))]
 pub mod component;
-#[cfg(not(feature = "apple-app-store"))]
+#[cfg(not(feature = "apple-sandbox"))]
 pub mod process;
 
-#[cfg(feature = "apple-app-store")]
+#[cfg(feature = "apple-sandbox")]
 pub use crate::sys::app_store::component;
-#[cfg(feature = "apple-app-store")]
+#[cfg(feature = "apple-sandbox")]
 pub use crate::sys::app_store::process;
