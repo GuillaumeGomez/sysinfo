@@ -9,9 +9,9 @@ use crate::{DiskUsage, Pid, ProcessExt, Signal};
 use std::fmt::{self, Debug};
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::ops::Deref;
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process;
-use std::os::windows::process::CommandExt;
 use std::ptr::null_mut;
 use std::str;
 
