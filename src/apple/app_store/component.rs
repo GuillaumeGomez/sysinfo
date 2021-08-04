@@ -6,7 +6,7 @@
 
 use crate::ComponentExt;
 
-/// Dummy struct representing a component since iOS doesn't support
+/// Dummy struct representing a component since iOS, nor the default macOS sandbox, support
 /// obtaining CPU information.
 pub struct Component {}
 

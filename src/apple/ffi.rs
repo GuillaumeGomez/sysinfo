@@ -36,6 +36,7 @@ extern "C" {
     // pub fn proc_name(pid: i32, buf: *mut i8, bufsize: u32) -> i32;
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
 
+    #[cfg(not(feature = "apple-app-store"))]
     #[allow(deprecated)]
     pub static vm_page_size: libc::vm_size_t;
 }

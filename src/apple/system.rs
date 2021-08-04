@@ -42,8 +42,8 @@ pub struct System {
     processors: Vec<Processor>,
     page_size_kb: u64,
     components: Vec<Component>,
-    // Used to get CPU information, not supported on iOS.
-    #[cfg(target_os = "macos")]
+    // Used to get CPU information, not supported on iOS, or inside the default macOS sandbox.
+    #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
     networks: Networks,
@@ -54,13 +54,13 @@ pub struct System {
     // DADiskCreateFromVolumePath function. Not supported on iOS.
     #[cfg(target_os = "macos")]
     session: ffi::SessionWrap,
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
 }
 
 impl Drop for System {
     fn drop(&mut self) {
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
         if let Some(conn) = self.connection {
             unsafe {
                 ffi::IOServiceClose(conn);
@@ -141,7 +141,7 @@ impl SystemExt for System {
             processors,
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1_000 },
             components: Vec::with_capacity(2),
-            #[cfg(target_os = "macos")]
+            #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
             connection: get_io_service_connection(),
             disks: Vec::with_capacity(1),
             networks: Networks::new(),
@@ -150,7 +150,7 @@ impl SystemExt for System {
             boot_time: boot_time(),
             #[cfg(target_os = "macos")]
             session: ffi::SessionWrap(::std::ptr::null_mut()),
-            #[cfg(target_os = "macos")]
+            #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
             clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
         };
         s.refresh_specifics(refreshes);
@@ -214,10 +214,10 @@ impl SystemExt for System {
         }
     }
 
-    #[cfg(target_os = "ios")]
+    #[cfg(any(target_os = "ios", feature = "apple-app-store"))]
     fn refresh_components_list(&mut self) {}
 
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
     fn refresh_components_list(&mut self) {
         if let Some(con) = self.connection {
             self.components.clear();
@@ -539,8 +539,8 @@ impl Default for System {
 }
 
 // code from https://github.com/Chris911/iStats
-// Not supported on iOS
-#[cfg(target_os = "macos")]
+// Not supported on iOS, or in the default macOS
+#[cfg(all(target_os = "macos", not(feature = "apple-app-store")))]
 fn get_io_service_connection() -> Option<ffi::io_connect_t> {
     let mut master_port: mach_port_t = 0;
     let mut iterator: ffi::io_iterator_t = 0;
