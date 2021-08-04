@@ -1,4 +1,4 @@
-# 0.19.3
+# 0.20.0
 
  * macOS: improved code readability.
  * Windows: Prevented the `taskkill.exe` console window from appearing when using `kill`.
