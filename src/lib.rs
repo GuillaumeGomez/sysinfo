@@ -141,6 +141,7 @@ mod test {
 
         if System::IS_SUPPORTED {
             // No process should have 0 as memory usage.
+            #[cfg(not(feature = "apple-sandbox"))]
             assert!(!s.processes().iter().all(|(_, proc_)| proc_.memory() == 0));
         } else {
             // There should be no process, but if there is one, its memory usage should be 0.
@@ -281,13 +282,16 @@ mod test {
     fn check_refresh_process_return_value() {
         // We don't want to test on unsupported systems.
         if System::IS_SUPPORTED {
-            let pid = get_current_pid().expect("Failed to get current PID");
-            let mut s = System::new();
+            let _pid = get_current_pid().expect("Failed to get current PID");
 
-            // First check what happens in case the process isn't already in our process list.
-            assert!(s.refresh_process(pid));
-            // Then check that it still returns true if the process is already in our process list.
-            assert!(s.refresh_process(pid));
+            #[cfg(not(feature = "apple-sandbox"))]
+            {
+                let mut s = System::new();
+                // First check what happens in case the process isn't already in our process list.
+                assert!(s.refresh_process(_pid));
+                // Then check that it still returns true if the process is already in our process list.
+                assert!(s.refresh_process(_pid));
+            }
         }
     }
 

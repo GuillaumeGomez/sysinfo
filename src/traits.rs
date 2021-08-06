@@ -474,7 +474,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
     ///
     /// assert_eq!(system.disks().len(), 0);
-    /// # if System::IS_SUPPORTED {
+    /// # if System::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
     /// assert!(system.processes().len() > 0);
     /// # }
     ///

@@ -30,6 +30,8 @@ mod tests {
         assert!(sys.processes().is_empty(), "no process should be listed!");
         sys.refresh_processes();
         // We don't want to test on unsupported systems.
+
+        #[cfg(not(feature = "apple-sandbox"))]
         if System::IS_SUPPORTED {
             assert!(
                 sys.refresh_process(utils::get_current_pid().expect("failed to get current pid")),
@@ -45,6 +47,7 @@ mod tests {
         if let Some(p) = sys.process(utils::get_current_pid().expect("failed to get current pid")) {
             assert!(p.memory() > 0);
         } else {
+            #[cfg(not(feature = "apple-sandbox"))]
             assert!(!System::IS_SUPPORTED);
         }
     }
@@ -70,6 +73,7 @@ mod tests {
             p.bar(); // If this doesn't compile, it'll simply mean that the Process type
                      // doesn't implement the Sync trait.
         } else {
+            #[cfg(not(feature = "apple-sandbox"))]
             assert!(!System::IS_SUPPORTED);
         }
     }
