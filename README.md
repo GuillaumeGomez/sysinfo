@@ -35,6 +35,9 @@ Otherwise, here is a little code sample:
 ```rust
 use sysinfo::{NetworkExt, NetworksExt, ProcessExt, System, SystemExt};
 
+// Please note that we use "new_all" to ensure that all list of
+// components, network interfaces, disks and users are already
+// filled!
 let mut sys = System::new_all();
 
 // First we update all information of our `System` struct.
