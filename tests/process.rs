@@ -25,10 +25,9 @@ fn test_process() {
 
 #[test]
 #[cfg(not(windows))]
-fn test_process_info() {
+fn test_process_cwd() {
     let p = std::process::Command::new("sleep")
         .arg("3")
-        .current_dir("/bin")
         .spawn()
         .unwrap();
     let pid = p.id() as sysinfo::Pid;
@@ -45,8 +44,10 @@ fn test_process_info() {
 
     if let Some(p) = p {
         assert_eq!(p.pid(), pid);
-        assert_eq!(p.cwd().to_str().unwrap(), "/bin");
-        println!("{:?}", p);
+        assert_eq!(
+            p.cwd().to_str().unwrap(),
+            std::env::current_dir().unwrap().to_str().unwrap()
+        );
     } else {
         assert!(false);
     }
