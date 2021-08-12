@@ -64,7 +64,7 @@ impl Process {
             cmd: Vec::new(),
             environ: Vec::new(),
             exe,
-            cwd: cwd,
+            cwd,
             root: PathBuf::new(),
             memory: 0,
             virtual_memory: 0,
@@ -105,7 +105,7 @@ impl Process {
             cmd,
             environ,
             exe,
-            cwd: cwd,
+            cwd,
             root,
             memory: 0,
             virtual_memory: 0,
@@ -393,11 +393,10 @@ pub(crate) fn update_process(
         let cwd = if result > 0 {
             let buffer = vnodepathinfo.pvi_cdir.vip_path;
             let buffer = CStr::from_ptr(buffer.as_ptr());
-            buffer.to_str().unwrap_or("").to_owned()
+            buffer.to_str().map(PathBuf::from).unwrap_or_else(|_| PathBuf::new())
         } else {
-            "".to_owned()
+            PathBuf::new()
         };
-        let cwd = PathBuf::from(cwd);
 
         let mut info = mem::zeroed::<libc::proc_bsdinfo>();
         if ffi::proc_pidinfo(
