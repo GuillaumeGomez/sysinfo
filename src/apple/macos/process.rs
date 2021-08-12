@@ -4,6 +4,7 @@
 // Copyright (c) 2021 Guillaume Gomez
 //
 
+use std::ffi::CStr;
 use std::mem::{self, MaybeUninit};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -55,7 +56,7 @@ pub struct Process {
 }
 
 impl Process {
-    pub(crate) fn new_empty(pid: Pid, exe: PathBuf, name: String) -> Process {
+    pub(crate) fn new_empty(pid: Pid, exe: PathBuf, name: String, cwd: PathBuf) -> Process {
         Process {
             name,
             pid,
@@ -63,7 +64,7 @@ impl Process {
             cmd: Vec::new(),
             environ: Vec::new(),
             exe,
-            cwd: PathBuf::new(),
+            cwd: cwd,
             root: PathBuf::new(),
             memory: 0,
             virtual_memory: 0,
@@ -92,6 +93,7 @@ impl Process {
         start_time: u64,
         exe: PathBuf,
         name: String,
+        cwd: PathBuf,
         cmd: Vec<String>,
         environ: Vec<String>,
         root: PathBuf,
@@ -103,7 +105,7 @@ impl Process {
             cmd,
             environ,
             exe,
-            cwd: PathBuf::new(),
+            cwd: cwd,
             root,
             memory: 0,
             virtual_memory: 0,
@@ -380,6 +382,23 @@ pub(crate) fn update_process(
             return Ok(None);
         }
 
+        let mut vnodepathinfo = mem::zeroed::<ffi::proc_vnodepathinfo>();
+        let result = ffi::proc_pidinfo(
+            pid,
+            ffi::PROC_PIDVNODEPATHINFO,
+            0,
+            &mut vnodepathinfo as *mut _ as *mut _,
+            mem::size_of::<ffi::proc_vnodepathinfo>() as _,
+        );
+        let cwd = if result > 0 {
+            let buffer = vnodepathinfo.pvi_cdir.vip_path;
+            let buffer = CStr::from_ptr(buffer.as_ptr());
+            buffer.to_str().unwrap_or("").to_owned()
+        } else {
+            "".to_owned()
+        };
+        let cwd = PathBuf::from(cwd);
+
         let mut info = mem::zeroed::<libc::proc_bsdinfo>();
         if ffi::proc_pidinfo(
             pid,
@@ -404,7 +423,7 @@ pub(crate) fn update_process(
                         .and_then(|x| x.to_str())
                         .unwrap_or("")
                         .to_owned();
-                    return Ok(Some(Process::new_empty(pid, exe, name)));
+                    return Ok(Some(Process::new_empty(pid, exe, name, cwd)));
                 }
                 _ => {}
             }
@@ -540,13 +559,13 @@ pub(crate) fn update_process(
             } else {
                 get_environ(ptr, cp, size, PathBuf::new(), do_something)
             };
-
             Process::new_with(
                 pid,
                 parent,
                 info.pbi_start_tvsec,
                 exe,
                 name,
+                cwd,
                 parse_command_line(&cmd),
                 environ,
                 root,
