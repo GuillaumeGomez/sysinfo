@@ -393,7 +393,10 @@ pub(crate) fn update_process(
         let cwd = if result > 0 {
             let buffer = vnodepathinfo.pvi_cdir.vip_path;
             let buffer = CStr::from_ptr(buffer.as_ptr());
-            buffer.to_str().map(PathBuf::from).unwrap_or_else(|_| PathBuf::new())
+            buffer
+                .to_str()
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| PathBuf::new())
         } else {
             PathBuf::new()
         };
