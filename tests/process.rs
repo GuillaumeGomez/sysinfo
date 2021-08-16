@@ -24,32 +24,120 @@ fn test_process() {
 }
 
 #[test]
-#[cfg(not(windows))]
-fn test_process_cwd() {
-    let p = std::process::Command::new("sleep")
-        .arg("3")
-        .spawn()
-        .unwrap();
-    let pid = p.id() as sysinfo::Pid;
-
-    let mut s = sysinfo::System::new();
-    s.refresh_processes();
-
+fn test_cwd() {
     if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("3")
+            .arg("CwdSignal")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("3")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+
+    let pid = p.id() as sysinfo::Pid;
+    std::thread::sleep(std::time::Duration::from_millis(250));
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    p.kill().expect("Unable to kill process.");
 
     let processes = s.processes();
     let p = processes.get(&pid);
 
     if let Some(p) = p {
         assert_eq!(p.pid(), pid);
-        assert_eq!(
-            p.cwd().to_str().unwrap(),
-            std::env::current_dir().unwrap().to_str().unwrap()
-        );
+        assert_eq!(p.cwd(), std::env::current_dir().unwrap());
     } else {
-        panic!("Process not found");
+        panic!("Process not found!");
+    }
+}
+
+#[test]
+fn test_cmd() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("3")
+            .arg("CmdSignal")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("3")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+    std::thread::sleep(std::time::Duration::from_millis(250));
+    let mut s = sysinfo::System::new();
+    assert!(s.processes().is_empty());
+    s.refresh_processes();
+    p.kill().expect("Unable to kill process.");
+    assert!(!s.processes().is_empty());
+    if let Some(process) = s.process(p.id() as sysinfo::Pid) {
+        if cfg!(target_os = "windows") {
+            assert_eq!(process.cmd(), &["waitfor", "/t", "3", "CmdSignal"]);
+        } else {
+            assert_eq!(process.cmd(), &["sleep", "3"]);
+        }
+    } else {
+        panic!("Process not found!");
+    }
+}
+
+#[test]
+fn test_environ() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("3")
+            .arg("EnvironSignal")
+            .stdout(std::process::Stdio::null())
+            .env("FOO", "BAR")
+            .env("OTHER", "VALUE")
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("3")
+            .stdout(std::process::Stdio::null())
+            .env("FOO", "BAR")
+            .env("OTHER", "VALUE")
+            .spawn()
+            .unwrap()
+    };
+
+    let pid = p.id() as sysinfo::Pid;
+    std::thread::sleep(std::time::Duration::from_millis(250));
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    p.kill().expect("Unable to kill process.");
+
+    let processes = s.processes();
+    let p = processes.get(&pid);
+
+    if let Some(p) = p {
+        assert_eq!(p.pid(), pid);
+        assert!(p.environ().iter().any(|e| e == "FOO=BAR"));
+        assert!(p.environ().iter().any(|e| e == "OTHER=VALUE"));
+    } else {
+        panic!("Process not found!");
     }
 }
 
@@ -65,85 +153,6 @@ fn test_process_refresh() {
     assert!(s
         .process(sysinfo::get_current_pid().expect("failed to get current pid"))
         .is_some(),);
-}
-
-#[test]
-#[cfg(windows)]
-fn test_get_cmd_line() {
-    let p = std::process::Command::new("timeout")
-        .arg("/t")
-        .arg("3")
-        .spawn()
-        .unwrap();
-    let mut s = sysinfo::System::new();
-    assert!(s.processes().is_empty());
-    s.refresh_processes();
-    assert!(!s.processes().is_empty());
-    if let Some(process) = s.process(p.id() as sysinfo::Pid) {
-        assert_eq!(process.cmd(), &["timeout", "/t", "3"]);
-    } else {
-        // We're very likely on a "linux-like" shell so let's try some unix command...
-        unix_like_cmd();
-    }
-}
-
-#[test]
-#[cfg(not(windows))]
-fn test_get_cmd_line() {
-    if sysinfo::System::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
-        unix_like_cmd();
-    }
-}
-
-fn unix_like_cmd() {
-    use std::{thread, time};
-
-    let p = std::process::Command::new("sleep")
-        .arg("3")
-        .spawn()
-        .unwrap();
-    // To ensure that the system data are filled correctly...
-    thread::sleep(time::Duration::from_millis(250));
-    let mut s = sysinfo::System::new();
-    assert!(s.processes().is_empty());
-    s.refresh_processes();
-    assert!(!s.processes().is_empty());
-    let process = s.process(p.id() as sysinfo::Pid).unwrap();
-    if process.cmd() != ["sleep", "3"] {
-        panic!("cmd not equivalent to`[sleep, 3]`: {:?}", process);
-    }
-}
-
-#[test]
-#[cfg(not(windows))]
-fn test_environ() {
-    if !sysinfo::System::IS_SUPPORTED {
-        return;
-    }
-
-    let mut p = std::process::Command::new("sleep")
-        .arg("3")
-        .stdout(std::process::Stdio::null())
-        .env("FOO", "BAR")
-        .env("OTHER", "VALUE")
-        .spawn()
-        .unwrap();
-    let pid = p.id() as sysinfo::Pid;
-    std::thread::sleep(std::time::Duration::from_millis(250));
-    let mut s = sysinfo::System::new();
-    s.refresh_processes();
-    p.kill().unwrap();
-
-    let processes = s.processes();
-    let p = processes.get(&pid);
-
-    if let Some(p) = p {
-        assert_eq!(p.pid(), pid);
-        assert!(p.environ().iter().any(|e| e == "FOO=BAR"));
-        assert!(p.environ().iter().any(|e| e == "OTHER=VALUE"));
-    } else {
-        panic!("No process found!")
-    }
 }
 
 #[test]
