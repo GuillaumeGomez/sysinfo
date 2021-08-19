@@ -85,6 +85,38 @@ fn unix_like_cmd() {
 }
 
 #[test]
+#[cfg(not(windows))]
+fn test_environ() {
+    if !sysinfo::System::IS_SUPPORTED {
+        return;
+    }
+
+    let mut p = std::process::Command::new("sleep")
+        .arg("3")
+        .stdout(std::process::Stdio::null())
+        .env("FOO", "BAR")
+        .env("OTHER", "VALUE")
+        .spawn()
+        .unwrap();
+    let pid = p.id() as sysinfo::Pid;
+    std::thread::sleep(std::time::Duration::from_millis(250));
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    p.kill().unwrap();
+
+    let processes = s.processes();
+    let p = processes.get(&pid);
+
+    if let Some(p) = p {
+        assert_eq!(p.pid(), pid);
+        assert!(p.environ().iter().any(|e| e == "FOO=BAR"));
+        assert!(p.environ().iter().any(|e| e == "OTHER=VALUE"));
+    } else {
+        panic!("No process found!")
+    }
+}
+
+#[test]
 fn test_process_disk_usage() {
     use std::fs;
     use std::fs::File;
