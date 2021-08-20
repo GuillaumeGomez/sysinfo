@@ -282,7 +282,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 let pid = Pid::from_str(tmp[1]).unwrap();
                 let signal = i32::from_str(tmp[2]).unwrap();
 
-                if signal < 1 || signal > 31 {
+                if !(1..=31).contains(&signal) {
                     writeln!(
                         &mut io::stdout(),
                         "Signal must be between 0 and 32 ! See the signals list with the \
