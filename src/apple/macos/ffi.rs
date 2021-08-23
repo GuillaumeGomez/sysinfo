@@ -14,57 +14,6 @@ use libc::{c_int, mach_port_t, size_t};
 
 pub(crate) use crate::sys::ffi::*;
 
-pub const MAXPATHLEN: usize = libc::PATH_MAX as usize;
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct vinfo_stat {
-    pub vst_dev: u32,
-    pub vst_mode: u16,
-    pub vst_nlink: u16,
-    pub vst_ino: u64,
-    pub vst_uid: libc::uid_t,
-    pub vst_gid: libc::gid_t,
-    pub vst_atime: i64,
-    pub vst_atimensec: i64,
-    pub vst_mtime: i64,
-    pub vst_mtimensec: i64,
-    pub vst_ctime: i64,
-    pub vst_ctimensec: i64,
-    pub vst_birthtime: i64,
-    pub vst_birthtimensec: i64,
-    pub vst_size: libc::off_t,
-    pub vst_blocks: i64,
-    pub vst_blksize: i32,
-    pub vst_flags: u32,
-    pub vst_gen: u32,
-    pub vst_rdev: u32,
-    pub vst_qspare: [i64; 2],
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct vnode_info {
-    pub vi_stat: vinfo_stat,
-    pub vi_type: libc::c_int,
-    pub vi_fsid: libc::fsid_t,
-    pub vi_pad: libc::c_int,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct vnode_info_path {
-    pub vip_vi: vnode_info,
-    pub vip_path: [libc::c_char; MAXPATHLEN],
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct proc_vnodepathinfo {
-    pub pvi_cdir: vnode_info_path,
-    pub pvi_rdir: vnode_info_path,
-}
-
 #[cfg(not(feature = "apple-sandbox"))]
 extern "C" {
     pub fn mach_absolute_time() -> u64;
@@ -72,21 +21,10 @@ extern "C" {
     // The proc_* PID functions are internal Apple APIs which are not
     // allowed in App store releases as Apple blocks any binary using them.
 
-    pub fn proc_pidinfo(
-        pid: c_int,
-        flavor: c_int,
-        arg: u64,
-        buffer: *mut c_void,
-        buffersize: c_int,
-    ) -> c_int;
-
-    pub fn proc_listallpids(buffer: *mut c_void, buffersize: c_int) -> c_int;
     //pub fn proc_listpids(kind: u32, x: u32, buffer: *mut c_void, buffersize: c_int) -> c_int;
     //pub fn proc_name(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
     //pub fn proc_regionfilename(pid: c_int, address: u64, buffer: *mut c_void,
     //                           buffersize: u32) -> c_int;
-
-    pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
 
     pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
 
@@ -167,7 +105,7 @@ unsafe impl Sync for SessionWrap {}
 
 #[cfg(not(feature = "apple-sandbox"))]
 mod io_service {
-    use super::{c_int, mach_port_t};
+    use super::mach_port_t;
 
     #[allow(non_camel_case_types)]
     pub type io_object_t = mach_port_t;
@@ -224,10 +162,6 @@ mod io_service {
     pub const SMC_CMD_READ_BYTES: u8 = 5;
 
     pub const KIO_RETURN_SUCCESS: i32 = 0;
-
-    pub const PROC_PIDTBSDINFO: c_int = 3;
-    pub const PROC_PIDVNODEPATHINFO: c_int = 9;
-    pub const PROC_PIDPATHINFO_MAXSIZE: u32 = 4096;
 }
 
 #[cfg(feature = "apple-sandbox")]

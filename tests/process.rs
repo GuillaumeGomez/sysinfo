@@ -49,7 +49,7 @@ fn test_process_cwd() {
             std::env::current_dir().unwrap().to_str().unwrap()
         );
     } else {
-        assert!(false);
+        panic!("Process not found");
     }
 }
 

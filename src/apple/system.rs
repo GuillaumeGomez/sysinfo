@@ -262,7 +262,7 @@ impl SystemExt for System {
     fn refresh_processes(&mut self) {
         use crate::utils::into_iter;
 
-        let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
+        let count = unsafe { libc::proc_listallpids(::std::ptr::null_mut(), 0) };
         if count < 1 {
             return;
         }
