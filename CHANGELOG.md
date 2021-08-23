@@ -1,3 +1,9 @@
+# 0.20.1
+
+ * macOS: Add better support for sandboxing
+ * macOS: Add support for getting process current working directory
+ * Add more explanations in crate level code example
+
 # 0.20.0
 
  * macOS: improved code readability.
