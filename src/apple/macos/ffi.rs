@@ -21,21 +21,10 @@ extern "C" {
     // The proc_* PID functions are internal Apple APIs which are not
     // allowed in App store releases as Apple blocks any binary using them.
 
-    pub fn proc_pidinfo(
-        pid: c_int,
-        flavor: c_int,
-        arg: u64,
-        buffer: *mut c_void,
-        buffersize: c_int,
-    ) -> c_int;
-
-    pub fn proc_listallpids(buffer: *mut c_void, buffersize: c_int) -> c_int;
     //pub fn proc_listpids(kind: u32, x: u32, buffer: *mut c_void, buffersize: c_int) -> c_int;
     //pub fn proc_name(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
     //pub fn proc_regionfilename(pid: c_int, address: u64, buffer: *mut c_void,
     //                           buffersize: u32) -> c_int;
-
-    pub fn proc_pidpath(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
 
     pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
 
@@ -116,7 +105,7 @@ unsafe impl Sync for SessionWrap {}
 
 #[cfg(not(feature = "apple-sandbox"))]
 mod io_service {
-    use super::{c_int, mach_port_t};
+    use super::mach_port_t;
 
     #[allow(non_camel_case_types)]
     pub type io_object_t = mach_port_t;
@@ -173,9 +162,6 @@ mod io_service {
     pub const SMC_CMD_READ_BYTES: u8 = 5;
 
     pub const KIO_RETURN_SUCCESS: i32 = 0;
-
-    pub const PROC_PIDTBSDINFO: c_int = 3;
-    pub const PROC_PIDPATHINFO_MAXSIZE: u32 = 4096;
 }
 
 #[cfg(feature = "apple-sandbox")]

@@ -4,6 +4,7 @@
 // Copyright (c) 2021 Guillaume Gomez
 //
 
+use std::ffi::CStr;
 use std::mem::{self, MaybeUninit};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -55,7 +56,7 @@ pub struct Process {
 }
 
 impl Process {
-    pub(crate) fn new_empty(pid: Pid, exe: PathBuf, name: String) -> Process {
+    pub(crate) fn new_empty(pid: Pid, exe: PathBuf, name: String, cwd: PathBuf) -> Process {
         Process {
             name,
             pid,
@@ -63,7 +64,7 @@ impl Process {
             cmd: Vec::new(),
             environ: Vec::new(),
             exe,
-            cwd: PathBuf::new(),
+            cwd,
             root: PathBuf::new(),
             memory: 0,
             virtual_memory: 0,
@@ -92,6 +93,7 @@ impl Process {
         start_time: u64,
         exe: PathBuf,
         name: String,
+        cwd: PathBuf,
         cmd: Vec<String>,
         environ: Vec<String>,
         root: PathBuf,
@@ -103,7 +105,7 @@ impl Process {
             cmd,
             environ,
             exe,
-            cwd: PathBuf::new(),
+            cwd,
             root,
             memory: 0,
             virtual_memory: 0,
@@ -327,7 +329,7 @@ unsafe fn get_task_info(pid: Pid) -> libc::proc_taskinfo {
     let mut task_info = mem::zeroed::<libc::proc_taskinfo>();
     // If it doesn't work, we just don't have memory information for this process
     // so it's "fine".
-    ffi::proc_pidinfo(
+    libc::proc_pidinfo(
         pid,
         libc::PROC_PIDTASKINFO,
         0,
@@ -355,7 +357,7 @@ pub(crate) fn update_process(
             }
             let task_info = get_task_info(pid);
             let mut thread_info = mem::zeroed::<libc::proc_threadinfo>();
-            let (user_time, system_time, thread_status) = if ffi::proc_pidinfo(
+            let (user_time, system_time, thread_status) = if libc::proc_pidinfo(
                 pid,
                 libc::PROC_PIDTHREADINFO,
                 0,
@@ -380,20 +382,39 @@ pub(crate) fn update_process(
             return Ok(None);
         }
 
-        let mut info = mem::zeroed::<libc::proc_bsdinfo>();
-        if ffi::proc_pidinfo(
+        let mut vnodepathinfo = mem::zeroed::<libc::proc_vnodepathinfo>();
+        let result = libc::proc_pidinfo(
             pid,
-            ffi::PROC_PIDTBSDINFO,
+            libc::PROC_PIDVNODEPATHINFO,
+            0,
+            &mut vnodepathinfo as *mut _ as *mut _,
+            mem::size_of::<libc::proc_vnodepathinfo>() as _,
+        );
+        let cwd = if result > 0 {
+            let buffer = vnodepathinfo.pvi_cdir.vip_path;
+            let buffer = CStr::from_ptr(buffer.as_ptr() as _);
+            buffer
+                .to_str()
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| PathBuf::new())
+        } else {
+            PathBuf::new()
+        };
+
+        let mut info = mem::zeroed::<libc::proc_bsdinfo>();
+        if libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTBSDINFO,
             0,
             &mut info as *mut _ as *mut _,
             mem::size_of::<libc::proc_bsdinfo>() as _,
         ) != mem::size_of::<libc::proc_bsdinfo>() as _
         {
-            let mut buffer: Vec<u8> = Vec::with_capacity(ffi::PROC_PIDPATHINFO_MAXSIZE as _);
-            match ffi::proc_pidpath(
+            let mut buffer: Vec<u8> = Vec::with_capacity(libc::PROC_PIDPATHINFO_MAXSIZE as _);
+            match libc::proc_pidpath(
                 pid,
                 buffer.as_mut_ptr() as *mut _,
-                ffi::PROC_PIDPATHINFO_MAXSIZE,
+                libc::PROC_PIDPATHINFO_MAXSIZE as _,
             ) {
                 x if x > 0 => {
                     buffer.set_len(x as _);
@@ -404,7 +425,7 @@ pub(crate) fn update_process(
                         .and_then(|x| x.to_str())
                         .unwrap_or("")
                         .to_owned();
-                    return Ok(Some(Process::new_empty(pid, exe, name)));
+                    return Ok(Some(Process::new_empty(pid, exe, name, cwd)));
                 }
                 _ => {}
             }
@@ -540,13 +561,13 @@ pub(crate) fn update_process(
             } else {
                 get_environ(ptr, cp, size, PathBuf::new(), do_something)
             };
-
             Process::new_with(
                 pid,
                 parent,
                 info.pbi_start_tvsec,
                 exe,
                 name,
+                cwd,
                 parse_command_line(&cmd),
                 environ,
                 root,
@@ -585,7 +606,7 @@ fn update_proc_disk_activity(p: &mut Process) {
 }
 
 pub(crate) fn get_proc_list() -> Option<Vec<Pid>> {
-    let count = unsafe { ffi::proc_listallpids(::std::ptr::null_mut(), 0) };
+    let count = unsafe { libc::proc_listallpids(::std::ptr::null_mut(), 0) };
     if count < 1 {
         return None;
     }
@@ -594,7 +615,7 @@ pub(crate) fn get_proc_list() -> Option<Vec<Pid>> {
         pids.set_len(count as usize);
     }
     let count = count * mem::size_of::<Pid>() as i32;
-    let x = unsafe { ffi::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
+    let x = unsafe { libc::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
 
     if x < 1 || x as usize >= pids.len() {
         None

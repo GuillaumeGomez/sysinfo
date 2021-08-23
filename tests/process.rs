@@ -24,6 +24,36 @@ fn test_process() {
 }
 
 #[test]
+#[cfg(not(windows))]
+fn test_process_cwd() {
+    let p = std::process::Command::new("sleep")
+        .arg("3")
+        .spawn()
+        .unwrap();
+    let pid = p.id() as sysinfo::Pid;
+
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+
+    let processes = s.processes();
+    let p = processes.get(&pid);
+
+    if let Some(p) = p {
+        assert_eq!(p.pid(), pid);
+        assert_eq!(
+            p.cwd().to_str().unwrap(),
+            std::env::current_dir().unwrap().to_str().unwrap()
+        );
+    } else {
+        panic!("Process not found");
+    }
+}
+
+#[test]
 fn test_process_refresh() {
     let mut s = sysinfo::System::new();
     assert_eq!(s.processes().len(), 0);
