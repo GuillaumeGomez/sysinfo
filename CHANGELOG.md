@@ -3,6 +3,7 @@
  * macOS: Add better support for sandboxing
  * macOS: Add support for getting process current working directory
  * Add more explanations in crate level code example
+ * Update rayon version to 1.5.1
 
 # 0.20.0
 
