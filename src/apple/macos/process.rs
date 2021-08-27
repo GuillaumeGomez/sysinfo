@@ -261,6 +261,7 @@ impl ProcessExt for Process {
     }
 }
 
+#[allow(deprecated)] // Because of libc::mach_absolute_time.
 pub(crate) fn compute_cpu_usage(
     p: &mut Process,
     task_info: libc::proc_taskinfo,
@@ -282,7 +283,7 @@ pub(crate) fn compute_cpu_usage(
         p.old_utime = task_info.pti_total_user;
     } else {
         // This is the "backup way" of CPU computation.
-        let time = unsafe { ffi::mach_absolute_time() };
+        let time = unsafe { libc::mach_absolute_time() };
         let task_time =
             user_time + system_time + task_info.pti_total_user + task_info.pti_total_system;
 

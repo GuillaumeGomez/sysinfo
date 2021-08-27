@@ -48,7 +48,7 @@ impl SystemTimeInfo {
         // }
 
         let mut info = mach_timebase_info_data_t { numer: 0, denom: 0 };
-        if unsafe { mach_timebase_info(&mut info) } != ffi::KERN_SUCCESS {
+        if unsafe { mach_timebase_info(&mut info) } != libc::KERN_SUCCESS {
             sysinfo_debug!("mach_timebase_info failed, using default value of 1");
             info.numer = 1;
             info.denom = 1;

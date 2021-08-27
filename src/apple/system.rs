@@ -127,7 +127,7 @@ impl SystemExt for System {
     const IS_SUPPORTED: bool = true;
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
-        let port = unsafe { ffi::mach_host_self() };
+        let port = unsafe { libc::mach_host_self() };
         let (global_processor, processors) = init_processors(port);
 
         let mut s = System {
@@ -192,7 +192,7 @@ impl SystemExt for System {
                 ffi::HOST_VM_INFO64,
                 &mut stat as *mut ffi::vm_statistics64 as *mut c_void,
                 &count,
-            ) == ffi::KERN_SUCCESS
+            ) == libc::KERN_SUCCESS
             {
                 // From the apple documentation:
                 //

@@ -5,8 +5,8 @@
 //
 
 use libc::{
-    c_int, c_uchar, c_ushort, c_void, mach_msg_type_number_t, natural_t, processor_flavor_t,
-    processor_info_array_t,
+    c_int, c_uchar, c_ushort, c_void, kern_return_t, mach_msg_type_number_t, natural_t,
+    processor_flavor_t, processor_info_array_t,
 };
 
 // Reexport items defined in either macos or ios ffi module.
@@ -15,7 +15,6 @@ pub use crate::sys::inner::ffi::*;
 extern "C" {
     //pub fn task_for_pid(host: u32, pid: pid_t, task: *mut task_t) -> u32;
     pub fn mach_task_self() -> u32;
-    pub fn mach_host_self() -> u32;
     //pub fn task_info(host_info: u32, t: u32, c: *mut c_void, x: *mut u32) -> u32;
     pub fn host_statistics64(
         host_info: u32,
@@ -110,7 +109,7 @@ pub struct __DASession(c_void);
 
 //#[allow(non_camel_case_types)]
 //pub type policy_t = i32;
-#[allow(non_camel_case_types)]
+//#[allow(non_camel_case_types)]
 //pub type integer_t = i32;
 //#[allow(non_camel_case_types)]
 //pub type time_t = i64;
@@ -122,8 +121,6 @@ pub struct __DASession(c_void);
 //pub type task_t = u32;
 //#[allow(non_camel_case_types)]
 //pub type pid_t = i32;
-#[allow(non_camel_case_types)]
-pub type kern_return_t = c_int;
 // pub type IOOptionBits = u32;
 
 /*#[repr(C)]
@@ -208,7 +205,6 @@ pub struct RUsageInfoV2 {
 
 //pub const HOST_CPU_LOAD_INFO_COUNT: usize = 4;
 //pub const HOST_CPU_LOAD_INFO: u32 = 3;
-pub const KERN_SUCCESS: kern_return_t = 0;
 
 //pub const TASK_THREAD_TIMES_INFO: u32 = 3;
 //pub const TASK_THREAD_TIMES_INFO_COUNT: u32 = 4;
