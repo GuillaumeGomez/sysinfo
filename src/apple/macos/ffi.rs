@@ -16,8 +16,6 @@ pub(crate) use crate::sys::ffi::*;
 
 #[cfg(not(feature = "apple-sandbox"))]
 extern "C" {
-    pub fn mach_absolute_time() -> u64;
-
     // The proc_* PID functions are internal Apple APIs which are not
     // allowed in App store releases as Apple blocks any binary using them.
 

@@ -638,22 +638,15 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
 fn get_system_info_android(info: InfoType) -> Option<String> {
     use libc::c_int;
 
-    // https://android.googlesource.com/platform/bionic/+/refs/heads/master/libc/include/sys/system_properties.h#41
-    const PROP_VALUE_MAX: usize = 92;
-
-    extern "C" {
-        fn __system_property_get(name: *const c_char, value: *mut c_char) -> c_int;
-    }
-
     // https://android.googlesource.com/platform/frameworks/base/+/refs/heads/master/core/java/android/os/Build.java#58
     let name: &'static [u8] = match info {
         InfoType::Name => b"ro.product.model\0",
         InfoType::OsVersion => b"ro.build.version.release\0",
     };
 
-    let mut value_buffer = vec![0u8; PROP_VALUE_MAX];
+    let mut value_buffer = vec![0u8; libc::PROP_VALUE_MAX as usize];
     let len = unsafe {
-        __system_property_get(
+        libc::__system_property_get(
             name.as_ptr() as *const c_char,
             value_buffer.as_mut_ptr() as *mut c_char,
         )

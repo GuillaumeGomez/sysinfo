@@ -182,7 +182,7 @@ pub(crate) fn update_processor_usage<F: FnOnce(Arc<ProcessorData>, *mut i32) -> 
             &mut cpu_info as *mut *mut i32,
             &mut num_cpu_info as *mut u32,
         )
-    } == ffi::KERN_SUCCESS
+    } == libc::KERN_SUCCESS
     {
         let (total_percentage, len) = f(
             Arc::new(ProcessorData::new(cpu_info, num_cpu_info)),
