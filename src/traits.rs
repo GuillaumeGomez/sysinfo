@@ -204,8 +204,6 @@ pub trait ProcessExt: Debug {
 
     /// Returns the environment of the process.
     ///
-    /// Always empty on Windows, except for current process.
-    ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
@@ -218,8 +216,6 @@ pub trait ProcessExt: Debug {
 
     /// Returns the current working directory.
     ///
-    /// Always empty on Windows.
-    ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
@@ -231,8 +227,6 @@ pub trait ProcessExt: Debug {
     fn cwd(&self) -> &Path;
 
     /// Returns the path of the root directory.
-    ///
-    /// Always empty on Windows.
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
