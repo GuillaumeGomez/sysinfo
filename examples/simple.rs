@@ -379,11 +379,11 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             writeln!(
                 &mut io::stdout(),
                 "System name:           {}\n\
-                System kernel version: {}\n\
+                System kernel release: {}\n\
                 System OS version:     {}\n\
                 System host name:      {}",
                 sys.name().unwrap_or_else(|| "<unknown>".to_owned()),
-                sys.kernel_version()
+                sys.kernel_release()
                     .unwrap_or_else(|| "<unknown>".to_owned()),
                 sys.os_version().unwrap_or_else(|| "<unknown>".to_owned()),
                 sys.host_name().unwrap_or_else(|| "<unknown>".to_owned()),

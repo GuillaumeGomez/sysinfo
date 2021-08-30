@@ -256,6 +256,11 @@ mod test {
                 .expect("Failed to get kernel version")
                 .is_empty());
 
+            assert!(!s
+                    .kernel_release()
+                    .expect("Failed to get kernel version")
+                    .is_empty());
+
             assert!(!s.os_version().expect("Failed to get os version").is_empty());
 
             assert!(!s
