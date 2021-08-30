@@ -540,7 +540,7 @@ impl SystemExt for System {
         }
     }
 
-    fn kernel_version(&self) -> Option<String> {
+    fn kernel_release(&self) -> Option<String> {
         let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
 
         if unsafe { libc::uname(raw.as_mut_ptr()) } == 0 {
@@ -558,7 +558,21 @@ impl SystemExt for System {
             None
         }
     }
-
+    fn kernel_version(&self) -> Option<[usize; 3]> {
+        let release = self.kernel_release()?;
+        let mut chars = release.chars();
+        let mut ver = Vec::new();
+        for _ in 0..3 {
+            let mut cache: usize = 0;
+            while let Some(x) = chars.next().unwrap().to_digit(10) {
+                cache *= 10;
+                cache += x as usize;
+            }
+            ver.push(cache);
+        }
+        //    major   minor   patch
+        Some([ver[0], ver[1], ver[2]])
+    }
     #[cfg(not(target_os = "android"))]
     fn os_version(&self) -> Option<String> {
         get_system_info_linux(

@@ -1002,6 +1002,18 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn name(&self) -> Option<String>;
 
+    /// Returns the system's kernel release.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// println!("kernel release: {:?}", s.kernel_release());
+    /// ```
+    fn kernel_release(&self)-> Option<String>;
+
     /// Returns the system's kernel version.
     ///
     /// **Important**: this information is computed every time this function is called.
@@ -1012,7 +1024,7 @@ pub trait SystemExt: Sized + Debug + Default {
     /// let s = System::new();
     /// println!("kernel version: {:?}", s.kernel_version());
     /// ```
-    fn kernel_version(&self) -> Option<String>;
+    fn kernel_version(&self) -> Option<[usize; 3]>;
 
     /// Returns the system version (e.g. for MacOS this will return 11.1 rather than the kernel version).
     ///
