@@ -1,13 +1,19 @@
+# 0.20.2
+
+ * Windows: Added support for getting process' current working directory
+ * Windows: Added support for getting process' environment variables
+ * Removed more FFI bindings and replaced them with libc's.
+
 # 0.20.1
 
- * macOS: Add better support for sandboxing
- * macOS: Add support for getting process current working directory
- * Add more explanations in crate level code example
- * Update rayon version to 1.5.1
+ * macOS: Added better support for sandboxing.
+ * macOS: Added support for getting process current working directory.
+ * Added more explanations in crate level code example.
+ * Updated rayon version to 1.5.1.
 
 # 0.20.0
 
- * macOS: improved code readability.
+ * macOS: Improved code readability.
  * Windows: Prevented the `taskkill.exe` console window from appearing when using `kill`.
  * Fixed benchmarks compilation issue.
  * Upgraded minimum supported Rust version to 1.54.
@@ -16,12 +22,12 @@
 
 # 0.19.2
 
- * Windows: Fix swap memory information computation
+ * Windows: Fixed swap memory information computation.
 
 # 0.19.1
 
- * Windows: Get swap memory information.
- * Linux: Fix memory information gathering (bad parsing of `/proc/meminfo`).
+ * Windows: Got swap memory information.
+ * Linux: Fixed memory information gathering (bad parsing of `/proc/meminfo`).
 
 # 0.19.0
 
