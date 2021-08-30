@@ -558,6 +558,16 @@ impl SystemExt for System {
             None
         }
     }
+
+    fn kernel_name(&self) -> Option<String> {
+        let release = self.kernel_release()?;
+        let mut chars = release.chars();
+        for _ in 0..3 {
+            while let Some(_) = chars.next().unwrap().to_digit(10) {}
+        }
+        Some(chars.as_str().to_string())
+    }
+
     fn kernel_version(&self) -> Option<[usize; 3]> {
         let release = self.kernel_release()?;
         let mut chars = release.chars();
@@ -573,6 +583,7 @@ impl SystemExt for System {
         //    major   minor   patch
         Some([ver[0], ver[1], ver[2]])
     }
+
     #[cfg(not(target_os = "android"))]
     fn os_version(&self) -> Option<String> {
         get_system_info_linux(

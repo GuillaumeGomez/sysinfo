@@ -1014,6 +1014,18 @@ pub trait SystemExt: Sized + Debug + Default {
     /// ```
     fn kernel_release(&self)-> Option<String>;
 
+    /// Returns the system's kernel name.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// println!("kernel release: {:?}", s.kernel_name());
+    /// ```
+    fn kernel_name(&self)-> Option<String>;
+
     /// Returns the system's kernel version.
     ///
     /// **Important**: this information is computed every time this function is called.
