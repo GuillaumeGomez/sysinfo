@@ -202,7 +202,7 @@ pub trait ProcessExt: Debug {
     /// ```
     fn pid(&self) -> Pid;
 
-    /// Returns the environment of the process.
+    /// Returns the environment variables of the process.
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
