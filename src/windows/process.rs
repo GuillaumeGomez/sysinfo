@@ -233,15 +233,22 @@ impl Process {
             let exe = unsafe { get_exe(handle, h_mod) };
             let mut root = exe.clone();
             root.pop();
+            let (cmd, environ, cwd) = match unsafe { get_process_params(handle) } {
+                Ok(args) => args,
+                Err(_e) => {
+                    sysinfo_debug!("Failed to get process parameters: {}", _e);
+                    (Vec::new(), Vec::new(), PathBuf::new())
+                }
+            };
             Process {
                 handle: PtrWrapper(handle),
                 name,
                 pid,
                 parent,
-                cmd: get_cmd_line(handle),
-                environ: get_proc_env(handle),
+                cmd,
+                environ,
                 exe,
-                cwd: get_cwd(handle),
+                cwd,
                 root,
                 status: ProcessStatus::Run,
                 memory,
@@ -294,15 +301,22 @@ impl Process {
             let exe = get_exe(process_handler, h_mod);
             let mut root = exe.clone();
             root.pop();
+            let (cmd, environ, cwd) = match get_process_params(process_handler) {
+                Ok(args) => args,
+                Err(_e) => {
+                    sysinfo_debug!("Failed to get process parameters: {}", _e);
+                    (Vec::new(), Vec::new(), PathBuf::new())
+                }
+            };
             Process {
                 handle: PtrWrapper(process_handler),
                 name,
                 pid,
                 parent,
-                cmd: get_cmd_line(process_handler),
-                environ: get_proc_env(process_handler),
+                cmd,
+                environ,
                 exe,
-                cwd: get_cwd(process_handler),
+                cwd,
                 root,
                 status: ProcessStatus::Run,
                 memory: 0,
@@ -320,11 +334,6 @@ impl Process {
     }
 }
 
-// TODO: it's possible to get environment variables like it's done in
-// https://github.com/processhacker/processhacker
-//
-// They have a very nice function called PhGetProcessEnvironment. Just very complicated as it
-// seems...
 impl ProcessExt for Process {
     fn new(pid: Pid, parent: Option<Pid>, _: u64) -> Process {
         if let Some(process_handler) = get_process_handler(pid) {
@@ -530,16 +539,62 @@ unsafe fn get_region_size(handle: HANDLE, ptr: LPVOID) -> Result<usize, &'static
     Ok((meminfo.RegionSize as isize - ptr.offset_from(meminfo.BaseAddress)) as usize)
 }
 
-enum ProcessDataKind {
-    CMDLINE,
-    CWD,
-    ENVIRON,
-}
-
 unsafe fn get_process_data(
     handle: HANDLE,
-    kind: ProcessDataKind,
+    ptr: LPVOID,
+    size: usize,
 ) -> Result<Vec<u16>, &'static str> {
+    let mut buffer: Vec<u16> = Vec::with_capacity(size / 2 + 1);
+    buffer.set_len(size / 2);
+    if ReadProcessMemory(
+        handle,
+        ptr as *mut _,
+        buffer.as_mut_ptr() as *mut _,
+        size,
+        std::ptr::null_mut(),
+    ) != TRUE
+    {
+        return Err("Unable to read process data");
+    }
+    Ok(buffer)
+}
+
+trait RtlUserProcessParameters {
+    fn get_cmdline(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str>;
+    fn get_cwd(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str>;
+    fn get_environ(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str>;
+}
+
+macro_rules! impl_RtlUserProcessParameters {
+    ($t:ty) => {
+        impl RtlUserProcessParameters for $t {
+            fn get_cmdline(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str> {
+                let ptr = self.CommandLine.Buffer;
+                let size = self.CommandLine.Length;
+                unsafe { get_process_data(handle, ptr as _, size as _) }
+            }
+            fn get_cwd(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str> {
+                let ptr = self.CurrentDirectory.DosPath.Buffer;
+                let size = self.CurrentDirectory.DosPath.Length;
+                unsafe { get_process_data(handle, ptr as _, size as _) }
+            }
+            fn get_environ(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str> {
+                let ptr = self.Environment;
+                unsafe {
+                    let size = get_region_size(handle, ptr as LPVOID)?;
+                    get_process_data(handle, ptr as _, size as _)
+                }
+            }
+        }
+    };
+}
+
+impl_RtlUserProcessParameters!(RTL_USER_PROCESS_PARAMETERS32);
+impl_RtlUserProcessParameters!(RTL_USER_PROCESS_PARAMETERS);
+
+unsafe fn get_process_params(
+    handle: HANDLE,
+) -> Result<(Vec<String>, Vec<String>, PathBuf), &'static str> {
     if !cfg!(target_pointer_width = "64") {
         return Err("Non 64 bit targets are not supported");
     }
@@ -558,7 +613,7 @@ unsafe fn get_process_data(
     }
     let pwow32info = pwow32info.assume_init();
 
-    let (ptr, size) = if pwow32info.is_null() {
+    if pwow32info.is_null() {
         // target is a 64 bit process
 
         let mut pbasicinfo = MaybeUninit::<PROCESS_BASIC_INFORMATION>::uninit();
@@ -599,96 +654,54 @@ unsafe fn get_process_data(
         {
             return Err("Unable to read process parameters");
         }
+
         let proc_params = proc_params.assume_init();
+        return Ok((
+            get_cmd_line(&proc_params, handle),
+            get_proc_env(&proc_params, handle),
+            get_cwd(&proc_params, handle),
+        ));
+    }
+    // target is a 32 bit process in wow64 mode
 
-        match kind {
-            ProcessDataKind::CMDLINE => {
-                let ptr = proc_params.CommandLine.Buffer;
-                let size = proc_params.CommandLine.Length;
-                (ptr as LPVOID, size as usize)
-            }
-            ProcessDataKind::CWD => {
-                let ptr = proc_params.CurrentDirectory.DosPath.Buffer;
-                let size = proc_params.CurrentDirectory.DosPath.Length;
-                (ptr as LPVOID, size as usize)
-            }
-            ProcessDataKind::ENVIRON => {
-                let ptr = proc_params.Environment;
-                let size = get_region_size(handle, ptr)?;
-                (ptr as LPVOID, size as usize)
-            }
-        }
-    } else {
-        // target is a 32 bit process in wow64 mode
-
-        let mut peb32 = MaybeUninit::<PEB32>::uninit();
-        if ReadProcessMemory(
-            handle,
-            pwow32info,
-            peb32.as_mut_ptr() as *mut _,
-            size_of::<PEB32>() as SIZE_T,
-            std::ptr::null_mut(),
-        ) != TRUE
-        {
-            return Err("Unable to read PEB32");
-        }
-        let peb32 = peb32.assume_init();
-
-        let mut proc_params = MaybeUninit::<RTL_USER_PROCESS_PARAMETERS32>::uninit();
-        if ReadProcessMemory(
-            handle,
-            peb32.ProcessParameters as *mut PRTL_USER_PROCESS_PARAMETERS32 as *mut _,
-            proc_params.as_mut_ptr() as *mut _,
-            size_of::<RTL_USER_PROCESS_PARAMETERS32>() as SIZE_T,
-            std::ptr::null_mut(),
-        ) != TRUE
-        {
-            return Err("Unable to read 32 bit process parameters");
-        }
-        let proc_params = proc_params.assume_init();
-
-        match kind {
-            ProcessDataKind::CMDLINE => {
-                let ptr = proc_params.CommandLine.Buffer;
-                let size = proc_params.CommandLine.Length;
-                (ptr as LPVOID, size as usize)
-            }
-            ProcessDataKind::CWD => {
-                let ptr = proc_params.CurrentDirectory.DosPath.Buffer;
-                let size = proc_params.CurrentDirectory.DosPath.Length;
-                (ptr as LPVOID, size as usize)
-            }
-            ProcessDataKind::ENVIRON => {
-                let ptr = proc_params.Environment;
-                let size = get_region_size(handle, ptr as LPVOID)?;
-                (ptr as LPVOID, size as usize)
-            }
-        }
-    };
-
-    let mut buffer: Vec<u16> = Vec::with_capacity(size / 2 + 1);
-    buffer.set_len(size / 2);
+    let mut peb32 = MaybeUninit::<PEB32>::uninit();
     if ReadProcessMemory(
         handle,
-        ptr as *mut _,
-        buffer.as_mut_ptr() as *mut _,
-        size,
+        pwow32info,
+        peb32.as_mut_ptr() as *mut _,
+        size_of::<PEB32>() as SIZE_T,
         std::ptr::null_mut(),
     ) != TRUE
     {
-        return Err("Unable to read process data");
+        return Err("Unable to read PEB32");
     }
-    Ok(buffer)
+    let peb32 = peb32.assume_init();
+
+    let mut proc_params = MaybeUninit::<RTL_USER_PROCESS_PARAMETERS32>::uninit();
+    if ReadProcessMemory(
+        handle,
+        peb32.ProcessParameters as *mut PRTL_USER_PROCESS_PARAMETERS32 as *mut _,
+        proc_params.as_mut_ptr() as *mut _,
+        size_of::<RTL_USER_PROCESS_PARAMETERS32>() as SIZE_T,
+        std::ptr::null_mut(),
+    ) != TRUE
+    {
+        return Err("Unable to read 32 bit process parameters");
+    }
+    let proc_params = proc_params.assume_init();
+    Ok((
+        get_cmd_line(&proc_params, handle),
+        get_proc_env(&proc_params, handle),
+        get_cwd(&proc_params, handle),
+    ))
 }
 
-fn get_cwd(handle: HANDLE) -> PathBuf {
-    unsafe {
-        match get_process_data(handle, ProcessDataKind::CWD) {
-            Ok(buffer) => PathBuf::from(null_terminated_wchar_to_string(buffer.as_slice())),
-            Err(_e) => {
-                sysinfo_debug!("get_cwd failed to get data: {}", _e);
-                PathBuf::new()
-            }
+fn get_cwd<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> PathBuf {
+    match params.get_cwd(handle) {
+        Ok(buffer) => unsafe { PathBuf::from(null_terminated_wchar_to_string(buffer.as_slice())) },
+        Err(_e) => {
+            sysinfo_debug!("get_cwd failed to get data: {}", _e);
+            PathBuf::new()
         }
     }
 }
@@ -702,14 +715,12 @@ unsafe fn null_terminated_wchar_to_string(slice: &[u16]) -> String {
     }
 }
 
-fn get_cmd_line_old(handle: HANDLE) -> Vec<String> {
-    unsafe {
-        match get_process_data(handle, ProcessDataKind::CMDLINE) {
-            Ok(buffer) => get_cmdline_from_buffer(buffer.as_ptr()),
-            Err(_e) => {
-                sysinfo_debug!("get_cmd_line_old failed to get data: {}", _e);
-                Vec::new()
-            }
+fn get_cmd_line_old<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<String> {
+    match params.get_cmdline(handle) {
+        Ok(buffer) => unsafe { get_cmdline_from_buffer(buffer.as_ptr()) },
+        Err(_e) => {
+            sysinfo_debug!("get_cmd_line_old failed to get data: {}", _e);
+            Vec::new()
         }
     }
 }
@@ -728,41 +739,39 @@ fn get_cmd_line_new(handle: HANDLE) -> Vec<String> {
     }
 }
 
-fn get_cmd_line(handle: HANDLE) -> Vec<String> {
+fn get_cmd_line<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<String> {
     if *WINDOWS_8_1_OR_NEWER {
         get_cmd_line_new(handle)
     } else {
-        get_cmd_line_old(handle)
+        get_cmd_line_old(params, handle)
     }
 }
 
-fn get_proc_env(handle: HANDLE) -> Vec<String> {
-    unsafe {
-        match get_process_data(handle, ProcessDataKind::ENVIRON) {
-            Ok(buffer) => {
-                let equals = "=".encode_utf16().next().unwrap();
-                let raw_env = buffer;
-                let mut result = Vec::new();
-                let mut begin = 0;
-                while let Some(offset) = raw_env[begin..].iter().position(|&c| c == 0) {
-                    let end = begin + offset;
-                    if raw_env[begin..end].iter().any(|&c| c == equals) {
-                        result.push(
-                            OsString::from_wide(&raw_env[begin..end])
-                                .to_string_lossy()
-                                .into_owned(),
-                        );
-                        begin = end + 1;
-                    } else {
-                        break;
-                    }
+fn get_proc_env<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<String> {
+    match params.get_environ(handle) {
+        Ok(buffer) => {
+            let equals = "=".encode_utf16().next().unwrap();
+            let raw_env = buffer;
+            let mut result = Vec::new();
+            let mut begin = 0;
+            while let Some(offset) = raw_env[begin..].iter().position(|&c| c == 0) {
+                let end = begin + offset;
+                if raw_env[begin..end].iter().any(|&c| c == equals) {
+                    result.push(
+                        OsString::from_wide(&raw_env[begin..end])
+                            .to_string_lossy()
+                            .into_owned(),
+                    );
+                    begin = end + 1;
+                } else {
+                    break;
                 }
-                result
             }
-            Err(_e) => {
-                sysinfo_debug!("get_proc_env failed to get data: {}", _e);
-                Vec::new()
-            }
+            result
+        }
+        Err(_e) => {
+            sysinfo_debug!("get_proc_env failed to get data: {}", _e);
+            Vec::new()
         }
     }
 }
