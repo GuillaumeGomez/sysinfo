@@ -1,3 +1,9 @@
+# 0.20.3
+
+ * Windows: Reworked process information retrieval
+ * Windows: Fixed issue on `c_void` size.
+ * Improved documentation of `ProcessExt::environ`.
+
 # 0.20.2
 
  * Windows: Added support for getting process' current working directory
