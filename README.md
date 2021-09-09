@@ -130,6 +130,13 @@ feature flag to disable the Apple prohibited features. This also enables the `ap
 In the case of applications using the sandbox outside of the app store, the `apple-sandbox` feature 
 can be used alone to avoid causing policy violations at runtime.
 
+### How it works
+
+I wrote a blog post you can find [here][sysinfo-blog] which explains how `sysinfo` extracts information
+on the diffent systems.
+
+[sysinfo-blog]: https://blog.guillaume-gomez.fr/articles/2021-09-06+sysinfo%3A+how+to+extract+systems%27+information
+
 ### C interface
 
 It's possible to use this crate directly from C. Take a look at the `Makefile` and at the
