@@ -88,9 +88,8 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml
+          args: --target=${{ matrix.triple.target }} --example simple
           use-cross: ${{ matrix.triple.cross }}
-          working-directory: examples
 
       - name: Check (Apple app store restrictions)
         if: matrix.triple.os == 'macos-latest'
