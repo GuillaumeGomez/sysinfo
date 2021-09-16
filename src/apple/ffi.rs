@@ -10,14 +10,12 @@ use libc::{c_int, c_void, kern_return_t};
 pub use crate::sys::inner::ffi::*;
 
 extern "C" {
-    //pub fn task_for_pid(host: u32, pid: pid_t, task: *mut task_t) -> u32;
-    //pub fn task_info(host_info: u32, t: u32, c: *mut c_void, x: *mut u32) -> u32;
-    //pub fn host_statistics(host_priv: u32, flavor: u32, host_info: *mut c_void,
-    //                       host_count: *const u32) -> u32;
+    // FIXME: https://github.com/rust-lang/libc/pull/2401
     pub fn vm_deallocate(target_task: u32, address: *mut i32, size: u32) -> kern_return_t;
 
     #[cfg(not(feature = "apple-sandbox"))]
     #[allow(deprecated)]
+    // FIXME: https://github.com/rust-lang/libc/pull/2401
     pub static vm_page_size: libc::vm_size_t;
 }
 
@@ -31,25 +29,7 @@ pub struct __DASession(c_void);
 // #[allow(non_camel_case_types)]
 // pub type io_registry_entry_t = io_object_t;
 
-//#[allow(non_camel_case_types)]
-//pub type task_t = u32;
 // pub type IOOptionBits = u32;
-
-/*#[repr(C)]
-pub struct task_thread_times_info {
-    pub user_time: time_value,
-    pub system_time: time_value,
-}*/
-
-/*#[repr(C)]
-pub struct task_basic_info_64 {
-    pub suspend_count: integer_t,
-    pub virtual_size: mach_vm_size_t,
-    pub resident_size: mach_vm_size_t,
-    pub user_time: time_value_t,
-    pub system_time: time_value_t,
-    pub policy: policy_t,
-}*/
 
 #[cfg_attr(feature = "debug", derive(Eq, Hash, PartialEq))]
 #[derive(Clone)]
@@ -61,7 +41,7 @@ pub struct Val_t {
     pub bytes: [i8; 32],    // SMCBytes_t
 }
 
-// https://github.com/andrewdavidmackenzie/libproc-rs/blob/master/src/libproc/pid_rusage.rs
+// FIXME: https://github.com/rust-lang/libc/pull/2401
 #[derive(Debug, Default)]
 #[repr(C)]
 pub struct RUsageInfoV2 {
@@ -86,11 +66,7 @@ pub struct RUsageInfoV2 {
     pub ri_diskio_byteswritten: u64,
 }
 
-//pub const HOST_CPU_LOAD_INFO_COUNT: usize = 4;
-
-//pub const TASK_THREAD_TIMES_INFO: u32 = 3;
-//pub const TASK_THREAD_TIMES_INFO_COUNT: u32 = 4;
-//pub const TASK_BASIC_INFO_64: u32 = 5;
-//pub const TASK_BASIC_INFO_64_COUNT: u32 = 10;
+// FIXME: https://github.com/rust-lang/libc/pull/2401
 pub const HOST_VM_INFO64_COUNT: u32 = 38;
+// FIXME: https://github.com/rust-lang/libc/pull/2401
 pub const RUSAGE_INFO_V2: c_int = 2;
