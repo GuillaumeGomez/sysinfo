@@ -166,19 +166,35 @@ fn test_process_disk_usage() {
         return;
     }
 
-    {
-        let mut file = File::create("test.txt").unwrap();
-        file.write_all(b"This is a test file\nwith test data.\n")
-            .unwrap();
+    fn inner() -> sysinfo::System {
+        {
+            let mut file = File::create("test.txt").expect("failed to create file");
+            file.write_all(b"This is a test file\nwith test data.\n")
+                .expect("failed to write to file");
+        }
+        fs::remove_file("test.txt").expect("failed to remove file");
+        let mut system = sysinfo::System::new();
+        assert!(system.processes().is_empty());
+        system.refresh_processes();
+        assert!(!system.processes().is_empty());
+        system
     }
-    fs::remove_file("test.txt").ok();
-    let mut system = sysinfo::System::new();
-    assert!(system.processes().is_empty());
-    system.refresh_processes();
-    assert!(!system.processes().is_empty());
-    let p = system
+
+    let mut system = inner();
+    let mut p = system
         .process(get_current_pid().expect("Failed retrieving current pid."))
         .expect("failed to get process");
+
+    if cfg!(any(target_os = "macos", target_os = "ios")) && p.disk_usage().total_written_bytes == 0
+    {
+        // For whatever reason, sometimes, mac doesn't work on the first time when running
+        // `cargo test`. Two solutions, either run with "cargo test -- --test-threads 1", or
+        // check twice...
+        system = inner();
+        p = system
+            .process(get_current_pid().expect("Failed retrieving current pid."))
+            .expect("failed to get process");
+    }
 
     assert!(
         p.disk_usage().total_written_bytes > 0,
