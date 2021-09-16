@@ -4,9 +4,7 @@
 // Copyright (c) 2017 Guillaume Gomez
 //
 
-use crate::sys::ffi;
-
-use libc::{self, c_char, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
+use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
 
 use std::collections::{hash_map, HashMap};
 use std::ptr::null_mut;
@@ -77,7 +75,7 @@ impl Networks {
                     // IFNAMSIZ (16) bytes may be needed. 22 bytes is large enough for all CCSIDs.
                     let mut name = vec![0u8; libc::IFNAMSIZ + 6];
 
-                    let if2m: *const ffi::if_msghdr2 = ifm as *const ffi::if_msghdr2;
+                    let if2m: *const if_msghdr2 = ifm as *const if_msghdr2;
                     let pname =
                         libc::if_indextoname((*if2m).ifm_index as _, name.as_mut_ptr() as _);
                     if pname.is_null() {
