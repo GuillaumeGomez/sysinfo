@@ -19,6 +19,7 @@ extern "C" {
     // The proc_* PID functions are internal Apple APIs which are not
     // allowed in App store releases as Apple blocks any binary using them.
 
+    // FIXME: https://github.com/rust-lang/libc/pull/2401
     pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
 
     // IOKit is only available on MacOS: https://developer.apple.com/documentation/iokit, and when not running inside
@@ -149,6 +150,7 @@ mod io_service {
         pub bytes: [i8; 32], // SMCBytes_t
     }
 
+    // FIXME: https://github.com/rust-lang/libc/pull/2401
     pub const MACH_PORT_NULL: i32 = 0;
     pub const KERNEL_INDEX_SMC: i32 = 2;
     pub const SMC_CMD_READ_KEYINFO: u8 = 9;
