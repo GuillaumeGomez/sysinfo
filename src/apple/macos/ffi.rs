@@ -19,11 +19,6 @@ extern "C" {
     // The proc_* PID functions are internal Apple APIs which are not
     // allowed in App store releases as Apple blocks any binary using them.
 
-    //pub fn proc_listpids(kind: u32, x: u32, buffer: *mut c_void, buffersize: c_int) -> c_int;
-    //pub fn proc_name(pid: c_int, buffer: *mut c_void, buffersize: u32) -> c_int;
-    //pub fn proc_regionfilename(pid: c_int, address: u64, buffer: *mut c_void,
-    //                           buffersize: u32) -> c_int;
-
     pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
 
     // IOKit is only available on MacOS: https://developer.apple.com/documentation/iokit, and when not running inside

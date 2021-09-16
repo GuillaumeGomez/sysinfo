@@ -27,7 +27,8 @@ use std::sync::Arc;
 use libc::size_t;
 
 use libc::{
-    c_char, c_int, c_void, mach_port_t, sysconf, sysctl, sysctlbyname, timeval, _SC_PAGESIZE,
+    c_char, c_int, c_void, host_statistics64, mach_port_t, mach_task_self, sysconf, sysctl,
+    sysctlbyname, timeval, vm_statistics64, _SC_PAGESIZE,
 };
 
 /// Structs containing system's information.
@@ -185,13 +186,13 @@ impl SystemExt for System {
                 );
                 self.mem_total /= 1_000;
             }
-            let count: u32 = ffi::HOST_VM_INFO64_COUNT;
-            let mut stat = mem::zeroed::<ffi::vm_statistics64>();
-            if ffi::host_statistics64(
+            let mut count: u32 = ffi::HOST_VM_INFO64_COUNT;
+            let mut stat = mem::zeroed::<vm_statistics64>();
+            if host_statistics64(
                 self.port,
-                ffi::HOST_VM_INFO64,
-                &mut stat as *mut ffi::vm_statistics64 as *mut c_void,
-                &count,
+                libc::HOST_VM_INFO64,
+                &mut stat as *mut vm_statistics64 as *mut _,
+                &mut count,
             ) == libc::KERN_SUCCESS
             {
                 // From the apple documentation:
@@ -563,7 +564,7 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
         }
 
         let mut conn = 0;
-        let result = ffi::IOServiceOpen(device, ffi::mach_task_self(), 0, &mut conn);
+        let result = ffi::IOServiceOpen(device, mach_task_self(), 0, &mut conn);
         ffi::IOObjectRelease(device);
         if result != ffi::KIO_RETURN_SUCCESS {
             sysinfo_debug!("Error: IOServiceOpen() = {}", result);

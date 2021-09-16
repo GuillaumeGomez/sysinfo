@@ -10,8 +10,8 @@ use crate::sys::ffi;
 use libc::{mach_timebase_info, mach_timebase_info_data_t};
 
 use libc::{
-    mach_port_t, munmap, natural_t, processor_cpu_load_info, processor_cpu_load_info_t, sysconf,
-    PROCESSOR_CPU_LOAD_INFO, _SC_CLK_TCK,
+    host_processor_info, mach_port_t, munmap, natural_t, processor_cpu_load_info,
+    processor_cpu_load_info_t, sysconf, PROCESSOR_CPU_LOAD_INFO, _SC_CLK_TCK,
 };
 use std::ptr::null_mut;
 
@@ -85,7 +85,7 @@ impl SystemTimeInfo {
         }
 
         if unsafe {
-            ffi::host_processor_info(
+            host_processor_info(
                 port,
                 PROCESSOR_CPU_LOAD_INFO,
                 &mut cpu_count,

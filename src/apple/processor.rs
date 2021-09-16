@@ -9,7 +9,7 @@ use crate::sys::system::get_sys_value;
 
 use crate::ProcessorExt;
 
-use libc::c_char;
+use libc::{c_char, host_processor_info, mach_task_self};
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -46,7 +46,7 @@ impl Drop for ProcessorData {
         if !self.cpu_info.0.is_null() {
             let prev_cpu_info_size = std::mem::size_of::<i32>() as u32 * self.num_cpu_info;
             unsafe {
-                ffi::vm_deallocate(ffi::mach_task_self(), self.cpu_info.0, prev_cpu_info_size);
+                ffi::vm_deallocate(mach_task_self(), self.cpu_info.0, prev_cpu_info_size);
             }
             self.cpu_info.0 = std::ptr::null_mut();
         }
@@ -175,7 +175,7 @@ pub(crate) fn update_processor_usage<F: FnOnce(Arc<ProcessorData>, *mut i32) -> 
     let mut total_cpu_usage = 0f32;
 
     if unsafe {
-        ffi::host_processor_info(
+        host_processor_info(
             port,
             libc::PROCESSOR_CPU_LOAD_INFO,
             &mut num_cpu_u as *mut u32,
