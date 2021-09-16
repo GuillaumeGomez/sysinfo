@@ -212,3 +212,4 @@ pub struct RUsageInfoV2 {
 //pub const TASK_BASIC_INFO_64_COUNT: u32 = 10;
 pub const HOST_VM_INFO64: u32 = 4;
 pub const HOST_VM_INFO64_COUNT: u32 = 38;
+pub const RUSAGE_INFO_V2: c_int = 2;

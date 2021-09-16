@@ -278,10 +278,9 @@ impl SystemExt for System {
 
                 into_iter(pids)
                     .flat_map(|pid| {
-                        match update_process(wrap, pid, arg_max as size_t, time_interval) {
-                            Ok(x) => x,
-                            Err(_) => None,
-                        }
+                        update_process(wrap, pid, arg_max as size_t, time_interval)
+                            .ok()
+                            .flatten()
                     })
                     .collect()
             };
