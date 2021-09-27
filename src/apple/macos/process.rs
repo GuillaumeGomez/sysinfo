@@ -15,7 +15,6 @@ use libc::{c_int, c_void, gid_t, kill, size_t, uid_t};
 
 use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
 
-use crate::sys::ffi;
 use crate::sys::process::ThreadStatus;
 use crate::sys::system::Wrap;
 
@@ -586,11 +585,11 @@ fn update_proc_disk_activity(p: &mut Process) {
     p.old_read_bytes = p.read_bytes;
     p.old_written_bytes = p.written_bytes;
 
-    let mut pidrusage = MaybeUninit::<ffi::RUsageInfoV2>::uninit();
+    let mut pidrusage = MaybeUninit::<libc::rusage_info_v2>::uninit();
     let retval = unsafe {
-        ffi::proc_pid_rusage(
+        libc::proc_pid_rusage(
             p.pid() as c_int,
-            ffi::RUSAGE_INFO_V2,
+            libc::RUSAGE_INFO_V2,
             pidrusage.as_mut_ptr() as _,
         )
     };

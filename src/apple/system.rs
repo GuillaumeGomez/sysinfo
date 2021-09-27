@@ -186,7 +186,7 @@ impl SystemExt for System {
                 );
                 self.mem_total /= 1_000;
             }
-            let mut count: u32 = ffi::HOST_VM_INFO64_COUNT;
+            let mut count: u32 = libc::HOST_VM_INFO64_COUNT as _;
             let mut stat = mem::zeroed::<vm_statistics64>();
             if host_statistics64(
                 self.port,
@@ -547,7 +547,7 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
     let mut iterator: ffi::io_iterator_t = 0;
 
     unsafe {
-        ffi::IOMasterPort(ffi::MACH_PORT_NULL, &mut master_port);
+        ffi::IOMasterPort(libc::MACH_PORT_NULL, &mut master_port);
 
         let matching_dictionary = ffi::IOServiceMatching(b"AppleSMC\0".as_ptr() as *const i8);
         let result =

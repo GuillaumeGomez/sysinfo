@@ -4,20 +4,18 @@
 // Copyright (c) 2021 Guillaume Gomez
 //
 
-use crate::sys::ffi;
-
 #[allow(deprecated)]
 use libc::{mach_timebase_info, mach_timebase_info_data_t};
 
 use libc::{
     host_processor_info, mach_port_t, munmap, natural_t, processor_cpu_load_info,
-    processor_cpu_load_info_t, sysconf, PROCESSOR_CPU_LOAD_INFO, _SC_CLK_TCK,
+    processor_cpu_load_info_t, sysconf, vm_page_size, PROCESSOR_CPU_LOAD_INFO, _SC_CLK_TCK,
 };
 use std::ptr::null_mut;
 
 unsafe fn free_cpu_load_info(cpu_load: &mut processor_cpu_load_info_t) {
     if !cpu_load.is_null() {
-        munmap(*cpu_load as _, ffi::vm_page_size);
+        munmap(*cpu_load as _, vm_page_size);
         *cpu_load = null_mut();
     }
 }
