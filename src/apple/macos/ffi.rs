@@ -10,7 +10,7 @@ use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
 
 use libc::{c_char, c_void};
 #[cfg(not(feature = "apple-sandbox"))]
-use libc::{c_int, mach_port_t, size_t};
+use libc::{mach_port_t, size_t};
 
 pub(crate) use crate::sys::ffi::*;
 
@@ -18,9 +18,6 @@ pub(crate) use crate::sys::ffi::*;
 extern "C" {
     // The proc_* PID functions are internal Apple APIs which are not
     // allowed in App store releases as Apple blocks any binary using them.
-
-    // FIXME: https://github.com/rust-lang/libc/pull/2401
-    pub fn proc_pid_rusage(pid: c_int, flavor: c_int, buffer: *mut c_void) -> c_int;
 
     // IOKit is only available on MacOS: https://developer.apple.com/documentation/iokit, and when not running inside
     // of the default macOS sandbox.
@@ -150,8 +147,6 @@ mod io_service {
         pub bytes: [i8; 32], // SMCBytes_t
     }
 
-    // FIXME: https://github.com/rust-lang/libc/pull/2401
-    pub const MACH_PORT_NULL: i32 = 0;
     pub const KERNEL_INDEX_SMC: i32 = 2;
     pub const SMC_CMD_READ_KEYINFO: u8 = 9;
     pub const SMC_CMD_READ_BYTES: u8 = 5;

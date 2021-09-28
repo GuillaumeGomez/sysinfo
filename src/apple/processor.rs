@@ -4,7 +4,6 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-use crate::sys::ffi;
 use crate::sys::system::get_sys_value;
 
 use crate::ProcessorExt;
@@ -46,7 +45,11 @@ impl Drop for ProcessorData {
         if !self.cpu_info.0.is_null() {
             let prev_cpu_info_size = std::mem::size_of::<i32>() as u32 * self.num_cpu_info;
             unsafe {
-                ffi::vm_deallocate(mach_task_self(), self.cpu_info.0, prev_cpu_info_size);
+                libc::vm_deallocate(
+                    mach_task_self(),
+                    self.cpu_info.0 as _,
+                    prev_cpu_info_size as _,
+                );
             }
             self.cpu_info.0 = std::ptr::null_mut();
         }
