@@ -1,3 +1,7 @@
+# 0.20.4
+
+ * Update libc version, allowing to remove a lot of FFI bindings.
+
 # 0.20.3
 
  * Windows: Reworked process information retrieval
