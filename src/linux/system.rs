@@ -85,7 +85,7 @@ fn boot_time() -> u64 {
                 .split(|x| *x == b' ')
                 .filter(|s| !s.is_empty())
                 .nth(1)
-                .map(|v| to_u64(v))
+                .map(to_u64)
                 .unwrap_or(0);
         }
     }
@@ -167,16 +167,16 @@ impl System {
                     parts.next();
                 }
                 self.global_processor.set(
-                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                    parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                    parts.next().map(to_u64).unwrap_or(0),
+                    parts.next().map(to_u64).unwrap_or(0),
+                    parts.next().map(to_u64).unwrap_or(0),
+                    parts.next().map(to_u64).unwrap_or(0),
+                    parts.next().map(to_u64).unwrap_or(0),
+                    parts.next().map(to_u64).unwrap_or(0),
+                    parts.next().map(to_u64).unwrap_or(0),
+                    parts.next().map(to_u64).unwrap_or(0),
+                    parts.next().map(to_u64).unwrap_or(0),
+                    parts.next().map(to_u64).unwrap_or(0),
                 );
                 count += 1;
                 if let Some(limit) = limit {
@@ -194,16 +194,16 @@ impl System {
                 if first {
                     self.processors.push(Processor::new_with_values(
                         to_str!(parts.next().unwrap_or(&[])),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
                         get_cpu_frequency(i),
                         vendor_id.clone(),
                         brand.clone(),
@@ -211,16 +211,16 @@ impl System {
                 } else {
                     parts.next(); // we don't want the name again
                     self.processors[i].set(
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
-                        parts.next().map(|v| to_u64(v)).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
                     );
                     self.processors[i].frequency = get_cpu_frequency(i);
                 }
