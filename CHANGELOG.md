@@ -1,3 +1,8 @@
+# 0.20.5
+
+ * Linux: Prevented overflow in disk size computation (bug in `davfs2`).
+ * Fixed clippy lints
+
 # 0.20.4
 
  * Update libc version, allowing to remove a lot of FFI bindings.
