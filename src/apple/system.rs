@@ -89,8 +89,8 @@ impl System {
 
         let mut to_delete = Vec::new();
 
-        for (pid, mut proc_) in &mut self.process_list {
-            if !process::has_been_updated(&mut proc_) {
+        for (pid, proc_) in &mut self.process_list {
+            if !process::has_been_updated(proc_) {
                 to_delete.push(*pid);
             }
         }
