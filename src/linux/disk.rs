@@ -11,6 +11,7 @@ use libc::statvfs;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::mem;
+use std::num::Wrapping;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
@@ -89,8 +90,11 @@ fn new_disk(
     unsafe {
         let mut stat: statvfs = mem::zeroed();
         if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
-            total = cast!(stat.f_bsize) * cast!(stat.f_blocks);
-            available = cast!(stat.f_bsize) * cast!(stat.f_bavail);
+            let bsize = Wrapping(cast!(stat.f_bsize));
+            let blocks = Wrapping(cast!(stat.f_blocks));
+            let bavail = Wrapping(cast!(stat.f_bavail));
+            total = (bsize * blocks).0;
+            available = (bsize * bavail).0;
         }
     }
     if total == 0 {
