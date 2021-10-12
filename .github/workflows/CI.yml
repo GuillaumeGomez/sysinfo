@@ -163,7 +163,7 @@ jobs:
     name: Check stable / FreeBSD host
     steps:
       - uses: actions/checkout@v2
-      - uses: vmactions/freebsd-vm@v0.1.4
+      - uses: vmactions/freebsd-vm@v0.1.5
         id: test
         with:
           usesh: true
