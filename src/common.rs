@@ -464,3 +464,111 @@ pub struct DiskUsage {
     /// Number of read bytes since the last refresh.
     pub read_bytes: u64,
 }
+
+/// Enum describing the different status of a process.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ProcessStatus {
+    /// ## Linux
+    ///
+    /// Waiting in uninterruptible disk sleep.
+    ///
+    /// ## macOs
+    ///
+    /// Process being created by fork.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Idle,
+    /// Running.
+    Run,
+    /// ## Linux
+    ///
+    /// Sleeping in an interruptible waiting.
+    ///
+    /// ## macOS
+    ///
+    /// Sleeping on an address.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Sleep,
+    /// ## Linux
+    ///
+    /// Stopped (on a signal) or (before Linux 2.6.33) trace stopped.
+    ///
+    /// ## macOS
+    ///
+    /// Process debugging or suspension.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Stop,
+    /// ## Linux
+    ///
+    /// Zombie.
+    ///
+    /// ## macOS
+    ///
+    /// Awaiting collection by parent.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Zombie,
+    /// ## Linux
+    ///
+    /// Tracing stop (Linux 2.6.33 onward).
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Tracing,
+    /// ## Linux
+    ///
+    /// Dead.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Dead,
+    /// ## Linux
+    ///
+    /// Wakekill (Linux 2.6.33 to 3.13 only).
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Wakekill,
+    /// ## Linux
+    ///
+    /// Waking (Linux 2.6.33 to 3.13 only).
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Waking,
+    /// ## Linux
+    ///
+    /// Parked (Linux 3.9 to 3.13 only).
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Parked,
+    /// Unknown.
+    Unknown(u32),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProcessStatus;
+
+    // This test only exists to ensure that the `Display` trait is implemented on the
+    // `ProcessStatus` enum on all targets.
+    fn check_display_impl_process_status() {
+        println!("{} {:?}", ProcessStatus::Parked, ProcessStatus::Idle);
+    }
+}

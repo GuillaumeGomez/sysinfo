@@ -7,24 +7,9 @@
 use std::fmt;
 
 pub use crate::sys::inner::process::*;
+use crate::ProcessStatus;
 
-/// Enum describing the different status of a process.
-#[derive(Clone, Copy, Debug)]
-pub enum ProcessStatus {
-    /// Process being created by fork.
-    Idle,
-    /// Currently runnable.
-    Run,
-    /// Sleeping on an address.
-    Sleep,
-    /// Process debugging or suspension.
-    Stop,
-    /// Awaiting collection by parent.
-    Zombie,
-    /// Unknown.
-    Unknown(u32),
-}
-
+#[doc(hidden)]
 impl From<u32> for ProcessStatus {
     fn from(status: u32) -> ProcessStatus {
         match status {
@@ -38,28 +23,21 @@ impl From<u32> for ProcessStatus {
     }
 }
 
-impl ProcessStatus {
-    /// Used to display `ProcessStatus`.
-    pub fn as_str(&self) -> &str {
-        match *self {
+impl fmt::Display for ProcessStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(match *self {
             ProcessStatus::Idle => "Idle",
             ProcessStatus::Run => "Runnable",
             ProcessStatus::Sleep => "Sleeping",
             ProcessStatus::Stop => "Stopped",
             ProcessStatus::Zombie => "Zombie",
-            ProcessStatus::Unknown(_) => "Unknown",
-        }
-    }
-}
-
-impl fmt::Display for ProcessStatus {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.as_str())
+            _ => "Unknown",
+        })
     }
 }
 
 /// Enum describing the different status of a thread.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ThreadStatus {
     /// Thread is running normally.
     Running,
