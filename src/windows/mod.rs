@@ -18,6 +18,6 @@ mod users;
 pub use self::component::Component;
 pub use self::disk::Disk;
 pub use self::network::{NetworkData, Networks};
-pub use self::process::{Process, ProcessStatus};
+pub use self::process::Process;
 pub use self::processor::Processor;
 pub use self::system::System;

@@ -17,35 +17,9 @@ use libc::{gid_t, kill, sysconf, uid_t, _SC_CLK_TCK};
 use crate::sys::system::REMAINING_FILES;
 use crate::sys::utils::{get_all_data, get_all_data_from_file};
 use crate::utils::{into_iter, realpath};
-use crate::{DiskUsage, Pid, ProcessExt, Signal};
+use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
 
-/// Enum describing the different status of a process.
-#[derive(Clone, Copy, Debug)]
-pub enum ProcessStatus {
-    /// Waiting in uninterruptible disk sleep.
-    Idle,
-    /// Running.
-    Run,
-    /// Sleeping in an interruptible waiting.
-    Sleep,
-    /// Stopped (on a signal) or (before Linux 2.6.33) trace stopped.
-    Stop,
-    /// Zombie.
-    Zombie,
-    /// Tracing stop (Linux 2.6.33 onward).
-    Tracing,
-    /// Dead.
-    Dead,
-    /// Wakekill (Linux 2.6.33 to 3.13 only).
-    Wakekill,
-    /// Waking (Linux 2.6.33 to 3.13 only).
-    Waking,
-    /// Parked (Linux 3.9 to 3.13 only).
-    Parked,
-    /// Unknown.
-    Unknown(u32),
-}
-
+#[doc(hidden)]
 impl From<u32> for ProcessStatus {
     fn from(status: u32) -> ProcessStatus {
         match status {
@@ -59,6 +33,7 @@ impl From<u32> for ProcessStatus {
     }
 }
 
+#[doc(hidden)]
 impl From<char> for ProcessStatus {
     fn from(status: char) -> ProcessStatus {
         match status {
@@ -77,10 +52,9 @@ impl From<char> for ProcessStatus {
     }
 }
 
-impl ProcessStatus {
-    /// Used to display `ProcessStatus`.
-    pub fn as_str(&self) -> &str {
-        match *self {
+impl fmt::Display for ProcessStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(match *self {
             ProcessStatus::Idle => "Idle",
             ProcessStatus::Run => "Runnable",
             ProcessStatus::Sleep => "Sleeping",
@@ -92,13 +66,7 @@ impl ProcessStatus {
             ProcessStatus::Waking => "Waking",
             ProcessStatus::Parked => "Parked",
             ProcessStatus::Unknown(_) => "Unknown",
-        }
-    }
-}
-
-impl fmt::Display for ProcessStatus {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.as_str())
+        })
     }
 }
 

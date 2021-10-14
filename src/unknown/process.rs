@@ -8,9 +8,11 @@ use crate::{DiskUsage, Pid, ProcessExt, Signal};
 
 use std::path::Path;
 
-/// Enum describing the different status of a process.
-#[derive(Clone, Copy, Debug)]
-pub struct ProcessStatus;
+impl fmt::Display for ProcessStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("Unknown")
+    }
+}
 
 #[doc = include_str!("../../md_doc/process.md")]
 #[derive(Clone)]

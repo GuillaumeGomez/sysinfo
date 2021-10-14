@@ -4,10 +4,10 @@
 // Copyright (c) 2018 Guillaume Gomez
 //
 
-use crate::{DiskUsage, Pid, ProcessExt, Signal};
+use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
 
 use std::ffi::OsString;
-use std::fmt::{self, Debug};
+use std::fmt;
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::ops::Deref;
 use std::os::windows::ffi::OsStringExt;
@@ -48,25 +48,12 @@ use winapi::um::winnt::{
     RTL_OSVERSIONINFOEXW, ULARGE_INTEGER,
 };
 
-/// Enum describing the different status of a process.
-#[derive(Clone, Copy, Debug)]
-pub enum ProcessStatus {
-    /// Currently runnable.
-    Run,
-}
-
-impl ProcessStatus {
-    /// Used to display `ProcessStatus`.
-    pub fn as_str(&self) -> &str {
-        match *self {
-            ProcessStatus::Run => "Runnable",
-        }
-    }
-}
-
 impl fmt::Display for ProcessStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.as_str())
+        f.write_str(match *self {
+            ProcessStatus::Run => "Runnable",
+            _ => "Unknown",
+        })
     }
 }
 
