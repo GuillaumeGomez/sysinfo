@@ -8,10 +8,7 @@ use std::path::Path;
 
 use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
 
-/// Dummy struct representing a process because iOS doesn't support
-/// obtaining process information due to sandboxing.
-///
-/// MacOS apps in Apple's app store are also not able to access this information.
+#[doc = include_str!("../../../md_doc/process.md")]
 #[derive(Clone)]
 pub struct Process;
 

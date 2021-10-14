@@ -6,8 +6,7 @@
 
 use crate::ComponentExt;
 
-/// Dummy struct representing a component since iOS, nor the default macOS sandbox, support
-/// obtaining CPU information.
+#[doc = include_str!("../../../md_doc/component.md")]
 pub struct Component {}
 
 impl ComponentExt for Component {

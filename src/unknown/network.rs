@@ -8,14 +8,7 @@ use std::collections::HashMap;
 
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
-/// Network interfaces.
-///
-/// ```no_run
-/// use sysinfo::{NetworksExt, System, SystemExt};
-///
-/// let s = System::new_all();
-/// let networks = s.networks();
-/// ```
+#[doc = include_str!("../../md_doc/networks.md")]
 pub struct Networks {
     interfaces: HashMap<String, NetworkData>,
 }
@@ -38,7 +31,7 @@ impl NetworksExt for Networks {
     fn refresh(&mut self) {}
 }
 
-/// Contains network information.
+#[doc = include_str!("../../md_doc/network_data.md")]
 pub struct NetworkData;
 
 impl NetworkExt for NetworkData {

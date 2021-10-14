@@ -6,7 +6,7 @@
 
 use crate::ProcessorExt;
 
-/// Dummy struct that represents a processor.
+#[doc = include_str!("../../md_doc/processor.md")]
 pub struct Processor {}
 
 impl Processor {

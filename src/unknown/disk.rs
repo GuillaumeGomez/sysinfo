@@ -8,7 +8,7 @@ use crate::{DiskExt, DiskType};
 
 use std::{ffi::OsStr, path::Path};
 
-/// Struct containing a disk information.
+#[doc = include_str!("../../md_doc/disk.md")]
 pub struct Disk {}
 
 impl DiskExt for Disk {

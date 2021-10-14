@@ -45,7 +45,7 @@ use winapi::um::sysinfoapi::{
 use winapi::um::winnt::{HANDLE, KEY_READ};
 use winapi::um::winreg::{RegOpenKeyExW, RegQueryValueExW};
 
-/// Struct containing the system's information.
+#[doc = include_str!("../../md_doc/system.md")]
 pub struct System {
     process_list: HashMap<usize, Process>,
     mem_total: u64,

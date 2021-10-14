@@ -21,14 +21,7 @@ macro_rules! old_and_new {
     }};
 }
 
-/// Network interfaces.
-///
-/// ```no_run
-/// use sysinfo::{NetworksExt, System, SystemExt};
-///
-/// let s = System::new_all();
-/// let networks = s.networks();
-/// ```
+#[doc = include_str!("../../md_doc/networks.md")]
 pub struct Networks {
     interfaces: HashMap<String, NetworkData>,
 }
@@ -187,7 +180,7 @@ impl NetworksExt for Networks {
     }
 }
 
-/// Contains network information.
+#[doc = include_str!("../../md_doc/network_data.md")]
 pub struct NetworkData {
     id: NET_LUID,
     current_out: u64,

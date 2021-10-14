@@ -12,7 +12,7 @@ use std::path::Path;
 #[derive(Clone, Copy, Debug)]
 pub struct ProcessStatus;
 
-/// Struct containing a process' information.
+#[doc = include_str!("../../md_doc/process.md")]
 #[derive(Clone)]
 pub struct Process {
     pid: Pid,

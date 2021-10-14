@@ -15,7 +15,7 @@ use std::ffi::{OsStr, OsString};
 use std::mem;
 use std::path::{Path, PathBuf};
 
-/// Struct containing a disk information.
+#[doc = include_str!("../../md_doc/disk.md")]
 pub struct Disk {
     pub(crate) type_: DiskType,
     pub(crate) name: OsString,

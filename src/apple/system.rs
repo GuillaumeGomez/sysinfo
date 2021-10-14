@@ -31,7 +31,7 @@ use libc::{
     sysctlbyname, timeval, vm_statistics64, _SC_PAGESIZE,
 };
 
-/// Structs containing system's information.
+#[doc = include_str!("../../md_doc/system.md")]
 pub struct System {
     process_list: HashMap<Pid, Process>,
     mem_total: u64,

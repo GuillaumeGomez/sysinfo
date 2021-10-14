@@ -102,7 +102,7 @@ fn boot_time() -> u64 {
     }
 }
 
-/// Structs containing system's information.
+#[doc = include_str!("../../md_doc/system.md")]
 pub struct System {
     process_list: Process,
     mem_total: u64,
