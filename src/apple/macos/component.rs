@@ -42,7 +42,7 @@ impl ComponentFFI {
     }
 }
 
-/// Struct containing a component information (temperature and name for the moment).
+#[doc = include_str!("../../../md_doc/component.md")]
 pub struct Component {
     temperature: f32,
     max: f32,

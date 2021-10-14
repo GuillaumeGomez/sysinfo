@@ -6,7 +6,7 @@
 
 use crate::ComponentExt;
 
-/// Dummy struct representing a component.
+#[doc = include_str!("../../md_doc/component.md")]
 pub struct Component {}
 
 impl ComponentExt for Component {

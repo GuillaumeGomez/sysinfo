@@ -18,7 +18,7 @@ use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
 use crate::sys::process::ThreadStatus;
 use crate::sys::system::Wrap;
 
-/// Struct containing a process' information.
+#[doc = include_str!("../../../md_doc/process.md")]
 #[derive(Clone)]
 pub struct Process {
     pub(crate) name: String,

@@ -116,7 +116,7 @@ impl CpuValues {
     }
 }
 
-/// Struct containing a processor information.
+#[doc = include_str!("../../md_doc/processor.md")]
 pub struct Processor {
     old_values: CpuValues,
     new_values: CpuValues,

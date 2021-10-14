@@ -97,7 +97,7 @@ impl<T: Clone> Deref for PtrWrapper<T> {
 unsafe impl<T: Clone> Send for PtrWrapper<T> {}
 unsafe impl<T: Clone> Sync for PtrWrapper<T> {}
 
-/// Struct containing a process' information.
+#[doc = include_str!("../../md_doc/process.md")]
 pub struct Process {
     name: String,
     cmd: Vec<String>,

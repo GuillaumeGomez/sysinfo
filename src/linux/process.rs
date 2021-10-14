@@ -102,7 +102,7 @@ impl fmt::Display for ProcessStatus {
     }
 }
 
-/// Struct containing a process' information.
+#[doc = include_str!("../../md_doc/process.md")]
 pub struct Process {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
@@ -249,8 +249,6 @@ impl ProcessExt for Process {
         self.parent
     }
 
-    /// Returns the status of the processus (idle, run, zombie, etc). `None` means that
-    /// `sysinfo` doesn't have enough rights to get this information.
     fn status(&self) -> ProcessStatus {
         self.status
     }

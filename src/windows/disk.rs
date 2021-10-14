@@ -37,7 +37,7 @@ pub fn new_disk(
     Some(d)
 }
 
-/// Struct containing a disk information.
+#[doc = include_str!("../../md_doc/disk.md")]
 pub struct Disk {
     type_: DiskType,
     name: OsString,

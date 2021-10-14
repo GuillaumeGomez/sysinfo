@@ -56,7 +56,7 @@ impl Drop for ProcessorData {
     }
 }
 
-/// Struct containing a processor information.
+#[doc = include_str!("../../md_doc/processor.md")]
 pub struct Processor {
     name: String,
     cpu_usage: f32,

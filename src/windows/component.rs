@@ -25,10 +25,7 @@ use winapi::um::wbemcli::{
     IWbemServices, WBEM_FLAG_FORWARD_ONLY, WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY,
 };
 
-/// Struct containing a component information (temperature and name for the moment).
-///
-/// Please note that on Windows, you need to have Administrator priviledges to get this
-/// information.
+#[doc = include_str!("../../md_doc/component.md")]
 pub struct Component {
     temperature: f32,
     max: f32,

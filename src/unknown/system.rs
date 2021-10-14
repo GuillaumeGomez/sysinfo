@@ -11,7 +11,7 @@ use crate::{
 
 use std::collections::HashMap;
 
-/// Structs containing system's information.
+#[doc = include_str!("../../md_doc/system.md")]
 pub struct System {
     processes_list: HashMap<Pid, Process>,
     networks: Networks,

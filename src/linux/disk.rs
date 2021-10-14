@@ -21,7 +21,7 @@ macro_rules! cast {
     };
 }
 
-/// Struct containing a disk information.
+#[doc = include_str!("../../md_doc/disk.md")]
 #[derive(PartialEq)]
 pub struct Disk {
     type_: DiskType,
