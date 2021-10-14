@@ -136,6 +136,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         env:
           RUST_BACKTRACE: full
+          APPLE_CI: 1 # FIXME: remove this once CI mac tests are fixed
       - name: Execute tests (not mac, no features)
         run: cargo test --no-default-features
         if: matrix.os != 'macos-latest'
@@ -146,6 +147,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         env:
           RUST_BACKTRACE: full
+          APPLE_CI: 1 # FIXME: remove this once CI mac tests are fixed
 
   c_interface:
     runs-on: ubuntu-latest
