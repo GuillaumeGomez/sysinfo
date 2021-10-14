@@ -90,6 +90,7 @@ pub fn get_users_list() -> Vec<User> {
         .collect()
 }
 
+#[inline]
 fn parse_id(id: &str) -> Option<u32> {
     id.parse::<u32>().ok()
 }

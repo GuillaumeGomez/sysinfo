@@ -22,7 +22,8 @@ pub(crate) fn to_cpath(path: &std::path::Path) -> Vec<u8> {
             target_os = "linux",
             target_os = "android",
             target_vendor = "apple",
-            target_os = "windows"
+            target_os = "windows",
+            target_os = "freebsd",
         ),
         feature = "multithread"
     ),
@@ -44,7 +45,8 @@ where
             target_os = "linux",
             target_os = "android",
             target_vendor = "apple",
-            target_os = "windows"
+            target_os = "windows",
+            target_os = "freebsd",
         ),
         not(feature = "multithread")
     ),

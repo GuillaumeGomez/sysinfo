@@ -5,6 +5,7 @@
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 #![allow(clippy::upper_case_acronyms)]
+#![allow(clippy::non_send_fields_in_send_ty)]
 #![allow(renamed_and_removed_lints)]
 #![allow(unknown_lints)]
 
@@ -50,6 +51,14 @@ cfg_if::cfg_if! {
     } else if #[cfg(any(target_os = "linux", target_os = "android"))] {
         mod linux;
         use linux as sys;
+        pub(crate) mod users;
+
+        #[cfg(test)]
+        pub(crate) const MIN_USERS: usize = 1;
+    } else if #[cfg(target_os = "freebsd")] {
+        mod freebsd;
+        use freebsd as sys;
+        pub(crate) mod users;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -285,7 +294,7 @@ mod test {
         // We don't want to test on unsupported systems.
         if System::IS_SUPPORTED {
             let s = System::new();
-            assert!(!s.host_name().expect("Failed to get host name").is_empty());
+            assert!(s.host_name().is_some());
         }
     }
 
@@ -345,16 +354,3 @@ mod test {
         assert!(s.physical_core_count().unwrap_or(0) <= s.processors().len());
     }
 }
-
-// Used to check that System is Send and Sync.
-#[cfg(doctest)]
-/// ```
-/// fn is_send<T: Send>() {}
-/// is_send::<sysinfo::System>();
-/// ```
-///
-/// ```
-/// fn is_sync<T: Sync>() {}
-/// is_sync::<sysinfo::System>();
-/// ```
-pub mod check_if_system_is_send_and_sync {}

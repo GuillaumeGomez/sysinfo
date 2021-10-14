@@ -408,7 +408,7 @@ impl SystemExt for System {
     }
 
     fn refresh_users_list(&mut self) {
-        self.users = crate::linux::users::get_users_list();
+        self.users = crate::users::get_users_list();
     }
 
     // COMMON PART
