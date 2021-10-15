@@ -71,7 +71,7 @@ impl ProcessExt for Process {
     }
 
     fn status(&self) -> ProcessStatus {
-        ProcessStatus
+        ProcessStatus::Unknown(0)
     }
 
     fn start_time(&self) -> u64 {
