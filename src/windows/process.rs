@@ -81,6 +81,7 @@ impl<T: Clone> Deref for PtrWrapper<T> {
     }
 }
 
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl<T: Clone> Send for PtrWrapper<T> {}
 unsafe impl<T: Clone> Sync for PtrWrapper<T> {}
 
@@ -449,6 +450,7 @@ unsafe fn get_start_time(handle: HANDLE) -> u64 {
     tmp / 10_000_000 - 11_644_473_600
 }
 
+#[allow(clippy::uninit_vec)]
 unsafe fn ph_query_process_variable_size(
     process_handle: HANDLE,
     process_information_class: PROCESSINFOCLASS,
@@ -526,6 +528,7 @@ unsafe fn get_region_size(handle: HANDLE, ptr: LPVOID) -> Result<usize, &'static
     Ok((meminfo.RegionSize as isize - ptr.offset_from(meminfo.BaseAddress)) as usize)
 }
 
+#[allow(clippy::uninit_vec)]
 unsafe fn get_process_data(
     handle: HANDLE,
     ptr: LPVOID,

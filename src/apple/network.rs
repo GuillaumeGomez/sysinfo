@@ -31,6 +31,7 @@ impl Networks {
     }
 
     #[allow(clippy::cast_ptr_alignment)]
+    #[allow(clippy::uninit_vec)]
     fn update_networks(&mut self) {
         let mib = &mut [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0];
         let mut len = 0;

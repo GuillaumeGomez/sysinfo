@@ -603,6 +603,7 @@ fn update_proc_disk_activity(p: &mut Process) {
     }
 }
 
+#[allow(clippy::uninit_vec)]
 pub(crate) fn get_proc_list() -> Option<Vec<Pid>> {
     let count = unsafe { libc::proc_listallpids(::std::ptr::null_mut(), 0) };
     if count < 1 {

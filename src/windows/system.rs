@@ -65,6 +65,7 @@ pub struct System {
 // Useful for parallel iterations.
 struct Wrap<T>(T);
 
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl<T> Send for Wrap<T> {}
 unsafe impl<T> Sync for Wrap<T> {}
 
