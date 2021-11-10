@@ -181,10 +181,10 @@ mod test {
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn check_cpu_usage() {
+    fn check_processes_cpu_usage() {
         let mut s = System::new();
 
-        s.refresh_all();
+        s.refresh_processes();
         // All CPU usage will start at zero until the second refresh
         assert!(s
             .processes()
@@ -193,12 +193,16 @@ mod test {
 
         // Wait a bit to update CPU usage values
         std::thread::sleep(std::time::Duration::from_millis(100));
-        s.refresh_all();
+        s.refresh_processes();
         assert!(s
             .processes()
             .iter()
             .all(|(_, proc_)| proc_.cpu_usage() >= 0.0
                 && proc_.cpu_usage() <= (s.processors().len() as f32) * 100.0));
+        assert!(s
+            .processes()
+            .iter()
+            .any(|(_, proc_)| proc_.cpu_usage() > 0.0));
     }
 
     #[test]

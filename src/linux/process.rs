@@ -249,16 +249,19 @@ impl Drop for Process {
     }
 }
 
-pub fn compute_cpu_usage(p: &mut Process, nb_processors: u64, total_time: f32) {
+pub fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32) {
     // First time updating the values without reference, wait for a second cycle to update cpu_usage
     if p.old_utime == 0 && p.old_stime == 0 {
         return;
     }
 
+    // We use `max_value` to ensure that the process CPU usage will never get bigger than:
+    // `"number of CPUs" * 100.`
     p.cpu_usage = ((p.utime.saturating_sub(p.old_utime) + p.stime.saturating_sub(p.old_stime))
-        * nb_processors
-        * 100) as f32
-        / total_time;
+        as f32
+        / total_time
+        * 100.)
+        .min(max_value);
     p.updated = false;
 }
 
