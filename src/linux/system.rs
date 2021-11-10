@@ -125,21 +125,34 @@ pub struct System {
 
 impl System {
     fn clear_procs(&mut self) {
-        if !self.processors.is_empty() {
-            let (new, old) = get_raw_times(&self.global_processor);
-            let total_time = (if old > new { 1 } else { new - old }) as f32;
-            let mut to_delete = Vec::with_capacity(20);
+        if self.processors.is_empty() {
+            // We need to have the list of processors in order to be able to compute processes' CPU.
+            self.refresh_cpu();
+        }
+        let (new, old) = get_raw_times(&self.global_processor);
+        let total_time = (if old > new { 1 } else { new - old }) as f32;
+        let mut to_delete = Vec::with_capacity(20);
+        let compute_cpu = !self.processors.is_empty();
 
-            for (pid, proc_) in &mut self.process_list.tasks {
-                if !has_been_updated(proc_) {
-                    to_delete.push(*pid);
-                } else {
-                    compute_cpu_usage(proc_, self.processors.len() as u64, total_time);
-                }
+        #[cfg(feature = "debug")]
+        {
+            if !compute_cpu {
+                sysinfo_debug!(
+                    "Cannot compute processes CPU usage because we cannot get \
+                                processors list..."
+                );
             }
-            for pid in to_delete {
-                self.process_list.tasks.remove(&pid);
+        }
+
+        for (pid, proc_) in &mut self.process_list.tasks {
+            if !has_been_updated(proc_) {
+                to_delete.push(*pid);
+            } else if compute_cpu {
+                compute_cpu_usage(proc_, self.processors.len() as _, total_time);
             }
+        }
+        for pid in to_delete {
+            self.process_list.tasks.remove(&pid);
         }
     }
 
