@@ -1,3 +1,9 @@
+# 0.21.1
+
+ * Linux: Process CPU usage cannot go above maximum value (number of CPUs * 100) anymore.
+ * Linux: Improve processors update.
+ * Linux: Improve processes CPU usage computation speed.
+
 # 0.21.0
 
  * Linux: Fix processes CPU computation (if `System::refresh_cpu` wasn't used).
