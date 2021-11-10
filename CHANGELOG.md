@@ -1,3 +1,10 @@
+# 0.21.0
+
+ * Linux: Fix processes CPU computation (if `System::refresh_cpu` wasn't used).
+ * Fix build for unsupported targets.
+ * Make `ProcessStatus` enum unique for all platforms.
+ * Unify documentation over all platforms.
+
 # 0.20.5
 
  * Linux: Prevented overflow in disk size computation (bug in `davfs2`).
