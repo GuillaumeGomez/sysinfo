@@ -568,6 +568,7 @@ mod tests {
 
     // This test only exists to ensure that the `Display` trait is implemented on the
     // `ProcessStatus` enum on all targets.
+    #[test]
     fn check_display_impl_process_status() {
         println!("{} {:?}", ProcessStatus::Parked, ProcessStatus::Idle);
     }
