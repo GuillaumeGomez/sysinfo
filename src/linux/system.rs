@@ -124,31 +124,38 @@ pub struct System {
 }
 
 impl System {
-    fn clear_procs(&mut self) {
-        if self.processors.is_empty() {
-            // We need to have the list of processors in order to be able to compute processes' CPU.
-            self.refresh_cpu();
-        }
-        let (new, old) = get_raw_times(&self.global_processor);
-        let total_time = (if old > new { 1 } else { new - old }) as f32;
-        let mut to_delete = Vec::with_capacity(20);
-        let compute_cpu = !self.processors.is_empty();
+    /// It is sometime possible that a CPU usage computation is bigger than
+    /// `"number of CPUs" * 100`.
+    ///
+    /// To prevent that, we compute ahead of time this maximum value and ensure that processes'
+    /// CPU usage don't go over it.
+    fn get_max_process_cpu_usage(&self) -> f32 {
+        self.processors.len() as f32 * 100.
+    }
 
-        #[cfg(feature = "debug")]
-        {
-            if !compute_cpu {
-                sysinfo_debug!(
-                    "Cannot compute processes CPU usage because we cannot get \
-                                processors list..."
-                );
-            }
-        }
+    fn clear_procs(&mut self) {
+        self.refresh_processors(true);
+
+        let (total_time, compute_cpu, max_value) = if self.processors.is_empty() {
+            sysinfo_debug!("cannot compute processes CPU usage: no processor found...");
+            (0., false, 0.)
+        } else {
+            let (new, old) = get_raw_times(&self.global_processor);
+            let total_time = if old > new { 1 } else { new - old };
+            (
+                total_time as f32 / self.processors.len() as f32,
+                true,
+                self.get_max_process_cpu_usage(),
+            )
+        };
+
+        let mut to_delete = Vec::with_capacity(20);
 
         for (pid, proc_) in &mut self.process_list.tasks {
             if !has_been_updated(proc_) {
                 to_delete.push(*pid);
             } else if compute_cpu {
-                compute_cpu_usage(proc_, self.processors.len() as _, total_time);
+                compute_cpu_usage(proc_, total_time, max_value);
             }
         }
         for pid in to_delete {
@@ -156,13 +163,12 @@ impl System {
         }
     }
 
-    fn refresh_processors(&mut self, limit: Option<u32>) {
+    fn refresh_processors(&mut self, only_update_global_processor: bool) {
         if let Ok(f) = File::open("/proc/stat") {
             let buf = BufReader::new(f);
             let mut i: usize = 0;
             let first = self.processors.is_empty();
             let mut it = buf.split(b'\n');
-            let mut count = 0;
             let (vendor_id, brand) = if first {
                 get_vendor_id_and_brand()
             } else {
@@ -191,11 +197,8 @@ impl System {
                     parts.next().map(to_u64).unwrap_or(0),
                     parts.next().map(to_u64).unwrap_or(0),
                 );
-                count += 1;
-                if let Some(limit) = limit {
-                    if count >= limit {
-                        return;
-                    }
+                if !first && only_update_global_processor {
+                    return;
                 }
             }
             while let Some(Ok(line)) = it.next() {
@@ -238,21 +241,16 @@ impl System {
                     self.processors[i].frequency = get_cpu_frequency(i);
                 }
 
-                self.global_processor.frequency = self
-                    .processors
-                    .iter()
-                    .map(|p| p.frequency)
-                    .max()
-                    .unwrap_or(0);
-
                 i += 1;
-                count += 1;
-                if let Some(limit) = limit {
-                    if count >= limit {
-                        break;
-                    }
-                }
             }
+
+            self.global_processor.frequency = self
+                .processors
+                .iter()
+                .map(|p| p.frequency)
+                .max()
+                .unwrap_or(0);
+
             if first {
                 self.global_processor.vendor_id = vendor_id;
                 self.global_processor.brand = brand;
@@ -300,7 +298,7 @@ impl SystemExt for System {
             boot_time: boot_time(),
         };
         if !refreshes.cpu() {
-            s.refresh_processors(None); // We need the processors to be filled.
+            s.refresh_processors(false); // We need the processors to be filled.
         }
         s.refresh_specifics(refreshes);
         s
@@ -336,7 +334,7 @@ impl SystemExt for System {
     }
 
     fn refresh_cpu(&mut self) {
-        self.refresh_processors(None);
+        self.refresh_processors(false);
     }
 
     fn refresh_processes(&mut self) {
@@ -370,13 +368,19 @@ impl SystemExt for System {
             Ok(_) => true,
             Err(_) => false,
         };
-        if found && !self.processors.is_empty() {
-            self.refresh_processors(Some(1));
+        if found {
+            self.refresh_processors(true);
+
+            if self.processors.is_empty() {
+                sysinfo_debug!("Cannot compute process CPU usage: no processors found...");
+                return found;
+            }
             let (new, old) = get_raw_times(&self.global_processor);
             let total_time = (if old >= new { 1 } else { new - old }) as f32;
 
+            let max_cpu_usage = self.get_max_process_cpu_usage();
             if let Some(p) = self.process_list.tasks.get_mut(&pid) {
-                compute_cpu_usage(p, self.processors.len() as u64, total_time);
+                compute_cpu_usage(p, total_time / self.processors.len() as f32, max_cpu_usage);
             }
         }
         found
