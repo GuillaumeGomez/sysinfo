@@ -220,6 +220,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
 }
 
 #[allow(non_snake_case)]
+#[allow(clippy::uninit_vec)]
 pub unsafe fn load_symbols() -> HashMap<String, u32> {
     use winapi::um::winreg::{RegQueryValueExA, HKEY_PERFORMANCE_DATA};
 
@@ -271,6 +272,7 @@ pub unsafe fn load_symbols() -> HashMap<String, u32> {
 }
 
 #[allow(clippy::ptr_arg)]
+#[allow(clippy::uninit_vec)]
 pub fn get_translation(s: &String, map: &HashMap<String, u32>) -> Option<String> {
     use winapi::um::pdh::PdhLookupPerfNameByIndexW;
 

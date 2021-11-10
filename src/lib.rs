@@ -13,6 +13,7 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![allow(clippy::upper_case_acronyms)]
 #![allow(renamed_and_removed_lints)]
+#![allow(unknown_lints)]
 
 #[cfg(feature = "debug")]
 #[doc(hidden)]

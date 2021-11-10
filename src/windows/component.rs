@@ -152,6 +152,7 @@ struct Connection {
     enumerator: Option<Enumerator>,
 }
 
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for Connection {}
 unsafe impl Sync for Connection {}
 

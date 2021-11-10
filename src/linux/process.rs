@@ -317,6 +317,7 @@ impl<'a, T> Wrap<'a, T> {
     }
 }
 
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl<'a, T> Send for Wrap<'a, T> {}
 unsafe impl<'a, T> Sync for Wrap<'a, T> {}
 
