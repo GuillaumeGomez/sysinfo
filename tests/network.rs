@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2020 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 // This test is used to ensure that the processors are loaded whatever the method
 // used to initialize `System`.
