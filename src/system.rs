@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2015 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 // Once https://github.com/rust-lang/rfcs/blob/master/text/1422-pub-restricted.md
 // feature gets stabilized, we can move common parts in here.

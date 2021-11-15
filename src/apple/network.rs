@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2017 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
 

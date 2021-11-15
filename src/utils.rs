@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2017 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 #[cfg(any(target_os = "linux", target_os = "android", target_vendor = "apple"))]
 use std::{ffi::OsStr, os::unix::ffi::OsStrExt, path::Path};

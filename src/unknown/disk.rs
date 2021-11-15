@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2017 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{DiskExt, DiskType};
 
