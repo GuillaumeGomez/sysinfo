@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2021 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 #[allow(deprecated)]
 use libc::{mach_timebase_info, mach_timebase_info_data_t};

@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2020 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
     Component, ComponentExt, Disk, DiskExt, NetworkData, NetworkExt, Networks, NetworksExt,

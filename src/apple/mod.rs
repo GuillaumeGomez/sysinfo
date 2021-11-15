@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2015 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 #[cfg(target_os = "macos")]
 pub(crate) mod macos;

@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2017 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 #![crate_type = "bin"]
 #![allow(unused_must_use, non_upper_case_globals)]
