@@ -504,7 +504,7 @@ pub enum ProcessStatus {
     Stop,
     /// ## Linux
     ///
-    /// Zombie.
+    /// Zombie process. Terminated but not reaped by its parent.
     ///
     /// ## macOS
     ///
@@ -516,7 +516,7 @@ pub enum ProcessStatus {
     Zombie,
     /// ## Linux
     ///
-    /// Tracing stop (Linux 2.6.33 onward).
+    /// Tracing stop (Linux 2.6.33 onward). Stopped by debugger during the tracing.
     ///
     /// ## Other OS
     ///
@@ -524,7 +524,7 @@ pub enum ProcessStatus {
     Tracing,
     /// ## Linux
     ///
-    /// Dead.
+    /// Dead/uninterruptible sleep (usually IO).
     ///
     /// ## Other OS
     ///

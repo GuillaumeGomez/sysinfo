@@ -12,6 +12,9 @@ impl fmt::Debug for Processor {
         f.debug_struct("Processor")
             .field("name", &self.name())
             .field("CPU usage", &self.cpu_usage())
+            .field("frequency", &self.frequency())
+            .field("vendor ID", &self.vendor_id())
+            .field("brand", &self.brand())
             .finish()
     }
 }
