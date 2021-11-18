@@ -333,7 +333,6 @@ pub(crate) fn update_process(
     mut size: size_t,
     time_interval: Option<f64>,
 ) -> Result<Option<Process>, ()> {
-    let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
     let mut proc_args = Vec::with_capacity(size as usize);
 
     unsafe {
@@ -425,9 +424,7 @@ pub(crate) fn update_process(
         };
 
         let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
-        mib[0] = libc::CTL_KERN;
-        mib[1] = libc::KERN_PROCARGS2;
-        mib[2] = pid as c_int;
+        let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as c_int];
         /*
          * /---------------\ 0x00000000
          * | ::::::::::::: |
@@ -460,7 +457,7 @@ pub(crate) fn update_process(
          */
         if libc::sysctl(
             mib.as_mut_ptr(),
-            3,
+            mib.len() as _,
             ptr as *mut c_void,
             &mut size,
             std::ptr::null_mut(),

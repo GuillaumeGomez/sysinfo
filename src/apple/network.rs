@@ -31,7 +31,17 @@ impl Networks {
     fn update_networks(&mut self) {
         let mib = &mut [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0];
         let mut len = 0;
-        if unsafe { libc::sysctl(mib.as_mut_ptr(), 6, null_mut(), &mut len, null_mut(), 0) } < 0 {
+        if unsafe {
+            libc::sysctl(
+                mib.as_mut_ptr(),
+                mib.len() as _,
+                null_mut(),
+                &mut len,
+                null_mut(),
+                0,
+            )
+        } < 0
+        {
             // TODO: might be nice to put an error in here...
             return;
         }
@@ -40,7 +50,7 @@ impl Networks {
             buf.set_len(len);
             if libc::sysctl(
                 mib.as_mut_ptr(),
-                6,
+                mib.len() as _,
                 buf.as_mut_ptr(),
                 &mut len,
                 null_mut(),
