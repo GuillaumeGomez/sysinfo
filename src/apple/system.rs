@@ -106,7 +106,7 @@ fn boot_time() -> u64 {
     if unsafe {
         sysctl(
             mib.as_mut_ptr(),
-            2,
+            mib.len() as _,
             &mut boot_time as *mut timeval as *mut _,
             &mut len,
             std::ptr::null_mut(),
@@ -574,13 +574,13 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 fn get_arg_max() -> usize {
-    let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_ARGMAX, 0];
+    let mut mib = [libc::CTL_KERN, libc::KERN_ARGMAX];
     let mut arg_max = 0i32;
     let mut size = mem::size_of::<c_int>();
     unsafe {
         if sysctl(
             mib.as_mut_ptr(),
-            2,
+            mib.len() as _,
             (&mut arg_max) as *mut i32 as *mut c_void,
             &mut size,
             std::ptr::null_mut(),
@@ -605,7 +605,7 @@ pub(crate) unsafe fn get_sys_value(
     mib[1] = low as i32;
     sysctl(
         mib.as_mut_ptr(),
-        2,
+        mib.len() as _,
         value,
         &mut len as *mut usize,
         std::ptr::null_mut(),
@@ -631,7 +631,7 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
     unsafe {
         sysctl(
             mib.as_mut_ptr(),
-            2,
+            mib.len() as _,
             std::ptr::null_mut(),
             &mut size,
             std::ptr::null_mut(),
@@ -649,7 +649,7 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
         if unsafe {
             sysctl(
                 mib.as_mut_ptr(),
-                2,
+                mib.len() as _,
                 buf.as_mut_ptr() as _,
                 &mut size,
                 std::ptr::null_mut(),
