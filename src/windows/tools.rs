@@ -5,7 +5,6 @@ use crate::DiskType;
 use crate::sys::disk::{new_disk, Disk};
 use crate::sys::processor::{self, Processor, Query};
 
-use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
 
@@ -215,91 +214,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
         .collect::<Vec<_>>()
 }
 
-#[allow(non_snake_case)]
-#[allow(clippy::uninit_vec)]
-pub unsafe fn load_symbols() -> HashMap<String, u32> {
-    use winapi::um::winreg::{RegQueryValueExA, HKEY_PERFORMANCE_DATA};
-
-    let mut cbCounters = 0;
-    let mut dwType = 0;
-    let mut ret = HashMap::new();
-
-    let _dwStatus = RegQueryValueExA(
-        HKEY_PERFORMANCE_DATA,
-        b"Counter 009\0".as_ptr() as *const _,
-        std::ptr::null_mut(),
-        &mut dwType as *mut i32 as *mut _,
-        std::ptr::null_mut(),
-        &mut cbCounters as *mut i32 as *mut _,
-    );
-
-    let mut lpmszCounters = Vec::with_capacity(cbCounters as usize);
-    lpmszCounters.set_len(cbCounters as usize);
-    let _dwStatus = RegQueryValueExA(
-        HKEY_PERFORMANCE_DATA,
-        b"Counter 009\0".as_ptr() as *const _,
-        std::ptr::null_mut(),
-        &mut dwType as *mut i32 as *mut _,
-        lpmszCounters.as_mut_ptr(),
-        &mut cbCounters as *mut i32 as *mut _,
-    );
-    for (pos, s) in lpmszCounters
-        .split(|x| *x == 0)
-        .filter(|x| !x.is_empty())
-        .collect::<Vec<_>>()
-        .chunks(2)
-        .filter(|&x| x.len() == 2)
-        .filter_map(
-            |x| match (std::str::from_utf8(x[0]), String::from_utf8(x[1].to_vec())) {
-                (Ok(n), Ok(s)) => {
-                    if let Ok(n) = n.parse::<u32>() {
-                        Some((n, s))
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            },
-        )
-    {
-        ret.insert(s, pos);
-    }
-    ret
-}
-
-#[allow(clippy::ptr_arg)]
-#[allow(clippy::uninit_vec)]
-pub fn get_translation(s: &String, map: &HashMap<String, u32>) -> Option<String> {
-    use winapi::um::pdh::PdhLookupPerfNameByIndexW;
-
-    if let Some(index) = map.get(s) {
-        let mut size: usize = 0;
-        unsafe {
-            let _res = PdhLookupPerfNameByIndexW(
-                std::ptr::null(),
-                *index,
-                std::ptr::null_mut(),
-                &mut size as *mut usize as *mut _,
-            );
-            if size == 0 {
-                return Some(String::new());
-            } else {
-                let mut v = Vec::with_capacity(size);
-                v.set_len(size);
-                let _res = PdhLookupPerfNameByIndexW(
-                    std::ptr::null(),
-                    *index,
-                    v.as_mut_ptr() as *mut _,
-                    &mut size as *mut usize as *mut _,
-                );
-                return Some(String::from_utf16(&v[..size - 1]).expect("invalid utf16"));
-            }
-        }
-    }
-    None
-}
-
-pub fn add_counter(
+pub fn add_english_counter(
     s: String,
     query: &mut Query,
     keys: &mut Option<KeyHandler>,
@@ -307,7 +222,7 @@ pub fn add_counter(
 ) {
     let mut full = s.encode_utf16().collect::<Vec<_>>();
     full.push(0);
-    if query.add_counter(&counter_name, full.clone()) {
+    if query.add_english_counter(&counter_name, full.clone()) {
         *keys = Some(KeyHandler::new(counter_name, full));
     }
 }
