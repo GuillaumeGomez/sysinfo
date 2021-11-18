@@ -24,7 +24,6 @@ mod tests {
     fn test_refresh_process() {
         let mut sys = System::new();
         assert!(sys.processes().is_empty(), "no process should be listed!");
-        sys.refresh_processes();
         // We don't want to test on unsupported systems.
 
         #[cfg(not(feature = "apple-sandbox"))]
@@ -33,6 +32,10 @@ mod tests {
                 sys.refresh_process(utils::get_current_pid().expect("failed to get current pid")),
                 "process not listed",
             );
+            // Ensure that the process was really added to the list!
+            assert!(sys
+                .process(utils::get_current_pid().expect("failed to get current pid"))
+                .is_some());
         }
     }
 
