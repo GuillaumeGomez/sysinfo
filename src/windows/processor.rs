@@ -16,7 +16,7 @@ use winapi::shared::minwindef::FALSE;
 use winapi::shared::winerror::{ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS};
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::pdh::{
-    PdhAddCounterW, PdhAddEnglishCounterA, PdhCloseQuery, PdhCollectQueryData,
+    PdhAddEnglishCounterA, PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData,
     PdhCollectQueryDataEx, PdhGetFormattedCounterValue, PdhOpenQueryA, PdhRemoveCounter,
     PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
 };
@@ -202,13 +202,13 @@ impl Query {
     }
 
     #[allow(clippy::ptr_arg)]
-    pub fn add_counter(&mut self, name: &String, getter: Vec<u16>) -> bool {
+    pub fn add_english_counter(&mut self, name: &String, getter: Vec<u16>) -> bool {
         if self.internal.data.contains_key(name) {
             return false;
         }
         unsafe {
             let mut counter: PDH_HCOUNTER = std::mem::zeroed();
-            let ret = PdhAddCounterW(self.internal.query, getter.as_ptr(), 0, &mut counter);
+            let ret = PdhAddEnglishCounterW(self.internal.query, getter.as_ptr(), 0, &mut counter);
             if ret == ERROR_SUCCESS as _ {
                 self.internal.data.insert(name.clone(), counter);
             } else {

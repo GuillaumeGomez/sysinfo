@@ -96,32 +96,20 @@ impl SystemExt for System {
             boot_time: unsafe { boot_time() },
             users: Vec::new(),
         };
-        // TODO: in case a translation fails, it might be nice to log it somewhere...
         if let Some(ref mut query) = s.query {
-            let x = unsafe { load_symbols() };
-            if let Some(processor_trans) = get_translation(&"Processor".to_owned(), &x) {
-                // let idle_time_trans = get_translation(&"% Idle Time".to_owned(), &x);
-                let proc_time_trans = get_translation(&"% Processor Time".to_owned(), &x);
-                if let Some(ref proc_time_trans) = proc_time_trans {
-                    add_counter(
-                        format!("\\{}(_Total)\\{}", processor_trans, proc_time_trans),
-                        query,
-                        get_key_used(&mut s.global_processor),
-                        "tot_0".to_owned(),
-                    );
-                }
-                for (pos, proc_) in s.processors.iter_mut().enumerate() {
-                    if let Some(ref proc_time_trans) = proc_time_trans {
-                        add_counter(
-                            format!("\\{}({})\\{}", processor_trans, pos, proc_time_trans),
-                            query,
-                            get_key_used(proc_),
-                            format!("{}_0", pos),
-                        );
-                    }
-                }
-            } else {
-                sysinfo_debug!("failed to get `Processor` translation");
+            add_english_counter(
+                r"\Processor(_Total)\% Processor Time".to_string(),
+                query,
+                get_key_used(&mut s.global_processor),
+                "tot_0".to_owned(),
+            );
+            for (pos, proc_) in s.processors.iter_mut().enumerate() {
+                add_english_counter(
+                    format!(r"\Processor({})\% Processor Time", pos),
+                    query,
+                    get_key_used(proc_),
+                    format!("{}_0", pos),
+                );
             }
         }
         s.refresh_specifics(refreshes);
