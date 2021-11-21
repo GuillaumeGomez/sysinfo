@@ -28,7 +28,14 @@ macro_rules! sysinfo_debug {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(any(target_os = "macos", target_os = "ios"))] {
+    if #[cfg(feature = "unknown-ci")] {
+        // This is used in CI to check that the build for unknown targets is compiling fine.
+        mod unknown;
+        use unknown as sys;
+
+        #[cfg(test)]
+        pub(crate) const MIN_USERS: usize = 0;
+    } else if #[cfg(any(target_os = "macos", target_os = "ios"))] {
         mod apple;
         use apple as sys;
         extern crate core_foundation_sys;
@@ -103,34 +110,41 @@ mod utils;
 /// let s = System::new_all();
 /// ```
 pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    {
-        if _new_limit < 0 {
-            _new_limit = 0;
-        }
-        let max = sys::system::get_max_nb_fds();
-        if _new_limit > max {
-            _new_limit = max;
-        }
-        if let Ok(ref mut x) = unsafe { sys::system::REMAINING_FILES.lock() } {
-            // If files are already open, to be sure that the number won't be bigger when those
-            // files are closed, we subtract the current number of opened files to the new limit.
-            let diff = max - **x;
-            **x = _new_limit - diff;
-            true
+    cfg_if::cfg_if! {
+        if #[cfg(all(not(feature = "unknown-ci"), any(target_os = "linux", target_os = "android")))]
+        {
+            if _new_limit < 0 {
+                _new_limit = 0;
+            }
+            let max = sys::system::get_max_nb_fds();
+            if _new_limit > max {
+                _new_limit = max;
+            }
+            if let Ok(ref mut x) = unsafe { sys::system::REMAINING_FILES.lock() } {
+                // If files are already open, to be sure that the number won't be bigger when those
+                // files are closed, we subtract the current number of opened files to the new
+                // limit.
+                let diff = max - **x;
+                **x = _new_limit - diff;
+                true
+            } else {
+                false
+            }
         } else {
             false
         }
-    }
-    #[cfg(all(not(target_os = "linux"), not(target_os = "android")))]
-    {
-        false
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::*;
+
+    #[cfg(feature = "unknown-ci")]
+    #[test]
+    fn check_unknown_ci_feature() {
+        assert!(!System::IS_SUPPORTED);
+    }
 
     #[test]
     fn check_process_memory_usage() {
