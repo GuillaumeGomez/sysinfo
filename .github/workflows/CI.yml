@@ -159,20 +159,3 @@ jobs:
           toolchain: stable
           override: true
       - run: cargo build --features=c-interface
-
-  test_freebsd:
-    runs-on: macos-latest
-    name: Check stable / FreeBSD host
-    steps:
-      - uses: actions/checkout@v2
-      - uses: vmactions/freebsd-vm@v0.1.5
-        id: test
-        with:
-          usesh: true
-          prepare: pkg install -y curl
-          run: |
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | RUSTUP_IO_THREADS=1 sh -s -- --profile minimal --default-toolchain stable -y
-            $HOME/.cargo/bin/cargo check    
-            $HOME/.cargo/bin/cargo test
-            cd examples
-            $HOME/.cargo/bin/cargo check

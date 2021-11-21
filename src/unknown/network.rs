@@ -18,7 +18,7 @@ impl Networks {
 }
 
 impl NetworksExt for Networks {
-    fn iter<'a>(&'a self) -> NetworksIter<'a> {
+    fn iter(&self) -> NetworksIter {
         NetworksIter::new(self.interfaces.iter())
     }
 
