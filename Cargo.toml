@@ -44,3 +44,5 @@ apple-app-store = ["apple-sandbox"]
 c-interface = []
 multithread = ["rayon"]
 debug = ["libc/extra_traits"]
+# This feature is used on CI to emulate unknown/unsupported target.
+unknown-ci = []

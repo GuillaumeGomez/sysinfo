@@ -558,6 +558,52 @@ pub enum ProcessStatus {
     Unknown(u32),
 }
 
+/// Returns the pid for the current process.
+///
+/// `Err` is returned in case the platform isn't supported.
+///
+/// ```no_run
+/// use sysinfo::get_current_pid;
+///
+/// match get_current_pid() {
+///     Ok(pid) => {
+///         println!("current pid: {}", pid);
+///     }
+///     Err(e) => {
+///         eprintln!("failed to get current pid: {}", e);
+///     }
+/// }
+/// ```
+#[allow(clippy::unnecessary_wraps)]
+pub fn get_current_pid() -> Result<Pid, &'static str> {
+    cfg_if::cfg_if! {
+        if #[cfg(target = "unknown-ci")] {
+            fn inner() -> Result<Pid, &'static str> {
+                Err("Unknown platform (CI)")
+            }
+        } else if #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))] {
+            fn inner() -> Result<Pid, &'static str> {
+                unsafe { Ok(::libc::getpid()) }
+            }
+        } else if #[cfg(target_os = "windows")] {
+            fn inner() -> Result<Pid, &'static str> {
+                use winapi::um::processthreadsapi::GetCurrentProcessId;
+
+                unsafe { Ok(GetCurrentProcessId() as Pid) }
+            }
+        } else if #[cfg(target_os = "unknown")] {
+            fn inner() -> Result<Pid, &'static str> {
+                Err("Unavailable on this platform")
+            }
+        } else {
+            fn inner() -> Result<Pid, &'static str> {
+                Err("Unknown platform")
+            }
+        }
+    }
+    inner()
+}
+
 #[cfg(test)]
 mod tests {
     use super::ProcessStatus;

@@ -11,8 +11,8 @@ use std::str::FromStr;
 use libc::{gid_t, kill, sysconf, uid_t, _SC_CLK_TCK};
 
 use crate::sys::system::REMAINING_FILES;
-use crate::sys::utils::{get_all_data, get_all_data_from_file};
-use crate::utils::{into_iter, realpath};
+use crate::sys::utils::{get_all_data, get_all_data_from_file, realpath};
+use crate::utils::into_iter;
 use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
 
 #[doc(hidden)]
