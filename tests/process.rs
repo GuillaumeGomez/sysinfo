@@ -85,7 +85,10 @@ fn test_cmd() {
     assert!(!s.processes().is_empty());
     if let Some(process) = s.process(p.id() as sysinfo::Pid) {
         if cfg!(target_os = "windows") {
-            assert_eq!(process.cmd(), &["waitfor", "/t", "3", "CmdSignal"]);
+            // Sometimes, we get the full path instead for some reasons... So just in case,
+            // we check for the command independently that from the arguments.
+            assert!(process.cmd()[0].contains("waitfor"));
+            assert_eq!(&process.cmd()[1..], &["/t", "3", "CmdSignal"]);
         } else {
             assert_eq!(process.cmd(), &["sleep", "3"]);
         }
