@@ -99,7 +99,6 @@ jobs:
           args: --features apple-sandbox --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml
           use-cross: ${{ matrix.triple.cross }}
 
-
   tests:
     needs: [check]
     name: Test ${{ matrix.os }} (rust ${{matrix.toolchain}})
@@ -159,3 +158,23 @@ jobs:
           toolchain: stable
           override: true
       - run: cargo build --features=c-interface
+
+  unknown-targets:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - "1.54.0"  # minimum supported rust version
+          - stable
+          - nightly
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+          components: clippy
+      - run: cargo clippy --features unknown-ci -- -D warnings
+      - run: cargo check --features unknown-ci
+      - run: cargo test --features unknown-ci
