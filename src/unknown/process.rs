@@ -1,7 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskUsage, Pid, ProcessExt, Signal};
+use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
 
+use std::fmt;
 use std::path::Path;
 
 impl fmt::Display for ProcessStatus {
@@ -35,7 +36,7 @@ impl ProcessExt for Process {
     }
 
     fn exe(&self) -> &Path {
-        &Path::new("")
+        Path::new("")
     }
 
     fn pid(&self) -> Pid {
@@ -47,11 +48,11 @@ impl ProcessExt for Process {
     }
 
     fn cwd(&self) -> &Path {
-        &Path::new("")
+        Path::new("")
     }
 
     fn root(&self) -> &Path {
-        &Path::new("")
+        Path::new("")
     }
 
     fn memory(&self) -> u64 {
