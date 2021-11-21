@@ -67,8 +67,8 @@ cfg_if::cfg_if! {
 }
 
 pub use common::{
-    AsU32, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid, ProcessStatus, RefreshKind,
-    Signal, Uid, User,
+    get_current_pid, AsU32, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid, ProcessStatus,
+    RefreshKind, Signal, Uid, User,
 };
 pub use sys::{Component, Disk, NetworkData, Networks, Process, Processor, System};
 pub use traits::{
@@ -77,7 +77,6 @@ pub use traits::{
 
 #[cfg(feature = "c-interface")]
 pub use c_interface::*;
-pub use utils::get_current_pid;
 
 #[cfg(feature = "c-interface")]
 mod c_interface;
@@ -193,6 +192,9 @@ mod test {
     #[cfg(target_os = "linux")]
     #[test]
     fn check_processes_cpu_usage() {
+        if !System::IS_SUPPORTED {
+            return;
+        }
         let mut s = System::new();
 
         s.refresh_processes();
