@@ -1,0 +1,35 @@
+task:
+  name: rust 1.54 on freebsd 11
+  freebsd_instance:
+    image: freebsd-11-4-release-amd64
+  setup_script:
+    - pkg install -y curl
+    - curl https://sh.rustup.rs -sSf --output rustup.sh
+    - sh rustup.sh -y --profile=minimal --default-toolchain=1.54
+    - . $HOME/.cargo/env
+    - rustup --version
+    - rustup component add clippy
+  test_script:
+    - . $HOME/.cargo/env
+    - cargo check
+    - cargo check --example simple
+    - cargo test
+    - cargo clippy -- -D warnings
+
+task:
+  name: rust nightly on freebsd 11
+  freebsd_instance:
+    image: freebsd-11-4-release-amd64
+  setup_script:
+    - pkg install -y curl
+    - curl https://sh.rustup.rs -sSf --output rustup.sh
+    - sh rustup.sh -y --profile=minimal --default-toolchain=nightly
+    - . $HOME/.cargo/env
+    - rustup --version
+    - rustup component add clippy
+  test_script:
+    - . $HOME/.cargo/env
+    - cargo check
+    - cargo check --example simple
+    - cargo test
+    - cargo clippy -- -D warnings
