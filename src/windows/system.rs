@@ -91,32 +91,35 @@ impl SystemExt for System {
             processors,
             components: Vec::new(),
             disks: Vec::with_capacity(2),
-            query: Query::new(),
+            query: None,
             networks: Networks::new(),
             boot_time: unsafe { boot_time() },
             users: Vec::new(),
         };
-        if let Some(ref mut query) = s.query {
-            add_english_counter(
-                r"\Processor(_Total)\% Processor Time".to_string(),
-                query,
-                get_key_used(&mut s.global_processor),
-                "tot_0".to_owned(),
-            );
-            for (pos, proc_) in s.processors.iter_mut().enumerate() {
-                add_english_counter(
-                    format!(r"\Processor({})\% Processor Time", pos),
-                    query,
-                    get_key_used(proc_),
-                    format!("{}_0", pos),
-                );
-            }
-        }
         s.refresh_specifics(refreshes);
         s
     }
 
     fn refresh_cpu(&mut self) {
+        if self.query.is_none() {
+            self.query = Query::new();
+            if let Some(ref mut query) = self.query {
+                add_english_counter(
+                    r"\Processor(_Total)\% Processor Time".to_string(),
+                    query,
+                    get_key_used(&mut self.global_processor),
+                    "tot_0".to_owned(),
+                );
+                for (pos, proc_) in self.processors.iter_mut().enumerate() {
+                    add_english_counter(
+                        format!(r"\Processor({})\% Processor Time", pos),
+                        query,
+                        get_key_used(proc_),
+                        format!("{}_0", pos),
+                    );
+                }
+            }
+        }
         if let Some(ref mut query) = self.query {
             query.refresh();
             let mut used_time = None;
