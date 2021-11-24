@@ -1,8 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#![crate_name = "sysinfo"]
-#![crate_type = "lib"]
-#![crate_type = "rlib"]
 #![doc = include_str!("../README.md")]
 #![allow(unknown_lints)]
 #![deny(missing_docs)]
