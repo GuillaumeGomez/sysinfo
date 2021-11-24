@@ -4,9 +4,6 @@
 // Copyright (c) 2015 Guillaume Gomez
 //
 
-#![crate_name = "sysinfo"]
-#![crate_type = "lib"]
-#![crate_type = "rlib"]
 #![doc = include_str!("../README.md")]
 #![allow(unknown_lints)]
 #![deny(missing_docs)]
