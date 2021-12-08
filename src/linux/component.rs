@@ -93,12 +93,12 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                 if is_file(&p_input) {
                     let label = get_file_line(p_label.as_path(), 10)
                         .unwrap_or_else(|| format!("Component {}", key)) // needed for raspberry pi
-                        .replace("\n", "");
+                        .replace('\n', "");
                     let max = get_file_line(p_max.as_path(), 10).map(|max| {
-                        max.replace("\n", "").parse::<f32>().unwrap_or(100_000f32) / 1000f32
+                        max.replace('\n', "").parse::<f32>().unwrap_or(100_000f32) / 1000f32
                     });
                     let crit = get_file_line(p_crit.as_path(), 10).map(|crit| {
-                        crit.replace("\n", "").parse::<f32>().unwrap_or(100_000f32) / 1000f32
+                        crit.replace('\n', "").parse::<f32>().unwrap_or(100_000f32) / 1000f32
                     });
                     components.push(Component::new(label, p_input.as_path(), max, crit));
                 }
@@ -147,7 +147,7 @@ impl ComponentExt for Component {
     fn refresh(&mut self) {
         if let Some(content) = get_file_line(self.input_file.as_path(), 10) {
             self.temperature = content
-                .replace("\n", "")
+                .replace('\n', "")
                 .parse::<f32>()
                 .unwrap_or(100_000f32)
                 / 1000f32;
