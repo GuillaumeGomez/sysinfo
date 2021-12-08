@@ -1,3 +1,7 @@
+# 0.21.2
+
+ * Unsupported targets: fix build.
+
 # 0.21.1
 
  * Linux: Process CPU usage cannot go above maximum value (number of CPUs * 100) anymore.
