@@ -1,6 +1,8 @@
 # 0.21.2
 
- * Unsupported targets: fix build.
+ * Unsupported targets: Fix build.
+ * Linux: Exclude rootfs disk type as well.
+ * Windows: Performance improvement by lazily creating queries.
 
 # 0.21.1
 
