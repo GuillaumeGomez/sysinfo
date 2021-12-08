@@ -1,6 +1,6 @@
 [package]
 name = "sysinfo"
-version = "0.21.1"
+version = "0.21.2"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 
 description = "Library to get system information such as processes, processors, disks, components and networks"
@@ -43,3 +43,5 @@ apple-app-store = ["apple-sandbox"]
 c-interface = []
 multithread = ["rayon"]
 debug = ["libc/extra_traits"]
+# This feature is used on CI to emulate unknown/unsupported target.
+unknown-ci = []

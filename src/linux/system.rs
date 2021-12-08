@@ -628,7 +628,7 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
 
         for line in reader.lines().flatten() {
             if let Some(stripped) = line.strip_prefix(info_str) {
-                return Some(stripped.replace("\"", ""));
+                return Some(stripped.replace('"', ""));
             }
         }
     }
@@ -645,7 +645,7 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
     };
     for line in reader.lines().flatten() {
         if let Some(stripped) = line.strip_prefix(info_str) {
-            return Some(stripped.replace("\"", ""));
+            return Some(stripped.replace('"', ""));
         }
     }
     None

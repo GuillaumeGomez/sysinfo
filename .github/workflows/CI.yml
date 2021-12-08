@@ -99,7 +99,6 @@ jobs:
           args: --features apple-sandbox --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml
           use-cross: ${{ matrix.triple.cross }}
 
-
   tests:
     needs: [check]
     name: Test ${{ matrix.os }} (rust ${{matrix.toolchain}})
@@ -160,19 +159,22 @@ jobs:
           override: true
       - run: cargo build --features=c-interface
 
-  test_freebsd:
-    runs-on: macos-latest
-    name: Check stable / FreeBSD host
+  unknown-targets:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - "1.54.0"  # minimum supported rust version
+          - stable
+          - nightly
     steps:
       - uses: actions/checkout@v2
-      - uses: vmactions/freebsd-vm@v0.1.5
-        id: test
+      - uses: actions-rs/toolchain@v1
         with:
-          usesh: true
-          prepare: pkg install -y curl
-          run: |
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | RUSTUP_IO_THREADS=1 sh -s -- --profile minimal --default-toolchain stable -y
-            $HOME/.cargo/bin/cargo check    
-            $HOME/.cargo/bin/cargo test
-            cd examples
-            $HOME/.cargo/bin/cargo check
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+          components: clippy
+      - run: cargo clippy --features unknown-ci -- -D warnings
+      - run: cargo check --features unknown-ci
+      - run: cargo test --features unknown-ci

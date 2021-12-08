@@ -9,7 +9,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{utils, ProcessExt, System, SystemExt};
+    use crate::{ProcessExt, System, SystemExt};
 
     #[test]
     fn test_refresh_system() {
@@ -34,9 +34,13 @@ mod tests {
         #[cfg(not(feature = "apple-sandbox"))]
         if System::IS_SUPPORTED {
             assert!(
-                sys.refresh_process(utils::get_current_pid().expect("failed to get current pid")),
+                sys.refresh_process(crate::get_current_pid().expect("failed to get current pid")),
                 "process not listed",
             );
+            // Ensure that the process was really added to the list!
+            assert!(sys
+                .process(crate::get_current_pid().expect("failed to get current pid"))
+                .is_some());
         }
     }
 
@@ -44,7 +48,7 @@ mod tests {
     fn test_get_process() {
         let mut sys = System::new();
         sys.refresh_processes();
-        if let Some(p) = sys.process(utils::get_current_pid().expect("failed to get current pid")) {
+        if let Some(p) = sys.process(crate::get_current_pid().expect("failed to get current pid")) {
             assert!(p.memory() > 0);
         } else {
             #[cfg(not(feature = "apple-sandbox"))]
@@ -67,7 +71,7 @@ mod tests {
 
         let mut sys = System::new();
         sys.refresh_processes();
-        if let Some(p) = sys.process(utils::get_current_pid().expect("failed to get current pid")) {
+        if let Some(p) = sys.process(crate::get_current_pid().expect("failed to get current pid")) {
             p.foo(); // If this doesn't compile, it'll simply mean that the Process type
                      // doesn't implement the Send trait.
             p.bar(); // If this doesn't compile, it'll simply mean that the Process type
