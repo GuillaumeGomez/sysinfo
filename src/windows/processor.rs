@@ -84,6 +84,7 @@ unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
     let mut query = null_mut();
 
     if PdhOpenQueryA(null_mut(), 0, &mut query) != ERROR_SUCCESS as _ {
+        sysinfo_debug!("init_load_avg: PdhOpenQueryA failed");
         return Mutex::new(None);
     }
 
@@ -96,17 +97,20 @@ unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
     ) != ERROR_SUCCESS as _
     {
         PdhCloseQuery(query);
+        sysinfo_debug!("init_load_avg: failed to get processor queue length");
         return Mutex::new(None);
     }
 
     let event = CreateEventA(null_mut(), FALSE, FALSE, b"LoadUpdateEvent\0".as_ptr() as _);
     if event.is_null() {
         PdhCloseQuery(query);
+        sysinfo_debug!("init_load_avg: failed to create event `LoadUpdateEvent`");
         return Mutex::new(None);
     }
 
     if PdhCollectQueryDataEx(query, SAMPLING_INTERVAL as _, event) != ERROR_SUCCESS as _ {
         PdhCloseQuery(query);
+        sysinfo_debug!("init_load_avg: PdhCollectQueryDataEx failed");
         return Mutex::new(None);
     }
 
@@ -122,6 +126,7 @@ unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
     {
         PdhRemoveCounter(counter);
         PdhCloseQuery(query);
+        sysinfo_debug!("init_load_avg: RegisterWaitForSingleObject failed");
         Mutex::new(None)
     } else {
         Mutex::new(Some(LoadAvg::default()))
@@ -171,6 +176,7 @@ impl Query {
                 };
                 Some(Query { internal: q })
             } else {
+                sysinfo_debug!("Query::new: PdhOpenQueryA failed");
                 None
             }
         }
@@ -194,6 +200,7 @@ impl Query {
                     let data = *display_value.u.doubleValue();
                     Some(data as f32)
                 } else {
+                    sysinfo_debug!("Query::get: PdhGetFormattedCounterValue failed");
                     Some(0.)
                 };
             }
@@ -204,6 +211,7 @@ impl Query {
     #[allow(clippy::ptr_arg)]
     pub fn add_english_counter(&mut self, name: &String, getter: Vec<u16>) -> bool {
         if self.internal.data.contains_key(name) {
+            sysinfo_debug!("Query::add_english_counter: doesn't have key `{:?}`", name);
             return false;
         }
         unsafe {
@@ -212,7 +220,11 @@ impl Query {
             if ret == ERROR_SUCCESS as _ {
                 self.internal.data.insert(name.clone(), counter);
             } else {
-                sysinfo_debug!("failed to add counter '{}': {:x}...", name, ret);
+                sysinfo_debug!(
+                    "Query::add_english_counter: failed to add counter '{}': {:x}...",
+                    name,
+                    ret,
+                );
                 return false;
             }
         }
@@ -412,6 +424,7 @@ pub fn get_frequencies(nb_processors: usize) -> Vec<u64> {
             .map(|i| i.CurrentMhz as u64)
             .collect::<Vec<_>>()
     } else {
+        sysinfo_debug!("get_frequencies: CallNtPowerInformation failed");
         vec![0; nb_processors]
     }
 }
@@ -441,7 +454,12 @@ pub fn get_physical_core_count() -> Option<usize> {
             // For some reasons, the function might return a size not big enough...
             match e.raw_os_error() {
                 Some(value) if value == ERROR_INSUFFICIENT_BUFFER as _ => {}
-                _ => return None,
+                _ => {
+                    sysinfo_debug!(
+                        "get_physical_core_count: GetLogicalProcessorInformationEx failed"
+                    );
+                    return None;
+                }
             }
         } else {
             break;
