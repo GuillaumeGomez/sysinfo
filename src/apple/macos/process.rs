@@ -146,7 +146,11 @@ impl ProcessExt for Process {
         }
     }
 
-    fn kill(&self, signal: Signal) -> bool {
+    fn kill(&self) -> bool {
+        self.kill_with(Signal::Kill).unwrap()
+    }
+
+    fn kill_with(&self, signal: Signal) -> Option<bool> {
         let c_signal = match signal {
             Signal::Hangup => libc::SIGHUP,
             Signal::Interrupt => libc::SIGINT,
@@ -180,10 +184,10 @@ impl ProcessExt for Process {
             // SIGPOLL doesn't exist on apple targets but since it's an equivalent of SIGIO on unix,
             // we simply use the SIGIO constant.
             Signal::Poll => libc::SIGIO,
-            Signal::Power => return false,
+            Signal::Power => return None,
             Signal::Sys => libc::SIGSYS,
         };
-        unsafe { kill(self.pid, c_signal) == 0 }
+        unsafe { Some(kill(self.pid, c_signal) == 0) }
     }
 
     fn name(&self) -> &str {
