@@ -5,7 +5,9 @@ use crate::sys::disk;
 use crate::sys::process::*;
 use crate::sys::processor::*;
 use crate::sys::utils::get_all_data;
-use crate::{Disk, LoadAvg, Networks, Pid, ProcessExt, RefreshKind, SystemExt, User};
+use crate::{
+    Disk, LoadAvg, Networks, Pid, ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt, User,
+};
 
 use libc::{self, c_char, sysconf, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::collections::HashMap;
@@ -129,30 +131,37 @@ impl System {
         self.processors.len() as f32 * 100.
     }
 
-    fn clear_procs(&mut self) {
-        self.refresh_processors(true);
+    fn clear_procs(&mut self, refresh_kind: ProcessRefreshKind) {
+        let (total_time, compute_cpu, max_value) = if refresh_kind.cpu() {
+            eprintln!("refreshing processes!");
+            self.refresh_processors(true);
 
-        let (total_time, compute_cpu, max_value) = if self.processors.is_empty() {
-            sysinfo_debug!("cannot compute processes CPU usage: no processor found...");
-            (0., false, 0.)
+            if self.processors.is_empty() {
+                sysinfo_debug!("cannot compute processes CPU usage: no processor found...");
+                (0., false, 0.)
+            } else {
+                let (new, old) = get_raw_times(&self.global_processor);
+                let total_time = if old > new { 1 } else { new - old };
+                (
+                    total_time as f32 / self.processors.len() as f32,
+                    true,
+                    self.get_max_process_cpu_usage(),
+                )
+            }
         } else {
-            let (new, old) = get_raw_times(&self.global_processor);
-            let total_time = if old > new { 1 } else { new - old };
-            (
-                total_time as f32 / self.processors.len() as f32,
-                true,
-                self.get_max_process_cpu_usage(),
-            )
+            (0., false, 0.)
         };
 
+        // FIXME: once `retain_mut` has been stabilized, remove `to_delete`.
         let mut to_delete = Vec::with_capacity(20);
 
         for (pid, proc_) in &mut self.process_list.tasks {
-            if !has_been_updated(proc_) {
+            if !proc_.updated {
                 to_delete.push(*pid);
             } else if compute_cpu {
                 compute_cpu_usage(proc_, total_time, max_value);
             }
+            proc_.updated = false;
         }
         for pid in to_delete {
             self.process_list.tasks.remove(&pid);
@@ -333,7 +342,7 @@ impl SystemExt for System {
         self.refresh_processors(false);
     }
 
-    fn refresh_processes(&mut self) {
+    fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
         let uptime = self.uptime();
         if refresh_procs(
             &mut self.process_list,
@@ -342,12 +351,13 @@ impl SystemExt for System {
             0,
             uptime,
             get_secs_since_epoch(),
+            refresh_kind,
         ) {
-            self.clear_procs();
+            self.clear_procs(refresh_kind);
         }
     }
 
-    fn refresh_process(&mut self, pid: Pid) -> bool {
+    fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
         let uptime = self.uptime();
         let found = match _get_process_data(
             &Path::new("/proc/").join(pid.to_string()),
@@ -356,6 +366,7 @@ impl SystemExt for System {
             0,
             uptime,
             get_secs_since_epoch(),
+            refresh_kind,
         ) {
             Ok((Some(p), pid)) => {
                 self.process_list.tasks.insert(pid, p);
@@ -365,18 +376,22 @@ impl SystemExt for System {
             Err(_) => false,
         };
         if found {
-            self.refresh_processors(true);
+            if refresh_kind.cpu() {
+                self.refresh_processors(true);
 
-            if self.processors.is_empty() {
-                sysinfo_debug!("Cannot compute process CPU usage: no processors found...");
-                return found;
-            }
-            let (new, old) = get_raw_times(&self.global_processor);
-            let total_time = (if old >= new { 1 } else { new - old }) as f32;
+                if self.processors.is_empty() {
+                    sysinfo_debug!("Cannot compute process CPU usage: no processors found...");
+                    return found;
+                }
+                let (new, old) = get_raw_times(&self.global_processor);
+                let total_time = (if old >= new { 1 } else { new - old }) as f32;
 
-            let max_cpu_usage = self.get_max_process_cpu_usage();
-            if let Some(p) = self.process_list.tasks.get_mut(&pid) {
-                compute_cpu_usage(p, total_time / self.processors.len() as f32, max_cpu_usage);
+                let max_cpu_usage = self.get_max_process_cpu_usage();
+                if let Some(p) = self.process_list.tasks.get_mut(&pid) {
+                    compute_cpu_usage(p, total_time / self.processors.len() as f32, max_cpu_usage);
+                }
+            } else if let Some(p) = self.process_list.tasks.get_mut(&pid) {
+                p.updated = false;
             }
         }
         found

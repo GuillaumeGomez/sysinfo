@@ -33,13 +33,13 @@ cfg_if::cfg_if! {
 }
 
 macro_rules! impl_get_set {
-    ($name:ident, $with:ident, $without:ident) => {
+    ($ty_name:ident, $name:ident, $with:ident, $without:ident) => {
         #[doc = concat!("Returns the value of the \"", stringify!($name), "\" refresh kind.
 
 ```
-use sysinfo::RefreshKind;
+use sysinfo::", stringify!($ty_name), ";
 
-let r = RefreshKind::new();
+let r = ", stringify!($ty_name), "::new();
 assert_eq!(r.", stringify!($name), "(), false);
 
 let r = r.with_", stringify!($name), "();
@@ -55,15 +55,15 @@ assert_eq!(r.", stringify!($name), "(), false);
         #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `true`.
 
 ```
-use sysinfo::RefreshKind;
+use sysinfo::", stringify!($ty_name), ";
 
-let r = RefreshKind::new();
+let r = ", stringify!($ty_name), "::new();
 assert_eq!(r.", stringify!($name), "(), false);
 
 let r = r.with_", stringify!($name), "();
 assert_eq!(r.", stringify!($name), "(), true);
 ```")]
-        pub fn $with(mut self) -> RefreshKind {
+        pub fn $with(mut self) -> Self {
             self.$name = true;
             self
         }
@@ -71,22 +71,86 @@ assert_eq!(r.", stringify!($name), "(), true);
         #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `false`.
 
 ```
-use sysinfo::RefreshKind;
+use sysinfo::", stringify!($ty_name), ";
 
-let r = RefreshKind::everything();
+let r = ", stringify!($ty_name), "::everything();
 assert_eq!(r.", stringify!($name), "(), true);
 
 let r = r.without_", stringify!($name), "();
 assert_eq!(r.", stringify!($name), "(), false);
 ```")]
-        pub fn $without(mut self) -> RefreshKind {
+        pub fn $without(mut self) -> Self {
             self.$name = false;
             self
         }
     };
 }
 
-/// Used to determine what you want to refresh specifically on [`System`] type.
+/// Used to determine what you want to refresh specifically on the [`Process`] type.
+///
+/// ```
+/// use sysinfo::{ProcessExt, ProcessRefreshKind, System, SystemExt};
+///
+/// let mut system = System::new();
+///
+/// // We don't want to update the CPU information.
+/// system.refresh_processes_specifics(ProcessRefreshKind::everything().without_cpu());
+///
+/// for (_, proc_) in system.processes() {
+///     // We use a `==` comparison on float only because we know it's set to 0 here.
+///     assert_eq!(proc_.cpu_usage(), 0.);
+/// }
+/// ```
+///
+/// [`Process`]: crate::Process
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ProcessRefreshKind {
+    cpu: bool,
+    disk_usage: bool,
+}
+
+impl ProcessRefreshKind {
+    /// Creates a new `ProcessRefreshKind` with every refresh set to `false`.
+    ///
+    /// ```
+    /// use sysinfo::ProcessRefreshKind;
+    ///
+    /// let r = ProcessRefreshKind::new();
+    ///
+    /// assert_eq!(r.cpu(), false);
+    /// assert_eq!(r.disk_usage(), false);
+    /// ```
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates a new `ProcessRefreshKind` with every refresh set to `true`.
+    ///
+    /// ```
+    /// use sysinfo::ProcessRefreshKind;
+    ///
+    /// let r = ProcessRefreshKind::everything();
+    ///
+    /// assert_eq!(r.cpu(), true);
+    /// assert_eq!(r.disk_usage(), true);
+    /// ```
+    pub fn everything() -> Self {
+        Self {
+            cpu: true,
+            disk_usage: true,
+        }
+    }
+
+    impl_get_set!(ProcessRefreshKind, cpu, with_cpu, without_cpu);
+    impl_get_set!(
+        ProcessRefreshKind,
+        disk_usage,
+        with_disk_usage,
+        without_disk_usage
+    );
+}
+
+/// Used to determine what you want to refresh specifically on the [`System`] type.
 ///
 /// ```
 /// use sysinfo::{RefreshKind, System, SystemExt};
@@ -105,7 +169,7 @@ assert_eq!(r.", stringify!($name), "(), false);
 pub struct RefreshKind {
     networks: bool,
     networks_list: bool,
-    processes: bool,
+    processes: Option<ProcessRefreshKind>,
     disks_list: bool,
     disks: bool,
     memory: bool,
@@ -125,7 +189,7 @@ impl RefreshKind {
     ///
     /// assert_eq!(r.networks(), false);
     /// assert_eq!(r.networks_list(), false);
-    /// assert_eq!(r.processes(), false);
+    /// assert_eq!(r.processes().is_some(), false);
     /// assert_eq!(r.disks_list(), false);
     /// assert_eq!(r.disks(), false);
     /// assert_eq!(r.memory(), false);
@@ -134,8 +198,8 @@ impl RefreshKind {
     /// assert_eq!(r.components_list(), false);
     /// assert_eq!(r.users_list(), false);
     /// ```
-    pub fn new() -> RefreshKind {
-        RefreshKind::default()
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Creates a new `RefreshKind` with every refresh set to `true`.
@@ -147,7 +211,7 @@ impl RefreshKind {
     ///
     /// assert_eq!(r.networks(), true);
     /// assert_eq!(r.networks_list(), true);
-    /// assert_eq!(r.processes(), true);
+    /// assert_eq!(r.processes().is_some(), true);
     /// assert_eq!(r.disks_list(), true);
     /// assert_eq!(r.disks(), true);
     /// assert_eq!(r.memory(), true);
@@ -156,11 +220,11 @@ impl RefreshKind {
     /// assert_eq!(r.components_list(), true);
     /// assert_eq!(r.users_list(), true);
     /// ```
-    pub fn everything() -> RefreshKind {
-        RefreshKind {
+    pub fn everything() -> Self {
+        Self {
             networks: true,
             networks_list: true,
-            processes: true,
+            processes: Some(ProcessRefreshKind::everything()),
             disks: true,
             disks_list: true,
             memory: true,
@@ -171,20 +235,75 @@ impl RefreshKind {
         }
     }
 
-    impl_get_set!(networks, with_networks, without_networks);
-    impl_get_set!(networks_list, with_networks_list, without_networks_list);
-    impl_get_set!(processes, with_processes, without_processes);
-    impl_get_set!(disks, with_disks, without_disks);
-    impl_get_set!(disks_list, with_disks_list, without_disks_list);
-    impl_get_set!(memory, with_memory, without_memory);
-    impl_get_set!(cpu, with_cpu, without_cpu);
-    impl_get_set!(components, with_components, without_components);
+    /// Returns the value of the "processes" refresh kind.
+    ///
+    /// ```
+    /// use sysinfo::{ProcessRefreshKind, RefreshKind};
+    ///
+    /// let r = RefreshKind::new();
+    /// assert_eq!(r.processes(), None);
+    ///
+    /// let r = r.with_processes(ProcessRefreshKind::everything());
+    /// assert_eq!(r.processes().is_some(), true);
+    ///
+    /// let r = r.without_processes();
+    /// assert_eq!(r.processes().is_some(), false);
+    /// ```
+    pub fn processes(&self) -> Option<ProcessRefreshKind> {
+        self.processes
+    }
+
+    /// Sets the value of the "processes" refresh kind.
+    ///
+    /// ```
+    /// use sysinfo::{ProcessRefreshKind, RefreshKind};
+    ///
+    /// let r = RefreshKind::new();
+    /// assert_eq!(r.processes().is_some(), false);
+    ///
+    /// let r = r.with_processes(ProcessRefreshKind::everything());
+    /// assert_eq!(r.processes().is_some(), true);
+    /// ```
+    pub fn with_processes(mut self, refresh_kind: ProcessRefreshKind) -> Self {
+        self.processes = Some(refresh_kind);
+        self
+    }
+
+    /// Sets the value of the "processes" refresh kind to `None`.
+    ///
+    /// ```
+    /// use sysinfo::{ProcessRefreshKind, RefreshKind};
+    ///
+    /// let r = RefreshKind::everything();
+    /// assert_eq!(r.processes().is_some(), true);
+    ///
+    /// let r = r.without_processes();
+    /// assert_eq!(r.processes().is_some(), false);
+    /// ```
+    pub fn without_processes(mut self) -> Self {
+        self.processes = None;
+        self
+    }
+
+    impl_get_set!(RefreshKind, networks, with_networks, without_networks);
     impl_get_set!(
+        RefreshKind,
+        networks_list,
+        with_networks_list,
+        without_networks_list
+    );
+    impl_get_set!(RefreshKind, disks, with_disks, without_disks);
+    impl_get_set!(RefreshKind, disks_list, with_disks_list, without_disks_list);
+    impl_get_set!(RefreshKind, memory, with_memory, without_memory);
+    impl_get_set!(RefreshKind, cpu, with_cpu, without_cpu);
+    impl_get_set!(RefreshKind, components, with_components, without_components);
+    impl_get_set!(
+        RefreshKind,
         components_list,
         with_components_list,
         without_components_list
     );
-    impl_get_set!(users_list, with_users_list, without_users_list);
+    impl_get_set!(RefreshKind, users_list, with_users_list, without_users_list);
 }
 
 /// Iterator over network interfaces.

@@ -63,8 +63,8 @@ cfg_if::cfg_if! {
 }
 
 pub use common::{
-    get_current_pid, AsU32, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid, ProcessStatus,
-    RefreshKind, Signal, Uid, User,
+    get_current_pid, AsU32, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid,
+    ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, Uid, User,
 };
 pub use sys::{Component, Disk, NetworkData, Networks, Process, Processor, System};
 pub use traits::{
