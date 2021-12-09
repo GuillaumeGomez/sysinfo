@@ -129,17 +129,38 @@ pub trait ProcessExt: Debug {
     #[doc(hidden)]
     fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Self;
 
-    /// Sends the given `signal` to the process.
+    /// Sends [`Signal::Kill`] to the process (which is the only signal supported on all platforms
+    /// by this crate).
+    ///
+    /// If you want to send another signal, take a look at [`ProcessExt::kill_with`].
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// if let Some(process) = s.process(1337) {
+    ///     process.kill();
+    /// }
+    /// ```
+    fn kill(&self) -> bool;
+
+    /// Sends the given `signal` to the process. If the signal doesn't exist on this platform,
+    /// it'll do nothing and will return `None`. Otherwise it'll return if the signal was sent
+    /// successfully.
+    ///
+    /// If you just want to kill the process, use [`ProcessExt::kill`] directly.
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, Signal, System, SystemExt};
     ///
     /// let s = System::new();
     /// if let Some(process) = s.process(1337) {
-    ///     process.kill(Signal::Kill);
+    ///     if process.kill_with(Signal::Kill).is_none() {
+    ///         eprintln!("This signal isn't supported on this platform");
+    ///     }
     /// }
     /// ```
-    fn kill(&self, signal: Signal) -> bool;
+    fn kill_with(&self, signal: Signal) -> Option<bool>;
 
     /// Returns the name of the process.
     ///

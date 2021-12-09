@@ -135,7 +135,11 @@ impl ProcessExt for Process {
         }
     }
 
-    fn kill(&self, signal: Signal) -> bool {
+    fn kill(&self) -> bool {
+        self.kill_with(Signal::Kill).unwrap()
+    }
+
+    fn kill_with(&self, signal: Signal) -> Option<bool> {
         let c_signal = match signal {
             Signal::Hangup => libc::SIGHUP,
             Signal::Interrupt => libc::SIGINT,
@@ -170,7 +174,7 @@ impl ProcessExt for Process {
             Signal::Power => libc::SIGPWR,
             Signal::Sys => libc::SIGSYS,
         };
-        unsafe { kill(self.pid, c_signal) == 0 }
+        unsafe { Some(kill(self.pid, c_signal) == 0) }
     }
 
     fn name(&self) -> &str {

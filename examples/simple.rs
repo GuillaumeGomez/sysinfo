@@ -271,7 +271,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             if tmp.len() != 3 {
                 writeln!(
                     &mut io::stdout(),
-                    "kill command takes the pid and a signal number in parameter !"
+                    "kill command takes the pid and a signal number in parameter!"
                 );
                 writeln!(&mut io::stdout(), "example: kill 1254 9");
             } else {
@@ -287,11 +287,16 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 } else {
                     match sys.process(pid) {
                         Some(p) => {
-                            writeln!(
-                                &mut io::stdout(),
-                                "kill: {}",
-                                p.kill(*signals.get(signal as usize - 1).unwrap())
-                            );
+                            if let Some(res) =
+                                p.kill_with(*signals.get(signal as usize - 1).unwrap())
+                            {
+                                writeln!(&mut io::stdout(), "kill: {}", res,);
+                            } else {
+                                writeln!(
+                                    &mut io::stdout(),
+                                    "kill: signal not supported on this platform"
+                                );
+                            }
                         }
                         None => {
                             writeln!(&mut io::stdout(), "pid not found");

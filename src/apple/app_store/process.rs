@@ -13,8 +13,12 @@ impl ProcessExt for Process {
         Process {}
     }
 
-    fn kill(&self, _signal: Signal) -> bool {
+    fn kill(&self) -> bool {
         false
+    }
+
+    fn kill_with(&self, _signal: Signal) -> Option<bool> {
+        None
     }
 
     fn name(&self) -> &str {
