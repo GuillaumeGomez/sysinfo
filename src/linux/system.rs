@@ -133,7 +133,6 @@ impl System {
 
     fn clear_procs(&mut self, refresh_kind: ProcessRefreshKind) {
         let (total_time, compute_cpu, max_value) = if refresh_kind.cpu() {
-            eprintln!("refreshing processes!");
             self.refresh_processors(true);
 
             if self.processors.is_empty() {
