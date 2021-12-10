@@ -48,8 +48,7 @@ pub struct System {
     mem_available: u64,
     swap_total: u64,
     swap_used: u64,
-    global_processor: Processor,
-    processors: Vec<Processor>,
+    processors: ProcessorsWrapper,
     components: Vec<Component>,
     disks: Vec<Disk>,
     query: Option<Query>,
@@ -80,15 +79,13 @@ impl SystemExt for System {
 
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {
-        let (processors, vendor_id, brand) = init_processors();
         let mut s = System {
             process_list: HashMap::with_capacity(500),
             mem_total: 0,
             mem_available: 0,
             swap_total: 0,
             swap_used: 0,
-            global_processor: Processor::new_with_values("Total CPU", vendor_id, brand, 0),
-            processors,
+            processors: ProcessorsWrapper::new(),
             components: Vec::new(),
             disks: Vec::with_capacity(2),
             query: None,
@@ -107,7 +104,7 @@ impl SystemExt for System {
                 add_english_counter(
                     r"\Processor(_Total)\% Processor Time".to_string(),
                     query,
-                    get_key_used(&mut self.global_processor),
+                    get_key_used(self.processors.global_processor_mut()),
                     "tot_0".to_owned(),
                 );
                 for (pos, proc_) in self.processors.iter_mut().enumerate() {
@@ -123,7 +120,7 @@ impl SystemExt for System {
         if let Some(ref mut query) = self.query {
             query.refresh();
             let mut used_time = None;
-            if let Some(ref key_used) = *get_key_used(&mut self.global_processor) {
+            if let Some(ref key_used) = *get_key_used(self.processors.global_processor_mut()) {
                 used_time = Some(
                     query
                         .get(&key_used.unique_id)
@@ -131,7 +128,9 @@ impl SystemExt for System {
                 );
             }
             if let Some(used_time) = used_time {
-                self.global_processor.set_cpu_usage(used_time);
+                self.processors
+                    .global_processor_mut()
+                    .set_cpu_usage(used_time);
             }
             for p in self.processors.iter_mut() {
                 let mut used_time = None;
@@ -249,9 +248,12 @@ impl SystemExt for System {
 
                     process_information_offset += pi.NextEntryOffset as isize;
                 }
-                let nb_processors = self.processors.len() as u64;
                 let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
-                let system_time = get_system_computation_time();
+                let (nb_processors, system_time) = if refresh_kind.cpu() {
+                    (self.processors.len() as u64, get_system_computation_time())
+                } else {
+                    (0, unsafe { zeroed() })
+                };
 
                 #[cfg(feature = "multithread")]
                 use rayon::iter::ParallelIterator;
@@ -335,11 +337,11 @@ impl SystemExt for System {
     }
 
     fn global_processor_info(&self) -> &Processor {
-        &self.global_processor
+        self.processors.global_processor()
     }
 
     fn processors(&self) -> &[Processor] {
-        &self.processors
+        self.processors.processors()
     }
 
     fn physical_core_count(&self) -> Option<usize> {

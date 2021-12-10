@@ -317,18 +317,29 @@ mod test {
 
     #[test]
     fn check_processors_number() {
-        let s = System::new();
+        let mut s = System::new();
 
+        // This information isn't retrieved by default.
+        assert!(s.processors().is_empty());
         if System::IS_SUPPORTED {
-            assert!(!s.processors().is_empty());
-            // In case we are running inside a VM, it's possible to not have a physical core, only
-            // logical ones, which is why we don't test `physical_cores_count > 0`.
+            // The physical cores count is recomputed every time the function is called, so the
+            // information must be relevant even with nothing initialized.
             let physical_cores_count = s
                 .physical_core_count()
                 .expect("failed to get number of physical cores");
-            assert!(physical_cores_count <= s.processors().len());
+
+            s.refresh_cpu();
+            // The processors shouldn't be empty anymore.
+            assert!(!s.processors().is_empty());
+
+            // In case we are running inside a VM, it's possible to not have a physical core, only
+            // logical ones, which is why we don't test `physical_cores_count > 0`.
+            let physical_cores_count2 = s
+                .physical_core_count()
+                .expect("failed to get number of physical cores");
+            assert!(physical_cores_count2 <= s.processors().len());
+            assert_eq!(physical_cores_count, physical_cores_count2);
         } else {
-            assert!(s.processors().is_empty());
             assert_eq!(s.physical_core_count(), None);
         }
         assert!(s.physical_core_count().unwrap_or(0) <= s.processors().len());

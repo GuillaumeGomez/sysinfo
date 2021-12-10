@@ -119,6 +119,11 @@ pub struct System {
     networks: Networks,
     users: Vec<User>,
     boot_time: u64,
+    /// Field set to `false` in `update_processors` and to `true` in `refresh_processes_specifics`.
+    ///
+    /// The reason behind this is to avoid calling the `update_processors` more than necessary.
+    /// For example when running `refresh_all` or `refresh_specifics`.
+    need_processors_update: bool,
 }
 
 impl System {
@@ -133,7 +138,9 @@ impl System {
 
     fn clear_procs(&mut self, refresh_kind: ProcessRefreshKind) {
         let (total_time, compute_cpu, max_value) = if refresh_kind.cpu() {
-            self.refresh_processors(true);
+            if self.need_processors_update {
+                self.refresh_processors(true);
+            }
 
             if self.processors.is_empty() {
                 sysinfo_debug!("cannot compute processes CPU usage: no processor found...");
@@ -169,6 +176,8 @@ impl System {
 
     fn refresh_processors(&mut self, only_update_global_processor: bool) {
         if let Ok(f) = File::open("/proc/stat") {
+            self.need_processors_update = false;
+
             let buf = BufReader::new(f);
             let mut i: usize = 0;
             let first = self.processors.is_empty();
@@ -300,10 +309,8 @@ impl SystemExt for System {
             networks: Networks::new(),
             users: Vec::new(),
             boot_time: boot_time(),
+            need_processors_update: true,
         };
-        if !refreshes.cpu() {
-            s.refresh_processors(false); // We need the processors to be filled.
-        }
         s.refresh_specifics(refreshes);
         s
     }
@@ -354,6 +361,7 @@ impl SystemExt for System {
         ) {
             self.clear_procs(refresh_kind);
         }
+        self.need_processors_update = true;
     }
 
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {

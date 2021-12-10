@@ -117,7 +117,6 @@ impl SystemExt for System {
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let port = unsafe { libc::mach_host_self() };
-        let (global_processor, processors) = init_processors(port);
 
         let mut s = System {
             process_list: HashMap::with_capacity(200),
@@ -126,8 +125,14 @@ impl SystemExt for System {
             mem_available: 0,
             swap_total: 0,
             swap_free: 0,
-            global_processor,
-            processors,
+            global_processor: Processor::new(
+                "0".to_owned(),
+                Arc::new(ProcessorData::new(std::ptr::null_mut(), 0)),
+                0,
+                String::new(),
+                String::new(),
+            ),
+            processors: Vec::new(),
             page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1_000 },
             components: Vec::with_capacity(2),
             #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -226,22 +231,26 @@ impl SystemExt for System {
 
     fn refresh_cpu(&mut self) {
         let processors = &mut self.processors;
-        update_processor_usage(
-            self.port,
-            &mut self.global_processor,
-            |proc_data, cpu_info| {
-                let mut percentage = 0f32;
-                let mut offset = 0;
-                for proc_ in processors.iter_mut() {
-                    let cpu_usage = compute_processor_usage(proc_, cpu_info, offset);
-                    proc_.update(cpu_usage, Arc::clone(&proc_data));
-                    percentage += proc_.cpu_usage();
+        if processors.is_empty() {
+            init_processors(self.port, processors, &mut self.global_processor);
+        } else {
+            update_processor_usage(
+                self.port,
+                &mut self.global_processor,
+                |proc_data, cpu_info| {
+                    let mut percentage = 0f32;
+                    let mut offset = 0;
+                    for proc_ in processors.iter_mut() {
+                        let cpu_usage = compute_processor_usage(proc_, cpu_info, offset);
+                        proc_.update(cpu_usage, Arc::clone(&proc_data));
+                        percentage += proc_.cpu_usage();
 
-                    offset += libc::CPU_STATE_MAX as isize;
-                }
-                (percentage, processors.len())
-            },
-        );
+                        offset += libc::CPU_STATE_MAX as isize;
+                    }
+                    (percentage, processors.len())
+                },
+            );
+        }
     }
 
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]

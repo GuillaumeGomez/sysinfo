@@ -799,20 +799,26 @@ pub trait SystemExt: Sized + Debug + Default {
 
     /// Returns "global" processors information (aka the addition of all the processors).
     ///
-    /// ```no_run
-    /// use sysinfo::{ProcessorExt, System, SystemExt};
+    /// To have up-to-date information, you need to call [`SystemExt::refresh_cpu`] or
+    /// [`SystemExt::refresh_specifics`] with `cpu` enabled.
     ///
-    /// let s = System::new();
+    /// ```no_run
+    /// use sysinfo::{ProcessorExt, RefreshKind, System, SystemExt};
+    ///
+    /// let s = System::new_with_specifics(RefreshKind::new().with_cpu());
     /// println!("{}%", s.global_processor_info().cpu_usage());
     /// ```
     fn global_processor_info(&self) -> &Processor;
 
     /// Returns the list of the processors.
     ///
-    /// ```no_run
-    /// use sysinfo::{ProcessorExt, System, SystemExt};
+    /// By default, the list of processors is empty until you call [`SystemExt::refresh_cpu`] or
+    /// [`SystemExt::refresh_specifics`] with `cpu` enabled.
     ///
-    /// let s = System::new();
+    /// ```no_run
+    /// use sysinfo::{ProcessorExt, RefreshKind, System, SystemExt};
+    ///
+    /// let s = System::new_with_specifics(RefreshKind::new().with_cpu());
     /// for processor in s.processors() {
     ///     println!("{}%", processor.cpu_usage());
     /// }
