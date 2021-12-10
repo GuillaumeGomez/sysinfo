@@ -13,7 +13,7 @@ use libc::{gid_t, kill, sysconf, uid_t, _SC_CLK_TCK};
 use crate::sys::system::REMAINING_FILES;
 use crate::sys::utils::{get_all_data, get_all_data_from_file, realpath};
 use crate::utils::into_iter;
-use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
+use crate::{DiskUsage, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal};
 
 #[doc(hidden)]
 impl From<u32> for ProcessStatus {
@@ -83,7 +83,7 @@ pub struct Process {
     old_utime: u64,
     old_stime: u64,
     start_time: u64,
-    updated: bool,
+    pub(crate) updated: bool,
     cpu_usage: f32,
     /// User id of the process owner.
     pub uid: uid_t,
@@ -262,7 +262,6 @@ pub fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32) {
         / total_time
         * 100.)
         .min(max_value);
-    p.updated = false;
 }
 
 pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
@@ -271,10 +270,6 @@ pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
     p.utime = utime;
     p.stime = stime;
     p.updated = true;
-}
-
-pub fn has_been_updated(p: &Process) -> bool {
-    p.updated
 }
 
 pub(crate) fn update_process_disk_activity(p: &mut Process, path: &Path) {
@@ -331,6 +326,7 @@ pub(crate) fn _get_process_data(
     pid: Pid,
     uptime: u64,
     now: u64,
+    refresh_kind: ProcessRefreshKind,
 ) -> Result<(Option<Process>, Pid), ()> {
     let nb = match path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
         Some(Ok(nb)) if nb != pid => nb,
@@ -369,8 +365,11 @@ pub(crate) fn _get_process_data(
             nb,
             uptime,
             now,
+            refresh_kind,
         );
-        update_process_disk_activity(entry, path);
+        if refresh_kind.disk_usage() {
+            update_process_disk_activity(entry, path);
+        }
         return Ok((None, nb));
     }
 
@@ -458,8 +457,11 @@ pub(crate) fn _get_process_data(
         nb,
         uptime,
         now,
+        refresh_kind,
     );
-    update_process_disk_activity(&mut p, path);
+    if refresh_kind.disk_usage() {
+        update_process_disk_activity(&mut p, path);
+    }
     Ok((Some(p), nb))
 }
 
@@ -474,6 +476,7 @@ fn update_time_and_memory(
     pid: Pid,
     uptime: u64,
     now: u64,
+    refresh_kind: ProcessRefreshKind,
 ) {
     {
         // rss
@@ -492,7 +495,15 @@ fn update_time_and_memory(
             u64::from_str(parts[14]).unwrap_or(0),
         );
     }
-    refresh_procs(entry, &path.join("task"), page_size_kb, pid, uptime, now);
+    refresh_procs(
+        entry,
+        &path.join("task"),
+        page_size_kb,
+        pid,
+        uptime,
+        now,
+        refresh_kind,
+    );
 }
 
 pub(crate) fn refresh_procs(
@@ -502,6 +513,7 @@ pub(crate) fn refresh_procs(
     pid: Pid,
     uptime: u64,
     now: u64,
+    refresh_kind: ProcessRefreshKind,
 ) -> bool {
     if let Ok(d) = fs::read_dir(path) {
         let folders = d
@@ -534,6 +546,7 @@ pub(crate) fn refresh_procs(
                         pid,
                         uptime,
                         now,
+                        refresh_kind,
                     ) {
                         p
                     } else {
@@ -546,9 +559,15 @@ pub(crate) fn refresh_procs(
             let new_tasks = folders
                 .iter()
                 .filter_map(|e| {
-                    if let Ok((p, pid)) =
-                        _get_process_data(e.as_path(), proc_list, page_size_kb, pid, uptime, now)
-                    {
+                    if let Ok((p, pid)) = _get_process_data(
+                        e.as_path(),
+                        proc_list,
+                        page_size_kb,
+                        pid,
+                        uptime,
+                        now,
+                        refresh_kind,
+                    ) {
                         updated_pids.push(pid);
                         p
                     } else {

@@ -2,7 +2,7 @@
 
 use crate::{
     sys::{component::Component, Disk, Networks, Process, Processor},
-    LoadAvg, Pid, RefreshKind, SystemExt, User,
+    LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 use std::collections::HashMap;
@@ -31,9 +31,9 @@ impl SystemExt for System {
 
     fn refresh_components_list(&mut self) {}
 
-    fn refresh_processes(&mut self) {}
+    fn refresh_processes_specifics(&mut self, _refresh_kind: ProcessRefreshKind) {}
 
-    fn refresh_process(&mut self, _pid: Pid) -> bool {
+    fn refresh_process_specifics(&mut self, _pid: Pid, _refresh_kind: ProcessRefreshKind) -> bool {
         false
     }
 

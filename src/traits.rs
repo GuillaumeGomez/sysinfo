@@ -5,7 +5,8 @@ use crate::{
     sys::{Component, Disk, Networks, Process, Processor},
 };
 use crate::{
-    DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessStatus, RefreshKind, Signal, User,
+    DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessRefreshKind, ProcessStatus,
+    RefreshKind, Signal, User,
 };
 
 use std::collections::HashMap;
@@ -500,12 +501,14 @@ pub trait SystemExt: Sized + Debug + Default {
     /// "refresh_" methods.
     ///
     /// ```
-    /// use sysinfo::{RefreshKind, System, SystemExt};
+    /// use sysinfo::{ProcessRefreshKind, RefreshKind, System, SystemExt};
     ///
     /// let mut s = System::new_all();
     ///
     /// // Let's just update networks and processes:
-    /// s.refresh_specifics(RefreshKind::new().with_networks().with_processes());
+    /// s.refresh_specifics(
+    ///     RefreshKind::new().with_networks().with_processes(ProcessRefreshKind::everything()),
+    /// );
     /// ```
     fn refresh_specifics(&mut self, refreshes: RefreshKind) {
         if refreshes.memory() {
@@ -524,8 +527,8 @@ pub trait SystemExt: Sized + Debug + Default {
         } else if refreshes.networks() {
             self.refresh_networks();
         }
-        if refreshes.processes() {
-            self.refresh_processes();
+        if let Some(kind) = refreshes.processes() {
+            self.refresh_processes_specifics(kind);
         }
         if refreshes.disks_list() {
             self.refresh_disks_list();
@@ -604,16 +607,33 @@ pub trait SystemExt: Sized + Debug + Default {
 
     /// Gets all processes and updates their information.
     ///
+    /// It does the same as `system.refresh_processes_specifics(ProcessRefreshKind::everything())`.
+    ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let mut s = System::new_all();
     /// s.refresh_processes();
     /// ```
-    fn refresh_processes(&mut self);
+    fn refresh_processes(&mut self) {
+        self.refresh_processes_specifics(ProcessRefreshKind::everything());
+    }
+
+    /// Gets all processes and updates the specified information.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessRefreshKind, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_processes_specifics(ProcessRefreshKind::new());
+    /// ```
+    fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind);
 
     /// Refreshes *only* the process corresponding to `pid`. Returns `false` if the process doesn't
     /// exist. If it isn't listed yet, it'll be added.
+    ///
+    /// It is the same as calling
+    /// `sys.refresh_process_specifics(pid, ProcessRefreshKind::everything())`.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -621,7 +641,20 @@ pub trait SystemExt: Sized + Debug + Default {
     /// let mut s = System::new_all();
     /// s.refresh_process(1337);
     /// ```
-    fn refresh_process(&mut self, pid: Pid) -> bool;
+    fn refresh_process(&mut self, pid: Pid) -> bool {
+        self.refresh_process_specifics(pid, ProcessRefreshKind::everything())
+    }
+
+    /// Refreshes *only* the process corresponding to `pid`. Returns `false` if the process doesn't
+    /// exist. If it isn't listed yet, it'll be added.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessRefreshKind, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_process_specifics(1337, ProcessRefreshKind::new());
+    /// ```
+    fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool;
 
     /// Refreshes the listed disks' information.
     ///

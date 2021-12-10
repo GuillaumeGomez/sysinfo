@@ -9,7 +9,7 @@ use crate::sys::processor::*;
 #[cfg(target_os = "macos")]
 use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
 
-use crate::{LoadAvg, Pid, ProcessorExt, RefreshKind, SystemExt, User};
+use crate::{LoadAvg, Pid, ProcessRefreshKind, ProcessorExt, RefreshKind, SystemExt, User};
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::ProcessExt;
@@ -83,16 +83,8 @@ impl System {
     fn clear_procs(&mut self) {
         use crate::sys::macos::process;
 
-        let mut to_delete = Vec::new();
-
-        for (pid, proc_) in &mut self.process_list {
-            if !process::has_been_updated(proc_) {
-                to_delete.push(*pid);
-            }
-        }
-        for pid in to_delete {
-            self.process_list.remove(&pid);
-        }
+        self.process_list
+            .retain(|_, proc_| process::has_been_updated(proc_));
     }
 }
 
@@ -253,10 +245,10 @@ impl SystemExt for System {
     }
 
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    fn refresh_processes(&mut self) {}
+    fn refresh_processes_specifics(&mut self, _refresh_kind: ProcessRefreshKind) {}
 
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-    fn refresh_processes(&mut self) {
+    fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
         use crate::utils::into_iter;
 
         let count = unsafe { libc::proc_listallpids(::std::ptr::null_mut(), 0) };
@@ -275,7 +267,13 @@ impl SystemExt for System {
 
                 into_iter(pids)
                     .flat_map(|pid| {
-                        match update_process(wrap, pid, arg_max as size_t, time_interval) {
+                        match update_process(
+                            wrap,
+                            pid,
+                            arg_max as size_t,
+                            time_interval,
+                            refresh_kind,
+                        ) {
                             Ok(x) => x,
                             _ => None,
                         }
@@ -290,18 +288,18 @@ impl SystemExt for System {
     }
 
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    fn refresh_process(&mut self, _: Pid) -> bool {
+    fn refresh_process_specifics(&mut self, _pid: Pid, _refresh_kind: ProcessRefreshKind) -> bool {
         false
     }
 
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-    fn refresh_process(&mut self, pid: Pid) -> bool {
+    fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
         let arg_max = get_arg_max();
         let port = self.port;
         let time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
         match {
             let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
-            update_process(&wrap, pid, arg_max as size_t, time_interval)
+            update_process(&wrap, pid, arg_max as size_t, time_interval, refresh_kind)
         } {
             Ok(Some(p)) => {
                 self.process_list.insert(p.pid(), p);

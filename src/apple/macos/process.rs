@@ -9,7 +9,7 @@ use std::borrow::Borrow;
 
 use libc::{c_int, c_void, gid_t, kill, size_t, uid_t};
 
-use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
+use crate::{DiskUsage, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal};
 
 use crate::sys::process::ThreadStatus;
 use crate::sys::system::Wrap;
@@ -336,6 +336,7 @@ pub(crate) fn update_process(
     pid: Pid,
     mut size: size_t,
     time_interval: Option<f64>,
+    refresh_kind: ProcessRefreshKind,
 ) -> Result<Option<Process>, ()> {
     let mut proc_args = Vec::with_capacity(size as usize);
 
@@ -365,11 +366,15 @@ pub(crate) fn update_process(
                 (0, 0, None)
             };
             p.status = thread_status;
-            compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
+            if refresh_kind.cpu() {
+                compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
+            }
 
             p.memory = task_info.pti_resident_size / 1_000;
             p.virtual_memory = task_info.pti_virtual_size / 1_000;
-            update_proc_disk_activity(p);
+            if refresh_kind.disk_usage() {
+                update_proc_disk_activity(p);
+            }
             return Ok(None);
         }
 
@@ -573,7 +578,9 @@ pub(crate) fn update_process(
         p.uid = info.pbi_uid;
         p.gid = info.pbi_gid;
         p.process_status = ProcessStatus::from(info.pbi_status);
-        update_proc_disk_activity(&mut p);
+        if refresh_kind.disk_usage() {
+            update_proc_disk_activity(&mut p);
+        }
         Ok(Some(p))
     }
 }
