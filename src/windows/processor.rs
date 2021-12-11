@@ -240,6 +240,51 @@ impl Query {
     }
 }
 
+pub(crate) struct ProcessorsWrapper {
+    global: Processor,
+    processors: Vec<Processor>,
+}
+
+impl ProcessorsWrapper {
+    pub fn new() -> Self {
+        Self {
+            global: Processor::new_with_values("Total CPU", String::new(), String::new(), 0),
+            processors: Vec::new(),
+        }
+    }
+
+    pub fn global_processor(&self) -> &Processor {
+        &self.global
+    }
+
+    pub fn global_processor_mut(&mut self) -> &mut Processor {
+        &mut self.global
+    }
+
+    pub fn processors(&self) -> &[Processor] {
+        &self.processors
+    }
+
+    fn init_if_needed(&mut self) {
+        if self.processors.is_empty() {
+            let (processors, vendor_id, brand) = super::tools::init_processors();
+            self.processors = processors;
+            self.global.vendor_id = vendor_id;
+            self.global.brand = brand;
+        }
+    }
+
+    pub fn len(&mut self) -> usize {
+        self.init_if_needed();
+        self.processors.len()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Processor> {
+        self.init_if_needed();
+        self.processors.iter_mut()
+    }
+}
+
 #[doc = include_str!("../../md_doc/processor.md")]
 pub struct Processor {
     name: String,

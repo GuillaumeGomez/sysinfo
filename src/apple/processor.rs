@@ -192,21 +192,16 @@ pub(crate) fn update_processor_usage<F: FnOnce(Arc<ProcessorData>, *mut i32) -> 
     global_processor.set_cpu_usage(total_cpu_usage);
 }
 
-pub fn init_processors(port: libc::mach_port_t) -> (Processor, Vec<Processor>) {
+pub fn init_processors(
+    port: libc::mach_port_t,
+    processors: &mut Vec<Processor>,
+    global_processor: &mut Processor,
+) {
     let mut num_cpu = 0;
-    let mut processors = Vec::new();
     let mut mib = [0, 0];
 
     let (vendor_id, brand) = get_vendor_id_and_brand();
     let frequency = get_cpu_frequency();
-
-    let mut global_processor = Processor::new(
-        "0".to_owned(),
-        Arc::new(ProcessorData::new(::std::ptr::null_mut(), 0)),
-        frequency,
-        String::new(),
-        String::new(),
-    );
 
     unsafe {
         if !get_sys_value(
@@ -219,7 +214,7 @@ pub fn init_processors(port: libc::mach_port_t) -> (Processor, Vec<Processor>) {
             num_cpu = 1;
         }
     }
-    update_processor_usage(port, &mut global_processor, |proc_data, cpu_info| {
+    update_processor_usage(port, global_processor, |proc_data, cpu_info| {
         let mut percentage = 0f32;
         let mut offset = 0;
         for i in 0..num_cpu {
@@ -243,8 +238,7 @@ pub fn init_processors(port: libc::mach_port_t) -> (Processor, Vec<Processor>) {
     // We didn't set them above to avoid cloning them unnecessarily.
     global_processor.brand = brand;
     global_processor.vendor_id = vendor_id;
-
-    (global_processor, processors)
+    global_processor.frequency = frequency;
 }
 
 fn get_sysctl_str(s: &[u8]) -> String {
@@ -311,7 +305,7 @@ mod test {
         assert!(child.status.success());
         let stdout = String::from_utf8(child.stdout).expect("Not valid UTF8");
 
-        let sys = System::new();
+        let sys = System::new_with_specifics(crate::RefreshKind::new().with_cpu());
         let processors = sys.processors();
         assert!(!processors.is_empty(), "no processor found");
         if let Some(line) = stdout.lines().find(|l| l.contains("machdep.cpu.vendor")) {
