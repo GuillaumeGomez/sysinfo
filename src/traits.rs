@@ -425,7 +425,7 @@ pub trait ProcessorExt: Debug {
 }
 
 /// Contains all the methods of the [`System`][crate::System] type.
-pub trait SystemExt: Sized + Debug + Default {
+pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// Returns `true` if this OS is supported. Please refer to the
     /// [crate-level documentation](index.html) to get the list of supported OSes.
     ///
