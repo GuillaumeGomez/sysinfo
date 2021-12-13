@@ -124,12 +124,6 @@ pub trait DiskExt: Debug {
 
 /// Contains all the methods of the [`Process`][crate::Process] struct.
 pub trait ProcessExt: Debug {
-    /// Creates a new process only containing the given information.
-    ///
-    /// On windows, the `start_time` argument is ignored.
-    #[doc(hidden)]
-    fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Self;
-
     /// Sends [`Signal::Kill`] to the process (which is the only signal supported on all platforms
     /// by this crate).
     ///
@@ -304,17 +298,29 @@ pub trait ProcessExt: Debug {
     /// ```
     fn status(&self) -> ProcessStatus;
 
-    /// Returns the time of process launch (in seconds).
+    /// Returns the time where the process was started (in seconds) from epoch.
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
     /// if let Some(process) = s.process(1337) {
-    ///     println!("Running since {} seconds", process.start_time());
+    ///     println!("Started at {} seconds", process.start_time());
     /// }
     /// ```
     fn start_time(&self) -> u64;
+
+    /// Returns for how much time the process has been running (in seconds).
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// if let Some(process) = s.process(1337) {
+    ///     println!("Running since {} seconds", process.run_time());
+    /// }
+    /// ```
+    fn run_time(&self) -> u64;
 
     /// Returns the total CPU usage (in %). Notice that it might be bigger than 100 if run on a
     /// multicore machine.

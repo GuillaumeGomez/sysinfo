@@ -9,10 +9,6 @@ use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
 pub struct Process;
 
 impl ProcessExt for Process {
-    fn new(_pid: Pid, _parent: Option<Pid>, _start_time: u64) -> Process {
-        Process {}
-    }
-
     fn kill(&self) -> bool {
         false
     }
@@ -66,6 +62,10 @@ impl ProcessExt for Process {
     }
 
     fn start_time(&self) -> u64 {
+        0
+    }
+
+    fn run_time(&self) -> u64 {
         0
     }
 

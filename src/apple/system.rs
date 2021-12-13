@@ -18,13 +18,14 @@ use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use libc::size_t;
 
 use libc::{
-    c_char, c_int, c_void, host_statistics64, mach_port_t, mach_task_self, sysconf, sysctl,
-    sysctlbyname, timeval, vm_statistics64, _SC_PAGESIZE,
+    c_char, c_int, c_void, host_statistics64, mach_port_t, sysconf, sysctl, sysctlbyname, timeval,
+    vm_statistics64, _SC_PAGESIZE,
 };
 
 #[doc = include_str!("../../md_doc/system.md")]
@@ -110,6 +111,13 @@ fn boot_time() -> u64 {
     } else {
         boot_time.tv_sec as _
     }
+}
+
+fn get_now() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|n| n.as_secs())
+        .unwrap_or(0)
 }
 
 impl SystemExt for System {
@@ -265,6 +273,7 @@ impl SystemExt for System {
             return;
         }
         if let Some(pids) = get_proc_list() {
+            let now = get_now();
             let arg_max = get_arg_max();
             let port = self.port;
             let time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
@@ -281,6 +290,7 @@ impl SystemExt for System {
                             pid,
                             arg_max as size_t,
                             time_interval,
+                            now,
                             refresh_kind,
                         ) {
                             Ok(x) => x,
@@ -303,12 +313,20 @@ impl SystemExt for System {
 
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
+        let now = get_now();
         let arg_max = get_arg_max();
         let port = self.port;
         let time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
         match {
             let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
-            update_process(&wrap, pid, arg_max as size_t, time_interval, refresh_kind)
+            update_process(
+                &wrap,
+                pid,
+                arg_max as size_t,
+                time_interval,
+                now,
+                refresh_kind,
+            )
         } {
             Ok(Some(p)) => {
                 self.process_list.insert(p.pid(), p);
@@ -568,7 +586,7 @@ fn get_io_service_connection() -> Option<ffi::io_connect_t> {
         }
 
         let mut conn = 0;
-        let result = ffi::IOServiceOpen(device, mach_task_self(), 0, &mut conn);
+        let result = ffi::IOServiceOpen(device, libc::mach_task_self(), 0, &mut conn);
         ffi::IOObjectRelease(device);
         if result != ffi::KIO_RETURN_SUCCESS {
             sysinfo_debug!("Error: IOServiceOpen() = {}", result);

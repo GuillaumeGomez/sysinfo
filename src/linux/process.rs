@@ -8,7 +8,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use libc::{gid_t, kill, sysconf, uid_t, _SC_CLK_TCK};
+use libc::{gid_t, kill, uid_t};
 
 use crate::sys::system::REMAINING_FILES;
 use crate::sys::utils::{get_all_data, get_all_data_from_file, realpath};
@@ -83,6 +83,7 @@ pub struct Process {
     old_utime: u64,
     old_stime: u64,
     start_time: u64,
+    run_time: u64,
     pub(crate) updated: bool,
     cpu_usage: f32,
     /// User id of the process owner.
@@ -99,8 +100,8 @@ pub struct Process {
     written_bytes: u64,
 }
 
-impl ProcessExt for Process {
-    fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Process {
+impl Process {
+    pub(crate) fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Process {
         Process {
             name: String::with_capacity(20),
             pid,
@@ -119,6 +120,7 @@ impl ProcessExt for Process {
             old_stime: 0,
             updated: true,
             start_time,
+            run_time: 0,
             uid: 0,
             gid: 0,
             status: ProcessStatus::Unknown(0),
@@ -134,7 +136,9 @@ impl ProcessExt for Process {
             written_bytes: 0,
         }
     }
+}
 
+impl ProcessExt for Process {
     fn kill(&self) -> bool {
         self.kill_with(Signal::Kill).unwrap()
     }
@@ -223,6 +227,10 @@ impl ProcessExt for Process {
 
     fn start_time(&self) -> u64 {
         self.start_time
+    }
+
+    fn run_time(&self) -> u64 {
+        self.run_time
     }
 
     fn cpu_usage(&self) -> f32 {
@@ -325,10 +333,10 @@ pub(crate) fn _get_process_data(
     page_size_kb: u64,
     pid: Pid,
     uptime: u64,
-    now: u64,
+    clock_cycle: u64,
     refresh_kind: ProcessRefreshKind,
 ) -> Result<(Option<Process>, Pid), ()> {
-    let nb = match path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
+    let pid = match path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
         Some(Ok(nb)) if nb != pid => nb,
         _ => return Err(()),
     };
@@ -342,7 +350,7 @@ pub(crate) fn _get_process_data(
     };
     let parent_memory = proc_list.memory;
     let parent_virtual_memory = proc_list.virtual_memory;
-    if let Some(ref mut entry) = proc_list.tasks.get_mut(&nb) {
+    if let Some(ref mut entry) = proc_list.tasks.get_mut(&pid) {
         let data = if let Some(ref mut f) = entry.stat_file {
             get_all_data_from_file(f, 1024).map_err(|_| ())?
         } else {
@@ -362,15 +370,14 @@ pub(crate) fn _get_process_data(
             page_size_kb,
             parent_memory,
             parent_virtual_memory,
-            nb,
             uptime,
-            now,
+            clock_cycle,
             refresh_kind,
         );
         if refresh_kind.disk_usage() {
             update_process_disk_activity(entry, path);
         }
-        return Ok((None, nb));
+        return Ok((None, pid));
     }
 
     let mut tmp = PathBuf::from(path);
@@ -391,10 +398,11 @@ pub(crate) fn _get_process_data(
         }
     };
 
-    let clock_cycle = unsafe { sysconf(_SC_CLK_TCK) } as u64;
-    let since_boot = u64::from_str(parts[21]).unwrap_or(0) / clock_cycle;
-    let start_time = now.saturating_sub(uptime.saturating_sub(since_boot));
-    let mut p = Process::new(nb, parent_pid, start_time);
+    let start_time = u64::from_str(parts[21]).unwrap_or(0) / clock_cycle;
+    if pid == crate::get_current_pid().unwrap() {
+        println!("=> {:?} {:?}", start_time, clock_cycle);
+    }
+    let mut p = Process::new(pid, parent_pid, start_time);
 
     p.stat_file = stat_file;
     get_status(&mut p, parts[2]);
@@ -454,15 +462,14 @@ pub(crate) fn _get_process_data(
         page_size_kb,
         proc_list.memory,
         proc_list.virtual_memory,
-        nb,
         uptime,
-        now,
+        clock_cycle,
         refresh_kind,
     );
     if refresh_kind.disk_usage() {
         update_process_disk_activity(&mut p, path);
     }
-    Ok((Some(p), nb))
+    Ok((Some(p), pid))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -473,9 +480,8 @@ fn update_time_and_memory(
     page_size_kb: u64,
     parent_memory: u64,
     parent_virtual_memory: u64,
-    pid: Pid,
     uptime: u64,
-    now: u64,
+    clock_cycle: u64,
     refresh_kind: ProcessRefreshKind,
 ) {
     {
@@ -494,14 +500,15 @@ fn update_time_and_memory(
             u64::from_str(parts[13]).unwrap_or(0),
             u64::from_str(parts[14]).unwrap_or(0),
         );
+        entry.run_time = uptime.saturating_sub(entry.start_time);
     }
     refresh_procs(
         entry,
         &path.join("task"),
         page_size_kb,
-        pid,
+        entry.pid,
         uptime,
-        now,
+        clock_cycle,
         refresh_kind,
     );
 }
@@ -512,7 +519,7 @@ pub(crate) fn refresh_procs(
     page_size_kb: u64,
     pid: Pid,
     uptime: u64,
-    now: u64,
+    clock_cycle: u64,
     refresh_kind: ProcessRefreshKind,
 ) -> bool {
     if let Ok(d) = fs::read_dir(path) {
@@ -545,7 +552,7 @@ pub(crate) fn refresh_procs(
                         page_size_kb,
                         pid,
                         uptime,
-                        now,
+                        clock_cycle,
                         refresh_kind,
                     ) {
                         p
@@ -565,7 +572,7 @@ pub(crate) fn refresh_procs(
                         page_size_kb,
                         pid,
                         uptime,
-                        now,
+                        clock_cycle,
                         refresh_kind,
                     ) {
                         updated_pids.push(pid);

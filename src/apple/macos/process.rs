@@ -30,6 +30,7 @@ pub struct Process {
     old_utime: u64,
     old_stime: u64,
     start_time: u64,
+    run_time: u64,
     updated: bool,
     cpu_usage: f32,
     /// User id of the process owner.
@@ -66,6 +67,7 @@ impl Process {
             old_stime: 0,
             updated: true,
             start_time: 0,
+            run_time: 0,
             uid: 0,
             gid: 0,
             process_status: ProcessStatus::Unknown(0),
@@ -82,6 +84,7 @@ impl Process {
         pid: Pid,
         parent: Option<Pid>,
         start_time: u64,
+        run_time: u64,
         exe: PathBuf,
         name: String,
         cwd: PathBuf,
@@ -105,6 +108,7 @@ impl Process {
             old_stime: 0,
             updated: true,
             start_time,
+            run_time,
             uid: 0,
             gid: 0,
             process_status: ProcessStatus::Unknown(0),
@@ -115,10 +119,8 @@ impl Process {
             written_bytes: 0,
         }
     }
-}
 
-impl ProcessExt for Process {
-    fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Process {
+    pub(crate) fn new(pid: Pid, parent: Option<Pid>, start_time: u64, run_time: u64) -> Process {
         Process {
             name: String::new(),
             pid,
@@ -135,6 +137,7 @@ impl ProcessExt for Process {
             old_stime: 0,
             updated: true,
             start_time,
+            run_time,
             uid: 0,
             gid: 0,
             process_status: ProcessStatus::Unknown(0),
@@ -145,7 +148,9 @@ impl ProcessExt for Process {
             written_bytes: 0,
         }
     }
+}
 
+impl ProcessExt for Process {
     fn kill(&self) -> bool {
         self.kill_with(Signal::Kill).unwrap()
     }
@@ -236,6 +241,10 @@ impl ProcessExt for Process {
 
     fn start_time(&self) -> u64 {
         self.start_time
+    }
+
+    fn run_time(&self) -> u64 {
+        self.run_time
     }
 
     fn cpu_usage(&self) -> f32 {
@@ -336,6 +345,7 @@ pub(crate) fn update_process(
     pid: Pid,
     mut size: size_t,
     time_interval: Option<f64>,
+    now: u64,
     refresh_kind: ProcessRefreshKind,
 ) -> Result<Option<Process>, ()> {
     let mut proc_args = Vec::with_capacity(size as usize);
@@ -485,6 +495,9 @@ pub(crate) fn update_process(
         let mut cp = ptr.add(mem::size_of::<c_int>());
         let mut start = cp;
 
+        let start_time = info.pbi_start_tvsec;
+        let run_time = now.saturating_sub(start_time);
+
         let mut p = if cp < ptr.add(size) {
             while cp < ptr.add(size) && *cp != 0 {
                 cp = cp.offset(1);
@@ -558,7 +571,8 @@ pub(crate) fn update_process(
             Process::new_with(
                 pid,
                 parent,
-                info.pbi_start_tvsec,
+                start_time,
+                run_time,
                 exe,
                 name,
                 cwd,
@@ -567,7 +581,7 @@ pub(crate) fn update_process(
                 root,
             )
         } else {
-            Process::new(pid, parent, info.pbi_start_tvsec)
+            Process::new(pid, parent, start_time, run_time)
         };
 
         let task_info = get_task_info(pid);

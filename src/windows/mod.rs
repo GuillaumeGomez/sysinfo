@@ -10,6 +10,7 @@ mod processor;
 mod system;
 mod tools;
 mod users;
+mod utils;
 
 pub use self::component::Component;
 pub use self::disk::Disk;
