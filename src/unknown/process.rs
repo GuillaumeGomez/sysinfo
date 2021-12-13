@@ -19,10 +19,6 @@ pub struct Process {
 }
 
 impl ProcessExt for Process {
-    fn new(pid: Pid, parent: Option<Pid>, _start_time: u64) -> Process {
-        Process { pid, parent }
-    }
-
     fn kill(&self) -> bool {
         false
     }
@@ -76,6 +72,10 @@ impl ProcessExt for Process {
     }
 
     fn start_time(&self) -> u64 {
+        0
+    }
+
+    fn run_time(&self) -> u64 {
         0
     }
 

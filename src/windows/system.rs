@@ -5,13 +5,11 @@ use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
 use crate::sys::component::{self, Component};
 use crate::sys::disk::Disk;
-use crate::sys::process::{
-    compute_cpu_usage, get_handle, get_system_computation_time, update_disk_usage, update_memory,
-    Process,
-};
+use crate::sys::process::{get_handle, update_memory, Process};
 use crate::sys::processor::*;
 use crate::sys::tools::*;
 use crate::sys::users::get_users;
+use crate::sys::utils::get_now;
 
 use crate::utils::into_iter;
 
@@ -185,15 +183,11 @@ impl SystemExt for System {
                 self.process_list.remove(&pid);
                 return false;
             }
-            true
-        } else if let Some(mut p) = Process::new_from_pid(pid) {
-            let system_time = get_system_computation_time();
-            if refresh_kind.cpu() {
-                compute_cpu_usage(&mut p, self.processors.len() as u64, system_time);
-            }
-            if refresh_kind.disk_usage() {
-                update_disk_usage(&mut p);
-            }
+            return true;
+        }
+        let now = get_now();
+        if let Some(mut p) = Process::new_from_pid(pid, now) {
+            p.update(refresh_kind, self.processors.len() as u64, now);
             self.process_list.insert(pid, p);
             true
         } else {
@@ -205,6 +199,7 @@ impl SystemExt for System {
     fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
         // Windows 10 notebook requires at least 512KiB of memory to make it in one go
         let mut buffer_size: usize = 512 * 1024;
+        let now = get_now();
 
         loop {
             let mut process_information: Vec<u8> = Vec::with_capacity(buffer_size);
@@ -249,10 +244,10 @@ impl SystemExt for System {
                     process_information_offset += pi.NextEntryOffset as isize;
                 }
                 let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
-                let (nb_processors, system_time) = if refresh_kind.cpu() {
-                    (self.processors.len() as u64, get_system_computation_time())
+                let nb_processors = if refresh_kind.cpu() {
+                    self.processors.len() as u64
                 } else {
-                    (0, unsafe { zeroed() })
+                    0
                 };
 
                 #[cfg(feature = "multithread")]
@@ -267,13 +262,7 @@ impl SystemExt for System {
                         if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
                             proc_.memory = (pi.WorkingSetSize as u64) / 1_000;
                             proc_.virtual_memory = (pi.VirtualSize as u64) / 1_000;
-                            if refresh_kind.cpu() {
-                                compute_cpu_usage(proc_, nb_processors, system_time);
-                            }
-                            if refresh_kind.disk_usage() {
-                                update_disk_usage(proc_);
-                            }
-                            proc_.updated = true;
+                            proc_.update(refresh_kind, nb_processors, now);
                             return None;
                         }
                         let name = get_process_name(&pi, pid);
@@ -287,13 +276,9 @@ impl SystemExt for System {
                             (pi.WorkingSetSize as u64) / 1_000,
                             (pi.VirtualSize as u64) / 1_000,
                             name,
+                            now,
                         );
-                        if refresh_kind.cpu() {
-                            compute_cpu_usage(&mut p, nb_processors, system_time);
-                        }
-                        if refresh_kind.disk_usage() {
-                            update_disk_usage(&mut p);
-                        }
+                        p.update(refresh_kind, nb_processors, now);
                         Some(p)
                     })
                     .collect::<Vec<_>>();
@@ -480,16 +465,7 @@ fn refresh_existing_process(s: &mut System, pid: Pid, refresh_kind: ProcessRefre
             return false;
         }
         update_memory(entry);
-        if refresh_kind.disk_usage() {
-            update_disk_usage(entry);
-        }
-        if refresh_kind.cpu() {
-            compute_cpu_usage(
-                entry,
-                s.processors.len() as u64,
-                get_system_computation_time(),
-            );
-        }
+        entry.update(refresh_kind, s.processors.len() as u64, get_now());
         true
     } else {
         false

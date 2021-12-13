@@ -5,18 +5,15 @@ use crate::sys::disk;
 use crate::sys::process::*;
 use crate::sys::processor::*;
 use crate::sys::utils::get_all_data;
-use crate::{
-    Disk, LoadAvg, Networks, Pid, ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt, User,
-};
+use crate::{Disk, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User};
 
-use libc::{self, c_char, sysconf, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
+use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
 
 // This whole thing is to prevent having too many files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
@@ -124,6 +121,7 @@ pub struct System {
     /// The reason behind this is to avoid calling the `update_processors` more than necessary.
     /// For example when running `refresh_all` or `refresh_specifics`.
     need_processors_update: bool,
+    clock_cycle: u64,
 }
 
 impl System {
@@ -303,13 +301,14 @@ impl SystemExt for System {
                 String::new(),
             ),
             processors: Vec::with_capacity(4),
-            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1024 },
+            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) / 1024 } as _,
             components: Vec::new(),
             disks: Vec::with_capacity(2),
             networks: Networks::new(),
             users: Vec::new(),
             boot_time: boot_time(),
             need_processors_update: true,
+            clock_cycle: unsafe { sysconf(_SC_CLK_TCK) } as _,
         };
         s.refresh_specifics(refreshes);
         s
@@ -356,7 +355,7 @@ impl SystemExt for System {
             self.page_size_kb,
             0,
             uptime,
-            get_secs_since_epoch(),
+            self.clock_cycle,
             refresh_kind,
         ) {
             self.clear_procs(refresh_kind);
@@ -372,7 +371,7 @@ impl SystemExt for System {
             self.page_size_kb,
             0,
             uptime,
-            get_secs_since_epoch(),
+            self.clock_cycle,
             refresh_kind,
         ) {
             Ok((Some(p), pid)) => {
@@ -694,13 +693,6 @@ fn get_system_info_android(info: InfoType) -> Option<String> {
         String::from_utf8(value_buffer).ok()
     } else {
         None
-    }
-}
-
-fn get_secs_since_epoch() -> u64 {
-    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_secs(),
-        _ => panic!("SystemTime before UNIX EPOCH!"),
     }
 }
 

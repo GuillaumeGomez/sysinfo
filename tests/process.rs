@@ -236,3 +236,42 @@ fn cpu_usage_is_not_nan() {
     });
     assert!(checked > 0);
 }
+
+#[test]
+fn test_process_times() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("3")
+            .arg("CwdSignal")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("3")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+
+    let pid = p.id() as sysinfo::Pid;
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    p.kill().expect("Unable to kill process.");
+
+    let processes = s.processes();
+    let p = processes.get(&pid);
+
+    if let Some(p) = p {
+        assert_eq!(p.pid(), pid);
+        assert!(p.run_time() <= 2);
+        assert!(p.start_time() > p.run_time());
+    } else {
+        panic!("Process not found!");
+    }
+}

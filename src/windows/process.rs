@@ -37,7 +37,6 @@ use winapi::um::psapi::{
     EnumProcessModulesEx, GetModuleBaseNameW, GetModuleFileNameExW, GetProcessMemoryInfo,
     LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
 };
-use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
 use winapi::um::winbase::{GetProcessIoCounters, CREATE_NO_WINDOW};
 use winapi::um::winnt::{
     HANDLE, IO_COUNTERS, MEMORY_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
@@ -97,6 +96,7 @@ pub struct Process {
     handle: PtrWrapper<HANDLE>,
     cpu_calc_values: CPUsageCalculationValues,
     start_time: u64,
+    pub(crate) run_time: u64,
     cpu_usage: f32,
     pub(crate) updated: bool,
     old_read_bytes: u64,
@@ -174,7 +174,7 @@ unsafe fn get_exe(process_handler: HANDLE, h_mod: *mut c_void) -> PathBuf {
 
 impl Process {
     #[allow(clippy::uninit_assumed_init)]
-    pub(crate) fn new_from_pid(pid: Pid) -> Option<Process> {
+    pub(crate) fn new_from_pid(pid: Pid, now: u64) -> Option<Process> {
         let process_handler = unsafe { OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid as _) };
         if process_handler.is_null() {
             return None;
@@ -201,6 +201,7 @@ impl Process {
                 None
             },
             process_handler,
+            now,
         ))
     }
 
@@ -210,6 +211,7 @@ impl Process {
         memory: u64,
         virtual_memory: u64,
         name: String,
+        now: u64,
     ) -> Process {
         if let Some(handle) = get_process_handler(pid) {
             let mut h_mod = null_mut();
@@ -224,6 +226,7 @@ impl Process {
                     (Vec::new(), Vec::new(), PathBuf::new())
                 }
             };
+            let (start_time, run_time) = unsafe { get_start_and_run_time(handle, now) };
             Process {
                 handle: PtrWrapper(handle),
                 name,
@@ -239,7 +242,8 @@ impl Process {
                 virtual_memory,
                 cpu_usage: 0.,
                 cpu_calc_values: CPUsageCalculationValues::new(),
-                start_time: unsafe { get_start_time(handle) },
+                start_time,
+                run_time,
                 updated: true,
                 old_read_bytes: 0,
                 old_written_bytes: 0,
@@ -263,6 +267,7 @@ impl Process {
                 cpu_usage: 0.,
                 cpu_calc_values: CPUsageCalculationValues::new(),
                 start_time: 0,
+                run_time: 0,
                 updated: true,
                 old_read_bytes: 0,
                 old_written_bytes: 0,
@@ -272,7 +277,12 @@ impl Process {
         }
     }
 
-    fn new_with_handle(pid: Pid, parent: Option<Pid>, process_handler: HANDLE) -> Process {
+    fn new_with_handle(
+        pid: Pid,
+        parent: Option<Pid>,
+        process_handler: HANDLE,
+        now: u64,
+    ) -> Process {
         let mut h_mod = null_mut();
 
         unsafe {
@@ -292,6 +302,7 @@ impl Process {
                     (Vec::new(), Vec::new(), PathBuf::new())
                 }
             };
+            let (start_time, run_time) = get_start_and_run_time(process_handler, now);
             Process {
                 handle: PtrWrapper(process_handler),
                 name,
@@ -307,7 +318,8 @@ impl Process {
                 virtual_memory: 0,
                 cpu_usage: 0.,
                 cpu_calc_values: CPUsageCalculationValues::new(),
-                start_time: get_start_time(process_handler),
+                start_time,
+                run_time,
                 updated: true,
                 old_read_bytes: 0,
                 old_written_bytes: 0,
@@ -315,39 +327,26 @@ impl Process {
                 written_bytes: 0,
             }
         }
+    }
+
+    pub(crate) fn update(
+        &mut self,
+        refresh_kind: crate::ProcessRefreshKind,
+        nb_processors: u64,
+        now: u64,
+    ) {
+        if refresh_kind.cpu() {
+            compute_cpu_usage(self, nb_processors);
+        }
+        if refresh_kind.disk_usage() {
+            update_disk_usage(self);
+        }
+        self.run_time = now - self.start_time();
+        self.updated = true;
     }
 }
 
 impl ProcessExt for Process {
-    fn new(pid: Pid, parent: Option<Pid>, _: u64) -> Process {
-        if let Some(process_handler) = get_process_handler(pid) {
-            Process::new_with_handle(pid, parent, process_handler)
-        } else {
-            Process {
-                handle: PtrWrapper(null_mut()),
-                name: String::new(),
-                pid,
-                parent,
-                cmd: Vec::new(),
-                environ: Vec::new(),
-                exe: get_executable_path(pid),
-                cwd: PathBuf::new(),
-                root: PathBuf::new(),
-                status: ProcessStatus::Run,
-                memory: 0,
-                virtual_memory: 0,
-                cpu_usage: 0.,
-                cpu_calc_values: CPUsageCalculationValues::new(),
-                start_time: 0,
-                updated: true,
-                old_read_bytes: 0,
-                old_written_bytes: 0,
-                read_bytes: 0,
-                written_bytes: 0,
-            }
-        }
-    }
-
     fn kill(&self) -> bool {
         let mut kill = process::Command::new("taskkill.exe");
         kill.arg("/PID").arg(self.pid().to_string()).arg("/F");
@@ -414,6 +413,10 @@ impl ProcessExt for Process {
         self.start_time
     }
 
+    fn run_time(&self) -> u64 {
+        self.run_time
+    }
+
     fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
@@ -439,7 +442,7 @@ impl Drop for Process {
     }
 }
 
-unsafe fn get_start_time(handle: HANDLE) -> u64 {
+unsafe fn get_start_and_run_time(handle: HANDLE, now: u64) -> (u64, u64) {
     let mut fstart: FILETIME = zeroed();
     let mut x = zeroed();
 
@@ -450,8 +453,12 @@ unsafe fn get_start_time(handle: HANDLE) -> u64 {
         &mut x as *mut FILETIME,
         &mut x as *mut FILETIME,
     );
-    let tmp = (fstart.dwHighDateTime as u64) << 32 | (fstart.dwLowDateTime as u64);
-    tmp / 10_000_000 - 11_644_473_600
+    let tmp = super::utils::filetime_to_u64(fstart);
+    // 11_644_473_600 is the number of seconds between the Windows epoch (1601-01-01) and
+    // the linux epoch (1970-01-01).
+    let start = tmp / 10_000_000 - 11_644_473_600;
+    let run_time = check_sub(now, start);
+    (start, run_time)
 }
 
 #[allow(clippy::uninit_vec)]
@@ -784,21 +791,6 @@ pub(crate) fn get_executable_path(_pid: Pid) -> PathBuf {
     PathBuf::new()
 }
 
-pub(crate) fn get_system_computation_time() -> ULARGE_INTEGER {
-    unsafe {
-        let mut now: ULARGE_INTEGER = std::mem::zeroed();
-        let mut ftime: FILETIME = zeroed();
-
-        GetSystemTimeAsFileTime(&mut ftime);
-        memcpy(
-            &mut now as *mut ULARGE_INTEGER as *mut c_void,
-            &mut ftime as *mut FILETIME as *mut c_void,
-            size_of::<FILETIME>(),
-        );
-        now
-    }
-}
-
 #[inline]
 fn check_sub(a: u64, b: u64) -> u64 {
     if a < b {
@@ -809,7 +801,7 @@ fn check_sub(a: u64, b: u64) -> u64 {
 }
 /// Before changing this function, you must consider the following:
 /// https://github.com/GuillaumeGomez/sysinfo/issues/459
-pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64, _now: ULARGE_INTEGER) {
+pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
     unsafe {
         let mut ftime: FILETIME = zeroed();
         let mut fsys: FILETIME = zeroed();
