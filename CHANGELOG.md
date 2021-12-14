@@ -1,3 +1,10 @@
+# 0.22.0
+
+ * Add FreeBSD support.
+ * Create `SystemExt::refresh_processes_specifics` and `SystemExt::refresh_process_specifics` methods.
+ * Update `ProcessExt::kill` API and add `ProcessExt::kill_with`.
+ * Add `ProcessExt::run_time`.
+
 # 0.21.2
 
  * Unsupported targets: Fix build.
