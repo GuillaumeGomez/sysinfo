@@ -6,7 +6,7 @@ pub mod network;
 pub mod process;
 pub mod processor;
 pub mod system;
-pub(crate) mod utils;
+mod utils;
 
 pub use self::component::Component;
 pub use self::disk::Disk;

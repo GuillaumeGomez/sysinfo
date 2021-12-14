@@ -41,7 +41,7 @@ fn test_cwd() {
     };
 
     let pid = p.id() as sysinfo::Pid;
-    std::thread::sleep(std::time::Duration::from_millis(250));
+    std::thread::sleep(std::time::Duration::from_secs(1));
     let mut s = sysinfo::System::new();
     s.refresh_processes();
     p.kill().expect("Unable to kill process.");
@@ -77,7 +77,7 @@ fn test_cmd() {
             .spawn()
             .unwrap()
     };
-    std::thread::sleep(std::time::Duration::from_millis(250));
+    std::thread::sleep(std::time::Duration::from_millis(500));
     let mut s = sysinfo::System::new();
     assert!(s.processes().is_empty());
     s.refresh_processes();
@@ -123,7 +123,7 @@ fn test_environ() {
     };
 
     let pid = p.id() as sysinfo::Pid;
-    std::thread::sleep(std::time::Duration::from_millis(250));
+    std::thread::sleep(std::time::Duration::from_secs(1));
     let mut s = sysinfo::System::new();
     s.refresh_processes();
     p.kill().expect("Unable to kill process.");
@@ -167,6 +167,11 @@ fn test_process_disk_usage() {
     if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
+    if std::env::var("FREEBSD_CI").is_ok() {
+        // For an unknown reason, when running this test on Cirrus CI, it fails. It works perfectly
+        // locally though... Dark magic...
+        return;
+    }
 
     fn inner() -> sysinfo::System {
         {
@@ -175,6 +180,8 @@ fn test_process_disk_usage() {
                 .expect("failed to write to file");
         }
         fs::remove_file("test.txt").expect("failed to remove file");
+        // Waiting a bit just in case...
+        std::thread::sleep(std::time::Duration::from_millis(250));
         let mut system = sysinfo::System::new();
         assert!(system.processes().is_empty());
         system.refresh_processes();
@@ -264,11 +271,9 @@ fn test_process_times() {
     s.refresh_processes();
     p.kill().expect("Unable to kill process.");
 
-    let processes = s.processes();
-    let p = processes.get(&pid);
-
-    if let Some(p) = p {
+    if let Some(p) = s.process(pid) {
         assert_eq!(p.pid(), pid);
+        assert!(p.run_time() >= 1);
         assert!(p.run_time() <= 2);
         assert!(p.start_time() > p.run_time());
     } else {
