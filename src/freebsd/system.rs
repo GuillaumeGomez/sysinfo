@@ -25,7 +25,6 @@ pub struct System {
     mem_total: u64,
     mem_free: u64,
     mem_used: u64,
-    mem_available: u64,
     swap_total: u64,
     swap_used: u64,
     global_processor: Processor,
@@ -48,7 +47,6 @@ impl SystemExt for System {
             process_list: HashMap::with_capacity(200),
             mem_total: 0,
             mem_free: 0,
-            mem_available: 0,
             mem_used: 0,
             swap_total: 0,
             swap_used: 0,
@@ -128,7 +126,7 @@ impl SystemExt for System {
             let now = super::utils::get_now();
 
             let fscale = self.system_info.fscale;
-            let page_size_k = self.system_info.page_size_k as isize;
+            let page_size = self.system_info.page_size as isize;
             let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
             let procs = utils::ProcList(std::slice::from_raw_parts_mut(procs, count as _));
 
@@ -148,7 +146,7 @@ impl SystemExt for System {
                     super::process::get_process_data(
                         kproc.0,
                         &proc_list,
-                        page_size_k,
+                        page_size,
                         fscale,
                         now,
                         refresh_kind,
@@ -224,7 +222,7 @@ impl SystemExt for System {
     }
 
     fn available_memory(&self) -> u64 {
-        self.mem_available
+        self.mem_free
     }
 
     fn used_memory(&self) -> u64 {
@@ -333,7 +331,7 @@ impl System {
             });
 
             let fscale = self.system_info.fscale;
-            let page_size_k = self.system_info.page_size_k as isize;
+            let page_size = self.system_info.page_size as isize;
             let now = super::utils::get_now();
             let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
             let procs = utils::ProcList(std::slice::from_raw_parts_mut(procs, count as _));
@@ -342,7 +340,7 @@ impl System {
                 super::process::get_process_data(
                     kproc.0,
                     &proc_list,
-                    page_size_k,
+                    page_size,
                     fscale,
                     now,
                     refresh_kind,
@@ -399,7 +397,7 @@ const CPUSTATES: usize = 5;
 #[derive(Debug)]
 struct SystemInfo {
     hw_physical_memory: [c_int; 2],
-    page_size_k: c_int,
+    page_size: c_int,
     virtual_page_count: [c_int; 4],
     virtual_wire_count: [c_int; 4],
     virtual_active_count: [c_int; 4],
@@ -461,7 +459,7 @@ impl SystemInfo {
 
         let mut si = SystemInfo {
             hw_physical_memory: Default::default(),
-            page_size_k: 0,
+            page_size: 0,
             virtual_page_count: Default::default(),
             virtual_wire_count: Default::default(),
             virtual_active_count: Default::default(),
@@ -490,10 +488,9 @@ impl SystemInfo {
             }
             si.fscale = fscale as f32;
 
-            if !get_sys_value_by_name(b"vm.stats.vm.v_page_size\0", &mut si.page_size_k) {
+            if !get_sys_value_by_name(b"vm.stats.vm.v_page_size\0", &mut si.page_size) {
                 panic!("cannot get page size...");
             }
-            si.page_size_k /= 1_000;
 
             init_mib(b"hw.physmem\0", &mut si.hw_physical_memory);
             init_mib(b"vm.stats.vm.v_page_count\0", &mut si.virtual_page_count);
@@ -563,13 +560,22 @@ impl SystemInfo {
                 (used + swap.ksw_used as u64, total + swap.ksw_total as u64)
             });
             (
-                used * self.page_size_k as u64,
-                total * self.page_size_k as u64,
+                used * self.page_size as u64 / 1_000,
+                total * self.page_size as u64 / 1_000,
             )
         }
     }
 
     fn get_total_memory(&self) -> u64 {
+        let mut nb_pages: u64 = 0;
+        unsafe {
+            if get_sys_value(&self.virtual_page_count, &mut nb_pages) {
+                return nb_pages * self.page_size as u64 / 1_000;
+            }
+        }
+
+        // This is a fallback. It includes all the available memory, not just the one available for
+        // the users.
         let mut total_memory: u64 = 0;
         unsafe {
             get_sys_value(&self.hw_physical_memory, &mut total_memory);
@@ -586,7 +592,8 @@ impl SystemInfo {
             get_sys_value(&self.virtual_wire_count, &mut mem_wire);
         }
 
-        (mem_active * self.page_size_k as u64) + (mem_wire * self.page_size_k as u64)
+        let used = (mem_active * self.page_size as u64) + (mem_wire * self.page_size as u64);
+        used / 1_000
     }
 
     fn get_free_memory(&self) -> u64 {
@@ -602,10 +609,11 @@ impl SystemInfo {
             get_sys_value(&self.virtual_free_count, &mut free_mem);
         }
         // For whatever reason, buffers_mem is already the right value...
-        buffers_mem / 1_024
-            + (inactive_mem * self.page_size_k as u64)
-            + (cached_mem * self.page_size_k as u64)
-            + (free_mem * self.page_size_k as u64)
+        let free = buffers_mem
+            + (inactive_mem * self.page_size as u64)
+            + (cached_mem * self.page_size as u64)
+            + (free_mem * self.page_size as u64);
+        free / 1_000
     }
 
     fn get_cpu_usage(&mut self, global: &mut Processor, processors: &mut [Processor]) {
