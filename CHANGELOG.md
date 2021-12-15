@@ -1,3 +1,7 @@
+# 0.22.2
+
+ * FreeBSD: Improve memory information retrieval.
+
 # 0.22.1
 
  * Remove forgotten debug.
