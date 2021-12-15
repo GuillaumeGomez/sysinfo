@@ -543,8 +543,8 @@ impl SystemInfo {
 
     /// Returns (used, total).
     fn get_swap_info(&self) -> (u64, u64) {
-        // Magic number used in htop. Cannot find how they got when reading `kvm_getswapinfo` source
-        // code so here we go...
+        // Magic number used in htop. Cannot find how they got it when reading `kvm_getswapinfo`
+        // source code so here we go...
         const LEN: usize = 16;
         let mut swap = MaybeUninit::<[libc::kvm_swap; LEN]>::uninit();
         unsafe {
