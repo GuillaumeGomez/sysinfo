@@ -399,9 +399,6 @@ pub(crate) fn _get_process_data(
     };
 
     let start_time = u64::from_str(parts[21]).unwrap_or(0) / clock_cycle;
-    if pid == crate::get_current_pid().unwrap() {
-        println!("=> {:?} {:?}", start_time, clock_cycle);
-    }
     let mut p = Process::new(pid, parent_pid, start_time);
 
     p.stat_file = stat_file;

@@ -1,3 +1,7 @@
+# 0.22.1
+
+ * Remove forgotten debug.
+
 # 0.22.0
 
  * Add FreeBSD support.
