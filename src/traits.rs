@@ -876,8 +876,8 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// Generally, "free" memory refers to unallocated memory whereas "available" memory refers to
     /// memory that is available for (re)use.
     ///
-    /// Side note: Windows doesn't report "free" memory so
-    /// [`get_free_memory`](#tymethod.free_memory) returns the same value as this method.
+    /// ⚠️ Windows and FreeBSD don't report "available" memory so [`SystemExt::free_memory`]
+    /// returns the same value as this method.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
