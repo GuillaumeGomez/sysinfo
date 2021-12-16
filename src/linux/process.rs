@@ -350,34 +350,38 @@ pub(crate) fn _get_process_data(
     };
     let parent_memory = proc_list.memory;
     let parent_virtual_memory = proc_list.virtual_memory;
-    if let Some(ref mut entry) = proc_list.tasks.get_mut(&pid) {
-        let data = if let Some(ref mut f) = entry.stat_file {
-            get_all_data_from_file(f, 1024).map_err(|_| ())?
-        } else {
-            let mut tmp = PathBuf::from(path);
-            tmp.push("stat");
-            let mut file = File::open(tmp).map_err(|_| ())?;
-            let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
-            entry.stat_file = check_nb_open_files(file);
-            data
-        };
-        let parts = parse_stat_file(&data)?;
-        get_status(entry, parts[2]);
-        update_time_and_memory(
-            path,
-            entry,
-            &parts,
-            page_size_kb,
-            parent_memory,
-            parent_virtual_memory,
-            uptime,
-            clock_cycle,
-            refresh_kind,
-        );
-        if refresh_kind.disk_usage() {
-            update_process_disk_activity(entry, path);
+
+    // Check if data is available from the previous refresh.
+    if refresh_kind.multiple_refreshes() {
+        if let Some(ref mut entry) = proc_list.tasks.get_mut(&pid) {
+            let data = if let Some(ref mut f) = entry.stat_file {
+                get_all_data_from_file(f, 1024).map_err(|_| ())?
+            } else {
+                let mut tmp = PathBuf::from(path);
+                tmp.push("stat");
+                let mut file = File::open(tmp).map_err(|_| ())?;
+                let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
+                entry.stat_file = check_nb_open_files(file);
+                data
+            };
+            let parts = parse_stat_file(&data)?;
+            get_status(entry, parts[2]);
+            update_time_and_memory(
+                path,
+                entry,
+                &parts,
+                page_size_kb,
+                parent_memory,
+                parent_virtual_memory,
+                uptime,
+                clock_cycle,
+                refresh_kind,
+            );
+            if refresh_kind.disk_usage() {
+                update_process_disk_activity(entry, path);
+            }
+            return Ok((None, pid));
         }
-        return Ok((None, pid));
     }
 
     let mut tmp = PathBuf::from(path);
@@ -385,7 +389,6 @@ pub(crate) fn _get_process_data(
     tmp.push("stat");
     let mut file = std::fs::File::open(&tmp).map_err(|_| ())?;
     let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
-    let stat_file = check_nb_open_files(file);
     let parts = parse_stat_file(&data)?;
     let name = parts[1];
 
@@ -401,7 +404,13 @@ pub(crate) fn _get_process_data(
     let start_time = u64::from_str(parts[21]).unwrap_or(0) / clock_cycle;
     let mut p = Process::new(pid, parent_pid, start_time);
 
-    p.stat_file = stat_file;
+    // Only keep the file descriptor around if multiple refreshes are expected.
+    if refresh_kind.multiple_refreshes() {
+        let stat_file = check_nb_open_files(file);
+        p.stat_file = stat_file;
+    } else {
+        std::mem::drop(file);
+    }
     get_status(&mut p, parts[2]);
 
     tmp.pop();

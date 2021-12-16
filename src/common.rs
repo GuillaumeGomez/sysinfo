@@ -107,6 +107,7 @@ assert_eq!(r.", stringify!($name), "(), false);
 pub struct ProcessRefreshKind {
     cpu: bool,
     disk_usage: bool,
+    multiple_refreshes: bool,
 }
 
 impl ProcessRefreshKind {
@@ -119,6 +120,7 @@ impl ProcessRefreshKind {
     ///
     /// assert_eq!(r.cpu(), false);
     /// assert_eq!(r.disk_usage(), false);
+    /// assert_eq!(r.multiple_refreshes(), false);
     /// ```
     pub fn new() -> Self {
         Self::default()
@@ -133,11 +135,13 @@ impl ProcessRefreshKind {
     ///
     /// assert_eq!(r.cpu(), true);
     /// assert_eq!(r.disk_usage(), true);
+    /// assert_eq!(r.multiple_refreshes(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
             cpu: true,
             disk_usage: true,
+            multiple_refreshes: true,
         }
     }
 
@@ -147,6 +151,12 @@ impl ProcessRefreshKind {
         disk_usage,
         with_disk_usage,
         without_disk_usage
+    );
+    impl_get_set!(
+        ProcessRefreshKind,
+        multiple_refreshes,
+        expect_multiple_refreshes,
+        no_multiple_refreshes
     );
 }
 
