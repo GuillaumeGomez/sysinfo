@@ -1,3 +1,8 @@
+# 0.22.3
+
+ * FreeBSD: Take ZFS ARC value into account when computing used system memory.
+ * Add some missing `#[must_use]`.
+
 # 0.22.2
 
  * FreeBSD: Improve memory information retrieval.
