@@ -390,6 +390,44 @@ impl System {
     }
 }
 
+#[derive(Debug)]
+struct Zfs {
+    enabled: bool,
+    mib_arcstats_size: [c_int; 5],
+}
+
+impl Zfs {
+    fn new() -> Self {
+        let mut zfs = Self {
+            enabled: false,
+            mib_arcstats_size: Default::default(),
+        };
+        unsafe {
+            init_mib(
+                b"kstat.zfs.misc.arcstats.size\0",
+                &mut zfs.mib_arcstats_size,
+            );
+            let mut arc_size: u64 = 0;
+            if get_sys_value(&zfs.mib_arcstats_size, &mut arc_size) {
+                zfs.enabled = arc_size != 0;
+            }
+        }
+        zfs
+    }
+
+    fn arc_size(&self) -> Option<u64> {
+        if self.enabled {
+            let mut arc_size: u64 = 0;
+            unsafe {
+                get_sys_value(&self.mib_arcstats_size, &mut arc_size);
+            }
+            Some(arc_size)
+        } else {
+            None
+        }
+    }
+}
+
 /// This struct is used to get system information more easily.
 #[derive(Debug)]
 struct SystemInfo {
@@ -477,6 +515,7 @@ impl SystemInfo {
             cp_times: utils::VecSwitcher::new(vec![0; nb_cpus as usize * libc::CPUSTATES as usize]),
             fscale: 0.,
             procstat: std::ptr::null_mut(),
+            zfs: Zfs::new(),
         };
         unsafe {
             let mut fscale: c_int = 0;
@@ -590,7 +629,13 @@ impl SystemInfo {
             get_sys_value(&self.virtual_wire_count, &mut mem_wire);
         }
 
-        let used = (mem_active * self.page_size as u64) + (mem_wire * self.page_size as u64);
+        let mut mem_wire = mem_wire * self.page_size as u64;
+        // We need to subtract "ZFS ARC" from the "wired memory" because it should belongs to cache
+        // but the kernel reports it as "wired memory" instead...
+        if let Some(arc_size) = self.zfs.arc_size() {
+            mem_wire -= arc_size;
+        }
+        let used = (mem_active * self.page_size as u64) + mem_wire;
         used / 1_000
     }
 
