@@ -63,6 +63,7 @@ assert_eq!(r.", stringify!($name), "(), false);
 let r = r.with_", stringify!($name), "();
 assert_eq!(r.", stringify!($name), "(), true);
 ```")]
+        #[must_use]
         pub fn $with(mut self) -> Self {
             self.$name = true;
             self
@@ -79,6 +80,7 @@ assert_eq!(r.", stringify!($name), "(), true);
 let r = r.without_", stringify!($name), "();
 assert_eq!(r.", stringify!($name), "(), false);
 ```")]
+        #[must_use]
         pub fn $without(mut self) -> Self {
             self.$name = false;
             self
@@ -264,6 +266,7 @@ impl RefreshKind {
     /// let r = r.with_processes(ProcessRefreshKind::everything());
     /// assert_eq!(r.processes().is_some(), true);
     /// ```
+    #[must_use]
     pub fn with_processes(mut self, refresh_kind: ProcessRefreshKind) -> Self {
         self.processes = Some(refresh_kind);
         self
@@ -280,6 +283,7 @@ impl RefreshKind {
     /// let r = r.without_processes();
     /// assert_eq!(r.processes().is_some(), false);
     /// ```
+    #[must_use]
     pub fn without_processes(mut self) -> Self {
         self.processes = None;
         self
