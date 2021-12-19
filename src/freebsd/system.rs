@@ -390,9 +390,6 @@ impl System {
     }
 }
 
-// FIXME: to be removed once 0.2.108 libc has been published!
-const CPUSTATES: usize = 5;
-
 /// This struct is used to get system information more easily.
 #[derive(Debug)]
 struct SystemInfo {
@@ -422,6 +419,7 @@ struct SystemInfo {
     /// processes' CPU usage.
     fscale: f32,
     procstat: *mut libc::procstat,
+    zfs: Zfs,
 }
 
 // This is needed because `kd: *mut libc::kvm_t` isn't thread-safe.
@@ -475,8 +473,8 @@ impl SystemInfo {
             kd,
             mib_cp_time: Default::default(),
             mib_cp_times: Default::default(),
-            cp_time: utils::VecSwitcher::new(vec![0; CPUSTATES]),
-            cp_times: utils::VecSwitcher::new(vec![0; nb_cpus as usize * CPUSTATES]),
+            cp_time: utils::VecSwitcher::new(vec![0; libc::CPUSTATES as usize]),
+            cp_times: utils::VecSwitcher::new(vec![0; nb_cpus as usize * libc::CPUSTATES as usize]),
             fscale: 0.,
             procstat: std::ptr::null_mut(),
         };
@@ -631,7 +629,7 @@ impl SystemInfo {
             let mut total_old: u64 = 0;
             let mut cp_diff: libc::c_ulong = 0;
 
-            for i in 0..(CPUSTATES as usize) {
+            for i in 0..(libc::CPUSTATES as usize) {
                 // We obviously don't want to get the idle part of the processor usage, otherwise
                 // we would always be at 100%...
                 if i != libc::CP_IDLE as usize {
@@ -653,7 +651,7 @@ impl SystemInfo {
         let old_cp_times = self.cp_times.get_old();
         let new_cp_times = self.cp_times.get_new();
         for (pos, proc_) in processors.iter_mut().enumerate() {
-            let index = pos * CPUSTATES as usize;
+            let index = pos * libc::CPUSTATES as usize;
 
             fill_processor(proc_, &new_cp_times[index..], &old_cp_times[index..]);
         }
