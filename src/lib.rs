@@ -129,8 +129,8 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
                 // If files are already open, to be sure that the number won't be bigger when those
                 // files are closed, we subtract the current number of opened files to the new
                 // limit.
-                let diff = max - **x;
-                **x = _new_limit - diff;
+                let diff = max.saturating_sub(**x);
+                **x = _new_limit.saturating_sub(diff);
                 true
             } else {
                 false
