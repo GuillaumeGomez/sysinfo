@@ -799,7 +799,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
             if val
                 .name()
                 .to_lowercase()
-                .contains(name.to_lowercase().as_str()) 
+                .contains(name.to_lowercase().as_str())
             {
                 ret.push(val);
             }
