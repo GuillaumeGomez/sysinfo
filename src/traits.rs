@@ -796,7 +796,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     fn process_by_name(&self, name: &str) -> Vec<&Process> {
         let mut ret = vec![];
         for val in self.processes().values() {
-            if val.name().to_lowercase().contains(name.to_lowercase()) {
+            if val.name().to_lowercase().contains(name.to_lowercase().as_str()) {
                 ret.push(val);
             }
         }
