@@ -163,11 +163,7 @@ impl Connection {
             instance: None,
             server_connection: None,
             enumerator: None,
-            inited: if val == 0 || val == 1 {
-                true
-            } else {
-                false
-            }
+            inited: if val == 0 || val == 1 { true } else { false },
         })
     }
 
