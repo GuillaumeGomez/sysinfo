@@ -146,6 +146,7 @@ struct Connection {
     instance: Option<Instance>,
     server_connection: Option<ServerConnection>,
     enumerator: Option<Enumerator>,
+    inited: bool,
 }
 
 #[allow(clippy::non_send_fields_in_send_ty)]
@@ -157,11 +158,16 @@ impl Connection {
     fn new() -> Option<Connection> {
         // "Funnily", this function returns ok, false or "this function has already been called".
         // So whatever, let's just ignore whatever it might return then!
-        unsafe { CoInitializeEx(null_mut(), 0) };
+        let val = unsafe { CoInitializeEx(null_mut(), 0) };
         Some(Connection {
             instance: None,
             server_connection: None,
             enumerator: None,
+            inited: if val == 0 || val == 1 {
+                true
+            } else {
+                false
+            }
         })
     }
 
@@ -364,8 +370,10 @@ impl Drop for Connection {
         self.enumerator.take();
         self.server_connection.take();
         self.instance.take();
-        unsafe {
-            CoUninitialize();
+        if self.inited {
+            unsafe {
+                CoUninitialize();
+            }
         }
     }
 }
