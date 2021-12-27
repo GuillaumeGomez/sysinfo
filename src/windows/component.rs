@@ -8,7 +8,7 @@ use winapi::shared::rpcdce::{
     RPC_C_AUTHN_LEVEL_CALL, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE,
     RPC_C_IMP_LEVEL_IMPERSONATE,
 };
-use winapi::shared::winerror::{FAILED, SUCCEEDED};
+use winapi::shared::winerror::{FAILED, SUCCEEDED, S_FALSE, S_OK};
 use winapi::shared::wtypesbase::CLSCTX_INPROC_SERVER;
 use winapi::um::combaseapi::{
     CoCreateInstance, CoInitializeEx, CoInitializeSecurity, CoSetProxyBlanket, CoUninitialize,
@@ -146,6 +146,7 @@ struct Connection {
     instance: Option<Instance>,
     server_connection: Option<ServerConnection>,
     enumerator: Option<Enumerator>,
+    initialized: bool,
 }
 
 #[allow(clippy::non_send_fields_in_send_ty)]
@@ -155,13 +156,12 @@ unsafe impl Sync for Connection {}
 impl Connection {
     #[allow(clippy::unnecessary_wraps)]
     fn new() -> Option<Connection> {
-        // "Funnily", this function returns ok, false or "this function has already been called".
-        // So whatever, let's just ignore whatever it might return then!
-        unsafe { CoInitializeEx(null_mut(), 0) };
+        let val = unsafe { CoInitializeEx(null_mut(), 0) };
         Some(Connection {
             instance: None,
             server_connection: None,
             enumerator: None,
+            initialized: val == S_OK || val == S_FALSE,
         })
     }
 
@@ -364,8 +364,10 @@ impl Drop for Connection {
         self.enumerator.take();
         self.server_connection.take();
         self.instance.take();
-        unsafe {
-            CoUninitialize();
+        if self.initialized {
+            unsafe {
+                CoUninitialize();
+            }
         }
     }
 }
