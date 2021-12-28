@@ -1,3 +1,8 @@
+# 0.22.4
+
+ * Windows: Correctly handle COM initialization/deinitialization.
+ * Linux: Fix panic when changing the limit of open files.
+
 # 0.22.3
 
  * FreeBSD: Take ZFS ARC value into account when computing used system memory.
