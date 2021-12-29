@@ -615,6 +615,9 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// It does the same as `system.refresh_processes_specifics(ProcessRefreshKind::everything())`.
     ///
+    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can this behaviour by
+    /// using [`set_open_files_limit`][crate::set_open_files_limit].
+    ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
@@ -626,6 +629,9 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     }
 
     /// Gets all processes and updates the specified information.
+    ///
+    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can this behaviour by
+    /// using [`set_open_files_limit`][crate::set_open_files_limit].
     ///
     /// ```no_run
     /// use sysinfo::{ProcessRefreshKind, System, SystemExt};
