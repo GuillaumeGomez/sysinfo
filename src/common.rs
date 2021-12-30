@@ -10,7 +10,7 @@ pub trait AsU32 {
 
 cfg_if::cfg_if! {
     if #[cfg(any(windows, target_os = "unknown", target_arch = "wasm32"))] {
-        /// Process id.
+        #[doc = include_str!("../md_doc/pid.md")]
         pub type Pid = usize;
 
         impl AsU32 for Pid {
@@ -21,7 +21,7 @@ cfg_if::cfg_if! {
     } else {
         use libc::pid_t;
 
-        /// Process id.
+        #[doc = include_str!("../md_doc/pid.md")]
         pub type Pid = pid_t;
 
         impl AsU32 for Pid {
