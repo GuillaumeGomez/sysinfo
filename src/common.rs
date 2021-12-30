@@ -11,24 +11,79 @@ pub trait AsU32 {
 cfg_if::cfg_if! {
     if #[cfg(any(windows, target_os = "unknown", target_arch = "wasm32"))] {
         /// Process id.
-        pub type Pid = usize;
+        #[derive(Debug, Clone, Copy, Eq, Hash)]
+        pub struct Pid(usize);
 
-        impl AsU32 for Pid {
-            fn as_u32(&self) -> u32 {
-                *self as u32
+        impl From<u32> for Pid {
+            fn from(u32v: u32) -> Pid {
+                Pid(u32v as usize)
             }
         }
+
+        impl From<i32> for Pid {
+            fn from(i32v: i32) -> Pid {
+                Pid(i32v as usize)
+            }
+        }
+
     } else {
         use libc::pid_t;
 
         /// Process id.
-        pub type Pid = pid_t;
+        #[derive(Debug, Clone, Copy, Eq, Hash)]
+        pub struct Pid(pid_t);
 
-        impl AsU32 for Pid {
-            fn as_u32(&self) -> u32 {
-                *self as u32
+        impl From<u32> for Pid {
+            fn from(u32v: u32) -> Pid {
+                Pid(u32v as pid_t)
             }
         }
+
+        impl From<i32> for Pid {
+            fn from(i32v: i32) -> Pid {
+                Pid(i32v as pid_t)
+            }
+        }
+    }
+}
+
+impl PartialEq for Pid {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl From<Pid> for u32 {
+    fn from(pid: Pid) -> u32 {
+        pid.0 as u32
+    }
+}
+
+impl From<Pid> for i32 {
+    fn from(pid: Pid) -> i32 {
+        pid.0 as i32
+    }
+}
+
+
+impl AsU32 for Pid {
+    fn as_u32(&self) -> u32 {
+        self.0 as u32
+    }
+}
+
+impl std::fmt::Display for Pid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::str::FromStr for Pid {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Pid, Self::Err> {
+        let i32v: i32 = i32::from_str(s)?;
+        Ok(Pid(i32v))
     }
 }
 
@@ -710,7 +765,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
             }
         } else if #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))] {
             fn inner() -> Result<Pid, &'static str> {
-                unsafe { Ok(::libc::getpid()) }
+                unsafe { Ok(Pid(::libc::getpid())) }
             }
         } else if #[cfg(target_os = "windows")] {
             fn inner() -> Result<Pid, &'static str> {

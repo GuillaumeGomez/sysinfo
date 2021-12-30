@@ -275,7 +275,7 @@ impl SystemExt for System {
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let mut s = System {
-            process_list: Process::new(0, None, 0),
+            process_list: Process::new(Pid::from(0), None, 0),
             mem_total: 0,
             mem_free: 0,
             mem_available: 0,
@@ -353,7 +353,7 @@ impl SystemExt for System {
             &mut self.process_list,
             Path::new("/proc"),
             self.page_size_kb,
-            0,
+            Pid::from(0),
             uptime,
             self.clock_cycle,
             refresh_kind,
@@ -369,7 +369,7 @@ impl SystemExt for System {
             &Path::new("/proc/").join(pid.to_string()),
             &mut self.process_list,
             self.page_size_kb,
-            0,
+            Pid::from(0),
             uptime,
             self.clock_cycle,
             refresh_kind,

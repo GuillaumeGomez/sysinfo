@@ -40,7 +40,7 @@ fn test_cwd() {
             .unwrap()
     };
 
-    let pid = p.id() as sysinfo::Pid;
+    let pid = sysinfo::Pid::from(p.id());
     std::thread::sleep(std::time::Duration::from_secs(1));
     let mut s = sysinfo::System::new();
     s.refresh_processes();
@@ -83,7 +83,7 @@ fn test_cmd() {
     s.refresh_processes();
     p.kill().expect("Unable to kill process.");
     assert!(!s.processes().is_empty());
-    if let Some(process) = s.process(p.id() as sysinfo::Pid) {
+    if let Some(process) = s.process(sysinfo::Pid::from(p.id())) {
         if cfg!(target_os = "windows") {
             // Sometimes, we get the full path instead for some reasons... So just in case,
             // we check for the command independently that from the arguments.
@@ -122,7 +122,7 @@ fn test_environ() {
             .unwrap()
     };
 
-    let pid = p.id() as sysinfo::Pid;
+    let pid = sysinfo::Pid::from(p.id());
     std::thread::sleep(std::time::Duration::from_secs(1));
     let mut s = sysinfo::System::new();
     s.refresh_processes();
@@ -265,7 +265,7 @@ fn test_process_times() {
             .unwrap()
     };
 
-    let pid = p.id() as sysinfo::Pid;
+    let pid = sysinfo::Pid::from(p.id());
     std::thread::sleep(std::time::Duration::from_secs(1));
     let mut s = sysinfo::System::new();
     s.refresh_processes();
