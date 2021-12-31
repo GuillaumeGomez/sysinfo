@@ -7,7 +7,7 @@ use crate::sys::processor::*;
 use crate::sys::utils::get_all_data;
 use crate::{Disk, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User};
 
-use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
+use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
@@ -95,6 +95,42 @@ fn boot_time() -> u64 {
         sysinfo_debug!("clock_gettime failed: boot time cannot be retrieve...");
         0
     }
+}
+
+declare_signals! {
+    c_int,
+    Signal::Hangup => libc::SIGHUP,
+    Signal::Interrupt => libc::SIGINT,
+    Signal::Quit => libc::SIGQUIT,
+    Signal::Illegal => libc::SIGILL,
+    Signal::Trap => libc::SIGTRAP,
+    Signal::Abort => libc::SIGABRT,
+    Signal::IOT => libc::SIGIOT,
+    Signal::Bus => libc::SIGBUS,
+    Signal::FloatingPointException => libc::SIGFPE,
+    Signal::Kill => libc::SIGKILL,
+    Signal::User1 => libc::SIGUSR1,
+    Signal::Segv => libc::SIGSEGV,
+    Signal::User2 => libc::SIGUSR2,
+    Signal::Pipe => libc::SIGPIPE,
+    Signal::Alarm => libc::SIGALRM,
+    Signal::Term => libc::SIGTERM,
+    Signal::Child => libc::SIGCHLD,
+    Signal::Continue => libc::SIGCONT,
+    Signal::Stop => libc::SIGSTOP,
+    Signal::TSTP => libc::SIGTSTP,
+    Signal::TTIN => libc::SIGTTIN,
+    Signal::TTOU => libc::SIGTTOU,
+    Signal::Urgent => libc::SIGURG,
+    Signal::XCPU => libc::SIGXCPU,
+    Signal::XFSZ => libc::SIGXFSZ,
+    Signal::VirtualAlarm => libc::SIGVTALRM,
+    Signal::Profiling => libc::SIGPROF,
+    Signal::Winch => libc::SIGWINCH,
+    Signal::IO => libc::SIGIO,
+    Signal::Poll => libc::SIGPOLL,
+    Signal::Power => libc::SIGPWR,
+    Signal::Sys => libc::SIGSYS,
 }
 
 #[doc = include_str!("../../md_doc/system.md")]
@@ -272,6 +308,7 @@ impl System {
 
 impl SystemExt for System {
     const IS_SUPPORTED: bool = true;
+    const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let mut s = System {
@@ -670,8 +707,6 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
 
 #[cfg(target_os = "android")]
 fn get_system_info_android(info: InfoType) -> Option<String> {
-    use libc::c_int;
-
     // https://android.googlesource.com/platform/frameworks/base/+/refs/heads/master/core/java/android/os/Build.java#58
     let name: &'static [u8] = match info {
         InfoType::Name => b"ro.product.model\0",

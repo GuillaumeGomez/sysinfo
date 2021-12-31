@@ -9,10 +9,6 @@ use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
 pub struct Process;
 
 impl ProcessExt for Process {
-    fn kill(&self) -> bool {
-        false
-    }
-
     fn kill_with(&self, _signal: Signal) -> Option<bool> {
         None
     }

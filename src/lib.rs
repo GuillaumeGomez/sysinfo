@@ -9,21 +9,8 @@
 #![allow(renamed_and_removed_lints)]
 #![allow(unknown_lints)]
 
-#[cfg(feature = "debug")]
-#[doc(hidden)]
-#[allow(unused)]
-macro_rules! sysinfo_debug {
-    ($($x:tt)*) => {{
-        eprintln!($($x)*);
-    }}
-}
-
-#[cfg(not(feature = "debug"))]
-#[doc(hidden)]
-#[allow(unused)]
-macro_rules! sysinfo_debug {
-    ($($x:tt)*) => {{}};
-}
+#[macro_use]
+mod macros;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "unknown-ci")] {

@@ -39,6 +39,12 @@ use winapi::um::sysinfoapi::{
 use winapi::um::winnt::{HANDLE, KEY_READ};
 use winapi::um::winreg::{RegOpenKeyExW, RegQueryValueExW};
 
+declare_signals! {
+    (),
+    Signal::Kill => (),
+    _ => None,
+}
+
 #[doc = include_str!("../../md_doc/system.md")]
 pub struct System {
     process_list: HashMap<usize, Process>,
@@ -74,6 +80,7 @@ unsafe fn boot_time() -> u64 {
 
 impl SystemExt for System {
     const IS_SUPPORTED: bool = true;
+    const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
 
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {

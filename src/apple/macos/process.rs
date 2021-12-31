@@ -151,47 +151,8 @@ impl Process {
 }
 
 impl ProcessExt for Process {
-    fn kill(&self) -> bool {
-        self.kill_with(Signal::Kill).unwrap()
-    }
-
     fn kill_with(&self, signal: Signal) -> Option<bool> {
-        let c_signal = match signal {
-            Signal::Hangup => libc::SIGHUP,
-            Signal::Interrupt => libc::SIGINT,
-            Signal::Quit => libc::SIGQUIT,
-            Signal::Illegal => libc::SIGILL,
-            Signal::Trap => libc::SIGTRAP,
-            Signal::Abort => libc::SIGABRT,
-            Signal::IOT => libc::SIGIOT,
-            Signal::Bus => libc::SIGBUS,
-            Signal::FloatingPointException => libc::SIGFPE,
-            Signal::Kill => libc::SIGKILL,
-            Signal::User1 => libc::SIGUSR1,
-            Signal::Segv => libc::SIGSEGV,
-            Signal::User2 => libc::SIGUSR2,
-            Signal::Pipe => libc::SIGPIPE,
-            Signal::Alarm => libc::SIGALRM,
-            Signal::Term => libc::SIGTERM,
-            Signal::Child => libc::SIGCHLD,
-            Signal::Continue => libc::SIGCONT,
-            Signal::Stop => libc::SIGSTOP,
-            Signal::TSTP => libc::SIGTSTP,
-            Signal::TTIN => libc::SIGTTIN,
-            Signal::TTOU => libc::SIGTTOU,
-            Signal::Urgent => libc::SIGURG,
-            Signal::XCPU => libc::SIGXCPU,
-            Signal::XFSZ => libc::SIGXFSZ,
-            Signal::VirtualAlarm => libc::SIGVTALRM,
-            Signal::Profiling => libc::SIGPROF,
-            Signal::Winch => libc::SIGWINCH,
-            Signal::IO => libc::SIGIO,
-            // SIGPOLL doesn't exist on apple targets but since it's an equivalent of SIGIO on unix,
-            // we simply use the SIGIO constant.
-            Signal::Poll => libc::SIGIO,
-            Signal::Power => return None,
-            Signal::Sys => libc::SIGSYS,
-        };
+        let c_signal = crate::sys::system::convert_signal(signal)?;
         unsafe { Some(kill(self.pid, c_signal) == 0) }
     }
 
