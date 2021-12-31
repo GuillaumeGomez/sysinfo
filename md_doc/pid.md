@@ -3,7 +3,7 @@ Process id
 Can be used as an integer type by simple casting. For example:
 
 ```
-use sysinfo::AsU32;
+use sysinfo::{AsU32, Pid};
 
 let p: Pid = 0;
 let i: u32 = p.as_u32();
