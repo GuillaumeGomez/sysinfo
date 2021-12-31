@@ -809,6 +809,26 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         ret
     }
 
+    /// Return a list of process containing exact the given `name`.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// for process in s.process_by_exact_name("clash") {
+    ///     println("{} {}", process.pid(), process.name());
+    /// }
+    /// ```
+    fn process_by_exact_name(&self, name: &str) -> Vec<&Process> {
+        let mut ret = vec![];
+        for val in self.processes().values() {
+            if val.name() == name {
+                ret.push(val);
+            }
+        }
+        ret
+    }
+
     /// Returns "global" processors information (aka the addition of all the processors).
     ///
     /// To have up-to-date information, you need to call [`SystemExt::refresh_cpu`] or
