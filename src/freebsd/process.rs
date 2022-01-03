@@ -201,7 +201,7 @@ pub(crate) unsafe fn get_process_data(
         ],
         &mut buffer,
     )
-    .unwrap_or_else(String::new);
+    .unwrap_or_default();
     // For some reason, it can return completely invalid path like `p\u{5}`. So we need to use
     // procstat to get around this problem.
     // let cwd = get_sys_value_str(

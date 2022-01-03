@@ -419,7 +419,7 @@ impl System {
             // The name can be cut short because the `ki_comm` field size is limited,
             // which is why we prefer to get the name from the command line as much as
             // possible.
-            proc_.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_else(String::new);
+            proc_.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_default();
         }
         proc_.environ = from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _);
         self.process_list.insert(proc_.pid, proc_);
