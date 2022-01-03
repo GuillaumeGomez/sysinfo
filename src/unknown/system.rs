@@ -7,6 +7,11 @@ use crate::{
 
 use std::collections::HashMap;
 
+declare_signals! {
+    (),
+    _ => None,
+}
+
 #[doc = include_str!("../../md_doc/system.md")]
 pub struct System {
     processes_list: HashMap<Pid, Process>,
@@ -16,6 +21,7 @@ pub struct System {
 
 impl SystemExt for System {
     const IS_SUPPORTED: bool = false;
+    const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
 
     fn new_with_specifics(_: RefreshKind) -> System {
         System {

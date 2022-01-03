@@ -124,10 +124,13 @@ pub trait DiskExt: Debug {
 
 /// Contains all the methods of the [`Process`][crate::Process] struct.
 pub trait ProcessExt: Debug {
-    /// Sends [`Signal::Kill`] to the process (which is the only signal supported on all platforms
-    /// by this crate).
+    /// Sends [`Signal::Kill`] to the process (which is the only signal supported on all supported
+    /// platforms by this crate).
     ///
     /// If you want to send another signal, take a look at [`ProcessExt::kill_with`].
+    ///
+    /// To get the list of the supported signals on this system, use
+    /// [`SystemExt::SUPPORTED_SIGNALS`].
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
@@ -137,13 +140,18 @@ pub trait ProcessExt: Debug {
     ///     process.kill();
     /// }
     /// ```
-    fn kill(&self) -> bool;
+    fn kill(&self) -> bool {
+        self.kill_with(Signal::Kill).unwrap_or(false)
+    }
 
     /// Sends the given `signal` to the process. If the signal doesn't exist on this platform,
     /// it'll do nothing and will return `None`. Otherwise it'll return if the signal was sent
     /// successfully.
     ///
     /// If you just want to kill the process, use [`ProcessExt::kill`] directly.
+    ///
+    /// To get the list of the supported signals on this system, use
+    /// [`SystemExt::SUPPORTED_SIGNALS`].
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, Signal, System, SystemExt};
@@ -445,6 +453,16 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// }
     /// ```
     const IS_SUPPORTED: bool;
+
+    /// Returns the list of the supported signals on this system (used by
+    /// [`ProcessExt::kill_with`]).
+    ///
+    /// ```
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// println!("supported signals: {:?}", System::SUPPORTED_SIGNALS);
+    /// ```
+    const SUPPORTED_SIGNALS: &'static [Signal];
 
     /// Creates a new [`System`] instance with nothing loaded except the processors list. If you
     /// want to load components, network interfaces or the disks, you'll have to use the

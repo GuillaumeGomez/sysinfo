@@ -347,21 +347,14 @@ impl Process {
 }
 
 impl ProcessExt for Process {
-    fn kill(&self) -> bool {
+    fn kill_with(&self, signal: Signal) -> Option<bool> {
+        let _c_signal = super::system::convert_signal(signal)?;
         let mut kill = process::Command::new("taskkill.exe");
-        kill.arg("/PID").arg(self.pid().to_string()).arg("/F");
+        kill.arg("/PID").arg(self.pid.to_string()).arg("/F");
         kill.creation_flags(CREATE_NO_WINDOW);
         match kill.output() {
-            Ok(o) => o.status.success(),
-            Err(_) => false,
-        }
-    }
-
-    fn kill_with(&self, signal: Signal) -> Option<bool> {
-        if signal == Signal::Kill {
-            Some(self.kill())
-        } else {
-            None
+            Ok(o) => Some(o.status.success()),
+            Err(_) => Some(false),
         }
     }
 

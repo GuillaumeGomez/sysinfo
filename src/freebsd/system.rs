@@ -19,6 +19,41 @@ use super::utils::{
 
 use libc::c_int;
 
+declare_signals! {
+    c_int,
+    Signal::Hangup => libc::SIGHUP,
+    Signal::Interrupt => libc::SIGINT,
+    Signal::Quit => libc::SIGQUIT,
+    Signal::Illegal => libc::SIGILL,
+    Signal::Trap => libc::SIGTRAP,
+    Signal::Abort => libc::SIGABRT,
+    Signal::IOT => libc::SIGIOT,
+    Signal::Bus => libc::SIGBUS,
+    Signal::FloatingPointException => libc::SIGFPE,
+    Signal::Kill => libc::SIGKILL,
+    Signal::User1 => libc::SIGUSR1,
+    Signal::Segv => libc::SIGSEGV,
+    Signal::User2 => libc::SIGUSR2,
+    Signal::Pipe => libc::SIGPIPE,
+    Signal::Alarm => libc::SIGALRM,
+    Signal::Term => libc::SIGTERM,
+    Signal::Child => libc::SIGCHLD,
+    Signal::Continue => libc::SIGCONT,
+    Signal::Stop => libc::SIGSTOP,
+    Signal::TSTP => libc::SIGTSTP,
+    Signal::TTIN => libc::SIGTTIN,
+    Signal::TTOU => libc::SIGTTOU,
+    Signal::Urgent => libc::SIGURG,
+    Signal::XCPU => libc::SIGXCPU,
+    Signal::XFSZ => libc::SIGXFSZ,
+    Signal::VirtualAlarm => libc::SIGVTALRM,
+    Signal::Profiling => libc::SIGPROF,
+    Signal::Winch => libc::SIGWINCH,
+    Signal::IO => libc::SIGIO,
+    Signal::Sys => libc::SIGSYS,
+    _ => None,
+}
+
 #[doc = include_str!("../../md_doc/system.md")]
 pub struct System {
     process_list: HashMap<Pid, Process>,
@@ -39,6 +74,7 @@ pub struct System {
 
 impl SystemExt for System {
     const IS_SUPPORTED: bool = true;
+    const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let system_info = SystemInfo::new();
@@ -383,7 +419,7 @@ impl System {
             // The name can be cut short because the `ki_comm` field size is limited,
             // which is why we prefer to get the name from the command line as much as
             // possible.
-            proc_.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_else(String::new);
+            proc_.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_default();
         }
         proc_.environ = from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _);
         self.process_list.insert(proc_.pid, proc_);
