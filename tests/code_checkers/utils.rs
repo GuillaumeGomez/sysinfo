@@ -4,6 +4,18 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
 
+pub struct TestResult {
+    pub nb_tests: usize,
+    pub nb_errors: usize,
+}
+
+impl std::ops::AddAssign for TestResult {
+    fn add_assign(&mut self, other: Self) {
+        self.nb_tests += other.nb_tests;
+        self.nb_errors += other.nb_errors;
+    }
+}
+
 pub fn read_dirs<P: AsRef<Path>, F: FnMut(&Path, &str)>(dirs: &[P], callback: &mut F) {
     for dir in dirs {
         read_dir(dir, callback);
