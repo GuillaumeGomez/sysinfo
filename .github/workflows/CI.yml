@@ -178,3 +178,5 @@ jobs:
       - run: cargo clippy --features unknown-ci -- -D warnings
       - run: cargo check --features unknown-ci
       - run: cargo test --features unknown-ci
+      - run: cargo install wasm-pack
+      - run: cd test-unknown && wasm-pack build --target web
