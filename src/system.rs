@@ -43,7 +43,16 @@ mod tests {
     fn test_get_process() {
         let mut sys = System::new();
         sys.refresh_processes();
-        if let Some(p) = sys.process(crate::get_current_pid().expect("failed to get current pid")) {
+        let current_pid = match crate::get_current_pid() {
+            Ok(pid) => pid,
+            _ => {
+                if !System::IS_SUPPORTED {
+                    return;
+                }
+                panic!("get_current_pid should work!");
+            }
+        };
+        if let Some(p) = sys.process(current_pid) {
             assert!(p.memory() > 0);
         } else {
             #[cfg(not(feature = "apple-sandbox"))]
@@ -66,7 +75,16 @@ mod tests {
 
         let mut sys = System::new();
         sys.refresh_processes();
-        if let Some(p) = sys.process(crate::get_current_pid().expect("failed to get current pid")) {
+        let current_pid = match crate::get_current_pid() {
+            Ok(pid) => pid,
+            _ => {
+                if !System::IS_SUPPORTED {
+                    return;
+                }
+                panic!("get_current_pid should work!");
+            }
+        };
+        if let Some(p) = sys.process(current_pid) {
             p.foo(); // If this doesn't compile, it'll simply mean that the Process type
                      // doesn't implement the Send trait.
             p.bar(); // If this doesn't compile, it'll simply mean that the Process type
