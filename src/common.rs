@@ -9,9 +9,20 @@ pub trait AsU32 {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(any(windows, target_os = "unknown", target_arch = "wasm32"))] {
+    if #[cfg(all(
+        not(feature = "unknown-ci"),
+        any(
+            target_os = "freebsd",
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "ios",
+        )
+    ))] {
+        use libc::pid_t;
+
         #[doc = include_str!("../md_doc/pid.md")]
-        pub type Pid = usize;
+        pub type Pid = pid_t;
 
         impl AsU32 for Pid {
             fn as_u32(&self) -> u32 {
@@ -19,10 +30,8 @@ cfg_if::cfg_if! {
             }
         }
     } else {
-        use libc::pid_t;
-
         #[doc = include_str!("../md_doc/pid.md")]
-        pub type Pid = pid_t;
+        pub type Pid = usize;
 
         impl AsU32 for Pid {
             fn as_u32(&self) -> u32 {
@@ -486,33 +495,40 @@ macro_rules! xid {
     };
 }
 
-#[cfg(not(target_os = "windows"))]
-xid!(
-    /// A user id wrapping a platform specific type
-    Uid,
-    libc::uid_t
-);
-
-#[cfg(target_os = "windows")]
-xid!(
-    /// A user id wrapping a platform specific type
-    Uid,
-    u32
-);
-
-#[cfg(not(target_os = "windows"))]
-xid!(
-    /// A group id wrapping a platform specific type
-    Gid,
-    libc::gid_t
-);
-
-#[cfg(target_os = "windows")]
-xid!(
-    /// A group id wrapping a platform specific type
-    Gid,
-    u32
-);
+cfg_if::cfg_if! {
+    if #[cfg(all(
+        not(feature = "unknown-ci"),
+        any(
+            target_os = "freebsd",
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "ios",
+        )
+    ))] {
+        xid!(
+            /// A user id wrapping a platform specific type.
+            Uid,
+            libc::uid_t
+        );
+        xid!(
+            /// A group id wrapping a platform specific type.
+            Gid,
+            libc::gid_t
+        );
+    } else {
+        xid!(
+            /// A user id wrapping a platform specific type.
+            Uid,
+            u32
+        );
+        xid!(
+            /// A group id wrapping a platform specific type.
+            Gid,
+            u32
+        );
+    }
+}
 
 /// Type containing user information.
 ///
@@ -704,23 +720,25 @@ pub enum ProcessStatus {
 #[allow(clippy::unnecessary_wraps)]
 pub fn get_current_pid() -> Result<Pid, &'static str> {
     cfg_if::cfg_if! {
-        if #[cfg(target = "unknown-ci")] {
+        if #[cfg(feature = "unknown-ci")] {
             fn inner() -> Result<Pid, &'static str> {
                 Err("Unknown platform (CI)")
             }
-        } else if #[cfg(not(any(target_os = "windows", target_os = "unknown", target_arch = "wasm32")))] {
+        } else if #[cfg(any(
+            target_os = "freebsd",
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "ios",
+        ))] {
             fn inner() -> Result<Pid, &'static str> {
-                unsafe { Ok(::libc::getpid()) }
+                unsafe { Ok(libc::getpid()) }
             }
-        } else if #[cfg(target_os = "windows")] {
+        } else if #[cfg(windows)] {
             fn inner() -> Result<Pid, &'static str> {
                 use winapi::um::processthreadsapi::GetCurrentProcessId;
 
                 unsafe { Ok(GetCurrentProcessId() as Pid) }
-            }
-        } else if #[cfg(target_os = "unknown")] {
-            fn inner() -> Result<Pid, &'static str> {
-                Err("Unavailable on this platform")
             }
         } else {
             fn inner() -> Result<Pid, &'static str> {

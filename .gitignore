@@ -34,6 +34,8 @@ Temporary Items
 # will have compiled files and executables
 /target/
 examples/target
+test-unknown/target
+test-unknown/pkg
 
 # Remove Cargo.lock from gitignore if creating an executable, leave it for libraries
 # More information here http://doc.crates.io/guide.html#cargotoml-vs-cargolock
