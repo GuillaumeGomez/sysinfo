@@ -1,3 +1,13 @@
+# 0.22.5
+
+ * Linux: Improve documentation on how processes queries are handled.
+ * FreeBSD: Fix type error for 32-bit (on i386, armv6, armv7, powerpc).
+ * Improve Pid type documentation.
+ * Add `SystemExt::process_by_exact_name` method.
+ * Add `SUPPORTED_SIGNALS` constant on `SystemExt`.
+ * Fix common type aliases.
+ * Implement `Display` for `Signal`.
+
 # 0.22.4
 
  * Windows: Correctly handle COM initialization/deinitialization.
