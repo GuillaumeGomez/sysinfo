@@ -8,6 +8,7 @@ repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "MIT"
 readme = "README.md"
 rust-version = "1.54"
+exclude = ["/test-unknown"]
 
 categories = ["filesystem", "os", "api-bindings"]
 
