@@ -62,8 +62,10 @@ unsafe fn refresh_disk(disk: &mut Disk, vfs: &mut libc::statvfs) -> bool {
     if libc::statvfs(disk.c_mount_point.as_ptr() as *const _, vfs) < 0 {
         return false;
     }
-    disk.total_space = vfs.f_blocks * vfs.f_frsize;
-    disk.available_space = vfs.f_favail * vfs.f_frsize;
+    let f_frsize: u64 = vfs.f_frsize as _;
+
+    disk.total_space = vfs.f_blocks * f_frsize;
+    disk.available_space = vfs.f_favail * f_frsize;
     true
 }
 
@@ -125,12 +127,14 @@ pub unsafe fn get_all_disks() -> Vec<Disk> {
         let is_removable =
             [b"USB", b"usb"].iter().any(|b| b == &fs_type) || fs_type.starts_with(b"/dev/cd");
 
+        let f_frsize: u64 = vfs.f_frsize as _;
+
         disks.push(Disk {
             name,
             c_mount_point: fs_info.f_mntonname.to_vec(),
             mount_point: PathBuf::from(mount_point),
-            total_space: vfs.f_blocks * vfs.f_frsize,
-            available_space: vfs.f_favail * vfs.f_frsize,
+            total_space: vfs.f_blocks * f_frsize,
+            available_space: vfs.f_favail * f_frsize,
             file_system: fs_type.to_vec(),
             is_removable,
         });
