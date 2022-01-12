@@ -807,44 +807,52 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn process(&self, pid: Pid) -> Option<&Process>;
 
-    /// Returns a list of process containing the given `name`.
+    /// Returns an iterator of process containing the given `name`.
+    ///
+    /// If you want only the processes with exactly the given `name`, take a look at
+    /// [`SystemExt::processes_by_exact_name`].
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for process in s.process_by_name("htop") {
+    /// for process in s.processes_by_name("htop") {
     ///     println!("{} {}", process.pid(), process.name());
     /// }
     /// ```
-    fn process_by_name(&self, name: &str) -> Vec<&Process> {
-        let mut ret = vec![];
-        for val in self.processes().values() {
-            if val.name().contains(name) {
-                ret.push(val);
-            }
-        }
-        ret
+    fn processes_by_name<'a>(
+        &'a self,
+        name: &'a str,
+    ) -> Box<dyn Iterator<Item = &'a Process> + 'a> {
+        Box::new(
+            self.processes()
+                .values()
+                .filter(move |val: &&Process| val.name().contains(name)),
+        )
     }
 
-    /// Returns a list of process with exactly the given `name`.
+    /// Returns an iterator of processes with exactly the given `name`.
+    ///
+    /// If you instead want the processes containing `name`, take a look at
+    /// [`SystemExt::processes_by_name`].
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// for process in s.process_by_exact_name("htop") {
+    /// for process in s.processes_by_exact_name("htop") {
     ///     println!("{} {}", process.pid(), process.name());
     /// }
     /// ```
-    fn process_by_exact_name(&self, name: &str) -> Vec<&Process> {
-        let mut ret = vec![];
-        for val in self.processes().values() {
-            if val.name() == name {
-                ret.push(val);
-            }
-        }
-        ret
+    fn processes_by_exact_name<'a>(
+        &'a self,
+        name: &'a str,
+    ) -> Box<dyn Iterator<Item = &'a Process> + 'a> {
+        Box::new(
+            self.processes()
+                .values()
+                .filter(move |val: &&Process| val.name() == name),
+        )
     }
 
     /// Returns "global" processors information (aka the addition of all the processors).
