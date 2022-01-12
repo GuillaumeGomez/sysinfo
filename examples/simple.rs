@@ -235,7 +235,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 };
             } else {
                 let proc_name = tmp[1];
-                for proc_ in sys.process_by_name(proc_name) {
+                for proc_ in sys.processes_by_name(proc_name) {
                     writeln!(&mut io::stdout(), "==== {} ====", proc_.name());
                     writeln!(&mut io::stdout(), "{:?}", proc_);
                 }
