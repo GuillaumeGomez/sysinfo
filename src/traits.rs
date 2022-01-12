@@ -820,6 +820,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///     println!("{} {}", process.pid(), process.name());
     /// }
     /// ```
+    // FIXME: replace the returned type with `impl Iterator<Item = &Process>` when it's supported!
     fn processes_by_name<'a>(
         &'a self,
         name: &'a str,
@@ -844,6 +845,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///     println!("{} {}", process.pid(), process.name());
     /// }
     /// ```
+    // FIXME: replace the returned type with `impl Iterator<Item = &Process>` when it's supported!
     fn processes_by_exact_name<'a>(
         &'a self,
         name: &'a str,
