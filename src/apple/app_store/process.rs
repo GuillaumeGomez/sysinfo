@@ -26,7 +26,7 @@ impl ProcessExt for Process {
     }
 
     fn pid(&self) -> Pid {
-        0
+        Pid(0)
     }
 
     fn environ(&self) -> &[String] {

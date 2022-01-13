@@ -68,7 +68,7 @@ pub struct Process {
 impl ProcessExt for Process {
     fn kill_with(&self, signal: Signal) -> Option<bool> {
         let c_signal = super::system::convert_signal(signal)?;
-        unsafe { Some(libc::kill(self.pid, c_signal) == 0) }
+        unsafe { Some(libc::kill(self.pid.0, c_signal) == 0) }
     }
 
     fn name(&self) -> &str {
@@ -158,7 +158,7 @@ pub(crate) unsafe fn get_process_data(
     };
     // Processes can be reparented apparently?
     let parent = if kproc.ki_ppid != 0 {
-        Some(kproc.ki_ppid)
+        Some(Pid(kproc.ki_ppid))
     } else {
         None
     };
@@ -170,7 +170,7 @@ pub(crate) unsafe fn get_process_data(
     // FIXME: This is to get the "real" run time (in micro-seconds).
     // let run_time = (kproc.ki_runtime + 5_000) / 10_000;
 
-    if let Some(proc_) = (*wrap.0.get()).get_mut(&kproc.ki_pid) {
+    if let Some(proc_) = (*wrap.0.get()).get_mut(&Pid(kproc.ki_pid)) {
         proc_.cpu_usage = cpu_usage;
         proc_.parent = parent;
         proc_.status = status;
@@ -218,7 +218,7 @@ pub(crate) unsafe fn get_process_data(
 
     let start_time = kproc.ki_start.tv_sec as u64;
     Some(Process {
-        pid: kproc.ki_pid,
+        pid: Pid(kproc.ki_pid),
         parent,
         uid: kproc.ki_ruid,
         gid: kproc.ki_rgid,

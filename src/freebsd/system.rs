@@ -169,26 +169,28 @@ impl SystemExt for System {
             #[cfg(feature = "multithread")]
             use rayon::iter::ParallelIterator;
 
-            let iter = crate::utils::into_iter(procs);
-            #[cfg(not(feature = "multithread"))]
-            {
-                iter.find(|kproc| kproc.ki_pid == pid)
+            macro_rules! multi_iter {
+                ($name:ident, $($iter:tt)+) => {
+                    $name = crate::utils::into_iter(procs).$($iter)+.and_then(|kproc| {
+                        super::process::get_process_data(
+                            kproc.0,
+                            &proc_list,
+                            page_size,
+                            fscale,
+                            now,
+                            refresh_kind,
+                        )
+                        .map(|p| (kproc, p))
+                    });
+                }
             }
+
+            let ret;
+            #[cfg(not(feature = "multithread"))]
+            multi_iter!(ret, find(|kproc| kproc.0.ki_pid == pid.0));
             #[cfg(feature = "multithread")]
-            { iter.find_any(|kproc| kproc.0.ki_pid == pid) }
-                // Yep, this `and_then is called on what's returned by the `find` from above...
-                // (I mostly added this comment because rustfmt is acting weird in here.)
-                .and_then(|kproc| {
-                    super::process::get_process_data(
-                        kproc.0,
-                        &proc_list,
-                        page_size,
-                        fscale,
-                        now,
-                        refresh_kind,
-                    )
-                    .map(|p| (kproc, p))
-                })
+            multi_iter!(ret, find_any(|kproc| kproc.0.ki_pid == pid.0));
+            ret
         };
         if let Some((kproc, proc_)) = res {
             unsafe {

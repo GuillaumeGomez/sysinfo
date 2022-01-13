@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{NetworkExt, NetworksExt, Process, ProcessExt, ProcessorExt, System, SystemExt};
+use crate::{NetworkExt, NetworksExt, Pid, Process, ProcessExt, ProcessorExt, System, SystemExt};
 use libc::{self, c_char, c_float, c_uint, c_void, pid_t, size_t};
 use std::borrow::BorrowMut;
 use std::ffi::CString;
@@ -110,7 +110,7 @@ pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: pid_t) {
     let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     {
         let system: &mut System = system.borrow_mut();
-        system.refresh_process(pid);
+        system.refresh_process(Pid(pid));
     }
     Box::into_raw(system);
 }
@@ -276,7 +276,7 @@ pub extern "C" fn sysinfo_get_processes(
         let len = {
             let entries = system.processes();
             for (pid, process) in entries {
-                if !fn_pointer(*pid, process as *const Process as CProcess, data) {
+                if !fn_pointer(pid.0, process as *const Process as CProcess, data) {
                     break;
                 }
             }
@@ -299,7 +299,7 @@ pub extern "C" fn sysinfo_get_processes(
 pub extern "C" fn sysinfo_get_process_by_pid(system: CSystem, pid: pid_t) -> CProcess {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = if let Some(process) = system.process(pid) {
+    let ret = if let Some(process) = system.process(Pid(pid)) {
         process as *const Process as CProcess
     } else {
         std::ptr::null()
@@ -324,7 +324,7 @@ pub extern "C" fn sysinfo_process_get_tasks(
     if let Some(fn_pointer) = fn_pointer {
         let process = process as *const Process;
         for (pid, process) in unsafe { (*process).tasks.iter() } {
-            if !fn_pointer(*pid, process as *const Process as CProcess, data) {
+            if !fn_pointer(pid.0, process as *const Process as CProcess, data) {
                 break;
             }
         }
@@ -339,7 +339,7 @@ pub extern "C" fn sysinfo_process_get_tasks(
 pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> pid_t {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).pid() }
+    unsafe { (*process).pid().0 }
 }
 
 /// Equivalent of [`Process::parent()`][crate::Process#method.parent].
@@ -349,7 +349,7 @@ pub extern "C" fn sysinfo_process_get_pid(process: CProcess) -> pid_t {
 pub extern "C" fn sysinfo_process_get_parent_pid(process: CProcess) -> pid_t {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).parent().unwrap_or(0) }
+    unsafe { (*process).parent().unwrap_or(Pid(0)).0 }
 }
 
 /// Equivalent of [`Process::cpu_usage()`][crate::Process#method.cpu_usage].

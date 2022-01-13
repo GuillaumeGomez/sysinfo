@@ -133,10 +133,10 @@ pub trait ProcessExt: Debug {
     /// [`SystemExt::SUPPORTED_SIGNALS`].
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     process.kill();
     /// }
     /// ```
@@ -154,10 +154,10 @@ pub trait ProcessExt: Debug {
     /// [`SystemExt::SUPPORTED_SIGNALS`].
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, Signal, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, Signal, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     if process.kill_with(Signal::Kill).is_none() {
     ///         eprintln!("This signal isn't supported on this platform");
     ///     }
@@ -177,10 +177,10 @@ pub trait ProcessExt: Debug {
     /// cases it's better to use [`ProcessExt::exe`] instead (which can be empty sometimes!).
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.name());
     /// }
     /// ```
@@ -189,10 +189,10 @@ pub trait ProcessExt: Debug {
     /// Returns the command line.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.cmd());
     /// }
     /// ```
@@ -201,10 +201,10 @@ pub trait ProcessExt: Debug {
     /// Returns the path to the process.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.exe().display());
     /// }
     /// ```
@@ -213,10 +213,10 @@ pub trait ProcessExt: Debug {
     /// Returns the pid of the process.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.pid());
     /// }
     /// ```
@@ -225,10 +225,10 @@ pub trait ProcessExt: Debug {
     /// Returns the environment variables of the process.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.environ());
     /// }
     /// ```
@@ -237,10 +237,10 @@ pub trait ProcessExt: Debug {
     /// Returns the current working directory.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.cwd().display());
     /// }
     /// ```
@@ -249,10 +249,10 @@ pub trait ProcessExt: Debug {
     /// Returns the path of the root directory.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.root().display());
     /// }
     /// ```
@@ -261,10 +261,10 @@ pub trait ProcessExt: Debug {
     /// Returns the memory usage (in KB).
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{} KB", process.memory());
     /// }
     /// ```
@@ -273,10 +273,10 @@ pub trait ProcessExt: Debug {
     /// Returns the virtual memory usage (in KB).
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{} KB", process.virtual_memory());
     /// }
     /// ```
@@ -285,10 +285,10 @@ pub trait ProcessExt: Debug {
     /// Returns the parent pid.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.parent());
     /// }
     /// ```
@@ -297,10 +297,10 @@ pub trait ProcessExt: Debug {
     /// Returns the status of the processus.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.status());
     /// }
     /// ```
@@ -309,10 +309,10 @@ pub trait ProcessExt: Debug {
     /// Returns the time where the process was started (in seconds) from epoch.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("Started at {} seconds", process.start_time());
     /// }
     /// ```
@@ -321,10 +321,10 @@ pub trait ProcessExt: Debug {
     /// Returns for how much time the process has been running (in seconds).
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("Running since {} seconds", process.run_time());
     /// }
     /// ```
@@ -340,10 +340,10 @@ pub trait ProcessExt: Debug {
     /// between two calls of this method (200 ms for example).
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}%", process.cpu_usage());
     /// }
     /// ```
@@ -354,10 +354,10 @@ pub trait ProcessExt: Debug {
     /// ⚠️ On Windows and FreeBSD, this method actually returns **ALL** I/O read and written bytes.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     let disk_usage = process.disk_usage();
     ///     println!("read bytes   : new/total => {}/{}",
     ///         disk_usage.read_bytes,
@@ -666,10 +666,10 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// `sys.refresh_process_specifics(pid, ProcessRefreshKind::everything())`.
     ///
     /// ```no_run
-    /// use sysinfo::{System, SystemExt};
+    /// use sysinfo::{Pid, System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// s.refresh_process(1337);
+    /// s.refresh_process(Pid::from(1337));
     /// ```
     fn refresh_process(&mut self, pid: Pid) -> bool {
         self.refresh_process_specifics(pid, ProcessRefreshKind::everything())
@@ -679,10 +679,10 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// exist. If it isn't listed yet, it'll be added.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessRefreshKind, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessRefreshKind, System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// s.refresh_process_specifics(1337, ProcessRefreshKind::new());
+    /// s.refresh_process_specifics(Pid::from(1337), ProcessRefreshKind::new());
     /// ```
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool;
 
@@ -798,10 +798,10 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// Returns the process corresponding to the given pid or `None` if no such process exists.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System, SystemExt};
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// if let Some(process) = s.process(1337) {
+    /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.name());
     /// }
     /// ```

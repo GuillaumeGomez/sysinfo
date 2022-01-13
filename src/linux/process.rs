@@ -124,7 +124,7 @@ impl Process {
             uid: 0,
             gid: 0,
             status: ProcessStatus::Unknown(0),
-            tasks: if pid == 0 {
+            tasks: if pid.0 == 0 {
                 HashMap::with_capacity(1000)
             } else {
                 HashMap::new()
@@ -141,7 +141,7 @@ impl Process {
 impl ProcessExt for Process {
     fn kill_with(&self, signal: Signal) -> Option<bool> {
         let c_signal = super::system::convert_signal(signal)?;
-        unsafe { Some(kill(self.pid, c_signal) == 0) }
+        unsafe { Some(kill(self.pid.0, c_signal) == 0) }
     }
 
     fn name(&self) -> &str {
@@ -352,11 +352,11 @@ pub(crate) fn _get_process_data(
     let parts = parse_stat_file(&data)?;
     let name = parts[1];
 
-    let parent_pid = if proc_list.pid != 0 {
+    let parent_pid = if proc_list.pid.0 != 0 {
         Some(proc_list.pid)
     } else {
         match Pid::from_str(parts[3]) {
-            Ok(p) if p != 0 => Some(p),
+            Ok(p) if p.0 != 0 => Some(p),
             _ => None,
         }
     };
@@ -376,7 +376,7 @@ pub(crate) fn _get_process_data(
         }
     }
 
-    if proc_list.pid != 0 {
+    if proc_list.pid.0 != 0 {
         // If we're getting information for a child, no need to get those info since we
         // already have them...
         p.cmd = proc_list.cmd.clone();
@@ -498,7 +498,7 @@ pub(crate) fn refresh_procs(
                 }
             })
             .collect::<Vec<_>>();
-        if pid == 0 {
+        if pid.0 == 0 {
             let proc_list = Wrap(UnsafeCell::new(proc_list));
 
             #[cfg(feature = "multithread")]

@@ -153,7 +153,7 @@ impl Process {
 impl ProcessExt for Process {
     fn kill_with(&self, signal: Signal) -> Option<bool> {
         let c_signal = crate::sys::system::convert_signal(signal)?;
-        unsafe { Some(kill(self.pid, c_signal) == 0) }
+        unsafe { Some(kill(self.pid.0, c_signal) == 0) }
     }
 
     fn name(&self) -> &str {
@@ -292,7 +292,7 @@ unsafe fn get_task_info(pid: Pid) -> libc::proc_taskinfo {
     // If it doesn't work, we just don't have memory information for this process
     // so it's "fine".
     libc::proc_pidinfo(
-        pid,
+        pid.0,
         libc::PROC_PIDTASKINFO,
         0,
         &mut task_info as *mut libc::proc_taskinfo as *mut c_void,
@@ -321,7 +321,7 @@ pub(crate) fn update_process(
             let task_info = get_task_info(pid);
             let mut thread_info = mem::zeroed::<libc::proc_threadinfo>();
             let (user_time, system_time, thread_status) = if libc::proc_pidinfo(
-                pid,
+                pid.0,
                 libc::PROC_PIDTHREADINFO,
                 0,
                 &mut thread_info as *mut libc::proc_threadinfo as *mut c_void,
@@ -351,7 +351,7 @@ pub(crate) fn update_process(
 
         let mut vnodepathinfo = mem::zeroed::<libc::proc_vnodepathinfo>();
         let result = libc::proc_pidinfo(
-            pid,
+            pid.0,
             libc::PROC_PIDVNODEPATHINFO,
             0,
             &mut vnodepathinfo as *mut _ as *mut _,
@@ -370,7 +370,7 @@ pub(crate) fn update_process(
 
         let mut info = mem::zeroed::<libc::proc_bsdinfo>();
         if libc::proc_pidinfo(
-            pid,
+            pid.0,
             libc::PROC_PIDTBSDINFO,
             0,
             &mut info as *mut _ as *mut _,
@@ -379,7 +379,7 @@ pub(crate) fn update_process(
         {
             let mut buffer: Vec<u8> = Vec::with_capacity(libc::PROC_PIDPATHINFO_MAXSIZE as _);
             match libc::proc_pidpath(
-                pid,
+                pid.0,
                 buffer.as_mut_ptr() as *mut _,
                 libc::PROC_PIDPATHINFO_MAXSIZE as _,
             ) {
@@ -400,11 +400,11 @@ pub(crate) fn update_process(
         }
         let parent = match info.pbi_ppid as i32 {
             0 => None,
-            p => Some(p),
+            p => Some(Pid(p)),
         };
 
         let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
-        let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as c_int];
+        let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
         /*
          * /---------------\ 0x00000000
          * | ::::::::::::: |
@@ -521,8 +521,8 @@ pub(crate) fn update_process(
             }
 
             let (environ, root) = if exe.is_absolute() {
-                if let Some(parent) = exe.parent() {
-                    get_environ(ptr, cp, size, parent.to_path_buf(), do_nothing)
+                if let Some(parent_path) = exe.parent() {
+                    get_environ(ptr, cp, size, parent_path.to_path_buf(), do_nothing)
                 } else {
                     get_environ(ptr, cp, size, PathBuf::new(), do_something)
                 }
@@ -567,7 +567,7 @@ fn update_proc_disk_activity(p: &mut Process) {
     let mut pidrusage = MaybeUninit::<libc::rusage_info_v2>::uninit();
     let retval = unsafe {
         libc::proc_pid_rusage(
-            p.pid() as c_int,
+            p.pid().0 as _,
             libc::RUSAGE_INFO_V2,
             pidrusage.as_mut_ptr() as _,
         )
