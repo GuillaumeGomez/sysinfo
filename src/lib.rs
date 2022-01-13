@@ -340,4 +340,19 @@ mod test {
         }
         assert!(s.physical_core_count().unwrap_or(0) <= s.processors().len());
     }
+
+    #[test]
+    fn check_nb_supported_signals() {
+        if System::IS_SUPPORTED {
+            assert!(
+                !System::SUPPORTED_SIGNALS.is_empty(),
+                "SUPPORTED_SIGNALS shoudn't be empty on supported systems!"
+            );
+        } else {
+            assert!(
+                System::SUPPORTED_SIGNALS.is_empty(),
+                "SUPPORTED_SIGNALS should be empty on not support systems!"
+            );
+        }
+    }
 }
