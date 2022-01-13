@@ -382,6 +382,9 @@ pub enum DiskType {
 ///
 /// On non-unix systems, this enum is mostly useless and is only there to keep coherency between
 /// the different OSes.
+///
+/// If you want the list of the supported signals on the current system, use
+/// [`SystemExt::SUPPORTED_SIGNALS`][crate::SystemExt::SUPPORTED_SIGNALS].
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub enum Signal {
     /// Hangup detected on controlling terminal or death of controlling process.
