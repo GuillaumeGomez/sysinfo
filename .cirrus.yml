@@ -12,6 +12,7 @@ task:
   test_script:
     - . $HOME/.cargo/env
     - cargo check
+    - cargo check --no-default-features
     - cargo clippy -- -D warnings
     - cargo check --example simple
     - FREEBSD_CI=1 cargo test -j1
@@ -30,6 +31,7 @@ task:
   test_script:
     - . $HOME/.cargo/env
     - cargo check
+    - cargo check --no-default-features
     - cargo clippy -- -D warnings
     - cargo check --example simple
     - FREEBSD_CI=1 cargo test -j1
