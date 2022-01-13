@@ -2,10 +2,69 @@
 
 use crate::{NetworkData, Networks, NetworksExt, UserExt};
 
-/// Trait to have a common fallback for the [`Pid`][crate::Pid] type.
-pub trait AsU32 {
+use std::convert::From;
+use std::fmt;
+use std::str::FromStr;
+
+/// Trait to have a common conversions for the [`Pid`][crate::Pid] type.
+///
+/// ```
+/// use sysinfo::{Pid, PidExt};
+///
+/// let p = Pid::from_u32(0);
+/// let value: u32 = p.as_u32();
+/// ```
+pub trait PidExt<T>: Copy + From<T> + FromStr + fmt::Display {
     /// Allows to convert [`Pid`][crate::Pid] into [`u32`].
-    fn as_u32(&self) -> u32;
+    ///
+    /// ```
+    /// use sysinfo::{Pid, PidExt};
+    ///
+    /// let p = Pid::from_u32(0);
+    /// let value: u32 = p.as_u32();
+    /// ```
+    fn as_u32(self) -> u32;
+    /// Allows to convert a [`u32`] into [`Pid`][crate::Pid].
+    ///
+    /// ```
+    /// use sysinfo::{Pid, PidExt};
+    ///
+    /// let p = Pid::from_u32(0);
+    /// ```
+    fn from_u32(v: u32) -> Self;
+}
+
+macro_rules! pid_decl {
+    ($typ:ty) => {
+        #[doc = include_str!("../md_doc/pid.md")]
+        #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+        pub struct Pid(pub(crate) $typ);
+
+        impl From<$typ> for Pid {
+            fn from(v: $typ) -> Self {
+                Self(v)
+            }
+        }
+        impl PidExt<$typ> for Pid {
+            fn as_u32(self) -> u32 {
+                self.0 as u32
+            }
+            fn from_u32(v: u32) -> Self {
+                Self(v as _)
+            }
+        }
+        impl FromStr for Pid {
+            type Err = <$typ as FromStr>::Err;
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                Ok(Self(<$typ>::from_str(s)?))
+            }
+        }
+        impl fmt::Display for Pid {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+    };
 }
 
 cfg_if::cfg_if! {
@@ -21,23 +80,9 @@ cfg_if::cfg_if! {
     ))] {
         use libc::pid_t;
 
-        #[doc = include_str!("../md_doc/pid.md")]
-        pub type Pid = pid_t;
-
-        impl AsU32 for Pid {
-            fn as_u32(&self) -> u32 {
-                *self as u32
-            }
-        }
+        pid_decl!(pid_t);
     } else {
-        #[doc = include_str!("../md_doc/pid.md")]
-        pub type Pid = usize;
-
-        impl AsU32 for Pid {
-            fn as_u32(&self) -> u32 {
-                *self as u32
-            }
-        }
+        pid_decl!(usize);
     }
 }
 
@@ -775,13 +820,13 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
             target_os = "ios",
         ))] {
             fn inner() -> Result<Pid, &'static str> {
-                unsafe { Ok(libc::getpid()) }
+                unsafe { Ok(Pid(libc::getpid())) }
             }
         } else if #[cfg(windows)] {
             fn inner() -> Result<Pid, &'static str> {
                 use winapi::um::processthreadsapi::GetCurrentProcessId;
 
-                unsafe { Ok(GetCurrentProcessId() as Pid) }
+                unsafe { Ok(Pid(GetCurrentProcessId() as _)) }
             }
         } else {
             fn inner() -> Result<Pid, &'static str> {

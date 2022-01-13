@@ -47,7 +47,7 @@ declare_signals! {
 
 #[doc = include_str!("../../md_doc/system.md")]
 pub struct System {
-    process_list: HashMap<usize, Process>,
+    process_list: HashMap<Pid, Process>,
     mem_total: u64,
     mem_available: u64,
     swap_total: u64,
@@ -265,7 +265,7 @@ impl SystemExt for System {
                 let processes = into_iter(process_ids)
                     .filter_map(|pi| unsafe {
                         let pi = *pi.0;
-                        let pid = pi.UniqueProcessId as usize;
+                        let pid = Pid(pi.UniqueProcessId as _);
                         if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
                             proc_.memory = (pi.WorkingSetSize as u64) / 1_000;
                             proc_.virtual_memory = (pi.VirtualSize as u64) / 1_000;
@@ -276,7 +276,7 @@ impl SystemExt for System {
                         let mut p = Process::new_full(
                             pid,
                             if pi.InheritedFromUniqueProcessId as usize != 0 {
-                                Some(pi.InheritedFromUniqueProcessId as usize)
+                                Some(Pid(pi.InheritedFromUniqueProcessId as _))
                             } else {
                                 None
                             },
@@ -325,7 +325,7 @@ impl SystemExt for System {
     }
 
     fn process(&self, pid: Pid) -> Option<&Process> {
-        self.process_list.get(&(pid as usize))
+        self.process_list.get(&pid)
     }
 
     fn global_processor_info(&self) -> &Processor {
@@ -467,7 +467,7 @@ fn is_proc_running(handle: HANDLE) -> bool {
 }
 
 fn refresh_existing_process(s: &mut System, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
-    if let Some(ref mut entry) = s.process_list.get_mut(&(pid as usize)) {
+    if let Some(ref mut entry) = s.process_list.get_mut(&pid) {
         if !is_proc_running(get_handle(entry)) {
             return false;
         }
@@ -481,10 +481,10 @@ fn refresh_existing_process(s: &mut System, pid: Pid, refresh_kind: ProcessRefre
 
 #[allow(clippy::size_of_in_element_count)]
 //^ needed for "name.Length as usize / std::mem::size_of::<u16>()"
-pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: usize) -> String {
+pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: Pid) -> String {
     let name = &process.ImageName;
     if name.Buffer.is_null() {
-        match process_id {
+        match process_id.0 {
             0 => "Idle".to_owned(),
             4 => "System".to_owned(),
             _ => format!("<no name> Process {}", process_id),

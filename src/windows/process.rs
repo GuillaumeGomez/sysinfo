@@ -53,11 +53,11 @@ impl fmt::Display for ProcessStatus {
 }
 
 fn get_process_handler(pid: Pid) -> Option<HANDLE> {
-    if pid == 0 {
+    if pid.0 == 0 {
         return None;
     }
     let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
-    let process_handler = unsafe { OpenProcess(options, FALSE, pid as DWORD) };
+    let process_handler = unsafe { OpenProcess(options, FALSE, pid.0 as DWORD) };
     if process_handler.is_null() {
         None
     } else {
@@ -175,7 +175,7 @@ unsafe fn get_exe(process_handler: HANDLE, h_mod: *mut c_void) -> PathBuf {
 impl Process {
     #[allow(clippy::uninit_assumed_init)]
     pub(crate) fn new_from_pid(pid: Pid, now: u64) -> Option<Process> {
-        let process_handler = unsafe { OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid as _) };
+        let process_handler = unsafe { OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid.0 as _) };
         if process_handler.is_null() {
             return None;
         }
@@ -196,7 +196,7 @@ impl Process {
         Some(Process::new_with_handle(
             pid,
             if info.InheritedFromUniqueProcessId as usize != 0 {
-                Some(info.InheritedFromUniqueProcessId as usize)
+                Some(Pid(info.InheritedFromUniqueProcessId as _))
             } else {
                 None
             },
