@@ -27,12 +27,11 @@ use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE};
 
 pub(crate) struct KeyHandler {
     pub unique_id: String,
-    pub win_key: Vec<u16>,
 }
 
 impl KeyHandler {
-    pub fn new(unique_id: String, win_key: Vec<u16>) -> KeyHandler {
-        KeyHandler { unique_id, win_key }
+    pub fn new(unique_id: String) -> KeyHandler {
+        KeyHandler { unique_id }
     }
 }
 
@@ -222,7 +221,7 @@ pub(crate) fn add_english_counter(
 ) {
     let mut full = s.encode_utf16().collect::<Vec<_>>();
     full.push(0);
-    if query.add_english_counter(&counter_name, full.clone()) {
-        *keys = Some(KeyHandler::new(counter_name, full));
+    if query.add_english_counter(&counter_name, full) {
+        *keys = Some(KeyHandler::new(counter_name));
     }
 }
