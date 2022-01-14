@@ -128,6 +128,52 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
     }
 }
 
+// FIXME: Can be removed once negative trait bounds are supported.
+#[cfg(doctest)]
+mod doctest {
+    /// Check that `Process` doesn't implement `Clone`.
+    ///
+    /// First we check that the "basic" code works:
+    ///
+    /// ```no_run
+    /// use sysinfo::{Process, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// let p: &Process = s.processes().values().next().unwrap();
+    /// ```
+    ///
+    /// And now we check if it fails when we try to clone it:
+    ///
+    /// ```compile_fail
+    /// use sysinfo::{Process, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// let p: &Process = s.processes().values().next().unwrap();
+    /// let p = (*p).clone();
+    /// ```
+    mod process_clone {}
+
+    /// Check that `System` doesn't implement `Clone`.
+    ///
+    /// First we check that the "basic" code works:
+    ///
+    /// ```no_run
+    /// use sysinfo::{Process, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// ```
+    ///
+    /// And now we check if it fails when we try to clone it:
+    ///
+    /// ```compile_fail
+    /// use sysinfo::{Process, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// let s = s.clone();
+    /// ```
+    mod system_clone {}
+}
+
 #[cfg(test)]
 mod test {
     use crate::*;
