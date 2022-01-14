@@ -12,7 +12,6 @@ impl fmt::Display for ProcessStatus {
 }
 
 #[doc = include_str!("../../md_doc/process.md")]
-#[derive(Clone)]
 pub struct Process {
     pid: Pid,
     parent: Option<Pid>,
