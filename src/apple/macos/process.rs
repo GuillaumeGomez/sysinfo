@@ -15,7 +15,6 @@ use crate::sys::process::ThreadStatus;
 use crate::sys::system::Wrap;
 
 #[doc = include_str!("../../../md_doc/process.md")]
-#[derive(Clone)]
 pub struct Process {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
