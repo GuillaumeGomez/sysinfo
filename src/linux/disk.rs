@@ -253,7 +253,7 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
         .collect()
 }
 
-pub fn get_all_disks() -> Vec<Disk> {
+pub(crate) fn get_all_disks() -> Vec<Disk> {
     get_all_disks_inner(&get_all_data("/proc/mounts", 16_385).unwrap_or_default())
 }
 

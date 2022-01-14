@@ -158,7 +158,7 @@ impl ComponentExt for Component {
     }
 }
 
-pub fn get_components() -> Vec<Component> {
+pub(crate) fn get_components() -> Vec<Component> {
     let mut components = Vec::with_capacity(10);
     if let Ok(dir) = read_dir(&Path::new("/sys/class/hwmon/")) {
         for entry in dir.flatten() {

@@ -83,7 +83,7 @@ where
     users
 }
 
-pub fn get_users_list() -> Vec<User> {
+pub(crate) fn get_users_list() -> Vec<User> {
     users_list(|shell, uid| {
         !endswith(shell, b"/false") && !endswith(shell, b"/uucico") && uid < 65536
     })

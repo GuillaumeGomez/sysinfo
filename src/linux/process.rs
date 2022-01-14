@@ -220,7 +220,7 @@ impl Drop for Process {
     }
 }
 
-pub fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32) {
+pub(crate) fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32) {
     // First time updating the values without reference, wait for a second cycle to update cpu_usage
     if p.old_utime == 0 && p.old_stime == 0 {
         return;
@@ -235,7 +235,7 @@ pub fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32) {
         .min(max_value);
 }
 
-pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
+pub(crate) fn set_time(p: &mut Process, utime: u64, stime: u64) {
     p.old_utime = p.utime;
     p.old_stime = p.stime;
     p.utime = utime;

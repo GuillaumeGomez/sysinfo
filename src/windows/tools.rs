@@ -25,7 +25,7 @@ use winapi::um::winioctl::{
 };
 use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE};
 
-pub struct KeyHandler {
+pub(crate) struct KeyHandler {
     pub unique_id: String,
     pub win_key: Vec<u16>,
 }
@@ -36,7 +36,7 @@ impl KeyHandler {
     }
 }
 
-pub fn init_processors() -> (Vec<Processor>, String, String) {
+pub(crate) fn init_processors() -> (Vec<Processor>, String, String) {
     unsafe {
         let mut sys_info: SYSTEM_INFO = zeroed();
         GetSystemInfo(&mut sys_info);
@@ -214,7 +214,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
         .collect::<Vec<_>>()
 }
 
-pub fn add_english_counter(
+pub(crate) fn add_english_counter(
     s: String,
     query: &mut Query,
     keys: &mut Option<KeyHandler>,

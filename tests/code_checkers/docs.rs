@@ -126,8 +126,8 @@ pub fn check_docs(content: &str, p: &Path) -> TestResult {
         {
             continue;
         }
+        res.nb_tests += 1;
         if !check_doc_comments_before(p, &lines, pos) {
-            res.nb_tests += 1;
             res.nb_errors += 1;
         }
     }

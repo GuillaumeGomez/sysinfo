@@ -9,7 +9,7 @@ use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
 
-pub struct UnsafePtr<T>(*mut T);
+pub(crate) struct UnsafePtr<T>(*mut T);
 
 unsafe impl<T> Send for UnsafePtr<T> {}
 unsafe impl<T> Sync for UnsafePtr<T> {}
@@ -22,7 +22,7 @@ impl<T> Deref for UnsafePtr<T> {
     }
 }
 
-pub struct ProcessorData {
+pub(crate) struct ProcessorData {
     pub cpu_info: UnsafePtr<i32>,
     pub num_cpu_info: u32,
 }
@@ -117,7 +117,7 @@ impl ProcessorExt for Processor {
     }
 }
 
-pub fn get_cpu_frequency() -> u64 {
+pub(crate) fn get_cpu_frequency() -> u64 {
     let mut speed: u64 = 0;
     let mut len = std::mem::size_of::<u64>();
     unsafe {
@@ -192,7 +192,7 @@ pub(crate) fn update_processor_usage<F: FnOnce(Arc<ProcessorData>, *mut i32) -> 
     global_processor.set_cpu_usage(total_cpu_usage);
 }
 
-pub fn init_processors(
+pub(crate) fn init_processors(
     port: libc::mach_port_t,
     processors: &mut Vec<Processor>,
     global_processor: &mut Processor,
@@ -279,7 +279,7 @@ fn get_sysctl_str(s: &[u8]) -> String {
     }
 }
 
-pub fn get_vendor_id_and_brand() -> (String, String) {
+pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
     // On apple M1, `sysctl machdep.cpu.vendor` returns "", so fallback to "Apple" if the result
     // is empty.
     let mut vendor = get_sysctl_str(b"machdep.cpu.vendor\0");

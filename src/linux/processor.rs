@@ -10,7 +10,7 @@ use crate::ProcessorExt;
 
 /// Struct containing values to compute a CPU usage.
 #[derive(Clone, Copy)]
-pub struct CpuValues {
+pub(crate) struct CpuValues {
     user: u64,
     nice: u64,
     system: u64,
@@ -217,11 +217,11 @@ impl ProcessorExt for Processor {
     }
 }
 
-pub fn get_raw_times(p: &Processor) -> (u64, u64) {
+pub(crate) fn get_raw_times(p: &Processor) -> (u64, u64) {
     (p.total_time, p.old_total_time)
 }
 
-pub fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
+pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
     let mut s = String::new();
     if File::open(format!(
         "/sys/devices/system/cpu/cpu{}/cpufreq/scaling_cur_freq",
@@ -257,7 +257,7 @@ pub fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
         .unwrap_or_default()
 }
 
-pub fn get_physical_core_count() -> Option<usize> {
+pub(crate) fn get_physical_core_count() -> Option<usize> {
     let mut s = String::new();
     if let Err(_e) = File::open("/proc/cpuinfo").and_then(|mut f| f.read_to_string(&mut s)) {
         sysinfo_debug!("Cannot read `/proc/cpuinfo` file: {:?}", _e);
@@ -292,7 +292,7 @@ pub fn get_physical_core_count() -> Option<usize> {
 }
 
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
-pub fn get_vendor_id_and_brand() -> (String, String) {
+pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
     let mut s = String::new();
     if File::open("/proc/cpuinfo")
         .and_then(|mut f| f.read_to_string(&mut s))

@@ -5,12 +5,12 @@ use winapi::shared::minwindef::FILETIME;
 use std::time::SystemTime;
 
 #[inline]
-pub fn filetime_to_u64(f: FILETIME) -> u64 {
+pub(crate) fn filetime_to_u64(f: FILETIME) -> u64 {
     (f.dwHighDateTime as u64) << 32 | (f.dwLowDateTime as u64)
 }
 
 #[inline]
-pub fn get_now() -> u64 {
+pub(crate) fn get_now() -> u64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|n| n.as_secs())

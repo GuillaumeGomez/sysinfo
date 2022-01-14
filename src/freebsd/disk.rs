@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use super::utils::c_buf_to_str;
 
-/// Struct containing a disk information.
+#[doc = include_str!("../../md_doc/disk.md")]
 pub struct Disk {
     name: OsString,
     c_mount_point: Vec<libc::c_char>,

@@ -18,7 +18,7 @@ pub(crate) const COMPONENTS_TEMPERATURE_IDS: &[(&str, &[i8])] = &[
     ("Battery", &['T' as i8, 'B' as i8, '0' as i8, 'T' as i8]),  // Battery "TB0T"
 ];
 
-pub struct ComponentFFI {
+pub(crate) struct ComponentFFI {
     input_structure: ffi::KeyData_t,
     val: ffi::Val_t,
 }
