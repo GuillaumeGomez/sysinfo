@@ -10,7 +10,7 @@ use std::time::SystemTime;
 
 /// This struct is used to switch between the "old" and "new" every time you use "get_mut".
 #[derive(Debug)]
-pub struct VecSwitcher<T> {
+pub(crate) struct VecSwitcher<T> {
     v1: Vec<T>,
     v2: Vec<T>,
     first: bool,
@@ -61,7 +61,7 @@ pub unsafe fn init_mib(name: &[u8], mib: &mut [c_int]) {
     libc::sysctlnametomib(name.as_ptr() as _, mib.as_mut_ptr(), &mut len);
 }
 
-pub fn boot_time() -> u64 {
+pub(crate) fn boot_time() -> u64 {
     let mut boot_time = timeval {
         tv_sec: 0,
         tv_usec: 0,
@@ -109,7 +109,7 @@ pub unsafe fn get_sys_value_array<T: Sized>(mib: &[c_int], value: &mut [T]) -> b
     ) == 0
 }
 
-pub fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
+pub(crate) fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
     unsafe {
         let buf: &[u8] = std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
         if let Some(pos) = buf.iter().position(|x| *x == 0) {
@@ -121,7 +121,7 @@ pub fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
     }
 }
 
-pub fn c_buf_to_string(buf: &[libc::c_char]) -> Option<String> {
+pub(crate) fn c_buf_to_string(buf: &[libc::c_char]) -> Option<String> {
     c_buf_to_str(buf).map(|s| s.to_owned())
 }
 
@@ -155,7 +155,7 @@ pub unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T) -> boo
         && original == len
 }
 
-pub fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
+pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
     let mut size = 0;
 
     unsafe {
@@ -191,7 +191,7 @@ pub fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
     }
 }
 
-pub fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
+pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
     let mut size = 0;
 
     // Call first to get size
@@ -258,7 +258,7 @@ pub unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<String> {
     ret
 }
 
-pub fn get_now() -> u64 {
+pub(crate) fn get_now() -> u64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|n| n.as_secs())
@@ -266,19 +266,19 @@ pub fn get_now() -> u64 {
 }
 
 // All this is needed because `kinfo_proc` doesn't implement `Send` (because it contains pointers).
-pub struct WrapMap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
+pub(crate) struct WrapMap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
 
 unsafe impl<'a> Send for WrapMap<'a> {}
 unsafe impl<'a> Sync for WrapMap<'a> {}
 
-pub struct ProcList<'a>(pub &'a [libc::kinfo_proc]);
+pub(crate) struct ProcList<'a>(pub &'a [libc::kinfo_proc]);
 unsafe impl<'a> Send for ProcList<'a> {}
 
-pub struct WrapItem<'a>(pub &'a libc::kinfo_proc);
+pub(crate) struct WrapItem<'a>(pub &'a libc::kinfo_proc);
 unsafe impl<'a> Send for WrapItem<'a> {}
 unsafe impl<'a> Sync for WrapItem<'a> {}
 
-pub struct IntoIter<'a>(std::slice::Iter<'a, libc::kinfo_proc>);
+pub(crate) struct IntoIter<'a>(std::slice::Iter<'a, libc::kinfo_proc>);
 unsafe impl<'a> Send for IntoIter<'a> {}
 
 impl<'a> std::iter::Iterator for IntoIter<'a> {

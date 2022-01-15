@@ -3,7 +3,7 @@
 use super::utils::get_sys_value_by_name;
 use crate::ComponentExt;
 
-/// Dummy struct representing a component.
+#[doc = include_str!("../../md_doc/component.md")]
 pub struct Component {
     id: Vec<u8>,
     label: String,

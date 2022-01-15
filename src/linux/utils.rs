@@ -17,7 +17,7 @@ pub(crate) fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Res
 }
 
 #[allow(clippy::useless_conversion)]
-pub fn realpath(original: &Path) -> std::path::PathBuf {
+pub(crate) fn realpath(original: &Path) -> std::path::PathBuf {
     use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
     use std::fs;
     use std::mem::MaybeUninit;

@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+mod docs;
 mod headers;
 mod signals;
 mod utils;
@@ -10,6 +11,7 @@ use utils::TestResult;
 const CHECKS: &[(fn(&str, &Path) -> TestResult, &[&str])] = &[
     (headers::check_license_header, &["src", "tests", "examples"]),
     (signals::check_signals, &["src"]),
+    (docs::check_docs, &["src"]),
 ];
 
 fn handle_tests(res: &mut [TestResult]) {

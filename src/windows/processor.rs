@@ -160,7 +160,7 @@ impl Drop for InternalQuery {
     }
 }
 
-pub struct Query {
+pub(crate) struct Query {
     internal: InternalQuery,
 }
 
@@ -364,7 +364,7 @@ fn get_vendor_id_not_great(info: &SYSTEM_INFO) -> String {
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
+pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::__cpuid;
     #[cfg(target_arch = "x86_64")]
@@ -433,11 +433,11 @@ pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
 }
 
 #[cfg(all(not(target_arch = "x86_64"), not(target_arch = "x86")))]
-pub fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
+pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
     (get_vendor_id_not_great(info), String::new())
 }
 
-pub fn get_key_used(p: &mut Processor) -> &mut Option<KeyHandler> {
+pub(crate) fn get_key_used(p: &mut Processor) -> &mut Option<KeyHandler> {
     &mut p.key_used
 }
 
@@ -446,7 +446,7 @@ pub fn get_key_used(p: &mut Processor) -> &mut Option<KeyHandler> {
 // If your PC has 64 or fewer logical processors installed, the above code will work fine. However,
 // if your PC has more than 64 logical processors installed, use GetActiveProcessorCount() or
 // GetLogicalProcessorInformation() to determine the total number of logical processors installed.
-pub fn get_frequencies(nb_processors: usize) -> Vec<u64> {
+pub(crate) fn get_frequencies(nb_processors: usize) -> Vec<u64> {
     let size = nb_processors * mem::size_of::<PROCESSOR_POWER_INFORMATION>();
     let mut infos: Vec<PROCESSOR_POWER_INFORMATION> = Vec::with_capacity(nb_processors);
 
@@ -474,7 +474,7 @@ pub fn get_frequencies(nb_processors: usize) -> Vec<u64> {
     }
 }
 
-pub fn get_physical_core_count() -> Option<usize> {
+pub(crate) fn get_physical_core_count() -> Option<usize> {
     // we cannot use the number of processors here to pre calculate the buf size
     // GetLogicalProcessorInformationEx with RelationProcessorCore passed to it not only returns
     // the logical cores but also numa nodes

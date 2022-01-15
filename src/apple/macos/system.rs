@@ -16,7 +16,7 @@ unsafe fn free_cpu_load_info(cpu_load: &mut processor_cpu_load_info_t) {
     }
 }
 
-pub struct SystemTimeInfo {
+pub(crate) struct SystemTimeInfo {
     timebase_to_ns: f64,
     clock_per_sec: f64,
     old_cpu_load: processor_cpu_load_info_t,

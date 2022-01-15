@@ -8,7 +8,7 @@ use std::path::Path;
 use winapi::um::fileapi::GetDiskFreeSpaceExW;
 use winapi::um::winnt::ULARGE_INTEGER;
 
-pub fn new_disk(
+pub(crate) fn new_disk(
     name: &OsStr,
     mount_point: &[u16],
     file_system: &[u8],

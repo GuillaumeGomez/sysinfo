@@ -792,6 +792,7 @@ fn check_sub(a: u64, b: u64) -> u64 {
         a - b
     }
 }
+
 /// Before changing this function, you must consider the following:
 /// https://github.com/GuillaumeGomez/sysinfo/issues/459
 pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
@@ -871,11 +872,11 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
     }
 }
 
-pub fn get_handle(p: &Process) -> HANDLE {
+pub(crate) fn get_handle(p: &Process) -> HANDLE {
     *p.handle
 }
 
-pub fn update_disk_usage(p: &mut Process) {
+pub(crate) fn update_disk_usage(p: &mut Process) {
     let mut counters = MaybeUninit::<IO_COUNTERS>::uninit();
     let ret = unsafe { GetProcessIoCounters(*p.handle, counters.as_mut_ptr()) };
     if ret == 0 {
@@ -889,7 +890,7 @@ pub fn update_disk_usage(p: &mut Process) {
     }
 }
 
-pub fn update_memory(p: &mut Process) {
+pub(crate) fn update_memory(p: &mut Process) {
     unsafe {
         let mut pmc: PROCESS_MEMORY_COUNTERS_EX = zeroed();
         if GetProcessMemoryInfo(

@@ -92,7 +92,7 @@ impl ComponentExt for Component {
     }
 }
 
-pub fn get_components() -> Vec<Component> {
+pub(crate) fn get_components() -> Vec<Component> {
     match Component::new() {
         Some(c) => vec![c],
         None => Vec::new(),

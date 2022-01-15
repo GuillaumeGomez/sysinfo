@@ -2,11 +2,11 @@
 
 use libc::c_char;
 
-pub fn cstr_to_rust(c: *const c_char) -> Option<String> {
+pub(crate) fn cstr_to_rust(c: *const c_char) -> Option<String> {
     cstr_to_rust_with_size(c, None)
 }
 
-pub fn cstr_to_rust_with_size(c: *const c_char, size: Option<usize>) -> Option<String> {
+pub(crate) fn cstr_to_rust_with_size(c: *const c_char, size: Option<usize>) -> Option<String> {
     if c.is_null() {
         return None;
     }
