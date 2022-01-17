@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use libc::{gid_t, kill, uid_t};
 
-use crate::sys::system::REMAINING_FILES;
+use crate::sys::system::{SystemInfo, REMAINING_FILES};
 use crate::sys::utils::{get_all_data, get_all_data_from_file, realpath};
 use crate::utils::into_iter;
 use crate::{DiskUsage, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal};
@@ -82,6 +82,7 @@ pub struct Process {
     stime: u64,
     old_utime: u64,
     old_stime: u64,
+    start_time_without_boot_time: u64,
     start_time: u64,
     run_time: u64,
     pub(crate) updated: bool,
@@ -101,7 +102,12 @@ pub struct Process {
 }
 
 impl Process {
-    pub(crate) fn new(pid: Pid, parent: Option<Pid>, start_time: u64) -> Process {
+    pub(crate) fn new(
+        pid: Pid,
+        parent: Option<Pid>,
+        start_time_without_boot_time: u64,
+        info: &SystemInfo,
+    ) -> Process {
         Process {
             name: String::with_capacity(20),
             pid,
@@ -119,7 +125,8 @@ impl Process {
             old_utime: 0,
             old_stime: 0,
             updated: true,
-            start_time,
+            start_time_without_boot_time,
+            start_time: start_time_without_boot_time + info.boot_time,
             run_time: 0,
             uid: 0,
             gid: 0,
@@ -293,10 +300,9 @@ unsafe impl<'a, T> Sync for Wrap<'a, T> {}
 pub(crate) fn _get_process_data(
     path: &Path,
     proc_list: &mut Process,
-    page_size_kb: u64,
     pid: Pid,
     uptime: u64,
-    clock_cycle: u64,
+    info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
 ) -> Result<(Option<Process>, Pid), ()> {
     let pid = match path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
@@ -330,11 +336,10 @@ pub(crate) fn _get_process_data(
             path,
             entry,
             &parts,
-            page_size_kb,
             parent_memory,
             parent_virtual_memory,
             uptime,
-            clock_cycle,
+            info,
             refresh_kind,
         );
         if refresh_kind.disk_usage() {
@@ -361,8 +366,9 @@ pub(crate) fn _get_process_data(
         }
     };
 
-    let start_time = u64::from_str(parts[21]).unwrap_or(0) / clock_cycle;
-    let mut p = Process::new(pid, parent_pid, start_time);
+    // To be noted that the start time is invalid here, it still needs
+    let start_time = u64::from_str(parts[21]).unwrap_or(0) / info.clock_cycle;
+    let mut p = Process::new(pid, parent_pid, start_time, info);
 
     p.stat_file = stat_file;
     get_status(&mut p, parts[2]);
@@ -419,11 +425,10 @@ pub(crate) fn _get_process_data(
         path,
         &mut p,
         &parts,
-        page_size_kb,
         proc_list.memory,
         proc_list.virtual_memory,
         uptime,
-        clock_cycle,
+        info,
         refresh_kind,
     );
     if refresh_kind.disk_usage() {
@@ -437,16 +442,15 @@ fn update_time_and_memory(
     path: &Path,
     entry: &mut Process,
     parts: &[&str],
-    page_size_kb: u64,
     parent_memory: u64,
     parent_virtual_memory: u64,
     uptime: u64,
-    clock_cycle: u64,
+    info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
 ) {
     {
         // rss
-        entry.memory = u64::from_str(parts[23]).unwrap_or(0) * page_size_kb;
+        entry.memory = u64::from_str(parts[23]).unwrap_or(0) * info.page_size_kb;
         if entry.memory >= parent_memory {
             entry.memory -= parent_memory;
         }
@@ -460,15 +464,14 @@ fn update_time_and_memory(
             u64::from_str(parts[13]).unwrap_or(0),
             u64::from_str(parts[14]).unwrap_or(0),
         );
-        entry.run_time = uptime.saturating_sub(entry.start_time);
+        entry.run_time = uptime.saturating_sub(entry.start_time_without_boot_time);
     }
     refresh_procs(
         entry,
         &path.join("task"),
-        page_size_kb,
         entry.pid,
         uptime,
-        clock_cycle,
+        info,
         refresh_kind,
     );
 }
@@ -476,10 +479,9 @@ fn update_time_and_memory(
 pub(crate) fn refresh_procs(
     proc_list: &mut Process,
     path: &Path,
-    page_size_kb: u64,
     pid: Pid,
     uptime: u64,
-    clock_cycle: u64,
+    info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
 ) -> bool {
     if let Ok(d) = fs::read_dir(path) {
@@ -509,10 +511,9 @@ pub(crate) fn refresh_procs(
                     if let Ok((p, _)) = _get_process_data(
                         e.as_path(),
                         proc_list.get(),
-                        page_size_kb,
                         pid,
                         uptime,
-                        clock_cycle,
+                        info,
                         refresh_kind,
                     ) {
                         p
@@ -526,15 +527,9 @@ pub(crate) fn refresh_procs(
             let new_tasks = folders
                 .iter()
                 .filter_map(|e| {
-                    if let Ok((p, pid)) = _get_process_data(
-                        e.as_path(),
-                        proc_list,
-                        page_size_kb,
-                        pid,
-                        uptime,
-                        clock_cycle,
-                        refresh_kind,
-                    ) {
+                    if let Ok((p, pid)) =
+                        _get_process_data(e.as_path(), proc_list, pid, uptime, info, refresh_kind)
+                    {
                         updated_pids.push(pid);
                         p
                     } else {

@@ -245,6 +245,8 @@ fn cpu_usage_is_not_nan() {
 
 #[test]
 fn test_process_times() {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
@@ -275,6 +277,16 @@ fn test_process_times() {
         assert!(p.run_time() >= 1);
         assert!(p.run_time() <= 2);
         assert!(p.start_time() > p.run_time());
+        // On linux, for whatever reason, the uptime seems to be older than the boot time, leading
+        // to this weird `+ 3` to ensure the test is passing as it should...
+        assert!(
+            p.start_time() + 3
+                > SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+        );
+        assert!(p.start_time() >= s.boot_time());
     } else {
         panic!("Process not found!");
     }

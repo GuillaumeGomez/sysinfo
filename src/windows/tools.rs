@@ -95,7 +95,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
     #[cfg(feature = "multithread")]
     use rayon::iter::ParallelIterator;
 
-    crate::utils::into_iter(0..size_of::<DWORD>() * 8)
+    crate::utils::into_iter(0..DWORD::BITS)
         .filter_map(|x| {
             if (drives >> x) & 1 == 0 {
                 return None;
