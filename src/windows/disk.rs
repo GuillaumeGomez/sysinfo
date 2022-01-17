@@ -6,16 +6,16 @@ use std::ffi::{OsStr, OsString};
 use std::path::Path;
 
 use ntapi::ntrtl::RtlGetVersion;
+use once_cell::sync::Lazy;
 use winapi::shared::minwindef::FALSE;
+use winapi::shared::ntdef::NT_SUCCESS;
 use winapi::shared::winerror::ERROR_MORE_DATA;
 use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::fileapi::GetDiskFreeSpaceExW;
+use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
 use winapi::um::ioapiset::DeviceIoControl;
 use winapi::um::winbase::FILE_FLAG_BACKUP_SEMANTICS;
 use winapi::um::winnt::{RTL_OSVERSIONINFOEXW, ULARGE_INTEGER};
-use winapi::um::handleapi::{INVALID_HANDLE_VALUE, CloseHandle};
-use winapi::shared::ntdef::NT_SUCCESS;
-use once_cell::sync::Lazy;
 
 pub(crate) fn new_disk(
     disk_idx: u16,
@@ -39,7 +39,7 @@ pub(crate) fn new_disk(
         total_space,
         available_space: 0,
         is_removable,
-    
+
         old_read_bytes: 0,
         old_written_bytes: 0,
         read_bytes: 0,
@@ -65,7 +65,7 @@ pub struct Disk {
     total_space: u64,
     available_space: u64,
     is_removable: bool,
-    
+
     old_read_bytes: u64,
     old_written_bytes: u64,
     read_bytes: u64,
@@ -74,7 +74,7 @@ pub struct Disk {
     old_read_ops: u64,
     old_written_ops: u64,
     read_ops: u64,
-    written_ops: u64
+    written_ops: u64,
 }
 
 impl Disk {
@@ -183,14 +183,14 @@ impl DiskExt for Disk {
 
         static WINDOWS_10_OR_NEWER: Lazy<bool> = Lazy::new(|| {
             let mut version_info: RTL_OSVERSIONINFOEXW = unsafe { std::mem::zeroed() };
-        
+
             version_info.dwOSVersionInfoSize = std::mem::size_of::<RTL_OSVERSIONINFOEXW>() as u32;
             if !NT_SUCCESS(unsafe {
                 RtlGetVersion(&mut version_info as *mut RTL_OSVERSIONINFOEXW as *mut _)
             }) {
                 return true;
             }
-        
+
             version_info.dwMajorVersion >= 10
         });
 
@@ -200,11 +200,12 @@ impl DiskExt for Disk {
                 self.old_read_bytes = self.read_bytes;
                 self.old_written_ops = self.written_ops;
                 self.old_read_ops = self.read_ops;
-                self.written_bytes = ($buffer.UserFileWriteBytes + $buffer.MetaDataWriteBytes) as u64;
+                self.written_bytes =
+                    ($buffer.UserFileWriteBytes + $buffer.MetaDataWriteBytes) as u64;
                 self.read_bytes = ($buffer.UserFileReadBytes + $buffer.MetaDataReadBytes) as u64;
                 self.written_ops = ($buffer.UserFileWrites + $buffer.MetaDataWrites) as u64;
                 self.read_ops = ($buffer.UserFileReads + $buffer.MetaDataReads) as u64;
-            }
+            };
         }
 
         unsafe {
@@ -224,8 +225,9 @@ impl DiskExt for Disk {
                     &mut buffer as *mut _ as *mut _,
                     std::mem::size_of::<FILESYSTEM_STATISTICS_EX>() as _,
                     &mut 0,
-                    std::ptr::null_mut()
-                ) == FALSE {
+                    std::ptr::null_mut(),
+                ) == FALSE
+                {
                     // Many drivers/filesystems will return a bit more data, but we can safely ignore it
                     if GetLastError() != ERROR_MORE_DATA {
                         return false;
@@ -242,8 +244,9 @@ impl DiskExt for Disk {
                     &mut buffer as *mut _ as *mut _,
                     std::mem::size_of::<FILESYSTEM_STATISTICS>() as _,
                     &mut 0,
-                    std::ptr::null_mut()
-                ) == FALSE {
+                    std::ptr::null_mut(),
+                ) == FALSE
+                {
                     // Many drivers/filesystems will return a bit more data, but we can safely ignore it
                     if GetLastError() != ERROR_MORE_DATA {
                         return false;

@@ -35,7 +35,7 @@ pub struct Disk {
     total_space: u64,
     available_space: u64,
     is_removable: bool,
-    
+
     old_read_bytes: u64,
     old_written_bytes: u64,
     read_bytes: u64,
@@ -110,7 +110,7 @@ impl DiskExt for Disk {
                 let stat = match procfs::DiskStat::from_line(&line) {
                     Ok(stat) => stat,
                     Err(procfs::ProcError::Io(err, _)) => return Err(err),
-                    Err(err) => return Err(std::io::Error::new(std::io::ErrorKind::Other, err))
+                    Err(err) => return Err(std::io::Error::new(std::io::ErrorKind::Other, err)),
                 };
 
                 if stat.name != disk.actual_device_name {
@@ -121,7 +121,10 @@ impl DiskExt for Disk {
 
                 return Ok(());
             }
-            Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Device not found"))
+            Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Device not found",
+            ))
         }
         refresh_usage(self).is_ok()
     }
@@ -143,7 +146,11 @@ impl DiskExt for Disk {
 
 // FIXME: I think this may be completely incorrect, in many different ways.
 fn find_device_name(device_name: &OsStr) -> String {
-    device_name.to_string_lossy().strip_prefix("/dev/").map(|s| s.to_string()).unwrap_or_else(|| device_name.to_string_lossy().into_owned())
+    device_name
+        .to_string_lossy()
+        .strip_prefix("/dev/")
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| device_name.to_string_lossy().into_owned())
 }
 
 fn new_disk(
@@ -187,7 +194,7 @@ fn new_disk(
         old_written_bytes: 0,
         read_bytes: 0,
         written_bytes: 0,
-    
+
         old_read_ops: 0,
         old_written_ops: 0,
         read_ops: 0,

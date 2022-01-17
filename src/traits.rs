@@ -110,7 +110,7 @@ pub trait DiskExt: Debug {
     fn is_removable(&self) -> bool;
 
     /// Returns number of bytes read and written to disk, system-wide.
-    /// 
+    ///
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///

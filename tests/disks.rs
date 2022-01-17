@@ -18,7 +18,7 @@ fn test_system_disk_usage() {
     use std::fs;
     use std::fs::File;
     use std::io::prelude::*;
-    use sysinfo::{SystemExt, DiskExt};
+    use sysinfo::{DiskExt, SystemExt};
 
     if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;

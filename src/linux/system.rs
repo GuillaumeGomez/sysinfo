@@ -532,7 +532,9 @@ impl SystemExt for System {
     // We reimplement this for efficiency
     // Refreshing each disk individually is an O(n ^ 2) operation, but this implementation is O(n)
     fn refresh_disks_usage(&mut self) {
-        if self.disks.is_empty() { return; }
+        if self.disks.is_empty() {
+            return;
+        }
 
         #[inline]
         fn refresh_usage<S: SystemExt>(disk: &mut S) -> Result<(), std::io::Error> {
@@ -542,14 +544,18 @@ impl SystemExt for System {
                 let stat = match procfs::DiskStat::from_line(&line) {
                     Ok(stat) => stat,
                     Err(procfs::ProcError::Io(err, _)) => return Err(err),
-                    Err(err) => return Err(std::io::Error::new(std::io::ErrorKind::Other, err))
+                    Err(err) => return Err(std::io::Error::new(std::io::ErrorKind::Other, err)),
                 };
 
-                let disk = match disk.disks_mut().iter_mut().find(|disk| disk.actual_device_name == stat.name) {
+                let disk = match disk
+                    .disks_mut()
+                    .iter_mut()
+                    .find(|disk| disk.actual_device_name == stat.name)
+                {
                     Some(disk) => disk,
                     None => continue,
                 };
-                
+
                 disk.update_disk_stats(&stat);
             }
 
