@@ -141,44 +141,44 @@ impl DiskExt for Disk {
         #[repr(C)]
         #[derive(Debug)]
         #[allow(non_snake_case)]
-        pub struct FILESYSTEM_STATISTICS {
-            pub FileSystemType: FileSystemStatisticsType,
-            pub Version: u16,
-            pub SizeOfCompleteStructure: u32,
-            pub UserFileReads: u32,
-            pub UserFileReadBytes: u32,
-            pub UserDiskReads: u32,
-            pub UserFileWrites: u32,
-            pub UserFileWriteBytes: u32,
-            pub UserDiskWrites: u32,
-            pub MetaDataReads: u32,
-            pub MetaDataReadBytes: u32,
-            pub MetaDataDiskReads: u32,
-            pub MetaDataWrites: u32,
-            pub MetaDataWriteBytes: u32,
-            pub MetaDataDiskWrites: u32,
+        struct FILESYSTEM_STATISTICS {
+            FileSystemType: FileSystemStatisticsType,
+            Version: u16,
+            SizeOfCompleteStructure: u32,
+            UserFileReads: u32,
+            UserFileReadBytes: u32,
+            UserDiskReads: u32,
+            UserFileWrites: u32,
+            UserFileWriteBytes: u32,
+            UserDiskWrites: u32,
+            MetaDataReads: u32,
+            MetaDataReadBytes: u32,
+            MetaDataDiskReads: u32,
+            MetaDataWrites: u32,
+            MetaDataWriteBytes: u32,
+            MetaDataDiskWrites: u32,
         }
 
         // https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/Ioctl/struct.FILESYSTEM_STATISTICS_EX.html
         #[repr(C)]
         #[derive(Debug)]
         #[allow(non_snake_case)]
-        pub struct FILESYSTEM_STATISTICS_EX {
-            pub FileSystemType: FileSystemStatisticsType,
-            pub Version: u16,
-            pub SizeOfCompleteStructure: u32,
-            pub UserFileReads: u64,
-            pub UserFileReadBytes: u64,
-            pub UserDiskReads: u64,
-            pub UserFileWrites: u64,
-            pub UserFileWriteBytes: u64,
-            pub UserDiskWrites: u64,
-            pub MetaDataReads: u64,
-            pub MetaDataReadBytes: u64,
-            pub MetaDataDiskReads: u64,
-            pub MetaDataWrites: u64,
-            pub MetaDataWriteBytes: u64,
-            pub MetaDataDiskWrites: u64,
+        struct FILESYSTEM_STATISTICS_EX {
+            FileSystemType: FileSystemStatisticsType,
+            Version: u16,
+            SizeOfCompleteStructure: u32,
+            UserFileReads: u64,
+            UserFileReadBytes: u64,
+            UserDiskReads: u64,
+            UserFileWrites: u64,
+            UserFileWriteBytes: u64,
+            UserDiskWrites: u64,
+            MetaDataReads: u64,
+            MetaDataReadBytes: u64,
+            MetaDataDiskReads: u64,
+            MetaDataWrites: u64,
+            MetaDataWriteBytes: u64,
+            MetaDataDiskWrites: u64,
         }
 
         static WINDOWS_10_OR_NEWER: Lazy<bool> = Lazy::new(|| {
