@@ -1,3 +1,12 @@
+# 0.23.0
+
+ * Linux: Fix process uptime.
+ * Rename `process_by_name` into `processes_by_name`.
+ * Rename `process_by_name_exact` into `processes_by_name_exact`.
+ * Change returned type of `process_by_name` and of `process_by_name_exact` into an iterator.
+ * Improved `Signal` documentation.
+ * Turned `Pid` type alias into a newtype.
+
 # 0.22.5
 
  * Linux: Improve documentation on how processes queries are handled.
