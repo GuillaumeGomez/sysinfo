@@ -116,7 +116,7 @@ pub trait DiskExt: Debug {
     ///
     /// let s = System::new();
     /// for disk in s.disks() {
-    ///     let disk_usage = disk.disk_usage();
+    ///     let disk_usage = disk.usage();
     ///     println!("read bytes   : new/total => {}/{}",
     ///         disk_usage.read_bytes,
     ///         disk_usage.total_read_bytes,
