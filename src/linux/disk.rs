@@ -1,15 +1,18 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::get_all_data;
-use crate::{utils, DiskExt, DiskType};
+use crate::{utils, DiskExt, DiskType, DiskUsage};
 
 use libc::statvfs;
 use std::ffi::{OsStr, OsString};
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::mem;
 use std::num::Wrapping;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
+
+const SECTOR_SIZE: u64 = 512;
 
 macro_rules! cast {
     ($x:expr) => {
@@ -21,12 +24,27 @@ macro_rules! cast {
 #[derive(PartialEq)]
 pub struct Disk {
     type_: DiskType,
+
     device_name: OsString,
+
+    #[doc(hidden)]
+    actual_device_name: String,
+
     file_system: Vec<u8>,
     mount_point: PathBuf,
     total_space: u64,
     available_space: u64,
     is_removable: bool,
+    
+    old_read_bytes: u64,
+    old_written_bytes: u64,
+    read_bytes: u64,
+    written_bytes: u64,
+
+    old_read_ops: u64,
+    old_written_ops: u64,
+    read_ops: u64,
+    written_ops: u64,
 }
 
 impl DiskExt for Disk {
@@ -58,6 +76,51 @@ impl DiskExt for Disk {
         self.is_removable
     }
 
+    fn usage(&self) -> DiskUsage {
+        DiskUsage {
+            written_bytes: self.written_bytes - self.old_written_bytes,
+            total_written_bytes: self.written_bytes,
+            read_bytes: self.read_bytes - self.old_read_bytes,
+            total_read_bytes: self.read_bytes,
+        }
+    }
+
+    fn refresh_usage(&mut self) -> bool {
+        #[inline]
+        fn refresh_usage(disk: &mut Disk) -> Result<(), std::io::Error> {
+            for line in BufReader::new(fs::File::open("/proc/diskstats")?).lines() {
+                let line = line?;
+
+                let stat = match procfs::DiskStat::from_line(&line) {
+                    Ok(stat) => stat,
+                    Err(procfs::ProcError::Io(err, _)) => return Err(err),
+                    Err(err) => return Err(std::io::Error::new(std::io::ErrorKind::Other, err))
+                };
+
+                if stat.name != disk.actual_device_name {
+                    continue;
+                }
+
+                println!("{:#?}", stat);
+
+                disk.old_read_bytes = disk.read_bytes;
+                disk.old_written_bytes = disk.written_bytes;
+                disk.old_read_ops = disk.read_ops;
+                disk.old_written_ops = disk.written_ops;
+
+                disk.read_ops = stat.reads + stat.merged;
+                disk.written_ops = stat.writes + stat.writes_merged;
+
+                disk.read_bytes = stat.sectors_read * SECTOR_SIZE;
+                disk.written_bytes = stat.sectors_written * SECTOR_SIZE;
+
+                return Ok(());
+            }
+            Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Device not found"))
+        }
+        refresh_usage(self).is_ok()
+    }
+
     fn refresh(&mut self) -> bool {
         unsafe {
             let mut stat: statvfs = mem::zeroed();
@@ -71,6 +134,11 @@ impl DiskExt for Disk {
             }
         }
     }
+}
+
+// FIXME: I think this may be completely incorrect, in many different ways.
+fn find_device_name(device_name: &OsStr) -> String {
+    device_name.to_string_lossy().strip_prefix("/dev/").map(|s| s.to_string()).unwrap_or_else(|| device_name.to_string_lossy().into_owned())
 }
 
 fn new_disk(
@@ -102,12 +170,23 @@ fn new_disk(
         .any(|e| e.as_os_str() == device_name);
     Some(Disk {
         type_,
+        actual_device_name: find_device_name(device_name),
         device_name: device_name.to_owned(),
         file_system: file_system.to_owned(),
         mount_point,
         total_space: cast!(total),
         available_space: cast!(available),
         is_removable,
+
+        old_read_bytes: 0,
+        old_written_bytes: 0,
+        read_bytes: 0,
+        written_bytes: 0,
+    
+        old_read_ops: 0,
+        old_written_ops: 0,
+        read_ops: 0,
+        written_ops: 0,
     })
 }
 

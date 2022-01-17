@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use sysinfo::{Pid, PidExt, ProcessExt, SystemExt};
+use sysinfo::{Pid, PidExt, ProcessExt, SystemExt, DiskExt};
 
 #[test]
 fn test_process() {

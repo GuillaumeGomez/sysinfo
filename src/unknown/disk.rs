@@ -36,6 +36,19 @@ impl DiskExt for Disk {
         false
     }
 
+    fn usage(&self) -> DiskUsage {
+        DiskUsage {
+            written_bytes: 0,
+            total_written_bytes: 0,
+            read_bytes: 0,
+            total_read_bytes: 0,
+        }
+    }
+
+    fn refresh_usage(&mut self) -> bool {
+        true
+    }
+
     fn refresh(&mut self) -> bool {
         true
     }

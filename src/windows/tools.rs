@@ -18,12 +18,12 @@ use winapi::um::handleapi::CloseHandle;
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::ioapiset::DeviceIoControl;
 use winapi::um::sysinfoapi::{GetSystemInfo, SYSTEM_INFO};
-use winapi::um::winbase::DRIVE_FIXED;
+use winapi::um::winbase::{DRIVE_FIXED, FILE_FLAG_BACKUP_SEMANTICS};
 use winapi::um::winioctl::{
     DEVICE_TRIM_DESCRIPTOR, IOCTL_DISK_GET_PARTITION_INFO_EX, IOCTL_STORAGE_QUERY_PROPERTY,
     PARTITION_INFORMATION_EX, STORAGE_PROPERTY_QUERY,
 };
-use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE};
+use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE, FILE_SHARE_DELETE};
 
 pub(crate) struct KeyHandler {
     pub unique_id: String,
@@ -54,14 +54,14 @@ pub(crate) fn init_processors() -> (Vec<Processor>, String, String) {
     }
 }
 
-pub unsafe fn open_drive(drive_name: &[u16], open_rights: DWORD) -> HANDLE {
+pub unsafe fn open_drive(drive_name: &[u16], open_rights: DWORD, flags: DWORD) -> HANDLE {
     CreateFileW(
         drive_name.as_ptr(),
         open_rights,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         std::ptr::null_mut(),
         OPEN_EXISTING,
-        0,
+        flags,
         std::ptr::null_mut(),
     )
 }
@@ -152,10 +152,12 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 b':' as u16,
                 0,
             ];
-            let handle = open_drive(&drive_name, 0);
+
+            let handle = open_drive(&drive_name, 0, 0);
             if handle == INVALID_HANDLE_VALUE {
                 CloseHandle(handle);
                 return new_disk(
+                    x as _,
                     name,
                     &mount_point,
                     &file_system,
@@ -191,6 +193,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
             {
                 CloseHandle(handle);
                 return new_disk(
+                    x as _,
                     name,
                     &mount_point,
                     &file_system,
@@ -202,6 +205,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
             let is_ssd = dtd.TrimEnabled != 0;
             CloseHandle(handle);
             new_disk(
+                x as _,
                 name,
                 &mount_point,
                 &file_system,

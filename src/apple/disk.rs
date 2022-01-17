@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::utils::to_cpath;
-use crate::{DiskExt, DiskType};
+use crate::{DiskExt, DiskType, DiskUsage};
 
 #[cfg(target_os = "macos")]
 pub(crate) use crate::sys::inner::disk::*;
@@ -49,6 +49,14 @@ impl DiskExt for Disk {
 
     fn is_removable(&self) -> bool {
         self.is_removable
+    }
+
+    fn usage(&self) -> DiskUsage {
+        todo!()
+    }
+
+    fn refresh_usage(&mut self) -> bool {
+        todo!()
     }
 
     fn refresh(&mut self) -> bool {
