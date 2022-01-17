@@ -28,7 +28,7 @@ pub struct Disk {
     device_name: OsString,
 
     #[doc(hidden)]
-    actual_device_name: String,
+    pub(crate) actual_device_name: String,
 
     file_system: Vec<u8>,
     mount_point: PathBuf,
@@ -45,6 +45,22 @@ pub struct Disk {
     old_written_ops: u64,
     read_ops: u64,
     written_ops: u64,
+}
+
+impl Disk {
+    #[inline]
+    pub(crate) fn update_disk_stats(&mut self, stat: &procfs::DiskStat) {
+        self.old_read_bytes = self.read_bytes;
+        self.old_written_bytes = self.written_bytes;
+        self.old_read_ops = self.read_ops;
+        self.old_written_ops = self.written_ops;
+
+        self.read_ops = stat.reads + stat.merged;
+        self.written_ops = stat.writes + stat.writes_merged;
+
+        self.read_bytes = stat.sectors_read * SECTOR_SIZE;
+        self.written_bytes = stat.sectors_written * SECTOR_SIZE;
+    }
 }
 
 impl DiskExt for Disk {
@@ -101,18 +117,7 @@ impl DiskExt for Disk {
                     continue;
                 }
 
-                println!("{:#?}", stat);
-
-                disk.old_read_bytes = disk.read_bytes;
-                disk.old_written_bytes = disk.written_bytes;
-                disk.old_read_ops = disk.read_ops;
-                disk.old_written_ops = disk.written_ops;
-
-                disk.read_ops = stat.reads + stat.merged;
-                disk.written_ops = stat.writes + stat.writes_merged;
-
-                disk.read_bytes = stat.sectors_read * SECTOR_SIZE;
-                disk.written_bytes = stat.sectors_written * SECTOR_SIZE;
+                disk.update_disk_stats(&stat);
 
                 return Ok(());
             }
