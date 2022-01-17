@@ -97,6 +97,22 @@ fn boot_time() -> u64 {
     }
 }
 
+pub(crate) struct SystemInfo {
+    pub(crate) page_size_kb: u64,
+    pub(crate) clock_cycle: u64,
+    pub(crate) boot_time: u64,
+}
+
+impl SystemInfo {
+    fn new() -> Self {
+        Self {
+            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) / 1024 } as _,
+            clock_cycle: unsafe { sysconf(_SC_CLK_TCK) } as _,
+            boot_time: boot_time(),
+        }
+    }
+}
+
 declare_signals! {
     c_int,
     Signal::Hangup => libc::SIGHUP,
@@ -146,18 +162,16 @@ pub struct System {
     swap_free: u64,
     global_processor: Processor,
     processors: Vec<Processor>,
-    page_size_kb: u64,
     components: Vec<Component>,
     disks: Vec<Disk>,
     networks: Networks,
     users: Vec<User>,
-    boot_time: u64,
     /// Field set to `false` in `update_processors` and to `true` in `refresh_processes_specifics`.
     ///
     /// The reason behind this is to avoid calling the `update_processors` more than necessary.
     /// For example when running `refresh_all` or `refresh_specifics`.
     need_processors_update: bool,
-    clock_cycle: u64,
+    info: SystemInfo,
 }
 
 impl System {
@@ -311,8 +325,10 @@ impl SystemExt for System {
     const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
+        let info = SystemInfo::new();
+        let process_list = Process::new(Pid(0), None, 0, &info);
         let mut s = System {
-            process_list: Process::new(Pid(0), None, 0),
+            process_list,
             mem_total: 0,
             mem_free: 0,
             mem_available: 0,
@@ -338,14 +354,12 @@ impl SystemExt for System {
                 String::new(),
             ),
             processors: Vec::with_capacity(4),
-            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) / 1024 } as _,
             components: Vec::new(),
             disks: Vec::with_capacity(2),
             networks: Networks::new(),
             users: Vec::new(),
-            boot_time: boot_time(),
             need_processors_update: true,
-            clock_cycle: unsafe { sysconf(_SC_CLK_TCK) } as _,
+            info,
         };
         s.refresh_specifics(refreshes);
         s
@@ -389,10 +403,9 @@ impl SystemExt for System {
         if refresh_procs(
             &mut self.process_list,
             Path::new("/proc"),
-            self.page_size_kb,
             Pid(0),
             uptime,
-            self.clock_cycle,
+            &self.info,
             refresh_kind,
         ) {
             self.clear_procs(refresh_kind);
@@ -405,10 +418,9 @@ impl SystemExt for System {
         let found = match _get_process_data(
             &Path::new("/proc/").join(pid.to_string()),
             &mut self.process_list,
-            self.page_size_kb,
             Pid(0),
             uptime,
-            self.clock_cycle,
+            &self.info,
             refresh_kind,
         ) {
             Ok((Some(p), pid)) => {
@@ -539,7 +551,7 @@ impl SystemExt for System {
     }
 
     fn boot_time(&self) -> u64 {
-        self.boot_time
+        self.info.boot_time
     }
 
     fn load_average(&self) -> LoadAvg {
