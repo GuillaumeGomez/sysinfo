@@ -18,12 +18,12 @@ use winapi::um::handleapi::CloseHandle;
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::ioapiset::DeviceIoControl;
 use winapi::um::sysinfoapi::{GetSystemInfo, SYSTEM_INFO};
-use winapi::um::winbase::{DRIVE_FIXED, FILE_FLAG_BACKUP_SEMANTICS};
+use winapi::um::winbase::DRIVE_FIXED;
 use winapi::um::winioctl::{
     DEVICE_TRIM_DESCRIPTOR, IOCTL_DISK_GET_PARTITION_INFO_EX, IOCTL_STORAGE_QUERY_PROPERTY,
     PARTITION_INFORMATION_EX, STORAGE_PROPERTY_QUERY,
 };
-use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE, FILE_SHARE_DELETE};
+use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE};
 
 pub(crate) struct KeyHandler {
     pub unique_id: String,
