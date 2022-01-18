@@ -2,11 +2,11 @@
 
 use crate::{
     common::{Gid, Uid},
-    sys::{Component, Disk, Networks, Process, Processor}
+    sys::{Component, Disk, Networks, Process, Processor},
 };
 use crate::{
-    DiskType, DiskUsage, DiskUsageExt, LoadAvg, NetworksIter, Pid, ProcessRefreshKind, ProcessStatus,
-    RefreshKind, Signal, User,
+    DiskType, DiskUsage, DiskUsageExt, LoadAvg, NetworksIter, Pid, ProcessRefreshKind,
+    ProcessStatus, RefreshKind, Signal, User,
 };
 
 use std::collections::HashMap;
