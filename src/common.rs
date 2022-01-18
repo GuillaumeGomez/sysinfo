@@ -696,10 +696,10 @@ pub struct DiskUsage {
 /// use sysinfo::{DiskExt, System, SystemExt};
 ///
 /// let s = System::new_all();
-/// s.refresh_disk_list();
-/// s.refresh_disk_usage();
-/// for (pid, process) in s.processes() {
-///     let disk_usage = process.disk_usage();
+/// s.refresh_disks_list();
+/// s.refresh_disks_usage();
+/// for disk in s.disks() {
+///     let disk_usage = disk.usage();
 ///     println!("[{}] read bytes   : new/total => {}/{} B",
 ///         pid,
 ///         disk_usage.read_bytes,
