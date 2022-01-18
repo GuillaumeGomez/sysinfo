@@ -31,6 +31,11 @@ fn test_system_disk_usage() {
 
     let mut system = sysinfo::System::new();
     system.refresh_disks_list();
+
+    if system.disks().is_empty() {
+        return;
+    }
+
     system.refresh_disks_usage();
 
     {
