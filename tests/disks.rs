@@ -37,6 +37,7 @@ fn test_system_disk_usage() {
     }
 
     system.refresh_disks_usage();
+    system.refresh_disks_usage();
 
     {
         let mut file = File::create("test.txt").expect("failed to create file");
@@ -52,8 +53,9 @@ fn test_system_disk_usage() {
     let mut total_written_since = 0;
     let mut total_written = 0;
     for disk in system.disks() {
-        total_written_since += disk.usage().written_bytes;
-        total_written += disk.usage().total_written_bytes;
+        let usage = disk.usage();
+        total_written_since += usage.written_bytes;
+        total_written += usage.total_written_bytes;
     }
     assert!(
         total_written > 0,

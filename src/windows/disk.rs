@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskExt, DiskType, DiskUsage};
+use crate::{DiskExt, DiskType, DiskUsageExt};
 
 use std::ffi::{OsStr, OsString};
 use std::path::Path;
@@ -121,12 +121,16 @@ impl DiskExt for Disk {
         self.is_removable
     }
 
-    fn usage(&self) -> DiskUsage {
-        DiskUsage {
+    fn usage(&self) -> DiskUsageExt {
+        DiskUsageExt {
             written_bytes: self.written_bytes - self.old_written_bytes,
             total_written_bytes: self.written_bytes,
             read_bytes: self.read_bytes - self.old_read_bytes,
             total_read_bytes: self.read_bytes,
+            written_ops: self.written_ops - self.old_written_ops,
+            total_written_ops: self.written_ops,
+            read_ops: self.read_ops - self.old_read_ops,
+            total_read_ops: self.read_ops,
         }
     }
 

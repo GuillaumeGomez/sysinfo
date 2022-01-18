@@ -2,10 +2,10 @@
 
 use crate::{
     common::{Gid, Uid},
-    sys::{Component, Disk, Networks, Process, Processor},
+    sys::{Component, Disk, Networks, Process, Processor}
 };
 use crate::{
-    DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessRefreshKind, ProcessStatus,
+    DiskType, DiskUsage, DiskUsageExt, LoadAvg, NetworksIter, Pid, ProcessRefreshKind, ProcessStatus,
     RefreshKind, Signal, User,
 };
 
@@ -126,7 +126,7 @@ pub trait DiskExt: Debug {
     ///         disk_usage.total_written_bytes,
     ///     );
     /// }
-    fn usage(&self) -> DiskUsage;
+    fn usage(&self) -> DiskUsageExt;
 
     /// Updates the disk's I/O usage information.
     ///
