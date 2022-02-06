@@ -38,7 +38,8 @@ macro_rules! pid_decl {
     ($typ:ty) => {
         #[doc = include_str!("../md_doc/pid.md")]
         #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-        pub struct Pid(pub(crate) $typ);
+        #[repr(transparent)]
+        pub struct Pid(pub $typ);
 
         impl From<$typ> for Pid {
             fn from(v: $typ) -> Self {
