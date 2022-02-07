@@ -24,6 +24,7 @@ macro_rules! old_and_new {
     }};
 }
 
+#[allow(clippy::ptr_arg)]
 fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
     if let Ok(mut f) = File::open(parent.as_ref().join(path)) {
         if let Ok(size) = f.read(data) {

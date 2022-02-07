@@ -214,8 +214,8 @@ impl System {
                 to_delete.push(*pid);
             } else if compute_cpu {
                 compute_cpu_usage(proc_, total_time, max_value);
+                proc_.updated = false;
             }
-            proc_.updated = false;
         }
         for pid in to_delete {
             self.process_list.tasks.remove(&pid);
@@ -400,16 +400,15 @@ impl SystemExt for System {
 
     fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
         let uptime = self.uptime();
-        if refresh_procs(
+        refresh_procs(
             &mut self.process_list,
             Path::new("/proc"),
             Pid(0),
             uptime,
             &self.info,
             refresh_kind,
-        ) {
-            self.clear_procs(refresh_kind);
-        }
+        );
+        self.clear_procs(refresh_kind);
         self.need_processors_update = true;
     }
 
@@ -444,6 +443,7 @@ impl SystemExt for System {
                 let max_cpu_usage = self.get_max_process_cpu_usage();
                 if let Some(p) = self.process_list.tasks.get_mut(&pid) {
                     compute_cpu_usage(p, total_time / self.processors.len() as f32, max_cpu_usage);
+                    p.updated = false;
                 }
             } else if let Some(p) = self.process_list.tasks.get_mut(&pid) {
                 p.updated = false;

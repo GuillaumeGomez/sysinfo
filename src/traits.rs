@@ -633,8 +633,8 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// It does the same as `system.refresh_processes_specifics(ProcessRefreshKind::everything())`.
     ///
-    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can this behaviour by
-    /// using [`set_open_files_limit`][crate::set_open_files_limit].
+    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
+    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -648,8 +648,8 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
 
     /// Gets all processes and updates the specified information.
     ///
-    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can this behaviour by
-    /// using [`set_open_files_limit`][crate::set_open_files_limit].
+    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
+    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
     ///
     /// ```no_run
     /// use sysinfo::{ProcessRefreshKind, System, SystemExt};
@@ -660,7 +660,8 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind);
 
     /// Refreshes *only* the process corresponding to `pid`. Returns `false` if the process doesn't
-    /// exist. If it isn't listed yet, it'll be added.
+    /// exist (it will **NOT** be removed from the processes if it doesn't exist anymore). If it
+    /// isn't listed yet, it'll be added.
     ///
     /// It is the same as calling
     /// `sys.refresh_process_specifics(pid, ProcessRefreshKind::everything())`.
@@ -676,7 +677,8 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     }
 
     /// Refreshes *only* the process corresponding to `pid`. Returns `false` if the process doesn't
-    /// exist. If it isn't listed yet, it'll be added.
+    /// exist (it will **NOT** be removed from the processes if it doesn't exist anymore). If it
+    /// isn't listed yet, it'll be added.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, ProcessRefreshKind, System, SystemExt};

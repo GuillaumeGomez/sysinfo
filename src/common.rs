@@ -46,6 +46,9 @@ macro_rules! pid_decl {
                 Self(v)
             }
         }
+        #[allow(clippy::from_over_into)]
+        // This Into implementation is required otherwise it seems you can't do `pid.into()`
+        // for some reasons...
         impl Into<$typ> for Pid {
             fn into(self) -> $typ {
                 self.0

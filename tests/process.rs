@@ -254,7 +254,7 @@ fn test_process_times() {
         std::process::Command::new("waitfor")
             .arg("/t")
             .arg("3")
-            .arg("CwdSignal")
+            .arg("ProcessTimes")
             .stdout(std::process::Stdio::null())
             .spawn()
             .unwrap()
@@ -290,4 +290,86 @@ fn test_process_times() {
     } else {
         panic!("Process not found!");
     }
+}
+
+// Checks that `refresh_processes` is removing dead processes.
+#[test]
+fn test_refresh_processes() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("300")
+            .arg("RefreshProcesses")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("300")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+
+    let pid = Pid::from_u32(p.id() as u32);
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    // Checks that the process is listed as it should.
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    assert!(s.process(pid).is_some());
+
+    p.kill().expect("Unable to kill process.");
+    // We need this, otherwise the process will still be around as a zombie on linux.
+    let _ = p.wait();
+    // Let's give some time to the system to clean up...
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    s.refresh_processes();
+    // Checks that the process isn't listed anymore.
+    assert!(s.process(pid).is_none());
+}
+
+// Checks that `refresh_process` is NOT removing dead processes.
+#[test]
+fn test_refresh_process() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("300")
+            .arg("RefreshProcess")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("300")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+
+    let pid = Pid::from_u32(p.id() as u32);
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    // Checks that the process is listed as it should.
+    let mut s = sysinfo::System::new();
+    s.refresh_process(pid);
+    assert!(s.process(pid).is_some());
+
+    p.kill().expect("Unable to kill process.");
+    // We need this, otherwise the process will still be around as a zombie on linux.
+    let _ = p.wait();
+    // Let's give some time to the system to clean up...
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    s.refresh_process(pid);
+    // Checks that the process is still listed.
+    assert!(s.process(pid).is_some());
 }

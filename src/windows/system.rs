@@ -186,15 +186,12 @@ impl SystemExt for System {
     #[allow(clippy::map_entry)]
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
         if self.process_list.contains_key(&pid) {
-            if !refresh_existing_process(self, pid, refresh_kind) {
-                self.process_list.remove(&pid);
-                return false;
-            }
-            return true;
+            return refresh_existing_process(self, pid, refresh_kind);
         }
         let now = get_now();
         if let Some(mut p) = Process::new_from_pid(pid, now) {
             p.update(refresh_kind, self.processors.len() as u64, now);
+            p.updated = false;
             self.process_list.insert(pid, p);
             true
         } else {
@@ -289,14 +286,14 @@ impl SystemExt for System {
                         Some(p)
                     })
                     .collect::<Vec<_>>();
+                for p in processes.into_iter() {
+                    self.process_list.insert(p.pid(), p);
+                }
                 self.process_list.retain(|_, v| {
                     let x = v.updated;
                     v.updated = false;
                     x
                 });
-                for p in processes.into_iter() {
-                    self.process_list.insert(p.pid(), p);
-                }
 
                 break;
             }
@@ -473,6 +470,7 @@ fn refresh_existing_process(s: &mut System, pid: Pid, refresh_kind: ProcessRefre
         }
         update_memory(entry);
         entry.update(refresh_kind, s.processors.len() as u64, get_now());
+        entry.updated = false;
         true
     } else {
         false
