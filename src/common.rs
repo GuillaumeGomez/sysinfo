@@ -46,6 +46,11 @@ macro_rules! pid_decl {
                 Self(v)
             }
         }
+        impl Into<$typ> for Pid {
+            fn into(self) -> $typ {
+                self.0
+            }
+        }
         impl PidExt<$typ> for Pid {
             fn as_u32(self) -> u32 {
                 self.0 as u32
