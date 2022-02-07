@@ -1,3 +1,9 @@
+# 0.23.1
+
+ * Implement `Into` trait on `Pid`
+ * Add `#[repr(transparent)]` on `Pid`
+ * Clean up `refresh_process` and `refresh_processes`: only `refresh_processes` removes non-existing processes.
+
 # 0.23.0
 
  * Linux: Fix process uptime.
