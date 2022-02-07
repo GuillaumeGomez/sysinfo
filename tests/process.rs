@@ -254,7 +254,7 @@ fn test_process_times() {
         std::process::Command::new("waitfor")
             .arg("/t")
             .arg("3")
-            .arg("CwdSignal")
+            .arg("ProcessTimes")
             .stdout(std::process::Stdio::null())
             .spawn()
             .unwrap()
@@ -301,8 +301,8 @@ fn test_refresh_processes() {
     let mut p = if cfg!(target_os = "windows") {
         std::process::Command::new("waitfor")
             .arg("/t")
-            .arg("3")
-            .arg("CwdSignal")
+            .arg("300")
+            .arg("RefreshProcesses")
             .stdout(std::process::Stdio::null())
             .spawn()
             .unwrap()
@@ -342,8 +342,8 @@ fn test_refresh_process() {
     let mut p = if cfg!(target_os = "windows") {
         std::process::Command::new("waitfor")
             .arg("/t")
-            .arg("3")
-            .arg("CwdSignal")
+            .arg("300")
+            .arg("RefreshProcess")
             .stdout(std::process::Stdio::null())
             .spawn()
             .unwrap()
@@ -369,7 +369,7 @@ fn test_refresh_process() {
     // Let's give some time to the system to clean up...
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    assert(!s.refresh_process(pid));
+    s.refresh_process(pid);
     // Checks that the process is still listed.
     assert!(s.process(pid).is_some());
 }
