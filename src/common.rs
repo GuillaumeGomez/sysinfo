@@ -697,6 +697,60 @@ pub struct DiskUsage {
     pub read_bytes: u64,
 }
 
+/// Type containing read and written bytes plus read and written number of operations.
+///
+/// It is returned by [`DiskExt::usage`][crate::DiskExt::usage].
+///
+/// ```no_run
+/// use sysinfo::{DiskExt, System, SystemExt};
+///
+/// let mut s = System::new_all();
+/// s.refresh_disks_list();
+/// s.refresh_disks_usage();
+/// for disk in s.disks() {
+///     let disk_usage = disk.usage();
+///     println!("[{:?}] read bytes   : new/total => {}/{} B",
+///         disk.name(),
+///         disk_usage.read_bytes,
+///         disk_usage.total_read_bytes,
+///     );
+///     println!("[{:?}] written bytes: new/total => {}/{} B",
+///         disk.name(),
+///         disk_usage.written_bytes,
+///         disk_usage.total_written_bytes,
+///     );
+///     println!("[{:?}] read ops   : new/total => {}/{}",
+///         disk.name(),
+///         disk_usage.read_ops,
+///         disk_usage.total_read_ops,
+///     );
+///     println!("[{:?}] written ops: new/total => {}/{}",
+///         disk.name(),
+///         disk_usage.written_ops,
+///         disk_usage.total_written_ops,
+///     );
+/// }
+/// ```
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
+pub struct DiskUsageExt {
+    /// Total number of written bytes.
+    pub total_written_bytes: u64,
+    /// Number of written bytes since the last refresh.
+    pub written_bytes: u64,
+    /// Total number of read bytes.
+    pub total_read_bytes: u64,
+    /// Number of read bytes since the last refresh.
+    pub read_bytes: u64,
+    /// Total number of written ops.
+    pub total_written_ops: u64,
+    /// Number of written ops since the last refresh.
+    pub written_ops: u64,
+    /// Total number of read ops.
+    pub total_read_ops: u64,
+    /// Number of read ops since the last refresh.
+    pub read_ops: u64,
+}
+
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ProcessStatus {

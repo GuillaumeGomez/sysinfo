@@ -18,7 +18,7 @@ void        sysinfo_refresh_processes(CSystem system);
 void        sysinfo_refresh_process(CSystem system, pid_t pid);
 #endif
 void        sysinfo_refresh_disks(CSystem system);
-void        sysinfo_refresh_disk_list(CSystem system);
+void        sysinfo_refresh_disks_list(CSystem system);
 size_t      sysinfo_get_total_memory(CSystem system);
 size_t      sysinfo_get_free_memory(CSystem system);
 size_t      sysinfo_get_used_memory(CSystem system);

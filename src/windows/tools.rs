@@ -54,14 +54,14 @@ pub(crate) fn init_processors() -> (Vec<Processor>, String, String) {
     }
 }
 
-pub unsafe fn open_drive(drive_name: &[u16], open_rights: DWORD) -> HANDLE {
+pub unsafe fn open_drive(drive_name: &[u16], open_rights: DWORD, flags: DWORD) -> HANDLE {
     CreateFileW(
         drive_name.as_ptr(),
         open_rights,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         std::ptr::null_mut(),
         OPEN_EXISTING,
-        0,
+        flags,
         std::ptr::null_mut(),
     )
 }
@@ -152,10 +152,12 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                 b':' as u16,
                 0,
             ];
-            let handle = open_drive(&drive_name, 0);
+
+            let handle = open_drive(&drive_name, 0, 0);
             if handle == INVALID_HANDLE_VALUE {
                 CloseHandle(handle);
                 return new_disk(
+                    x as _,
                     name,
                     &mount_point,
                     &file_system,
@@ -191,6 +193,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
             {
                 CloseHandle(handle);
                 return new_disk(
+                    x as _,
                     name,
                     &mount_point,
                     &file_system,
@@ -202,6 +205,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
             let is_ssd = dtd.TrimEnabled != 0;
             CloseHandle(handle);
             new_disk(
+                x as _,
                 name,
                 &mount_point,
                 &file_system,
