@@ -1,3 +1,8 @@
+# 0.23.2
+
+ * Fix unsafe "correctness".
+ * Correctly handle `MaybeUninit::assume_init`.
+
 # 0.23.1
 
  * Implement `Into` trait on `Pid`
