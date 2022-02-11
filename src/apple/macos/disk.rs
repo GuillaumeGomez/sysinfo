@@ -37,24 +37,22 @@ pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
     if session.is_null() {
         return Vec::new();
     }
-    let count = unsafe { libc::getfsstat(ptr::null_mut(), 0, libc::MNT_NOWAIT) };
-    if count < 1 {
-        return Vec::new();
-    }
-    let bufsize = count * mem::size_of::<libc::statfs>() as c_int;
-    let mut disks = Vec::with_capacity(count as _);
-    let count = unsafe { libc::getfsstat(disks.as_mut_ptr(), bufsize, libc::MNT_NOWAIT) };
-    if count < 1 {
-        return Vec::new();
-    }
     unsafe {
+        let count = libc::getfsstat(ptr::null_mut(), 0, libc::MNT_NOWAIT);
+        if count < 1 {
+            return Vec::new();
+        }
+        let bufsize = count * mem::size_of::<libc::statfs>() as c_int;
+        let mut disks = Vec::with_capacity(count as _);
+        let count = libc::getfsstat(disks.as_mut_ptr(), bufsize, libc::MNT_NOWAIT);
+        if count < 1 {
+            return Vec::new();
+        }
         disks.set_len(count as _);
-    }
-    disks
-        .into_iter()
-        .filter_map(|c_disk| {
-            let mount_point = to_path(&c_disk.f_mntonname)?;
-            unsafe {
+        disks
+            .into_iter()
+            .filter_map(|c_disk| {
+                let mount_point = to_path(&c_disk.f_mntonname)?;
                 let disk = ffi::DADiskCreateFromBSDName(
                     kCFAllocatorDefault as _,
                     session,
@@ -87,9 +85,9 @@ pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
 
                 CFRelease(dict as _);
                 new_disk(name, mount_point, type_, removable || ejectable)
-            }
-        })
-        .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
+    }
 }
 
 unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
@@ -152,17 +150,17 @@ fn new_disk(
             }
             file_system = Some(vec);
         }
+        if total_space == 0 {
+            return None;
+        }
+        Some(Disk {
+            type_,
+            name,
+            file_system: file_system.unwrap_or_else(|| b"<Unknown>".to_vec()),
+            mount_point,
+            total_space,
+            available_space,
+            is_removable,
+        })
     }
-    if total_space == 0 {
-        return None;
-    }
-    Some(Disk {
-        type_,
-        name,
-        file_system: file_system.unwrap_or_else(|| b"<Unknown>".to_vec()),
-        mount_point,
-        total_space,
-        available_space,
-        is_removable,
-    })
 }

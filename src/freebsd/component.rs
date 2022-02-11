@@ -29,10 +29,12 @@ impl ComponentExt for Component {
     }
 
     fn refresh(&mut self) {
-        if let Some(temperature) = unsafe { refresh_component(&self.id) } {
-            self.temperature = temperature;
-            if self.temperature > self.max {
-                self.max = self.temperature;
+        unsafe {
+            if let Some(temperature) = refresh_component(&self.id) {
+                self.temperature = temperature;
+                if self.temperature > self.max {
+                    self.max = self.temperature;
+                }
             }
         }
     }

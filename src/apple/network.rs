@@ -31,22 +31,20 @@ impl Networks {
     fn update_networks(&mut self) {
         let mib = &mut [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0];
         let mut len = 0;
-        if unsafe {
-            libc::sysctl(
+        unsafe {
+            if libc::sysctl(
                 mib.as_mut_ptr(),
                 mib.len() as _,
                 null_mut(),
                 &mut len,
                 null_mut(),
                 0,
-            )
-        } < 0
-        {
-            // TODO: might be nice to put an error in here...
-            return;
-        }
-        let mut buf = Vec::with_capacity(len);
-        unsafe {
+            ) < 0
+            {
+                // TODO: might be nice to put an error in here...
+                return;
+            }
+            let mut buf = Vec::with_capacity(len);
             buf.set_len(len);
             if libc::sysctl(
                 mib.as_mut_ptr(),
@@ -60,12 +58,10 @@ impl Networks {
                 // TODO: might be nice to put an error in here...
                 return;
             }
-        }
-        let buf = buf.as_ptr() as *const c_char;
-        let lim = unsafe { buf.add(len) };
-        let mut next = buf;
-        while next < lim {
-            unsafe {
+            let buf = buf.as_ptr() as *const c_char;
+            let lim = buf.add(len);
+            let mut next = buf;
+            while next < lim {
                 let ifm = next as *const libc::if_msghdr;
                 next = next.offset((*ifm).ifm_msglen as isize);
                 if (*ifm).ifm_type == RTM_IFINFO2 as u8 {

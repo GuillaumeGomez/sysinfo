@@ -92,23 +92,23 @@ fn new_disk(
             total = (bsize * blocks).0;
             available = (bsize * bavail).0;
         }
+        if total == 0 {
+            return None;
+        }
+        let mount_point = mount_point.to_owned();
+        let is_removable = removable_entries
+            .iter()
+            .any(|e| e.as_os_str() == device_name);
+        Some(Disk {
+            type_,
+            device_name: device_name.to_owned(),
+            file_system: file_system.to_owned(),
+            mount_point,
+            total_space: cast!(total),
+            available_space: cast!(available),
+            is_removable,
+        })
     }
-    if total == 0 {
-        return None;
-    }
-    let mount_point = mount_point.to_owned();
-    let is_removable = removable_entries
-        .iter()
-        .any(|e| e.as_os_str() == device_name);
-    Some(Disk {
-        type_,
-        device_name: device_name.to_owned(),
-        file_system: file_system.to_owned(),
-        mount_point,
-        total_space: cast!(total),
-        available_space: cast!(available),
-        is_removable,
-    })
 }
 
 #[allow(clippy::manual_range_contains)]

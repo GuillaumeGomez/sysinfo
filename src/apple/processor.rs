@@ -128,8 +128,8 @@ pub(crate) fn get_cpu_frequency() -> u64 {
             std::ptr::null_mut(),
             0,
         );
+        speed / 1_000_000
     }
-    speed / 1_000_000
 }
 
 #[inline]
@@ -173,23 +173,23 @@ pub(crate) fn update_processor_usage<F: FnOnce(Arc<ProcessorData>, *mut i32) -> 
 
     let mut total_cpu_usage = 0f32;
 
-    if unsafe {
-        host_processor_info(
+    unsafe {
+        if host_processor_info(
             port,
             libc::PROCESSOR_CPU_LOAD_INFO,
             &mut num_cpu_u as *mut u32,
             &mut cpu_info as *mut *mut i32,
             &mut num_cpu_info as *mut u32,
-        )
-    } == libc::KERN_SUCCESS
-    {
-        let (total_percentage, len) = f(
-            Arc::new(ProcessorData::new(cpu_info, num_cpu_info)),
-            cpu_info,
-        );
-        total_cpu_usage = total_percentage / len as f32;
+        ) == libc::KERN_SUCCESS
+        {
+            let (total_percentage, len) = f(
+                Arc::new(ProcessorData::new(cpu_info, num_cpu_info)),
+                cpu_info,
+            );
+            total_cpu_usage = total_percentage / len as f32;
+        }
+        global_processor.set_cpu_usage(total_cpu_usage);
     }
-    global_processor.set_cpu_usage(total_cpu_usage);
 }
 
 pub(crate) fn init_processors(
@@ -252,12 +252,11 @@ fn get_sysctl_str(s: &[u8]) -> String {
             std::ptr::null_mut(),
             0,
         );
-    }
-    if len < 1 {
-        return String::new();
-    }
-    let mut buf = Vec::with_capacity(len);
-    unsafe {
+        if len < 1 {
+            return String::new();
+        }
+
+        let mut buf = Vec::with_capacity(len);
         libc::sysctlbyname(
             s.as_ptr() as *const c_char,
             buf.as_mut_ptr() as _,
@@ -265,17 +264,15 @@ fn get_sysctl_str(s: &[u8]) -> String {
             std::ptr::null_mut(),
             0,
         );
-    }
-    if len > 0 {
-        unsafe {
+        if len > 0 {
             buf.set_len(len);
+            while buf.last() == Some(&b'\0') {
+                buf.pop();
+            }
+            String::from_utf8(buf).unwrap_or_else(|_| String::new())
+        } else {
+            String::new()
         }
-        while buf.last() == Some(&b'\0') {
-            buf.pop();
-        }
-        String::from_utf8(buf).unwrap_or_else(|_| String::new())
-    } else {
-        String::new()
     }
 }
 

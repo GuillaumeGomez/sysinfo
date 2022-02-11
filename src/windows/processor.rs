@@ -342,25 +342,27 @@ impl Processor {
 fn get_vendor_id_not_great(info: &SYSTEM_INFO) -> String {
     use winapi::um::winnt;
     // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
-    match unsafe { info.u.s() }.wProcessorArchitecture {
-        winnt::PROCESSOR_ARCHITECTURE_INTEL => "Intel x86",
-        winnt::PROCESSOR_ARCHITECTURE_MIPS => "MIPS",
-        winnt::PROCESSOR_ARCHITECTURE_ALPHA => "RISC Alpha",
-        winnt::PROCESSOR_ARCHITECTURE_PPC => "PPC",
-        winnt::PROCESSOR_ARCHITECTURE_SHX => "SHX",
-        winnt::PROCESSOR_ARCHITECTURE_ARM => "ARM",
-        winnt::PROCESSOR_ARCHITECTURE_IA64 => "Intel Itanium-based x64",
-        winnt::PROCESSOR_ARCHITECTURE_ALPHA64 => "RISC Alpha x64",
-        winnt::PROCESSOR_ARCHITECTURE_MSIL => "MSIL",
-        winnt::PROCESSOR_ARCHITECTURE_AMD64 => "(Intel or AMD) x64",
-        winnt::PROCESSOR_ARCHITECTURE_IA32_ON_WIN64 => "Intel Itanium-based x86",
-        winnt::PROCESSOR_ARCHITECTURE_NEUTRAL => "unknown",
-        winnt::PROCESSOR_ARCHITECTURE_ARM64 => "ARM x64",
-        winnt::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => "ARM",
-        winnt::PROCESSOR_ARCHITECTURE_IA32_ON_ARM64 => "Intel Itanium-based x86",
-        _ => "unknown",
+    unsafe {
+        match info.u.s().wProcessorArchitecture {
+            winnt::PROCESSOR_ARCHITECTURE_INTEL => "Intel x86",
+            winnt::PROCESSOR_ARCHITECTURE_MIPS => "MIPS",
+            winnt::PROCESSOR_ARCHITECTURE_ALPHA => "RISC Alpha",
+            winnt::PROCESSOR_ARCHITECTURE_PPC => "PPC",
+            winnt::PROCESSOR_ARCHITECTURE_SHX => "SHX",
+            winnt::PROCESSOR_ARCHITECTURE_ARM => "ARM",
+            winnt::PROCESSOR_ARCHITECTURE_IA64 => "Intel Itanium-based x64",
+            winnt::PROCESSOR_ARCHITECTURE_ALPHA64 => "RISC Alpha x64",
+            winnt::PROCESSOR_ARCHITECTURE_MSIL => "MSIL",
+            winnt::PROCESSOR_ARCHITECTURE_AMD64 => "(Intel or AMD) x64",
+            winnt::PROCESSOR_ARCHITECTURE_IA32_ON_WIN64 => "Intel Itanium-based x86",
+            winnt::PROCESSOR_ARCHITECTURE_NEUTRAL => "unknown",
+            winnt::PROCESSOR_ARCHITECTURE_ARM64 => "ARM x64",
+            winnt::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => "ARM",
+            winnt::PROCESSOR_ARCHITECTURE_IA32_ON_ARM64 => "Intel Itanium-based x86",
+            _ => "unknown",
+        }
+        .to_owned()
     }
-    .to_owned()
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -370,66 +372,66 @@ pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::__cpuid;
 
-    fn add_u32(v: &mut Vec<u8>, i: u32) {
+    unsafe fn add_u32(v: &mut Vec<u8>, i: u32) {
         let i = &i as *const u32 as *const u8;
-        unsafe {
-            v.push(*i);
-            v.push(*i.offset(1));
-            v.push(*i.offset(2));
-            v.push(*i.offset(3));
-        }
+        v.push(*i);
+        v.push(*i.offset(1));
+        v.push(*i.offset(2));
+        v.push(*i.offset(3));
     }
 
-    // First, we try to get the complete name.
-    let res = unsafe { __cpuid(0x80000000) };
-    let n_ex_ids = res.eax;
-    let brand = if n_ex_ids >= 0x80000004 {
-        let mut extdata = Vec::with_capacity(5);
+    unsafe {
+        // First, we try to get the complete name.
+        let res = __cpuid(0x80000000);
+        let n_ex_ids = res.eax;
+        let brand = if n_ex_ids >= 0x80000004 {
+            let mut extdata = Vec::with_capacity(5);
 
-        for i in 0x80000000..=n_ex_ids {
-            extdata.push(unsafe { __cpuid(i) });
-        }
+            for i in 0x80000000..=n_ex_ids {
+                extdata.push(__cpuid(i));
+            }
 
-        let mut out = Vec::with_capacity(4 * 4 * 3); // 4 * u32 * nb_entries
-        for data in extdata.iter().take(5).skip(2) {
-            add_u32(&mut out, data.eax);
-            add_u32(&mut out, data.ebx);
-            add_u32(&mut out, data.ecx);
-            add_u32(&mut out, data.edx);
-        }
+            let mut out = Vec::with_capacity(4 * 4 * 3); // 4 * u32 * nb_entries
+            for data in extdata.iter().take(5).skip(2) {
+                add_u32(&mut out, data.eax);
+                add_u32(&mut out, data.ebx);
+                add_u32(&mut out, data.ecx);
+                add_u32(&mut out, data.edx);
+            }
+            let mut pos = 0;
+            for e in out.iter() {
+                if *e == 0 {
+                    break;
+                }
+                pos += 1;
+            }
+            match std::str::from_utf8(&out[..pos]) {
+                Ok(s) => s.to_owned(),
+                _ => String::new(),
+            }
+        } else {
+            String::new()
+        };
+
+        // Failed to get full name, let's retry for the short version!
+        let res = __cpuid(0);
+        let mut x = Vec::with_capacity(16); // 3 * u32
+        add_u32(&mut x, res.ebx);
+        add_u32(&mut x, res.edx);
+        add_u32(&mut x, res.ecx);
         let mut pos = 0;
-        for e in out.iter() {
+        for e in x.iter() {
             if *e == 0 {
                 break;
             }
             pos += 1;
         }
-        match std::str::from_utf8(&out[..pos]) {
+        let vendor_id = match std::str::from_utf8(&x[..pos]) {
             Ok(s) => s.to_owned(),
-            _ => String::new(),
-        }
-    } else {
-        String::new()
-    };
-
-    // Failed to get full name, let's retry for the short version!
-    let res = unsafe { __cpuid(0) };
-    let mut x = Vec::with_capacity(16); // 3 * u32
-    add_u32(&mut x, res.ebx);
-    add_u32(&mut x, res.edx);
-    add_u32(&mut x, res.ecx);
-    let mut pos = 0;
-    for e in x.iter() {
-        if *e == 0 {
-            break;
-        }
-        pos += 1;
+            Err(_) => get_vendor_id_not_great(info),
+        };
+        (vendor_id, brand)
     }
-    let vendor_id = match std::str::from_utf8(&x[..pos]) {
-        Ok(s) => s.to_owned(),
-        Err(_) => get_vendor_id_not_great(info),
-    };
-    (vendor_id, brand)
 }
 
 #[cfg(all(not(target_arch = "x86_64"), not(target_arch = "x86")))]
@@ -450,28 +452,25 @@ pub(crate) fn get_frequencies(nb_processors: usize) -> Vec<u64> {
     let size = nb_processors * mem::size_of::<PROCESSOR_POWER_INFORMATION>();
     let mut infos: Vec<PROCESSOR_POWER_INFORMATION> = Vec::with_capacity(nb_processors);
 
-    if unsafe {
-        CallNtPowerInformation(
+    unsafe {
+        if CallNtPowerInformation(
             ProcessorInformation,
             null_mut(),
             0,
             infos.as_mut_ptr() as _,
             size as _,
-        )
-    } == 0
-    {
-        unsafe {
+        ) == 0
+        {
             infos.set_len(nb_processors);
+            // infos.Number
+            return infos
+                .into_iter()
+                .map(|i| i.CurrentMhz as u64)
+                .collect::<Vec<_>>();
         }
-        // infos.Number
-        infos
-            .into_iter()
-            .map(|i| i.CurrentMhz as u64)
-            .collect::<Vec<_>>()
-    } else {
-        sysinfo_debug!("get_frequencies: CallNtPowerInformation failed");
-        vec![0; nb_processors]
     }
+    sysinfo_debug!("get_frequencies: CallNtPowerInformation failed");
+    vec![0; nb_processors]
 }
 
 pub(crate) fn get_physical_core_count() -> Option<usize> {
@@ -482,50 +481,48 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
     // GetLogicalProcessorInformationEx: https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex
 
     let mut needed_size = 0;
-    unsafe { GetLogicalProcessorInformationEx(RelationAll, null_mut(), &mut needed_size) };
+    unsafe {
+        GetLogicalProcessorInformationEx(RelationAll, null_mut(), &mut needed_size);
 
-    let mut buf: Vec<u8> = Vec::with_capacity(needed_size as _);
+        let mut buf: Vec<u8> = Vec::with_capacity(needed_size as _);
 
-    loop {
-        if unsafe {
-            GetLogicalProcessorInformationEx(
+        loop {
+            if GetLogicalProcessorInformationEx(
                 RelationAll,
                 buf.as_mut_ptr() as *mut _,
                 &mut needed_size,
-            )
-        } == FALSE
-        {
-            let e = Error::last_os_error();
-            // For some reasons, the function might return a size not big enough...
-            match e.raw_os_error() {
-                Some(value) if value == ERROR_INSUFFICIENT_BUFFER as _ => {}
-                _ => {
-                    sysinfo_debug!(
-                        "get_physical_core_count: GetLogicalProcessorInformationEx failed"
-                    );
-                    return None;
+            ) == FALSE
+            {
+                let e = Error::last_os_error();
+                // For some reasons, the function might return a size not big enough...
+                match e.raw_os_error() {
+                    Some(value) if value == ERROR_INSUFFICIENT_BUFFER as _ => {}
+                    _ => {
+                        sysinfo_debug!(
+                            "get_physical_core_count: GetLogicalProcessorInformationEx failed"
+                        );
+                        return None;
+                    }
                 }
+            } else {
+                break;
             }
-        } else {
-            break;
+            buf.reserve(needed_size as usize - buf.capacity());
         }
-        buf.reserve(needed_size as usize - buf.capacity());
-    }
 
-    unsafe {
         buf.set_len(needed_size as _);
-    }
 
-    let mut i = 0;
-    let raw_buf = buf.as_ptr();
-    let mut count = 0;
-    while i < buf.len() {
-        let p = unsafe { &*(raw_buf.add(i) as PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX) };
-        i += p.Size as usize;
-        if p.Relationship == RelationProcessorCore {
-            // Only count the physical cores.
-            count += 1;
+        let mut i = 0;
+        let raw_buf = buf.as_ptr();
+        let mut count = 0;
+        while i < buf.len() {
+            let p = &*(raw_buf.add(i) as PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX);
+            i += p.Size as usize;
+            if p.Relationship == RelationProcessorCore {
+                // Only count the physical cores.
+                count += 1;
+            }
         }
+        Some(count)
     }
-    Some(count)
 }

@@ -242,28 +242,30 @@ pub(crate) fn compute_cpu_usage(
         p.old_stime = task_info.pti_total_system;
         p.old_utime = task_info.pti_total_user;
     } else {
-        // This is the "backup way" of CPU computation.
-        let time = unsafe { libc::mach_absolute_time() };
-        let task_time =
-            user_time + system_time + task_info.pti_total_user + task_info.pti_total_system;
+        unsafe {
+            // This is the "backup way" of CPU computation.
+            let time = libc::mach_absolute_time();
+            let task_time =
+                user_time + system_time + task_info.pti_total_user + task_info.pti_total_system;
 
-        let system_time_delta = if task_time < p.old_utime {
-            task_time
-        } else {
-            task_time - p.old_utime
-        };
-        let time_delta = if time < p.old_stime {
-            time
-        } else {
-            time - p.old_stime
-        };
-        p.old_utime = task_time;
-        p.old_stime = time;
-        p.cpu_usage = if time_delta == 0 {
-            0f32
-        } else {
-            (system_time_delta as f64 * 100f64 / time_delta as f64) as f32
-        };
+            let system_time_delta = if task_time < p.old_utime {
+                task_time
+            } else {
+                task_time - p.old_utime
+            };
+            let time_delta = if time < p.old_stime {
+                time
+            } else {
+                time - p.old_stime
+            };
+            p.old_utime = task_time;
+            p.old_stime = time;
+            p.cpu_usage = if time_delta == 0 {
+                0f32
+            } else {
+                (system_time_delta as f64 * 100f64 / time_delta as f64) as f32
+            };
+        }
     }
     p.updated = true;
 }
@@ -564,43 +566,42 @@ fn update_proc_disk_activity(p: &mut Process) {
     p.old_written_bytes = p.written_bytes;
 
     let mut pidrusage = MaybeUninit::<libc::rusage_info_v2>::uninit();
-    let retval = unsafe {
-        libc::proc_pid_rusage(
+
+    unsafe {
+        let retval = libc::proc_pid_rusage(
             p.pid().0 as _,
             libc::RUSAGE_INFO_V2,
             pidrusage.as_mut_ptr() as _,
-        )
-    };
+        );
 
-    if retval < 0 {
-        sysinfo_debug!("proc_pid_rusage failed: {:?}", retval);
-    } else {
-        let pidrusage = unsafe { pidrusage.assume_init() };
-        p.read_bytes = pidrusage.ri_diskio_bytesread;
-        p.written_bytes = pidrusage.ri_diskio_byteswritten;
+        if retval < 0 {
+            sysinfo_debug!("proc_pid_rusage failed: {:?}", retval);
+        } else {
+            let pidrusage = pidrusage.assume_init();
+            p.read_bytes = pidrusage.ri_diskio_bytesread;
+            p.written_bytes = pidrusage.ri_diskio_byteswritten;
+        }
     }
 }
 
 #[allow(clippy::uninit_vec)]
 pub(crate) fn get_proc_list() -> Option<Vec<Pid>> {
-    let count = unsafe { libc::proc_listallpids(::std::ptr::null_mut(), 0) };
-    if count < 1 {
-        return None;
-    }
-    let mut pids: Vec<Pid> = Vec::with_capacity(count as usize);
     unsafe {
-        pids.set_len(count as usize);
-    }
-    let count = count * mem::size_of::<Pid>() as i32;
-    let x = unsafe { libc::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count) };
-
-    if x < 1 || x as usize >= pids.len() {
-        None
-    } else {
-        unsafe {
-            pids.set_len(x as usize);
+        let count = libc::proc_listallpids(::std::ptr::null_mut(), 0);
+        if count < 1 {
+            return None;
         }
-        Some(pids)
+        let mut pids: Vec<Pid> = Vec::with_capacity(count as usize);
+        pids.set_len(count as usize);
+        let count = count * mem::size_of::<Pid>() as i32;
+        let x = libc::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count);
+
+        if x < 1 || x as usize >= pids.len() {
+            None
+        } else {
+            pids.set_len(x as usize);
+            Some(pids)
+        }
     }
 }
 

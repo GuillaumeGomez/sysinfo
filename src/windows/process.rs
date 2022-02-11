@@ -57,11 +57,14 @@ fn get_process_handler(pid: Pid) -> Option<HANDLE> {
         return None;
     }
     let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
-    let process_handler = unsafe { OpenProcess(options, FALSE, pid.0 as DWORD) };
-    if process_handler.is_null() {
-        None
-    } else {
-        Some(process_handler)
+
+    unsafe {
+        let process_handler = OpenProcess(options, FALSE, pid.0 as DWORD);
+        if process_handler.is_null() {
+            None
+        } else {
+            Some(process_handler)
+        }
     }
 }
 
@@ -122,13 +125,13 @@ impl CPUsageCalculationValues {
         }
     }
 }
-static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| {
-    let mut version_info: RTL_OSVERSIONINFOEXW = unsafe { MaybeUninit::zeroed().assume_init() };
+static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| unsafe {
+    let mut version_info: RTL_OSVERSIONINFOEXW = MaybeUninit::zeroed().assume_init();
 
     version_info.dwOSVersionInfoSize = std::mem::size_of::<RTL_OSVERSIONINFOEXW>() as u32;
-    if !NT_SUCCESS(unsafe {
-        RtlGetVersion(&mut version_info as *mut RTL_OSVERSIONINFOEXW as *mut _)
-    }) {
+    if !NT_SUCCESS(RtlGetVersion(
+        &mut version_info as *mut RTL_OSVERSIONINFOEXW as *mut _,
+    )) {
         return true;
     }
 
@@ -173,36 +176,36 @@ unsafe fn get_exe(process_handler: HANDLE, h_mod: *mut c_void) -> PathBuf {
 }
 
 impl Process {
-    #[allow(clippy::uninit_assumed_init)]
     pub(crate) fn new_from_pid(pid: Pid, now: u64) -> Option<Process> {
-        let process_handler = unsafe { OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid.0 as _) };
-        if process_handler.is_null() {
-            return None;
-        }
-        let mut info: PROCESS_BASIC_INFORMATION = unsafe { MaybeUninit::uninit().assume_init() };
-        if unsafe {
-            NtQueryInformationProcess(
+        unsafe {
+            let process_handler = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid.0 as _);
+            if process_handler.is_null() {
+                return None;
+            }
+            let mut info: MaybeUninit<PROCESS_BASIC_INFORMATION> = MaybeUninit::uninit();
+            if NtQueryInformationProcess(
                 process_handler,
                 ProcessBasicInformation,
-                &mut info as *mut _ as *mut _,
+                info.as_mut_ptr() as *mut _,
                 size_of::<PROCESS_BASIC_INFORMATION>() as _,
                 null_mut(),
-            )
-        } != 0
-        {
-            unsafe { CloseHandle(process_handler) };
-            return None;
+            ) != 0
+            {
+                CloseHandle(process_handler);
+                return None;
+            }
+            let info = info.assume_init();
+            Some(Process::new_with_handle(
+                pid,
+                if info.InheritedFromUniqueProcessId as usize != 0 {
+                    Some(Pid(info.InheritedFromUniqueProcessId as _))
+                } else {
+                    None
+                },
+                process_handler,
+                now,
+            ))
         }
-        Some(Process::new_with_handle(
-            pid,
-            if info.InheritedFromUniqueProcessId as usize != 0 {
-                Some(Pid(info.InheritedFromUniqueProcessId as _))
-            } else {
-                None
-            },
-            process_handler,
-            now,
-        ))
     }
 
     pub(crate) fn new_full(
@@ -215,40 +218,43 @@ impl Process {
     ) -> Process {
         if let Some(handle) = get_process_handler(pid) {
             let mut h_mod = null_mut();
-            unsafe { get_h_mod(handle, &mut h_mod) };
-            let exe = unsafe { get_exe(handle, h_mod) };
-            let mut root = exe.clone();
-            root.pop();
-            let (cmd, environ, cwd) = match unsafe { get_process_params(handle) } {
-                Ok(args) => args,
-                Err(_e) => {
-                    sysinfo_debug!("Failed to get process parameters: {}", _e);
-                    (Vec::new(), Vec::new(), PathBuf::new())
+
+            unsafe {
+                get_h_mod(handle, &mut h_mod);
+                let exe = get_exe(handle, h_mod);
+                let mut root = exe.clone();
+                root.pop();
+                let (cmd, environ, cwd) = match get_process_params(handle) {
+                    Ok(args) => args,
+                    Err(_e) => {
+                        sysinfo_debug!("Failed to get process parameters: {}", _e);
+                        (Vec::new(), Vec::new(), PathBuf::new())
+                    }
+                };
+                let (start_time, run_time) = get_start_and_run_time(handle, now);
+                Process {
+                    handle: PtrWrapper(handle),
+                    name,
+                    pid,
+                    parent,
+                    cmd,
+                    environ,
+                    exe,
+                    cwd,
+                    root,
+                    status: ProcessStatus::Run,
+                    memory,
+                    virtual_memory,
+                    cpu_usage: 0.,
+                    cpu_calc_values: CPUsageCalculationValues::new(),
+                    start_time,
+                    run_time,
+                    updated: true,
+                    old_read_bytes: 0,
+                    old_written_bytes: 0,
+                    read_bytes: 0,
+                    written_bytes: 0,
                 }
-            };
-            let (start_time, run_time) = unsafe { get_start_and_run_time(handle, now) };
-            Process {
-                handle: PtrWrapper(handle),
-                name,
-                pid,
-                parent,
-                cmd,
-                environ,
-                exe,
-                cwd,
-                root,
-                status: ProcessStatus::Run,
-                memory,
-                virtual_memory,
-                cpu_usage: 0.,
-                cpu_calc_values: CPUsageCalculationValues::new(),
-                start_time,
-                run_time,
-                updated: true,
-                old_read_bytes: 0,
-                old_written_bytes: 0,
-                read_bytes: 0,
-                written_bytes: 0,
             }
         } else {
             Process {
@@ -878,15 +884,18 @@ pub(crate) fn get_handle(p: &Process) -> HANDLE {
 
 pub(crate) fn update_disk_usage(p: &mut Process) {
     let mut counters = MaybeUninit::<IO_COUNTERS>::uninit();
-    let ret = unsafe { GetProcessIoCounters(*p.handle, counters.as_mut_ptr()) };
-    if ret == 0 {
-        sysinfo_debug!("GetProcessIoCounters call failed on process {}", p.pid());
-    } else {
-        let counters = unsafe { counters.assume_init() };
-        p.old_read_bytes = p.read_bytes;
-        p.old_written_bytes = p.written_bytes;
-        p.read_bytes = counters.ReadTransferCount;
-        p.written_bytes = counters.WriteTransferCount;
+
+    unsafe {
+        let ret = GetProcessIoCounters(*p.handle, counters.as_mut_ptr());
+        if ret == 0 {
+            sysinfo_debug!("GetProcessIoCounters call failed on process {}", p.pid());
+        } else {
+            let counters = counters.assume_init();
+            p.old_read_bytes = p.read_bytes;
+            p.old_written_bytes = p.written_bytes;
+            p.read_bytes = counters.ReadTransferCount;
+            p.written_bytes = counters.WriteTransferCount;
+        }
     }
 }
 

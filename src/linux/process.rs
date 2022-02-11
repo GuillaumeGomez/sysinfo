@@ -220,8 +220,10 @@ impl ProcessExt for Process {
 impl Drop for Process {
     fn drop(&mut self) {
         if self.stat_file.is_some() {
-            if let Ok(ref mut x) = unsafe { crate::sys::system::REMAINING_FILES.lock() } {
-                **x += 1;
+            unsafe {
+                if let Ok(ref mut x) = crate::sys::system::REMAINING_FILES.lock() {
+                    **x += 1;
+                }
             }
         }
     }
@@ -618,10 +620,12 @@ fn _get_uid_and_gid(status_data: String) -> Option<(uid_t, gid_t)> {
 }
 
 fn check_nb_open_files(f: File) -> Option<File> {
-    if let Ok(ref mut x) = unsafe { REMAINING_FILES.lock() } {
-        if **x > 0 {
-            **x -= 1;
-            return Some(f);
+    unsafe {
+        if let Ok(ref mut x) = REMAINING_FILES.lock() {
+            if **x > 0 {
+                **x -= 1;
+                return Some(f);
+            }
         }
     }
     // Something bad happened...

@@ -14,23 +14,23 @@ fn get_user_groups(name: *const c_char, group_id: gid_t) -> Vec<String> {
     loop {
         let mut nb_groups = 256 + add;
         let mut groups = Vec::with_capacity(nb_groups as _);
-        if unsafe { getgrouplist(name, group_id as _, groups.as_mut_ptr(), &mut nb_groups) } == -1 {
-            add += 100;
-            continue;
-        }
         unsafe {
+            if getgrouplist(name, group_id as _, groups.as_mut_ptr(), &mut nb_groups) == -1 {
+                add += 100;
+                continue;
+            }
             groups.set_len(nb_groups as _);
+            return groups
+                .into_iter()
+                .filter_map(|g| {
+                    let group = getgrgid(g as _);
+                    if group.is_null() {
+                        return None;
+                    }
+                    utils::cstr_to_rust((*group).gr_name)
+                })
+                .collect();
         }
-        return groups
-            .into_iter()
-            .filter_map(|g| {
-                let group = unsafe { getgrgid(g as _) };
-                if group.is_null() {
-                    return None;
-                }
-                utils::cstr_to_rust(unsafe { (*group).gr_name })
-            })
-            .collect();
     }
 }
 
@@ -38,13 +38,15 @@ fn endswith(s1: *const c_char, s2: &[u8]) -> bool {
     if s1.is_null() {
         return false;
     }
-    let mut len = unsafe { strlen(s1) } as isize - 1;
-    let mut i = s2.len() as isize - 1;
-    while len >= 0 && i >= 0 && unsafe { *s1.offset(len) } == s2[i as usize] as _ {
-        i -= 1;
-        len -= 1;
+    unsafe {
+        let mut len = strlen(s1) as isize - 1;
+        let mut i = s2.len() as isize - 1;
+        while len >= 0 && i >= 0 && *s1.offset(len) == s2[i as usize] as _ {
+            i -= 1;
+            len -= 1;
+        }
+        i == -1
     }
-    i == -1
 }
 
 fn users_list<F>(filter: F) -> Vec<User>
@@ -53,31 +55,33 @@ where
 {
     let mut users = Vec::new();
 
-    unsafe { setpwent() };
-    loop {
-        let pw = unsafe { getpwent() };
-        if pw.is_null() {
-            break;
-        }
+    unsafe {
+        setpwent();
+        loop {
+            let pw = getpwent();
+            if pw.is_null() {
+                break;
+            }
 
-        if !filter(unsafe { (*pw).pw_shell }, unsafe { (*pw).pw_uid }) {
-            // This is not a "real" or "local" user.
-            continue;
-        }
+            if !filter((*pw).pw_shell, (*pw).pw_uid) {
+                // This is not a "real" or "local" user.
+                continue;
+            }
 
-        let groups = get_user_groups(unsafe { (*pw).pw_name }, unsafe { (*pw).pw_gid });
-        let uid = unsafe { (*pw).pw_uid };
-        let gid = unsafe { (*pw).pw_gid };
-        if let Some(name) = utils::cstr_to_rust(unsafe { (*pw).pw_name }) {
-            users.push(User {
-                uid: Uid(uid),
-                gid: Gid(gid),
-                name,
-                groups,
-            });
+            let groups = get_user_groups((*pw).pw_name, (*pw).pw_gid);
+            let uid = (*pw).pw_uid;
+            let gid = (*pw).pw_gid;
+            if let Some(name) = utils::cstr_to_rust((*pw).pw_name) {
+                users.push(User {
+                    uid: Uid(uid),
+                    gid: Gid(gid),
+                    name,
+                    groups,
+                });
+            }
         }
+        endpwent();
     }
-    unsafe { endpwent() };
     users.sort_unstable_by(|x, y| x.name.partial_cmp(&y.name).unwrap());
     users.dedup_by(|a, b| a.name == b.name);
     users

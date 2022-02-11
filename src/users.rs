@@ -36,50 +36,51 @@ pub fn get_users_list() -> Vec<User> {
                             c_user.push(0);
                             loop {
                                 let mut current = ngroups;
-                                if unsafe {
-                                    getgrouplist(
+
+                                unsafe {
+                                    if getgrouplist(
                                         c_user.as_ptr() as *const _,
                                         group_id,
                                         groups.as_mut_ptr(),
                                         &mut current,
-                                    )
-                                } == -1
-                                {
-                                    if current > ngroups {
-                                        groups.resize(current as _, 0);
-                                        ngroups = current;
-                                        continue;
+                                    ) == -1
+                                    {
+                                        if current > ngroups {
+                                            groups.resize(current as _, 0);
+                                            ngroups = current;
+                                            continue;
+                                        }
+                                        // It really failed, let's move on...
+                                        return None;
                                     }
-                                    // It really failed, let's move on...
-                                    return None;
-                                }
-                                // Let's get all the group names!
-                                return Some(User {
-                                    uid: Uid(uid),
-                                    gid: Gid(group_id),
-                                    name: username.to_owned(),
-                                    groups: groups[..current as usize]
-                                        .iter()
-                                        .filter_map(|id| {
-                                            let g = unsafe { getgrgid(*id as _) };
-                                            if g.is_null() {
-                                                return None;
-                                            }
-                                            let mut group_name = Vec::new();
-                                            let c_group_name = unsafe { (*g).gr_name };
-                                            let mut x = 0;
-                                            loop {
-                                                let c = unsafe { *c_group_name.offset(x) };
-                                                if c == 0 {
-                                                    break;
+                                    // Let's get all the group names!
+                                    return Some(User {
+                                        uid: Uid(uid),
+                                        gid: Gid(group_id),
+                                        name: username.to_owned(),
+                                        groups: groups[..current as usize]
+                                            .iter()
+                                            .filter_map(|id| {
+                                                let g = getgrgid(*id as _);
+                                                if g.is_null() {
+                                                    return None;
                                                 }
-                                                group_name.push(c as u8);
-                                                x += 1;
-                                            }
-                                            String::from_utf8(group_name).ok()
-                                        })
-                                        .collect(),
-                                });
+                                                let mut group_name = Vec::new();
+                                                let c_group_name = (*g).gr_name;
+                                                let mut x = 0;
+                                                loop {
+                                                    let c = *c_group_name.offset(x);
+                                                    if c == 0 {
+                                                        break;
+                                                    }
+                                                    group_name.push(c as u8);
+                                                    x += 1;
+                                                }
+                                                String::from_utf8(group_name).ok()
+                                            })
+                                            .collect(),
+                                    });
+                                }
                             }
                         }
                     }

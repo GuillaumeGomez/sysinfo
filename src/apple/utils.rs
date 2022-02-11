@@ -15,13 +15,15 @@ pub(crate) fn cstr_to_rust_with_size(c: *const c_char, size: Option<usize>) -> O
         None => Vec::new(),
     };
     let mut i = 0;
-    loop {
-        let value = unsafe { *c.offset(i) } as u8;
-        if value == 0 {
-            break;
+    unsafe {
+        loop {
+            let value = *c.offset(i) as u8;
+            if value == 0 {
+                break;
+            }
+            s.push(value);
+            i += 1;
         }
-        s.push(value);
-        i += 1;
+        String::from_utf8(s).ok()
     }
-    String::from_utf8(s).ok()
 }
