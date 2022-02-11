@@ -18,7 +18,7 @@ pub(crate) fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Res
 
 #[allow(clippy::useless_conversion)]
 pub(crate) fn realpath(original: &Path) -> std::path::PathBuf {
-    use libc::{c_char, lstat, stat, S_IFLNK, S_IFMT};
+    use libc::{lstat, stat, S_IFLNK, S_IFMT};
     use std::fs;
     use std::mem::MaybeUninit;
     use std::path::PathBuf;
@@ -37,7 +37,7 @@ pub(crate) fn realpath(original: &Path) -> std::path::PathBuf {
     result_s.push(0);
     let mut buf = MaybeUninit::<stat>::uninit();
     unsafe {
-        let res = lstat(result_s.as_ptr() as *const c_char, buf.as_mut_ptr());
+        let res = lstat(result_s.as_ptr() as *const _, buf.as_mut_ptr());
         if res < 0 {
             PathBuf::new()
         } else {
