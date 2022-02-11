@@ -151,7 +151,7 @@ impl SystemExt for System {
     }
 
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
-        let res = unsafe {
+        unsafe {
             let kd = self.system_info.kd.as_ptr();
             let mut count = 0;
             let procs = libc::kvm_getprocs(kd, libc::KERN_PROC_PROC, 0, &mut count);
@@ -190,18 +190,16 @@ impl SystemExt for System {
             multi_iter!(ret, find(|kproc| kproc.0.ki_pid == pid.0));
             #[cfg(feature = "multithread")]
             multi_iter!(ret, find_any(|kproc| kproc.0.ki_pid == pid.0));
-            ret
-        };
-        if let Some((kproc, proc_)) = res {
-            unsafe {
+
+            if let Some((kproc, proc_)) = ret {
                 self.add_missing_proc_info(self.system_info.kd.as_ptr(), kproc.0, proc_);
+                true
+            } else {
+                self.process_list
+                    .get(&pid)
+                    .map(|p| p.updated)
+                    .unwrap_or(false)
             }
-            true
-        } else {
-            self.process_list
-                .get(&pid)
-                .map(|p| p.updated)
-                .unwrap_or(false)
         }
     }
 
@@ -244,10 +242,12 @@ impl SystemExt for System {
     fn physical_core_count(&self) -> Option<usize> {
         let mut physical_core_count: u32 = 0;
 
-        if unsafe { get_sys_value_by_name(b"hw.ncpu\0", &mut physical_core_count) } {
-            Some(physical_core_count as _)
-        } else {
-            None
+        unsafe {
+            if get_sys_value_by_name(b"hw.ncpu\0", &mut physical_core_count) {
+                Some(physical_core_count as _)
+            } else {
+                None
+            }
         }
     }
 
@@ -297,9 +297,11 @@ impl SystemExt for System {
     }
 
     fn uptime(&self) -> u64 {
-        let csec = unsafe { libc::time(::std::ptr::null_mut()) };
+        unsafe {
+            let csec = libc::time(::std::ptr::null_mut());
 
-        unsafe { libc::difftime(csec, self.boot_time as _) as u64 }
+            libc::difftime(csec, self.boot_time as _) as u64
+        }
     }
 
     fn boot_time(&self) -> u64 {
@@ -310,11 +312,11 @@ impl SystemExt for System {
         let mut loads = vec![0f64; 3];
         unsafe {
             libc::getloadavg(loads.as_mut_ptr(), 3);
-        }
-        LoadAvg {
-            one: loads[0],
-            five: loads[1],
-            fifteen: loads[2],
+            LoadAvg {
+                one: loads[0],
+                five: loads[1],
+                fifteen: loads[2],
+            }
         }
     }
 
@@ -458,8 +460,8 @@ impl Zfs {
             let mut arc_size: u64 = 0;
             unsafe {
                 get_sys_value(&self.mib_arcstats_size, &mut arc_size);
+                Some(arc_size)
             }
-            Some(arc_size)
         } else {
             None
         }
@@ -504,22 +506,20 @@ unsafe impl Sync for SystemInfo {}
 
 impl SystemInfo {
     fn new() -> Self {
-        let kd = unsafe {
+        unsafe {
             let mut errbuf =
                 MaybeUninit::<[libc::c_char; libc::_POSIX2_LINE_MAX as usize]>::uninit();
-            NonNull::new(libc::kvm_openfiles(
+            let kd = NonNull::new(libc::kvm_openfiles(
                 std::ptr::null(),
                 b"/dev/null\0".as_ptr() as *const _,
                 std::ptr::null(),
                 0,
                 errbuf.as_mut_ptr() as *mut _,
             ))
-            .expect("kvm_openfiles failed")
-        };
+            .expect("kvm_openfiles failed");
 
-        let mut smp: c_int = 0;
-        let mut nb_cpus: c_int = 1;
-        unsafe {
+            let mut smp: c_int = 0;
+            let mut nb_cpus: c_int = 1;
             if !get_sys_value_by_name(b"kern.smp.active\0", &mut smp) {
                 smp = 0;
             }
@@ -529,33 +529,34 @@ impl SystemInfo {
                     nb_cpus = 1;
                 }
             }
-        }
 
-        let mut si = SystemInfo {
-            hw_physical_memory: Default::default(),
-            page_size: 0,
-            virtual_page_count: Default::default(),
-            virtual_wire_count: Default::default(),
-            virtual_active_count: Default::default(),
-            virtual_cache_count: Default::default(),
-            virtual_inactive_count: Default::default(),
-            virtual_free_count: Default::default(),
-            buf_space: Default::default(),
-            os_type: Default::default(),
-            os_release: Default::default(),
-            kern_version: Default::default(),
-            hostname: Default::default(),
-            nb_cpus,
-            kd,
-            mib_cp_time: Default::default(),
-            mib_cp_times: Default::default(),
-            cp_time: utils::VecSwitcher::new(vec![0; libc::CPUSTATES as usize]),
-            cp_times: utils::VecSwitcher::new(vec![0; nb_cpus as usize * libc::CPUSTATES as usize]),
-            fscale: 0.,
-            procstat: std::ptr::null_mut(),
-            zfs: Zfs::new(),
-        };
-        unsafe {
+            let mut si = SystemInfo {
+                hw_physical_memory: Default::default(),
+                page_size: 0,
+                virtual_page_count: Default::default(),
+                virtual_wire_count: Default::default(),
+                virtual_active_count: Default::default(),
+                virtual_cache_count: Default::default(),
+                virtual_inactive_count: Default::default(),
+                virtual_free_count: Default::default(),
+                buf_space: Default::default(),
+                os_type: Default::default(),
+                os_release: Default::default(),
+                kern_version: Default::default(),
+                hostname: Default::default(),
+                nb_cpus,
+                kd,
+                mib_cp_time: Default::default(),
+                mib_cp_times: Default::default(),
+                cp_time: utils::VecSwitcher::new(vec![0; libc::CPUSTATES as usize]),
+                cp_times: utils::VecSwitcher::new(vec![
+                    0;
+                    nb_cpus as usize * libc::CPUSTATES as usize
+                ]),
+                fscale: 0.,
+                procstat: std::ptr::null_mut(),
+                zfs: Zfs::new(),
+            };
             let mut fscale: c_int = 0;
             if !get_sys_value_by_name(b"kern.fscale\0", &mut fscale) {
                 // Default value used in htop.
@@ -589,9 +590,9 @@ impl SystemInfo {
 
             init_mib(b"kern.cp_time\0", &mut si.mib_cp_time);
             init_mib(b"kern.cp_times\0", &mut si.mib_cp_times);
-        }
 
-        si
+            si
+        }
     }
 
     fn get_os_name(&self) -> Option<String> {
@@ -647,15 +648,13 @@ impl SystemInfo {
             if get_sys_value(&self.virtual_page_count, &mut nb_pages) {
                 return nb_pages * self.page_size as u64 / 1_000;
             }
-        }
 
-        // This is a fallback. It includes all the available memory, not just the one available for
-        // the users.
-        let mut total_memory: u64 = 0;
-        unsafe {
+            // This is a fallback. It includes all the available memory, not just the one available for
+            // the users.
+            let mut total_memory: u64 = 0;
             get_sys_value(&self.hw_physical_memory, &mut total_memory);
+            total_memory / 1_000
         }
-        total_memory / 1_000
     }
 
     fn get_used_memory(&self) -> u64 {
@@ -665,16 +664,16 @@ impl SystemInfo {
         unsafe {
             get_sys_value(&self.virtual_active_count, &mut mem_active);
             get_sys_value(&self.virtual_wire_count, &mut mem_wire);
-        }
 
-        let mut mem_wire = mem_wire * self.page_size as u64;
-        // We need to subtract "ZFS ARC" from the "wired memory" because it should belongs to cache
-        // but the kernel reports it as "wired memory" instead...
-        if let Some(arc_size) = self.zfs.arc_size() {
-            mem_wire -= arc_size;
+            let mut mem_wire = mem_wire * self.page_size as u64;
+            // We need to subtract "ZFS ARC" from the "wired memory" because it should belongs to cache
+            // but the kernel reports it as "wired memory" instead...
+            if let Some(arc_size) = self.zfs.arc_size() {
+                mem_wire -= arc_size;
+            }
+            let used = (mem_active * self.page_size as u64) + mem_wire;
+            used / 1_000
         }
-        let used = (mem_active * self.page_size as u64) + mem_wire;
-        used / 1_000
     }
 
     fn get_free_memory(&self) -> u64 {
@@ -688,13 +687,13 @@ impl SystemInfo {
             get_sys_value(&self.virtual_inactive_count, &mut inactive_mem);
             get_sys_value(&self.virtual_cache_count, &mut cached_mem);
             get_sys_value(&self.virtual_free_count, &mut free_mem);
+            // For whatever reason, buffers_mem is already the right value...
+            let free = buffers_mem
+                + (inactive_mem * self.page_size as u64)
+                + (cached_mem * self.page_size as u64)
+                + (free_mem * self.page_size as u64);
+            free / 1_000
         }
-        // For whatever reason, buffers_mem is already the right value...
-        let free = buffers_mem
-            + (inactive_mem * self.page_size as u64)
-            + (cached_mem * self.page_size as u64)
-            + (free_mem * self.page_size as u64);
-        free / 1_000
     }
 
     fn get_cpu_usage(&mut self, global: &mut Processor, processors: &mut [Processor]) {

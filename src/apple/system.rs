@@ -102,16 +102,14 @@ pub struct System {
 
 impl Drop for System {
     fn drop(&mut self) {
-        #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-        if let Some(conn) = self.connection {
-            unsafe {
+        unsafe {
+            #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+            if let Some(conn) = self.connection {
                 ffi::IOServiceClose(conn);
             }
-        }
 
-        #[cfg(target_os = "macos")]
-        if !self.session.0.is_null() {
-            unsafe {
+            #[cfg(target_os = "macos")]
+            if !self.session.0.is_null() {
                 CFRelease(self.session.0 as _);
             }
         }
@@ -140,20 +138,21 @@ fn boot_time() -> u64 {
     };
     let mut len = std::mem::size_of::<timeval>();
     let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
-    if unsafe {
-        sysctl(
+
+    unsafe {
+        if sysctl(
             mib.as_mut_ptr(),
             mib.len() as _,
             &mut boot_time as *mut timeval as *mut _,
             &mut len,
             std::ptr::null_mut(),
             0,
-        )
-    } < 0
-    {
-        0
-    } else {
-        boot_time.tv_sec as _
+        ) < 0
+        {
+            0
+        } else {
+            boot_time.tv_sec as _
+        }
     }
 }
 
@@ -169,39 +168,41 @@ impl SystemExt for System {
     const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
-        let port = unsafe { libc::mach_host_self() };
+        unsafe {
+            let port = libc::mach_host_self();
 
-        let mut s = System {
-            process_list: HashMap::with_capacity(200),
-            mem_total: 0,
-            mem_free: 0,
-            mem_available: 0,
-            swap_total: 0,
-            swap_free: 0,
-            global_processor: Processor::new(
-                "0".to_owned(),
-                Arc::new(ProcessorData::new(std::ptr::null_mut(), 0)),
-                0,
-                String::new(),
-                String::new(),
-            ),
-            processors: Vec::new(),
-            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) as u64 / 1_000 },
-            components: Vec::with_capacity(2),
-            #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-            connection: get_io_service_connection(),
-            disks: Vec::with_capacity(1),
-            networks: Networks::new(),
-            port,
-            users: Vec::new(),
-            boot_time: boot_time(),
-            #[cfg(target_os = "macos")]
-            session: ffi::SessionWrap(::std::ptr::null_mut()),
-            #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-            clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
-        };
-        s.refresh_specifics(refreshes);
-        s
+            let mut s = System {
+                process_list: HashMap::with_capacity(200),
+                mem_total: 0,
+                mem_free: 0,
+                mem_available: 0,
+                swap_total: 0,
+                swap_free: 0,
+                global_processor: Processor::new(
+                    "0".to_owned(),
+                    Arc::new(ProcessorData::new(std::ptr::null_mut(), 0)),
+                    0,
+                    String::new(),
+                    String::new(),
+                ),
+                processors: Vec::new(),
+                page_size_kb: sysconf(_SC_PAGESIZE) as u64 / 1_000,
+                components: Vec::with_capacity(2),
+                #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+                connection: get_io_service_connection(),
+                disks: Vec::with_capacity(1),
+                networks: Networks::new(),
+                port,
+                users: Vec::new(),
+                boot_time: boot_time(),
+                #[cfg(target_os = "macos")]
+                session: ffi::SessionWrap(::std::ptr::null_mut()),
+                #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+                clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
+            };
+            s.refresh_specifics(refreshes);
+            s
+        }
     }
 
     fn refresh_memory(&mut self) {
@@ -313,9 +314,11 @@ impl SystemExt for System {
     fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
         use crate::utils::into_iter;
 
-        let count = unsafe { libc::proc_listallpids(::std::ptr::null_mut(), 0) };
-        if count < 1 {
-            return;
+        unsafe {
+            let count = libc::proc_listallpids(::std::ptr::null_mut(), 0);
+            if count < 1 {
+                return;
+            }
         }
         if let Some(pids) = get_proc_list() {
             let now = get_now();
@@ -387,10 +390,12 @@ impl SystemExt for System {
 
     #[cfg(target_os = "macos")]
     fn refresh_disks_list(&mut self) {
-        if self.session.0.is_null() {
-            self.session.0 = unsafe { ffi::DASessionCreate(kCFAllocatorDefault as _) };
+        unsafe {
+            if self.session.0.is_null() {
+                self.session.0 = ffi::DASessionCreate(kCFAllocatorDefault as _);
+            }
+            self.disks = get_disks(self.session.0);
         }
-        self.disks = get_disks(self.session.0);
     }
 
     fn refresh_users_list(&mut self) {
@@ -420,16 +425,16 @@ impl SystemExt for System {
     fn physical_core_count(&self) -> Option<usize> {
         let mut physical_core_count = 0;
 
-        if unsafe {
-            get_sys_value_by_name(
+        unsafe {
+            if get_sys_value_by_name(
                 b"hw.physicalcpu\0",
                 &mut mem::size_of::<u32>(),
                 &mut physical_core_count as *mut usize as *mut c_void,
-            )
-        } {
-            Some(physical_core_count)
-        } else {
-            None
+            ) {
+                Some(physical_core_count)
+            } else {
+                None
+            }
         }
     }
 
@@ -487,20 +492,23 @@ impl SystemExt for System {
     }
 
     fn uptime(&self) -> u64 {
-        let csec = unsafe { libc::time(::std::ptr::null_mut()) };
+        unsafe {
+            let csec = libc::time(::std::ptr::null_mut());
 
-        unsafe { libc::difftime(csec, self.boot_time as _) as u64 }
+            libc::difftime(csec, self.boot_time as _) as u64
+        }
     }
 
     fn load_average(&self) -> LoadAvg {
         let mut loads = vec![0f64; 3];
+
         unsafe {
             libc::getloadavg(loads.as_mut_ptr(), 3);
-        }
-        LoadAvg {
-            one: loads[0],
-            five: loads[1],
-            fifteen: loads[2],
+            LoadAvg {
+                one: loads[0],
+                five: loads[1],
+                fifteen: loads[2],
+            }
         }
     }
 
@@ -697,8 +705,8 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
     let mut mib: [c_int; 2] = [libc::CTL_KERN, value];
     let mut size = 0;
 
-    // Call first to get size
     unsafe {
+        // Call first to get size
         sysctl(
             mib.as_mut_ptr(),
             mib.len() as _,
@@ -706,36 +714,34 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
             &mut size,
             std::ptr::null_mut(),
             0,
-        )
-    };
+        );
 
-    // exit early if we did not update the size
-    if size == 0 {
-        default.map(|s| s.to_owned())
-    } else {
-        // set the buffer to the correct size
-        let mut buf = vec![0_u8; size as usize];
+        // exit early if we did not update the size
+        if size == 0 {
+            default.map(|s| s.to_owned())
+        } else {
+            // set the buffer to the correct size
+            let mut buf = vec![0_u8; size as usize];
 
-        if unsafe {
-            sysctl(
+            if sysctl(
                 mib.as_mut_ptr(),
                 mib.len() as _,
                 buf.as_mut_ptr() as _,
                 &mut size,
                 std::ptr::null_mut(),
                 0,
-            )
-        } == -1
-        {
-            // If command fails return default
-            default.map(|s| s.to_owned())
-        } else {
-            if let Some(pos) = buf.iter().position(|x| *x == 0) {
-                // Shrink buffer to terminate the null bytes
-                buf.resize(pos, 0);
-            }
+            ) == -1
+            {
+                // If command fails return default
+                default.map(|s| s.to_owned())
+            } else {
+                if let Some(pos) = buf.iter().position(|x| *x == 0) {
+                    // Shrink buffer to terminate the null bytes
+                    buf.resize(pos, 0);
+                }
 
-            String::from_utf8(buf).ok()
+                String::from_utf8(buf).ok()
+            }
         }
     }
 }

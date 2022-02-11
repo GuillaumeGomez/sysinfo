@@ -29,42 +29,44 @@ unsafe impl Sync for SystemTimeInfo {}
 impl SystemTimeInfo {
     #[allow(deprecated)] // Everything related to mach_timebase_info_data_t
     pub fn new(port: mach_port_t) -> Option<Self> {
-        let clock_ticks_per_sec = unsafe { sysconf(_SC_CLK_TCK) };
+        unsafe {
+            let clock_ticks_per_sec = sysconf(_SC_CLK_TCK);
 
-        // FIXME: Maybe check errno here? Problem is that if errno is not 0 before this call,
-        //        we will get an error which isn't related...
-        // if let Some(er) = std::io::Error::last_os_error().raw_os_error() {
-        //     if err != 0 {
-        //         println!("==> {:?}", er);
-        //         sysinfo_debug!("Failed to get _SC_CLK_TCK value, using old CPU tick measure system");
-        //         return None;
-        //     }
-        // }
+            // FIXME: Maybe check errno here? Problem is that if errno is not 0 before this call,
+            //        we will get an error which isn't related...
+            // if let Some(er) = std::io::Error::last_os_error().raw_os_error() {
+            //     if err != 0 {
+            //         println!("==> {:?}", er);
+            //         sysinfo_debug!("Failed to get _SC_CLK_TCK value, using old CPU tick measure system");
+            //         return None;
+            //     }
+            // }
 
-        let mut info = mach_timebase_info_data_t { numer: 0, denom: 0 };
-        if unsafe { mach_timebase_info(&mut info) } != libc::KERN_SUCCESS {
-            sysinfo_debug!("mach_timebase_info failed, using default value of 1");
-            info.numer = 1;
-            info.denom = 1;
-        }
-
-        let mut old_cpu_load = null_mut();
-        let old_cpu_count = match Self::update_ticks(port, &mut old_cpu_load) {
-            Some(c) => c,
-            None => {
-                sysinfo_debug!("host_processor_info failed, using old CPU tick measure system");
-                return None;
+            let mut info = mach_timebase_info_data_t { numer: 0, denom: 0 };
+            if mach_timebase_info(&mut info) != libc::KERN_SUCCESS {
+                sysinfo_debug!("mach_timebase_info failed, using default value of 1");
+                info.numer = 1;
+                info.denom = 1;
             }
-        };
 
-        let nano_per_seconds = 1_000_000_000.;
-        sysinfo_debug!("");
-        Some(Self {
-            timebase_to_ns: info.numer as f64 / info.denom as f64,
-            clock_per_sec: nano_per_seconds / clock_ticks_per_sec as f64,
-            old_cpu_load,
-            old_cpu_count,
-        })
+            let mut old_cpu_load = null_mut();
+            let old_cpu_count = match Self::update_ticks(port, &mut old_cpu_load) {
+                Some(c) => c,
+                None => {
+                    sysinfo_debug!("host_processor_info failed, using old CPU tick measure system");
+                    return None;
+                }
+            };
+
+            let nano_per_seconds = 1_000_000_000.;
+            sysinfo_debug!("");
+            Some(Self {
+                timebase_to_ns: info.numer as f64 / info.denom as f64,
+                clock_per_sec: nano_per_seconds / clock_ticks_per_sec as f64,
+                old_cpu_load,
+                old_cpu_count,
+            })
+        }
     }
 
     fn update_ticks(
@@ -76,24 +78,22 @@ impl SystemTimeInfo {
 
         unsafe {
             free_cpu_load_info(cpu_load);
-        }
 
-        if unsafe {
-            host_processor_info(
+            if host_processor_info(
                 port,
                 PROCESSOR_CPU_LOAD_INFO,
                 &mut cpu_count,
                 cpu_load as *mut _ as *mut _,
                 &mut info_size,
-            )
-        } != 0
-        {
-            sysinfo_debug!("host_processor_info failed, not updating CPU ticks usage...");
-            None
-        } else if cpu_count < 1 || cpu_load.is_null() {
-            None
-        } else {
-            Some(cpu_count)
+            ) != 0
+            {
+                sysinfo_debug!("host_processor_info failed, not updating CPU ticks usage...");
+                None
+            } else if cpu_count < 1 || cpu_load.is_null() {
+                None
+            } else {
+                Some(cpu_count)
+            }
         }
     }
 
@@ -106,24 +106,24 @@ impl SystemTimeInfo {
             None => return 0.,
         };
         let cpu_count = std::cmp::min(self.old_cpu_count, new_cpu_count);
-        for i in 0..cpu_count {
-            let new_load: &processor_cpu_load_info = unsafe { &*new_cpu_load.offset(i as _) };
-            let old_load: &processor_cpu_load_info = unsafe { &*self.old_cpu_load.offset(i as _) };
-            for (new, old) in new_load.cpu_ticks.iter().zip(old_load.cpu_ticks.iter()) {
-                if new > old {
-                    total += new - old;
+        unsafe {
+            for i in 0..cpu_count {
+                let new_load: &processor_cpu_load_info = &*new_cpu_load.offset(i as _);
+                let old_load: &processor_cpu_load_info = &*self.old_cpu_load.offset(i as _);
+                for (new, old) in new_load.cpu_ticks.iter().zip(old_load.cpu_ticks.iter()) {
+                    if new > old {
+                        total += new - old;
+                    }
                 }
             }
-        }
 
-        unsafe {
             free_cpu_load_info(&mut self.old_cpu_load);
-        }
-        self.old_cpu_load = new_cpu_load;
-        self.old_cpu_count = new_cpu_count;
+            self.old_cpu_load = new_cpu_load;
+            self.old_cpu_count = new_cpu_count;
 
-        // Now we convert the ticks to nanoseconds:
-        total as f64 / self.timebase_to_ns * self.clock_per_sec / cpu_count as f64
+            // Now we convert the ticks to nanoseconds:
+            total as f64 / self.timebase_to_ns * self.clock_per_sec / cpu_count as f64
+        }
     }
 }
 

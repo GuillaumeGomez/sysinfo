@@ -156,18 +156,20 @@ unsafe impl Sync for Connection {}
 impl Connection {
     #[allow(clippy::unnecessary_wraps)]
     fn new() -> Option<Connection> {
-        let val = unsafe { CoInitializeEx(null_mut(), 0) };
-        Some(Connection {
-            instance: None,
-            server_connection: None,
-            enumerator: None,
-            initialized: val == S_OK || val == S_FALSE,
-        })
+        unsafe {
+            let val = CoInitializeEx(null_mut(), 0);
+            Some(Connection {
+                instance: None,
+                server_connection: None,
+                enumerator: None,
+                initialized: val == S_OK || val == S_FALSE,
+            })
+        }
     }
 
     fn initialize_security(self) -> Option<Connection> {
-        if FAILED(unsafe {
-            CoInitializeSecurity(
+        unsafe {
+            if FAILED(CoInitializeSecurity(
                 null_mut(),
                 -1,
                 null_mut(),
@@ -177,30 +179,30 @@ impl Connection {
                 null_mut(),
                 EOAC_NONE,
                 null_mut(),
-            )
-        }) {
-            None
-        } else {
-            Some(self)
+            )) {
+                None
+            } else {
+                Some(self)
+            }
         }
     }
 
     fn create_instance(mut self) -> Option<Connection> {
         let mut p_loc = null_mut();
 
-        if FAILED(unsafe {
-            CoCreateInstance(
+        unsafe {
+            if FAILED(CoCreateInstance(
                 &CLSID_WbemLocator as *const _,
                 null_mut(),
                 CLSCTX_INPROC_SERVER,
                 &IID_IWbemLocator as *const _,
                 &mut p_loc as *mut _ as *mut _,
-            )
-        }) {
-            None
-        } else {
-            self.instance = Some(Instance(p_loc));
-            Some(self)
+            )) {
+                None
+            } else {
+                self.instance = Some(Instance(p_loc));
+                Some(self)
+            }
         }
     }
 
@@ -289,6 +291,8 @@ impl Connection {
     }
 
     fn temperature(&mut self, get_critical: bool) -> Option<(f32, Option<f32>)> {
+        use winapi::um::wbemcli::WBEM_INFINITE;
+
         let p_enum = match self.enumerator.take() {
             Some(x) => x,
             None => {
@@ -299,20 +303,17 @@ impl Connection {
         let mut nb_returned = 0;
 
         unsafe {
-            use winapi::um::wbemcli::WBEM_INFINITE;
             (*p_enum.0).Next(
                 WBEM_INFINITE as _, // Time out
                 1,                  // One object
                 &mut p_obj as *mut _,
                 &mut nb_returned,
             );
-        };
 
-        if nb_returned == 0 {
-            return None; // not enough rights I suppose...
-        }
+            if nb_returned == 0 {
+                return None; // not enough rights I suppose...
+            }
 
-        unsafe {
             (*p_obj).BeginEnumeration(WBEM_FLAG_NONSYSTEM_ONLY as _);
 
             let mut p_val = std::mem::MaybeUninit::<VARIANT>::uninit();

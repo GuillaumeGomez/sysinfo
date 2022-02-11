@@ -68,20 +68,20 @@ pub(crate) fn boot_time() -> u64 {
     };
     let mut len = std::mem::size_of::<timeval>();
     let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
-    if unsafe {
-        libc::sysctl(
+    unsafe {
+        if libc::sysctl(
             mib.as_mut_ptr(),
             mib.len() as _,
             &mut boot_time as *mut timeval as *mut _,
             &mut len,
             std::ptr::null_mut(),
             0,
-        )
-    } < 0
-    {
-        0
-    } else {
-        boot_time.tv_sec as _
+        ) < 0
+        {
+            0
+        } else {
+            boot_time.tv_sec as _
+        }
     }
 }
 
@@ -194,8 +194,8 @@ pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
 pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
     let mut size = 0;
 
-    // Call first to get size
     unsafe {
+        // Call first to get size
         libc::sysctl(
             mib.as_ptr(),
             mib.len() as _,
@@ -203,31 +203,29 @@ pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<St
             &mut size,
             std::ptr::null_mut(),
             0,
-        )
-    };
+        );
 
-    // exit early if we did not update the size
-    if size == 0 {
-        default.map(|s| s.to_owned())
-    } else {
-        // set the buffer to the correct size
-        let mut buf: Vec<libc::c_char> = vec![0; size as usize];
+        // exit early if we did not update the size
+        if size == 0 {
+            default.map(|s| s.to_owned())
+        } else {
+            // set the buffer to the correct size
+            let mut buf: Vec<libc::c_char> = vec![0; size as usize];
 
-        if unsafe {
-            libc::sysctl(
+            if libc::sysctl(
                 mib.as_ptr(),
                 mib.len() as _,
                 buf.as_mut_ptr() as _,
                 &mut size,
                 std::ptr::null_mut(),
                 0,
-            )
-        } == -1
-        {
-            // If command fails return default
-            default.map(|s| s.to_owned())
-        } else {
-            c_buf_to_string(&buf)
+            ) == -1
+            {
+                // If command fails return default
+                default.map(|s| s.to_owned())
+            } else {
+                c_buf_to_string(&buf)
+            }
         }
     }
 }

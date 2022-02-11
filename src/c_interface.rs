@@ -34,72 +34,84 @@ pub extern "C" fn sysinfo_destroy(system: CSystem) {
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_system(system: CSystem) {
     assert!(!system.is_null());
-    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    {
-        let system: &mut System = system.borrow_mut();
-        system.refresh_system();
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        {
+            let system: &mut System = system.borrow_mut();
+            system.refresh_system();
+        }
+        Box::into_raw(system);
     }
-    Box::into_raw(system);
 }
 
 /// Equivalent of [`System::refresh_memory()`][crate::System#method.refresh_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_memory(system: CSystem) {
     assert!(!system.is_null());
-    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    {
-        let system: &mut System = system.borrow_mut();
-        system.refresh_memory();
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        {
+            let system: &mut System = system.borrow_mut();
+            system.refresh_memory();
+        }
+        Box::into_raw(system);
     }
-    Box::into_raw(system);
 }
 
 /// Equivalent of [`System::refresh_cpu()`][crate::System#method.refresh_cpu].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_cpu(system: CSystem) {
     assert!(!system.is_null());
-    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    {
-        let system: &mut System = system.borrow_mut();
-        system.refresh_cpu();
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        {
+            let system: &mut System = system.borrow_mut();
+            system.refresh_cpu();
+        }
+        Box::into_raw(system);
     }
-    Box::into_raw(system);
 }
 
 /// Equivalent of [`System::refresh_components()`][crate::System#method.refresh_temperatures].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_components(system: CSystem) {
     assert!(!system.is_null());
-    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    {
-        let system: &mut System = system.borrow_mut();
-        system.refresh_components();
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        {
+            let system: &mut System = system.borrow_mut();
+            system.refresh_components();
+        }
+        Box::into_raw(system);
     }
-    Box::into_raw(system);
 }
 
 /// Equivalent of [`System::refresh_all()`][crate::System#method.refresh_all].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_all(system: CSystem) {
     assert!(!system.is_null());
-    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    {
-        let system: &mut System = system.borrow_mut();
-        system.refresh_all();
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        {
+            let system: &mut System = system.borrow_mut();
+            system.refresh_all();
+        }
+        Box::into_raw(system);
     }
-    Box::into_raw(system);
 }
 
 /// Equivalent of [`System::refresh_processes()`][crate::System#method.refresh_processes].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
     assert!(!system.is_null());
-    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    {
-        let system: &mut System = system.borrow_mut();
-        system.refresh_processes();
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        {
+            let system: &mut System = system.borrow_mut();
+            system.refresh_processes();
+        }
+        Box::into_raw(system);
     }
-    Box::into_raw(system);
 }
 
 /// Equivalent of [`System::refresh_process()`][crate::System#method.refresh_process].
@@ -107,56 +119,66 @@ pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: pid_t) {
     assert!(!system.is_null());
-    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    {
-        let system: &mut System = system.borrow_mut();
-        system.refresh_process(Pid(pid));
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        {
+            let system: &mut System = system.borrow_mut();
+            system.refresh_process(Pid(pid));
+        }
+        Box::into_raw(system);
     }
-    Box::into_raw(system);
 }
 
 /// Equivalent of [`System::refresh_disks()`][crate::System#method.refresh_disks].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_disks(system: CSystem) {
     assert!(!system.is_null());
-    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    {
-        let system: &mut System = system.borrow_mut();
-        system.refresh_disks();
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        {
+            let system: &mut System = system.borrow_mut();
+            system.refresh_disks();
+        }
+        Box::into_raw(system);
     }
-    Box::into_raw(system);
 }
 
 /// Equivalent of [`System::refresh_disks_list()`][crate::System#method.refresh_disks_list].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_disks_list(system: CSystem) {
     assert!(!system.is_null());
-    let mut system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    {
-        let system: &mut System = system.borrow_mut();
-        system.refresh_disks_list();
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        {
+            let system: &mut System = system.borrow_mut();
+            system.refresh_disks_list();
+        }
+        Box::into_raw(system);
     }
-    Box::into_raw(system);
 }
 
 /// Equivalent of [`System::get_total_memory()`][crate::System#method.total_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_total_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
-    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.total_memory() as size_t;
-    Box::into_raw(system);
-    ret
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        let ret = system.total_memory() as size_t;
+        Box::into_raw(system);
+        ret
+    }
 }
 
 /// Equivalent of [`System::get_free_memory()`][crate::System#method.free_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_free_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
-    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.free_memory() as size_t;
-    Box::into_raw(system);
-    ret
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        let ret = system.free_memory() as size_t;
+        Box::into_raw(system);
+        ret
+    }
 }
 
 /// Equivalent of [`System::get_used_memory()`][crate::System#method.used_memory].
@@ -173,30 +195,36 @@ pub extern "C" fn sysinfo_get_used_memory(system: CSystem) -> size_t {
 #[no_mangle]
 pub extern "C" fn sysinfo_get_total_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
-    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.total_swap() as size_t;
-    Box::into_raw(system);
-    ret
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        let ret = system.total_swap() as size_t;
+        Box::into_raw(system);
+        ret
+    }
 }
 
 /// Equivalent of [`System::get_free_swap()`][crate::System#method.free_swap].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_free_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
-    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.free_swap() as size_t;
-    Box::into_raw(system);
-    ret
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        let ret = system.free_swap() as size_t;
+        Box::into_raw(system);
+        ret
+    }
 }
 
 /// Equivalent of [`System::get_used_swap()`][crate::System#method.used_swap].
 #[no_mangle]
 pub extern "C" fn sysinfo_get_used_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
-    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system.used_swap() as size_t;
-    Box::into_raw(system);
-    ret
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        let ret = system.used_swap() as size_t;
+        Box::into_raw(system);
+        ret
+    }
 }
 
 /// Equivalent of
@@ -204,13 +232,15 @@ pub extern "C" fn sysinfo_get_used_swap(system: CSystem) -> size_t {
 #[no_mangle]
 pub extern "C" fn sysinfo_get_networks_received(system: CSystem) -> size_t {
     assert!(!system.is_null());
-    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system
-        .networks()
-        .iter()
-        .fold(0, |acc, (_, data)| acc + data.received() as size_t);
-    Box::into_raw(system);
-    ret
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        let ret = system
+            .networks()
+            .iter()
+            .fold(0, |acc, (_, data)| acc + data.received() as size_t);
+        Box::into_raw(system);
+        ret
+    }
 }
 
 /// Equivalent of
@@ -218,13 +248,15 @@ pub extern "C" fn sysinfo_get_networks_received(system: CSystem) -> size_t {
 #[no_mangle]
 pub extern "C" fn sysinfo_get_networks_transmitted(system: CSystem) -> size_t {
     assert!(!system.is_null());
-    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = system
-        .networks()
-        .iter()
-        .fold(0, |acc, (_, data)| acc + data.transmitted() as size_t);
-    Box::into_raw(system);
-    ret
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        let ret = system
+            .networks()
+            .iter()
+            .fold(0, |acc, (_, data)| acc + data.transmitted() as size_t);
+        Box::into_raw(system);
+        ret
+    }
 }
 
 /// Equivalent of [`System::get_processors_usage()`][crate::System#method.processors_usage].
@@ -241,10 +273,10 @@ pub extern "C" fn sysinfo_get_processors_usage(
     if procs.is_null() || length.is_null() {
         return;
     }
-    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    {
-        let processors = system.processors();
-        unsafe {
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        {
+            let processors = system.processors();
             if (*procs).is_null() {
                 (*procs) = libc::malloc(::std::mem::size_of::<c_float>() * processors.len())
                     as *mut c_float;
@@ -254,8 +286,8 @@ pub extern "C" fn sysinfo_get_processors_usage(
             }
             *length = processors.len() as c_uint - 1;
         }
+        Box::into_raw(system);
     }
-    Box::into_raw(system);
 }
 
 /// Equivalent of [`System::get_processes()`][crate::System#method.processes]. Returns an
@@ -272,18 +304,20 @@ pub extern "C" fn sysinfo_get_processes(
 ) -> size_t {
     assert!(!system.is_null());
     if let Some(fn_pointer) = fn_pointer {
-        let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-        let len = {
-            let entries = system.processes();
-            for (pid, process) in entries {
-                if !fn_pointer(pid.0, process as *const Process as CProcess, data) {
-                    break;
+        unsafe {
+            let system: Box<System> = Box::from_raw(system as *mut System);
+            let len = {
+                let entries = system.processes();
+                for (pid, process) in entries {
+                    if !fn_pointer(pid.0, process as *const Process as CProcess, data) {
+                        break;
+                    }
                 }
-            }
-            entries.len() as size_t
-        };
-        Box::into_raw(system);
-        len
+                entries.len() as size_t
+            };
+            Box::into_raw(system);
+            len
+        }
     } else {
         0
     }
@@ -298,14 +332,16 @@ pub extern "C" fn sysinfo_get_processes(
 #[no_mangle]
 pub extern "C" fn sysinfo_get_process_by_pid(system: CSystem, pid: pid_t) -> CProcess {
     assert!(!system.is_null());
-    let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
-    let ret = if let Some(process) = system.process(Pid(pid)) {
-        process as *const Process as CProcess
-    } else {
-        std::ptr::null()
-    };
-    Box::into_raw(system);
-    ret
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        let ret = if let Some(process) = system.process(Pid(pid)) {
+            process as *const Process as CProcess
+        } else {
+            std::ptr::null()
+        };
+        Box::into_raw(system);
+        ret
+    }
 }
 
 /// Equivalent of iterating over [`Process::tasks()`][crate::Process#method.tasks].
@@ -322,13 +358,15 @@ pub extern "C" fn sysinfo_process_get_tasks(
 ) -> size_t {
     assert!(!process.is_null());
     if let Some(fn_pointer) = fn_pointer {
-        let process = process as *const Process;
-        for (pid, process) in unsafe { (*process).tasks.iter() } {
-            if !fn_pointer(pid.0, process as *const Process as CProcess, data) {
-                break;
+        unsafe {
+            let process = process as *const Process;
+            for (pid, process) in (*process).tasks.iter() {
+                if !fn_pointer(pid.0, process as *const Process as CProcess, data) {
+                    break;
+                }
             }
+            (*process).tasks.len() as size_t
         }
-        unsafe { (*process).tasks.len() as size_t }
     } else {
         0
     }

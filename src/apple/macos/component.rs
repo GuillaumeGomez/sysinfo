@@ -25,12 +25,14 @@ pub(crate) struct ComponentFFI {
 
 impl ComponentFFI {
     fn new(key: &[i8], con: ffi::io_connect_t) -> Option<ComponentFFI> {
-        unsafe { get_key_size(con, key) }
-            .ok()
-            .map(|(input_structure, val)| ComponentFFI {
-                input_structure,
-                val,
-            })
+        unsafe {
+            get_key_size(con, key)
+                .ok()
+                .map(|(input_structure, val)| ComponentFFI {
+                    input_structure,
+                    val,
+                })
+        }
     }
 
     fn temperature(&self, con: ffi::io_connect_t) -> Option<f32> {
@@ -197,19 +199,23 @@ fn get_temperature_inner(
     input_structure: &ffi::KeyData_t,
     original_val: &ffi::Val_t,
 ) -> Option<f32> {
-    if let Ok(val) = unsafe { read_key(con, input_structure, (*original_val).clone()) } {
-        if val.data_size > 0
-            && unsafe { libc::strcmp(val.data_type.as_ptr(), b"sp78\0".as_ptr() as *const i8) } == 0
-        {
-            // convert sp78 value to temperature
-            let x = (i32::from(val.bytes[0]) << 6) + (i32::from(val.bytes[1]) >> 2);
-            return Some(x as f32 / 64f32);
+    unsafe {
+        if let Ok(val) = read_key(con, input_structure, (*original_val).clone()) {
+            if val.data_size > 0
+                && libc::strcmp(val.data_type.as_ptr(), b"sp78\0".as_ptr() as *const i8) == 0
+            {
+                // convert sp78 value to temperature
+                let x = (i32::from(val.bytes[0]) << 6) + (i32::from(val.bytes[1]) >> 2);
+                return Some(x as f32 / 64f32);
+            }
         }
     }
     None
 }
 
 pub(crate) fn get_temperature(con: ffi::io_connect_t, key: &[i8]) -> Option<f32> {
-    let (input_structure, val) = unsafe { get_key_size(con, key) }.ok()?;
-    get_temperature_inner(con, &input_structure, &val)
+    unsafe {
+        let (input_structure, val) = get_key_size(con, key).ok()?;
+        get_temperature_inner(con, &input_structure, &val)
+    }
 }

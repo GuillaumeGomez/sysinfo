@@ -89,11 +89,13 @@ fn boot_time() -> u64 {
         tv_sec: 0,
         tv_nsec: 0,
     };
-    if unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut up) } == 0 {
-        up.tv_sec as u64
-    } else {
-        sysinfo_debug!("clock_gettime failed: boot time cannot be retrieve...");
-        0
+    unsafe {
+        if libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut up) == 0 {
+            up.tv_sec as u64
+        } else {
+            sysinfo_debug!("clock_gettime failed: boot time cannot be retrieve...");
+            0
+        }
     }
 }
 
@@ -105,10 +107,12 @@ pub(crate) struct SystemInfo {
 
 impl SystemInfo {
     fn new() -> Self {
-        Self {
-            page_size_kb: unsafe { sysconf(_SC_PAGESIZE) / 1024 } as _,
-            clock_cycle: unsafe { sysconf(_SC_CLK_TCK) } as _,
-            boot_time: boot_time(),
+        unsafe {
+            Self {
+                page_size_kb: (sysconf(_SC_PAGESIZE) / 1024) as _,
+                clock_cycle: sysconf(_SC_CLK_TCK) as _,
+                boot_time: boot_time(),
+            }
         }
     }
 }
@@ -609,36 +613,40 @@ impl SystemExt for System {
     }
 
     fn host_name(&self) -> Option<String> {
-        let hostname_max = unsafe { sysconf(_SC_HOST_NAME_MAX) };
-        let mut buffer = vec![0_u8; hostname_max as usize];
-        if unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut c_char, buffer.len()) } == 0 {
-            if let Some(pos) = buffer.iter().position(|x| *x == 0) {
-                // Shrink buffer to terminate the null bytes
-                buffer.resize(pos, 0);
+        unsafe {
+            let hostname_max = sysconf(_SC_HOST_NAME_MAX);
+            let mut buffer = vec![0_u8; hostname_max as usize];
+            if libc::gethostname(buffer.as_mut_ptr() as *mut c_char, buffer.len()) == 0 {
+                if let Some(pos) = buffer.iter().position(|x| *x == 0) {
+                    // Shrink buffer to terminate the null bytes
+                    buffer.resize(pos, 0);
+                }
+                String::from_utf8(buffer).ok()
+            } else {
+                sysinfo_debug!("gethostname failed: hostname cannot be retrieved...");
+                None
             }
-            String::from_utf8(buffer).ok()
-        } else {
-            sysinfo_debug!("gethostname failed: hostname cannot be retrieved...");
-            None
         }
     }
 
     fn kernel_version(&self) -> Option<String> {
         let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
 
-        if unsafe { libc::uname(raw.as_mut_ptr()) } == 0 {
-            let info = unsafe { raw.assume_init() };
+        unsafe {
+            if libc::uname(raw.as_mut_ptr()) == 0 {
+                let info = raw.assume_init();
 
-            let release = info
-                .release
-                .iter()
-                .filter(|c| **c != 0)
-                .map(|c| *c as u8 as char)
-                .collect::<String>();
+                let release = info
+                    .release
+                    .iter()
+                    .filter(|c| **c != 0)
+                    .map(|c| *c as u8 as char)
+                    .collect::<String>();
 
-            Some(release)
-        } else {
-            None
+                Some(release)
+            } else {
+                None
+            }
         }
     }
 
@@ -726,20 +734,20 @@ fn get_system_info_android(info: InfoType) -> Option<String> {
     };
 
     let mut value_buffer = vec![0u8; libc::PROP_VALUE_MAX as usize];
-    let len = unsafe {
-        libc::__system_property_get(
+    unsafe {
+        let len = libc::__system_property_get(
             name.as_ptr() as *const c_char,
             value_buffer.as_mut_ptr() as *mut c_char,
-        )
-    };
+        );
 
-    if len != 0 {
-        if let Some(pos) = value_buffer.iter().position(|c| *c == 0) {
-            value_buffer.resize(pos, 0);
+        if len != 0 {
+            if let Some(pos) = value_buffer.iter().position(|c| *c == 0) {
+                value_buffer.resize(pos, 0);
+            }
+            String::from_utf8(value_buffer).ok()
+        } else {
+            None
         }
-        String::from_utf8(value_buffer).ok()
-    } else {
-        None
     }
 }
 

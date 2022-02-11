@@ -154,28 +154,27 @@ impl SystemExt for System {
     }
 
     fn refresh_memory(&mut self) {
-        let mut mem_info: MEMORYSTATUSEX = unsafe { zeroed() };
-        mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
         unsafe {
+            let mut mem_info: MEMORYSTATUSEX = zeroed();
+            mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
             GlobalMemoryStatusEx(&mut mem_info);
-        }
-        self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_000;
-        self.mem_available = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
-        let mut perf_info: PERFORMANCE_INFORMATION = unsafe { zeroed() };
-        if unsafe {
-            GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as u32)
-        } == TRUE
-        {
-            let swap_total = perf_info.PageSize
-                * perf_info
-                    .CommitLimit
-                    .saturating_sub(perf_info.PhysicalTotal);
-            let swap_used = perf_info.PageSize
-                * perf_info
-                    .CommitTotal
-                    .saturating_sub(perf_info.PhysicalTotal);
-            self.swap_total = (swap_total / 1000) as u64;
-            self.swap_used = (swap_used / 1000) as u64;
+            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_000;
+            self.mem_available = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
+            let mut perf_info: PERFORMANCE_INFORMATION = zeroed();
+            if GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as u32)
+                == TRUE
+            {
+                let swap_total = perf_info.PageSize
+                    * perf_info
+                        .CommitLimit
+                        .saturating_sub(perf_info.PhysicalTotal);
+                let swap_used = perf_info.PageSize
+                    * perf_info
+                        .CommitTotal
+                        .saturating_sub(perf_info.PhysicalTotal);
+                self.swap_total = (swap_total / 1000) as u64;
+                self.swap_used = (swap_used / 1000) as u64;
+            }
         }
     }
 
@@ -207,105 +206,103 @@ impl SystemExt for System {
 
         loop {
             let mut process_information: Vec<u8> = Vec::with_capacity(buffer_size);
-
             let mut cb_needed = 0;
-            let ntstatus = unsafe {
+
+            unsafe {
                 process_information.set_len(buffer_size);
-                NtQuerySystemInformation(
+                let ntstatus = NtQuerySystemInformation(
                     SystemProcessInformation,
                     process_information.as_mut_ptr() as PVOID,
                     buffer_size as ULONG,
                     &mut cb_needed,
-                )
-            };
+                );
 
-            if ntstatus != STATUS_INFO_LENGTH_MISMATCH {
-                if ntstatus < 0 {
-                    sysinfo_debug!(
-                        "Couldn't get process infos: NtQuerySystemInformation returned {}",
-                        ntstatus
-                    );
-                }
-
-                // Parse the data block to get process information
-                let mut process_ids = Vec::with_capacity(500);
-                let mut process_information_offset = 0;
-                loop {
-                    let p = unsafe {
-                        process_information
-                            .as_ptr()
-                            .offset(process_information_offset)
-                            as *const SYSTEM_PROCESS_INFORMATION
-                    };
-                    let pi = unsafe { &*p };
-
-                    process_ids.push(Wrap(p));
-
-                    if pi.NextEntryOffset == 0 {
-                        break;
+                if ntstatus != STATUS_INFO_LENGTH_MISMATCH {
+                    if ntstatus < 0 {
+                        sysinfo_debug!(
+                            "Couldn't get process infos: NtQuerySystemInformation returned {}",
+                            ntstatus
+                        );
                     }
 
-                    process_information_offset += pi.NextEntryOffset as isize;
-                }
-                let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
-                let nb_processors = if refresh_kind.cpu() {
-                    self.processors.len() as u64
-                } else {
-                    0
-                };
+                    // Parse the data block to get process information
+                    let mut process_ids = Vec::with_capacity(500);
+                    let mut process_information_offset = 0;
+                    loop {
+                        let p = process_information
+                            .as_ptr()
+                            .offset(process_information_offset)
+                            as *const SYSTEM_PROCESS_INFORMATION;
+                        let pi = &*p;
 
-                #[cfg(feature = "multithread")]
-                use rayon::iter::ParallelIterator;
+                        process_ids.push(Wrap(p));
 
-                // TODO: instead of using parallel iterator only here, would be better to be able
-                //       to run it over `process_information` directly!
-                let processes = into_iter(process_ids)
-                    .filter_map(|pi| unsafe {
-                        let pi = *pi.0;
-                        let pid = Pid(pi.UniqueProcessId as _);
-                        if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
-                            proc_.memory = (pi.WorkingSetSize as u64) / 1_000;
-                            proc_.virtual_memory = (pi.VirtualSize as u64) / 1_000;
-                            proc_.update(refresh_kind, nb_processors, now);
-                            return None;
+                        if pi.NextEntryOffset == 0 {
+                            break;
                         }
-                        let name = get_process_name(&pi, pid);
-                        let mut p = Process::new_full(
-                            pid,
-                            if pi.InheritedFromUniqueProcessId as usize != 0 {
-                                Some(Pid(pi.InheritedFromUniqueProcessId as _))
-                            } else {
-                                None
-                            },
-                            (pi.WorkingSetSize as u64) / 1_000,
-                            (pi.VirtualSize as u64) / 1_000,
-                            name,
-                            now,
-                        );
-                        p.update(refresh_kind, nb_processors, now);
-                        Some(p)
-                    })
-                    .collect::<Vec<_>>();
-                for p in processes.into_iter() {
-                    self.process_list.insert(p.pid(), p);
+
+                        process_information_offset += pi.NextEntryOffset as isize;
+                    }
+                    let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
+                    let nb_processors = if refresh_kind.cpu() {
+                        self.processors.len() as u64
+                    } else {
+                        0
+                    };
+
+                    #[cfg(feature = "multithread")]
+                    use rayon::iter::ParallelIterator;
+
+                    // TODO: instead of using parallel iterator only here, would be better to be able
+                    //       to run it over `process_information` directly!
+                    let processes = into_iter(process_ids)
+                        .filter_map(|pi| {
+                            let pi = *pi.0;
+                            let pid = Pid(pi.UniqueProcessId as _);
+                            if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
+                                proc_.memory = (pi.WorkingSetSize as u64) / 1_000;
+                                proc_.virtual_memory = (pi.VirtualSize as u64) / 1_000;
+                                proc_.update(refresh_kind, nb_processors, now);
+                                return None;
+                            }
+                            let name = get_process_name(&pi, pid);
+                            let mut p = Process::new_full(
+                                pid,
+                                if pi.InheritedFromUniqueProcessId as usize != 0 {
+                                    Some(Pid(pi.InheritedFromUniqueProcessId as _))
+                                } else {
+                                    None
+                                },
+                                (pi.WorkingSetSize as u64) / 1_000,
+                                (pi.VirtualSize as u64) / 1_000,
+                                name,
+                                now,
+                            );
+                            p.update(refresh_kind, nb_processors, now);
+                            Some(p)
+                        })
+                        .collect::<Vec<_>>();
+                    for p in processes.into_iter() {
+                        self.process_list.insert(p.pid(), p);
+                    }
+                    self.process_list.retain(|_, v| {
+                        let x = v.updated;
+                        v.updated = false;
+                        x
+                    });
+
+                    break;
                 }
-                self.process_list.retain(|_, v| {
-                    let x = v.updated;
-                    v.updated = false;
-                    x
-                });
 
-                break;
+                // GetNewBufferSize
+                if cb_needed == 0 {
+                    buffer_size *= 2;
+                    continue;
+                }
+                // allocating a few more kilo bytes just in case there are some new process
+                // kicked in since new call to NtQuerySystemInformation
+                buffer_size = (cb_needed + (1024 * 10)) as usize;
             }
-
-            // GetNewBufferSize
-            if cb_needed == 0 {
-                buffer_size *= 2;
-                continue;
-            }
-            // allocating a few more kilo bytes just in case there are some new process
-            // kicked in since new call to NtQuerySystemInformation
-            buffer_size = (cb_needed + (1024 * 10)) as usize;
         }
     }
 
@@ -459,8 +456,10 @@ impl Default for System {
 
 fn is_proc_running(handle: HANDLE) -> bool {
     let mut exit_code = 0;
-    let ret = unsafe { GetExitCodeProcess(handle, &mut exit_code) };
-    !(ret == FALSE || exit_code != STILL_ACTIVE)
+    unsafe {
+        let ret = GetExitCodeProcess(handle, &mut exit_code);
+        !(ret == FALSE || exit_code != STILL_ACTIVE)
+    }
 }
 
 fn refresh_existing_process(s: &mut System, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
@@ -488,15 +487,15 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
             _ => format!("<no name> Process {}", process_id),
         }
     } else {
-        let slice = unsafe {
-            std::slice::from_raw_parts(
+        unsafe {
+            let slice = std::slice::from_raw_parts(
                 name.Buffer,
                 // The length is in bytes, not the length of string
                 name.Length as usize / std::mem::size_of::<u16>(),
-            )
-        };
+            );
 
-        String::from_utf16_lossy(slice)
+            String::from_utf16_lossy(slice)
+        }
     }
 }
 
@@ -512,16 +511,16 @@ fn get_reg_string_value(hkey: HKEY, path: &str, field_name: &str) -> Option<Stri
     let c_field_name = utf16_str(field_name);
 
     let mut new_hkey: HKEY = std::ptr::null_mut();
-    if unsafe { RegOpenKeyExW(hkey, c_path.as_ptr(), 0, KEY_READ, &mut new_hkey) } != 0 {
-        return None;
-    }
+    unsafe {
+        if RegOpenKeyExW(hkey, c_path.as_ptr(), 0, KEY_READ, &mut new_hkey) != 0 {
+            return None;
+        }
 
-    let mut buf_len: DWORD = 2048;
-    let mut buf_type: DWORD = 0;
-    let mut buf: Vec<u8> = Vec::with_capacity(buf_len as usize);
-    loop {
-        match unsafe {
-            RegQueryValueExW(
+        let mut buf_len: DWORD = 2048;
+        let mut buf_type: DWORD = 0;
+        let mut buf: Vec<u8> = Vec::with_capacity(buf_len as usize);
+        loop {
+            match RegQueryValueExW(
                 new_hkey,
                 c_field_name.as_ptr(),
                 std::ptr::null_mut(),
@@ -529,25 +528,24 @@ fn get_reg_string_value(hkey: HKEY, path: &str, field_name: &str) -> Option<Stri
                 buf.as_mut_ptr() as LPBYTE,
                 &mut buf_len,
             ) as DWORD
-        } {
-            0 => break,
-            winerror::ERROR_MORE_DATA => {
-                buf.reserve(buf_len as _);
+            {
+                0 => break,
+                winerror::ERROR_MORE_DATA => {
+                    buf.reserve(buf_len as _);
+                }
+                _ => return None,
             }
-            _ => return None,
         }
-    }
 
-    unsafe {
         buf.set_len(buf_len as _);
-    }
 
-    let words = unsafe { from_raw_parts(buf.as_ptr() as *const u16, buf.len() / 2) };
-    let mut s = String::from_utf16_lossy(words);
-    while s.ends_with('\u{0}') {
-        s.pop();
+        let words = from_raw_parts(buf.as_ptr() as *const u16, buf.len() / 2);
+        let mut s = String::from_utf16_lossy(words);
+        while s.ends_with('\u{0}') {
+            s.pop();
+        }
+        Some(s)
     }
-    Some(s)
 }
 
 fn get_reg_value_u32(hkey: HKEY, path: &str, field_name: &str) -> Option<[u8; 4]> {
@@ -555,16 +553,16 @@ fn get_reg_value_u32(hkey: HKEY, path: &str, field_name: &str) -> Option<[u8; 4]
     let c_field_name = utf16_str(field_name);
 
     let mut new_hkey: HKEY = std::ptr::null_mut();
-    if unsafe { RegOpenKeyExW(hkey, c_path.as_ptr(), 0, KEY_READ, &mut new_hkey) } != 0 {
-        return None;
-    }
+    unsafe {
+        if RegOpenKeyExW(hkey, c_path.as_ptr(), 0, KEY_READ, &mut new_hkey) != 0 {
+            return None;
+        }
 
-    let mut buf_len: DWORD = 4;
-    let mut buf_type: DWORD = 0;
-    let mut buf = [0u8; 4];
+        let mut buf_len: DWORD = 4;
+        let mut buf_type: DWORD = 0;
+        let mut buf = [0u8; 4];
 
-    match unsafe {
-        RegQueryValueExW(
+        match RegQueryValueExW(
             new_hkey,
             c_field_name.as_ptr(),
             std::ptr::null_mut(),
@@ -572,9 +570,10 @@ fn get_reg_value_u32(hkey: HKEY, path: &str, field_name: &str) -> Option<[u8; 4]
             buf.as_mut_ptr() as LPBYTE,
             &mut buf_len,
         ) as DWORD
-    } {
-        0 => Some(buf),
-        _ => None,
+        {
+            0 => Some(buf),
+            _ => None,
+        }
     }
 }
 
@@ -588,28 +587,26 @@ fn get_dns_hostname() -> Option<String> {
             ComputerNamePhysicalDnsHostname,
             std::ptr::null_mut(),
             &mut buffer_size,
-        )
-    };
+        );
 
-    // Setting the buffer with the new length
-    let mut buffer = vec![0_u16; buffer_size as usize];
+        // Setting the buffer with the new length
+        let mut buffer = vec![0_u16; buffer_size as usize];
 
-    // https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/ne-sysinfoapi-computer_name_format
-    if unsafe {
-        GetComputerNameExW(
+        // https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/ne-sysinfoapi-computer_name_format
+        if GetComputerNameExW(
             ComputerNamePhysicalDnsHostname,
             buffer.as_mut_ptr() as *mut wchar_t,
             &mut buffer_size,
-        )
-    } == TRUE
-    {
-        if let Some(pos) = buffer.iter().position(|c| *c == 0) {
-            buffer.resize(pos, 0);
-        }
+        ) == TRUE
+        {
+            if let Some(pos) = buffer.iter().position(|c| *c == 0) {
+                buffer.resize(pos, 0);
+            }
 
-        String::from_utf16(&buffer).ok()
-    } else {
-        sysinfo_debug!("Failed to get computer hostname");
-        None
+            return String::from_utf16(&buffer).ok();
+        }
     }
+
+    sysinfo_debug!("Failed to get computer hostname");
+    None
 }

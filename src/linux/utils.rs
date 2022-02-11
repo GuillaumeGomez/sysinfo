@@ -36,14 +36,20 @@ pub(crate) fn realpath(original: &Path) -> std::path::PathBuf {
     let mut result_s = result.to_str().unwrap_or("").as_bytes().to_vec();
     result_s.push(0);
     let mut buf = MaybeUninit::<stat>::uninit();
-    let res = unsafe { lstat(result_s.as_ptr() as *const c_char, buf.as_mut_ptr()) };
-    let buf = unsafe { buf.assume_init() };
-    if res < 0 || and(buf.st_mode.into(), S_IFMT.into()) != S_IFLNK.into() {
-        PathBuf::new()
-    } else {
-        match fs::read_link(&result) {
-            Ok(f) => f,
-            Err(_) => PathBuf::new(),
+    unsafe {
+        let res = lstat(result_s.as_ptr() as *const c_char, buf.as_mut_ptr());
+        if res < 0 {
+            PathBuf::new()
+        } else {
+            let buf = buf.assume_init();
+            if and(buf.st_mode.into(), S_IFMT.into()) != S_IFLNK.into() {
+                PathBuf::new()
+            } else {
+                match fs::read_link(&result) {
+                    Ok(f) => f,
+                    Err(_) => PathBuf::new(),
+                }
+            }
         }
     }
 }
