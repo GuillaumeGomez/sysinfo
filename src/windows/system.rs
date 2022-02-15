@@ -172,8 +172,8 @@ impl SystemExt for System {
                     * perf_info
                         .CommitTotal
                         .saturating_sub(perf_info.PhysicalTotal);
-                self.swap_total = (swap_total / 1000) as u64;
-                self.swap_used = (swap_used / 1000) as u64;
+                self.swap_total = (swap_total / 1024) as u64;
+                self.swap_used = (swap_used / 1024) as u64;
             }
         }
     }
