@@ -158,8 +158,8 @@ impl SystemExt for System {
             let mut mem_info: MEMORYSTATUSEX = zeroed();
             mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
             GlobalMemoryStatusEx(&mut mem_info);
-            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_000;
-            self.mem_available = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
+            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_024;
+            self.mem_available = auto_cast!(mem_info.ullAvailPhys, u64) / 1_024;
             let mut perf_info: PERFORMANCE_INFORMATION = zeroed();
             if GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as u32)
                 == TRUE
