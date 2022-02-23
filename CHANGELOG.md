@@ -1,3 +1,8 @@
+# 0.23.3
+
+ * Impl `From<Pid>` for Pid inner type
+ * Code cleanup
+
 # 0.23.2
 
  * Fix unsafe "correctness".
