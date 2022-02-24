@@ -1,7 +1,11 @@
+# 0.23.4
+
+ * Linux (raspberry): Fix physical core count.
+
 # 0.23.3
 
- * Impl `From<Pid>` for Pid inner type
- * Code cleanup
+ * Impl `From<Pid>` for Pid inner type.
+ * Code cleanup.
 
 # 0.23.2
 
