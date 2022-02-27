@@ -8,11 +8,13 @@ use crate::sys::processor::{self, Processor, Query};
 use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
 
+use winapi::shared::ntdef::ULARGE_INTEGER;
 use winapi::{ctypes::c_void, um::winbase::DRIVE_REMOVABLE};
 
-use winapi::shared::minwindef::{DWORD, MAX_PATH, TRUE};
+use winapi::shared::minwindef::{DWORD, MAX_PATH};
 use winapi::um::fileapi::{
-    CreateFileW, GetDriveTypeW, GetLogicalDrives, GetVolumeInformationW, OPEN_EXISTING,
+    CreateFileW, GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDrives, GetVolumeInformationW,
+    OPEN_EXISTING,
 };
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
@@ -20,8 +22,7 @@ use winapi::um::ioapiset::DeviceIoControl;
 use winapi::um::sysinfoapi::{GetSystemInfo, SYSTEM_INFO};
 use winapi::um::winbase::DRIVE_FIXED;
 use winapi::um::winioctl::{
-    DEVICE_TRIM_DESCRIPTOR, IOCTL_DISK_GET_PARTITION_INFO_EX, IOCTL_STORAGE_QUERY_PROPERTY,
-    PARTITION_INFORMATION_EX, STORAGE_PROPERTY_QUERY,
+    DEVICE_TRIM_DESCRIPTOR, IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
 };
 use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE};
 
@@ -66,21 +67,16 @@ pub unsafe fn open_drive(drive_name: &[u16], open_rights: DWORD) -> HANDLE {
     )
 }
 
-pub unsafe fn get_drive_size(handle: HANDLE) -> u64 {
-    let mut pdg: PARTITION_INFORMATION_EX = std::mem::zeroed();
-    let mut junk = 0;
-    let result = DeviceIoControl(
-        handle,
-        IOCTL_DISK_GET_PARTITION_INFO_EX,
+pub unsafe fn get_drive_size(mount_point: &[u16]) -> u64 {
+    let mut tmp: ULARGE_INTEGER = std::mem::zeroed();
+    if GetDiskFreeSpaceExW(
+        mount_point.as_ptr(),
         std::ptr::null_mut(),
-        0,
-        &mut pdg as *mut PARTITION_INFORMATION_EX as *mut c_void,
-        size_of::<PARTITION_INFORMATION_EX>() as DWORD,
-        &mut junk,
+        &mut tmp,
         std::ptr::null_mut(),
-    );
-    if result == TRUE {
-        *pdg.PartitionLength.QuadPart() as u64
+    ) != 0
+    {
+        *tmp.QuadPart() as u64
     } else {
         0
     }
@@ -164,7 +160,7 @@ pub unsafe fn get_disks() -> Vec<Disk> {
                     is_removable,
                 );
             }
-            let disk_size = get_drive_size(handle);
+            let disk_size = get_drive_size(&mount_point);
             /*let mut spq_trim: STORAGE_PROPERTY_QUERY = std::mem::zeroed();
             spq_trim.PropertyId = StorageDeviceTrimProperty;
             spq_trim.QueryType = PropertyStandardQuery;
