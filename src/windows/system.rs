@@ -4,7 +4,7 @@ use crate::{LoadAvg, Networks, Pid, ProcessExt, ProcessRefreshKind, RefreshKind,
 use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
 use crate::sys::component::{self, Component};
-use crate::sys::disk::Disk;
+use crate::sys::disk::{get_disks, Disk};
 use crate::sys::process::{get_handle, update_memory, Process};
 use crate::sys::processor::*;
 use crate::sys::tools::*;
