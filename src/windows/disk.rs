@@ -3,35 +3,22 @@
 use crate::{DiskExt, DiskType};
 
 use std::ffi::{OsStr, OsString};
+use std::mem::size_of;
 use std::path::Path;
 
-use winapi::um::fileapi::GetDiskFreeSpaceExW;
-use winapi::um::winnt::ULARGE_INTEGER;
-
-pub(crate) fn new_disk(
-    name: &OsStr,
-    mount_point: &[u16],
-    file_system: &[u8],
-    type_: DiskType,
-    total_space: u64,
-    is_removable: bool,
-) -> Option<Disk> {
-    if total_space == 0 {
-        return None;
-    }
-    let mut d = Disk {
-        type_,
-        name: name.to_owned(),
-        file_system: file_system.to_vec(),
-        mount_point: mount_point.to_vec(),
-        s_mount_point: String::from_utf16_lossy(&mount_point[..mount_point.len() - 1]),
-        total_space,
-        available_space: 0,
-        is_removable,
-    };
-    d.refresh();
-    Some(d)
-}
+use winapi::ctypes::c_void;
+use winapi::shared::minwindef::{DWORD, MAX_PATH};
+use winapi::um::fileapi::{
+    CreateFileW, GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDrives, GetVolumeInformationW,
+    OPEN_EXISTING,
+};
+use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
+use winapi::um::ioapiset::DeviceIoControl;
+use winapi::um::winbase::{DRIVE_FIXED, DRIVE_REMOVABLE};
+use winapi::um::winioctl::{
+    DEVICE_TRIM_DESCRIPTOR, IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
+};
+use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE, ULARGE_INTEGER};
 
 #[doc = include_str!("../../md_doc/disk.md")]
 pub struct Disk {
@@ -92,4 +79,171 @@ impl DiskExt for Disk {
         }
         false
     }
+}
+
+struct HandleWrapper(HANDLE);
+
+impl HandleWrapper {
+    unsafe fn new(drive_name: &[u16], open_rights: DWORD) -> Option<Self> {
+        let handle = CreateFileW(
+            drive_name.as_ptr(),
+            open_rights,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            std::ptr::null_mut(),
+            OPEN_EXISTING,
+            0,
+            std::ptr::null_mut(),
+        );
+        if handle == INVALID_HANDLE_VALUE {
+            CloseHandle(handle);
+            None
+        } else {
+            Some(Self(handle))
+        }
+    }
+}
+
+impl Drop for HandleWrapper {
+    fn drop(&mut self) {
+        unsafe {
+            CloseHandle(self.0);
+        }
+    }
+}
+
+unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {
+    let mut total_size: ULARGE_INTEGER = std::mem::zeroed();
+    let mut available_space: ULARGE_INTEGER = std::mem::zeroed();
+    if GetDiskFreeSpaceExW(
+        mount_point.as_ptr(),
+        std::ptr::null_mut(),
+        &mut total_size,
+        &mut available_space,
+    ) != 0
+    {
+        Some((
+            *total_size.QuadPart() as u64,
+            *available_space.QuadPart() as u64,
+        ))
+    } else {
+        None
+    }
+}
+
+pub(crate) unsafe fn get_disks() -> Vec<Disk> {
+    let drives = GetLogicalDrives();
+    if drives == 0 {
+        return Vec::new();
+    }
+
+    #[cfg(feature = "multithread")]
+    use rayon::iter::ParallelIterator;
+
+    crate::utils::into_iter(0..DWORD::BITS)
+        .filter_map(|x| {
+            if (drives >> x) & 1 == 0 {
+                return None;
+            }
+            let mount_point = [b'A' as u16 + x as u16, b':' as u16, b'\\' as u16, 0];
+
+            let drive_type = GetDriveTypeW(mount_point.as_ptr());
+
+            let is_removable = drive_type == DRIVE_REMOVABLE;
+
+            if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
+                return None;
+            }
+            let mut name = [0u16; MAX_PATH + 1];
+            let mut file_system = [0u16; 32];
+            if GetVolumeInformationW(
+                mount_point.as_ptr(),
+                name.as_mut_ptr(),
+                name.len() as DWORD,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                file_system.as_mut_ptr(),
+                file_system.len() as DWORD,
+            ) == 0
+            {
+                return None;
+            }
+            let mut pos = 0;
+            for x in name.iter() {
+                if *x == 0 {
+                    break;
+                }
+                pos += 1;
+            }
+            let name = String::from_utf16_lossy(&name[..pos]);
+            let name = OsStr::new(&name);
+
+            pos = 0;
+            for x in file_system.iter() {
+                if *x == 0 {
+                    break;
+                }
+                pos += 1;
+            }
+            let file_system: Vec<u8> = file_system[..pos].iter().map(|x| *x as u8).collect();
+
+            let drive_name = [
+                b'\\' as u16,
+                b'\\' as u16,
+                b'.' as u16,
+                b'\\' as u16,
+                b'A' as u16 + x as u16,
+                b':' as u16,
+                0,
+            ];
+            let handle = HandleWrapper::new(&drive_name, 0)?;
+            let (total_space, available_space) = get_drive_size(&mount_point)?;
+            if total_space == 0 {
+                return None;
+            }
+            /*let mut spq_trim: STORAGE_PROPERTY_QUERY = std::mem::zeroed();
+            spq_trim.PropertyId = StorageDeviceTrimProperty;
+            spq_trim.QueryType = PropertyStandardQuery;
+            let mut dtd: DEVICE_TRIM_DESCRIPTOR = std::mem::zeroed();*/
+            let mut spq_trim = STORAGE_PROPERTY_QUERY {
+                PropertyId: 8,
+                QueryType: 0,
+                AdditionalParameters: [0],
+            };
+            let mut dtd: DEVICE_TRIM_DESCRIPTOR = std::mem::zeroed();
+
+            let mut dw_size = 0;
+            let type_ = if DeviceIoControl(
+                handle.0,
+                IOCTL_STORAGE_QUERY_PROPERTY,
+                &mut spq_trim as *mut STORAGE_PROPERTY_QUERY as *mut c_void,
+                size_of::<STORAGE_PROPERTY_QUERY>() as DWORD,
+                &mut dtd as *mut DEVICE_TRIM_DESCRIPTOR as *mut c_void,
+                size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD,
+                &mut dw_size,
+                std::ptr::null_mut(),
+            ) == 0
+                || dw_size != size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD
+            {
+                DiskType::Unknown(-1)
+            } else {
+                let is_ssd = dtd.TrimEnabled != 0;
+                if is_ssd {
+                    DiskType::SSD
+                } else {
+                    DiskType::HDD
+                }
+            };
+            Some(Disk {
+                type_,
+                name: name.to_owned(),
+                file_system: file_system.to_vec(),
+                mount_point: mount_point.to_vec(),
+                s_mount_point: String::from_utf16_lossy(&mount_point[..mount_point.len() - 1]),
+                total_space,
+                available_space,
+                is_removable,
+            })
+        })
+        .collect::<Vec<_>>()
 }
