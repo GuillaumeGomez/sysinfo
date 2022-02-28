@@ -1,3 +1,7 @@
+# 0.23.5
+
+ * Windows: Fix a bug which prevent all disks to be listed.
+
 # 0.23.4
 
  * Linux (raspberry): Fix physical core count.
