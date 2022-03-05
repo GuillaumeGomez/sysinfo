@@ -269,110 +269,15 @@ pub(crate) struct WrapMap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
 unsafe impl<'a> Send for WrapMap<'a> {}
 unsafe impl<'a> Sync for WrapMap<'a> {}
 
-pub(crate) struct ProcList<'a>(pub &'a [libc::kinfo_proc]);
-unsafe impl<'a> Send for ProcList<'a> {}
+#[repr(transparent)]
+pub(crate) struct KInfoProc(libc::kinfo_proc);
+unsafe impl Send for KInfoProc {}
+unsafe impl Sync for KInfoProc {}
 
-pub(crate) struct WrapItem<'a>(pub &'a libc::kinfo_proc);
-unsafe impl<'a> Send for WrapItem<'a> {}
-unsafe impl<'a> Sync for WrapItem<'a> {}
+impl std::ops::Deref for KInfoProc {
+    type Target = libc::kinfo_proc;
 
-pub(crate) struct IntoIter<'a>(std::slice::Iter<'a, libc::kinfo_proc>);
-unsafe impl<'a> Send for IntoIter<'a> {}
-
-impl<'a> std::iter::Iterator for IntoIter<'a> {
-    type Item = WrapItem<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(WrapItem)
-    }
-}
-
-impl<'a> std::iter::ExactSizeIterator for IntoIter<'a> {
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-}
-
-impl<'a> std::iter::IntoIterator for ProcList<'a> {
-    type Item = WrapItem<'a>;
-    type IntoIter = IntoIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        IntoIter(self.0.iter())
-    }
-}
-
-#[cfg(feature = "multithread")]
-mod multithread {
-    use super::{IntoIter, ProcList, WrapItem};
-    use rayon::iter::plumbing::{bridge, Consumer, Producer, ProducerCallback, UnindexedConsumer};
-    use rayon::prelude::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-
-    struct IterProducer<'a>(std::slice::Iter<'a, libc::kinfo_proc>);
-    unsafe impl<'a> Send for IterProducer<'a> {}
-    unsafe impl<'a> Sync for IterProducer<'a> {}
-
-    impl<'a> Producer for IterProducer<'a> {
-        type Item = WrapItem<'a>;
-        type IntoIter = IntoIter<'a>;
-
-        fn into_iter(self) -> Self::IntoIter {
-            IntoIter(self.0)
-        }
-
-        fn split_at(self, index: usize) -> (Self, Self) {
-            let (left, right) = self.0.as_slice().split_at(index);
-            (IterProducer(left.iter()), IterProducer(right.iter()))
-        }
-    }
-
-    impl<'a> IntoParallelIterator for ProcList<'a> {
-        type Item = WrapItem<'a>;
-        type Iter = IntoIter<'a>;
-
-        fn into_par_iter(self) -> Self::Iter {
-            IntoIter(self.0.iter())
-        }
-    }
-
-    impl<'a> std::iter::DoubleEndedIterator for IntoIter<'a> {
-        fn next_back(&mut self) -> Option<Self::Item> {
-            self.0.next_back().map(WrapItem)
-        }
-    }
-
-    impl<'a> ParallelIterator for IntoIter<'a> {
-        type Item = WrapItem<'a>;
-
-        fn drive_unindexed<C>(self, consumer: C) -> C::Result
-        where
-            C: UnindexedConsumer<Self::Item>,
-        {
-            bridge(self, consumer)
-        }
-
-        fn opt_len(&self) -> Option<usize> {
-            Some(self.0.len())
-        }
-    }
-
-    impl<'a> IndexedParallelIterator for IntoIter<'a> {
-        fn drive<C>(self, consumer: C) -> C::Result
-        where
-            C: Consumer<Self::Item>,
-        {
-            bridge(self, consumer)
-        }
-
-        fn len(&self) -> usize {
-            self.0.len()
-        }
-
-        fn with_producer<CB>(self, callback: CB) -> CB::Output
-        where
-            CB: ProducerCallback<Self::Item>,
-        {
-            callback.callback(IterProducer(self.0))
-        }
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
