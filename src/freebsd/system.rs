@@ -164,7 +164,8 @@ impl SystemExt for System {
             let fscale = self.system_info.fscale;
             let page_size = self.system_info.page_size as isize;
             let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
-            let procs = utils::ProcList(std::slice::from_raw_parts_mut(procs, count as _));
+            let procs: &mut [utils::KInfoProc] =
+                std::slice::from_raw_parts_mut(procs as _, count as _);
 
             #[cfg(feature = "multithread")]
             use rayon::iter::ParallelIterator;
@@ -173,7 +174,7 @@ impl SystemExt for System {
                 ($name:ident, $($iter:tt)+) => {
                     $name = crate::utils::into_iter(procs).$($iter)+.and_then(|kproc| {
                         super::process::get_process_data(
-                            kproc.0,
+                            kproc,
                             &proc_list,
                             page_size,
                             fscale,
@@ -187,12 +188,12 @@ impl SystemExt for System {
 
             let ret;
             #[cfg(not(feature = "multithread"))]
-            multi_iter!(ret, find(|kproc| kproc.0.ki_pid == pid.0));
+            multi_iter!(ret, find(|kproc| kproc.ki_pid == pid.0));
             #[cfg(feature = "multithread")]
-            multi_iter!(ret, find_any(|kproc| kproc.0.ki_pid == pid.0));
+            multi_iter!(ret, find_any(|kproc| kproc.ki_pid == pid.0));
 
             if let Some((kproc, proc_)) = ret {
-                self.add_missing_proc_info(self.system_info.kd.as_ptr(), kproc.0, proc_);
+                self.add_missing_proc_info(self.system_info.kd.as_ptr(), kproc, proc_);
                 true
             } else {
                 self.process_list
@@ -374,11 +375,12 @@ impl System {
             let page_size = self.system_info.page_size as isize;
             let now = super::utils::get_now();
             let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
-            let procs = utils::ProcList(std::slice::from_raw_parts_mut(procs, count as _));
+            let procs: &mut [utils::KInfoProc] =
+                std::slice::from_raw_parts_mut(procs as _, count as _);
 
             IterTrait::filter_map(crate::utils::into_iter(procs), |kproc| {
                 super::process::get_process_data(
-                    kproc.0,
+                    kproc,
                     &proc_list,
                     page_size,
                     fscale,
@@ -394,7 +396,6 @@ impl System {
         self.process_list.retain(|_, v| v.updated);
 
         for (kproc, proc_) in procs {
-            let kproc = kproc.0;
             self.add_missing_proc_info(kd, kproc, proc_);
         }
     }
