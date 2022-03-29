@@ -192,16 +192,53 @@ impl Process {
                 return None;
             }
             let info = info.assume_init();
-            Some(Process::new_with_handle(
+            let mut h_mod = null_mut();
+
+            let name = if get_h_mod(process_handler, &mut h_mod) {
+                get_process_name(process_handler, h_mod)
+            } else {
+                String::new()
+            };
+
+            let exe = get_exe(process_handler, h_mod);
+            let mut root = exe.clone();
+            root.pop();
+            let (cmd, environ, cwd) = match get_process_params(process_handler) {
+                Ok(args) => args,
+                Err(_e) => {
+                    sysinfo_debug!("Failed to get process parameters: {}", _e);
+                    (Vec::new(), Vec::new(), PathBuf::new())
+                }
+            };
+            let (start_time, run_time) = get_start_and_run_time(process_handler, now);
+            let parent = if info.InheritedFromUniqueProcessId as usize != 0 {
+                Some(Pid(info.InheritedFromUniqueProcessId as _))
+            } else {
+                None
+            };
+            Some(Process {
+                handle: PtrWrapper(process_handler),
+                name,
                 pid,
-                if info.InheritedFromUniqueProcessId as usize != 0 {
-                    Some(Pid(info.InheritedFromUniqueProcessId as _))
-                } else {
-                    None
-                },
-                process_handler,
-                now,
-            ))
+                parent,
+                cmd,
+                environ,
+                exe,
+                cwd,
+                root,
+                status: ProcessStatus::Run,
+                memory: 0,
+                virtual_memory: 0,
+                cpu_usage: 0.,
+                cpu_calc_values: CPUsageCalculationValues::new(),
+                start_time,
+                run_time,
+                updated: true,
+                old_read_bytes: 0,
+                old_written_bytes: 0,
+                read_bytes: 0,
+                written_bytes: 0,
+            })
         }
     }
 
@@ -274,58 +311,6 @@ impl Process {
                 cpu_calc_values: CPUsageCalculationValues::new(),
                 start_time: 0,
                 run_time: 0,
-                updated: true,
-                old_read_bytes: 0,
-                old_written_bytes: 0,
-                read_bytes: 0,
-                written_bytes: 0,
-            }
-        }
-    }
-
-    fn new_with_handle(
-        pid: Pid,
-        parent: Option<Pid>,
-        process_handler: HANDLE,
-        now: u64,
-    ) -> Process {
-        let mut h_mod = null_mut();
-
-        unsafe {
-            let name = if get_h_mod(process_handler, &mut h_mod) {
-                get_process_name(process_handler, h_mod)
-            } else {
-                String::new()
-            };
-
-            let exe = get_exe(process_handler, h_mod);
-            let mut root = exe.clone();
-            root.pop();
-            let (cmd, environ, cwd) = match get_process_params(process_handler) {
-                Ok(args) => args,
-                Err(_e) => {
-                    sysinfo_debug!("Failed to get process parameters: {}", _e);
-                    (Vec::new(), Vec::new(), PathBuf::new())
-                }
-            };
-            let (start_time, run_time) = get_start_and_run_time(process_handler, now);
-            Process {
-                handle: PtrWrapper(process_handler),
-                name,
-                pid,
-                parent,
-                cmd,
-                environ,
-                exe,
-                cwd,
-                root,
-                status: ProcessStatus::Run,
-                memory: 0,
-                virtual_memory: 0,
-                cpu_usage: 0.,
-                cpu_calc_values: CPUsageCalculationValues::new(),
-                start_time,
-                run_time,
                 updated: true,
                 old_read_bytes: 0,
                 old_written_bytes: 0,
