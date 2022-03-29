@@ -253,8 +253,8 @@ impl SystemExt for System {
                     #[cfg(feature = "multithread")]
                     use rayon::iter::ParallelIterator;
 
-                    // TODO: instead of using parallel iterator only here, would be better to be able
-                    //       to run it over `process_information` directly!
+                    // TODO: instead of using parallel iterator only here, would be better to be
+                    //       able to run it over `process_information` directly!
                     let processes = into_iter(process_ids)
                         .filter_map(|pi| {
                             let pi = *pi.0;
