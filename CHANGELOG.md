@@ -1,3 +1,9 @@
+# 0.23.6
+
+ * Windows: Fix process name retrieval
+ * Windows: Unify internal process creation methods
+ * FreeBSD: Simplify code for process update
+
 # 0.23.5
 
  * Windows: Fix a bug which prevent all disks to be listed.
