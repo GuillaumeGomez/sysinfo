@@ -322,6 +322,9 @@ fn test_refresh_processes() {
     s.refresh_processes();
     assert!(s.process(pid).is_some());
 
+    // Check that the process name is not empty.
+    assert!(!s.process(pid).unwrap().name().is_empty());
+
     p.kill().expect("Unable to kill process.");
     // We need this, otherwise the process will still be around as a zombie on linux.
     let _ = p.wait();
@@ -362,6 +365,9 @@ fn test_refresh_process() {
     let mut s = sysinfo::System::new();
     s.refresh_process(pid);
     assert!(s.process(pid).is_some());
+
+    // Check that the process name is not empty.
+    assert!(!s.process(pid).unwrap().name().is_empty());
 
     p.kill().expect("Unable to kill process.");
     // We need this, otherwise the process will still be around as a zombie on linux.

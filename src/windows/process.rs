@@ -178,10 +178,7 @@ unsafe fn get_exe(process_handler: HANDLE, h_mod: *mut c_void) -> PathBuf {
 impl Process {
     pub(crate) fn new_from_pid(pid: Pid, now: u64) -> Option<Process> {
         unsafe {
-            let process_handler = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid.0 as _);
-            if process_handler.is_null() {
-                return None;
-            }
+            let process_handler = get_process_handler(pid)?;
             let mut info: MaybeUninit<PROCESS_BASIC_INFORMATION> = MaybeUninit::uninit();
             if NtQueryInformationProcess(
                 process_handler,
@@ -220,8 +217,11 @@ impl Process {
             let mut h_mod = null_mut();
 
             unsafe {
-                get_h_mod(handle, &mut h_mod);
-                let exe = get_exe(handle, h_mod);
+                let exe = if get_h_mod(handle, &mut h_mod) {
+                    get_exe(handle, h_mod)
+                } else {
+                    PathBuf::new()
+                };
                 let mut root = exe.clone();
                 root.pop();
                 let (cmd, environ, cwd) = match get_process_params(handle) {
