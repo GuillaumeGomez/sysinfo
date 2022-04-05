@@ -139,6 +139,21 @@ fn new_disk(
     unsafe {
         let mut stat: statfs = mem::zeroed();
         if statfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
+            // APFS is "special" because its a snapshot-based filesystem, and modern
+            // macOS devices take full advantage of this.
+            //
+            // By default, listing volumes with `statfs` can return both the root-level
+            // "data" partition and any snapshots that exist. However, other than some flags and
+            // reservered(undocumented) bytes, there is no difference between the OS boot snapshot
+            // and the "data" partition.
+            //
+            // To avoid duplicating the number of disks (and therefore available space, etc), only return
+            // a disk (which is really a partition with APFS) if it is the root of the filesystem.
+            let is_root = stat.f_flags & libc::MNT_ROOTFS as u32 == 0;
+            if !is_root {
+                return None;
+            }
+
             total_space = u64::from(stat.f_bsize) * stat.f_blocks;
             available_space = u64::from(stat.f_bsize) * stat.f_bavail;
             let mut vec = Vec::with_capacity(stat.f_fstypename.len());
