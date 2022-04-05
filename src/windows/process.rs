@@ -332,7 +332,7 @@ impl Process {
         if refresh_kind.disk_usage() {
             update_disk_usage(self);
         }
-        self.run_time = now.checked_sub(self.start_time()).unwrap_or(0);
+        self.run_time = now.saturating_sub(self.start_time());
         self.updated = true;
     }
 }
