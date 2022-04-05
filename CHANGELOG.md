@@ -1,3 +1,7 @@
+# 0.23.7
+
+ * macOS: Ignore non-root drive partitions
+
 # 0.23.6
 
  * Windows: Fix process name retrieval
