@@ -27,3 +27,12 @@ pub(crate) fn cstr_to_rust_with_size(c: *const c_char, size: Option<usize>) -> O
         String::from_utf8(s).ok()
     }
 }
+
+pub(crate) fn vec_to_rust(buf: Vec<i8>) -> Option<String> {
+    String::from_utf8(
+        buf.into_iter()
+            .flat_map(|b| if b > 0 { Some(b as u8) } else { None })
+            .collect(),
+    )
+    .ok()
+}

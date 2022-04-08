@@ -114,11 +114,23 @@ unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
 unsafe fn get_str_value(dict: CFDictionaryRef, key: &[u8]) -> Option<String> {
     get_dict_value(dict, key, |v| {
         let v = v as cfs::CFStringRef;
-        let len = cfs::CFStringGetLength(v);
-        utils::cstr_to_rust_with_size(
-            cfs::CFStringGetCStringPtr(v, cfs::kCFStringEncodingUTF8),
-            Some(len as _),
-        )
+
+        let len_utf16 = cfs::CFStringGetLength(v);
+        let len_bytes = len_utf16 as usize * 2; // Two bytes per UTF-16 codepoint.
+
+        let mut buf = vec![0; len_bytes];
+        let success = cfs::CFStringGetCString(
+            v,
+            buf.as_mut_ptr(),
+            len_bytes as _,
+            cfs::kCFStringEncodingUTF8,
+        );
+
+        if success != 0 {
+            utils::vec_to_rust(buf)
+        } else {
+            None
+        }
     })
 }
 
@@ -144,7 +156,7 @@ fn new_disk(
             //
             // By default, listing volumes with `statfs` can return both the root-level
             // "data" partition and any snapshots that exist. However, other than some flags and
-            // reservered(undocumented) bytes, there is no difference between the OS boot snapshot
+            // reserved(undocumented) bytes, there is no difference between the OS boot snapshot
             // and the "data" partition.
             //
             // To avoid duplicating the number of disks (and therefore available space, etc), only return
