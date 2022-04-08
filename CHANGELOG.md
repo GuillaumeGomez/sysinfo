@@ -1,3 +1,7 @@
+# 0.23.9
+
+ * macOS: Fix disk retrieval
+
 # 0.23.8
 
  * Windows: Fix underflow for `Process` run_time computation
