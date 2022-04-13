@@ -597,6 +597,10 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
 
     /// Refreshes CPU usage.
     ///
+    /// ⚠️ Please note that the result will very likely be inaccurate at the first call.
+    /// You need to call this method at least twice (with a bit of time between each call, like
+    /// 200ms) to get accurate values as it uses previous results to compute the next value.
+    ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
