@@ -1,3 +1,7 @@
+# 0.23.10
+
+ * Improve documentation of `SystemExt::refresh_cpu`.
+
 # 0.23.9
 
  * macOS: Fix disk retrieval
