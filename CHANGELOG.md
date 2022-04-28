@@ -1,3 +1,8 @@
+# 0.23.11
+
+ * Add FreeBSD to the "supported OS" list
+ * Remove useless benchmark results
+
 # 0.23.10
 
  * Improve documentation of `SystemExt::refresh_cpu`.
