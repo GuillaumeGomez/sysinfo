@@ -7,6 +7,7 @@
 It currently supports the following OSes (alphabetically sorted):
 
  * Android
+ * FreeBSD
  * iOS
  * Linux
  * macOS
