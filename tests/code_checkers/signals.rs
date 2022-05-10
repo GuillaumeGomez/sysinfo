@@ -31,10 +31,7 @@ fn check_kill_decl<'a>(lines: &mut impl Iterator<Item = &'a str>, p: &Path) -> u
         } else if trimmed.starts_with("fn kill_with(") {
             if let Some(line) = lines.next() {
                 let trimmed = line.trim();
-                if (trimmed.starts_with("let ")
-                    && trimmed.ends_with("::system::convert_signal(signal)?;"))
-                    || trimmed == "None"
-                {
+                if trimmed.ends_with("::system::convert_signal(signal)?;") || trimmed == "None" {
                     continue;
                 } else {
                     show_error(p, "`ProcessExt::kill_with` should use `convert_signal`");
