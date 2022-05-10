@@ -329,6 +329,7 @@ impl System {
                 val.iter_mut()
             }
 
+            // `get_cpu_frequency` is very slow, so better run it in parallel.
             self.global_processor.frequency = iter_mut(&mut self.processors)
                 .enumerate()
                 .map(|(pos, proc_)| {
