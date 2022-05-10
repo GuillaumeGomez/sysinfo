@@ -1,3 +1,8 @@
+# 0.23.12
+
+ * Linux: Improve `System::refresh_cpu` performance.
+ * Fix clippy lints.
+
 # 0.23.11
 
  * Add FreeBSD to the "supported OS" list
