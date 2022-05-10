@@ -285,7 +285,7 @@ impl System {
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),
-                        get_cpu_frequency(i),
+                        0,
                         vendor_id.clone(),
                         brand.clone(),
                     ));
@@ -303,16 +303,38 @@ impl System {
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),
                     );
-                    self.processors[i].frequency = get_cpu_frequency(i);
                 }
 
                 i += 1;
             }
 
-            self.global_processor.frequency = self
-                .processors
-                .iter()
-                .map(|p| p.frequency)
+            #[cfg(feature = "multithread")]
+            use rayon::iter::{
+                IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
+            };
+
+            #[cfg(feature = "multithread")]
+            // This function is voluntarily made generic in case we want to generalize it.
+            fn iter_mut<'a, T>(
+                val: &'a mut T,
+            ) -> <&'a mut T as rayon::iter::IntoParallelIterator>::Iter
+            where
+                &'a mut T: rayon::iter::IntoParallelIterator,
+            {
+                val.par_iter_mut()
+            }
+
+            #[cfg(not(feature = "multithread"))]
+            fn iter_mut<'a>(val: &'a mut Vec<Processor>) -> std::slice::IterMut<'a, Processor> {
+                val.iter_mut()
+            }
+
+            self.global_processor.frequency = iter_mut(&mut self.processors)
+                .enumerate()
+                .map(|(pos, proc_)| {
+                    proc_.frequency = get_cpu_frequency(pos);
+                    proc_.frequency
+                })
                 .max()
                 .unwrap_or(0);
 
