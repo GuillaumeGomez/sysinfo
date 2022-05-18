@@ -947,7 +947,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn available_memory(&self) -> u64;
 
-    /// Returns the amound of used RAM in KB.
+    /// Returns the amount of used RAM in KB.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
