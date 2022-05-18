@@ -85,7 +85,7 @@ pub(crate) fn boot_time() -> u64 {
     }
 }
 
-pub unsafe fn get_sys_value<T: Sized>(mib: &[c_int], value: &mut T) -> bool {
+pub(crate) unsafe fn get_sys_value<T: Sized>(mib: &[c_int], value: &mut T) -> bool {
     let mut len = mem::size_of::<T>() as libc::size_t;
     libc::sysctl(
         mib.as_ptr(),
@@ -97,7 +97,7 @@ pub unsafe fn get_sys_value<T: Sized>(mib: &[c_int], value: &mut T) -> bool {
     ) == 0
 }
 
-pub unsafe fn get_sys_value_array<T: Sized>(mib: &[c_int], value: &mut [T]) -> bool {
+pub(crate) unsafe fn get_sys_value_array<T: Sized>(mib: &[c_int], value: &mut [T]) -> bool {
     let mut len = (mem::size_of::<T>() * value.len()) as libc::size_t;
     libc::sysctl(
         mib.as_ptr(),
@@ -125,7 +125,7 @@ pub(crate) fn c_buf_to_string(buf: &[libc::c_char]) -> Option<String> {
     c_buf_to_str(buf).map(|s| s.to_owned())
 }
 
-pub unsafe fn get_sys_value_str(mib: &[c_int], buf: &mut [libc::c_char]) -> Option<String> {
+pub(crate) unsafe fn get_sys_value_str(mib: &[c_int], buf: &mut [libc::c_char]) -> Option<String> {
     let mut len = (mem::size_of::<libc::c_char>() * buf.len()) as libc::size_t;
     if libc::sysctl(
         mib.as_ptr(),
@@ -141,7 +141,7 @@ pub unsafe fn get_sys_value_str(mib: &[c_int], buf: &mut [libc::c_char]) -> Opti
     c_buf_to_string(&buf[..len / mem::size_of::<libc::c_char>()])
 }
 
-pub unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T) -> bool {
+pub(crate) unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T) -> bool {
     let mut len = mem::size_of::<T>() as libc::size_t;
     let original = len;
 
@@ -230,7 +230,7 @@ pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<St
     }
 }
 
-pub unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<String> {
+pub(crate) unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<String> {
     if ptr.is_null() {
         return Vec::new();
     }
@@ -280,4 +280,17 @@ impl std::ops::Deref for KInfoProc {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
+}
+
+pub(crate) unsafe fn get_frequency_for_cpu(cpu_nb: c_int) -> u64 {
+    let mut frequency = 0;
+
+    // The information can be missing if it's running inside a VM.
+    if !get_sys_value_by_name(
+        format!("dev.cpu.{}.freq\0", cpu_nb).as_bytes(),
+        &mut frequency,
+    ) {
+        frequency = 0;
+    }
+    frequency as _
 }

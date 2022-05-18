@@ -2,7 +2,7 @@
 
 use crate::{
     sys::{component::Component, Disk, Networks, Process, Processor},
-    LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 use std::cell::UnsafeCell;
@@ -13,8 +13,9 @@ use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
 
 use super::utils::{
-    self, boot_time, c_buf_to_string, from_cstr_array, get_sys_value, get_sys_value_array,
-    get_sys_value_by_name, get_sys_value_str_by_name, get_system_info, init_mib,
+    self, boot_time, c_buf_to_string, from_cstr_array, get_frequency_for_cpu, get_sys_value,
+    get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name, get_system_info,
+    init_mib,
 };
 
 use libc::c_int;
@@ -70,6 +71,7 @@ pub struct System {
     users: Vec<User>,
     boot_time: u64,
     system_info: SystemInfo,
+    got_cpu_frequency: bool,
 }
 
 impl SystemExt for System {
@@ -94,6 +96,7 @@ impl SystemExt for System {
             users: Vec::new(),
             boot_time: boot_time(),
             system_info,
+            got_cpu_frequency: false,
         };
         s.refresh_specifics(refreshes);
         s
@@ -110,33 +113,39 @@ impl SystemExt for System {
         self.swap_used = swap_used;
     }
 
-    fn refresh_cpu(&mut self) {
+    fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         if self.processors.is_empty() {
-            let mut frequency: libc::size_t = 0;
+            let mut frequency = 0;
 
             // We get the processor vendor ID in here.
             let vendor_id =
                 get_sys_value_str_by_name(b"hw.model\0").unwrap_or_else(|| "<unknown>".to_owned());
             for pos in 0..self.system_info.nb_cpus {
-                unsafe {
-                    // The information can be missing if it's running inside a VM.
-                    if !get_sys_value_by_name(
-                        format!("dev.cpu.{}.freq\0", pos).as_bytes(),
-                        &mut frequency,
-                    ) {
-                        frequency = 0;
+                if refresh_kind.frequency() {
+                    unsafe {
+                        frequency = get_frequency_for_cpu(pos);
                     }
                 }
                 self.processors.push(Processor::new(
                     format!("cpu {}", pos),
                     vendor_id.clone(),
-                    frequency as _,
+                    frequency,
                 ));
             }
             self.global_processor.vendor_id = vendor_id;
+            self.got_cpu_frequency = refresh_kind.frequency();
+        } else if refresh_kind.frequency() && !self.got_cpu_frequency {
+            for (pos, proc_) in self.processors.iter_mut().enumerate() {
+                unsafe {
+                    proc_.frequency = get_frequency_for_cpu(pos as _);
+                }
+            }
+            self.got_cpu_frequency = true;
         }
-        self.system_info
-            .get_cpu_usage(&mut self.global_processor, &mut self.processors);
+        if refresh_kind.cpu_usage() {
+            self.system_info
+                .get_cpu_usage(&mut self.global_processor, &mut self.processors);
+        }
     }
 
     fn refresh_components_list(&mut self) {

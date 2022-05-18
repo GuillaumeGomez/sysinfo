@@ -5,7 +5,9 @@ use crate::sys::disk;
 use crate::sys::process::*;
 use crate::sys::processor::*;
 use crate::sys::utils::get_all_data;
-use crate::{Disk, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User};
+use crate::{
+    CpuRefreshKind, Disk, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+};
 
 use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::collections::HashMap;
@@ -176,6 +178,7 @@ pub struct System {
     /// For example when running `refresh_all` or `refresh_specifics`.
     need_processors_update: bool,
     info: SystemInfo,
+    got_cpu_frequency: bool,
 }
 
 impl System {
@@ -191,7 +194,7 @@ impl System {
     fn clear_procs(&mut self, refresh_kind: ProcessRefreshKind) {
         let (total_time, compute_cpu, max_value) = if refresh_kind.cpu() {
             if self.need_processors_update {
-                self.refresh_processors(true);
+                self.refresh_processors(true, CpuRefreshKind::new().with_cpu_usage());
             }
 
             if self.processors.is_empty() {
@@ -222,7 +225,11 @@ impl System {
         });
     }
 
-    fn refresh_processors(&mut self, only_update_global_processor: bool) {
+    fn refresh_processors(
+        &mut self,
+        only_update_global_processor: bool,
+        refresh_kind: CpuRefreshKind,
+    ) {
         if let Ok(f) = File::open("/proc/stat") {
             self.need_processors_update = false;
 
@@ -236,58 +243,19 @@ impl System {
                 (String::new(), String::new())
             };
 
-            if let Some(Ok(line)) = it.next() {
-                if &line[..4] != b"cpu " {
-                    return;
-                }
-                let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
-                if first {
-                    self.global_processor.name = to_str!(parts.next().unwrap_or(&[])).to_owned();
-                } else {
-                    parts.next();
-                }
-                self.global_processor.set(
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                );
-                if !first && only_update_global_processor {
-                    return;
-                }
-            }
-            while let Some(Ok(line)) = it.next() {
-                if &line[..3] != b"cpu" {
-                    break;
-                }
-
-                let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
-                if first {
-                    self.processors.push(Processor::new_with_values(
-                        to_str!(parts.next().unwrap_or(&[])),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        0,
-                        vendor_id.clone(),
-                        brand.clone(),
-                    ));
-                } else {
-                    parts.next(); // we don't want the name again
-                    self.processors[i].set(
+            if first || refresh_kind.cpu_usage() {
+                if let Some(Ok(line)) = it.next() {
+                    if &line[..4] != b"cpu " {
+                        return;
+                    }
+                    let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
+                    if first {
+                        self.global_processor.name =
+                            to_str!(parts.next().unwrap_or(&[])).to_owned();
+                    } else {
+                        parts.next();
+                    }
+                    self.global_processor.set(
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),
@@ -300,40 +268,85 @@ impl System {
                         parts.next().map(to_u64).unwrap_or(0),
                     );
                 }
+                if first || !only_update_global_processor {
+                    while let Some(Ok(line)) = it.next() {
+                        if &line[..3] != b"cpu" {
+                            break;
+                        }
 
-                i += 1;
+                        let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
+                        if first {
+                            self.processors.push(Processor::new_with_values(
+                                to_str!(parts.next().unwrap_or(&[])),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                0,
+                                vendor_id.clone(),
+                                brand.clone(),
+                            ));
+                        } else {
+                            parts.next(); // we don't want the name again
+                            self.processors[i].set(
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                            );
+                        }
+
+                        i += 1;
+                    }
+                }
             }
 
-            #[cfg(feature = "multithread")]
-            use rayon::iter::{
-                IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
-            };
+            if refresh_kind.frequency() && !self.got_cpu_frequency {
+                #[cfg(feature = "multithread")]
+                use rayon::iter::{
+                    IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
+                };
 
-            #[cfg(feature = "multithread")]
-            // This function is voluntarily made generic in case we want to generalize it.
-            fn iter_mut<'a, T>(
-                val: &'a mut T,
-            ) -> <&'a mut T as rayon::iter::IntoParallelIterator>::Iter
-            where
-                &'a mut T: rayon::iter::IntoParallelIterator,
-            {
-                val.par_iter_mut()
+                #[cfg(feature = "multithread")]
+                // This function is voluntarily made generic in case we want to generalize it.
+                fn iter_mut<'a, T>(
+                    val: &'a mut T,
+                ) -> <&'a mut T as rayon::iter::IntoParallelIterator>::Iter
+                where
+                    &'a mut T: rayon::iter::IntoParallelIterator,
+                {
+                    val.par_iter_mut()
+                }
+
+                #[cfg(not(feature = "multithread"))]
+                fn iter_mut<'a>(val: &'a mut Vec<Processor>) -> std::slice::IterMut<'a, Processor> {
+                    val.iter_mut()
+                }
+
+                // `get_cpu_frequency` is very slow, so better run it in parallel.
+                self.global_processor.frequency = iter_mut(&mut self.processors)
+                    .enumerate()
+                    .map(|(pos, proc_)| {
+                        proc_.frequency = get_cpu_frequency(pos);
+                        proc_.frequency
+                    })
+                    .max()
+                    .unwrap_or(0);
+
+                self.got_cpu_frequency = true;
             }
-
-            #[cfg(not(feature = "multithread"))]
-            fn iter_mut<'a>(val: &'a mut Vec<Processor>) -> std::slice::IterMut<'a, Processor> {
-                val.iter_mut()
-            }
-
-            // `get_cpu_frequency` is very slow, so better run it in parallel.
-            self.global_processor.frequency = iter_mut(&mut self.processors)
-                .enumerate()
-                .map(|(pos, proc_)| {
-                    proc_.frequency = get_cpu_frequency(pos);
-                    proc_.frequency
-                })
-                .max()
-                .unwrap_or(0);
 
             if first {
                 self.global_processor.vendor_id = vendor_id;
@@ -383,6 +396,7 @@ impl SystemExt for System {
             users: Vec::new(),
             need_processors_update: true,
             info,
+            got_cpu_frequency: false,
         };
         s.refresh_specifics(refreshes);
         s
@@ -417,8 +431,8 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_cpu(&mut self) {
-        self.refresh_processors(false);
+    fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
+        self.refresh_processors(false, refresh_kind);
     }
 
     fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
@@ -454,7 +468,7 @@ impl SystemExt for System {
         };
         if found {
             if refresh_kind.cpu() {
-                self.refresh_processors(true);
+                self.refresh_processors(true, CpuRefreshKind::new().with_cpu_usage());
 
                 if self.processors.is_empty() {
                     sysinfo_debug!("Cannot compute process CPU usage: no processors found...");

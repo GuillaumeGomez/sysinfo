@@ -149,6 +149,60 @@ assert_eq!(r.", stringify!($name), "(), false);
             self
         }
     };
+
+    ($ty_name:ident, $name:ident, $with:ident, $without:ident, $typ:ty $(,)?) => {
+        #[doc = concat!("Returns the value of the \"", stringify!($name), "\" refresh kind.
+
+```
+use sysinfo::{", stringify!($ty_name), ", ", stringify!($typ), "};
+
+let r = ", stringify!($ty_name), "::new();
+assert_eq!(r.", stringify!($name), "().is_some(), false);
+
+let r = r.with_", stringify!($name), "(", stringify!($typ), "::everything());
+assert_eq!(r.", stringify!($name), "().is_some(), true);
+
+let r = r.without_", stringify!($name), "();
+assert_eq!(r.", stringify!($name), "().is_some(), false);
+```")]
+        pub fn $name(&self) -> Option<$typ> {
+            self.$name
+        }
+
+        #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `true`.
+
+```
+use sysinfo::{", stringify!($ty_name), ", ", stringify!($typ), "};
+
+let r = ", stringify!($ty_name), "::new();
+assert_eq!(r.", stringify!($name), "().is_some(), false);
+
+let r = r.with_", stringify!($name), "(", stringify!($typ), "::everything());
+assert_eq!(r.", stringify!($name), "().is_some(), true);
+```")]
+        #[must_use]
+        pub fn $with(mut self, kind: $typ) -> Self {
+            self.$name = Some(kind);
+            self
+        }
+
+        #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `false`.
+
+```
+use sysinfo::", stringify!($ty_name), ";
+
+let r = ", stringify!($ty_name), "::everything();
+assert_eq!(r.", stringify!($name), "().is_some(), true);
+
+let r = r.without_", stringify!($name), "();
+assert_eq!(r.", stringify!($name), "().is_some(), false);
+```")]
+        #[must_use]
+        pub fn $without(mut self) -> Self {
+            self.$name = None;
+            self
+        }
+    };
 }
 
 /// Used to determine what you want to refresh specifically on the [`Process`] type.
@@ -229,6 +283,66 @@ on Windows as other platforms get this information alongside the Process informa
     );
 }
 
+/// Used to determine what you want to refresh specifically on the [`Process`] type.
+///
+/// ⚠️ Just like all other refresh types, ruling out a refresh doesn't assure you that
+/// the information won't be retrieved if the information is accessible without needing
+/// extra computation.
+///
+/// ```
+/// use sysinfo::{ProcessorExt, CpuRefreshKind, System, SystemExt};
+///
+/// let mut system = System::new();
+///
+/// // We don't want to update all the CPU information.
+/// system.refresh_cpu_specifics(CpuRefreshKind::everything().without_frequency());
+///
+/// for cpu in system.processors() {
+///     assert_eq!(cpu.frequency(), 0);
+/// }
+/// ```
+///
+/// [`Process`]: crate::Process
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CpuRefreshKind {
+    cpu_usage: bool,
+    frequency: bool,
+}
+
+impl CpuRefreshKind {
+    /// Creates a new `CpuRefreshKind` with every refresh set to `false`.
+    ///
+    /// ```
+    /// use sysinfo::CpuRefreshKind;
+    ///
+    /// let r = CpuRefreshKind::new();
+    ///
+    /// assert_eq!(r.frequency(), false);
+    /// ```
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates a new `CpuRefreshKind` with every refresh set to `true`.
+    ///
+    /// ```
+    /// use sysinfo::CpuRefreshKind;
+    ///
+    /// let r = CpuRefreshKind::everything();
+    ///
+    /// assert_eq!(r.frequency(), true);
+    /// ```
+    pub fn everything() -> Self {
+        Self {
+            cpu_usage: true,
+            frequency: true,
+        }
+    }
+
+    impl_get_set!(CpuRefreshKind, cpu_usage, with_cpu_usage, without_cpu_usage);
+    impl_get_set!(CpuRefreshKind, frequency, with_frequency, without_frequency);
+}
+
 /// Used to determine what you want to refresh specifically on the [`System`] type.
 ///
 /// ⚠️ Just like all other refresh types, ruling out a refresh doesn't assure you that
@@ -256,14 +370,14 @@ pub struct RefreshKind {
     disks_list: bool,
     disks: bool,
     memory: bool,
-    cpu: bool,
+    cpu: Option<CpuRefreshKind>,
     components: bool,
     components_list: bool,
     users_list: bool,
 }
 
 impl RefreshKind {
-    /// Creates a new `RefreshKind` with every refresh set to `false`.
+    /// Creates a new `RefreshKind` with every refresh set to `false`/`None`.
     ///
     /// ```
     /// use sysinfo::RefreshKind;
@@ -276,7 +390,7 @@ impl RefreshKind {
     /// assert_eq!(r.disks_list(), false);
     /// assert_eq!(r.disks(), false);
     /// assert_eq!(r.memory(), false);
-    /// assert_eq!(r.cpu(), false);
+    /// assert_eq!(r.cpu().is_some(), false);
     /// assert_eq!(r.components(), false);
     /// assert_eq!(r.components_list(), false);
     /// assert_eq!(r.users_list(), false);
@@ -285,7 +399,7 @@ impl RefreshKind {
         Self::default()
     }
 
-    /// Creates a new `RefreshKind` with every refresh set to `true`.
+    /// Creates a new `RefreshKind` with every refresh set to `true`/`Some(...)`.
     ///
     /// ```
     /// use sysinfo::RefreshKind;
@@ -298,7 +412,7 @@ impl RefreshKind {
     /// assert_eq!(r.disks_list(), true);
     /// assert_eq!(r.disks(), true);
     /// assert_eq!(r.memory(), true);
-    /// assert_eq!(r.cpu(), true);
+    /// assert_eq!(r.cpu().is_some(), true);
     /// assert_eq!(r.components(), true);
     /// assert_eq!(r.components_list(), true);
     /// assert_eq!(r.users_list(), true);
@@ -311,65 +425,20 @@ impl RefreshKind {
             disks: true,
             disks_list: true,
             memory: true,
-            cpu: true,
+            cpu: Some(CpuRefreshKind::everything()),
             components: true,
             components_list: true,
             users_list: true,
         }
     }
 
-    /// Returns the value of the "processes" refresh kind.
-    ///
-    /// ```
-    /// use sysinfo::{ProcessRefreshKind, RefreshKind};
-    ///
-    /// let r = RefreshKind::new();
-    /// assert_eq!(r.processes(), None);
-    ///
-    /// let r = r.with_processes(ProcessRefreshKind::everything());
-    /// assert_eq!(r.processes().is_some(), true);
-    ///
-    /// let r = r.without_processes();
-    /// assert_eq!(r.processes().is_some(), false);
-    /// ```
-    pub fn processes(&self) -> Option<ProcessRefreshKind> {
-        self.processes
-    }
-
-    /// Sets the value of the "processes" refresh kind.
-    ///
-    /// ```
-    /// use sysinfo::{ProcessRefreshKind, RefreshKind};
-    ///
-    /// let r = RefreshKind::new();
-    /// assert_eq!(r.processes().is_some(), false);
-    ///
-    /// let r = r.with_processes(ProcessRefreshKind::everything());
-    /// assert_eq!(r.processes().is_some(), true);
-    /// ```
-    #[must_use]
-    pub fn with_processes(mut self, refresh_kind: ProcessRefreshKind) -> Self {
-        self.processes = Some(refresh_kind);
-        self
-    }
-
-    /// Sets the value of the "processes" refresh kind to `None`.
-    ///
-    /// ```
-    /// use sysinfo::{ProcessRefreshKind, RefreshKind};
-    ///
-    /// let r = RefreshKind::everything();
-    /// assert_eq!(r.processes().is_some(), true);
-    ///
-    /// let r = r.without_processes();
-    /// assert_eq!(r.processes().is_some(), false);
-    /// ```
-    #[must_use]
-    pub fn without_processes(mut self) -> Self {
-        self.processes = None;
-        self
-    }
-
+    impl_get_set!(
+        RefreshKind,
+        processes,
+        with_processes,
+        without_processes,
+        ProcessRefreshKind
+    );
     impl_get_set!(RefreshKind, networks, with_networks, without_networks);
     impl_get_set!(
         RefreshKind,
@@ -380,7 +449,7 @@ impl RefreshKind {
     impl_get_set!(RefreshKind, disks, with_disks, without_disks);
     impl_get_set!(RefreshKind, disks_list, with_disks_list, without_disks_list);
     impl_get_set!(RefreshKind, memory, with_memory, without_memory);
-    impl_get_set!(RefreshKind, cpu, with_cpu, without_cpu);
+    impl_get_set!(RefreshKind, cpu, with_cpu, without_cpu, CpuRefreshKind);
     impl_get_set!(RefreshKind, components, with_components, without_components);
     impl_get_set!(
         RefreshKind,

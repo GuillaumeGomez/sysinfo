@@ -2,7 +2,7 @@
 
 use crate::{
     sys::{component::Component, Disk, Networks, Process, Processor},
-    LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 use std::collections::HashMap;
@@ -33,7 +33,7 @@ impl SystemExt for System {
 
     fn refresh_memory(&mut self) {}
 
-    fn refresh_cpu(&mut self) {}
+    fn refresh_cpu_specifics(&mut self, _refresh_kind: CpuRefreshKind) {}
 
     fn refresh_components_list(&mut self) {}
 

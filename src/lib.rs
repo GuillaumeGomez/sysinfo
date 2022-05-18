@@ -59,7 +59,7 @@ cfg_if::cfg_if! {
 }
 
 pub use common::{
-    get_current_pid, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid, PidExt,
+    get_current_pid, CpuRefreshKind, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid, PidExt,
     ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, Uid, User,
 };
 pub use sys::{Component, Disk, NetworkData, Networks, Process, Processor, System};
@@ -406,6 +406,24 @@ mod test {
                 System::SUPPORTED_SIGNALS.is_empty(),
                 "SUPPORTED_SIGNALS should be empty on not support systems!"
             );
+        }
+    }
+
+    // Ensure that the CPUs frequency isn't retrieved until we ask for it.
+    #[test]
+    #[cfg(not(target_os = "freebsd"))] // In a VM, it'll fail.
+    fn check_cpu_frequency() {
+        if !System::IS_SUPPORTED {
+            return;
+        }
+        let mut s = System::new();
+        s.refresh_processes();
+        for proc_ in s.processors() {
+            assert_eq!(proc_.frequency(), 0);
+        }
+        s.refresh_cpu();
+        for proc_ in s.processors() {
+            assert_ne!(proc_.frequency(), 0);
         }
     }
 }

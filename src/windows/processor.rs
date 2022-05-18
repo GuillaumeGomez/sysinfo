@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::tools::KeyHandler;
-use crate::{LoadAvg, ProcessorExt};
+use crate::{CpuRefreshKind, LoadAvg, ProcessorExt};
 
 use std::collections::HashMap;
 use std::io::Error;
@@ -243,13 +243,20 @@ impl Query {
 pub(crate) struct ProcessorsWrapper {
     global: Processor,
     processors: Vec<Processor>,
+    got_cpu_frequency: bool,
 }
 
 impl ProcessorsWrapper {
     pub fn new() -> Self {
         Self {
-            global: Processor::new_with_values("Total CPU", String::new(), String::new(), 0),
+            global: Processor::new_with_values(
+                "Total CPU".to_owned(),
+                String::new(),
+                String::new(),
+                0,
+            ),
             processors: Vec::new(),
+            got_cpu_frequency: false,
         }
     }
 
@@ -265,23 +272,39 @@ impl ProcessorsWrapper {
         &self.processors
     }
 
-    fn init_if_needed(&mut self) {
+    fn init_if_needed(&mut self, refresh_kind: CpuRefreshKind) {
         if self.processors.is_empty() {
-            let (processors, vendor_id, brand) = super::tools::init_processors();
+            let (processors, vendor_id, brand) = super::tools::init_processors(refresh_kind);
             self.processors = processors;
             self.global.vendor_id = vendor_id;
             self.global.brand = brand;
+            self.got_cpu_frequency = refresh_kind.frequency();
         }
     }
 
     pub fn len(&mut self) -> usize {
-        self.init_if_needed();
+        self.init_if_needed(CpuRefreshKind::new());
         self.processors.len()
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Processor> {
-        self.init_if_needed();
+    pub fn iter_mut(
+        &mut self,
+        refresh_kind: CpuRefreshKind,
+    ) -> impl Iterator<Item = &mut Processor> {
+        self.init_if_needed(refresh_kind);
         self.processors.iter_mut()
+    }
+
+    pub fn get_frequencies(&mut self) {
+        if self.got_cpu_frequency {
+            return;
+        }
+        let frequencies = get_frequencies(self.processors.len());
+
+        for (processor, frequency) in self.processors.iter_mut().zip(frequencies) {
+            processor.set_frequency(frequency);
+        }
+        self.got_cpu_frequency = true;
     }
 }
 
@@ -319,13 +342,13 @@ impl ProcessorExt for Processor {
 
 impl Processor {
     pub(crate) fn new_with_values(
-        name: &str,
+        name: String,
         vendor_id: String,
         brand: String,
         frequency: u64,
     ) -> Processor {
         Processor {
-            name: name.to_owned(),
+            name,
             cpu_usage: 0f32,
             key_used: None,
             vendor_id,
@@ -336,6 +359,10 @@ impl Processor {
 
     pub(crate) fn set_cpu_usage(&mut self, value: f32) {
         self.cpu_usage = value;
+    }
+
+    pub(crate) fn set_frequency(&mut self, value: u64) {
+        self.frequency = value;
     }
 }
 
