@@ -144,10 +144,10 @@ pub(crate) unsafe fn get_process_data(
     fscale: f32,
     now: u64,
     refresh_kind: ProcessRefreshKind,
-) -> Option<Process> {
+) -> Result<Option<Process>, ()> {
     if kproc.ki_pid != 1 && (kproc.ki_flag as libc::c_int & libc::P_SYSTEM) != 0 {
         // We filter out the kernel threads.
-        return None;
+        return Err(());
     }
 
     // We now get the values needed for both new and existing process.
@@ -186,7 +186,7 @@ pub(crate) unsafe fn get_process_data(
             proc_.written_bytes = kproc.ki_rusage.ru_oublock as _;
         }
 
-        return None;
+        return Ok(None);
     }
 
     // This is a new process, we need to get more information!
@@ -217,7 +217,7 @@ pub(crate) unsafe fn get_process_data(
     // .unwrap_or_else(PathBuf::new);
 
     let start_time = kproc.ki_start.tv_sec as u64;
-    Some(Process {
+    Ok(Some(Process {
         pid: Pid(kproc.ki_pid),
         parent,
         uid: kproc.ki_ruid,
@@ -244,5 +244,5 @@ pub(crate) unsafe fn get_process_data(
         written_bytes: kproc.ki_rusage.ru_oublock as _,
         old_written_bytes: 0,
         updated: true,
-    })
+    }))
 }
