@@ -210,20 +210,16 @@ impl System {
             (0., false, 0.)
         };
 
-        // FIXME: once `retain_mut` has been stabilized, remove `to_delete`.
-        let mut to_delete = Vec::with_capacity(20);
-
-        for (pid, proc_) in &mut self.process_list.tasks {
+        self.process_list.tasks.retain(|_, proc_| {
             if !proc_.updated {
-                to_delete.push(*pid);
-            } else if compute_cpu {
-                compute_cpu_usage(proc_, total_time, max_value);
-                proc_.updated = false;
+                return false;
             }
-        }
-        for pid in to_delete {
-            self.process_list.tasks.remove(&pid);
-        }
+            if compute_cpu {
+                compute_cpu_usage(proc_, total_time, max_value);
+            }
+            proc_.updated = false;
+            true
+        });
     }
 
     fn refresh_processors(&mut self, only_update_global_processor: bool) {
