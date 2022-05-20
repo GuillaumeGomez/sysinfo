@@ -375,7 +375,8 @@ fn test_refresh_process() {
     // Let's give some time to the system to clean up...
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    s.refresh_process(pid);
+    assert_eq!(s.refresh_process(pid), false);
+
     // Checks that the process is still listed.
     assert!(s.process(pid).is_some());
 }
