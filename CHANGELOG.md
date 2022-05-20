@@ -1,3 +1,8 @@
+# 0.23.13
+
+ * macOS/FreeBSD: Fix `System::refresh_process` and `System::refresh_process_specifics` returned value.
+ * Linux: small performance improvement when updating process list.
+
 # 0.23.12
 
  * Linux: Improve `System::refresh_cpu` performance.
