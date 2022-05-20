@@ -13,7 +13,7 @@ use libc::{gid_t, kill, uid_t};
 use crate::sys::system::{SystemInfo, REMAINING_FILES};
 use crate::sys::utils::{get_all_data, get_all_data_from_file, realpath};
 use crate::utils::into_iter;
-use crate::{DiskUsage, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal};
+use crate::{DiskUsage, NetworkUsage, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal};
 
 #[doc(hidden)]
 impl From<u32> for ProcessStatus {
@@ -99,6 +99,10 @@ pub struct Process {
     old_written_bytes: u64,
     read_bytes: u64,
     written_bytes: u64,
+    transmitted_bytes: u64,
+    old_transmitted_bytes: u64,
+    received_bytes: u64,
+    old_received_bytes: u64,
 }
 
 impl Process {
@@ -141,6 +145,10 @@ impl Process {
             old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
+            transmitted_bytes: 0,
+            old_transmitted_bytes: 0,
+            received_bytes: 0,
+            old_received_bytes: 0,
         }
     }
 }
@@ -215,6 +223,17 @@ impl ProcessExt for Process {
             total_read_bytes: self.read_bytes,
         }
     }
+
+    fn network_usage(&self) -> NetworkUsage {
+        NetworkUsage {
+            transmitted_bytes: self
+                .transmitted_bytes
+                .saturating_sub(self.old_transmitted_bytes),
+            total_transmitted_bytes: self.transmitted_bytes,
+            received_bytes: self.received_bytes.saturating_sub(self.old_received_bytes),
+            total_received_bytes: self.received_bytes,
+        }
+    }
 }
 
 impl Drop for Process {
@@ -250,6 +269,40 @@ pub(crate) fn set_time(p: &mut Process, utime: u64, stime: u64) {
     p.utime = utime;
     p.stime = stime;
     p.updated = true;
+}
+
+pub(crate) fn update_process_network_activity(p: &mut Process, path: &Path) {
+    let mut path = PathBuf::from(path);
+    path.push("net/dev");
+    let data = match get_all_data(&path, 16_384) {
+        Ok(d) => d,
+        Err(_) => return,
+    };
+    p.old_received_bytes = p.received_bytes;
+    p.old_transmitted_bytes = p.transmitted_bytes;
+
+    let mut received_bytes = 0;
+    let mut transmitted_bytes = 0;
+
+    let mut lines = data.split('\n');
+
+    // Skip headers.
+    lines.next();
+    lines.next();
+
+    for line in lines {
+        let values = line.split_whitespace().collect::<Vec<&str>>();
+        if values.len() < 17 {
+            continue;
+        }
+
+        // received and transmitted bytes are contained in the first and ninth column.
+        received_bytes += values[1].parse::<u64>().ok().unwrap();
+        transmitted_bytes += values[9].parse::<u64>().ok().unwrap();
+    }
+
+    p.received_bytes = received_bytes;
+    p.transmitted_bytes = transmitted_bytes;
 }
 
 pub(crate) fn update_process_disk_activity(p: &mut Process, path: &Path) {
@@ -347,6 +400,9 @@ pub(crate) fn _get_process_data(
         if refresh_kind.disk_usage() {
             update_process_disk_activity(entry, path);
         }
+        if refresh_kind.network_usage() {
+            update_process_network_activity(entry, path);
+        }
         return Ok((None, pid));
     }
 
@@ -435,6 +491,9 @@ pub(crate) fn _get_process_data(
     );
     if refresh_kind.disk_usage() {
         update_process_disk_activity(&mut p, path);
+    }
+    if refresh_kind.network_usage() {
+        update_process_network_activity(&mut p, path);
     }
     Ok((Some(p), pid))
 }
