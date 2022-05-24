@@ -1,3 +1,7 @@
+# 0.23.15
+
+ * Linux: Improve performance when creating new `Process` by improving retrieval of user ID and group ID.
+
 # 0.23.14
 
  * Linux: Fix processes' virtual memory computation.
