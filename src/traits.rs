@@ -1456,7 +1456,7 @@ pub trait UserExt: Debug {
     ///     println!("{}", *user.uid());
     /// }
     /// ```
-    fn uid(&self) -> Uid;
+    fn uid(&self) -> &Uid;
 
     /// Return the group id of the user.
     ///
@@ -1473,7 +1473,7 @@ pub trait UserExt: Debug {
     ///     println!("{}", *user.gid());
     /// }
     /// ```
-    fn gid(&self) -> Gid;
+    fn gid(&self) -> &Gid;
 
     /// Returns the name of the user.
     ///
