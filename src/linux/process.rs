@@ -456,8 +456,9 @@ fn update_time_and_memory(
         if entry.memory >= parent_memory {
             entry.memory -= parent_memory;
         }
-        // vsz
-        entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0);
+        // vsz correspond to the Virtual memory size in bytes. Divising by 1_000 gives us kb.
+        // see: https://man7.org/linux/man-pages/man5/proc.5.html
+        entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0) / 1_000;
         if entry.virtual_memory >= parent_virtual_memory {
             entry.virtual_memory -= parent_virtual_memory;
         }
