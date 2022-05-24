@@ -700,7 +700,7 @@ fn to_u64(v: &[u8]) -> u64 {
     x
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 enum InfoType {
     /// The end-user friendly name of:
     /// - Android: The device model
