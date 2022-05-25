@@ -80,7 +80,7 @@ println!("NB processors: {}", sys.processors().len());
 
 // Display processes ID, name na disk usage:
 for (pid, process) in sys.processes() {
-    println!("[{}] {} {:?}", pid, process.name(), process.disk_usage());
+    println!("[{}] {} {:?} {:?}", pid, process.name(), process.disk_usage(), process.network_usage());
 }
 
 ```

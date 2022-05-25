@@ -5,8 +5,8 @@ use crate::{
     sys::{Component, Disk, Networks, Process, Processor},
 };
 use crate::{
-    DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessRefreshKind, ProcessStatus,
-    RefreshKind, Signal, User,
+    DiskType, DiskUsage, LoadAvg, NetworkUsage, NetworksIter, Pid, ProcessRefreshKind,
+    ProcessStatus, RefreshKind, Signal, User,
 };
 
 use std::collections::HashMap;
@@ -370,6 +370,28 @@ pub trait ProcessExt: Debug {
     /// }
     /// ```
     fn disk_usage(&self) -> DiskUsage;
+
+    /// Returns number of bytes received and transmitted to all network.
+    ///
+    /// ⚠️ This is currently only implemented on linux.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     let network_usage = process.network_usage();
+    ///     println!("received bytes   : new/total => {}/{}",
+    ///         network_usage.received_bytes,
+    ///         network_usage.total_received_bytes,
+    ///     );
+    ///     println!("transmitted bytes: new/total => {}/{}",
+    ///         network_usage.transmitted_bytes,
+    ///         network_usage.total_transmitted_bytes,
+    ///     );
+    /// }
+    /// ```
+    fn network_usage(&self) -> NetworkUsage;
 }
 
 /// Contains all the methods of the [`Processor`][crate::Processor] struct.

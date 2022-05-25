@@ -169,6 +169,7 @@ assert_eq!(r.", stringify!($name), "(), false);
 pub struct ProcessRefreshKind {
     cpu: bool,
     disk_usage: bool,
+    network_usage: bool,
 }
 
 impl ProcessRefreshKind {
@@ -195,11 +196,13 @@ impl ProcessRefreshKind {
     ///
     /// assert_eq!(r.cpu(), true);
     /// assert_eq!(r.disk_usage(), true);
+    /// assert_eq!(r.network_usage(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
             cpu: true,
             disk_usage: true,
+            network_usage: true,
         }
     }
 
@@ -209,6 +212,12 @@ impl ProcessRefreshKind {
         disk_usage,
         with_disk_usage,
         without_disk_usage
+    );
+    impl_get_set!(
+        ProcessRefreshKind,
+        network_usage,
+        with_network_usage,
+        without_network_usage
     );
 }
 
@@ -692,6 +701,40 @@ pub struct DiskUsage {
     pub total_read_bytes: u64,
     /// Number of read bytes since the last refresh.
     pub read_bytes: u64,
+}
+
+/// Type containing received and trasmitted bytes on all interface.
+///
+/// It is returned by [`ProcessExt::network_usage`][crate::ProcessExt::network_usage].
+///
+/// ```no_run
+/// use sysinfo::{ProcessExt, System, SystemExt};
+///
+/// let s = System::new_all();
+/// for (pid, process) in s.processes() {
+///     let network_usage = process.network_usage();
+///     println!("[{}] received bytes   : new/total => {}/{} B",
+///         pid,
+///         network_usage.received_bytes,
+///         network_usage.total_received_bytes,
+///     );
+///     println!("[{}] transmitted bytes: new/total => {}/{} B",
+///         pid,
+///         network_usage.transmitted_bytes,
+///         network_usage.total_transmitted_bytes,
+///     );
+/// }
+/// ```
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
+pub struct NetworkUsage {
+    /// Total number of transmit bytes.
+    pub total_transmitted_bytes: u64,
+    /// Number of transmit bytes since the last refresh.
+    pub transmitted_bytes: u64,
+    /// Total number of receive bytes.
+    pub total_received_bytes: u64,
+    /// Number of receive bytes since the last refresh.
+    pub received_bytes: u64,
 }
 
 /// Enum describing the different status of a process.
