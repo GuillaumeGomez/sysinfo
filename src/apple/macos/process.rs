@@ -302,6 +302,14 @@ unsafe fn get_task_info(pid: Pid) -> libc::proc_taskinfo {
     task_info
 }
 
+fn check_if_pid_is_alive(pid: Pid) -> bool {
+    unsafe { kill(pid.0, 0) == 0 }
+    // For the full complete check, it'd need to be (but that seems unneeded):
+    // unsafe {
+    //     *libc::__errno_location() == libc::ESRCH
+    // }
+}
+
 pub(crate) fn update_process(
     wrap: &Wrap,
     pid: Pid,
@@ -317,7 +325,11 @@ pub(crate) fn update_process(
             if p.memory == 0 {
                 // We don't have access to this process' information.
                 force_update(p);
-                return Ok(None);
+                return if check_if_pid_is_alive(pid) {
+                    Ok(None)
+                } else {
+                    Err(())
+                };
             }
             let task_info = get_task_info(pid);
             let mut thread_info = mem::zeroed::<libc::proc_threadinfo>();
@@ -335,7 +347,12 @@ pub(crate) fn update_process(
                     Some(ThreadStatus::from(thread_info.pth_run_state)),
                 )
             } else {
-                (0, 0, None)
+                // It very likely means that the process is dead...
+                return if check_if_pid_is_alive(pid) {
+                    Ok(None)
+                } else {
+                    Err(())
+                };
             };
             p.status = thread_status;
             if refresh_kind.cpu() {

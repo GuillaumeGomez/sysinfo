@@ -33,7 +33,7 @@ impl fmt::Display for ProcessStatus {
 }
 
 /// Enum describing the different status of a thread.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ThreadStatus {
     /// Thread is running normally.
     Running,

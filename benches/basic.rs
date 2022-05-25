@@ -49,6 +49,14 @@ fn bench_refresh_processes(b: &mut test::Bencher) {
 }
 
 #[bench]
+fn bench_first_refresh_processes(b: &mut test::Bencher) {
+    b.iter(move || {
+        let mut s = sysinfo::System::new();
+        s.refresh_processes();
+    });
+}
+
+#[bench]
 fn bench_refresh_process(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
 

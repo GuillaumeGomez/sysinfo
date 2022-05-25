@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::Read;
+use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -88,9 +89,9 @@ pub struct Process {
     pub(crate) updated: bool,
     cpu_usage: f32,
     /// User id of the process owner.
-    pub uid: uid_t,
+    pub uid: Option<uid_t>,
     /// Group id of the process owner.
-    pub gid: gid_t,
+    pub gid: Option<gid_t>,
     pub(crate) status: ProcessStatus,
     /// Tasks run by this process.
     pub tasks: HashMap<Pid, Process>,
@@ -132,8 +133,8 @@ impl Process {
             start_time_without_boot_time,
             start_time: start_time_without_boot_time + info.boot_time,
             run_time: 0,
-            uid: 0,
-            gid: 0,
+            uid: None,
+            gid: None,
             status: ProcessStatus::Unknown(0),
             tasks: if pid.0 == 0 {
                 HashMap::with_capacity(1000)
@@ -433,11 +434,9 @@ pub(crate) fn _get_process_data(
 
     tmp.pop();
     tmp.push("status");
-    if let Ok(data) = get_all_data(&tmp, 16_385) {
-        if let Some((uid, gid)) = _get_uid_and_gid(data) {
-            p.uid = uid;
-            p.gid = gid;
-        }
+    if let Some((uid, gid)) = get_uid_and_gid(&tmp) {
+        p.uid = Some(uid);
+        p.gid = Some(gid);
     }
 
     if proc_list.pid.0 != 0 {
@@ -515,8 +514,9 @@ fn update_time_and_memory(
         if entry.memory >= parent_memory {
             entry.memory -= parent_memory;
         }
-        // vsz
-        entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0);
+        // vsz correspond to the Virtual memory size in bytes. Divising by 1_000 gives us kb.
+        // see: https://man7.org/linux/man-pages/man5/proc.5.html
+        entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0) / 1_000;
         if entry.virtual_memory >= parent_virtual_memory {
             entry.virtual_memory -= parent_virtual_memory;
         }
@@ -644,7 +644,23 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
     }
 }
 
-fn _get_uid_and_gid(status_data: String) -> Option<(uid_t, gid_t)> {
+fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
+    use std::os::unix::ffi::OsStrExt;
+
+    unsafe {
+        let mut sstat: MaybeUninit<libc::stat> = MaybeUninit::uninit();
+
+        let mut file_path: Vec<u8> = file_path.as_os_str().as_bytes().to_vec();
+        file_path.push(0);
+        if libc::stat(file_path.as_ptr() as *const _, sstat.as_mut_ptr()) == 0 {
+            let sstat = sstat.assume_init();
+
+            return Some((sstat.st_uid, sstat.st_gid));
+        }
+    }
+
+    let status_data = get_all_data(&file_path, 16_385).ok()?;
+
     // We're only interested in the lines starting with Uid: and Gid:
     // here. From these lines, we're looking at the second entry to get
     // the effective u/gid.

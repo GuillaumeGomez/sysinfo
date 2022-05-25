@@ -428,7 +428,7 @@ impl<'a> IntoIterator for &'a Networks {
 ///     println!("{:?}: {:?}", disk.name(), disk.type_());
 /// }
 /// ```
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DiskType {
     /// HDD type.
     HDD,
@@ -445,7 +445,7 @@ pub enum DiskType {
 ///
 /// If you want the list of the supported signals on the current system, use
 /// [`SystemExt::SUPPORTED_SIGNALS`][crate::SystemExt::SUPPORTED_SIGNALS].
-#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 pub enum Signal {
     /// Hangup detected on controlling terminal or death of controlling process.
     Hangup,
@@ -691,7 +691,7 @@ impl UserExt for User {
 ///     );
 /// }
 /// ```
-#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub struct DiskUsage {
     /// Total number of written bytes.
     pub total_written_bytes: u64,
@@ -738,7 +738,7 @@ pub struct NetworkUsage {
 }
 
 /// Enum describing the different status of a process.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProcessStatus {
     /// ## Linux/FreeBSD
     ///

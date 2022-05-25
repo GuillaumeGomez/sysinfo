@@ -1,3 +1,16 @@
+# 0.23.15
+
+ * Linux: Improve performance when creating new `Process` by improving retrieval of user ID and group ID.
+
+# 0.23.14
+
+ * Linux: Fix processes' virtual memory computation.
+
+# 0.23.13
+
+ * macOS/FreeBSD: Fix `System::refresh_process` and `System::refresh_process_specifics` returned value.
+ * Linux: Small performance improvement when updating process list.
+
 # 0.23.12
 
  * Linux: Improve `System::refresh_cpu` performance.

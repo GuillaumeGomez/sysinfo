@@ -172,17 +172,7 @@ impl SystemExt for System {
 
             macro_rules! multi_iter {
                 ($name:ident, $($iter:tt)+) => {
-                    $name = crate::utils::into_iter(procs).$($iter)+.and_then(|kproc| {
-                        super::process::get_process_data(
-                            kproc,
-                            &proc_list,
-                            page_size,
-                            fscale,
-                            now,
-                            refresh_kind,
-                        )
-                        .map(|p| (kproc, p))
-                    });
+                    $name = crate::utils::into_iter(procs).$($iter)+;
                 }
             }
 
@@ -192,14 +182,25 @@ impl SystemExt for System {
             #[cfg(feature = "multithread")]
             multi_iter!(ret, find_any(|kproc| kproc.ki_pid == pid.0));
 
-            if let Some((kproc, proc_)) = ret {
-                self.add_missing_proc_info(self.system_info.kd.as_ptr(), kproc, proc_);
-                true
+            let kproc = if let Some(kproc) = ret {
+                kproc
             } else {
-                self.process_list
-                    .get(&pid)
-                    .map(|p| p.updated)
-                    .unwrap_or(false)
+                return false;
+            };
+            match super::process::get_process_data(
+                kproc,
+                &proc_list,
+                page_size,
+                fscale,
+                now,
+                refresh_kind,
+            ) {
+                Ok(Some(proc_)) => {
+                    self.add_missing_proc_info(self.system_info.kd.as_ptr(), kproc, proc_);
+                    true
+                }
+                Ok(None) => true,
+                Err(_) => false,
             }
         }
     }
@@ -387,7 +388,8 @@ impl System {
                     now,
                     refresh_kind,
                 )
-                .map(|p| (kproc, p))
+                .ok()
+                .and_then(|p| p.map(|p| (kproc, p)))
             })
             .collect::<Vec<_>>()
         };
