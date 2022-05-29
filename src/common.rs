@@ -576,7 +576,7 @@ pub struct LoadAvg {
 macro_rules! xid {
     ($(#[$outer:meta])+ $name:ident, $type:ty) => {
         $(#[$outer])+
-        #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
         pub struct $name(pub(crate) $type);
 
         impl std::ops::Deref for $name {
@@ -589,7 +589,7 @@ macro_rules! xid {
     };
     ($(#[$outer:meta])+ $name:ident, $type:ty, $deref:ty) => {
         $(#[$outer])+
-        #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
         pub struct $name(pub(crate) $type);
 
         impl std::ops::Deref for $name {
@@ -628,7 +628,7 @@ cfg_if::cfg_if! {
             /// A user id wrapping a platform specific type.
             Uid,
             crate::windows::Sid,
-            winapi::um::winnt::PSID
+            winapi::um::winnt::SID
         );
         xid!(
             /// A group id wrapping a platform specific type.
@@ -669,12 +669,12 @@ pub struct User {
 }
 
 impl UserExt for User {
-    fn uid(&self) -> &Uid {
-        &self.uid
+    fn uid(&self) -> Uid {
+        self.uid
     }
 
-    fn gid(&self) -> &Gid {
-        &self.gid
+    fn gid(&self) -> Gid {
+        self.gid
     }
 
     fn name(&self) -> &str {

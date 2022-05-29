@@ -6,63 +6,43 @@ use crate::{
 };
 
 use winapi::shared::lmcons::{MAX_PREFERRED_LENGTH, NET_API_STATUS};
-use winapi::shared::minwindef::{DWORD, FALSE, TRUE};
-use winapi::shared::winerror::{ERROR_MORE_DATA, ERROR_SUCCESS};
-use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapFree};
+use winapi::shared::minwindef::{DWORD, TRUE};
+use winapi::shared::sddl::ConvertSidToStringSidW;
+use winapi::shared::winerror::ERROR_MORE_DATA;
 use winapi::um::lmaccess::{NetUserEnum, NetUserGetInfo, NetUserGetLocalGroups};
 use winapi::um::lmaccess::{
-    FILTER_NORMAL_ACCOUNT, LG_INCLUDE_INDIRECT, LPLOCALGROUP_USERS_INFO_0, PNET_DISPLAY_USER,
-    UF_NORMAL_ACCOUNT, USER_INFO_0, USER_INFO_23,
+    FILTER_NORMAL_ACCOUNT, LG_INCLUDE_INDIRECT, LPLOCALGROUP_USERS_INFO_0, USER_INFO_0,
+    USER_INFO_23,
 };
 use winapi::um::lmapibuf::NetApiBufferFree;
-use winapi::um::securitybaseapi::{CopySid, EqualSid, GetLengthSid};
-use winapi::um::winnt::{HEAP_ZERO_MEMORY, LPWSTR, PSID};
+use winapi::um::securitybaseapi::EqualSid;
+use winapi::um::winnt::{LPWSTR, PSID, SID};
 
+#[derive(Clone, Copy)]
 #[repr(transparent)]
-pub(crate) struct Sid(pub(crate) PSID);
+pub(crate) struct Sid(pub(crate) SID);
 
 unsafe impl Send for Sid {}
 unsafe impl Sync for Sid {}
 
 impl Sid {
     unsafe fn new_from(sid: PSID) -> Option<Self> {
-        let size = GetLengthSid(sid);
-        let ret_sid: PSID = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size as _) as *mut _;
-        if ret_sid.is_null() {
+        if sid.is_null() {
             return None;
         }
-        if CopySid(size, ret_sid, sid) == 0 {
-            HeapFree(GetProcessHeap(), 0, ret_sid as *mut _);
-            sysinfo_debug!("CopySid failed...");
-            None
-        } else {
-            Some(Self(ret_sid))
-        }
+        Some(Self(*(sid as *mut SID)))
+    }
+
+    unsafe fn as_ptr(&self) -> PSID {
+        self as *const _ as *mut _
     }
 }
 
-impl std::cmp::PartialEq for Sid {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe { EqualSid(self.0, other.0) == TRUE }
-    }
-}
-impl std::cmp::Eq for Sid {}
-impl std::cmp::PartialOrd for Sid {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.0.cmp(&other.0))
-    }
-}
-impl std::cmp::Ord for Sid {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.cmp(&other.0)
-    }
-}
 impl std::fmt::Debug for Sid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         unsafe {
             let mut s = std::ptr::null_mut();
-            let to_display = if winapi::shared::sddl::ConvertSidToStringSidW(self.0, &mut s) == TRUE
-            {
+            let to_display = if ConvertSidToStringSidW(self.as_ptr(), &mut s) == TRUE {
                 to_str(s as *mut _)
             } else {
                 "Unknown".to_owned()
@@ -74,11 +54,37 @@ impl std::fmt::Debug for Sid {
         }
     }
 }
-impl Drop for Sid {
-    fn drop(&mut self) {
-        unsafe {
-            HeapFree(GetProcessHeap(), 0, self.0);
+
+impl std::cmp::PartialEq for Sid {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { EqualSid(self.as_ptr(), other.as_ptr()) == TRUE }
+    }
+}
+impl std::cmp::Eq for Sid {}
+impl std::cmp::PartialOrd for Sid {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl std::cmp::Ord for Sid {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let ret = self.0.Revision.cmp(&other.0.Revision);
+        if ret != std::cmp::Ordering::Equal {
+            return ret;
         }
+        let ret = self.0.SubAuthorityCount.cmp(&other.0.SubAuthorityCount);
+        if ret != std::cmp::Ordering::Equal {
+            return ret;
+        }
+        let ret = self
+            .0
+            .IdentifierAuthority
+            .Value
+            .cmp(&other.0.IdentifierAuthority.Value);
+        if ret != std::cmp::Ordering::Equal {
+            return ret;
+        }
+        self.0.SubAuthority.cmp(&other.0.SubAuthority)
     }
 }
 
@@ -99,6 +105,8 @@ unsafe fn to_str(p: LPWSTR) -> String {
     })
 }
 
+// FIXME: once this is mreged in winapi, it can be removed.
+#[allow(non_upper_case_globals)]
 const NERR_Success: NET_API_STATUS = 0;
 
 unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<String> {
@@ -143,7 +151,6 @@ unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<String> {
 
 pub unsafe fn get_users() -> Vec<User> {
     let mut users = Vec::new();
-
     let mut buffer: *mut USER_INFO_0 = std::ptr::null_mut();
     let mut nb_read = 0;
     let mut total = 0;
