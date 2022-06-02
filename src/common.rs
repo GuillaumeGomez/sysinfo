@@ -669,11 +669,11 @@ pub struct User {
 }
 
 impl UserExt for User {
-    fn uid(&self) -> Uid {
+    fn id(&self) -> Uid {
         self.uid
     }
 
-    fn gid(&self) -> Gid {
+    fn group_id(&self) -> Gid {
         self.gid
     }
 
