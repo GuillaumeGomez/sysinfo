@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
+use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal, Uid};
 
 use std::ffi::OsString;
 use std::fmt;
@@ -30,17 +30,21 @@ use winapi::shared::ntdef::{NT_SUCCESS, UNICODE_STRING};
 use winapi::shared::ntstatus::{
     STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH,
 };
+use winapi::shared::winerror::ERROR_INSUFFICIENT_BUFFER;
+use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::handleapi::CloseHandle;
+use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapFree};
 use winapi::um::memoryapi::{ReadProcessMemory, VirtualQueryEx};
 use winapi::um::processthreadsapi::{GetProcessTimes, GetSystemTimes, OpenProcess};
 use winapi::um::psapi::{
     EnumProcessModulesEx, GetModuleBaseNameW, GetModuleFileNameExW, GetProcessMemoryInfo,
     LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
 };
+use winapi::um::securitybaseapi::GetTokenInformation;
 use winapi::um::winbase::{GetProcessIoCounters, CREATE_NO_WINDOW};
 use winapi::um::winnt::{
-    HANDLE, IO_COUNTERS, MEMORY_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
-    RTL_OSVERSIONINFOEXW, ULARGE_INTEGER,
+    TokenUser, HANDLE, HEAP_ZERO_MEMORY, IO_COUNTERS, MEMORY_BASIC_INFORMATION,
+    PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, RTL_OSVERSIONINFOEXW, TOKEN_USER, ULARGE_INTEGER,
 };
 
 impl fmt::Display for ProcessStatus {
@@ -68,6 +72,51 @@ fn get_process_handler(pid: Pid) -> Option<HANDLE> {
     }
 }
 
+unsafe fn get_process_user_id(handler: HANDLE) -> Option<Uid> {
+    struct HeapWrap<T>(*mut T);
+
+    impl<T> HeapWrap<T> {
+        unsafe fn new(size: DWORD) -> Option<Self> {
+            let ptr = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size as _) as *mut T;
+            if ptr.is_null() {
+                sysinfo_debug!("HeapAlloc failed");
+                None
+            } else {
+                Some(Self(ptr))
+            }
+        }
+    }
+
+    impl<T> Drop for HeapWrap<T> {
+        fn drop(&mut self) {
+            if !self.0.is_null() {
+                unsafe {
+                    HeapFree(GetProcessHeap(), 0, self.0 as *mut _);
+                }
+            }
+        }
+    }
+
+    let mut size = 0;
+
+    if GetTokenInformation(handler, TokenUser, std::ptr::null_mut(), 0, &mut size) == 0 {
+        let err = GetLastError();
+        if err != ERROR_INSUFFICIENT_BUFFER {
+            sysinfo_debug!("GetTokenInformation failed, error: {:?}", err);
+            return None;
+        }
+    }
+
+    let ptu: HeapWrap<TOKEN_USER> = HeapWrap::new(size)?;
+
+    if GetTokenInformation(handler, TokenUser, ptu.0 as *mut _, size, &mut size) == 0 {
+        sysinfo_debug!("GetTokenInformation failed, error: {:?}", GetLastError());
+        return None;
+    }
+
+    Some(Uid(crate::windows::Sid::new_from((*ptu.0).User.Sid)?))
+}
+
 #[derive(Clone)]
 struct PtrWrapper<T: Clone>(T);
 
@@ -89,6 +138,7 @@ pub struct Process {
     cmd: Vec<String>,
     exe: PathBuf,
     pid: Pid,
+    user_id: Option<Uid>,
     environ: Vec<String>,
     cwd: PathBuf,
     root: PathBuf,
@@ -216,11 +266,13 @@ impl Process {
             } else {
                 None
             };
+            let user_id = get_process_user_id(process_handler);
             Some(Process {
                 handle: PtrWrapper(process_handler),
                 name,
                 pid,
                 parent,
+                user_id,
                 cmd,
                 environ,
                 exe,
@@ -269,10 +321,12 @@ impl Process {
                     }
                 };
                 let (start_time, run_time) = get_start_and_run_time(handle, now);
+                let user_id = get_process_user_id(handle);
                 Process {
                     handle: PtrWrapper(handle),
                     name,
                     pid,
+                    user_id,
                     parent,
                     cmd,
                     environ,
@@ -298,6 +352,7 @@ impl Process {
                 handle: PtrWrapper(null_mut()),
                 name,
                 pid,
+                user_id: None,
                 parent,
                 cmd: Vec::new(),
                 environ: Vec::new(),

@@ -26,7 +26,7 @@ unsafe impl Send for Sid {}
 unsafe impl Sync for Sid {}
 
 impl Sid {
-    unsafe fn new_from(sid: PSID) -> Option<Self> {
+    pub(crate) unsafe fn new_from(sid: PSID) -> Option<Self> {
         if sid.is_null() {
             return None;
         }
