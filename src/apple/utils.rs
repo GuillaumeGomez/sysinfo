@@ -28,6 +28,7 @@ pub(crate) fn cstr_to_rust_with_size(c: *const c_char, size: Option<usize>) -> O
     }
 }
 
+#[cfg(target_os = "macos")]
 pub(crate) fn vec_to_rust(buf: Vec<i8>) -> Option<String> {
     String::from_utf8(
         buf.into_iter()
