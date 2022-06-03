@@ -21,7 +21,7 @@ pub(crate) fn to_cpath(path: &std::path::Path) -> Vec<u8> {
         any(
             target_os = "linux",
             target_os = "android",
-            target_vendor = "apple",
+            target_os = "macos",
             target_os = "windows",
             target_os = "freebsd",
         ),
@@ -44,7 +44,7 @@ where
         any(
             target_os = "linux",
             target_os = "android",
-            target_vendor = "apple",
+            target_os = "macos",
             target_os = "windows",
             target_os = "freebsd",
         ),

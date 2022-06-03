@@ -2,6 +2,7 @@
 
 use crate::sys::component::Component;
 use crate::sys::disk::*;
+#[cfg(target_os = "macos")]
 use crate::sys::ffi;
 use crate::sys::network::Networks;
 use crate::sys::process::*;
@@ -18,6 +19,7 @@ use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::time::SystemTime;
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -102,13 +104,13 @@ pub struct System {
 
 impl Drop for System {
     fn drop(&mut self) {
+        #[cfg(target_os = "macos")]
         unsafe {
             #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
             if let Some(conn) = self.connection {
                 ffi::IOServiceClose(conn);
             }
 
-            #[cfg(target_os = "macos")]
             if !self.session.0.is_null() {
                 CFRelease(self.session.0 as _);
             }
@@ -156,6 +158,7 @@ fn boot_time() -> u64 {
     }
 }
 
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 fn get_now() -> u64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
