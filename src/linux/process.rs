@@ -354,6 +354,14 @@ pub(crate) fn _get_process_data(
         if refresh_kind.disk_usage() {
             update_process_disk_activity(entry, path);
         }
+        if refresh_kind.user() && entry.user_id.is_none() {
+            let mut tmp = PathBuf::from(path);
+            tmp.push("status");
+            if let Some((user_id, group_id)) = get_uid_and_gid(&tmp) {
+                entry.user_id = Some(Uid(user_id));
+                entry.group_id = Some(Gid(group_id));
+            }
+        }
         return Ok((None, pid));
     }
 
@@ -382,11 +390,13 @@ pub(crate) fn _get_process_data(
     p.stat_file = stat_file;
     get_status(&mut p, parts[2]);
 
-    tmp.pop();
-    tmp.push("status");
-    if let Some((user_id, group_id)) = get_uid_and_gid(&tmp) {
-        p.user_id = Some(Uid(user_id));
-        p.group_id = Some(Gid(group_id));
+    if refresh_kind.user() {
+        tmp.pop();
+        tmp.push("status");
+        if let Some((user_id, group_id)) = get_uid_and_gid(&tmp) {
+            p.user_id = Some(Uid(user_id));
+            p.group_id = Some(Gid(group_id));
+        }
     }
 
     if proc_list.pid.0 != 0 {
