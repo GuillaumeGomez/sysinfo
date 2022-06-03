@@ -289,13 +289,13 @@ mod test {
                     .iter()
                     .find(|u| u.name() == "root")
                     .expect("no root user");
-                assert_eq!(*user.id(), 0);
+                assert_eq!(**user.id(), 0);
                 assert_eq!(*user.group_id(), 0);
                 if let Some(user) = users.iter().find(|u| *u.group_id() > 0) {
-                    assert!(*user.id() > 0);
+                    assert!(**user.id() > 0);
                     assert!(*user.group_id() > 0);
                 }
-                assert!(users.iter().filter(|u| *u.id() > 0).count() > 0);
+                assert!(users.iter().filter(|u| **u.id() > 0).count() > 0);
             }
 
             // And now check that our `get_user_by_id` method works.
@@ -304,8 +304,7 @@ mod test {
                 .processes()
                 .iter()
                 .filter_map(|(_, p)| p.user_id())
-                .find(|uid| s.get_user_by_id(*uid).is_some())
-                .is_some());
+                .any(|uid| s.get_user_by_id(uid).is_some()));
         }
     }
 

@@ -576,7 +576,8 @@ pub struct LoadAvg {
 macro_rules! xid {
     ($(#[$outer:meta])+ $name:ident, $type:ty) => {
         $(#[$outer])+
-        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+        #[repr(transparent)]
+        #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
         pub struct $name(pub(crate) $type);
 
         impl std::ops::Deref for $name {
@@ -587,18 +588,17 @@ macro_rules! xid {
             }
         }
     };
-    ($(#[$outer:meta])+ $name:ident, $type:ty, $deref:ty) => {
-        $(#[$outer])+
-        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-        pub struct $name(pub(crate) $type);
+}
 
-        impl std::ops::Deref for $name {
-            type Target = $deref;
+macro_rules! uid {
+    ($(#[$outer:meta])+ $type:ty) => {
+        xid!($(#[$outer])+ Uid, $type);
+    };
+}
 
-            fn deref(&self) -> &Self::Target {
-                &self.0.0
-            }
-        }
+macro_rules! gid {
+    ($(#[$outer:meta])+ $type:ty) => {
+        xid!($(#[$outer])+ #[derive(Copy)] Gid, $type);
     };
 }
 
@@ -613,37 +613,30 @@ cfg_if::cfg_if! {
             target_os = "ios",
         )
     ))] {
-        xid!(
+        uid!(
             /// A user id wrapping a platform specific type.
-            Uid,
             libc::uid_t
         );
-        xid!(
+        gid!(
             /// A group id wrapping a platform specific type.
-            Gid,
             libc::gid_t
         );
     } else if #[cfg(windows)] {
-        xid!(
+        uid!(
             /// A user id wrapping a platform specific type.
-            Uid,
-            crate::windows::Sid,
-            winapi::um::winnt::SID
+            Box<str>
         );
-        xid!(
+        gid!(
             /// A group id wrapping a platform specific type.
-            Gid,
             u32
         );
     } else {
-        xid!(
+        uid!(
             /// A user id wrapping a platform specific type.
-            Uid,
             u32
         );
-        xid!(
+        gid!(
             /// A group id wrapping a platform specific type.
-            Gid,
             u32
         );
 
@@ -669,8 +662,8 @@ pub struct User {
 }
 
 impl UserExt for User {
-    fn id(&self) -> Uid {
-        self.uid
+    fn id(&self) -> &Uid {
+        &self.uid
     }
 
     fn group_id(&self) -> Gid {

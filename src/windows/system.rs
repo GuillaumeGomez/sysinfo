@@ -5,7 +5,7 @@ use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
 use crate::sys::component::{self, Component};
 use crate::sys::disk::{get_disks, Disk};
-use crate::sys::process::{get_handle, update_memory, Process};
+use crate::sys::process::{update_memory, Process};
 use crate::sys::processor::*;
 use crate::sys::tools::*;
 use crate::sys::users::get_users;
@@ -464,7 +464,11 @@ fn is_proc_running(handle: HANDLE) -> bool {
 
 fn refresh_existing_process(s: &mut System, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
     if let Some(ref mut entry) = s.process_list.get_mut(&pid) {
-        if !is_proc_running(get_handle(entry)) {
+        if let Some(handle) = entry.get_handle() {
+            if !is_proc_running(handle) {
+                return false;
+            }
+        } else {
             return false;
         }
         update_memory(entry);

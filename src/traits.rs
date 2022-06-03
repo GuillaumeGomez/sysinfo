@@ -384,7 +384,7 @@ pub trait ProcessExt: Debug {
     ///     eprintln!("User id for process 1337: {:?}", process.user_id());
     /// }
     /// ```
-    fn user_id(&self) -> Option<Uid>;
+    fn user_id(&self) -> Option<&Uid>;
 
     /// Returns the process group ID of the process.
     ///
@@ -1227,7 +1227,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///     }
     /// }
     /// ```
-    fn get_user_by_id(&self, user_id: Uid) -> Option<&User> {
+    fn get_user_by_id(&self, user_id: &Uid) -> Option<&User> {
         self.users().iter().find(|user| user.id() == user_id)
     }
 }
@@ -1512,10 +1512,10 @@ pub trait UserExt: Debug {
     ///
     /// let mut s = System::new_all();
     /// for user in s.users() {
-    ///     println!("{}", *user.id());
+    ///     println!("{:?}", *user.id());
     /// }
     /// ```
-    fn id(&self) -> Uid;
+    fn id(&self) -> &Uid;
 
     /// Return the group id of the user.
     ///

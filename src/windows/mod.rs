@@ -18,4 +18,4 @@ pub use self::network::{NetworkData, Networks};
 pub use self::process::Process;
 pub use self::processor::Processor;
 pub use self::system::System;
-pub(crate) use self::users::Sid;
+pub(crate) use self::users::to_str;

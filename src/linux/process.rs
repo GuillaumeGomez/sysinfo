@@ -215,8 +215,8 @@ impl ProcessExt for Process {
         }
     }
 
-    fn user_id(&self) -> Option<Uid> {
-        self.user_id
+    fn user_id(&self) -> Option<&Uid> {
+        self.user_id.as_ref()
     }
 
     fn group_id(&self) -> Option<Gid> {
