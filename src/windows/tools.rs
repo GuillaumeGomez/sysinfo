@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::processor::{self, Processor, Query};
+use crate::sys::cpu::{self, Cpu, Query};
 use crate::CpuRefreshKind;
 
 use std::mem::zeroed;
@@ -17,20 +17,20 @@ impl KeyHandler {
     }
 }
 
-pub(crate) fn init_processors(refresh_kind: CpuRefreshKind) -> (Vec<Processor>, String, String) {
+pub(crate) fn init_cpus(refresh_kind: CpuRefreshKind) -> (Vec<Cpu>, String, String) {
     unsafe {
         let mut sys_info: SYSTEM_INFO = zeroed();
         GetSystemInfo(&mut sys_info);
-        let (vendor_id, brand) = processor::get_vendor_id_and_brand(&sys_info);
-        let nb_processors = sys_info.dwNumberOfProcessors as usize;
+        let (vendor_id, brand) = cpu::get_vendor_id_and_brand(&sys_info);
+        let nb_cpus = sys_info.dwNumberOfProcessors as usize;
         let frequencies = if refresh_kind.frequency() {
-            processor::get_frequencies(nb_processors)
+            cpu::get_frequencies(nb_cpus)
         } else {
-            vec![0; nb_processors]
+            vec![0; nb_cpus]
         };
-        let mut ret = Vec::with_capacity(nb_processors + 1);
+        let mut ret = Vec::with_capacity(nb_cpus + 1);
         for (nb, frequency) in frequencies.iter().enumerate() {
-            ret.push(Processor::new_with_values(
+            ret.push(Cpu::new_with_values(
                 format!("CPU {}", nb + 1),
                 vendor_id.clone(),
                 brand.clone(),

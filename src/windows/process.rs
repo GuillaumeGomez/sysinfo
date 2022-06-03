@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::sys::utils::to_str;
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 use std::ffi::OsString;
@@ -148,9 +149,7 @@ unsafe fn get_process_user_id(
         );
         None
     } else {
-        Some(Uid(
-            crate::windows::to_str(name.as_mut_ptr()).into_boxed_str()
-        ))
+        Some(Uid(to_str(name.as_mut_ptr()).into_boxed_str()))
     }
 }
 
@@ -436,11 +435,11 @@ impl Process {
     pub(crate) fn update(
         &mut self,
         refresh_kind: crate::ProcessRefreshKind,
-        nb_processors: u64,
+        nb_cpus: u64,
         now: u64,
     ) {
         if refresh_kind.cpu() {
-            compute_cpu_usage(self, nb_processors);
+            compute_cpu_usage(self, nb_cpus);
         }
         if refresh_kind.disk_usage() {
             update_disk_usage(self);
@@ -903,7 +902,7 @@ fn check_sub(a: u64, b: u64) -> u64 {
 
 /// Before changing this function, you must consider the following:
 /// https://github.com/GuillaumeGomez/sysinfo/issues/459
-pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
+pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
     unsafe {
         let mut ftime: FILETIME = zeroed();
         let mut fsys: FILETIME = zeroed();
@@ -974,7 +973,7 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_processors: u64) {
                 } else {
                     denominator
                 }) as f32
-            * nb_processors as f32;
+            * nb_cpus as f32;
         p.cpu_calc_values.old_process_user_cpu = user;
         p.cpu_calc_values.old_process_sys_cpu = sys;
         p.cpu_calc_values.old_system_user_cpu = global_user_time;

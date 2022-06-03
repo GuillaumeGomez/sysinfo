@@ -7,9 +7,9 @@ use crate::{
 use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
 use crate::sys::component::{self, Component};
+use crate::sys::cpu::*;
 use crate::sys::disk::{get_disks, Disk};
 use crate::sys::process::{update_memory, Process};
-use crate::sys::processor::*;
 use crate::sys::tools::*;
 use crate::sys::users::get_users;
 use crate::sys::utils::get_now;
@@ -55,7 +55,7 @@ pub struct System {
     mem_available: u64,
     swap_total: u64,
     swap_used: u64,
-    processors: ProcessorsWrapper,
+    cpus: CpusWrapper,
     components: Vec<Component>,
     disks: Vec<Disk>,
     query: Option<Query>,
@@ -93,7 +93,7 @@ impl SystemExt for System {
             mem_available: 0,
             swap_total: 0,
             swap_used: 0,
-            processors: ProcessorsWrapper::new(),
+            cpus: CpusWrapper::new(),
             components: Vec::new(),
             disks: Vec::with_capacity(2),
             query: None,
@@ -110,14 +110,14 @@ impl SystemExt for System {
             self.query = Query::new();
             if let Some(ref mut query) = self.query {
                 add_english_counter(
-                    r"\Processor(_Total)\% Processor Time".to_string(),
+                    r"\Cpu(_Total)\% Processor Time".to_string(),
                     query,
-                    get_key_used(self.processors.global_processor_mut()),
+                    get_key_used(self.cpus.global_cpu_mut()),
                     "tot_0".to_owned(),
                 );
-                for (pos, proc_) in self.processors.iter_mut(refresh_kind).enumerate() {
+                for (pos, proc_) in self.cpus.iter_mut(refresh_kind).enumerate() {
                     add_english_counter(
-                        format!(r"\Processor({})\% Processor Time", pos),
+                        format!(r"\Cpu({})\% Processor Time", pos),
                         query,
                         get_key_used(proc_),
                         format!("{}_0", pos),
@@ -128,7 +128,7 @@ impl SystemExt for System {
         if let Some(ref mut query) = self.query {
             query.refresh();
             let mut used_time = None;
-            if let Some(ref key_used) = *get_key_used(self.processors.global_processor_mut()) {
+            if let Some(ref key_used) = *get_key_used(self.cpus.global_cpu_mut()) {
                 used_time = Some(
                     query
                         .get(&key_used.unique_id)
@@ -136,11 +136,9 @@ impl SystemExt for System {
                 );
             }
             if let Some(used_time) = used_time {
-                self.processors
-                    .global_processor_mut()
-                    .set_cpu_usage(used_time);
+                self.cpus.global_cpu_mut().set_cpu_usage(used_time);
             }
-            for p in self.processors.iter_mut(refresh_kind) {
+            for p in self.cpus.iter_mut(refresh_kind) {
                 let mut used_time = None;
                 if let Some(ref key_used) = *get_key_used(p) {
                     used_time = Some(
@@ -154,7 +152,7 @@ impl SystemExt for System {
                 }
             }
             if refresh_kind.frequency() {
-                self.processors.get_frequencies();
+                self.cpus.get_frequencies();
             }
         }
     }
@@ -195,7 +193,7 @@ impl SystemExt for System {
         }
         let now = get_now();
         if let Some(mut p) = Process::new_from_pid(pid, now, refresh_kind) {
-            p.update(refresh_kind, self.processors.len() as u64, now);
+            p.update(refresh_kind, self.cpus.len() as u64, now);
             p.updated = false;
             self.process_list.insert(pid, p);
             true
@@ -250,8 +248,8 @@ impl SystemExt for System {
                         process_information_offset += pi.NextEntryOffset as isize;
                     }
                     let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
-                    let nb_processors = if refresh_kind.cpu() {
-                        self.processors.len() as u64
+                    let nb_cpus = if refresh_kind.cpu() {
+                        self.cpus.len() as u64
                     } else {
                         0
                     };
@@ -268,7 +266,7 @@ impl SystemExt for System {
                             if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
                                 proc_.memory = (pi.WorkingSetSize as u64) / 1_000;
                                 proc_.virtual_memory = (pi.VirtualSize as u64) / 1_000;
-                                proc_.update(refresh_kind, nb_processors, now);
+                                proc_.update(refresh_kind, nb_cpus, now);
                                 return None;
                             }
                             let name = get_process_name(&pi, pid);
@@ -285,7 +283,7 @@ impl SystemExt for System {
                                 now,
                                 refresh_kind,
                             );
-                            p.update(refresh_kind, nb_processors, now);
+                            p.update(refresh_kind, nb_cpus, now);
                             Some(p)
                         })
                         .collect::<Vec<_>>();
@@ -329,12 +327,12 @@ impl SystemExt for System {
         self.process_list.get(&pid)
     }
 
-    fn global_processor_info(&self) -> &Processor {
-        self.processors.global_processor()
+    fn global_cpu_info(&self) -> &Cpu {
+        self.cpus.global_cpu()
     }
 
-    fn processors(&self) -> &[Processor] {
-        self.processors.processors()
+    fn cpus(&self) -> &[Cpu] {
+        self.cpus.cpus()
     }
 
     fn physical_core_count(&self) -> Option<usize> {
@@ -479,7 +477,7 @@ fn refresh_existing_process(s: &mut System, pid: Pid, refresh_kind: ProcessRefre
             return false;
         }
         update_memory(entry);
-        entry.update(refresh_kind, s.processors.len() as u64, get_now());
+        entry.update(refresh_kind, s.cpus.len() as u64, get_now());
         entry.updated = false;
         true
     } else {

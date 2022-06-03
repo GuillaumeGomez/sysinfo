@@ -1,21 +1,21 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-// This test is used to ensure that the processors are not loaded by default.
+// This test is used to ensure that the CPUs are not loaded by default.
 
 #[test]
-fn test_processor() {
-    use sysinfo::{ProcessorExt, SystemExt};
+fn test_cpu() {
+    use sysinfo::{CpuExt, SystemExt};
 
     if sysinfo::System::IS_SUPPORTED {
         let mut s = sysinfo::System::new();
-        assert!(s.processors().is_empty());
+        assert!(s.cpus().is_empty());
         s.refresh_cpu();
-        assert!(!s.processors().is_empty());
+        assert!(!s.cpus().is_empty());
 
         let s = sysinfo::System::new_all();
-        assert!(!s.processors().is_empty());
+        assert!(!s.cpus().is_empty());
 
-        assert!(!s.processors()[0].brand().chars().any(|c| c == '\0'));
+        assert!(!s.cpus()[0].brand().chars().any(|c| c == '\0'));
     }
 }
 

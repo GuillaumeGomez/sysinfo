@@ -1,9 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::component::{self, Component};
+use crate::sys::cpu::*;
 use crate::sys::disk;
 use crate::sys::process::*;
-use crate::sys::processor::*;
 use crate::sys::utils::get_all_data;
 use crate::{
     CpuRefreshKind, Disk, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
@@ -166,17 +166,17 @@ pub struct System {
     mem_slab_reclaimable: u64,
     swap_total: u64,
     swap_free: u64,
-    global_processor: Processor,
-    processors: Vec<Processor>,
+    global_cpu: Cpu,
+    cpus: Vec<Cpu>,
     components: Vec<Component>,
     disks: Vec<Disk>,
     networks: Networks,
     users: Vec<User>,
-    /// Field set to `false` in `update_processors` and to `true` in `refresh_processes_specifics`.
+    /// Field set to `false` in `update_cpus` and to `true` in `refresh_processes_specifics`.
     ///
-    /// The reason behind this is to avoid calling the `update_processors` more than necessary.
+    /// The reason behind this is to avoid calling the `update_cpus` more than necessary.
     /// For example when running `refresh_all` or `refresh_specifics`.
-    need_processors_update: bool,
+    need_cpus_update: bool,
     info: SystemInfo,
     got_cpu_frequency: bool,
 }
@@ -188,23 +188,23 @@ impl System {
     /// To prevent that, we compute ahead of time this maximum value and ensure that processes'
     /// CPU usage don't go over it.
     fn get_max_process_cpu_usage(&self) -> f32 {
-        self.processors.len() as f32 * 100.
+        self.cpus.len() as f32 * 100.
     }
 
     fn clear_procs(&mut self, refresh_kind: ProcessRefreshKind) {
         let (total_time, compute_cpu, max_value) = if refresh_kind.cpu() {
-            if self.need_processors_update {
-                self.refresh_processors(true, CpuRefreshKind::new().with_cpu_usage());
+            if self.need_cpus_update {
+                self.refresh_cpus(true, CpuRefreshKind::new().with_cpu_usage());
             }
 
-            if self.processors.is_empty() {
-                sysinfo_debug!("cannot compute processes CPU usage: no processor found...");
+            if self.cpus.is_empty() {
+                sysinfo_debug!("cannot compute processes CPU usage: no CPU found...");
                 (0., false, 0.)
             } else {
-                let (new, old) = get_raw_times(&self.global_processor);
+                let (new, old) = get_raw_times(&self.global_cpu);
                 let total_time = if old > new { 1 } else { new - old };
                 (
-                    total_time as f32 / self.processors.len() as f32,
+                    total_time as f32 / self.cpus.len() as f32,
                     true,
                     self.get_max_process_cpu_usage(),
                 )
@@ -225,17 +225,13 @@ impl System {
         });
     }
 
-    fn refresh_processors(
-        &mut self,
-        only_update_global_processor: bool,
-        refresh_kind: CpuRefreshKind,
-    ) {
+    fn refresh_cpus(&mut self, only_update_global_cpu: bool, refresh_kind: CpuRefreshKind) {
         if let Ok(f) = File::open("/proc/stat") {
-            self.need_processors_update = false;
+            self.need_cpus_update = false;
 
             let buf = BufReader::new(f);
             let mut i: usize = 0;
-            let first = self.processors.is_empty();
+            let first = self.cpus.is_empty();
             let mut it = buf.split(b'\n');
             let (vendor_id, brand) = if first {
                 get_vendor_id_and_brand()
@@ -250,12 +246,11 @@ impl System {
                     }
                     let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
                     if first {
-                        self.global_processor.name =
-                            to_str!(parts.next().unwrap_or(&[])).to_owned();
+                        self.global_cpu.name = to_str!(parts.next().unwrap_or(&[])).to_owned();
                     } else {
                         parts.next();
                     }
-                    self.global_processor.set(
+                    self.global_cpu.set(
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),
@@ -268,7 +263,7 @@ impl System {
                         parts.next().map(to_u64).unwrap_or(0),
                     );
                 }
-                if first || !only_update_global_processor {
+                if first || !only_update_global_cpu {
                     while let Some(Ok(line)) = it.next() {
                         if &line[..3] != b"cpu" {
                             break;
@@ -276,7 +271,7 @@ impl System {
 
                         let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
                         if first {
-                            self.processors.push(Processor::new_with_values(
+                            self.cpus.push(Cpu::new_with_values(
                                 to_str!(parts.next().unwrap_or(&[])),
                                 parts.next().map(to_u64).unwrap_or(0),
                                 parts.next().map(to_u64).unwrap_or(0),
@@ -294,7 +289,7 @@ impl System {
                             ));
                         } else {
                             parts.next(); // we don't want the name again
-                            self.processors[i].set(
+                            self.cpus[i].set(
                                 parts.next().map(to_u64).unwrap_or(0),
                                 parts.next().map(to_u64).unwrap_or(0),
                                 parts.next().map(to_u64).unwrap_or(0),
@@ -331,12 +326,12 @@ impl System {
                 }
 
                 #[cfg(not(feature = "multithread"))]
-                fn iter_mut<'a>(val: &'a mut Vec<Processor>) -> std::slice::IterMut<'a, Processor> {
+                fn iter_mut<'a>(val: &'a mut Vec<Cpu>) -> std::slice::IterMut<'a, Cpu> {
                     val.iter_mut()
                 }
 
                 // `get_cpu_frequency` is very slow, so better run it in parallel.
-                self.global_processor.frequency = iter_mut(&mut self.processors)
+                self.global_cpu.frequency = iter_mut(&mut self.cpus)
                     .enumerate()
                     .map(|(pos, proc_)| {
                         proc_.frequency = get_cpu_frequency(pos);
@@ -349,8 +344,8 @@ impl System {
             }
 
             if first {
-                self.global_processor.vendor_id = vendor_id;
-                self.global_processor.brand = brand;
+                self.global_cpu.vendor_id = vendor_id;
+                self.global_cpu.brand = brand;
             }
         }
     }
@@ -373,7 +368,7 @@ impl SystemExt for System {
             mem_slab_reclaimable: 0,
             swap_total: 0,
             swap_free: 0,
-            global_processor: Processor::new_with_values(
+            global_cpu: Cpu::new_with_values(
                 "",
                 0,
                 0,
@@ -389,12 +384,12 @@ impl SystemExt for System {
                 String::new(),
                 String::new(),
             ),
-            processors: Vec::with_capacity(4),
+            cpus: Vec::with_capacity(4),
             components: Vec::new(),
             disks: Vec::with_capacity(2),
             networks: Networks::new(),
             users: Vec::new(),
-            need_processors_update: true,
+            need_cpus_update: true,
             info,
             got_cpu_frequency: false,
         };
@@ -432,7 +427,7 @@ impl SystemExt for System {
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
-        self.refresh_processors(false, refresh_kind);
+        self.refresh_cpus(false, refresh_kind);
     }
 
     fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
@@ -446,7 +441,7 @@ impl SystemExt for System {
             refresh_kind,
         );
         self.clear_procs(refresh_kind);
-        self.need_processors_update = true;
+        self.need_cpus_update = true;
     }
 
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
@@ -468,18 +463,18 @@ impl SystemExt for System {
         };
         if found {
             if refresh_kind.cpu() {
-                self.refresh_processors(true, CpuRefreshKind::new().with_cpu_usage());
+                self.refresh_cpus(true, CpuRefreshKind::new().with_cpu_usage());
 
-                if self.processors.is_empty() {
-                    sysinfo_debug!("Cannot compute process CPU usage: no processors found...");
+                if self.cpus.is_empty() {
+                    sysinfo_debug!("Cannot compute process CPU usage: no cpus found...");
                     return found;
                 }
-                let (new, old) = get_raw_times(&self.global_processor);
+                let (new, old) = get_raw_times(&self.global_cpu);
                 let total_time = (if old >= new { 1 } else { new - old }) as f32;
 
                 let max_cpu_usage = self.get_max_process_cpu_usage();
                 if let Some(p) = self.process_list.tasks.get_mut(&pid) {
-                    compute_cpu_usage(p, total_time / self.processors.len() as f32, max_cpu_usage);
+                    compute_cpu_usage(p, total_time / self.cpus.len() as f32, max_cpu_usage);
                     p.updated = false;
                 }
             } else if let Some(p) = self.process_list.tasks.get_mut(&pid) {
@@ -517,12 +512,12 @@ impl SystemExt for System {
         &mut self.networks
     }
 
-    fn global_processor_info(&self) -> &Processor {
-        &self.global_processor
+    fn global_cpu_info(&self) -> &Cpu {
+        &self.global_cpu
     }
 
-    fn processors(&self) -> &[Processor] {
-        &self.processors
+    fn cpus(&self) -> &[Cpu] {
+        &self.cpus
     }
 
     fn physical_core_count(&self) -> Option<usize> {

@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::sys::utils::to_str;
 use crate::{
     common::{Gid, Uid},
     User,
@@ -20,23 +21,6 @@ use winapi::um::ntlsa::{
     PSECURITY_LOGON_SESSION_DATA,
 };
 use winapi::um::winnt::{LPWSTR, PLUID};
-
-pub(crate) unsafe fn to_str(p: LPWSTR) -> String {
-    let mut i = 0;
-
-    loop {
-        let c = *p.offset(i);
-        if c == 0 {
-            break;
-        }
-        i += 1;
-    }
-    let s = std::slice::from_raw_parts(p, i as _);
-    String::from_utf16(s).unwrap_or_else(|_e| {
-        sysinfo_debug!("Failed to convert to UTF-16 string: {}", _e);
-        String::new()
-    })
-}
 
 // FIXME: once this is mreged in winapi, it can be removed.
 #[allow(non_upper_case_globals)]

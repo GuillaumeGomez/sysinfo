@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    sys::{component::Component, Disk, Networks, Process, Processor},
+    sys::{component::Component, Cpu, Disk, Networks, Process},
     CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
@@ -63,8 +63,8 @@ pub struct System {
     mem_used: u64,
     swap_total: u64,
     swap_used: u64,
-    global_processor: Processor,
-    processors: Vec<Processor>,
+    global_cpu: Cpu,
+    cpus: Vec<Cpu>,
     components: Vec<Component>,
     disks: Vec<Disk>,
     networks: Networks,
@@ -88,8 +88,8 @@ impl SystemExt for System {
             mem_used: 0,
             swap_total: 0,
             swap_used: 0,
-            global_processor: Processor::new(String::new(), String::new(), 0),
-            processors: Vec::with_capacity(system_info.nb_cpus as _),
+            global_cpu: Cpu::new(String::new(), String::new(), 0),
+            cpus: Vec::with_capacity(system_info.nb_cpus as _),
             components: Vec::with_capacity(2),
             disks: Vec::with_capacity(1),
             networks: Networks::new(),
@@ -114,10 +114,10 @@ impl SystemExt for System {
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
-        if self.processors.is_empty() {
+        if self.cpus.is_empty() {
             let mut frequency = 0;
 
-            // We get the processor vendor ID in here.
+            // We get the CPU vendor ID in here.
             let vendor_id =
                 get_sys_value_str_by_name(b"hw.model\0").unwrap_or_else(|| "<unknown>".to_owned());
             for pos in 0..self.system_info.nb_cpus {
@@ -126,16 +126,16 @@ impl SystemExt for System {
                         frequency = get_frequency_for_cpu(pos);
                     }
                 }
-                self.processors.push(Processor::new(
+                self.cpus.push(Cpu::new(
                     format!("cpu {}", pos),
                     vendor_id.clone(),
                     frequency,
                 ));
             }
-            self.global_processor.vendor_id = vendor_id;
+            self.global_cpu.vendor_id = vendor_id;
             self.got_cpu_frequency = refresh_kind.frequency();
         } else if refresh_kind.frequency() && !self.got_cpu_frequency {
-            for (pos, proc_) in self.processors.iter_mut().enumerate() {
+            for (pos, proc_) in self.cpus.iter_mut().enumerate() {
                 unsafe {
                     proc_.frequency = get_frequency_for_cpu(pos as _);
                 }
@@ -144,15 +144,15 @@ impl SystemExt for System {
         }
         if refresh_kind.cpu_usage() {
             self.system_info
-                .get_cpu_usage(&mut self.global_processor, &mut self.processors);
+                .get_cpu_usage(&mut self.global_cpu, &mut self.cpus);
         }
     }
 
     fn refresh_components_list(&mut self) {
-        if self.processors.is_empty() {
+        if self.cpus.is_empty() {
             self.refresh_cpu();
         }
-        self.components = unsafe { super::component::get_components(self.processors.len()) };
+        self.components = unsafe { super::component::get_components(self.cpus.len()) };
     }
 
     fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
@@ -242,12 +242,12 @@ impl SystemExt for System {
         &mut self.networks
     }
 
-    fn global_processor_info(&self) -> &Processor {
-        &self.global_processor
+    fn global_cpu_info(&self) -> &Cpu {
+        &self.global_cpu
     }
 
-    fn processors(&self) -> &[Processor] {
-        &self.processors
+    fn cpus(&self) -> &[Cpu] {
+        &self.cpus
     }
 
     fn physical_core_count(&self) -> Option<usize> {
@@ -503,7 +503,7 @@ struct SystemInfo {
     mib_cp_times: [c_int; 2],
     // For the global CPU usage.
     cp_time: utils::VecSwitcher<libc::c_ulong>,
-    // For each processor CPU usage.
+    // For each CPU usage.
     cp_times: utils::VecSwitcher<libc::c_ulong>,
     /// From FreeBSD manual: "The kernel fixed-point scale factor". It's used when computing
     /// processes' CPU usage.
@@ -708,23 +708,19 @@ impl SystemInfo {
         }
     }
 
-    fn get_cpu_usage(&mut self, global: &mut Processor, processors: &mut [Processor]) {
+    fn get_cpu_usage(&mut self, global: &mut Cpu, cpus: &mut [Cpu]) {
         unsafe {
             get_sys_value_array(&self.mib_cp_time, self.cp_time.get_mut());
             get_sys_value_array(&self.mib_cp_times, self.cp_times.get_mut());
         }
 
-        fn fill_processor(
-            proc_: &mut Processor,
-            new_cp_time: &[libc::c_ulong],
-            old_cp_time: &[libc::c_ulong],
-        ) {
+        fn fill_cpu(proc_: &mut Cpu, new_cp_time: &[libc::c_ulong], old_cp_time: &[libc::c_ulong]) {
             let mut total_new: u64 = 0;
             let mut total_old: u64 = 0;
             let mut cp_diff: libc::c_ulong = 0;
 
             for i in 0..(libc::CPUSTATES as usize) {
-                // We obviously don't want to get the idle part of the processor usage, otherwise
+                // We obviously don't want to get the idle part of the CPU usage, otherwise
                 // we would always be at 100%...
                 if i != libc::CP_IDLE as usize {
                     cp_diff += new_cp_time[i] - old_cp_time[i];
@@ -741,13 +737,13 @@ impl SystemInfo {
             }
         }
 
-        fill_processor(global, self.cp_time.get_new(), self.cp_time.get_old());
+        fill_cpu(global, self.cp_time.get_new(), self.cp_time.get_old());
         let old_cp_times = self.cp_times.get_old();
         let new_cp_times = self.cp_times.get_new();
-        for (pos, proc_) in processors.iter_mut().enumerate() {
+        for (pos, proc_) in cpus.iter_mut().enumerate() {
             let index = pos * libc::CPUSTATES as usize;
 
-            fill_processor(proc_, &new_cp_times[index..], &old_cp_times[index..]);
+            fill_cpu(proc_, &new_cp_times[index..], &old_cp_times[index..]);
         }
     }
 

@@ -1,15 +1,15 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Component, ComponentExt, Disk, DiskExt, NetworkData, NetworkExt, Networks, NetworksExt,
-    Process, ProcessExt, Processor, ProcessorExt, System, SystemExt,
+    Component, ComponentExt, Cpu, CpuExt, Disk, DiskExt, NetworkData, NetworkExt, Networks,
+    NetworksExt, Process, ProcessExt, System, SystemExt,
 };
 
 use std::fmt;
 
-impl fmt::Debug for Processor {
+impl fmt::Debug for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Processor")
+        f.debug_struct("Cpu")
             .field("name", &self.name())
             .field("CPU usage", &self.cpu_usage())
             .field("frequency", &self.frequency())
@@ -22,16 +22,13 @@ impl fmt::Debug for Processor {
 impl fmt::Debug for System {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("System")
-            .field(
-                "global CPU usage",
-                &self.global_processor_info().cpu_usage(),
-            )
+            .field("global CPU usage", &self.global_cpu_info().cpu_usage())
             .field("load average", &self.load_average())
             .field("total memory", &self.total_memory())
             .field("free memory", &self.free_memory())
             .field("total swap", &self.total_swap())
             .field("free swap", &self.free_swap())
-            .field("nb CPUs", &self.processors().len())
+            .field("nb CPUs", &self.cpus().len())
             .field("nb network interfaces", &self.networks().iter().count())
             .field("nb processes", &self.processes().len())
             .field("nb disks", &self.disks().len())

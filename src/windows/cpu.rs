@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::tools::KeyHandler;
-use crate::{CpuRefreshKind, LoadAvg, ProcessorExt};
+use crate::{CpuExt, CpuRefreshKind, LoadAvg};
 
 use std::collections::HashMap;
 use std::io::Error;
@@ -91,13 +91,13 @@ unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
     let mut counter: PDH_HCOUNTER = mem::zeroed();
     if PdhAddEnglishCounterA(
         query,
-        b"\\System\\Processor Queue Length\0".as_ptr() as _,
+        b"\\System\\Cpu Queue Length\0".as_ptr() as _,
         0,
         &mut counter,
     ) != ERROR_SUCCESS as _
     {
         PdhCloseQuery(query);
-        sysinfo_debug!("init_load_avg: failed to get processor queue length");
+        sysinfo_debug!("init_load_avg: failed to get CPU queue length");
         return Mutex::new(None);
     }
 
@@ -240,42 +240,37 @@ impl Query {
     }
 }
 
-pub(crate) struct ProcessorsWrapper {
-    global: Processor,
-    processors: Vec<Processor>,
+pub(crate) struct CpusWrapper {
+    global: Cpu,
+    cpus: Vec<Cpu>,
     got_cpu_frequency: bool,
 }
 
-impl ProcessorsWrapper {
+impl CpusWrapper {
     pub fn new() -> Self {
         Self {
-            global: Processor::new_with_values(
-                "Total CPU".to_owned(),
-                String::new(),
-                String::new(),
-                0,
-            ),
-            processors: Vec::new(),
+            global: Cpu::new_with_values("Total CPU".to_owned(), String::new(), String::new(), 0),
+            cpus: Vec::new(),
             got_cpu_frequency: false,
         }
     }
 
-    pub fn global_processor(&self) -> &Processor {
+    pub fn global_cpu(&self) -> &Cpu {
         &self.global
     }
 
-    pub fn global_processor_mut(&mut self) -> &mut Processor {
+    pub fn global_cpu_mut(&mut self) -> &mut Cpu {
         &mut self.global
     }
 
-    pub fn processors(&self) -> &[Processor] {
-        &self.processors
+    pub fn cpus(&self) -> &[Cpu] {
+        &self.cpus
     }
 
     fn init_if_needed(&mut self, refresh_kind: CpuRefreshKind) {
-        if self.processors.is_empty() {
-            let (processors, vendor_id, brand) = super::tools::init_processors(refresh_kind);
-            self.processors = processors;
+        if self.cpus.is_empty() {
+            let (cpus, vendor_id, brand) = super::tools::init_cpus(refresh_kind);
+            self.cpus = cpus;
             self.global.vendor_id = vendor_id;
             self.global.brand = brand;
             self.got_cpu_frequency = refresh_kind.frequency();
@@ -284,32 +279,29 @@ impl ProcessorsWrapper {
 
     pub fn len(&mut self) -> usize {
         self.init_if_needed(CpuRefreshKind::new());
-        self.processors.len()
+        self.cpus.len()
     }
 
-    pub fn iter_mut(
-        &mut self,
-        refresh_kind: CpuRefreshKind,
-    ) -> impl Iterator<Item = &mut Processor> {
+    pub fn iter_mut(&mut self, refresh_kind: CpuRefreshKind) -> impl Iterator<Item = &mut Cpu> {
         self.init_if_needed(refresh_kind);
-        self.processors.iter_mut()
+        self.cpus.iter_mut()
     }
 
     pub fn get_frequencies(&mut self) {
         if self.got_cpu_frequency {
             return;
         }
-        let frequencies = get_frequencies(self.processors.len());
+        let frequencies = get_frequencies(self.cpus.len());
 
-        for (processor, frequency) in self.processors.iter_mut().zip(frequencies) {
-            processor.set_frequency(frequency);
+        for (cpu, frequency) in self.cpus.iter_mut().zip(frequencies) {
+            cpu.set_frequency(frequency);
         }
         self.got_cpu_frequency = true;
     }
 }
 
-#[doc = include_str!("../../md_doc/processor.md")]
-pub struct Processor {
+#[doc = include_str!("../../md_doc/cpu.md")]
+pub struct Cpu {
     name: String,
     cpu_usage: f32,
     key_used: Option<KeyHandler>,
@@ -318,7 +310,7 @@ pub struct Processor {
     frequency: u64,
 }
 
-impl ProcessorExt for Processor {
+impl CpuExt for Cpu {
     fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
@@ -340,14 +332,14 @@ impl ProcessorExt for Processor {
     }
 }
 
-impl Processor {
+impl Cpu {
     pub(crate) fn new_with_values(
         name: String,
         vendor_id: String,
         brand: String,
         frequency: u64,
-    ) -> Processor {
-        Processor {
+    ) -> Cpu {
+        Cpu {
             name,
             cpu_usage: 0f32,
             key_used: None,
@@ -466,18 +458,18 @@ pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
     (get_vendor_id_not_great(info), String::new())
 }
 
-pub(crate) fn get_key_used(p: &mut Processor) -> &mut Option<KeyHandler> {
+pub(crate) fn get_key_used(p: &mut Cpu) -> &mut Option<KeyHandler> {
     &mut p.key_used
 }
 
 // From https://stackoverflow.com/a/43813138:
 //
-// If your PC has 64 or fewer logical processors installed, the above code will work fine. However,
-// if your PC has more than 64 logical processors installed, use GetActiveProcessorCount() or
-// GetLogicalProcessorInformation() to determine the total number of logical processors installed.
-pub(crate) fn get_frequencies(nb_processors: usize) -> Vec<u64> {
-    let size = nb_processors * mem::size_of::<PROCESSOR_POWER_INFORMATION>();
-    let mut infos: Vec<PROCESSOR_POWER_INFORMATION> = Vec::with_capacity(nb_processors);
+// If your PC has 64 or fewer logical cpus installed, the above code will work fine. However,
+// if your PC has more than 64 logical cpus installed, use GetActiveCpuCount() or
+// GetLogicalCpuInformation() to determine the total number of logical cpus installed.
+pub(crate) fn get_frequencies(nb_cpus: usize) -> Vec<u64> {
+    let size = nb_cpus * mem::size_of::<PROCESSOR_POWER_INFORMATION>();
+    let mut infos: Vec<PROCESSOR_POWER_INFORMATION> = Vec::with_capacity(nb_cpus);
 
     unsafe {
         if CallNtPowerInformation(
@@ -488,7 +480,7 @@ pub(crate) fn get_frequencies(nb_processors: usize) -> Vec<u64> {
             size as _,
         ) == 0
         {
-            infos.set_len(nb_processors);
+            infos.set_len(nb_cpus);
             // infos.Number
             return infos
                 .into_iter()
@@ -497,15 +489,15 @@ pub(crate) fn get_frequencies(nb_processors: usize) -> Vec<u64> {
         }
     }
     sysinfo_debug!("get_frequencies: CallNtPowerInformation failed");
-    vec![0; nb_processors]
+    vec![0; nb_cpus]
 }
 
 pub(crate) fn get_physical_core_count() -> Option<usize> {
-    // we cannot use the number of processors here to pre calculate the buf size
-    // GetLogicalProcessorInformationEx with RelationProcessorCore passed to it not only returns
+    // we cannot use the number of cpus here to pre calculate the buf size
+    // GetLogicalCpuInformationEx with RelationProcessorCore passed to it not only returns
     // the logical cores but also numa nodes
     //
-    // GetLogicalProcessorInformationEx: https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex
+    // GetLogicalCpuInformationEx: https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex
 
     let mut needed_size = 0;
     unsafe {
@@ -526,7 +518,7 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
                     Some(value) if value == ERROR_INSUFFICIENT_BUFFER as _ => {}
                     _ => {
                         sysinfo_debug!(
-                            "get_physical_core_count: GetLogicalProcessorInformationEx failed"
+                            "get_physical_core_count: GetLogicalCpuInformationEx failed"
                         );
                         return None;
                     }
