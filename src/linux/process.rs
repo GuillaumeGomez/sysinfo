@@ -14,7 +14,7 @@ use libc::{gid_t, kill, uid_t};
 use crate::sys::system::{SystemInfo, REMAINING_FILES};
 use crate::sys::utils::{get_all_data, get_all_data_from_file, realpath};
 use crate::utils::into_iter;
-use crate::{DiskUsage, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal};
+use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 #[doc(hidden)]
 impl From<u32> for ProcessStatus {
@@ -88,10 +88,8 @@ pub struct Process {
     run_time: u64,
     pub(crate) updated: bool,
     cpu_usage: f32,
-    /// User id of the process owner.
-    pub uid: Option<uid_t>,
-    /// Group id of the process owner.
-    pub gid: Option<gid_t>,
+    user_id: Option<Uid>,
+    group_id: Option<Gid>,
     pub(crate) status: ProcessStatus,
     /// Tasks run by this process.
     pub tasks: HashMap<Pid, Process>,
@@ -129,8 +127,8 @@ impl Process {
             start_time_without_boot_time,
             start_time: start_time_without_boot_time + info.boot_time,
             run_time: 0,
-            uid: None,
-            gid: None,
+            user_id: None,
+            group_id: None,
             status: ProcessStatus::Unknown(0),
             tasks: if pid.0 == 0 {
                 HashMap::with_capacity(1000)
@@ -215,6 +213,14 @@ impl ProcessExt for Process {
             read_bytes: self.read_bytes.saturating_sub(self.old_read_bytes),
             total_read_bytes: self.read_bytes,
         }
+    }
+
+    fn user_id(&self) -> Option<&Uid> {
+        self.user_id.as_ref()
+    }
+
+    fn group_id(&self) -> Option<Gid> {
+        self.group_id
     }
 }
 
@@ -378,9 +384,9 @@ pub(crate) fn _get_process_data(
 
     tmp.pop();
     tmp.push("status");
-    if let Some((uid, gid)) = get_uid_and_gid(&tmp) {
-        p.uid = Some(uid);
-        p.gid = Some(gid);
+    if let Some((user_id, group_id)) = get_uid_and_gid(&tmp) {
+        p.user_id = Some(Uid(user_id));
+        p.group_id = Some(Gid(group_id));
     }
 
     if proc_list.pid.0 != 0 {

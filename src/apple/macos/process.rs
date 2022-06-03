@@ -7,9 +7,9 @@ use std::path::{Path, PathBuf};
 
 use std::borrow::Borrow;
 
-use libc::{c_int, c_void, gid_t, kill, size_t, uid_t};
+use libc::{c_int, c_void, kill, size_t};
 
-use crate::{DiskUsage, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal};
+use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 use crate::sys::process::ThreadStatus;
 use crate::sys::system::Wrap;
@@ -32,10 +32,8 @@ pub struct Process {
     run_time: u64,
     updated: bool,
     cpu_usage: f32,
-    /// User id of the process owner.
-    pub uid: uid_t,
-    /// Group id of the process owner.
-    pub gid: gid_t,
+    user_id: Option<Uid>,
+    group_id: Option<Gid>,
     pub(crate) process_status: ProcessStatus,
     /// Status of process (running, stopped, waiting, etc). `None` means `sysinfo` doesn't have
     /// enough rights to get this information.
@@ -67,8 +65,8 @@ impl Process {
             updated: true,
             start_time: 0,
             run_time: 0,
-            uid: 0,
-            gid: 0,
+            user_id: None,
+            group_id: None,
             process_status: ProcessStatus::Unknown(0),
             status: None,
             old_read_bytes: 0,
@@ -108,8 +106,8 @@ impl Process {
             updated: true,
             start_time,
             run_time,
-            uid: 0,
-            gid: 0,
+            user_id: None,
+            group_id: None,
             process_status: ProcessStatus::Unknown(0),
             status: None,
             old_read_bytes: 0,
@@ -137,8 +135,8 @@ impl Process {
             updated: true,
             start_time,
             run_time,
-            uid: 0,
-            gid: 0,
+            user_id: None,
+            group_id: None,
             process_status: ProcessStatus::Unknown(0),
             status: None,
             old_read_bytes: 0,
@@ -218,6 +216,14 @@ impl ProcessExt for Process {
             written_bytes: self.written_bytes - self.old_written_bytes,
             total_written_bytes: self.written_bytes,
         }
+    }
+
+    fn user_id(&self) -> Option<&Uid> {
+        self.user_id.as_ref()
+    }
+
+    fn group_id(&self) -> Option<Gid> {
+        self.group_id
     }
 }
 
@@ -568,8 +574,8 @@ pub(crate) fn update_process(
         p.memory = task_info.pti_resident_size / 1_000;
         p.virtual_memory = task_info.pti_virtual_size / 1_000;
 
-        p.uid = info.pbi_uid;
-        p.gid = info.pbi_gid;
+        p.user_id = Some(Uid(info.pbi_uid));
+        p.group_id = Some(Gid(info.pbi_gid));
         p.process_status = ProcessStatus::from(info.pbi_status);
         if refresh_kind.disk_usage() {
             update_proc_disk_activity(&mut p);

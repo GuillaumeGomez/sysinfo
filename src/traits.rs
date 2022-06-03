@@ -370,6 +370,36 @@ pub trait ProcessExt: Debug {
     /// }
     /// ```
     fn disk_usage(&self) -> DiskUsage;
+
+    /// Returns the ID of the owner user of this process or `None` if this information couldn't
+    /// be retrieved. If you want to get the [`User`] from it, take a look at
+    /// [`SystemExt::get_user_by_id`].
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     eprintln!("User id for process 1337: {:?}", process.user_id());
+    /// }
+    /// ```
+    fn user_id(&self) -> Option<&Uid>;
+
+    /// Returns the process group ID of the process.
+    ///
+    /// ⚠️ It always returns `None` on Windows.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     eprintln!("Group id for process 1337: {:?}", process.group_id());
+    /// }
+    /// ```
+    fn group_id(&self) -> Option<Gid>;
 }
 
 /// Contains all the methods of the [`Processor`][crate::Processor] struct.
@@ -1171,6 +1201,35 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// println!("Hostname: {:?}", s.host_name());
     /// ```
     fn host_name(&self) -> Option<String>;
+
+    /// Returns the [`User`] matching the given `user_id`.
+    ///
+    /// **Important**: The user list must be filled before using this method, otherwise it will
+    /// always return `None` (through the `refresh_*` methods).
+    ///
+    /// It is a shorthand for:
+    ///
+    /// ```ignore
+    /// let s = System::new_all();
+    /// s.users().find(|user| user.id() == user_id);
+    /// ```
+    ///
+    /// Full example:
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     if let Some(user_id) = process.user_id() {
+    ///         eprintln!("User for process 1337: {:?}", s.get_user_by_id(user_id));
+    ///     }
+    /// }
+    /// ```
+    fn get_user_by_id(&self, user_id: &Uid) -> Option<&User> {
+        self.users().iter().find(|user| user.id() == user_id)
+    }
 }
 
 /// Getting volume of received and transmitted data.
@@ -1453,10 +1512,10 @@ pub trait UserExt: Debug {
     ///
     /// let mut s = System::new_all();
     /// for user in s.users() {
-    ///     println!("{}", *user.uid());
+    ///     println!("{:?}", *user.id());
     /// }
     /// ```
-    fn uid(&self) -> Uid;
+    fn id(&self) -> &Uid;
 
     /// Return the group id of the user.
     ///
@@ -1470,10 +1529,10 @@ pub trait UserExt: Debug {
     ///
     /// let mut s = System::new_all();
     /// for user in s.users() {
-    ///     println!("{}", *user.gid());
+    ///     println!("{}", *user.group_id());
     /// }
     /// ```
-    fn gid(&self) -> Gid;
+    fn group_id(&self) -> Gid;
 
     /// Returns the name of the user.
     ///

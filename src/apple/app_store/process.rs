@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
+use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessStatus, Signal, Uid};
 
 #[doc = include_str!("../../../md_doc/process.md")]
 pub struct Process;
@@ -70,5 +70,13 @@ impl ProcessExt for Process {
 
     fn disk_usage(&self) -> DiskUsage {
         DiskUsage::default()
+    }
+
+    fn user_id(&self) -> Option<&Uid> {
+        None
+    }
+
+    fn group_id(&self) -> Option<Gid> {
+        None
     }
 }

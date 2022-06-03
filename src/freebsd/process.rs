@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskUsage, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal};
+use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -55,10 +55,8 @@ pub struct Process {
     start_time: u64,
     run_time: u64,
     pub(crate) status: ProcessStatus,
-    /// User id of the process owner.
-    pub uid: libc::uid_t,
-    /// Group id of the process owner.
-    pub gid: libc::gid_t,
+    user_id: Uid,
+    group_id: Gid,
     read_bytes: u64,
     old_read_bytes: u64,
     written_bytes: u64,
@@ -134,6 +132,14 @@ impl ProcessExt for Process {
             read_bytes: self.read_bytes.saturating_sub(self.old_read_bytes),
             total_read_bytes: self.read_bytes,
         }
+    }
+
+    fn user_id(&self) -> Option<&Uid> {
+        Some(&self.user_id)
+    }
+
+    fn group_id(&self) -> Option<Gid> {
+        Some(self.group_id)
     }
 }
 
@@ -220,8 +226,8 @@ pub(crate) unsafe fn get_process_data(
     Ok(Some(Process {
         pid: Pid(kproc.ki_pid),
         parent,
-        uid: kproc.ki_ruid,
-        gid: kproc.ki_rgid,
+        user_id: Uid(kproc.ki_ruid),
+        group_id: Gid(kproc.ki_rgid),
         start_time,
         run_time: now.saturating_sub(start_time),
         cpu_usage,
