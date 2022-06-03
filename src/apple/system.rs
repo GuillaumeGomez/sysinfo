@@ -10,7 +10,9 @@ use crate::sys::processor::*;
 #[cfg(target_os = "macos")]
 use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
 
-use crate::{LoadAvg, Pid, ProcessRefreshKind, ProcessorExt, RefreshKind, SystemExt, User};
+use crate::{
+    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, ProcessorExt, RefreshKind, SystemExt, User,
+};
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::ProcessExt;
@@ -100,6 +102,7 @@ pub struct System {
     session: ffi::SessionWrap,
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
+    got_cpu_frequency: bool,
 }
 
 impl Drop for System {
@@ -202,6 +205,7 @@ impl SystemExt for System {
                 session: ffi::SessionWrap(::std::ptr::null_mut()),
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
                 clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
+                got_cpu_frequency: false,
             };
             s.refresh_specifics(refreshes);
             s
@@ -286,11 +290,26 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_cpu(&mut self) {
+    fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         let processors = &mut self.processors;
         if processors.is_empty() {
-            init_processors(self.port, processors, &mut self.global_processor);
-        } else {
+            init_processors(
+                self.port,
+                processors,
+                &mut self.global_processor,
+                refresh_kind,
+            );
+            self.got_cpu_frequency = refresh_kind.frequency();
+            return;
+        }
+        if refresh_kind.frequency() && !self.got_cpu_frequency {
+            let frequency = get_cpu_frequency();
+            for proc_ in processors.iter_mut() {
+                proc_.set_frequency(frequency);
+            }
+            self.got_cpu_frequency = true;
+        }
+        if refresh_kind.cpu_usage() {
             update_processor_usage(
                 self.port,
                 &mut self.global_processor,

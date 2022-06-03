@@ -7,7 +7,7 @@ pub struct Processor {
     pub(crate) cpu_usage: f32,
     name: String,
     pub(crate) vendor_id: String,
-    frequency: u64,
+    pub(crate) frequency: u64,
 }
 
 impl Processor {

@@ -1,6 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{LoadAvg, Networks, Pid, ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt, User};
+use crate::{
+    CpuRefreshKind, LoadAvg, Networks, Pid, ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt,
+    User,
+};
 use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
 use crate::sys::component::{self, Component};
@@ -102,7 +105,7 @@ impl SystemExt for System {
         s
     }
 
-    fn refresh_cpu(&mut self) {
+    fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         if self.query.is_none() {
             self.query = Query::new();
             if let Some(ref mut query) = self.query {
@@ -112,7 +115,7 @@ impl SystemExt for System {
                     get_key_used(self.processors.global_processor_mut()),
                     "tot_0".to_owned(),
                 );
-                for (pos, proc_) in self.processors.iter_mut().enumerate() {
+                for (pos, proc_) in self.processors.iter_mut(refresh_kind).enumerate() {
                     add_english_counter(
                         format!(r"\Processor({})\% Processor Time", pos),
                         query,
@@ -137,7 +140,7 @@ impl SystemExt for System {
                     .global_processor_mut()
                     .set_cpu_usage(used_time);
             }
-            for p in self.processors.iter_mut() {
+            for p in self.processors.iter_mut(refresh_kind) {
                 let mut used_time = None;
                 if let Some(ref key_used) = *get_key_used(p) {
                     used_time = Some(
@@ -149,6 +152,9 @@ impl SystemExt for System {
                 if let Some(used_time) = used_time {
                     p.set_cpu_usage(used_time);
                 }
+            }
+            if refresh_kind.frequency() {
+                self.processors.get_frequencies();
             }
         }
     }

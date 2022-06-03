@@ -2,7 +2,7 @@
 
 use crate::sys::system::get_sys_value;
 
-use crate::ProcessorExt;
+use crate::{CpuRefreshKind, ProcessorExt};
 
 use libc::{c_char, host_processor_info, mach_task_self};
 use std::mem;
@@ -91,6 +91,10 @@ impl Processor {
 
     pub(crate) fn data(&self) -> Arc<ProcessorData> {
         Arc::clone(&self.processor_data)
+    }
+
+    pub(crate) fn set_frequency(&mut self, frequency: u64) {
+        self.frequency = frequency;
     }
 }
 
@@ -196,12 +200,17 @@ pub(crate) fn init_processors(
     port: libc::mach_port_t,
     processors: &mut Vec<Processor>,
     global_processor: &mut Processor,
+    refresh_kind: CpuRefreshKind,
 ) {
     let mut num_cpu = 0;
     let mut mib = [0, 0];
 
     let (vendor_id, brand) = get_vendor_id_and_brand();
-    let frequency = get_cpu_frequency();
+    let frequency = if refresh_kind.frequency() {
+        get_cpu_frequency()
+    } else {
+        0
+    };
 
     unsafe {
         if !get_sys_value(
@@ -225,9 +234,11 @@ pub(crate) fn init_processors(
                 vendor_id.clone(),
                 brand.clone(),
             );
-            let cpu_usage = compute_processor_usage(&p, cpu_info, offset);
-            p.set_cpu_usage(cpu_usage);
-            percentage += p.cpu_usage();
+            if refresh_kind.cpu_usage() {
+                let cpu_usage = compute_processor_usage(&p, cpu_info, offset);
+                p.set_cpu_usage(cpu_usage);
+                percentage += p.cpu_usage();
+            }
             processors.push(p);
 
             offset += libc::CPU_STATE_MAX as isize;
@@ -302,7 +313,9 @@ mod test {
         assert!(child.status.success());
         let stdout = String::from_utf8(child.stdout).expect("Not valid UTF8");
 
-        let sys = System::new_with_specifics(crate::RefreshKind::new().with_cpu());
+        let sys = System::new_with_specifics(
+            crate::RefreshKind::new().with_cpu(CpuRefreshKind::new().with_cpu_usage()),
+        );
         let processors = sys.processors();
         assert!(!processors.is_empty(), "no processor found");
         if let Some(line) = stdout.lines().find(|l| l.contains("machdep.cpu.vendor")) {

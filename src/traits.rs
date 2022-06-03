@@ -5,8 +5,8 @@ use crate::{
     sys::{Component, Disk, Networks, Process, Processor},
 };
 use crate::{
-    DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessRefreshKind, ProcessStatus,
-    RefreshKind, Signal, User,
+    CpuRefreshKind, DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessRefreshKind,
+    ProcessStatus, RefreshKind, Signal, User,
 };
 
 use std::collections::HashMap;
@@ -568,8 +568,8 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         if refreshes.memory() {
             self.refresh_memory();
         }
-        if refreshes.cpu() {
-            self.refresh_cpu();
+        if let Some(kind) = refreshes.cpu() {
+            self.refresh_cpu_specifics(kind);
         }
         if refreshes.components_list() {
             self.refresh_components_list();
@@ -592,6 +592,24 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         if refreshes.users_list() {
             self.refresh_users_list();
         }
+    }
+
+    /// Refreshes all system, processes, disks and network interfaces information.
+    ///
+    /// Please note that it doesn't recompute disks list, components list, network interfaces
+    /// list nor users list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_all();
+    /// ```
+    fn refresh_all(&mut self) {
+        self.refresh_system();
+        self.refresh_processes();
+        self.refresh_disks();
+        self.refresh_networks();
     }
 
     /// Refreshes system information (RAM, swap, CPU usage and components' temperature).
@@ -625,11 +643,14 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn refresh_memory(&mut self);
 
-    /// Refreshes CPU usage.
+    /// Refreshes CPUs information.
     ///
     /// ⚠️ Please note that the result will very likely be inaccurate at the first call.
     /// You need to call this method at least twice (with a bit of time between each call, like
     /// 200ms) to get accurate values as it uses previous results to compute the next value.
+    ///
+    /// Calling this method is the same as calling
+    /// `refresh_cpu_specifics(CpuRefreshKind::everything())`.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -637,7 +658,22 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// let mut s = System::new_all();
     /// s.refresh_cpu();
     /// ```
-    fn refresh_cpu(&mut self);
+    fn refresh_cpu(&mut self) {
+        self.refresh_cpu_specifics(CpuRefreshKind::everything())
+    }
+
+    /// Refreshes CPUs specific information.
+    ///
+    /// Please note that it doesn't recompute disks list, components list, network interfaces
+    /// list nor users list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_all();
+    /// ```
+    fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind);
 
     /// Refreshes components' temperature.
     ///
@@ -801,24 +837,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         self.networks_mut().refresh_networks_list();
     }
 
-    /// Refreshes all system, processes, disks and network interfaces information.
-    ///
-    /// Please note that it doesn't recompute disks list, components list, network interfaces
-    /// list nor users list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_all();
-    /// ```
-    fn refresh_all(&mut self) {
-        self.refresh_system();
-        self.refresh_processes();
-        self.refresh_disks();
-        self.refresh_networks();
-    }
-
     /// Returns the process list.
     ///
     /// ```no_run
@@ -899,9 +917,11 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// [`SystemExt::refresh_specifics`] with `cpu` enabled.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessorExt, RefreshKind, System, SystemExt};
+    /// use sysinfo::{CpuRefreshKind, ProcessorExt, RefreshKind, System, SystemExt};
     ///
-    /// let s = System::new_with_specifics(RefreshKind::new().with_cpu());
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
     /// println!("{}%", s.global_processor_info().cpu_usage());
     /// ```
     fn global_processor_info(&self) -> &Processor;
@@ -912,9 +932,11 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// [`SystemExt::refresh_specifics`] with `cpu` enabled.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessorExt, RefreshKind, System, SystemExt};
+    /// use sysinfo::{CpuRefreshKind, ProcessorExt, RefreshKind, System, SystemExt};
     ///
-    /// let s = System::new_with_specifics(RefreshKind::new().with_cpu());
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
     /// for processor in s.processors() {
     ///     println!("{}%", processor.cpu_usage());
     /// }
