@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
+use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessStatus, Signal, Uid};
 
 use std::fmt;
 use std::path::Path;
@@ -80,5 +80,13 @@ impl ProcessExt for Process {
 
     fn disk_usage(&self) -> DiskUsage {
         DiskUsage::default()
+    }
+
+    fn user_id(&self) -> Option<&Uid> {
+        None
+    }
+
+    fn group_id(&self) -> Option<Gid> {
+        None
     }
 }
