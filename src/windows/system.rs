@@ -188,7 +188,7 @@ impl SystemExt for System {
             return refresh_existing_process(self, pid, refresh_kind);
         }
         let now = get_now();
-        if let Some(mut p) = Process::new_from_pid(pid, now) {
+        if let Some(mut p) = Process::new_from_pid(pid, now, refresh_kind) {
             p.update(refresh_kind, self.processors.len() as u64, now);
             p.updated = false;
             self.process_list.insert(pid, p);
@@ -277,6 +277,7 @@ impl SystemExt for System {
                                 (pi.VirtualSize as u64) / 1_000,
                                 name,
                                 now,
+                                refresh_kind,
                             );
                             p.update(refresh_kind, nb_processors, now);
                             Some(p)

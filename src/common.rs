@@ -93,9 +93,12 @@ cfg_if::cfg_if! {
 }
 
 macro_rules! impl_get_set {
-    ($ty_name:ident, $name:ident, $with:ident, $without:ident) => {
-        #[doc = concat!("Returns the value of the \"", stringify!($name), "\" refresh kind.
-
+    ($ty_name:ident, $name:ident, $with:ident, $without:ident $(, $extra_doc:literal)? $(,)?) => {
+        #[doc = concat!("Returns the value of the \"", stringify!($name), "\" refresh kind.")]
+        $(#[doc = concat!("
+", $extra_doc, "
+")])?
+        #[doc = concat!("
 ```
 use sysinfo::", stringify!($ty_name), ";
 
@@ -150,6 +153,10 @@ assert_eq!(r.", stringify!($name), "(), false);
 
 /// Used to determine what you want to refresh specifically on the [`Process`] type.
 ///
+/// ⚠️ Just like all other refresh types, ruling out a refresh doesn't assure you that
+/// the information won't be retrieved if the information is accessible without needing
+/// extra computation.
+///
 /// ```
 /// use sysinfo::{ProcessExt, ProcessRefreshKind, System, SystemExt};
 ///
@@ -169,6 +176,7 @@ assert_eq!(r.", stringify!($name), "(), false);
 pub struct ProcessRefreshKind {
     cpu: bool,
     disk_usage: bool,
+    user: bool,
 }
 
 impl ProcessRefreshKind {
@@ -200,6 +208,7 @@ impl ProcessRefreshKind {
         Self {
             cpu: true,
             disk_usage: true,
+            user: true,
         }
     }
 
@@ -210,9 +219,21 @@ impl ProcessRefreshKind {
         with_disk_usage,
         without_disk_usage
     );
+    impl_get_set!(
+        ProcessRefreshKind,
+        user,
+        with_user,
+        without_user,
+        r#"This refresh is about `user_id` and `group_id`. Please note that it has an effect mostly
+on Windows as other platforms get this information alongside the Process information directly."#,
+    );
 }
 
 /// Used to determine what you want to refresh specifically on the [`System`] type.
+///
+/// ⚠️ Just like all other refresh types, ruling out a refresh doesn't assure you that
+/// the information won't be retrieved if the information is accessible without needing
+/// extra computation.
 ///
 /// ```
 /// use sysinfo::{RefreshKind, System, SystemExt};

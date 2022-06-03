@@ -76,47 +76,6 @@ impl Process {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new_with(
-        pid: Pid,
-        parent: Option<Pid>,
-        start_time: u64,
-        run_time: u64,
-        exe: PathBuf,
-        name: String,
-        cwd: PathBuf,
-        cmd: Vec<String>,
-        environ: Vec<String>,
-        root: PathBuf,
-    ) -> Process {
-        Process {
-            name,
-            pid,
-            parent,
-            cmd,
-            environ,
-            exe,
-            cwd,
-            root,
-            memory: 0,
-            virtual_memory: 0,
-            cpu_usage: 0.,
-            old_utime: 0,
-            old_stime: 0,
-            updated: true,
-            start_time,
-            run_time,
-            user_id: None,
-            group_id: None,
-            process_status: ProcessStatus::Unknown(0),
-            status: None,
-            old_read_bytes: 0,
-            old_written_bytes: 0,
-            read_bytes: 0,
-            written_bytes: 0,
-        }
-    }
-
     pub(crate) fn new(pid: Pid, parent: Option<Pid>, start_time: u64, run_time: u64) -> Process {
         Process {
             name: String::new(),
@@ -553,18 +512,15 @@ pub(crate) fn update_process(
             } else {
                 get_environ(ptr, cp, size, PathBuf::new(), do_something)
             };
-            Process::new_with(
-                pid,
-                parent,
-                start_time,
-                run_time,
-                exe,
-                name,
-                cwd,
-                parse_command_line(&cmd),
-                environ,
-                root,
-            )
+            let mut p = Process::new(pid, parent, start_time, run_time);
+
+            p.exe = exe;
+            p.name = name;
+            p.cwd = cwd;
+            p.cmd = parse_command_line(&cmd);
+            p.environ = environ;
+            p.root = root;
+            p
         } else {
             Process::new(pid, parent, start_time, run_time)
         };

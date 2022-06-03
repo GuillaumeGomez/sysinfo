@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessStatus, Signal, Uid};
+use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 use std::ffi::OsString;
 use std::fmt;
@@ -69,7 +69,10 @@ fn get_process_handler(pid: Pid) -> Option<HandleWrapper> {
     unsafe { HandleWrapper::new(OpenProcess(options, FALSE, pid.0 as DWORD)) }
 }
 
-unsafe fn get_process_user_id(handle: &HandleWrapper) -> Option<Uid> {
+unsafe fn get_process_user_id(
+    handle: &HandleWrapper,
+    refresh_kind: ProcessRefreshKind,
+) -> Option<Uid> {
     struct HeapWrap<T>(*mut T);
 
     impl<T> HeapWrap<T> {
@@ -92,6 +95,10 @@ unsafe fn get_process_user_id(handle: &HandleWrapper) -> Option<Uid> {
                 }
             }
         }
+    }
+
+    if !refresh_kind.user() {
+        return None;
     }
 
     let mut token = null_mut();
@@ -273,7 +280,11 @@ unsafe fn get_exe(process_handler: &HandleWrapper, h_mod: *mut c_void) -> PathBu
 }
 
 impl Process {
-    pub(crate) fn new_from_pid(pid: Pid, now: u64) -> Option<Process> {
+    pub(crate) fn new_from_pid(
+        pid: Pid,
+        now: u64,
+        refresh_kind: ProcessRefreshKind,
+    ) -> Option<Process> {
         unsafe {
             let process_handler = get_process_handler(pid)?;
             let mut info: MaybeUninit<PROCESS_BASIC_INFORMATION> = MaybeUninit::uninit();
@@ -312,7 +323,7 @@ impl Process {
             } else {
                 None
             };
-            let user_id = get_process_user_id(&process_handler);
+            let user_id = get_process_user_id(&process_handler, refresh_kind);
             Some(Process {
                 handle: Some(Arc::new(process_handler)),
                 name,
@@ -347,6 +358,7 @@ impl Process {
         virtual_memory: u64,
         name: String,
         now: u64,
+        refresh_kind: ProcessRefreshKind,
     ) -> Process {
         if let Some(handle) = get_process_handler(pid) {
             let mut h_mod = null_mut();
@@ -367,7 +379,7 @@ impl Process {
                     }
                 };
                 let (start_time, run_time) = get_start_and_run_time(&handle, now);
-                let user_id = get_process_user_id(&handle);
+                let user_id = get_process_user_id(&handle, refresh_kind);
                 Process {
                     handle: Some(Arc::new(handle)),
                     name,
