@@ -1,5 +1,11 @@
-# 0.23.15
+# 0.24.0
 
+ * Rename `Processor` into `Cpu` and `ProcessorExt` into `CpuExt`.
+ * Retrieve information about a process' owner.
+ * Add `SystemExt::get_user_by_id`.
+ * Add `ProcessExt::user_id`.
+ * Add `ProcessExt::group_id`.
+ * Add `user`-related methods to `ProcessRefreshKind`.
  * Linux: Improve performance when creating new `Process` by improving retrieval of user ID and group ID.
 
 # 0.23.14
