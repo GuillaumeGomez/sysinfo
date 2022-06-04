@@ -2,7 +2,7 @@
 
 use crate::{
     common::{Gid, Uid},
-    sys::{Component, Disk, Networks, Process, Processor},
+    sys::{Component, Cpu, Disk, Networks, Process},
 };
 use crate::{
     CpuRefreshKind, DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessRefreshKind,
@@ -334,7 +334,7 @@ pub trait ProcessExt: Debug {
     /// multicore machine.
     ///
     /// If you want a value between 0% and 100%, divide the returned value by the number of CPU
-    /// processors.
+    /// CPUs.
     ///
     /// **Warning**: If you want accurate CPU usage number, better leave a bit of time
     /// between two calls of this method (200 ms for example).
@@ -402,67 +402,67 @@ pub trait ProcessExt: Debug {
     fn group_id(&self) -> Option<Gid>;
 }
 
-/// Contains all the methods of the [`Processor`][crate::Processor] struct.
-pub trait ProcessorExt: Debug {
-    /// Returns this processor's usage.
+/// Contains all the methods of the [`Cpu`][crate::Cpu] struct.
+pub trait CpuExt: Debug {
+    /// Returns this CPU's usage.
     ///
     /// Note: You'll need to refresh it at least twice (diff between the first and the second is
     /// how CPU usage is computed) at first if you want to have a non-zero value.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessorExt, System, SystemExt};
+    /// use sysinfo::{CpuExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.processors() {
-    ///     println!("{}%", processor.cpu_usage());
+    /// for cpu in s.cpus() {
+    ///     println!("{}%", cpu.cpu_usage());
     /// }
     /// ```
     fn cpu_usage(&self) -> f32;
 
-    /// Returns this processor's name.
+    /// Returns this CPU's name.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessorExt, System, SystemExt};
+    /// use sysinfo::{CpuExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.processors() {
-    ///     println!("{}", processor.name());
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.name());
     /// }
     /// ```
     fn name(&self) -> &str;
 
-    /// Returns the processor's vendor id.
+    /// Returns the CPU's vendor id.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessorExt, System, SystemExt};
+    /// use sysinfo::{CpuExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.processors() {
-    ///     println!("{}", processor.vendor_id());
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.vendor_id());
     /// }
     /// ```
     fn vendor_id(&self) -> &str;
 
-    /// Returns the processor's brand.
+    /// Returns the CPU's brand.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessorExt, System, SystemExt};
+    /// use sysinfo::{CpuExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.processors() {
-    ///     println!("{}", processor.brand());
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.brand());
     /// }
     /// ```
     fn brand(&self) -> &str;
 
-    /// Returns the processor's frequency.
+    /// Returns the CPU's frequency.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessorExt, System, SystemExt};
+    /// use sysinfo::{CpuExt, System, SystemExt};
     ///
     /// let s = System::new();
-    /// for processor in s.processors() {
-    ///     println!("{}", processor.frequency());
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.frequency());
     /// }
     /// ```
     fn frequency(&self) -> u64;
@@ -494,7 +494,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     const SUPPORTED_SIGNALS: &'static [Signal];
 
-    /// Creates a new [`System`] instance with nothing loaded except the processors list. If you
+    /// Creates a new [`System`] instance with nothing loaded except the cpus list. If you
     /// want to load components, network interfaces or the disks, you'll have to use the
     /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for example.
     ///
@@ -911,46 +911,46 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         )
     }
 
-    /// Returns "global" processors information (aka the addition of all the processors).
+    /// Returns "global" cpus information (aka the addition of all the CPUs).
     ///
     /// To have up-to-date information, you need to call [`SystemExt::refresh_cpu`] or
     /// [`SystemExt::refresh_specifics`] with `cpu` enabled.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuRefreshKind, ProcessorExt, RefreshKind, System, SystemExt};
+    /// use sysinfo::{CpuRefreshKind, CpuExt, RefreshKind, System, SystemExt};
     ///
     /// let s = System::new_with_specifics(
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
     /// );
-    /// println!("{}%", s.global_processor_info().cpu_usage());
+    /// println!("{}%", s.global_cpu_info().cpu_usage());
     /// ```
-    fn global_processor_info(&self) -> &Processor;
+    fn global_cpu_info(&self) -> &Cpu;
 
-    /// Returns the list of the processors.
+    /// Returns the list of the CPUs.
     ///
-    /// By default, the list of processors is empty until you call [`SystemExt::refresh_cpu`] or
+    /// By default, the list of cpus is empty until you call [`SystemExt::refresh_cpu`] or
     /// [`SystemExt::refresh_specifics`] with `cpu` enabled.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuRefreshKind, ProcessorExt, RefreshKind, System, SystemExt};
+    /// use sysinfo::{CpuRefreshKind, CpuExt, RefreshKind, System, SystemExt};
     ///
     /// let s = System::new_with_specifics(
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
     /// );
-    /// for processor in s.processors() {
-    ///     println!("{}%", processor.cpu_usage());
+    /// for cpu in s.cpus() {
+    ///     println!("{}%", cpu.cpu_usage());
     /// }
     /// ```
-    fn processors(&self) -> &[Processor];
+    fn cpus(&self) -> &[Cpu];
 
-    /// Returns the number of physical cores on the processor or `None` if it couldn't get it.
+    /// Returns the number of physical cores on the CPU or `None` if it couldn't get it.
     ///
     /// In case there are multiple CPUs, it will combine the physical core count of all the CPUs.
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessorExt, System, SystemExt};
+    /// use sysinfo::{CpuExt, System, SystemExt};
     ///
     /// let s = System::new();
     /// println!("{:?}", s.physical_core_count());

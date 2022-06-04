@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    sys::{component::Component, Disk, Networks, Process, Processor},
+    sys::{component::Component, Cpu, Disk, Networks, Process},
     CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
@@ -16,7 +16,7 @@ declare_signals! {
 pub struct System {
     processes_list: HashMap<Pid, Process>,
     networks: Networks,
-    global_processor: Processor,
+    global_cpu: Cpu,
 }
 
 impl SystemExt for System {
@@ -27,7 +27,7 @@ impl SystemExt for System {
         System {
             processes_list: Default::default(),
             networks: Networks::new(),
-            global_processor: Processor::new(),
+            global_cpu: Cpu::new(),
         }
     }
 
@@ -67,11 +67,11 @@ impl SystemExt for System {
         &mut self.networks
     }
 
-    fn global_processor_info(&self) -> &Processor {
-        &self.global_processor
+    fn global_cpu_info(&self) -> &Cpu {
+        &self.global_cpu
     }
 
-    fn processors(&self) -> &[Processor] {
+    fn cpus(&self) -> &[Cpu] {
         &[]
     }
 

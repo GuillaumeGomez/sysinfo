@@ -1,17 +1,17 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::ProcessorExt;
+use crate::CpuExt;
 
-#[doc = include_str!("../../md_doc/processor.md")]
-pub struct Processor {}
+#[doc = include_str!("../../md_doc/cpu.md")]
+pub struct Cpu {}
 
-impl Processor {
-    pub(crate) fn new() -> Processor {
-        Processor {}
+impl Cpu {
+    pub(crate) fn new() -> Cpu {
+        Cpu {}
     }
 }
 
-impl ProcessorExt for Processor {
+impl CpuExt for Cpu {
     fn cpu_usage(&self) -> f32 {
         0.0
     }

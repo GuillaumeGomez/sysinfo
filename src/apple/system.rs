@@ -1,17 +1,17 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::component::Component;
+use crate::sys::cpu::*;
 use crate::sys::disk::*;
 #[cfg(target_os = "macos")]
 use crate::sys::ffi;
 use crate::sys::network::Networks;
 use crate::sys::process::*;
-use crate::sys::processor::*;
 #[cfg(target_os = "macos")]
 use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
 
 use crate::{
-    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, ProcessorExt, RefreshKind, SystemExt, User,
+    CpuExt, CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -84,8 +84,8 @@ pub struct System {
     mem_available: u64,
     swap_total: u64,
     swap_free: u64,
-    global_processor: Processor,
-    processors: Vec<Processor>,
+    global_cpu: Cpu,
+    cpus: Vec<Cpu>,
     page_size_kb: u64,
     components: Vec<Component>,
     // Used to get CPU information, not supported on iOS, or inside the default macOS sandbox.
@@ -184,14 +184,14 @@ impl SystemExt for System {
                 mem_available: 0,
                 swap_total: 0,
                 swap_free: 0,
-                global_processor: Processor::new(
+                global_cpu: Cpu::new(
                     "0".to_owned(),
-                    Arc::new(ProcessorData::new(std::ptr::null_mut(), 0)),
+                    Arc::new(CpuData::new(std::ptr::null_mut(), 0)),
                     0,
                     String::new(),
                     String::new(),
                 ),
-                processors: Vec::new(),
+                cpus: Vec::new(),
                 page_size_kb: sysconf(_SC_PAGESIZE) as u64 / 1_000,
                 components: Vec::with_capacity(2),
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -291,41 +291,32 @@ impl SystemExt for System {
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
-        let processors = &mut self.processors;
-        if processors.is_empty() {
-            init_processors(
-                self.port,
-                processors,
-                &mut self.global_processor,
-                refresh_kind,
-            );
+        let cpus = &mut self.cpus;
+        if cpus.is_empty() {
+            init_cpus(self.port, cpus, &mut self.global_cpu, refresh_kind);
             self.got_cpu_frequency = refresh_kind.frequency();
             return;
         }
         if refresh_kind.frequency() && !self.got_cpu_frequency {
             let frequency = get_cpu_frequency();
-            for proc_ in processors.iter_mut() {
+            for proc_ in cpus.iter_mut() {
                 proc_.set_frequency(frequency);
             }
             self.got_cpu_frequency = true;
         }
         if refresh_kind.cpu_usage() {
-            update_processor_usage(
-                self.port,
-                &mut self.global_processor,
-                |proc_data, cpu_info| {
-                    let mut percentage = 0f32;
-                    let mut offset = 0;
-                    for proc_ in processors.iter_mut() {
-                        let cpu_usage = compute_processor_usage(proc_, cpu_info, offset);
-                        proc_.update(cpu_usage, Arc::clone(&proc_data));
-                        percentage += proc_.cpu_usage();
+            update_cpu_usage(self.port, &mut self.global_cpu, |proc_data, cpu_info| {
+                let mut percentage = 0f32;
+                let mut offset = 0;
+                for proc_ in cpus.iter_mut() {
+                    let cpu_usage = compute_usage_of_cpu(proc_, cpu_info, offset);
+                    proc_.update(cpu_usage, Arc::clone(&proc_data));
+                    percentage += proc_.cpu_usage();
 
-                        offset += libc::CPU_STATE_MAX as isize;
-                    }
-                    (percentage, processors.len())
-                },
-            );
+                    offset += libc::CPU_STATE_MAX as isize;
+                }
+                (percentage, cpus.len())
+            });
         }
     }
 
@@ -436,12 +427,12 @@ impl SystemExt for System {
         self.process_list.get(&pid)
     }
 
-    fn global_processor_info(&self) -> &Processor {
-        &self.global_processor
+    fn global_cpu_info(&self) -> &Cpu {
+        &self.global_cpu
     }
 
-    fn processors(&self) -> &[Processor] {
-        &self.processors
+    fn cpus(&self) -> &[Cpu] {
+        &self.cpus
     }
 
     fn physical_core_count(&self) -> Option<usize> {

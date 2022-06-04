@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read;
 
-use crate::ProcessorExt;
+use crate::CpuExt;
 
 /// Struct containing values to compute a CPU usage.
 #[derive(Clone, Copy)]
@@ -112,8 +112,8 @@ impl CpuValues {
     }
 }
 
-#[doc = include_str!("../../md_doc/processor.md")]
-pub struct Processor {
+#[doc = include_str!("../../md_doc/cpu.md")]
+pub struct Cpu {
     old_values: CpuValues,
     new_values: CpuValues,
     pub(crate) name: String,
@@ -125,7 +125,7 @@ pub struct Processor {
     pub(crate) brand: String,
 }
 
-impl Processor {
+impl Cpu {
     pub(crate) fn new_with_values(
         name: &str,
         user: u64,
@@ -141,8 +141,8 @@ impl Processor {
         frequency: u64,
         vendor_id: String,
         brand: String,
-    ) -> Processor {
-        Processor {
+    ) -> Cpu {
+        Cpu {
             name: name.to_owned(),
             old_values: CpuValues::new(),
             new_values: CpuValues::new_with_values(
@@ -194,7 +194,7 @@ impl Processor {
     }
 }
 
-impl ProcessorExt for Processor {
+impl CpuExt for Cpu {
     fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
@@ -217,7 +217,7 @@ impl ProcessorExt for Processor {
     }
 }
 
-pub(crate) fn get_raw_times(p: &Processor) -> (u64, u64) {
+pub(crate) fn get_raw_times(p: &Cpu) -> (u64, u64) {
     (p.total_time, p.old_total_time)
 }
 
@@ -266,31 +266,31 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
     }
 
     macro_rules! add_core {
-        ($core_ids_and_physical_ids:ident, $core_id:ident, $physical_id:ident, $processor:ident) => {{
+        ($core_ids_and_physical_ids:ident, $core_id:ident, $physical_id:ident, $cpu:ident) => {{
             if !$core_id.is_empty() && !$physical_id.is_empty() {
                 $core_ids_and_physical_ids.insert(format!("{} {}", $core_id, $physical_id));
-            } else if !$processor.is_empty() {
+            } else if !$cpu.is_empty() {
                 // On systems with only physical cores like raspberry, there is no "core id" or
-                // "physical id" fields. So if one of them is missing, we simply use the "processor"
+                // "physical id" fields. So if one of them is missing, we simply use the "CPU"
                 // info and count it as a physical core.
-                $core_ids_and_physical_ids.insert($processor.to_owned());
+                $core_ids_and_physical_ids.insert($cpu.to_owned());
             }
             $core_id = "";
             $physical_id = "";
-            $processor = "";
+            $cpu = "";
         }};
     }
 
     let mut core_ids_and_physical_ids: HashSet<String> = HashSet::new();
     let mut core_id = "";
     let mut physical_id = "";
-    let mut processor = "";
+    let mut cpu = "";
 
     for line in s.lines() {
         if line.is_empty() {
-            add_core!(core_ids_and_physical_ids, core_id, physical_id, processor);
+            add_core!(core_ids_and_physical_ids, core_id, physical_id, cpu);
         } else if line.starts_with("processor") {
-            processor = line
+            cpu = line
                 .splitn(2, ':')
                 .last()
                 .map(|x| x.trim())
@@ -309,7 +309,7 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
                 .unwrap_or_default();
         }
     }
-    add_core!(core_ids_and_physical_ids, core_id, physical_id, processor);
+    add_core!(core_ids_and_physical_ids, core_id, physical_id, cpu);
 
     Some(core_ids_and_physical_ids.len())
 }

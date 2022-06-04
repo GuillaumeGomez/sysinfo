@@ -290,14 +290,14 @@ on Windows as other platforms get this information alongside the Process informa
 /// extra computation.
 ///
 /// ```
-/// use sysinfo::{ProcessorExt, CpuRefreshKind, System, SystemExt};
+/// use sysinfo::{CpuExt, CpuRefreshKind, System, SystemExt};
 ///
 /// let mut system = System::new();
 ///
 /// // We don't want to update all the CPU information.
 /// system.refresh_cpu_specifics(CpuRefreshKind::everything().without_frequency());
 ///
-/// for cpu in system.processors() {
+/// for cpu in system.cpus() {
 ///     assert_eq!(cpu.frequency(), 0);
 /// }
 /// ```

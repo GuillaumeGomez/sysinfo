@@ -14,18 +14,18 @@ pub(crate) use self::ios as inner;
 pub(crate) mod app_store;
 
 pub mod component;
+pub mod cpu;
 pub mod disk;
 mod ffi;
 pub mod network;
 pub mod process;
-pub mod processor;
 pub mod system;
 pub mod users;
 mod utils;
 
 pub use self::component::Component;
+pub use self::cpu::Cpu;
 pub use self::disk::Disk;
 pub use self::network::{NetworkData, Networks};
 pub use self::process::Process;
-pub use self::processor::Processor;
 pub use self::system::System;

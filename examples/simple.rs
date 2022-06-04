@@ -9,7 +9,7 @@ use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::Signal::*;
 use sysinfo::{
-    NetworkExt, NetworksExt, Pid, ProcessExt, ProcessorExt, Signal, System, SystemExt, UserExt,
+    CpuExt, NetworkExt, NetworksExt, Pid, ProcessExt, Signal, System, SystemExt, UserExt,
 };
 
 const signals: &[Signal] = &[
@@ -80,7 +80,7 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
-        "processors         : Displays processors state"
+        "cpus               : Displays CPUs state"
     );
     writeln!(
         &mut io::stdout(),
@@ -112,19 +112,16 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
-        "vendor_id          : Displays processor vendor id"
+        "vendor_id          : Displays CPU vendor id"
     );
-    writeln!(
-        &mut io::stdout(),
-        "brand              : Displays processor brand"
-    );
+    writeln!(&mut io::stdout(), "brand              : Displays CPU brand");
     writeln!(
         &mut io::stdout(),
         "load_avg           : Displays system load average"
     );
     writeln!(
         &mut io::stdout(),
-        "frequency          : Displays processor frequency"
+        "frequency          : Displays CPU frequency"
     );
     writeln!(&mut io::stdout(), "users              : Displays all users");
     writeln!(
@@ -159,7 +156,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 nb += 1;
             }
         }
-        "processors" => {
+        "cpus" => {
             // Note: you should refresh a few times before using this, so that usage statistics
             // can be ascertained
             writeln!(
@@ -172,9 +169,9 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             writeln!(
                 &mut io::stdout(),
                 "total process usage: {}%",
-                sys.global_processor_info().cpu_usage()
+                sys.global_cpu_info().cpu_usage()
             );
-            for proc_ in sys.processors() {
+            for proc_ in sys.cpus() {
                 writeln!(&mut io::stdout(), "{:?}", proc_);
             }
         }
@@ -200,18 +197,18 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             writeln!(
                 &mut io::stdout(),
                 "{} MHz",
-                sys.global_processor_info().frequency()
+                sys.global_cpu_info().frequency()
             );
         }
         "vendor_id" => {
             writeln!(
                 &mut io::stdout(),
                 "vendor ID: {}",
-                sys.processors()[0].vendor_id()
+                sys.cpus()[0].vendor_id()
             );
         }
         "brand" => {
-            writeln!(&mut io::stdout(), "brand: {}", sys.processors()[0].brand());
+            writeln!(&mut io::stdout(), "brand: {}", sys.cpus()[0].brand());
         }
         "load_avg" => {
             let load_avg = sys.load_average();

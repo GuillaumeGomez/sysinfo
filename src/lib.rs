@@ -62,9 +62,9 @@ pub use common::{
     get_current_pid, CpuRefreshKind, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid, PidExt,
     ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, Uid, User,
 };
-pub use sys::{Component, Disk, NetworkData, Networks, Process, Processor, System};
+pub use sys::{Component, Cpu, Disk, NetworkData, Networks, Process, System};
 pub use traits::{
-    ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt, UserExt,
+    ComponentExt, CpuExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, SystemExt, UserExt,
 };
 
 #[cfg(feature = "c-interface")]
@@ -251,7 +251,7 @@ mod test {
             .processes()
             .iter()
             .all(|(_, proc_)| proc_.cpu_usage() >= 0.0
-                && proc_.cpu_usage() <= (s.processors().len() as f32) * 100.0));
+                && proc_.cpu_usage() <= (s.cpus().len() as f32) * 100.0));
         assert!(s
             .processes()
             .iter()
@@ -365,11 +365,11 @@ mod test {
     }
 
     #[test]
-    fn check_processors_number() {
+    fn check_cpus_number() {
         let mut s = System::new();
 
         // This information isn't retrieved by default.
-        assert!(s.processors().is_empty());
+        assert!(s.cpus().is_empty());
         if System::IS_SUPPORTED {
             // The physical cores count is recomputed every time the function is called, so the
             // information must be relevant even with nothing initialized.
@@ -378,20 +378,20 @@ mod test {
                 .expect("failed to get number of physical cores");
 
             s.refresh_cpu();
-            // The processors shouldn't be empty anymore.
-            assert!(!s.processors().is_empty());
+            // The cpus shouldn't be empty anymore.
+            assert!(!s.cpus().is_empty());
 
             // In case we are running inside a VM, it's possible to not have a physical core, only
             // logical ones, which is why we don't test `physical_cores_count > 0`.
             let physical_cores_count2 = s
                 .physical_core_count()
                 .expect("failed to get number of physical cores");
-            assert!(physical_cores_count2 <= s.processors().len());
+            assert!(physical_cores_count2 <= s.cpus().len());
             assert_eq!(physical_cores_count, physical_cores_count2);
         } else {
             assert_eq!(s.physical_core_count(), None);
         }
-        assert!(s.physical_core_count().unwrap_or(0) <= s.processors().len());
+        assert!(s.physical_core_count().unwrap_or(0) <= s.cpus().len());
     }
 
     #[test]
@@ -418,11 +418,11 @@ mod test {
         }
         let mut s = System::new();
         s.refresh_processes();
-        for proc_ in s.processors() {
+        for proc_ in s.cpus() {
             assert_eq!(proc_.frequency(), 0);
         }
         s.refresh_cpu();
-        for proc_ in s.processors() {
+        for proc_ in s.cpus() {
             assert_ne!(proc_.frequency(), 0);
         }
     }
