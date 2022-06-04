@@ -410,7 +410,8 @@ pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
                 extdata.push(__cpuid(i));
             }
 
-            let mut out = Vec::with_capacity(4 * 4 * 3); // 4 * u32 * nb_entries
+            // 4 * u32 * nb_entries
+            let mut out = Vec::with_capacity(4 * std::mem::size_of::<u32>() * 3);
             for data in extdata.iter().take(5).skip(2) {
                 add_u32(&mut out, data.eax);
                 add_u32(&mut out, data.ebx);
@@ -434,7 +435,7 @@ pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
 
         // Failed to get full name, let's retry for the short version!
         let res = __cpuid(0);
-        let mut x = Vec::with_capacity(16); // 3 * u32
+        let mut x = Vec::with_capacity(3 * std::mem::size_of::<u32>());
         add_u32(&mut x, res.ebx);
         add_u32(&mut x, res.edx);
         add_u32(&mut x, res.ecx);

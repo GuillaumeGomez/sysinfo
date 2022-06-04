@@ -172,8 +172,8 @@ fn new_disk(
                 return None;
             }
 
-            total_space = u64::from(stat.f_bsize) * stat.f_blocks;
-            available_space = u64::from(stat.f_bsize) * stat.f_bavail;
+            total_space = u64::from(stat.f_bsize).saturating_mul(stat.f_blocks);
+            available_space = u64::from(stat.f_bsize).saturating_mul(stat.f_bavail);
             let mut vec = Vec::with_capacity(stat.f_fstypename.len());
             for x in &stat.f_fstypename {
                 if *x == 0 {

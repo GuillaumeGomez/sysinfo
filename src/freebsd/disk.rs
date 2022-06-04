@@ -64,8 +64,8 @@ unsafe fn refresh_disk(disk: &mut Disk, vfs: &mut libc::statvfs) -> bool {
     }
     let f_frsize: u64 = vfs.f_frsize as _;
 
-    disk.total_space = vfs.f_blocks * f_frsize;
-    disk.available_space = vfs.f_favail * f_frsize;
+    disk.total_space = vfs.f_blocks.saturating_mul(f_frsize);
+    disk.available_space = vfs.f_favail.saturating_mul(f_frsize);
     true
 }
 
@@ -133,8 +133,8 @@ pub unsafe fn get_all_disks() -> Vec<Disk> {
             name,
             c_mount_point: fs_info.f_mntonname.to_vec(),
             mount_point: PathBuf::from(mount_point),
-            total_space: vfs.f_blocks * f_frsize,
-            available_space: vfs.f_favail * f_frsize,
+            total_space: vfs.f_blocks.saturating_mul(f_frsize),
+            available_space: vfs.f_favail.saturating_mul(f_frsize),
             file_system: fs_type.to_vec(),
             is_removable,
         });

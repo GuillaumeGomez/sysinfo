@@ -101,14 +101,21 @@ impl CpuValues {
 
     /// Returns work time.
     pub fn work_time(&self) -> u64 {
-        self.user + self.nice + self.system + self.irq + self.softirq + self.steal
+        self.user
+            .saturating_add(self.nice)
+            .saturating_add(self.system)
+            .saturating_add(self.irq)
+            .saturating_add(self.softirq)
+            .saturating_add(self.steal)
     }
 
     /// Returns total time.
     pub fn total_time(&self) -> u64 {
         // `guest` is already included in `user`
         // `guest_nice` is already included in `nice`
-        self.work_time() + self.idle + self.iowait
+        self.work_time()
+            .saturating_add(self.idle)
+            .saturating_add(self.iowait)
     }
 }
 

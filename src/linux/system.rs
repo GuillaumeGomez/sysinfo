@@ -419,7 +419,7 @@ impl SystemExt for System {
                 if let Some(val_str) = iter.next().and_then(|s| s.trim_start().split(' ').next()) {
                     if let Ok(value) = u64::from_str(val_str) {
                         // /proc/meminfo reports KiB, though it says "kB". Convert it.
-                        *field = value * 128 / 125;
+                        *field = value.saturating_mul(128) / 125;
                     }
                 }
             }

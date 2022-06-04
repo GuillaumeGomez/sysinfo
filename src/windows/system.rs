@@ -73,7 +73,7 @@ unsafe impl<T> Sync for Wrap<T> {}
 
 unsafe fn boot_time() -> u64 {
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_secs() - GetTickCount64() / 1000,
+        Ok(n) => n.as_secs().saturating_sub(GetTickCount64()) / 1000,
         Err(_e) => {
             sysinfo_debug!("Failed to compute boot time: {:?}", _e);
             0
@@ -168,14 +168,16 @@ impl SystemExt for System {
             if GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as u32)
                 == TRUE
             {
-                let swap_total = perf_info.PageSize
-                    * perf_info
+                let swap_total = perf_info.PageSize.saturating_mul(
+                    perf_info
                         .CommitLimit
-                        .saturating_sub(perf_info.PhysicalTotal);
-                let swap_used = perf_info.PageSize
-                    * perf_info
+                        .saturating_sub(perf_info.PhysicalTotal),
+                );
+                let swap_used = perf_info.PageSize.saturating_mul(
+                    perf_info
                         .CommitTotal
-                        .saturating_sub(perf_info.PhysicalTotal);
+                        .saturating_sub(perf_info.PhysicalTotal),
+                );
                 self.swap_total = (swap_total / 1000) as u64;
                 self.swap_used = (swap_used / 1000) as u64;
             }
