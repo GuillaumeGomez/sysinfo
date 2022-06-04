@@ -1,3 +1,7 @@
+# 0.24.1
+
+ * Use `saturating_*` function for mathematical operations to prevent overflows/underflows.
+
 # 0.24.0
 
  * Rename `Processor` into `Cpu` and `ProcessorExt` into `CpuExt`.
