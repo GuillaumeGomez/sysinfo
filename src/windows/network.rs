@@ -107,21 +107,21 @@ impl NetworksExt for Networks {
                             interface,
                             packets_in,
                             old_packets_in,
-                            ptr.InUcastPkts + ptr.InNUcastPkts
+                            ptr.InUcastPkts.saturating_add(ptr.InNUcastPkts)
                         );
                         old_and_new!(
                             interface,
                             packets_out,
                             old_packets_out,
-                            ptr.OutUcastPkts + ptr.OutNUcastPkts
+                            ptr.OutUcastPkts.saturating_add(ptr.OutNUcastPkts)
                         );
                         old_and_new!(interface, errors_in, old_errors_in, ptr.InErrors);
                         old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
                         interface.updated = true;
                     }
                     hash_map::Entry::Vacant(e) => {
-                        let packets_in = ptr.InUcastPkts + ptr.InNUcastPkts;
-                        let packets_out = ptr.OutUcastPkts + ptr.OutNUcastPkts;
+                        let packets_in = ptr.InUcastPkts.saturating_add(ptr.InNUcastPkts);
+                        let packets_out = ptr.OutUcastPkts.saturating_add(ptr.OutNUcastPkts);
 
                         e.insert(NetworkData {
                             id: ptr.InterfaceLuid,
@@ -165,13 +165,13 @@ impl NetworksExt for Networks {
                     interface,
                     packets_in,
                     old_packets_in,
-                    entry.InUcastPkts + entry.InNUcastPkts
+                    entry.InUcastPkts.saturating_add(entry.InNUcastPkts)
                 );
                 old_and_new!(
                     interface,
                     packets_out,
                     old_packets_out,
-                    entry.OutUcastPkts + entry.OutNUcastPkts
+                    entry.OutUcastPkts.saturating_add(entry.OutNUcastPkts)
                 );
                 old_and_new!(interface, errors_in, old_errors_in, entry.InErrors);
                 old_and_new!(interface, errors_out, old_errors_out, entry.OutErrors);

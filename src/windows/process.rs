@@ -963,21 +963,21 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
         let delta_user_time = check_sub(user, p.cpu_calc_values.old_process_user_cpu);
         let delta_sys_time = check_sub(sys, p.cpu_calc_values.old_process_sys_cpu);
 
-        let denominator = (delta_global_user_time + delta_global_kernel_time) as f64;
-
-        p.cpu_usage = 100.0
-            * ((delta_user_time + delta_sys_time) as f64
-                / if denominator == 0.0 {
-                    p.cpu_usage = 0.0;
-                    return;
-                } else {
-                    denominator
-                }) as f32
-            * nb_cpus as f32;
         p.cpu_calc_values.old_process_user_cpu = user;
         p.cpu_calc_values.old_process_sys_cpu = sys;
         p.cpu_calc_values.old_system_user_cpu = global_user_time;
         p.cpu_calc_values.old_system_sys_cpu = global_kernel_time;
+
+        let denominator = delta_global_user_time.saturating_add(delta_global_kernel_time) as f32;
+
+        if denominator < 0.00001 {
+            p.cpu_usage = 0.;
+            return;
+        }
+
+        p.cpu_usage = 100.0
+            * (delta_user_time.saturating_add(delta_sys_time) as f32 / denominator as f32)
+            * nb_cpus as f32;
     }
 }
 

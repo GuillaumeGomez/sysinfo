@@ -125,7 +125,7 @@ impl Process {
             old_stime: 0,
             updated: true,
             start_time_without_boot_time,
-            start_time: start_time_without_boot_time + info.boot_time,
+            start_time: start_time_without_boot_time.saturating_add(info.boot_time),
             run_time: 0,
             user_id: None,
             group_id: None,
@@ -467,7 +467,9 @@ fn update_time_and_memory(
 ) {
     {
         // rss
-        entry.memory = u64::from_str(parts[23]).unwrap_or(0) * info.page_size_kb;
+        entry.memory = u64::from_str(parts[23])
+            .unwrap_or(0)
+            .saturating_mul(info.page_size_kb);
         if entry.memory >= parent_memory {
             entry.memory -= parent_memory;
         }

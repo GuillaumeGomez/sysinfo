@@ -644,12 +644,15 @@ impl SystemInfo {
             }
             let swap =
                 std::slice::from_raw_parts(swap.as_ptr() as *mut libc::kvm_swap, nswap.min(LEN));
-            let (used, total) = swap.iter().fold((0, 0), |(used, total), swap| {
-                (used + swap.ksw_used as u64, total + swap.ksw_total as u64)
+            let (used, total) = swap.iter().fold((0, 0), |(used, total): (u64, u64), swap| {
+                (
+                    used.saturating_add(swap.ksw_used as _),
+                    total.saturating_add(swap.ksw_total as _),
+                )
             });
             (
-                used * self.page_size as u64 / 1_000,
-                total * self.page_size as u64 / 1_000,
+                used.saturating_mul(self.page_size as _) / 1_000,
+                total.saturating_mul(self.page_size as _) / 1_000,
             )
         }
     }
@@ -658,7 +661,7 @@ impl SystemInfo {
         let mut nb_pages: u64 = 0;
         unsafe {
             if get_sys_value(&self.virtual_page_count, &mut nb_pages) {
-                return nb_pages * self.page_size as u64 / 1_000;
+                return nb_pages.saturating_mul(self.page_size as _) / 1_000;
             }
 
             // This is a fallback. It includes all the available memory, not just the one available for
@@ -677,13 +680,15 @@ impl SystemInfo {
             get_sys_value(&self.virtual_active_count, &mut mem_active);
             get_sys_value(&self.virtual_wire_count, &mut mem_wire);
 
-            let mut mem_wire = mem_wire * self.page_size as u64;
+            let mut mem_wire = mem_wire.saturating_mul(self.page_size as _);
             // We need to subtract "ZFS ARC" from the "wired memory" because it should belongs to cache
             // but the kernel reports it as "wired memory" instead...
             if let Some(arc_size) = self.zfs.arc_size() {
                 mem_wire -= arc_size;
             }
-            let used = (mem_active * self.page_size as u64) + mem_wire;
+            let used = mem_active
+                .saturating_mul(self.page_size as _)
+                .saturating_add(mem_wire);
             used / 1_000
         }
     }
@@ -701,9 +706,9 @@ impl SystemInfo {
             get_sys_value(&self.virtual_free_count, &mut free_mem);
             // For whatever reason, buffers_mem is already the right value...
             let free = buffers_mem
-                + (inactive_mem * self.page_size as u64)
-                + (cached_mem * self.page_size as u64)
-                + (free_mem * self.page_size as u64);
+                .saturating_add(inactive_mem.saturating_mul(self.page_size as u64))
+                .saturating_add(cached_mem.saturating_mul(self.page_size as u64))
+                .saturating_add(free_mem.saturating_mul(self.page_size as u64));
             free / 1_000
         }
     }

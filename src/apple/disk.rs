@@ -56,7 +56,7 @@ impl DiskExt for Disk {
             let mut stat: statfs = mem::zeroed();
             let mount_point_cpath = to_cpath(&self.mount_point);
             if statfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
-                self.available_space = u64::from(stat.f_bsize) * stat.f_bavail;
+                self.available_space = u64::from(stat.f_bsize).saturating_mul(stat.f_bavail);
                 true
             } else {
                 false

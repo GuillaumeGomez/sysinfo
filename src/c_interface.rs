@@ -234,10 +234,9 @@ pub extern "C" fn sysinfo_networks_received(system: CSystem) -> size_t {
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        let ret = system
-            .networks()
-            .iter()
-            .fold(0, |acc, (_, data)| acc + data.received() as size_t);
+        let ret = system.networks().iter().fold(0, |acc: size_t, (_, data)| {
+            acc.saturating_add(data.received() as size_t)
+        });
         Box::into_raw(system);
         ret
     }
@@ -250,10 +249,9 @@ pub extern "C" fn sysinfo_networks_transmitted(system: CSystem) -> size_t {
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        let ret = system
-            .networks()
-            .iter()
-            .fold(0, |acc, (_, data)| acc + data.transmitted() as size_t);
+        let ret = system.networks().iter().fold(0, |acc: size_t, (_, data)| {
+            acc.saturating_add(data.transmitted() as size_t)
+        });
         Box::into_raw(system);
         ret
     }

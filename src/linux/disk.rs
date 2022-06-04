@@ -7,7 +7,6 @@ use libc::statvfs;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::mem;
-use std::num::Wrapping;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
@@ -63,7 +62,7 @@ impl DiskExt for Disk {
             let mut stat: statvfs = mem::zeroed();
             let mount_point_cpath = utils::to_cpath(&self.mount_point);
             if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
-                let tmp = cast!(stat.f_bsize) * cast!(stat.f_bavail);
+                let tmp = cast!(stat.f_bsize).saturating_mul(cast!(stat.f_bavail));
                 self.available_space = cast!(tmp);
                 true
             } else {
@@ -86,11 +85,11 @@ fn new_disk(
     unsafe {
         let mut stat: statvfs = mem::zeroed();
         if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
-            let bsize = Wrapping(cast!(stat.f_bsize));
-            let blocks = Wrapping(cast!(stat.f_blocks));
-            let bavail = Wrapping(cast!(stat.f_bavail));
-            total = (bsize * blocks).0;
-            available = (bsize * bavail).0;
+            let bsize = cast!(stat.f_bsize);
+            let blocks = cast!(stat.f_blocks);
+            let bavail = cast!(stat.f_bavail);
+            total = bsize.saturating_mul(blocks);
+            available = bsize.saturating_mul(bavail);
         }
         if total == 0 {
             return None;
