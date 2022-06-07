@@ -2,7 +2,7 @@
 
 `sysinfo` is a crate used to get a system's information.
 
-## Supported Oses
+## Supported OSes
 
 It currently supports the following OSes (alphabetically sorted):
 
