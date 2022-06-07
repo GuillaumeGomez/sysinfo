@@ -259,6 +259,24 @@ mod test {
     }
 
     #[test]
+    fn check_cpu_usage() {
+        if !System::IS_SUPPORTED {
+            return;
+        }
+        let mut s = System::new();
+        for _ in 0..10 {
+            s.refresh_cpu();
+            // Wait a bit to update CPU usage values
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            if s.cpus().iter().any(|c| c.cpu_usage() > 0.0) {
+                // All good!
+                return;
+            }
+        }
+        panic!("CPU usage is always zero...");
+    }
+
+    #[test]
     fn check_users() {
         let mut s = System::new();
         assert!(s.users().is_empty());
