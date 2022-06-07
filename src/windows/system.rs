@@ -110,14 +110,14 @@ impl SystemExt for System {
             self.query = Query::new();
             if let Some(ref mut query) = self.query {
                 add_english_counter(
-                    r"\Cpu(_Total)\% Processor Time".to_string(),
+                    r"\Processor(_Total)\% Processor Time".to_string(),
                     query,
                     get_key_used(self.cpus.global_cpu_mut()),
                     "tot_0".to_owned(),
                 );
                 for (pos, proc_) in self.cpus.iter_mut(refresh_kind).enumerate() {
                     add_english_counter(
-                        format!(r"\Cpu({})\% Processor Time", pos),
+                        format!(r"\Processor({})\% Processor Time", pos),
                         query,
                         get_key_used(proc_),
                         format!("{}_0", pos),
