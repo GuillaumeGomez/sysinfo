@@ -1,3 +1,9 @@
+# 0.24.2
+
+ * Windows: Fix CPU usage computation.
+ * Windows: Enable extra feature on `winapi`.
+ * macOS: Fix executable path retrieval.
+
 # 0.24.1
 
  * Use `saturating_*` function for mathematical operations to prevent overflows/underflows.
