@@ -247,12 +247,14 @@ pub(crate) fn compute_cpu_usage(
     p.updated = true;
 }*/
 
+#[inline]
 pub(crate) fn has_been_updated(p: &mut Process) -> bool {
     let old = p.updated;
     p.updated = false;
     old
 }
 
+#[inline]
 pub(crate) fn force_update(p: &mut Process) {
     p.updated = true;
 }
@@ -271,12 +273,24 @@ unsafe fn get_task_info(pid: Pid) -> libc::proc_taskinfo {
     task_info
 }
 
+#[inline]
 fn check_if_pid_is_alive(pid: Pid) -> bool {
     unsafe { kill(pid.0, 0) == 0 }
     // For the full complete check, it'd need to be (but that seems unneeded):
     // unsafe {
     //     *libc::__errno_location() == libc::ESRCH
     // }
+}
+
+#[inline]
+fn do_not_get_env_path(_: &str, _: &mut PathBuf, _: &mut bool) {}
+
+#[inline]
+fn do_get_env_path(env: &str, root: &mut PathBuf, check: &mut bool) {
+    if *check && env.starts_with("PATH=") {
+        *check = false;
+        *root = Path::new(&env[5..]).to_path_buf();
+    }
 }
 
 pub(crate) fn update_process(
@@ -472,16 +486,6 @@ pub(crate) fn update_process(
             }
 
             #[inline]
-            fn do_nothing(_: &str, _: &mut PathBuf, _: &mut bool) {}
-            #[inline]
-            fn do_something(env: &str, root: &mut PathBuf, check: &mut bool) {
-                if *check && env.starts_with("PATH=") {
-                    *check = false;
-                    *root = Path::new(&env[6..]).to_path_buf();
-                }
-            }
-
-            #[inline]
             unsafe fn get_environ<F: Fn(&str, &mut PathBuf, &mut bool)>(
                 ptr: *mut u8,
                 mut cp: *mut u8,
@@ -509,12 +513,18 @@ pub(crate) fn update_process(
 
             let (environ, root) = if exe.is_absolute() {
                 if let Some(parent_path) = exe.parent() {
-                    get_environ(ptr, cp, size, parent_path.to_path_buf(), do_nothing)
+                    get_environ(
+                        ptr,
+                        cp,
+                        size,
+                        parent_path.to_path_buf(),
+                        do_not_get_env_path,
+                    )
                 } else {
-                    get_environ(ptr, cp, size, PathBuf::new(), do_something)
+                    get_environ(ptr, cp, size, PathBuf::new(), do_get_env_path)
                 }
             } else {
-                get_environ(ptr, cp, size, PathBuf::new(), do_something)
+                get_environ(ptr, cp, size, PathBuf::new(), do_get_env_path)
             };
             let mut p = Process::new(pid, parent, start_time, run_time);
 
@@ -614,4 +624,20 @@ fn parse_command_line<T: Deref<Target = str> + Borrow<str>>(cmd: &[T]) -> Vec<St
         x += 1;
     }
     command
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_get_path() {
+        let mut path = PathBuf::new();
+        let mut check = true;
+
+        do_get_env_path("PATH=tadam", &mut path, &mut check);
+
+        assert!(!check);
+        assert_eq!(path, PathBuf::from("tadam"));
+    }
 }
