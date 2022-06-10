@@ -249,6 +249,6 @@ pub(crate) unsafe fn get_process_data(
         old_read_bytes: 0,
         written_bytes: kproc.ki_rusage.ru_oublock as _,
         old_written_bytes: 0,
-        updated: true,
+        updated: false,
     }))
 }
