@@ -126,16 +126,6 @@ pub(crate) struct Wrap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
 unsafe impl<'a> Send for Wrap<'a> {}
 unsafe impl<'a> Sync for Wrap<'a> {}
 
-#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-impl System {
-    fn clear_procs(&mut self) {
-        use crate::sys::macos::process;
-
-        self.process_list
-            .retain(|_, proc_| process::has_been_updated(proc_));
-    }
-}
-
 fn boot_time() -> u64 {
     let mut boot_time = timeval {
         tv_sec: 0,
@@ -356,6 +346,7 @@ impl SystemExt for System {
                             time_interval,
                             now,
                             refresh_kind,
+                            false,
                         ) {
                             Ok(x) => x,
                             _ => None,
@@ -366,7 +357,8 @@ impl SystemExt for System {
             entries.into_iter().for_each(|entry| {
                 self.process_list.insert(entry.pid(), entry);
             });
-            self.clear_procs();
+            self.process_list
+                .retain(|_, proc_| std::mem::replace(&mut proc_.updated, false));
         }
     }
 
@@ -390,6 +382,7 @@ impl SystemExt for System {
                 time_interval,
                 now,
                 refresh_kind,
+                true,
             )
         } {
             Ok(Some(p)) => {
