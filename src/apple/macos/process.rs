@@ -30,7 +30,7 @@ pub struct Process {
     old_stime: u64,
     start_time: u64,
     run_time: u64,
-    updated: bool,
+    pub(crate) updated: bool,
     cpu_usage: f32,
     user_id: Option<Uid>,
     group_id: Option<Gid>,
@@ -236,7 +236,6 @@ pub(crate) fn compute_cpu_usage(
             };
         }
     }
-    p.updated = true;
 }
 
 /*pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
@@ -246,18 +245,6 @@ pub(crate) fn compute_cpu_usage(
     p.stime = stime;
     p.updated = true;
 }*/
-
-#[inline]
-pub(crate) fn has_been_updated(p: &mut Process) -> bool {
-    let old = p.updated;
-    p.updated = false;
-    old
-}
-
-#[inline]
-pub(crate) fn force_update(p: &mut Process) {
-    p.updated = true;
-}
 
 unsafe fn get_task_info(pid: Pid) -> libc::proc_taskinfo {
     let mut task_info = mem::zeroed::<libc::proc_taskinfo>();
@@ -274,12 +261,22 @@ unsafe fn get_task_info(pid: Pid) -> libc::proc_taskinfo {
 }
 
 #[inline]
-fn check_if_pid_is_alive(pid: Pid) -> bool {
-    unsafe { kill(pid.0, 0) == 0 }
-    // For the full complete check, it'd need to be (but that seems unneeded):
-    // unsafe {
-    //     *libc::__errno_location() == libc::ESRCH
-    // }
+fn check_if_pid_is_alive(pid: Pid, check_if_alive: bool) -> bool {
+    // In case we are iterating all pids we got from `proc_listallpids`, then
+    // there is no point checking if the process is alive since it was returned
+    // from this function.
+    if !check_if_alive {
+        return true;
+    }
+    unsafe {
+        if kill(pid.0, 0) == 0 {
+            return true;
+        }
+        // `kill` failed but it might not be because the process is dead.
+        let errno = libc::__error();
+        // If errno is equal to ESCHR, it means the process is dead.
+        !errno.is_null() && *errno != libc::ESRCH
+    }
 }
 
 #[inline]
@@ -300,6 +297,7 @@ pub(crate) fn update_process(
     time_interval: Option<f64>,
     now: u64,
     refresh_kind: ProcessRefreshKind,
+    check_if_alive: bool,
 ) -> Result<Option<Process>, ()> {
     let mut proc_args = Vec::with_capacity(size as usize);
 
@@ -307,8 +305,8 @@ pub(crate) fn update_process(
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
             if p.memory == 0 {
                 // We don't have access to this process' information.
-                force_update(p);
-                return if check_if_pid_is_alive(pid) {
+                return if check_if_pid_is_alive(pid, check_if_alive) {
+                    p.updated = true;
                     Ok(None)
                 } else {
                     Err(())
@@ -331,7 +329,8 @@ pub(crate) fn update_process(
                 )
             } else {
                 // It very likely means that the process is dead...
-                return if check_if_pid_is_alive(pid) {
+                return if check_if_pid_is_alive(pid, check_if_alive) {
+                    p.updated = true;
                     Ok(None)
                 } else {
                     Err(())
@@ -347,6 +346,7 @@ pub(crate) fn update_process(
             if refresh_kind.disk_usage() {
                 update_proc_disk_activity(p);
             }
+            p.updated = true;
             return Ok(None);
         }
 

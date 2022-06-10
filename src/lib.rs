@@ -444,4 +444,23 @@ mod test {
             assert_ne!(proc_.frequency(), 0);
         }
     }
+
+    // In case `Process::updated` is misused, `System::refresh_processes` might remove them
+    // so this test ensures that it doesn't happen.
+    #[test]
+    fn check_refresh_process_update() {
+        if !System::IS_SUPPORTED {
+            return;
+        }
+        let mut s = System::new_all();
+        let total = s.processes().len() as isize;
+        s.refresh_processes();
+        let new_total = s.processes().len() as isize;
+        // There should be almost no difference in the processes count.
+        assert!(
+            (new_total - total).abs() < 5,
+            "{} < 5",
+            (new_total - total).abs()
+        );
+    }
 }

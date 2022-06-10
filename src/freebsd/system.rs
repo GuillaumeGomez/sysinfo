@@ -377,10 +377,6 @@ impl System {
             #[cfg(not(feature = "multithread"))]
             use std::iter::Iterator as IterTrait;
 
-            crate::utils::into_iter(&mut self.process_list).for_each(|(_, proc_)| {
-                proc_.updated = false;
-            });
-
             let fscale = self.system_info.fscale;
             let page_size = self.system_info.page_size as isize;
             let now = super::utils::get_now();
@@ -404,7 +400,8 @@ impl System {
         };
 
         // We remove all processes that don't exist anymore.
-        self.process_list.retain(|_, v| v.updated);
+        self.process_list
+            .retain(|_, v| std::mem::replace(&mut v.updated, false));
 
         for (kproc, proc_) in procs {
             self.add_missing_proc_info(kd, kproc, proc_);
