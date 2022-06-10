@@ -1,3 +1,8 @@
+# 0.24.3
+
+ * macOS: Fix `System::refresh_processes` badly handling updates.
+ * FreeBSD: Improve performance of `System::refresh_processes`.
+
 # 0.24.2
 
  * Windows: Fix CPU usage computation.
