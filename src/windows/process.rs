@@ -48,7 +48,7 @@ use winapi::um::securitybaseapi::GetTokenInformation;
 use winapi::um::winbase::{GetProcessIoCounters, CREATE_NO_WINDOW};
 use winapi::um::winnt::{
     TokenUser, HANDLE, HEAP_ZERO_MEMORY, IO_COUNTERS, MEMORY_BASIC_INFORMATION,
-    PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, RTL_OSVERSIONINFOEXW, TOKEN_QUERY, TOKEN_USER,
+    PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ, RTL_OSVERSIONINFOEXW, TOKEN_QUERY, TOKEN_USER,
     ULARGE_INTEGER,
 };
 
@@ -66,8 +66,16 @@ fn get_process_handler(pid: Pid) -> Option<HandleWrapper> {
         return None;
     }
     let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
-
-    unsafe { HandleWrapper::new(OpenProcess(options, FALSE, pid.0 as DWORD)) }
+    
+    HandleWrapper::new(unsafe{ OpenProcess(options, FALSE, pid.0 as DWORD) } )
+        .or_else(|| {
+            sysinfo_debug!("OpenProcess failed, error: {:?}", unsafe{ GetLastError() });
+            HandleWrapper::new(unsafe{ OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid.0 as DWORD) } )
+        })
+        .or_else(|| {
+            sysinfo_debug!("OpenProcess limited failed, error: {:?}", unsafe{ GetLastError() });
+            None
+        })
 }
 
 unsafe fn get_process_user_id(
