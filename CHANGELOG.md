@@ -1,3 +1,7 @@
+# 0.24.4
+
+ * Windows: Fix `System::refresh_process` when required higher priviledges.
+
 # 0.24.3
 
  * macOS: Fix `System::refresh_processes` badly handling updates.
