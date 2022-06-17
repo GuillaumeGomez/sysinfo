@@ -667,7 +667,7 @@ macro_rules! xid {
     ($(#[$outer:meta])+ $name:ident, $type:ty) => {
         $(#[$outer])+
         #[repr(transparent)]
-        #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+        #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
         pub struct $name(pub(crate) $type);
 
         impl std::ops::Deref for $name {
