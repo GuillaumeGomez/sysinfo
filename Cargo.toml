@@ -18,6 +18,8 @@ edition = "2018"
 [dependencies]
 cfg-if = "1.0"
 rayon = { version = "^1.5.1", optional = true }
+
+[target.'cfg(any(windows, target_os = "linux", target_os = "android"))'.dependencies]
 once_cell = "1.0"
 
 [target.'cfg(windows)'.dependencies]
