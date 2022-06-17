@@ -1,3 +1,8 @@
+# 0.24.5
+
+ * Implement `Hash` trait on `Uid` and `Gid` types.
+ * Remove dependency `once_cell` for targets other than `linux`, `android` and `windows`.
+
 # 0.24.4
 
  * Windows: Fix `System::refresh_process` when required higher priviledges.
