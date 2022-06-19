@@ -19,39 +19,18 @@ pub struct Gpu {
 }
 
 impl Gpu {
-    /// Creates a new instance of `Gpu` with everything set to `None`.
-    pub fn new() -> Self {
-        Gpu {
-            name: String::new(),
-            gpu_usage: None,
-            vram_used: None,
-            vram_total: None,
-            freq: None,
-            freq_max: None,
-            vendor_id: String::new(),
-            brand: None,
-        }
-    }
-
     /// Find all the GPUs in the system.
     pub fn get_gpus() -> Vec<Self> {
         let mut gpus = Vec::new();
         if let Ok(dir) = read_dir(&Path::new("/sys/class/drm/")) {
             for entry in dir.flatten() {
                 let entry = entry.path();
-                if entry.is_dir()
-                    && entry
-                        .file_name()
-                        .and_then(|x| x.to_str())
-                        .unwrap_or("")
-                        .starts_with("card")
-                    && !entry
-                        .file_name()
-                        .and_then(|x| x.to_str())
-                        .unwrap_or("")
-                        .contains('-')
-                {
-                    let gpu: Option<Self> = match get_vendor_id(&Path::new(&entry).join("device")) {
+                if !entry.is_dir() {
+                    continue;
+                }
+                let filename = entry.file_name().and_then(|x| x.to_str()).unwrap_or("");
+                if filename.starts_with("card") && !filename.contains('-') {
+                    let gpu: Option<Self> = match get_vendor_id(&entry.join("device")) {
                         Some(id) => match id.as_str() {
                             "8086" => Self::get_intel_gpu_info(&entry),
                             "10de" => Self::get_nvidia_gpu_info(&entry),
@@ -166,12 +145,6 @@ impl Gpu {
         };
 
         Some(gpu)
-    }
-}
-
-impl Default for Gpu {
-    fn default() -> Self {
-        Gpu::new()
     }
 }
 
