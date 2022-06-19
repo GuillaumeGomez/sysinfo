@@ -105,8 +105,49 @@ impl Gpu {
         Some(gpu)
     }
 
-    fn get_amd_gpu_info(_path: &Path) -> Option<Self> {
-        None
+    fn get_amd_gpu_info(path: &Path) -> Option<Self> {
+        let vendor_id = String::from("AMD");
+        let name: String = path.file_name().unwrap().to_str().unwrap().to_string();
+
+        let gpu_usage: f32 = match File::open(path.join("device/gpu_busy_percent")) {
+            Ok(mut f) => {
+                let mut s = String::new();
+                f.read_to_string(&mut s).unwrap();
+                s.trim().split('\n').next().unwrap().parse::<f32>().unwrap()
+            }
+            Err(_) => return None,
+        };
+
+        let vram_used: u64 = match File::open(path.join("device/mem_info_vram_used")) {
+            Ok(mut f) => {
+                let mut s = String::new();
+                f.read_to_string(&mut s).unwrap();
+                s.trim().split('\n').next().unwrap().parse::<u64>().unwrap()
+            }
+            Err(_) => return None,
+        };
+
+        let vram_total: u64 = match File::open(path.join("device/mem_info_vram_total")) {
+            Ok(mut f) => {
+                let mut s = String::new();
+                f.read_to_string(&mut s).unwrap();
+                s.trim().split('\n').next().unwrap().parse::<u64>().unwrap()
+            }
+            Err(_) => return None,
+        };
+
+        let gpu = Gpu {
+            name: name,
+            gpu_usage: Some(gpu_usage),
+            vram_used: Some(vram_used/1024),
+            vram_total: Some(vram_total/1024),
+            freq: None,
+            freq_max: None,
+            vendor_id: vendor_id,
+            brand: None,
+        };
+
+        Some(gpu)
     }
 
     fn get_nvidia_gpu_info(_path: &Path) -> Option<Self> {

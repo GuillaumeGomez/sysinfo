@@ -1633,7 +1633,7 @@ pub trait GpuExt: Debug {
     /// ```
     fn gpu_usage(&self) -> Option<f32>;
 
-    /// Returns this GPU's Vram usage.
+    /// Returns this GPU's Vram usage in KiB.
     ///
     /// ```no_run
     /// use sysinfo::{GpuExt, System, SystemExt};
@@ -1645,7 +1645,7 @@ pub trait GpuExt: Debug {
     /// ```
     fn vram_used(&self) -> Option<u64>;
 
-    /// Returns this GPU's Vram total.
+    /// Returns this GPU's Vram total in KiB.
     ///
     /// ```no_run
     /// use sysinfo::{GpuExt, System, SystemExt};
