@@ -150,8 +150,22 @@ impl Gpu {
         Some(gpu)
     }
 
-    fn get_nvidia_gpu_info(_path: &Path) -> Option<Self> {
-        None
+    fn get_nvidia_gpu_info(path: &Path) -> Option<Self> {
+        let vendor_id = String::from("NVIDIA");
+        let name: String = path.file_name().unwrap().to_str().unwrap().to_string();
+
+        let gpu = Gpu {
+            name: name,
+            gpu_usage: None,
+            vram_used: None,
+            vram_total: None,
+            freq: None,
+            freq_max: None,
+            vendor_id: vendor_id,
+            brand: None,
+        };
+
+        Some(gpu)
     }
 }
 
