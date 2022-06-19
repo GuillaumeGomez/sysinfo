@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Component, ComponentExt, Cpu, CpuExt, Disk, DiskExt, NetworkData, NetworkExt, Networks,
-    NetworksExt, Process, ProcessExt, System, SystemExt,
+    Component, ComponentExt, Cpu, CpuExt, Disk, DiskExt, Gpu, GpuExt, NetworkData, NetworkExt,
+    Networks, NetworksExt, Process, ProcessExt, System, SystemExt,
 };
 
 use std::fmt;
@@ -33,6 +33,7 @@ impl fmt::Debug for System {
             .field("nb processes", &self.processes().len())
             .field("nb disks", &self.disks().len())
             .field("nb components", &self.components().len())
+            .field("nb GPUs", &self.gpus().len())
             .finish()
     }
 }
@@ -127,6 +128,21 @@ impl fmt::Debug for NetworkData {
             .field("total errors income", &self.total_errors_on_received())
             .field("errors outcome", &self.errors_on_transmitted())
             .field("total errors outcome", &self.total_errors_on_transmitted())
+            .finish()
+    }
+}
+
+impl fmt::Debug for Gpu {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GPU")
+            .field("name", &self.name())
+            .field("gpu usage", &self.gpu_usage())
+            .field("vendor ID", &self.vendor_id())
+            .field("brand", &self.brand())
+            .field("vram used", &self.vram_used())
+            .field("vram total", &self.vram_total())
+            .field("freq", &self.freq())
+            .field("max freq", &self.freq_max())
             .finish()
     }
 }

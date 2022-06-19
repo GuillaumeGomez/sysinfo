@@ -6,7 +6,8 @@ use crate::sys::disk;
 use crate::sys::process::*;
 use crate::sys::utils::get_all_data;
 use crate::{
-    CpuRefreshKind, Disk, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, Disk, Gpu, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt,
+    User,
 };
 
 use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
@@ -172,6 +173,7 @@ pub struct System {
     disks: Vec<Disk>,
     networks: Networks,
     users: Vec<User>,
+    gpus: Vec<Gpu>,
     /// Field set to `false` in `update_cpus` and to `true` in `refresh_processes_specifics`.
     ///
     /// The reason behind this is to avoid calling the `update_cpus` more than necessary.
@@ -389,6 +391,7 @@ impl SystemExt for System {
             disks: Vec::with_capacity(2),
             networks: Networks::new(),
             users: Vec::new(),
+            gpus: Vec::new(),
             need_cpus_update: true,
             info,
             got_cpu_frequency: false,
@@ -490,6 +493,10 @@ impl SystemExt for System {
 
     fn refresh_users_list(&mut self) {
         self.users = crate::users::get_users_list();
+    }
+
+    fn refresh_gpus_list(&mut self) {
+        self.gpus = Gpu::get_gpus();
     }
 
     // COMMON PART
@@ -676,6 +683,10 @@ impl SystemExt for System {
                 None
             }
         }
+    }
+
+    fn gpus(&self) -> &[Gpu] {
+        &self.gpus
     }
 
     #[cfg(not(target_os = "android"))]

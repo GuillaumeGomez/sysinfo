@@ -62,9 +62,9 @@ pub use common::{
     get_current_pid, CpuRefreshKind, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid, PidExt,
     ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, Uid, User,
 };
-pub use sys::{Component, Cpu, Disk, NetworkData, Networks, Process, System};
+pub use sys::{Component, Cpu, Disk, Gpu, NetworkData, Networks, Process, System};
 pub use traits::{
-    ComponentExt, CpuExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, SystemExt, UserExt,
+    ComponentExt, CpuExt, DiskExt, GpuExt, NetworkExt, NetworksExt, ProcessExt, SystemExt, UserExt,
 };
 
 #[cfg(feature = "c-interface")]

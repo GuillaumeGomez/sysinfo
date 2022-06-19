@@ -2,7 +2,7 @@
 
 use crate::{
     common::{Gid, Uid},
-    sys::{Component, Cpu, Disk, Networks, Process},
+    sys::{Component, Cpu, Disk, Gpu, Networks, Process},
 };
 use crate::{
     CpuRefreshKind, DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessRefreshKind,
@@ -610,6 +610,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         self.refresh_processes();
         self.refresh_disks();
         self.refresh_networks();
+        self.refresh_gpus_list();
     }
 
     /// Refreshes system information (RAM, swap, CPU usage and components' temperature).
@@ -836,6 +837,16 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     fn refresh_networks_list(&mut self) {
         self.networks_mut().refresh_networks_list();
     }
+
+    /// Refreshes gpus.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    ///     s.refresh_gpus_list();
+    /// ```
+    fn refresh_gpus_list(&mut self);
 
     /// Returns the process list.
     ///
@@ -1252,6 +1263,20 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     fn get_user_by_id(&self, user_id: &Uid) -> Option<&User> {
         self.users().iter().find(|user| user.id() == user_id)
     }
+
+    /// Returns the list of the GPUs.
+    ///
+    /// By default, the list of gpue is empty until you call [`SystemExt::refresh_gpu`]
+    ///
+    /// ```no_run
+    /// use sysinfo::{GpuExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// for gpu in s.gpus() {
+    ///     println!("{}%", gpu.name());
+    /// }
+    /// ```
+    fn gpus(&self) -> &[Gpu];
 }
 
 /// Getting volume of received and transmitted data.
@@ -1579,4 +1604,104 @@ pub trait UserExt: Debug {
     /// }
     /// ```
     fn groups(&self) -> &[String];
+}
+
+/// Contains all the methods of the [`Gpu`][crate::Gpu] struct.
+pub trait GpuExt: Debug {
+    /// Returns the name of the GPU.
+    ///
+    /// ```no_run
+    /// use sysinfo::{GpuExt, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for gpu in s.gpus() {
+    ///    println!("{}", gpu.name());
+    /// }
+    /// ```
+    fn name(&self) -> &str;
+
+    /// Returns this GPU's usage.
+    ///
+    ///
+    /// ```no_run
+    /// use sysinfo::{GpuExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// for gpu in s.gpus() {
+    ///     println!("{}%", gpu.gpu_usage());
+    /// }
+    /// ```
+    fn gpu_usage(&self) -> Option<f32>;
+
+    /// Returns this GPU's Vram usage.
+    ///
+    /// ```no_run
+    /// use sysinfo::{GpuExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// for gpu in s.gpus() {
+    ///    println!("{}%", gpu.vram_used());
+    /// }
+    /// ```
+    fn vram_used(&self) -> Option<u64>;
+
+    /// Returns this GPU's Vram total.
+    ///
+    /// ```no_run
+    /// use sysinfo::{GpuExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// for gpu in s.gpus() {
+    ///   println!("{}%", gpu.vram_total());
+    /// }
+    /// ```
+    fn vram_total(&self) -> Option<u64>;
+
+    /// Returns this GPU's vendor id.
+    ///
+    /// ```no_run
+    /// use sysinfo::{GpuExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// for gpu in s.gpus() {
+    ///   println!("{}", gpu.vendor_id());
+    /// }
+    /// ```
+    fn vendor_id(&self) -> String;
+
+    /// Returns this GPU's vendor brand.
+    ///
+    /// ```no_run
+    /// use sysinfo::{GpuExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// for gpu in s.gpus() {
+    ///     println!("{}", gpu.brand());
+    /// }
+    /// ```
+    fn brand(&self) -> Option<String>;
+
+    /// Returns this GPU's frequency.
+    ///
+    /// ```no_run
+    /// use sysinfo::{GpuExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// for gpu in s.gpus() {
+    ///     println!("{}", gpu.freq());
+    /// }
+    /// ```
+    fn freq(&self) -> Option<u64>;
+
+    /// Returns this GPU's max frequency.
+    ///
+    /// ```no_run
+    /// use sysinfo::{GpuExt, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// for gpu in s.gpus() {
+    ///     println!("{}", gpu.max_freq());
+    /// }
+    /// ```
+    fn freq_max(&self) -> Option<u64>;
 }
