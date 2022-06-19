@@ -31,10 +31,10 @@ impl Gpu {
                 let filename = entry.file_name().and_then(|x| x.to_str()).unwrap_or("");
                 if filename.starts_with("card") && !filename.contains('-') {
                     let gpu: Option<Self> = match get_vendor_id(&entry.join("device")) {
-                        Some(id) => match id.as_str() {
-                            "8086" => Self::get_intel_gpu_info(&entry),
-                            "10de" => Self::get_nvidia_gpu_info(&entry),
-                            "1002" => Self::get_amd_gpu_info(&entry),
+                        Some(id) => match id {
+                            0x8086 => Self::get_intel_gpu_info(&entry),
+                            0x10de => Self::get_nvidia_gpu_info(&entry),
+                            0x1002 => Self::get_amd_gpu_info(&entry),
                             _ => None,
                         },
                         None => None,
@@ -182,11 +182,11 @@ impl GpuExt for Gpu {
     }
 }
 
-fn get_vendor_id(path: &Path) -> Option<String> {
+fn get_vendor_id(path: &Path) -> Option<u16> {
     let mut vendor_id: String = String::with_capacity(7);
     if let Ok(mut f) = File::open(path.join("vendor")) {
         if f.read_to_string(&mut vendor_id).is_ok() {
-            return Some(String::from(&vendor_id[2..6]));
+            return Some(u16::from_str_radix(&vendor_id[2..6], 16).unwrap());
         }
     }
     None
