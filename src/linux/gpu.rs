@@ -118,8 +118,8 @@ impl Gpu {
         let gpu = Gpu {
             name,
             gpu_usage: Some(gpu_usage),
-            vram_used: Some(vram_used / 1024),
-            vram_total: Some(vram_total / 1024),
+            vram_used: Some(vram_used / 1000),
+            vram_total: Some(vram_total / 1000),
             freq: None,
             freq_max: None,
             vendor_id,
