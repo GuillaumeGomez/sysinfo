@@ -202,7 +202,9 @@ pub(crate) fn compute_cpu_usage(
                 .saturating_add(task_info.pti_total_user);
 
             let total_time_diff = total_current_time.saturating_sub(total_existing_time);
-            p.cpu_usage = (total_time_diff as f64 / time_interval * 100.) as f32;
+            if total_time_diff > 0 {
+                p.cpu_usage = (total_time_diff as f64 / time_interval * 100.) as f32;
+            }
         } else {
             p.cpu_usage = 0.;
         }
@@ -329,12 +331,11 @@ pub(crate) fn update_process(
                 )
             } else {
                 // It very likely means that the process is dead...
-                return if check_if_pid_is_alive(pid, check_if_alive) {
-                    p.updated = true;
-                    Ok(None)
+                if check_if_pid_is_alive(pid, check_if_alive) {
+                    (0, 0, Some(ThreadStatus::Running))
                 } else {
-                    Err(())
-                };
+                    return Err(());
+                }
             };
             p.status = thread_status;
             if refresh_kind.cpu() {
