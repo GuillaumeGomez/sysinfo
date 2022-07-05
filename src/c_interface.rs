@@ -462,7 +462,7 @@ pub extern "C" fn sysinfo_process_current_directory(process: CProcess) -> RStrin
 pub extern "C" fn sysinfo_rstring_free(s: RString) {
     if !s.is_null() {
         unsafe {
-            let _ = CString::from_raw(s as usize as *mut i8);
+            let _ = CString::from_raw(s as usize as *mut _);
         }
     }
 }
