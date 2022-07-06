@@ -668,10 +668,10 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// list nor users list.
     ///
     /// ```no_run
-    /// use sysinfo::{System, SystemExt};
+    /// use sysinfo::{System, SystemExt, CpuRefreshKind};
     ///
     /// let mut s = System::new_all();
-    /// s.refresh_all();
+    /// s.refresh_cpu_specifics(CpuRefreshKind::everything());
     /// ```
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind);
 
