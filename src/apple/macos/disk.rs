@@ -33,6 +33,31 @@ fn to_path(mount_path: &[c_char]) -> Option<PathBuf> {
     }
 }
 
+#[repr(transparent)]
+struct CFReleaser<T>(*const T);
+
+impl<T> CFReleaser<T> {
+    fn new(ptr: *const T) -> Option<Self> {
+        if ptr.is_null() {
+            None
+        } else {
+            Some(Self(ptr))
+        }
+    }
+
+    fn inner(&self) -> *const T {
+        self.0
+    }
+}
+
+impl<T> Drop for CFReleaser<T> {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            unsafe { CFRelease(self.0 as _) }
+        }
+    }
+}
+
 pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
     if session.is_null() {
         return Vec::new();
@@ -53,26 +78,25 @@ pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
             .into_iter()
             .filter_map(|c_disk| {
                 let mount_point = to_path(&c_disk.f_mntonname)?;
-                let disk = ffi::DADiskCreateFromBSDName(
+                let disk = CFReleaser::new(ffi::DADiskCreateFromBSDName(
                     kCFAllocatorDefault as _,
                     session,
                     c_disk.f_mntfromname.as_ptr(),
-                );
-                let dict = ffi::DADiskCopyDescription(disk);
-                if dict.is_null() {
-                    return None;
-                }
+                ))?;
+                let dict = CFReleaser::new(ffi::DADiskCopyDescription(disk.inner()))?;
                 // Keeping this around in case one might want the list of the available
                 // keys in "dict".
                 // core_foundation_sys::base::CFShow(dict as _);
-                let name = match get_str_value(dict, b"DAMediaName\0").map(OsString::from) {
+                let name = match get_str_value(dict.inner(), b"DAMediaName\0").map(OsString::from) {
                     Some(n) => n,
                     None => return None,
                 };
-                let removable = get_bool_value(dict, b"DAMediaRemovable\0").unwrap_or(false);
-                let ejectable = get_bool_value(dict, b"DAMediaEjectable\0").unwrap_or(false);
+                let removable =
+                    get_bool_value(dict.inner(), b"DAMediaRemovable\0").unwrap_or(false);
+                let ejectable =
+                    get_bool_value(dict.inner(), b"DAMediaEjectable\0").unwrap_or(false);
                 // This is very hackish but still better than nothing...
-                let type_ = if let Some(model) = get_str_value(dict, b"DADeviceModel\0") {
+                let type_ = if let Some(model) = get_str_value(dict.inner(), b"DADeviceModel\0") {
                     if model.contains("SSD") {
                         DiskType::SSD
                     } else {
@@ -83,7 +107,6 @@ pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
                     DiskType::Unknown(-1)
                 };
 
-                CFRelease(dict as _);
                 new_disk(name, mount_point, type_, removable || ejectable)
             })
             .collect::<Vec<_>>()
