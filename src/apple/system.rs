@@ -87,6 +87,9 @@ pub struct System {
     global_cpu: Cpu,
     cpus: Vec<Cpu>,
     page_size_kb: u64,
+    #[cfg(all(target_os = "macos", target_arch = "x86"))]
+    components: Vec<Component>,
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     components: Vec<Component>,
     // Used to get CPU information, not supported on iOS, or inside the default macOS sandbox.
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -263,7 +266,7 @@ impl SystemExt for System {
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
     fn refresh_components_list(&mut self) {}
 
-    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox"), target_arch = "x86"))]
     fn refresh_components_list(&mut self) {
         if let Some(con) = self.connection {
             self.components.clear();
@@ -279,6 +282,11 @@ impl SystemExt for System {
                 }
             }
         }
+    }
+
+    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox"), target_arch = "aarch64"))]
+    fn refresh_components_list(&mut self) {
+        self.components = crate::apple::component::temperatures();
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
