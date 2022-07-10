@@ -429,7 +429,7 @@ mod test {
 
     // Ensure that the CPUs frequency isn't retrieved until we ask for it.
     #[test]
-    #[cfg(all(not(target_os = "freebsd"), not(target_arch = "aarch64")))] // In a VM, it'll fail.
+    #[cfg(not(target_os = "freebsd"))] // In a VM, it'll fail.
     fn check_cpu_frequency() {
         if !System::IS_SUPPORTED {
             return;

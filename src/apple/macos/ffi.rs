@@ -1,11 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::ptr::null;
-use std::ffi::CStr;
-use std::ffi::CString;
 
 use core_foundation_sys::base::CFAllocatorRef;
-use core_foundation_sys::base::kCFAllocatorDefault;
 use core_foundation_sys::dictionary::CFMutableDictionaryRef;
 use core_foundation_sys::dictionary::CFDictionaryRef;
 use core_foundation_sys::dictionary::CFDictionaryCreate;
@@ -13,16 +10,10 @@ use core_foundation_sys::dictionary::kCFTypeDictionaryKeyCallBacks;
 use core_foundation_sys::dictionary::kCFTypeDictionaryValueCallBacks;
 use core_foundation_sys::string::CFStringEncoding;
 use core_foundation_sys::string::CFStringRef;
-use core_foundation_sys::string::CFStringCreateWithBytes;
-use core_foundation_sys::string::kCFStringEncodingUTF8;
-use core_foundation_sys::string::CFStringGetCStringPtr;
 use core_foundation_sys::string::CFStringCreateWithCString;
 use core_foundation_sys::array::__CFArray;
 use core_foundation_sys::array::CFArrayCallBacks;
 use core_foundation_sys::array::CFArrayRef;
-use core_foundation_sys::array::CFArrayGetCount;
-use core_foundation_sys::array::CFArrayGetValueAtIndex;
-use core_foundation_sys::base::Boolean;
 use core_foundation_sys::mach_port::CFIndex;
 use core_foundation_sys::number::CFNumberCreate;
 use core_foundation_sys::number::kCFNumberSInt32Type;
@@ -190,8 +181,7 @@ pub type IOHIDEventRef = *const __IOHIDEvent;
 
 pub const kIOHIDEventTypeTemperature: i64 = 15;
 
-pub const kIOHIDEventTypePower: i64 = 15;
-
+#[inline]
 pub fn IOHIDEventFieldBase(event_type: i64) -> i64 {
     event_type << 16
 }
@@ -219,32 +209,25 @@ extern "C" {
     pub fn CFArrayAppendValue(the_array: CFMutableArrayRef, value: *const libc::c_void);
 }
 
-pub(crate) const HID_DEVICE_PROPERTY_VENDOR_ID: &str = "VendorId";
-pub(crate) const HID_DEVICE_PROPERTY_PRODUCT_ID: &str = "ProductID";
-pub(crate) const HID_DEVICE_PROPERTY_PRODUCT: &str = "Product";
-pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE: &str = "PrimaryUsage";
-pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE: &str = "PrimaryUsagePage";
-pub(crate) const HID_DEVICE_PROPERTY_MAX_INPUT_REPORT_SIZE: &str = "MaxInputReportSize";
-pub(crate) const HID_DEVICE_PROPERTY_MAX_OUTPUT_REPORT_SIZE: &str = "MaxOutputReportSize";
-pub(crate) const HID_DEVICE_PROPERTY_REPORT_ID: &str = "ReportID";
+pub(crate) const HID_DEVICE_PROPERTY_PRODUCT: &[u8] = b"Product\0";
+
+pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE: &[u8] = b"PrimaryUsage\0";
+pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE: &[u8] = b"PrimaryUsagePage\0";
 
 pub(crate) const kHIDPage_AppleVendor: i32 = 0xff00;
 pub(crate) const kHIDUsage_AppleVendor_TemperatureSensor: i32 = 0x0005;
 
 pub(crate) fn matching(page: i32, usage: i32) -> CFDictionaryRef {
     unsafe {
-        let primary_usage_page = CString::new(HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE).unwrap();
-        let primary_usage = CString::new(HID_DEVICE_PROPERTY_PRIMARY_USAGE).unwrap();
-
         let keys = [
             CFStringCreateWithCString(
                 null() as *const _, 
-                primary_usage_page.as_ptr(), 
+                HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE.as_ptr() as *const _,
                 0
             ),
             CFStringCreateWithCString(
                 null() as *const _, 
-                primary_usage.as_ptr(), 
+                HID_DEVICE_PROPERTY_PRIMARY_USAGE.as_ptr() as *const _, 
                 0
             ),
         ];
@@ -253,12 +236,12 @@ pub(crate) fn matching(page: i32, usage: i32) -> CFDictionaryRef {
             CFNumberCreate(
                 null(), 
                 kCFNumberSInt32Type, 
-                &page as *const _ as *const libc::c_void
+                &page as *const _ as *const _
             ),
             CFNumberCreate(
                 null(), 
                 kCFNumberSInt32Type, 
-                &usage as *const _ as *const libc::c_void
+                &usage as *const _ as *const _
             ),
         ];
 
@@ -270,40 +253,5 @@ pub(crate) fn matching(page: i32, usage: i32) -> CFDictionaryRef {
             &kCFTypeDictionaryKeyCallBacks,
             &kCFTypeDictionaryValueCallBacks
         )
-    }
-}
-
-pub fn get_product_names(sensors: CFDictionaryRef) -> Vec<String> {
-    unsafe {
-        let system = IOHIDEventSystemClientCreate(kCFAllocatorDefault);
-
-        let _rv = IOHIDEventSystemClientSetMatching(system, sensors);
-
-        let services = IOHIDEventSystemClientCopyServices(system);
-
-        let count = CFArrayGetCount(services);
-
-        let key_ref = CFStringCreateWithBytes(
-            kCFAllocatorDefault, 
-            HID_DEVICE_PROPERTY_PRODUCT.as_ptr(), 
-            HID_DEVICE_PROPERTY_PRODUCT.len() as CFIndex, 
-            kCFStringEncodingUTF8,
-            false as Boolean
-        );
-
-        let mut names = Vec::with_capacity(count as usize);
-
-        for i in 0..count {
-            let service = CFArrayGetValueAtIndex(services, i);
-            let name = IOHIDServiceClientCopyProperty(service as *const _, key_ref);
-            if name != null() {
-                // CFArrayAppendValue(array, name as *const _);
-                let name_ptr = CFStringGetCStringPtr(name as *const _, kCFStringEncodingUTF8);
-                let name = CStr::from_ptr(name_ptr).to_string_lossy();
-                names.push(name);
-            } 
-        }
-
-        names.into_iter().map(|i| i.to_string()).collect::<Vec<_>>()
     }
 }
