@@ -286,7 +286,7 @@ impl SystemExt for System {
 
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox"), target_arch = "aarch64"))]
     fn refresh_components_list(&mut self) {
-        self.components = crate::apple::component::temperatures();
+        crate::apple::component::temperatures(&mut self.components);
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {

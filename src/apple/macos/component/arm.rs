@@ -24,8 +24,8 @@ use crate::apple::inner::ffi::IOHIDEventFieldBase;
 use crate::apple::inner::ffi::matching;
 use crate::apple::inner::ffi::HID_DEVICE_PROPERTY_PRODUCT;
 
-pub(crate) fn temperatures() -> Vec<Component> {
-    let mut components = Vec::new();
+pub(crate) fn temperatures(components: &mut Vec<Component>) -> &mut Vec<Component> {
+    components.clear();
 
     unsafe {
         let matches = matching(kHIDPage_AppleVendor, kHIDUsage_AppleVendor_TemperatureSensor);
