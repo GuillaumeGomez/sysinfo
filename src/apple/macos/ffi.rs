@@ -1,30 +1,23 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::ptr::null;
-
 use core_foundation_sys::base::CFAllocatorRef;
 use core_foundation_sys::dictionary::CFMutableDictionaryRef;
-use core_foundation_sys::dictionary::CFDictionaryRef;
-use core_foundation_sys::dictionary::CFDictionaryCreate;
-use core_foundation_sys::dictionary::kCFTypeDictionaryKeyCallBacks;
-use core_foundation_sys::dictionary::kCFTypeDictionaryValueCallBacks;
-use core_foundation_sys::string::CFStringEncoding;
-use core_foundation_sys::string::CFStringRef;
-use core_foundation_sys::string::CFStringCreateWithCString;
-use core_foundation_sys::array::__CFArray;
-use core_foundation_sys::array::CFArrayCallBacks;
-use core_foundation_sys::array::CFArrayRef;
-use core_foundation_sys::mach_port::CFIndex;
-use core_foundation_sys::number::CFNumberCreate;
-use core_foundation_sys::number::kCFNumberSInt32Type;
+use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
 
 use libc::{c_char, c_void};
-#[cfg(not(feature = "apple-sandbox"))]
+
+#[cfg(all(
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 use libc::{mach_port_t, size_t};
 
 pub(crate) use crate::sys::ffi::*;
 
-#[cfg(not(feature = "apple-sandbox"))]
+#[cfg(all(
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 extern "C" {
     // The proc_* PID functions are internal Apple APIs which are not
     // allowed in App store releases as Apple blocks any binary using them.
@@ -49,6 +42,7 @@ extern "C" {
 
     pub fn IOServiceClose(a: io_connect_t) -> i32;
 
+    #[allow(dead_code)]
     pub fn IOConnectCallStructMethod(
         connection: mach_port_t,
         selector: u32,
@@ -104,7 +98,10 @@ pub struct SessionWrap(pub DASessionRef);
 unsafe impl Send for SessionWrap {}
 unsafe impl Sync for SessionWrap {}
 
-#[cfg(not(feature = "apple-sandbox"))]
+#[cfg(all(
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 mod io_service {
     use super::mach_port_t;
 
@@ -157,8 +154,13 @@ mod io_service {
         pub bytes: [i8; 32], // SMCBytes_t
     }
 
+    #[allow(dead_code)]
     pub const KERNEL_INDEX_SMC: i32 = 2;
+
+    #[allow(dead_code)]
     pub const SMC_CMD_READ_KEYINFO: u8 = 9;
+
+    #[allow(dead_code)]
     pub const SMC_CMD_READ_BYTES: u8 = 5;
 
     pub const KIO_RETURN_SUCCESS: i32 = 0;
@@ -167,91 +169,141 @@ mod io_service {
 #[cfg(feature = "apple-sandbox")]
 mod io_service {}
 
+#[cfg(all(
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 pub use io_service::*;
 
-#[repr(C)]
-pub struct __IOHIDServiceClient(libc::c_void);
+#[cfg(all(not(feature = "apple-sandbox"), target_arch = "aarch64"))]
+mod io_service {
+    use std::ptr::null;
 
-pub type IOHIDServiceClientRef = *const __IOHIDServiceClient;
+    use core_foundation_sys::array::CFArrayRef;
+    use core_foundation_sys::base::{CFAllocatorRef, CFRelease};
+    use core_foundation_sys::dictionary::{
+        kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks, CFDictionaryCreate,
+        CFDictionaryRef,
+    };
+    use core_foundation_sys::number::{kCFNumberSInt32Type, CFNumberCreate};
+    use core_foundation_sys::string::{CFStringCreateWithCString, CFStringRef};
 
-#[repr(C)]
-pub struct __IOHIDEvent(libc::c_void);
+    #[repr(C)]
+    pub struct __IOHIDServiceClient(libc::c_void);
 
-pub type IOHIDEventRef = *const __IOHIDEvent;
+    pub type IOHIDServiceClientRef = *const __IOHIDServiceClient;
 
-pub const kIOHIDEventTypeTemperature: i64 = 15;
+    #[repr(C)]
+    pub struct __IOHIDEventSystemClient(libc::c_void);
 
-#[inline]
-pub fn IOHIDEventFieldBase(event_type: i64) -> i64 {
-    event_type << 16
-}
+    pub type IOHIDEventSystemClientRef = *const __IOHIDEventSystemClient;
 
-#[cfg(not(feature = "apple-sandbox"))]
-extern "C" {
-    pub fn IOHIDEventSystemClientCreate(allocator: CFAllocatorRef) -> *mut libc::c_void;
-    
-    pub fn IOHIDEventSystemClientSetMatching(client: *mut libc::c_void, matches: CFDictionaryRef) -> i32;
+    #[repr(C)]
+    pub struct __IOHIDEvent(libc::c_void);
 
-    pub fn IOHIDEventSystemClientCopyServices(client: *mut libc::c_void) -> CFArrayRef;
+    pub type IOHIDEventRef = *const __IOHIDEvent;
 
-    pub fn IOHIDServiceClientCopyProperty(service: IOHIDServiceClientRef, key: CFStringRef) -> CFStringRef;
+    #[allow(non_upper_case_globals)]
+    pub const kIOHIDEventTypeTemperature: i64 = 15;
 
-    pub fn IOHIDServiceClientCopyEvent(service: IOHIDServiceClientRef, v0: i64, v1: i32, v2: i64) -> IOHIDEventRef;
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn IOHIDEventFieldBase(event_type: i64) -> i64 {
+        event_type << 16
+    }
 
-    pub fn IOHIDEventGetFloatValue(event: IOHIDEventRef, field: i64) -> f64;
-}
+    #[cfg(not(feature = "apple-sandbox"))]
+    extern "C" {
+        pub fn IOHIDEventSystemClientCreate(allocator: CFAllocatorRef)
+            -> IOHIDEventSystemClientRef;
+        // pub fn IOHIDEventSystemClientCreate(allocator: CFAllocatorRef) -> *mut libc::c_void;
 
-pub type CFMutableArrayRef = *mut __CFArray;
+        pub fn IOHIDEventSystemClientSetMatching(
+            client: IOHIDEventSystemClientRef,
+            matches: CFDictionaryRef,
+        ) -> i32;
 
-extern "C" {
-    pub fn CFArrayCreateMutable(allocator: CFAllocatorRef, capacity: CFIndex, callbacks: *const CFArrayCallBacks) -> CFMutableArrayRef;
+        pub fn IOHIDEventSystemClientCopyServices(client: IOHIDEventSystemClientRef) -> CFArrayRef;
 
-    pub fn CFArrayAppendValue(the_array: CFMutableArrayRef, value: *const libc::c_void);
-}
+        pub fn IOHIDServiceClientCopyProperty(
+            service: IOHIDServiceClientRef,
+            key: CFStringRef,
+        ) -> CFStringRef;
 
-pub(crate) const HID_DEVICE_PROPERTY_PRODUCT: &[u8] = b"Product\0";
+        pub fn IOHIDServiceClientCopyEvent(
+            service: IOHIDServiceClientRef,
+            v0: i64,
+            v1: i32,
+            v2: i64,
+        ) -> IOHIDEventRef;
 
-pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE: &[u8] = b"PrimaryUsage\0";
-pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE: &[u8] = b"PrimaryUsagePage\0";
+        pub fn IOHIDEventGetFloatValue(event: IOHIDEventRef, field: i64) -> f64;
+    }
 
-pub(crate) const kHIDPage_AppleVendor: i32 = 0xff00;
-pub(crate) const kHIDUsage_AppleVendor_TemperatureSensor: i32 = 0x0005;
+    // pub type CFMutableArrayRef = *mut __CFArray;
 
-pub(crate) fn matching(page: i32, usage: i32) -> CFDictionaryRef {
-    unsafe {
-        let keys = [
-            CFStringCreateWithCString(
-                null() as *const _, 
-                HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE.as_ptr() as *const _,
-                0
-            ),
-            CFStringCreateWithCString(
-                null() as *const _, 
-                HID_DEVICE_PROPERTY_PRIMARY_USAGE.as_ptr() as *const _, 
-                0
-            ),
-        ];
+    // extern "C" {
+    //     pub fn CFArrayCreateMutable(
+    //         allocator: CFAllocatorRef,
+    //         capacity: CFIndex,
+    //         callbacks: *const CFArrayCallBacks,
+    //     ) -> CFMutableArrayRef;
 
-        let nums = [
-            CFNumberCreate(
-                null(), 
-                kCFNumberSInt32Type, 
-                &page as *const _ as *const _
-            ),
-            CFNumberCreate(
-                null(), 
-                kCFNumberSInt32Type, 
-                &usage as *const _ as *const _
-            ),
-        ];
+    //     pub fn CFArrayAppendValue(the_array: CFMutableArrayRef, value: *const libc::c_void);
+    // }
 
-        CFDictionaryCreate(
-            null(), 
-            &keys as *const _ as *const _,
-            &nums as *const _ as *const _, 
-            2,
-            &kCFTypeDictionaryKeyCallBacks,
-            &kCFTypeDictionaryValueCallBacks
-        )
+    pub(crate) const HID_DEVICE_PROPERTY_PRODUCT: &[u8] = b"Product\0";
+
+    pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE: &[u8] = b"PrimaryUsage\0";
+    pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE: &[u8] = b"PrimaryUsagePage\0";
+
+    #[allow(non_upper_case_globals)]
+    pub(crate) const kHIDPage_AppleVendor: i32 = 0xff00;
+
+    #[allow(non_upper_case_globals)]
+    pub(crate) const kHIDUsage_AppleVendor_TemperatureSensor: i32 = 0x0005;
+
+    pub(crate) fn matching(page: i32, usage: i32) -> CFDictionaryRef {
+        unsafe {
+            let keys = [
+                CFStringCreateWithCString(
+                    null() as *const _,
+                    HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE.as_ptr() as *const _,
+                    0,
+                ),
+                CFStringCreateWithCString(
+                    null() as *const _,
+                    HID_DEVICE_PROPERTY_PRIMARY_USAGE.as_ptr() as *const _,
+                    0,
+                ),
+            ];
+
+            let nums = [
+                CFNumberCreate(null(), kCFNumberSInt32Type, &page as *const _ as *const _),
+                CFNumberCreate(null(), kCFNumberSInt32Type, &usage as *const _ as *const _),
+            ];
+
+            let dict = CFDictionaryCreate(
+                null(),
+                &keys as *const _ as *const _,
+                &nums as *const _ as *const _,
+                2,
+                &kCFTypeDictionaryKeyCallBacks,
+                &kCFTypeDictionaryValueCallBacks,
+            );
+
+            for key in keys {
+                CFRelease(key as _);
+            }
+
+            for num in nums {
+                CFRelease(num as _);
+            }
+
+            dict
+        }
     }
 }
+
+#[cfg(all(not(feature = "apple-sandbox"), target_arch = "aarch64"))]
+pub use io_service::*;

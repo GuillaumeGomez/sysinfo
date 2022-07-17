@@ -32,6 +32,13 @@ use libc::{
     vm_statistics64, _SC_PAGESIZE,
 };
 
+#[cfg(all(
+    target_os = "macos",
+    not(feature = "apple-sandbox"),
+    target_arch = "aarch64"
+))]
+use super::inner::component::Components;
+
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 declare_signals! {
     c_int,
@@ -87,12 +94,20 @@ pub struct System {
     global_cpu: Cpu,
     cpus: Vec<Cpu>,
     page_size_kb: u64,
-    #[cfg(all(target_os = "macos", target_arch = "x86"))]
+    #[cfg(all(target_os = "macos", any(target_arch = "x86", target_arch = "x86_64")))]
     components: Vec<Component>,
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    components: Vec<Component>,
+    #[cfg(all(
+        target_os = "macos",
+        not(feature = "apple-sandbox"),
+        target_arch = "aarch64"
+    ))]
+    components: Components,
     // Used to get CPU information, not supported on iOS, or inside the default macOS sandbox.
-    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+    #[cfg(all(
+        target_os = "macos",
+        not(feature = "apple-sandbox"),
+        any(target_arch = "x86", target_arch = "x86_64")
+    ))]
     connection: Option<ffi::io_connect_t>,
     disks: Vec<Disk>,
     networks: Networks,
@@ -112,7 +127,11 @@ impl Drop for System {
     fn drop(&mut self) {
         #[cfg(target_os = "macos")]
         unsafe {
-            #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+            #[cfg(all(
+                target_os = "macos",
+                not(feature = "apple-sandbox"),
+                any(target_arch = "x86", target_arch = "x86_64")
+            ))]
             if let Some(conn) = self.connection {
                 ffi::IOServiceClose(conn);
             }
@@ -186,8 +205,19 @@ impl SystemExt for System {
                 ),
                 cpus: Vec::new(),
                 page_size_kb: sysconf(_SC_PAGESIZE) as u64 / 1_000,
+                #[cfg(all(target_os = "macos", any(target_arch = "x86", target_arch = "x86_64")))]
                 components: Vec::with_capacity(2),
-                #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+                #[cfg(all(
+                    target_os = "macos",
+                    not(feature = "apple-sandbox"),
+                    target_arch = "aarch64"
+                ))]
+                components: Components::new(),
+                #[cfg(all(
+                    target_os = "macos",
+                    not(feature = "apple-sandbox"),
+                    any(target_arch = "x86", target_arch = "x86_64")
+                ))]
                 connection: get_io_service_connection(),
                 disks: Vec::with_capacity(1),
                 networks: Networks::new(),
@@ -266,7 +296,11 @@ impl SystemExt for System {
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
     fn refresh_components_list(&mut self) {}
 
-    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox"), target_arch = "x86"))]
+    #[cfg(all(
+        target_os = "macos",
+        not(feature = "apple-sandbox"),
+        any(target_arch = "x86", target_arch = "x86_64")
+    ))]
     fn refresh_components_list(&mut self) {
         if let Some(con) = self.connection {
             self.components.clear();
@@ -284,9 +318,13 @@ impl SystemExt for System {
         }
     }
 
-    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox"), target_arch = "aarch64"))]
+    #[cfg(all(
+        target_os = "macos",
+        not(feature = "apple-sandbox"),
+        target_arch = "aarch64"
+    ))]
     fn refresh_components_list(&mut self) {
-        crate::apple::component::temperatures(&mut self.components);
+        self.components.refresh();
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
@@ -490,12 +528,32 @@ impl SystemExt for System {
         self.swap_total - self.swap_free
     }
 
+    #[cfg(all(target_os = "macos", any(target_arch = "x86", target_arch = "x86_64")))]
     fn components(&self) -> &[Component] {
         &self.components
     }
 
+    #[cfg(all(
+        target_os = "macos",
+        not(feature = "apple-sandbox"),
+        target_arch = "aarch64"
+    ))]
+    fn components(&self) -> &[Component] {
+        &self.components.inner
+    }
+
+    #[cfg(all(target_os = "macos", any(target_arch = "x86", target_arch = "x86_64")))]
     fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
+    }
+
+    #[cfg(all(
+        target_os = "macos",
+        not(feature = "apple-sandbox"),
+        target_arch = "aarch64"
+    ))]
+    fn components_mut(&mut self) -> &mut [Component] {
+        &mut self.components.inner
     }
 
     fn disks(&self) -> &[Disk] {
@@ -637,7 +695,11 @@ impl Default for System {
 
 // code from https://github.com/Chris911/iStats
 // Not supported on iOS, or in the default macOS
-#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+#[cfg(all(
+    target_os = "macos",
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 fn get_io_service_connection() -> Option<ffi::io_connect_t> {
     let mut master_port: mach_port_t = 0;
     let mut iterator: ffi::io_iterator_t = 0;
