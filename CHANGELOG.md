@@ -1,3 +1,9 @@
+# 0.24.7
+
+ * Windows: Fix boot time computation.
+ * macOS: Fix available memory computation.
+ * Some documentation fixes.
+
 # 0.24.6
 
  * macOS: Don't compute CPU usage when elapsed time is 0.
