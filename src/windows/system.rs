@@ -73,7 +73,7 @@ unsafe impl<T> Sync for Wrap<T> {}
 
 unsafe fn boot_time() -> u64 {
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_secs().saturating_sub(GetTickCount64()) / 1000,
+        Ok(n) => n.as_secs().saturating_sub(GetTickCount64() / 1000),
         Err(_e) => {
             sysinfo_debug!("Failed to compute boot time: {:?}", _e);
             0
