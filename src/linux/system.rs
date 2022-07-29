@@ -308,7 +308,7 @@ impl System {
                 }
             }
 
-            if refresh_kind.frequency() && !self.got_cpu_frequency {
+            if refresh_kind.frequency() {
                 #[cfg(feature = "multithread")]
                 use rayon::iter::{
                     IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
