@@ -77,6 +77,10 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           override: true
 
+      - name: Install cross-target
+        if: matrix.triple.cross
+        run: rustup target add ${{ matrix.triple.target }}
+
       - name: Check
         uses: actions-rs/cargo@v1
         with:

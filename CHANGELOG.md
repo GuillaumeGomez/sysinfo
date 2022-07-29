@@ -1,3 +1,15 @@
+# 0.24.7
+
+ * Windows: Fix boot time computation.
+ * macOS: Fix available memory computation.
+ * Some documentation fixes.
+
+# 0.24.6
+
+ * macOS: Don't compute CPU usage when elapsed time is 0.
+ * macOS: Fix memory leak when retrieving disks.
+ * C interface: Fix `char` cast when platform is using unsigned `char`s.
+
 # 0.24.5
 
  * Implement `Hash` trait on `Uid` and `Gid` types.

@@ -458,8 +458,8 @@ mod test {
         let new_total = s.processes().len() as isize;
         // There should be almost no difference in the processes count.
         assert!(
-            (new_total - total).abs() < 5,
-            "{} < 5",
+            (new_total - total).abs() <= 5,
+            "{} <= 5",
             (new_total - total).abs()
         );
     }
