@@ -1,3 +1,8 @@
+# 0.25.0
+
+ * Linux: CPU frequency is now retrieved on-demand as expected when `CpuRefreshKind::frequency` is `true`.
+ * `System::refresh_cpu` behaviour changed: it only computes CPU usage and doesn't retrieve CPU frequency.
+
 # 0.24.7
 
  * Windows: Fix boot time computation.
