@@ -441,6 +441,10 @@ mod test {
         }
         s.refresh_cpu();
         for proc_ in s.cpus() {
+            assert_eq!(proc_.frequency(), 0);
+        }
+        s.refresh_cpu_specifics(CpuRefreshKind::everything());
+        for proc_ in s.cpus() {
             assert_ne!(proc_.frequency(), 0);
         }
     }

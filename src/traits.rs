@@ -650,7 +650,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// 200ms) to get accurate values as it uses previous results to compute the next value.
     ///
     /// Calling this method is the same as calling
-    /// `refresh_cpu_specifics(CpuRefreshKind::everything())`.
+    /// `refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())`.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -659,7 +659,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// s.refresh_cpu();
     /// ```
     fn refresh_cpu(&mut self) {
-        self.refresh_cpu_specifics(CpuRefreshKind::everything())
+        self.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())
     }
 
     /// Refreshes CPUs specific information.
