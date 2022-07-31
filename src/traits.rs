@@ -1075,18 +1075,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn components_mut(&mut self) -> &mut [Component];
 
-    /// Returns the disks list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
-    ///
-    /// let s = System::new_all();
-    /// for disk in s.disks() {
-    ///     println!("{:?}", disk.name());
-    /// }
-    /// ```
-    fn disks(&self) -> &[Disk];
-
     /// Returns the users list.
     ///
     /// ```no_run
@@ -1104,12 +1092,35 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
+    /// let s = System::new_all();
+    /// for disk in s.disks() {
+    ///     println!("{:?}", disk.name());
+    /// }
+    /// ```
+    fn disks(&self) -> &[Disk];
+
+    /// Returns the disks list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{DiskExt, System, SystemExt};
+    ///
     /// let mut s = System::new_all();
     /// for disk in s.disks_mut() {
     ///     disk.refresh();
     /// }
     /// ```
     fn disks_mut(&mut self) -> &mut [Disk];
+
+    /// Sort the disk list with the provided callback.
+    ///
+    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
+    /// for implementation details.
+    ///
+    /// ⚠️ If you use [`SystemExt::refresh_disks_list`], you need to use this method before using
+    /// [`SystemExt::disks`] or [`SystemExt::disks_mut`] if you want them to be sorted.
+    fn sort_disks_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering;
 
     /// Returns the network interfaces object.
     ///

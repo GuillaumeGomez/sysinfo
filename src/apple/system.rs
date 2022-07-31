@@ -498,6 +498,13 @@ impl SystemExt for System {
         &mut self.disks
     }
 
+    fn sort_disks_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
+    {
+        self.disks.sort_unstable_by(compare);
+    }
+
     fn uptime(&self) -> u64 {
         unsafe {
             let csec = libc::time(::std::ptr::null_mut());

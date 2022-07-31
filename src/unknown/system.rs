@@ -123,6 +123,13 @@ impl SystemExt for System {
         &mut []
     }
 
+    fn sort_disks_by<F>(&mut self, _compare: F)
+    where
+        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
+    {
+        // does nothing.
+    }
+
     fn uptime(&self) -> u64 {
         0
     }
