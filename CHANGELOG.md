@@ -1,3 +1,8 @@
+# 0.25.1
+
+ * Linux: Fix potential problem on `ProcessExt::exe` in case `/proc/<pid>/exe` cannot be read.
+ * Add `SystemExt::sort_disks_by`.
+
 # 0.25.0
 
  * Linux: CPU frequency is now retrieved on-demand as expected when `CpuRefreshKind::frequency` is `true`.
