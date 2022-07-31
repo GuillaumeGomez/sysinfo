@@ -411,20 +411,20 @@ pub(crate) fn _get_process_data(
     } else {
         p.name = name.into();
         tmp.pop();
+
         tmp.push("cmdline");
         p.cmd = copy_from_file(&tmp);
         tmp.pop();
+
         tmp.push("exe");
         match tmp.read_link() {
             Ok(exe_path) => {
                 p.exe = exe_path;
             }
             Err(_) => {
-                p.exe = if let Some(cmd) = p.cmd.get(0) {
-                    PathBuf::from(cmd)
-                } else {
-                    PathBuf::new()
-                };
+                // Do not use cmd[0] because it is not the same thing.
+                // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
+                p.exe = PathBuf::new()
             }
         }
         tmp.pop();

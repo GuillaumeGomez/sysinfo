@@ -208,6 +208,18 @@ pub trait ProcessExt: Debug {
     ///     println!("{}", process.exe().display());
     /// }
     /// ```
+    ///
+    /// ### Implementation notes
+    ///
+    /// On Linux, this method will return an empty path if there
+    /// was an error trying to read `/proc/<pid>/exe`. This can
+    /// happen, for example, if the permission levels or UID namespaces
+    /// between the caller and target processes are different.
+    ///
+    /// It is also the case that `cmd[0]` is _not_ usually a correct
+    /// replacement for this.
+    /// A process [may change its `cmd[0]` value](https://man7.org/linux/man-pages/man5/proc.5.html)
+    /// freely, making this an untrustworthy source of information.
     fn exe(&self) -> &Path;
 
     /// Returns the pid of the process.
