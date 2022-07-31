@@ -573,6 +573,13 @@ impl SystemExt for System {
         &mut self.disks
     }
 
+    fn sort_disks_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
+    {
+        self.disks.sort_unstable_by(compare);
+    }
+
     fn uptime(&self) -> u64 {
         let content = get_all_data("/proc/uptime", 50).unwrap_or_default();
         content
