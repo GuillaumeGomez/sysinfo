@@ -2,25 +2,25 @@
 
 use std::ffi::CStr;
 
-use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex, CFArrayRef};
-use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
+use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex};
+use core_foundation_sys::base::kCFAllocatorDefault;
 use core_foundation_sys::string::{
     kCFStringEncodingUTF8, CFStringCreateWithBytes, CFStringGetCStringPtr,
 };
 
+use super::super::CFReleaser;
 use crate::apple::inner::ffi::{
     kHIDPage_AppleVendor, kHIDUsage_AppleVendor_TemperatureSensor, kIOHIDEventTypeTemperature,
     matching, IOHIDEventFieldBase, IOHIDEventGetFloatValue, IOHIDEventSystemClientCopyServices,
-    IOHIDEventSystemClientCreate, IOHIDEventSystemClientRef, IOHIDEventSystemClientSetMatching,
-    IOHIDServiceClientCopyEvent, IOHIDServiceClientCopyProperty, IOHIDServiceClientRef,
+    IOHIDEventSystemClientCreate, IOHIDEventSystemClientSetMatching, IOHIDServiceClientCopyEvent,
+    IOHIDServiceClientCopyProperty, __IOHIDEventSystemClient, __IOHIDServiceClient,
     HID_DEVICE_PROPERTY_PRODUCT,
 };
 use crate::ComponentExt;
 
 pub(crate) struct Components {
     pub inner: Vec<Component>,
-    client: Option<IOHIDEventSystemClientRef>,
-    services: Option<CFArrayRef>,
+    client: Option<CFReleaser<__IOHIDEventSystemClient>>,
 }
 
 impl Components {
@@ -28,109 +28,76 @@ impl Components {
         Self {
             inner: vec![],
             client: None,
-            services: None,
         }
     }
 
     pub(crate) fn refresh(&mut self) {
         self.inner.clear();
 
-        let client = || -> IOHIDEventSystemClientRef {
+        let client = || -> Option<CFReleaser<_>> {
             unsafe {
-                let matches = matching(
+                let matches = CFReleaser::new(matching(
                     kHIDPage_AppleVendor,
                     kHIDUsage_AppleVendor_TemperatureSensor,
-                );
-                if matches.is_null() {
-                    return std::ptr::null() as _;
-                }
+                ))?;
 
-                let client = IOHIDEventSystemClientCreate(kCFAllocatorDefault);
-                if client.is_null() {
-                    return std::ptr::null() as _;
-                }
+                let client = CFReleaser::new(IOHIDEventSystemClientCreate(kCFAllocatorDefault))?;
 
-                let _ = IOHIDEventSystemClientSetMatching(client, matches);
-                CFRelease(matches as _);
-                client
+                let _ = IOHIDEventSystemClientSetMatching(client.inner(), matches.inner());
+                Some(client)
             }
         }();
 
+        if client.is_none() {
+            return;
+        }
+        let client = client.unwrap();
+
         unsafe {
-            let services = IOHIDEventSystemClientCopyServices(client);
+            let services = IOHIDEventSystemClientCopyServices(client.inner());
             if services.is_null() {
                 return;
             }
 
-            let key_ref = CFStringCreateWithBytes(
+            let key_ref = CFReleaser::new(CFStringCreateWithBytes(
                 kCFAllocatorDefault,
                 HID_DEVICE_PROPERTY_PRODUCT.as_ptr(),
                 HID_DEVICE_PROPERTY_PRODUCT.len() as _,
                 kCFStringEncodingUTF8,
                 false as _,
-            );
+            ));
+            if key_ref.is_none() {
+                return;
+            }
+            let key_ref = key_ref.unwrap();
 
             let count = CFArrayGetCount(services);
 
             for i in 0..count {
-                let service = CFArrayGetValueAtIndex(services, i);
-                if service.is_null() {
+                let service = CFReleaser::new(CFArrayGetValueAtIndex(services, i) as *const _);
+                if service.is_none() {
                     continue;
                 }
+                let service = service.unwrap();
 
-                let name = IOHIDServiceClientCopyProperty(service as *const _, key_ref);
-                if name.is_null() {
+                let name = CFReleaser::new(IOHIDServiceClientCopyProperty(
+                    service.inner(),
+                    key_ref.inner(),
+                ));
+                if name.is_none() {
                     continue;
                 }
+                let name = name.unwrap();
 
-                let name_ptr = CFStringGetCStringPtr(name as *const _, kCFStringEncodingUTF8);
+                let name_ptr =
+                    CFStringGetCStringPtr(name.inner() as *const _, kCFStringEncodingUTF8);
                 let name_str = CStr::from_ptr(name_ptr).to_string_lossy().to_string();
-                CFRelease(name as _);
 
                 self.inner
-                    .push(Component::new(name_str, None, None, service as _));
+                    .push(Component::new(name_str, None, None, service));
             }
 
-            CFRelease(key_ref as _);
-
-            match self.client.replace(client) {
-                Some(c) => {
-                    if !c.is_null() {
-                        CFRelease(c as _)
-                    }
-                }
-                None => {}
-            }
-            match self.services.replace(services) {
-                Some(s) => {
-                    if !s.is_null() {
-                        CFRelease(s as _)
-                    }
-                }
-                None => {}
-            }
-        }
-    }
-}
-
-impl Drop for Components {
-    fn drop(&mut self) {
-        match self.client.take() {
-            Some(c) => {
-                if !c.is_null() {
-                    unsafe { CFRelease(c as _) }
-                }
-            }
-            None => {}
-        }
-
-        match self.services.take() {
-            Some(s) => {
-                if !s.is_null() {
-                    unsafe { CFRelease(s as _) }
-                }
-            }
-            None => {}
+            self.client.replace(client);
         }
     }
 }
@@ -141,7 +108,7 @@ unsafe impl Sync for Components {}
 
 #[doc = include_str!("../../../../md_doc/component.md")]
 pub struct Component {
-    service: IOHIDServiceClientRef,
+    service: CFReleaser<__IOHIDServiceClient>,
     temperature: f32,
     label: String,
     max: f32,
@@ -153,7 +120,7 @@ impl Component {
         label: String,
         max: Option<f32>,
         critical: Option<f32>,
-        service: IOHIDServiceClientRef,
+        service: CFReleaser<__IOHIDServiceClient>,
     ) -> Self {
         Self {
             service,
@@ -188,18 +155,21 @@ impl ComponentExt for Component {
 
     fn refresh(&mut self) {
         unsafe {
-            let event = IOHIDServiceClientCopyEvent(
-                self.service as *const _,
+            let event = CFReleaser::new(IOHIDServiceClientCopyEvent(
+                self.service.inner() as *const _,
                 kIOHIDEventTypeTemperature,
                 0,
                 0,
-            );
-            if !event.is_null() {
-                self.temperature =
-                    IOHIDEventGetFloatValue(event, IOHIDEventFieldBase(kIOHIDEventTypeTemperature))
-                        as f32;
-                CFRelease(event as _);
+            ));
+            if event.is_none() {
+                return;
             }
+            let event = event.unwrap();
+
+            self.temperature = IOHIDEventGetFloatValue(
+                event.inner(),
+                IOHIDEventFieldBase(kIOHIDEventTypeTemperature),
+            ) as f32;
         }
     }
 }
