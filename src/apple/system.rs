@@ -94,7 +94,7 @@ pub struct System {
     global_cpu: Cpu,
     cpus: Vec<Cpu>,
     page_size_kb: u64,
-    #[cfg(all(target_os = "macos", any(target_arch = "x86", target_arch = "x86_64")))]
+    #[cfg(any(target_os = "ios", target_arch = "x86", target_arch = "x86_64"))]
     components: Vec<Component>,
     #[cfg(all(
         target_os = "macos",
@@ -205,7 +205,7 @@ impl SystemExt for System {
                 ),
                 cpus: Vec::new(),
                 page_size_kb: sysconf(_SC_PAGESIZE) as u64 / 1_000,
-                #[cfg(all(target_os = "macos", any(target_arch = "x86", target_arch = "x86_64")))]
+                #[cfg(any(target_os = "ios", target_arch = "x86", target_arch = "x86_64"))]
                 components: Vec::with_capacity(2),
                 #[cfg(all(
                     target_os = "macos",
@@ -528,7 +528,10 @@ impl SystemExt for System {
         self.swap_total - self.swap_free
     }
 
-    #[cfg(all(target_os = "macos", any(target_arch = "x86", target_arch = "x86_64")))]
+    #[cfg(any(
+        target_os = "ios",
+        all(target_os = "macos", any(target_arch = "x86", target_arch = "x86_64"))
+    ))]
     fn components(&self) -> &[Component] {
         &self.components
     }
@@ -542,7 +545,10 @@ impl SystemExt for System {
         &self.components.inner
     }
 
-    #[cfg(all(target_os = "macos", any(target_arch = "x86", target_arch = "x86_64")))]
+    #[cfg(any(
+        target_os = "ios",
+        all(target_os = "macos", any(target_arch = "x86", target_arch = "x86_64"))
+    ))]
     fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
     }
