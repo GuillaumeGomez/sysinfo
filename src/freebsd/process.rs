@@ -176,23 +176,29 @@ pub(crate) unsafe fn get_process_data(
     // FIXME: This is to get the "real" run time (in micro-seconds).
     // let run_time = (kproc.ki_runtime + 5_000) / 10_000;
 
+    let start_time = kproc.ki_start.tv_sec as u64;
+
     if let Some(proc_) = (*wrap.0.get()).get_mut(&Pid(kproc.ki_pid)) {
-        proc_.cpu_usage = cpu_usage;
-        proc_.parent = parent;
-        proc_.status = status;
-        proc_.virtual_memory = virtual_memory;
-        proc_.memory = memory;
-        proc_.run_time = now.saturating_sub(proc_.start_time);
         proc_.updated = true;
+        // If the `start_time` we just got is different from the one stored, it means it's not the
+        // same process.
+        if proc_.start_time == start_time {
+            proc_.cpu_usage = cpu_usage;
+            proc_.parent = parent;
+            proc_.status = status;
+            proc_.virtual_memory = virtual_memory;
+            proc_.memory = memory;
+            proc_.run_time = now.saturating_sub(proc_.start_time);
 
-        if refresh_kind.disk_usage() {
-            proc_.old_read_bytes = proc_.read_bytes;
-            proc_.read_bytes = kproc.ki_rusage.ru_inblock as _;
-            proc_.old_written_bytes = proc_.written_bytes;
-            proc_.written_bytes = kproc.ki_rusage.ru_oublock as _;
+            if refresh_kind.disk_usage() {
+                proc_.old_read_bytes = proc_.read_bytes;
+                proc_.read_bytes = kproc.ki_rusage.ru_inblock as _;
+                proc_.old_written_bytes = proc_.written_bytes;
+                proc_.written_bytes = kproc.ki_rusage.ru_oublock as _;
+            }
+
+            return Ok(None);
         }
-
-        return Ok(None);
     }
 
     // This is a new process, we need to get more information!
@@ -222,7 +228,6 @@ pub(crate) unsafe fn get_process_data(
     // .map(|s| s.into())
     // .unwrap_or_else(PathBuf::new);
 
-    let start_time = kproc.ki_start.tv_sec as u64;
     Ok(Some(Process {
         pid: Pid(kproc.ki_pid),
         parent,

@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
 
+use crate::sys::system::REMAINING_FILES;
+
 pub(crate) fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
     let mut buf = String::with_capacity(size);
     file.seek(SeekFrom::Start(0))?;
@@ -49,6 +51,47 @@ pub(crate) fn realpath(original: &Path) -> std::path::PathBuf {
                     Ok(f) => f,
                     Err(_) => PathBuf::new(),
                 }
+            }
+        }
+    }
+}
+
+/// Type used to correctly handle the `REMAINING_FILES` global.
+pub(crate) struct FileCounter(File);
+
+impl FileCounter {
+    pub(crate) fn new(f: File) -> Option<Self> {
+        unsafe {
+            if let Ok(ref mut x) = REMAINING_FILES.lock() {
+                if **x > 0 {
+                    **x -= 1;
+                    return Some(Self(f));
+                }
+                // All file descriptors we were allowed are being used.
+            }
+        }
+        None
+    }
+}
+
+impl std::ops::Deref for FileCounter {
+    type Target = File;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl std::ops::DerefMut for FileCounter {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Drop for FileCounter {
+    fn drop(&mut self) {
+        unsafe {
+            if let Ok(ref mut x) = crate::sys::system::REMAINING_FILES.lock() {
+                **x += 1;
             }
         }
     }

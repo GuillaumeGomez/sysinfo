@@ -356,8 +356,7 @@ impl SystemExt for System {
     const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
-        let info = SystemInfo::new();
-        let process_list = Process::new(Pid(0), None, 0, &info);
+        let process_list = Process::new(Pid(0));
         let mut s = System {
             process_list,
             mem_total: 0,
@@ -390,7 +389,7 @@ impl SystemExt for System {
             networks: Networks::new(),
             users: Vec::new(),
             need_cpus_update: true,
-            info,
+            info: SystemInfo::new(),
             got_cpu_frequency: false,
         };
         s.refresh_specifics(refreshes);
