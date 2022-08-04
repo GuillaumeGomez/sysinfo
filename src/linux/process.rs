@@ -11,8 +11,8 @@ use std::str::FromStr;
 
 use libc::{gid_t, kill, uid_t};
 
-use crate::sys::system::{SystemInfo, REMAINING_FILES};
-use crate::sys::utils::{get_all_data, get_all_data_from_file, realpath};
+use crate::sys::system::SystemInfo;
+use crate::sys::utils::{get_all_data, get_all_data_from_file, realpath, FileCounter};
 use crate::utils::into_iter;
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
@@ -93,7 +93,7 @@ pub struct Process {
     pub(crate) status: ProcessStatus,
     /// Tasks run by this process.
     pub tasks: HashMap<Pid, Process>,
-    pub(crate) stat_file: Option<File>,
+    pub(crate) stat_file: Option<FileCounter>,
     old_read_bytes: u64,
     old_written_bytes: u64,
     read_bytes: u64,
@@ -219,18 +219,6 @@ impl ProcessExt for Process {
     }
 }
 
-impl Drop for Process {
-    fn drop(&mut self) {
-        if self.stat_file.is_some() {
-            unsafe {
-                if let Ok(ref mut x) = crate::sys::system::REMAINING_FILES.lock() {
-                    **x += 1;
-                }
-            }
-        }
-    }
-}
-
 pub(crate) fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32) {
     // First time updating the values without reference, wait for a second cycle to update cpu_usage
     if p.old_utime == 0 && p.old_stime == 0 {
@@ -308,12 +296,12 @@ fn compute_start_time_without_boot_time(parts: &[&str], info: &SystemInfo) -> u6
     u64::from_str(parts[21]).unwrap_or(0) / info.clock_cycle
 }
 
-fn _get_stat_data(path: &Path, stat_file: &mut Option<File>) -> Result<String, ()> {
+fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<String, ()> {
     let mut tmp = PathBuf::from(path);
     tmp.push("stat");
     let mut file = File::open(tmp).map_err(|_| ())?;
     let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
-    *stat_file = check_nb_open_files(file);
+    *stat_file = FileCounter::new(file);
     Ok(data)
 }
 
@@ -378,12 +366,12 @@ fn retrieve_all_new_process_info(
         p.root = proc_list.root.clone();
     } else {
         p.name = name.into();
-        tmp.pop();
 
+        tmp.pop();
         tmp.push("cmdline");
         p.cmd = copy_from_file(&tmp);
-        tmp.pop();
 
+        tmp.pop();
         tmp.push("exe");
         match tmp.read_link() {
             Ok(exe_path) => {
@@ -395,12 +383,15 @@ fn retrieve_all_new_process_info(
                 p.exe = PathBuf::new()
             }
         }
+
         tmp.pop();
         tmp.push("environ");
         p.environ = copy_from_file(&tmp);
+
         tmp.pop();
         tmp.push("cwd");
         p.cwd = realpath(&tmp);
+
         tmp.pop();
         tmp.push("root");
         p.root = realpath(&tmp);
@@ -703,19 +694,6 @@ fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
         (Some(u), Some(g)) => Some((u, g)),
         _ => None,
     }
-}
-
-fn check_nb_open_files(f: File) -> Option<File> {
-    unsafe {
-        if let Ok(ref mut x) = REMAINING_FILES.lock() {
-            if **x > 0 {
-                **x -= 1;
-                return Some(f);
-            }
-        }
-    }
-    // Something bad happened...
-    None
 }
 
 macro_rules! unwrap_or_return {
