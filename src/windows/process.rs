@@ -278,11 +278,11 @@ unsafe fn get_h_mod(process_handler: &HandleWrapper, h_mod: &mut *mut c_void) ->
     ) != 0
 }
 
-unsafe fn get_exe(process_handler: &HandleWrapper, h_mod: *mut c_void) -> PathBuf {
+unsafe fn get_exe(process_handler: &HandleWrapper) -> PathBuf {
     let mut exe_buf = [0u16; MAX_PATH + 1];
     GetModuleFileNameExW(
         **process_handler,
-        h_mod as _,
+        std::ptr::null_mut(),
         exe_buf.as_mut_ptr(),
         MAX_PATH as DWORD + 1,
     );
@@ -318,7 +318,7 @@ impl Process {
                 String::new()
             };
 
-            let exe = get_exe(&process_handler, h_mod);
+            let exe = get_exe(&process_handler);
             let mut root = exe.clone();
             root.pop();
             let (cmd, environ, cwd) = match get_process_params(&process_handler) {
@@ -372,14 +372,8 @@ impl Process {
         refresh_kind: ProcessRefreshKind,
     ) -> Process {
         if let Some(handle) = get_process_handler(pid) {
-            let mut h_mod = null_mut();
-
             unsafe {
-                let exe = if get_h_mod(&handle, &mut h_mod) {
-                    get_exe(&handle, h_mod)
-                } else {
-                    PathBuf::new()
-                };
+                let exe = get_exe(&handle);
                 let mut root = exe.clone();
                 root.pop();
                 let (cmd, environ, cwd) = match get_process_params(&handle) {
