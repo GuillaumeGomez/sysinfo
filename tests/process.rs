@@ -11,7 +11,6 @@ fn test_process() {
         return;
     }
     assert!(!s.processes().is_empty());
-    #[cfg(not(windows))]
     assert!(s
         .processes()
         .values()
