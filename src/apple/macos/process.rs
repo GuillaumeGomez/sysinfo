@@ -292,17 +292,238 @@ fn do_get_env_path(env: &str, root: &mut PathBuf, check: &mut bool) {
     }
 }
 
+unsafe fn get_bsd_info(pid: Pid) -> Option<libc::proc_bsdinfo> {
+    let mut info = mem::zeroed::<libc::proc_bsdinfo>();
+
+    if libc::proc_pidinfo(
+        pid.0,
+        libc::PROC_PIDTBSDINFO,
+        0,
+        &mut info as *mut _ as *mut _,
+        mem::size_of::<libc::proc_bsdinfo>() as _,
+    ) != mem::size_of::<libc::proc_bsdinfo>() as _
+    {
+        None
+    } else {
+        Some(info)
+    }
+}
+
+unsafe fn create_new_process(
+    pid: Pid,
+    mut size: size_t,
+    now: u64,
+    refresh_kind: ProcessRefreshKind,
+    info: Option<libc::proc_bsdinfo>,
+) -> Result<Option<Process>, ()> {
+    let mut vnodepathinfo = mem::zeroed::<libc::proc_vnodepathinfo>();
+    let result = libc::proc_pidinfo(
+        pid.0,
+        libc::PROC_PIDVNODEPATHINFO,
+        0,
+        &mut vnodepathinfo as *mut _ as *mut _,
+        mem::size_of::<libc::proc_vnodepathinfo>() as _,
+    );
+    let cwd = if result > 0 {
+        let buffer = vnodepathinfo.pvi_cdir.vip_path;
+        let buffer = CStr::from_ptr(buffer.as_ptr() as _);
+        buffer
+            .to_str()
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::new())
+    } else {
+        PathBuf::new()
+    };
+
+    let info = match info {
+        Some(info) => info,
+        None => {
+            let mut buffer: Vec<u8> = Vec::with_capacity(libc::PROC_PIDPATHINFO_MAXSIZE as _);
+            match libc::proc_pidpath(
+                pid.0,
+                buffer.as_mut_ptr() as *mut _,
+                libc::PROC_PIDPATHINFO_MAXSIZE as _,
+            ) {
+                x if x > 0 => {
+                    buffer.set_len(x as _);
+                    let tmp = String::from_utf8_unchecked(buffer);
+                    let exe = PathBuf::from(tmp);
+                    let name = exe
+                        .file_name()
+                        .and_then(|x| x.to_str())
+                        .unwrap_or("")
+                        .to_owned();
+                    return Ok(Some(Process::new_empty(pid, exe, name, cwd)));
+                }
+                _ => {}
+            }
+            return Err(());
+        }
+    };
+    let parent = match info.pbi_ppid as i32 {
+        0 => None,
+        p => Some(Pid(p)),
+    };
+
+    let mut proc_args = Vec::with_capacity(size as usize);
+    let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
+    let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
+    /*
+     * /---------------\ 0x00000000
+     * | ::::::::::::: |
+     * |---------------| <-- Beginning of data returned by sysctl() is here.
+     * | argc          |
+     * |---------------|
+     * | exec_path     |
+     * |---------------|
+     * | 0             |
+     * |---------------|
+     * | arg[0]        |
+     * |---------------|
+     * | 0             |
+     * |---------------|
+     * | arg[n]        |
+     * |---------------|
+     * | 0             |
+     * |---------------|
+     * | env[0]        |
+     * |---------------|
+     * | 0             |
+     * |---------------|
+     * | env[n]        |
+     * |---------------|
+     * | ::::::::::::: |
+     * |---------------| <-- Top of stack.
+     * :               :
+     * :               :
+     * \---------------/ 0xffffffff
+     */
+    if libc::sysctl(
+        mib.as_mut_ptr(),
+        mib.len() as _,
+        ptr as *mut c_void,
+        &mut size,
+        std::ptr::null_mut(),
+        0,
+    ) == -1
+    {
+        return Err(()); // not enough rights I assume?
+    }
+    let mut n_args: c_int = 0;
+    libc::memcpy(
+        (&mut n_args) as *mut c_int as *mut c_void,
+        ptr as *const c_void,
+        mem::size_of::<c_int>(),
+    );
+
+    let mut cp = ptr.add(mem::size_of::<c_int>());
+    let mut start = cp;
+
+    let start_time = info.pbi_start_tvsec;
+    let run_time = now.saturating_sub(start_time);
+
+    let mut p = if cp < ptr.add(size) {
+        while cp < ptr.add(size) && *cp != 0 {
+            cp = cp.offset(1);
+        }
+        let exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
+        let name = exe
+            .file_name()
+            .and_then(|x| x.to_str())
+            .unwrap_or("")
+            .to_owned();
+        while cp < ptr.add(size) && *cp == 0 {
+            cp = cp.offset(1);
+        }
+        start = cp;
+        let mut c = 0;
+        let mut cmd = Vec::with_capacity(n_args as usize);
+        while c < n_args && cp < ptr.add(size) {
+            if *cp == 0 {
+                c += 1;
+                cmd.push(get_unchecked_str(cp, start));
+                start = cp.offset(1);
+            }
+            cp = cp.offset(1);
+        }
+
+        #[inline]
+        unsafe fn get_environ<F: Fn(&str, &mut PathBuf, &mut bool)>(
+            ptr: *mut u8,
+            mut cp: *mut u8,
+            size: size_t,
+            mut root: PathBuf,
+            callback: F,
+        ) -> (Vec<String>, PathBuf) {
+            let mut environ = Vec::with_capacity(10);
+            let mut start = cp;
+            let mut check = true;
+            while cp < ptr.add(size) {
+                if *cp == 0 {
+                    if cp == start {
+                        break;
+                    }
+                    let e = get_unchecked_str(cp, start);
+                    callback(&e, &mut root, &mut check);
+                    environ.push(e);
+                    start = cp.offset(1);
+                }
+                cp = cp.offset(1);
+            }
+            (environ, root)
+        }
+
+        let (environ, root) = if exe.is_absolute() {
+            if let Some(parent_path) = exe.parent() {
+                get_environ(
+                    ptr,
+                    cp,
+                    size,
+                    parent_path.to_path_buf(),
+                    do_not_get_env_path,
+                )
+            } else {
+                get_environ(ptr, cp, size, PathBuf::new(), do_get_env_path)
+            }
+        } else {
+            get_environ(ptr, cp, size, PathBuf::new(), do_get_env_path)
+        };
+        let mut p = Process::new(pid, parent, start_time, run_time);
+
+        p.exe = exe;
+        p.name = name;
+        p.cwd = cwd;
+        p.cmd = parse_command_line(&cmd);
+        p.environ = environ;
+        p.root = root;
+        p
+    } else {
+        Process::new(pid, parent, start_time, run_time)
+    };
+
+    let task_info = get_task_info(pid);
+
+    p.memory = task_info.pti_resident_size / 1_000;
+    p.virtual_memory = task_info.pti_virtual_size / 1_000;
+
+    p.user_id = Some(Uid(info.pbi_uid));
+    p.group_id = Some(Gid(info.pbi_gid));
+    p.process_status = ProcessStatus::from(info.pbi_status);
+    if refresh_kind.disk_usage() {
+        update_proc_disk_activity(&mut p);
+    }
+    Ok(Some(p))
+}
+
 pub(crate) fn update_process(
     wrap: &Wrap,
     pid: Pid,
-    mut size: size_t,
+    size: size_t,
     time_interval: Option<f64>,
     now: u64,
     refresh_kind: ProcessRefreshKind,
     check_if_alive: bool,
 ) -> Result<Option<Process>, ()> {
-    let mut proc_args = Vec::with_capacity(size as usize);
-
     unsafe {
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
             if p.memory == 0 {
@@ -313,6 +534,14 @@ pub(crate) fn update_process(
                 } else {
                     Err(())
                 };
+            }
+            if let Some(info) = get_bsd_info(pid) {
+                if info.pbi_start_tvsec != p.start_time {
+                    // We don't it to be removed, just replaced.
+                    p.updated = true;
+                    // The owner of this PID changed.
+                    return create_new_process(pid, size, now, refresh_kind, Some(info));
+                }
             }
             let task_info = get_task_info(pid);
             let mut thread_info = mem::zeroed::<libc::proc_threadinfo>();
@@ -338,6 +567,7 @@ pub(crate) fn update_process(
                 }
             };
             p.status = thread_status;
+
             if refresh_kind.cpu() {
                 compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
             }
@@ -350,208 +580,7 @@ pub(crate) fn update_process(
             p.updated = true;
             return Ok(None);
         }
-
-        let mut vnodepathinfo = mem::zeroed::<libc::proc_vnodepathinfo>();
-        let result = libc::proc_pidinfo(
-            pid.0,
-            libc::PROC_PIDVNODEPATHINFO,
-            0,
-            &mut vnodepathinfo as *mut _ as *mut _,
-            mem::size_of::<libc::proc_vnodepathinfo>() as _,
-        );
-        let cwd = if result > 0 {
-            let buffer = vnodepathinfo.pvi_cdir.vip_path;
-            let buffer = CStr::from_ptr(buffer.as_ptr() as _);
-            buffer
-                .to_str()
-                .map(PathBuf::from)
-                .unwrap_or_else(|_| PathBuf::new())
-        } else {
-            PathBuf::new()
-        };
-
-        let mut info = mem::zeroed::<libc::proc_bsdinfo>();
-        if libc::proc_pidinfo(
-            pid.0,
-            libc::PROC_PIDTBSDINFO,
-            0,
-            &mut info as *mut _ as *mut _,
-            mem::size_of::<libc::proc_bsdinfo>() as _,
-        ) != mem::size_of::<libc::proc_bsdinfo>() as _
-        {
-            let mut buffer: Vec<u8> = Vec::with_capacity(libc::PROC_PIDPATHINFO_MAXSIZE as _);
-            match libc::proc_pidpath(
-                pid.0,
-                buffer.as_mut_ptr() as *mut _,
-                libc::PROC_PIDPATHINFO_MAXSIZE as _,
-            ) {
-                x if x > 0 => {
-                    buffer.set_len(x as _);
-                    let tmp = String::from_utf8_unchecked(buffer);
-                    let exe = PathBuf::from(tmp);
-                    let name = exe
-                        .file_name()
-                        .and_then(|x| x.to_str())
-                        .unwrap_or("")
-                        .to_owned();
-                    return Ok(Some(Process::new_empty(pid, exe, name, cwd)));
-                }
-                _ => {}
-            }
-            return Err(());
-        }
-        let parent = match info.pbi_ppid as i32 {
-            0 => None,
-            p => Some(Pid(p)),
-        };
-
-        let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
-        let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
-        /*
-         * /---------------\ 0x00000000
-         * | ::::::::::::: |
-         * |---------------| <-- Beginning of data returned by sysctl() is here.
-         * | argc          |
-         * |---------------|
-         * | exec_path     |
-         * |---------------|
-         * | 0             |
-         * |---------------|
-         * | arg[0]        |
-         * |---------------|
-         * | 0             |
-         * |---------------|
-         * | arg[n]        |
-         * |---------------|
-         * | 0             |
-         * |---------------|
-         * | env[0]        |
-         * |---------------|
-         * | 0             |
-         * |---------------|
-         * | env[n]        |
-         * |---------------|
-         * | ::::::::::::: |
-         * |---------------| <-- Top of stack.
-         * :               :
-         * :               :
-         * \---------------/ 0xffffffff
-         */
-        if libc::sysctl(
-            mib.as_mut_ptr(),
-            mib.len() as _,
-            ptr as *mut c_void,
-            &mut size,
-            std::ptr::null_mut(),
-            0,
-        ) == -1
-        {
-            return Err(()); // not enough rights I assume?
-        }
-        let mut n_args: c_int = 0;
-        libc::memcpy(
-            (&mut n_args) as *mut c_int as *mut c_void,
-            ptr as *const c_void,
-            mem::size_of::<c_int>(),
-        );
-
-        let mut cp = ptr.add(mem::size_of::<c_int>());
-        let mut start = cp;
-
-        let start_time = info.pbi_start_tvsec;
-        let run_time = now.saturating_sub(start_time);
-
-        let mut p = if cp < ptr.add(size) {
-            while cp < ptr.add(size) && *cp != 0 {
-                cp = cp.offset(1);
-            }
-            let exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
-            let name = exe
-                .file_name()
-                .and_then(|x| x.to_str())
-                .unwrap_or("")
-                .to_owned();
-            while cp < ptr.add(size) && *cp == 0 {
-                cp = cp.offset(1);
-            }
-            start = cp;
-            let mut c = 0;
-            let mut cmd = Vec::with_capacity(n_args as usize);
-            while c < n_args && cp < ptr.add(size) {
-                if *cp == 0 {
-                    c += 1;
-                    cmd.push(get_unchecked_str(cp, start));
-                    start = cp.offset(1);
-                }
-                cp = cp.offset(1);
-            }
-
-            #[inline]
-            unsafe fn get_environ<F: Fn(&str, &mut PathBuf, &mut bool)>(
-                ptr: *mut u8,
-                mut cp: *mut u8,
-                size: size_t,
-                mut root: PathBuf,
-                callback: F,
-            ) -> (Vec<String>, PathBuf) {
-                let mut environ = Vec::with_capacity(10);
-                let mut start = cp;
-                let mut check = true;
-                while cp < ptr.add(size) {
-                    if *cp == 0 {
-                        if cp == start {
-                            break;
-                        }
-                        let e = get_unchecked_str(cp, start);
-                        callback(&e, &mut root, &mut check);
-                        environ.push(e);
-                        start = cp.offset(1);
-                    }
-                    cp = cp.offset(1);
-                }
-                (environ, root)
-            }
-
-            let (environ, root) = if exe.is_absolute() {
-                if let Some(parent_path) = exe.parent() {
-                    get_environ(
-                        ptr,
-                        cp,
-                        size,
-                        parent_path.to_path_buf(),
-                        do_not_get_env_path,
-                    )
-                } else {
-                    get_environ(ptr, cp, size, PathBuf::new(), do_get_env_path)
-                }
-            } else {
-                get_environ(ptr, cp, size, PathBuf::new(), do_get_env_path)
-            };
-            let mut p = Process::new(pid, parent, start_time, run_time);
-
-            p.exe = exe;
-            p.name = name;
-            p.cwd = cwd;
-            p.cmd = parse_command_line(&cmd);
-            p.environ = environ;
-            p.root = root;
-            p
-        } else {
-            Process::new(pid, parent, start_time, run_time)
-        };
-
-        let task_info = get_task_info(pid);
-
-        p.memory = task_info.pti_resident_size / 1_000;
-        p.virtual_memory = task_info.pti_virtual_size / 1_000;
-
-        p.user_id = Some(Uid(info.pbi_uid));
-        p.group_id = Some(Gid(info.pbi_gid));
-        p.process_status = ProcessStatus::from(info.pbi_status);
-        if refresh_kind.disk_usage() {
-            update_proc_disk_activity(&mut p);
-        }
-        Ok(Some(p))
+        create_new_process(pid, size, now, refresh_kind, get_bsd_info(pid))
     }
 }
 
