@@ -9,7 +9,7 @@ use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 use crate::sys::component::{self, Component};
 use crate::sys::cpu::*;
 use crate::sys::disk::{get_disks, Disk};
-use crate::sys::process::{update_memory, Process};
+use crate::sys::process::{get_start_time, update_memory, Process};
 use crate::sys::tools::*;
 use crate::sys::users::get_users;
 use crate::sys::utils::get_now;
@@ -190,12 +190,17 @@ impl SystemExt for System {
 
     #[allow(clippy::map_entry)]
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
-        if self.process_list.contains_key(&pid) {
-            return refresh_existing_process(self, pid, refresh_kind);
-        }
         let now = get_now();
+        let nb_cpus = self.cpus.len() as u64;
+
+        if let Some(proc_) = self.process_list.get_mut(&pid) {
+            if let Some(ret) = refresh_existing_process(proc_, nb_cpus, now, refresh_kind) {
+                return ret;
+            }
+            // We need to re-make the process because the PID owner changed.
+        }
         if let Some(mut p) = Process::new_from_pid(pid, now, refresh_kind) {
-            p.update(refresh_kind, self.cpus.len() as u64, now);
+            p.update(refresh_kind, nb_cpus, now);
             p.updated = false;
             self.process_list.insert(pid, p);
             true
@@ -266,10 +271,18 @@ impl SystemExt for System {
                             let pi = *pi.0;
                             let pid = Pid(pi.UniqueProcessId as _);
                             if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
-                                proc_.memory = (pi.WorkingSetSize as u64) / 1_000;
-                                proc_.virtual_memory = (pi.VirtualSize as u64) / 1_000;
-                                proc_.update(refresh_kind, nb_cpus, now);
-                                return None;
+                                if proc_
+                                    .get_start_time()
+                                    .map(|start| start == proc_.start_time())
+                                    .unwrap_or(true)
+                                {
+                                    proc_.memory = (pi.WorkingSetSize as u64) / 1_000;
+                                    proc_.virtual_memory = (pi.VirtualSize as u64) / 1_000;
+                                    proc_.update(refresh_kind, nb_cpus, now);
+                                    return None;
+                                }
+                                // If the PID owner changed, we need to recompute the whole process.
+                                sysinfo_debug!("owner changed for PID {}", proc_.pid());
                             }
                             let name = get_process_name(&pi, pid);
                             let mut p = Process::new_full(
@@ -476,22 +489,30 @@ fn is_proc_running(handle: HANDLE) -> bool {
     }
 }
 
-fn refresh_existing_process(s: &mut System, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
-    if let Some(ref mut entry) = s.process_list.get_mut(&pid) {
-        if let Some(handle) = entry.get_handle() {
-            if !is_proc_running(handle) {
-                return false;
-            }
-        } else {
-            return false;
+/// If it returns `None`, it means that the PID owner changed and that the `Process` must be
+/// completely recomputed.
+fn refresh_existing_process(
+    proc_: &mut Process,
+    nb_cpus: u64,
+    now: u64,
+    refresh_kind: ProcessRefreshKind,
+) -> Option<bool> {
+    if let Some(handle) = proc_.get_handle() {
+        if get_start_time(handle) != proc_.start_time() {
+            sysinfo_debug!("owner changed for PID {}", proc_.pid());
+            // PID owner changed!
+            return None;
         }
-        update_memory(entry);
-        entry.update(refresh_kind, s.cpus.len() as u64, get_now());
-        entry.updated = false;
-        true
+        if !is_proc_running(handle) {
+            return Some(false);
+        }
     } else {
-        false
+        return Some(false);
     }
+    update_memory(proc_);
+    proc_.update(refresh_kind, nb_cpus, now);
+    proc_.updated = false;
+    Some(true)
 }
 
 #[allow(clippy::size_of_in_element_count)]
