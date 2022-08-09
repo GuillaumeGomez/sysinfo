@@ -328,7 +328,7 @@ impl Process {
                     (Vec::new(), Vec::new(), PathBuf::new())
                 }
             };
-            let (start_time, run_time) = get_start_and_run_time(&process_handler, now);
+            let (start_time, run_time) = get_start_and_run_time(*process_handler, now);
             let parent = if info.InheritedFromUniqueProcessId as usize != 0 {
                 Some(Pid(info.InheritedFromUniqueProcessId as _))
             } else {
@@ -383,7 +383,7 @@ impl Process {
                         (Vec::new(), Vec::new(), PathBuf::new())
                     }
                 };
-                let (start_time, run_time) = get_start_and_run_time(&handle, now);
+                let (start_time, run_time) = get_start_and_run_time(*handle, now);
                 let user_id = get_process_user_id(&handle, refresh_kind);
                 Process {
                     handle: Some(Arc::new(handle)),
@@ -456,6 +456,10 @@ impl Process {
 
     pub(crate) fn get_handle(&self) -> Option<HANDLE> {
         self.handle.as_ref().map(|h| ***h)
+    }
+
+    pub(crate) fn get_start_time(&self) -> Option<u64> {
+        self.handle.as_ref().map(|handle| get_start_time(***handle))
     }
 }
 
@@ -545,23 +549,43 @@ impl ProcessExt for Process {
     }
 }
 
-unsafe fn get_start_and_run_time(handle: &HandleWrapper, now: u64) -> (u64, u64) {
+#[inline]
+unsafe fn get_process_times(handle: HANDLE) -> u64 {
     let mut fstart: FILETIME = zeroed();
     let mut x = zeroed();
 
     GetProcessTimes(
-        **handle,
+        handle,
         &mut fstart as *mut FILETIME,
         &mut x as *mut FILETIME,
         &mut x as *mut FILETIME,
         &mut x as *mut FILETIME,
     );
-    let tmp = super::utils::filetime_to_u64(fstart);
+    super::utils::filetime_to_u64(fstart)
+}
+
+#[inline]
+fn compute_start(process_times: u64) -> u64 {
     // 11_644_473_600 is the number of seconds between the Windows epoch (1601-01-01) and
     // the linux epoch (1970-01-01).
-    let start = tmp / 10_000_000 - 11_644_473_600;
-    let run_time = check_sub(now, start);
-    (start, run_time)
+    process_times / 10_000_000 - 11_644_473_600
+}
+
+fn get_start_and_run_time(handle: HANDLE, now: u64) -> (u64, u64) {
+    unsafe {
+        let process_times = get_process_times(handle);
+        let start = compute_start(process_times);
+        let run_time = check_sub(now, start);
+        (start, run_time)
+    }
+}
+
+#[inline]
+pub(crate) fn get_start_time(handle: HANDLE) -> u64 {
+    unsafe {
+        let process_times = get_process_times(handle);
+        compute_start(process_times)
+    }
 }
 
 #[allow(clippy::uninit_vec)]
