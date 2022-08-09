@@ -1,3 +1,8 @@
+# 0.25.2
+
+ * Windows: Fix `Process::exe` information retrieval.
+ * All supported platforms: Correctly handle a PID owner change (#809).
+
 # 0.25.1
 
  * Linux: Fix potential problem on `ProcessExt::exe` in case `/proc/<pid>/exe` cannot be read.
