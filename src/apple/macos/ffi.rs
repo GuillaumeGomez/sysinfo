@@ -216,7 +216,6 @@ mod io_service {
     extern "C" {
         pub fn IOHIDEventSystemClientCreate(allocator: CFAllocatorRef)
             -> IOHIDEventSystemClientRef;
-        // pub fn IOHIDEventSystemClientCreate(allocator: CFAllocatorRef) -> *mut libc::c_void;
 
         pub fn IOHIDEventSystemClientSetMatching(
             client: IOHIDEventSystemClientRef,
@@ -239,18 +238,6 @@ mod io_service {
 
         pub fn IOHIDEventGetFloatValue(event: IOHIDEventRef, field: i64) -> f64;
     }
-
-    // pub type CFMutableArrayRef = *mut __CFArray;
-
-    // extern "C" {
-    //     pub fn CFArrayCreateMutable(
-    //         allocator: CFAllocatorRef,
-    //         capacity: CFIndex,
-    //         callbacks: *const CFArrayCallBacks,
-    //     ) -> CFMutableArrayRef;
-
-    //     pub fn CFArrayAppendValue(the_array: CFMutableArrayRef, value: *const libc::c_void);
-    // }
 
     pub(crate) const HID_DEVICE_PROPERTY_PRODUCT: &[u8] = b"Product\0";
 

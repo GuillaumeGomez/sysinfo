@@ -34,60 +34,56 @@ impl Components {
     pub(crate) fn refresh(&mut self) {
         self.inner.clear();
 
-        let client = || -> Option<CFReleaser<_>> {
-            unsafe {
-                let matches = CFReleaser::new(matching(
-                    kHIDPage_AppleVendor,
-                    kHIDUsage_AppleVendor_TemperatureSensor,
-                ))?;
-
-                let client = CFReleaser::new(IOHIDEventSystemClientCreate(kCFAllocatorDefault))?;
-
-                let _ = IOHIDEventSystemClientSetMatching(client.inner(), matches.inner());
-                Some(client)
-            }
-        }();
-
-        if client.is_none() {
-            return;
-        }
-        let client = client.unwrap();
-
         unsafe {
-            let services = IOHIDEventSystemClientCopyServices(client.inner());
-            if services.is_null() {
-                return;
-            }
+            let matches = match CFReleaser::new(matching(
+                kHIDPage_AppleVendor,
+                kHIDUsage_AppleVendor_TemperatureSensor,
+            )) {
+                Some(m) => m,
+                None => return,
+            };
 
-            let key_ref = CFReleaser::new(CFStringCreateWithBytes(
+            let client = match CFReleaser::new(IOHIDEventSystemClientCreate(kCFAllocatorDefault)) {
+                Some(c) => c,
+                None => return,
+            };
+
+            let _ = IOHIDEventSystemClientSetMatching(client.inner(), matches.inner());
+
+            let services = match CFReleaser::new(IOHIDEventSystemClientCopyServices(client.inner()))
+            {
+                Some(s) => s,
+                None => return,
+            };
+
+            let key_ref = match CFReleaser::new(CFStringCreateWithBytes(
                 kCFAllocatorDefault,
                 HID_DEVICE_PROPERTY_PRODUCT.as_ptr(),
                 HID_DEVICE_PROPERTY_PRODUCT.len() as _,
                 kCFStringEncodingUTF8,
                 false as _,
-            ));
-            if key_ref.is_none() {
-                return;
-            }
-            let key_ref = key_ref.unwrap();
+            )) {
+                Some(r) => r,
+                None => return,
+            };
 
-            let count = CFArrayGetCount(services);
+            let count = CFArrayGetCount(services.inner());
 
             for i in 0..count {
-                let service = CFReleaser::new(CFArrayGetValueAtIndex(services, i) as *const _);
-                if service.is_none() {
-                    continue;
-                }
-                let service = service.unwrap();
+                let service = match CFReleaser::new(
+                    CFArrayGetValueAtIndex(services.inner(), i) as *const _
+                ) {
+                    Some(s) => s,
+                    None => continue,
+                };
 
-                let name = CFReleaser::new(IOHIDServiceClientCopyProperty(
+                let name = match CFReleaser::new(IOHIDServiceClientCopyProperty(
                     service.inner(),
                     key_ref.inner(),
-                ));
-                if name.is_none() {
-                    continue;
-                }
-                let name = name.unwrap();
+                )) {
+                    Some(n) => n,
+                    None => continue,
+                };
 
                 let name_ptr =
                     CFStringGetCStringPtr(name.inner() as *const _, kCFStringEncodingUTF8);
@@ -155,21 +151,20 @@ impl ComponentExt for Component {
 
     fn refresh(&mut self) {
         unsafe {
-            let event = CFReleaser::new(IOHIDServiceClientCopyEvent(
+            let event = match CFReleaser::new(IOHIDServiceClientCopyEvent(
                 self.service.inner() as *const _,
                 kIOHIDEventTypeTemperature,
                 0,
                 0,
-            ));
-            if event.is_none() {
-                return;
-            }
-            let event = event.unwrap();
+            )) {
+                Some(e) => e,
+                None => return,
+            };
 
             self.temperature = IOHIDEventGetFloatValue(
                 event.inner(),
                 IOHIDEventFieldBase(kIOHIDEventTypeTemperature),
-            ) as f32;
+            ) as _;
         }
     }
 }
