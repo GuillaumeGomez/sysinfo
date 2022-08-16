@@ -8,12 +8,14 @@ use crate::sys::ffi;
 use crate::sys::network::Networks;
 use crate::sys::process::*;
 #[cfg(target_os = "macos")]
-use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease};
+use core_foundation_sys::base::kCFAllocatorDefault;
 
 use crate::{
     CpuExt, CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+use crate::sys::macos::utils::IoService;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::ProcessExt;
 
@@ -108,7 +110,7 @@ pub struct System {
         not(feature = "apple-sandbox"),
         any(target_arch = "x86", target_arch = "x86_64")
     ))]
-    connection: Option<ffi::io_connect_t>,
+    connection: Option<IoService>,
     disks: Vec<Disk>,
     networks: Networks,
     port: mach_port_t,
@@ -121,26 +123,6 @@ pub struct System {
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
     got_cpu_frequency: bool,
-}
-
-impl Drop for System {
-    fn drop(&mut self) {
-        #[cfg(target_os = "macos")]
-        unsafe {
-            #[cfg(all(
-                target_os = "macos",
-                not(feature = "apple-sandbox"),
-                any(target_arch = "x86", target_arch = "x86_64")
-            ))]
-            if let Some(conn) = self.connection {
-                ffi::IOServiceClose(conn);
-            }
-
-            if !self.session.0.is_null() {
-                CFRelease(self.session.0 as _);
-            }
-        }
-    }
 }
 
 pub(crate) struct Wrap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
@@ -218,7 +200,7 @@ impl SystemExt for System {
                     not(feature = "apple-sandbox"),
                     any(target_arch = "x86", target_arch = "x86_64")
                 ))]
-                connection: get_io_service_connection(),
+                connection: IoService::new_connection(),
                 disks: Vec::with_capacity(1),
                 networks: Networks::new(),
                 port,
@@ -302,16 +284,18 @@ impl SystemExt for System {
         any(target_arch = "x86", target_arch = "x86_64")
     ))]
     fn refresh_components_list(&mut self) {
-        if let Some(con) = self.connection {
+        if let Some(ref con) = self.connection {
             self.components.clear();
             // getting CPU critical temperature
             let critical_temp = crate::apple::component::get_temperature(
-                con,
+                con.inner(),
                 &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0],
             );
 
             for (id, v) in crate::apple::component::COMPONENTS_TEMPERATURE_IDS.iter() {
-                if let Some(c) = Component::new((*id).to_owned(), None, critical_temp, v, con) {
+                if let Some(c) =
+                    Component::new((*id).to_owned(), None, critical_temp, v, con.inner())
+                {
                     self.components.push(c);
                 }
             }
@@ -696,47 +680,6 @@ impl SystemExt for System {
 impl Default for System {
     fn default() -> System {
         System::new()
-    }
-}
-
-// code from https://github.com/Chris911/iStats
-// Not supported on iOS, or in the default macOS
-#[cfg(all(
-    target_os = "macos",
-    not(feature = "apple-sandbox"),
-    any(target_arch = "x86", target_arch = "x86_64")
-))]
-fn get_io_service_connection() -> Option<ffi::io_connect_t> {
-    let mut master_port: mach_port_t = 0;
-    let mut iterator: ffi::io_iterator_t = 0;
-
-    unsafe {
-        ffi::IOMasterPort(libc::MACH_PORT_NULL, &mut master_port);
-
-        let matching_dictionary = ffi::IOServiceMatching(b"AppleSMC\0".as_ptr() as *const i8);
-        let result =
-            ffi::IOServiceGetMatchingServices(master_port, matching_dictionary, &mut iterator);
-        if result != ffi::KIO_RETURN_SUCCESS {
-            sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
-            return None;
-        }
-
-        let device = ffi::IOIteratorNext(iterator);
-        ffi::IOObjectRelease(iterator);
-        if device == 0 {
-            sysinfo_debug!("Error: no SMC found");
-            return None;
-        }
-
-        let mut conn = 0;
-        let result = ffi::IOServiceOpen(device, libc::mach_task_self(), 0, &mut conn);
-        ffi::IOObjectRelease(device);
-        if result != ffi::KIO_RETURN_SUCCESS {
-            sysinfo_debug!("Error: IOServiceOpen() = {}", result);
-            return None;
-        }
-
-        Some(conn)
     }
 }
 

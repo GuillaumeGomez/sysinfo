@@ -5,7 +5,7 @@ use crate::sys::{ffi, utils};
 use crate::utils::to_cpath;
 use crate::{Disk, DiskType};
 
-use core_foundation_sys::base::{kCFAllocatorDefault, kCFAllocatorNull, CFRelease};
+use core_foundation_sys::base::{kCFAllocatorDefault, kCFAllocatorNull};
 use core_foundation_sys::dictionary::{CFDictionaryGetValueIfPresent, CFDictionaryRef};
 use core_foundation_sys::number::{kCFBooleanTrue, CFBooleanRef};
 use core_foundation_sys::string as cfs;

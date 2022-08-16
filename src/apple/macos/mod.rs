@@ -4,6 +4,8 @@ use core_foundation_sys::base::CFRelease;
 
 pub mod disk;
 pub mod ffi;
+#[cfg(not(feature = "apple-sandbox"))]
+pub(crate) mod utils;
 
 #[cfg(not(feature = "apple-sandbox"))]
 pub mod system;
