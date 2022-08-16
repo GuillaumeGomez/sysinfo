@@ -14,6 +14,8 @@ use crate::{
     CpuExt, CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
+#[cfg(target_os = "macos")]
+use crate::sys::macos::utils::CFReleaser;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::sys::macos::utils::IoService;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -119,7 +121,7 @@ pub struct System {
     // Used to get disk information, to be more specific, it's needed by the
     // DADiskCreateFromVolumePath function. Not supported on iOS.
     #[cfg(target_os = "macos")]
-    session: ffi::SessionWrap,
+    session: Option<CFReleaser<ffi::__DASession>>,
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
     got_cpu_frequency: bool,
@@ -207,7 +209,7 @@ impl SystemExt for System {
                 users: Vec::new(),
                 boot_time: boot_time(),
                 #[cfg(target_os = "macos")]
-                session: ffi::SessionWrap(::std::ptr::null_mut()),
+                session: None,
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
                 clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
                 got_cpu_frequency: false,
@@ -428,10 +430,12 @@ impl SystemExt for System {
     #[cfg(target_os = "macos")]
     fn refresh_disks_list(&mut self) {
         unsafe {
-            if self.session.0.is_null() {
-                self.session.0 = ffi::DASessionCreate(kCFAllocatorDefault as _);
+            if self.session.is_none() {
+                self.session = CFReleaser::new(ffi::DASessionCreate(kCFAllocatorDefault as _));
             }
-            self.disks = get_disks(self.session.0);
+            if let Some(ref session) = self.session {
+                self.disks = get_disks(session.inner());
+            }
         }
     }
 

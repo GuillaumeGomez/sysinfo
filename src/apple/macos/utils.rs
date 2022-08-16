@@ -1,10 +1,14 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use super::ffi;
+use core_foundation_sys::base::CFRelease;
 use libc::mach_port_t;
 
-pub struct IoObject(ffi::io_object_t);
+#[cfg(not(feature = "apple-sandbox"))]
+#[repr(transparent)]
+pub(crate) struct IoObject(ffi::io_object_t);
 
+#[cfg(not(feature = "apple-sandbox"))]
 impl IoObject {
     fn new(obj: ffi::io_object_t) -> Option<Self> {
         if obj == 0 {
@@ -19,6 +23,7 @@ impl IoObject {
     }
 }
 
+#[cfg(not(feature = "apple-sandbox"))]
 impl Drop for IoObject {
     fn drop(&mut self) {
         unsafe {
@@ -27,8 +32,11 @@ impl Drop for IoObject {
     }
 }
 
+#[cfg(not(feature = "apple-sandbox"))]
+#[repr(transparent)]
 pub(crate) struct IoService(ffi::io_connect_t);
 
+#[cfg(not(feature = "apple-sandbox"))]
 impl IoService {
     fn new(obj: ffi::io_connect_t) -> Option<Self> {
         if obj == 0 {
@@ -91,6 +99,7 @@ impl IoService {
     }
 }
 
+#[cfg(not(feature = "apple-sandbox"))]
 impl Drop for IoService {
     fn drop(&mut self) {
         unsafe {
@@ -98,3 +107,34 @@ impl Drop for IoService {
         }
     }
 }
+
+// A helper using to auto release the resource got from CoreFoundation.
+// More information about the ownership policy for CoreFoundation pelease refer the link below:
+// https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFMemoryMgmt/Concepts/Ownership.html#//apple_ref/doc/uid/20001148-CJBEJBHH
+#[repr(transparent)]
+pub(crate) struct CFReleaser<T>(*const T);
+
+impl<T> CFReleaser<T> {
+    pub(crate) fn new(ptr: *const T) -> Option<Self> {
+        if ptr.is_null() {
+            None
+        } else {
+            Some(Self(ptr))
+        }
+    }
+
+    pub(crate) fn inner(&self) -> *const T {
+        self.0
+    }
+}
+
+impl<T> Drop for CFReleaser<T> {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            unsafe { CFRelease(self.0 as _) }
+        }
+    }
+}
+
+unsafe impl<T> Send for CFReleaser<T> {}
+unsafe impl<T> Sync for CFReleaser<T> {}
