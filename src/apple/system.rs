@@ -16,12 +16,6 @@ use crate::{
 
 #[cfg(target_os = "macos")]
 use crate::sys::macos::utils::CFReleaser;
-#[cfg(all(
-    target_os = "macos",
-    not(feature = "apple-sandbox"),
-    any(target_arch = "x86", target_arch = "x86_64")
-))]
-use crate::sys::macos::utils::IoService;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::ProcessExt;
 
@@ -40,11 +34,7 @@ use libc::{
     vm_statistics64, _SC_PAGESIZE,
 };
 
-#[cfg(all(
-    target_os = "macos",
-    not(feature = "apple-sandbox"),
-    target_arch = "aarch64"
-))]
+#[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
 use super::inner::component::Components;
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -102,26 +92,8 @@ pub struct System {
     global_cpu: Cpu,
     cpus: Vec<Cpu>,
     page_size_kb: u64,
-    #[cfg(any(
-        target_os = "ios",
-        target_arch = "x86",
-        target_arch = "x86_64",
-        feature = "apple-sandbox"
-    ))]
-    components: Vec<Component>,
-    #[cfg(all(
-        target_os = "macos",
-        not(feature = "apple-sandbox"),
-        target_arch = "aarch64"
-    ))]
+    #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     components: Components,
-    // Used to get CPU information, not supported on iOS, or inside the default macOS sandbox.
-    #[cfg(all(
-        target_os = "macos",
-        not(feature = "apple-sandbox"),
-        any(target_arch = "x86", target_arch = "x86_64")
-    ))]
-    connection: Option<IoService>,
     disks: Vec<Disk>,
     networks: Networks,
     port: mach_port_t,
@@ -198,25 +170,8 @@ impl SystemExt for System {
                 ),
                 cpus: Vec::new(),
                 page_size_kb: sysconf(_SC_PAGESIZE) as u64 / 1_000,
-                #[cfg(any(
-                    target_os = "ios",
-                    target_arch = "x86",
-                    target_arch = "x86_64",
-                    feature = "apple-sandbox"
-                ))]
-                components: Vec::with_capacity(2),
-                #[cfg(all(
-                    target_os = "macos",
-                    not(feature = "apple-sandbox"),
-                    target_arch = "aarch64"
-                ))]
+                #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
                 components: Components::new(),
-                #[cfg(all(
-                    target_os = "macos",
-                    not(feature = "apple-sandbox"),
-                    any(target_arch = "x86", target_arch = "x86_64")
-                ))]
-                connection: IoService::new_connection(),
                 disks: Vec::with_capacity(1),
                 networks: Networks::new(),
                 port,
@@ -294,36 +249,7 @@ impl SystemExt for System {
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
     fn refresh_components_list(&mut self) {}
 
-    #[cfg(all(
-        target_os = "macos",
-        not(feature = "apple-sandbox"),
-        any(target_arch = "x86", target_arch = "x86_64")
-    ))]
-    fn refresh_components_list(&mut self) {
-        if let Some(ref connection) = self.connection {
-            let connection = connection.inner();
-            self.components.clear();
-            // getting CPU critical temperature
-            let critical_temp = crate::apple::component::get_temperature(
-                connection,
-                &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0],
-            );
-
-            for (id, v) in crate::apple::component::COMPONENTS_TEMPERATURE_IDS.iter() {
-                if let Some(c) =
-                    Component::new((*id).to_owned(), None, critical_temp, v, connection)
-                {
-                    self.components.push(c);
-                }
-            }
-        }
-    }
-
-    #[cfg(all(
-        target_os = "macos",
-        not(feature = "apple-sandbox"),
-        target_arch = "aarch64"
-    ))]
+    #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     fn refresh_components_list(&mut self) {
         self.components.refresh();
     }
@@ -531,12 +457,24 @@ impl SystemExt for System {
         self.swap_total - self.swap_free
     }
 
+    #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     fn components(&self) -> &[Component] {
-        &self.components
+        &self.components.inner
     }
 
+    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
+    fn components(&self) -> &[Component] {
+        &[]
+    }
+
+    #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     fn components_mut(&mut self) -> &mut [Component] {
-        &mut self.components
+        &mut self.components.inner
+    }
+
+    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
+    fn components_mut(&mut self) -> &mut [Component] {
+        &mut []
     }
 
     fn disks(&self) -> &[Disk] {
