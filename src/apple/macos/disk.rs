@@ -1,11 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use super::CFReleaser;
+use crate::sys::macos::utils::CFReleaser;
 use crate::sys::{ffi, utils};
 use crate::utils::to_cpath;
 use crate::{Disk, DiskType};
 
-use core_foundation_sys::base::{kCFAllocatorDefault, kCFAllocatorNull, CFRelease};
+use core_foundation_sys::base::{kCFAllocatorDefault, kCFAllocatorNull};
 use core_foundation_sys::dictionary::{CFDictionaryGetValueIfPresent, CFDictionaryRef};
 use core_foundation_sys::number::{kCFBooleanTrue, CFBooleanRef};
 use core_foundation_sys::string as cfs;
@@ -94,20 +94,22 @@ unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
     key: &[u8],
     callback: F,
 ) -> Option<T> {
-    let key = ffi::CFStringCreateWithCStringNoCopy(
+    match CFReleaser::new(ffi::CFStringCreateWithCStringNoCopy(
         ptr::null_mut(),
         key.as_ptr() as *const c_char,
         cfs::kCFStringEncodingUTF8,
         kCFAllocatorNull as _,
-    );
-    let mut value = std::ptr::null();
-    let ret = if CFDictionaryGetValueIfPresent(dict, key as _, &mut value) != 0 {
-        callback(value)
-    } else {
-        None
-    };
-    CFRelease(key as _);
-    ret
+    )) {
+        Some(c_key) => {
+            let mut value = std::ptr::null();
+            if CFDictionaryGetValueIfPresent(dict, c_key.inner() as _, &mut value) != 0 {
+                callback(value)
+            } else {
+                None
+            }
+        }
+        None => None,
+    }
 }
 
 unsafe fn get_str_value(dict: CFDictionaryRef, key: &[u8]) -> Option<String> {

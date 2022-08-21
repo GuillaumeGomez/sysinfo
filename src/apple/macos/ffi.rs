@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use core_foundation_sys::base::CFAllocatorRef;
+use core_foundation_sys::base::{CFAllocatorRef, CFRelease};
 use core_foundation_sys::dictionary::CFMutableDictionaryRef;
 use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
 
@@ -95,6 +95,16 @@ pub type DASessionRef = *const __DASession;
 // We need to wrap `DASessionRef` to be sure `System` remains Send+Sync.
 pub struct SessionWrap(pub DASessionRef);
 
+impl Drop for SessionWrap {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            unsafe {
+                CFRelease(self.0 as _);
+            }
+        }
+    }
+}
+
 unsafe impl Send for SessionWrap {}
 unsafe impl Sync for SessionWrap {}
 
@@ -180,13 +190,12 @@ mod io_service {
     use std::ptr::null;
 
     use core_foundation_sys::array::CFArrayRef;
-    use core_foundation_sys::base::{CFAllocatorRef, CFRelease};
     use core_foundation_sys::dictionary::{
         kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks, CFDictionaryCreate,
         CFDictionaryRef,
     };
     use core_foundation_sys::number::{kCFNumberSInt32Type, CFNumberCreate};
-    use core_foundation_sys::string::{CFStringCreateWithCString, CFStringRef};
+    use core_foundation_sys::string::CFStringCreateWithCString;
 
     #[repr(C)]
     pub struct __IOHIDServiceClient(libc::c_void);
