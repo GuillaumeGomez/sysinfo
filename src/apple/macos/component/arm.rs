@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::ffi::CStr;
+use std::ops::{Deref, DerefMut};
 
 use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex};
 use core_foundation_sys::base::kCFAllocatorDefault;
@@ -8,7 +9,6 @@ use core_foundation_sys::string::{
     kCFStringEncodingUTF8, CFStringCreateWithBytes, CFStringGetCStringPtr,
 };
 
-use super::super::CFReleaser;
 use crate::apple::inner::ffi::{
     kHIDPage_AppleVendor, kHIDUsage_AppleVendor_TemperatureSensor, kIOHIDEventTypeTemperature,
     matching, IOHIDEventFieldBase, IOHIDEventGetFloatValue, IOHIDEventSystemClientCopyServices,
@@ -16,11 +16,26 @@ use crate::apple::inner::ffi::{
     IOHIDServiceClientCopyProperty, __IOHIDEventSystemClient, __IOHIDServiceClient,
     HID_DEVICE_PROPERTY_PRODUCT,
 };
+use crate::sys::macos::utils::CFReleaser;
 use crate::ComponentExt;
 
 pub(crate) struct Components {
     pub inner: Vec<Component>,
     client: Option<CFReleaser<__IOHIDEventSystemClient>>,
+}
+
+impl Deref for Components {
+    type Target = Vec<Component>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for Components {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
 }
 
 impl Components {
@@ -43,6 +58,7 @@ impl Components {
                 None => return,
             };
 
+            // FIXME: Do we really need to re-create a new `client` every time?
             let client = match CFReleaser::new(IOHIDEventSystemClientCreate(kCFAllocatorDefault)) {
                 Some(c) => c,
                 None => return,
@@ -95,13 +111,13 @@ impl Components {
                 self.inner.push(component);
             }
 
+            // FIXME: Do we really need to re-create a new `client` every time?
             self.client.replace(client);
         }
     }
 }
 
 unsafe impl Send for Components {}
-
 unsafe impl Sync for Components {}
 
 #[doc = include_str!("../../../../md_doc/component.md")]
@@ -131,7 +147,6 @@ impl Component {
 }
 
 unsafe impl Send for Component {}
-
 unsafe impl Sync for Component {}
 
 impl ComponentExt for Component {
@@ -167,6 +182,9 @@ impl ComponentExt for Component {
                 event.inner(),
                 IOHIDEventFieldBase(kIOHIDEventTypeTemperature),
             ) as _;
+            if self.temperature > self.max {
+                self.max = self.temperature;
+            }
         }
     }
 }

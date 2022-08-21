@@ -21,22 +21,26 @@ pub(crate) const COMPONENTS_TEMPERATURE_IDS: &[(&str, &[i8])] = &[
 pub(crate) struct ComponentFFI {
     input_structure: ffi::KeyData_t,
     val: ffi::Val_t,
+    /// It is the `System::connection`. We need it to not require an extra argument
+    /// in `ComponentExt::refresh`.
+    connection: ffi::io_connect_t,
 }
 
 impl ComponentFFI {
-    fn new(key: &[i8], con: ffi::io_connect_t) -> Option<ComponentFFI> {
+    fn new(key: &[i8], connection: ffi::io_connect_t) -> Option<ComponentFFI> {
         unsafe {
-            get_key_size(con, key)
+            get_key_size(connection, key)
                 .ok()
                 .map(|(input_structure, val)| ComponentFFI {
                     input_structure,
                     val,
+                    connection,
                 })
         }
     }
 
-    fn temperature(&self, con: ffi::io_connect_t) -> Option<f32> {
-        get_temperature_inner(con, &self.input_structure, &self.val)
+    fn temperature(&self) -> Option<f32> {
+        get_temperature_inner(self.connection, &self.input_structure, &self.val)
     }
 }
 
@@ -47,7 +51,6 @@ pub struct Component {
     critical: Option<f32>,
     label: String,
     ffi_part: ComponentFFI,
-    connection: ffi::io_connect_t,
 }
 
 impl Component {
@@ -60,16 +63,13 @@ impl Component {
         connection: ffi::io_connect_t,
     ) -> Option<Component> {
         let ffi_part = ComponentFFI::new(key, connection)?;
-        ffi_part
-            .temperature(connection)
-            .map(|temperature| Component {
-                temperature,
-                label,
-                max: max.unwrap_or(0.0),
-                critical,
-                ffi_part,
-                connection,
-            })
+        ffi_part.temperature().map(|temperature| Component {
+            temperature,
+            label,
+            max: max.unwrap_or(temperature),
+            critical,
+            ffi_part,
+        })
     }
 }
 
@@ -91,7 +91,7 @@ impl ComponentExt for Component {
     }
 
     fn refresh(&mut self) {
-        if let Some(temp) = self.ffi_part.temperature(self.connection) {
+        if let Some(temp) = self.ffi_part.temperature() {
             self.temperature = temp;
             if self.temperature > self.max {
                 self.max = self.temperature;

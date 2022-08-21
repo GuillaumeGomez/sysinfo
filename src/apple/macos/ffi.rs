@@ -190,12 +190,13 @@ mod io_service {
     use std::ptr::null;
 
     use core_foundation_sys::array::CFArrayRef;
+    use core_foundation_sys::base::{CFAllocatorRef, CFRelease};
     use core_foundation_sys::dictionary::{
         kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks, CFDictionaryCreate,
         CFDictionaryRef,
     };
     use core_foundation_sys::number::{kCFNumberSInt32Type, CFNumberCreate};
-    use core_foundation_sys::string::CFStringCreateWithCString;
+    use core_foundation_sys::string::{CFStringCreateWithCString, CFStringRef};
 
     #[repr(C)]
     pub struct __IOHIDServiceClient(libc::c_void);
