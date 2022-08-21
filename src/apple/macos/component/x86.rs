@@ -40,7 +40,7 @@ impl ComponentFFI {
     }
 }
 
-#[doc = include_str!("../../../md_doc/component.md")]
+#[doc = include_str!("../../../../md_doc/component.md")]
 pub struct Component {
     temperature: f32,
     max: f32,

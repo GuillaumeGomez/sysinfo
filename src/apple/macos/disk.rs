@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use super::CFReleaser;
 use crate::sys::{ffi, utils};
 use crate::utils::to_cpath;
 use crate::{Disk, DiskType};
@@ -30,31 +31,6 @@ fn to_path(mount_path: &[c_char]) -> Option<PathBuf> {
     } else {
         let path = OsStr::from_bytes(&tmp);
         Some(PathBuf::from(path))
-    }
-}
-
-#[repr(transparent)]
-struct CFReleaser<T>(*const T);
-
-impl<T> CFReleaser<T> {
-    fn new(ptr: *const T) -> Option<Self> {
-        if ptr.is_null() {
-            None
-        } else {
-            Some(Self(ptr))
-        }
-    }
-
-    fn inner(&self) -> *const T {
-        self.0
-    }
-}
-
-impl<T> Drop for CFReleaser<T> {
-    fn drop(&mut self) {
-        if !self.0.is_null() {
-            unsafe { CFRelease(self.0 as _) }
-        }
     }
 }
 
