@@ -89,8 +89,10 @@ impl Components {
                     CFStringGetCStringPtr(name.inner() as *const _, kCFStringEncodingUTF8);
                 let name_str = CStr::from_ptr(name_ptr).to_string_lossy().to_string();
 
-                self.inner
-                    .push(Component::new(name_str, None, None, service));
+                let mut component = Component::new(name_str, None, None, service);
+                component.refresh();
+
+                self.inner.push(component);
             }
 
             self.client.replace(client);
