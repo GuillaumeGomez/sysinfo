@@ -1,7 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::ffi::CStr;
-use std::ops::{Deref, DerefMut};
 
 use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex};
 use core_foundation_sys::base::kCFAllocatorDefault;
@@ -22,20 +21,6 @@ use crate::ComponentExt;
 pub(crate) struct Components {
     pub inner: Vec<Component>,
     client: Option<CFReleaser<__IOHIDEventSystemClient>>,
-}
-
-impl Deref for Components {
-    type Target = Vec<Component>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl DerefMut for Components {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
-    }
 }
 
 impl Components {
