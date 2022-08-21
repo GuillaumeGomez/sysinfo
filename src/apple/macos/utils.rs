@@ -1,14 +1,32 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#[cfg(all(
+    target_os = "macos",
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 use super::ffi;
 use core_foundation_sys::base::CFRelease;
+#[cfg(all(
+    target_os = "macos",
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 use libc::mach_port_t;
 
-#[cfg(not(feature = "apple-sandbox"))]
+#[cfg(all(
+    target_os = "macos",
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 #[repr(transparent)]
 pub(crate) struct IoObject(ffi::io_object_t);
 
-#[cfg(not(feature = "apple-sandbox"))]
+#[cfg(all(
+    target_os = "macos",
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 impl IoObject {
     fn new(obj: ffi::io_object_t) -> Option<Self> {
         if obj == 0 {
@@ -23,7 +41,11 @@ impl IoObject {
     }
 }
 
-#[cfg(not(feature = "apple-sandbox"))]
+#[cfg(all(
+    target_os = "macos",
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 impl Drop for IoObject {
     fn drop(&mut self) {
         unsafe {
@@ -32,11 +54,19 @@ impl Drop for IoObject {
     }
 }
 
-#[cfg(not(feature = "apple-sandbox"))]
+#[cfg(all(
+    target_os = "macos",
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 #[repr(transparent)]
 pub(crate) struct IoService(ffi::io_connect_t);
 
-#[cfg(not(feature = "apple-sandbox"))]
+#[cfg(all(
+    target_os = "macos",
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 impl IoService {
     fn new(obj: ffi::io_connect_t) -> Option<Self> {
         if obj == 0 {
@@ -99,7 +129,11 @@ impl IoService {
     }
 }
 
-#[cfg(not(feature = "apple-sandbox"))]
+#[cfg(all(
+    target_os = "macos",
+    not(feature = "apple-sandbox"),
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
 impl Drop for IoService {
     fn drop(&mut self) {
         unsafe {

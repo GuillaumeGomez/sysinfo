@@ -607,6 +607,7 @@ fn update_proc_disk_activity(p: &mut Process) {
     }
 }
 
+#[allow(unknown_lints)]
 #[allow(clippy::uninit_vec)]
 pub(crate) fn get_proc_list() -> Option<Vec<Pid>> {
     unsafe {

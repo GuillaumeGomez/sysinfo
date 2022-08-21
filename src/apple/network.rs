@@ -26,6 +26,7 @@ impl Networks {
         }
     }
 
+    #[allow(unknown_lints)]
     #[allow(clippy::cast_ptr_alignment)]
     #[allow(clippy::uninit_vec)]
     fn update_networks(&mut self) {

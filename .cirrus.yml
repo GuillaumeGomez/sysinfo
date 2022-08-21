@@ -35,3 +35,23 @@ task:
     - cargo clippy -- -D warnings
     - cargo check --example simple
     - FREEBSD_CI=1 cargo test -j1
+
+task:
+  name: rust 1.54 on mac m1
+  macos_instance:
+    image: ghcr.io/cirruslabs/macos-monterey-base:latest
+  setup_script:
+    - brew install curl
+    - curl https://sh.rustup.rs -sSf --output rustup.sh
+    - sh rustup.sh -y --profile=minimal --default-toolchain=1.54
+    - source $HOME/.cargo/env
+    - rustup --version
+    - rustup component add clippy
+  test_script:
+    - source $HOME/.cargo/env
+    - cargo check
+    - cargo check --no-default-features
+    - cargo check --no-default-features --features apple-sandbox
+    - cargo clippy -- -D warnings
+    - cargo check --example simple
+    - APPLE_CI=1 cargo test -j1

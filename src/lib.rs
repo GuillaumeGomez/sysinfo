@@ -429,7 +429,6 @@ mod test {
 
     // Ensure that the CPUs frequency isn't retrieved until we ask for it.
     #[test]
-    #[cfg(not(target_os = "freebsd"))] // In a VM, it'll fail.
     fn check_cpu_frequency() {
         if !System::IS_SUPPORTED {
             return;
@@ -443,9 +442,12 @@ mod test {
         for proc_ in s.cpus() {
             assert_eq!(proc_.frequency(), 0);
         }
-        s.refresh_cpu_specifics(CpuRefreshKind::everything());
-        for proc_ in s.cpus() {
-            assert_ne!(proc_.frequency(), 0);
+        // In a VM, it'll fail.
+        if std::env::var("APPLE_CI").is_err() && std::env::var("FREEBSD_CI").is_err() {
+            s.refresh_cpu_specifics(CpuRefreshKind::everything());
+            for proc_ in s.cpus() {
+                assert_ne!(proc_.frequency(), 0);
+            }
         }
     }
 
