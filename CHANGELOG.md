@@ -1,3 +1,9 @@
+# 0.25.3
+
+ * Add macOS M1 CI checks.
+ * macOS M1: Add temperature support.
+ * macOS: Fix leak in disk retrieval.
+
 # 0.25.2
 
  * Windows: Fix `Process::exe` information retrieval.
