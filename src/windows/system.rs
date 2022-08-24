@@ -187,7 +187,6 @@ impl SystemExt for System {
         unsafe {
             let mut mem_info: MEMORYSTATUSEX = zeroed();
             mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
-            // nfx: Do something with the return value.  Ignoring it is not a good choice.
             GlobalMemoryStatusEx(&mut mem_info);
             self.mem_total = Self::adjust_memory_value(auto_cast!(mem_info.ullTotalPhys, u64));
             self.mem_available = Self::adjust_memory_value(auto_cast!(mem_info.ullAvailPhys, u64));
