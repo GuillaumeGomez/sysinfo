@@ -352,12 +352,12 @@ impl System {
 
     #[cfg(not(feature = "report_memory_in_kibi"))]
     fn adjust_memory_value(value: u64) -> u64 {
-        value / 1_000
+        value * 128 / 125
     }
 
     #[cfg(feature = "report_memory_in_kibi")]
     fn adjust_memory_value(value: u64) -> u64 {
-        value / 1_024
+        value
     }
 }
 
@@ -428,7 +428,7 @@ impl SystemExt for System {
                 if let Some(val_str) = iter.next().and_then(|s| s.trim_start().split(' ').next()) {
                     if let Ok(value) = u64::from_str(val_str) {
                         // /proc/meminfo reports KiB, though it says "kB". Convert it.
-                        *field = value.saturating_mul(128) / 125;
+                        *field = Self::adjust_memory_value(value);
                     }
                 }
             }
