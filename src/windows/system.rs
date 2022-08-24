@@ -64,6 +64,19 @@ pub struct System {
     users: Vec<User>,
 }
 
+static WINDOWS_ELEVEN_BUILD_NUMBER: u32 = 22000;
+
+impl System {
+    fn is_windows_eleven(&self) -> bool {
+        WINDOWS_ELEVEN_BUILD_NUMBER
+            <= self
+                .kernel_version()
+                .unwrap_or_default()
+                .parse()
+                .unwrap_or(0)
+    }
+}
+
 // Useful for parallel iterations.
 struct Wrap<T>(T);
 
@@ -435,6 +448,14 @@ impl SystemExt for System {
     }
 
     fn long_os_version(&self) -> Option<String> {
+        if self.is_windows_eleven() {
+            return get_reg_string_value(
+                HKEY_LOCAL_MACHINE,
+                "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+                "ProductName",
+            )
+            .map(|product_name| product_name.replace("Windows 10 ", "Windows 11 "));
+        }
         get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
@@ -455,23 +476,25 @@ impl SystemExt for System {
     }
 
     fn os_version(&self) -> Option<String> {
-        let major = get_reg_value_u32(
-            HKEY_LOCAL_MACHINE,
-            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
-            "CurrentMajorVersionNumber",
-        );
-
         let build_number = get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
             "CurrentBuildNumber",
-        );
-
-        Some(format!(
-            "{} ({})",
-            u32::from_le_bytes(major.unwrap_or_default()),
-            build_number.unwrap_or_default()
-        ))
+        )
+        .unwrap_or_default();
+        let major = if self.is_windows_eleven() {
+            11u32
+        } else {
+            u32::from_le_bytes(
+                get_reg_value_u32(
+                    HKEY_LOCAL_MACHINE,
+                    "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+                    "CurrentMajorVersionNumber",
+                )
+                .unwrap_or_default(),
+            )
+        };
+        Some(format!("{} ({})", major, build_number))
     }
 }
 
