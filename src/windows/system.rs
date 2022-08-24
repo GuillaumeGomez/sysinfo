@@ -96,12 +96,12 @@ unsafe fn boot_time() -> u64 {
 }
 
 impl System {
-    #[cfg(not(feature = "report_windows_memory_in_kibi"))]
+    #[cfg(not(feature = "report_memory_in_kibi"))]
     fn adjust_memory_value(value: u64) -> u64 {
         value / 1_000
     }
 
-    #[cfg(feature = "report_windows_memory_in_kibi")]
+    #[cfg(feature = "report_memory_in_kibi")]
     fn adjust_memory_value(value: u64) -> u64 {
         value / 1_024
     }
