@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2019 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::fs::File;
 use std::io::Read;
@@ -11,14 +7,7 @@ use std::path::Path;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
 
-/// Network interfaces.
-///
-/// ```no_run
-/// use sysinfo::{NetworksExt, System, SystemExt};
-///
-/// let s = System::new_all();
-/// let networks = s.networks();
-/// ```
+#[doc = include_str!("../../md_doc/networks.md")]
 pub struct Networks {
     interfaces: HashMap<String, NetworkData>,
 }
@@ -35,6 +24,7 @@ macro_rules! old_and_new {
     }};
 }
 
+#[allow(clippy::ptr_arg)]
 fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
     if let Ok(mut f) = File::open(parent.as_ref().join(path)) {
         if let Ok(size) = f.read(data) {
@@ -145,7 +135,7 @@ impl NetworksExt for Networks {
     }
 }
 
-/// Contains network information.
+#[doc = include_str!("../../md_doc/network_data.md")]
 pub struct NetworkData {
     /// Total number of bytes received over interface.
     rx_bytes: u64,

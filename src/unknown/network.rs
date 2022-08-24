@@ -1,21 +1,10 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2017 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::collections::HashMap;
 
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
-/// Network interfaces.
-///
-/// ```no_run
-/// use sysinfo::{NetworksExt, System, SystemExt};
-///
-/// let s = System::new_all();
-/// let networks = s.networks();
-/// ```
+#[doc = include_str!("../../md_doc/networks.md")]
 pub struct Networks {
     interfaces: HashMap<String, NetworkData>,
 }
@@ -29,7 +18,7 @@ impl Networks {
 }
 
 impl NetworksExt for Networks {
-    fn iter<'a>(&'a self) -> NetworksIter<'a> {
+    fn iter(&self) -> NetworksIter {
         NetworksIter::new(self.interfaces.iter())
     }
 
@@ -38,7 +27,7 @@ impl NetworksExt for Networks {
     fn refresh(&mut self) {}
 }
 
-/// Contains network information.
+#[doc = include_str!("../../md_doc/network_data.md")]
 pub struct NetworkData;
 
 impl NetworkExt for NetworkData {

@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2017 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::utils::to_cpath;
 use crate::{DiskExt, DiskType};
@@ -15,7 +11,7 @@ use std::ffi::{OsStr, OsString};
 use std::mem;
 use std::path::{Path, PathBuf};
 
-/// Struct containing a disk information.
+#[doc = include_str!("../../md_doc/disk.md")]
 pub struct Disk {
     pub(crate) type_: DiskType,
     pub(crate) name: OsString,
@@ -60,7 +56,7 @@ impl DiskExt for Disk {
             let mut stat: statfs = mem::zeroed();
             let mount_point_cpath = to_cpath(&self.mount_point);
             if statfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
-                self.available_space = u64::from(stat.f_bsize) * stat.f_bavail;
+                self.available_space = u64::from(stat.f_bsize).saturating_mul(stat.f_bavail);
                 true
             } else {
                 false

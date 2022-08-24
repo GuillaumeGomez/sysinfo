@@ -1,43 +1,45 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2015 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    sys::{component::Component, Disk, Networks, Process, Processor},
-    LoadAvg, Pid, RefreshKind, SystemExt, User,
+    sys::{component::Component, Cpu, Disk, Networks, Process},
+    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 use std::collections::HashMap;
 
-/// Structs containing system's information.
+declare_signals! {
+    (),
+    _ => None,
+}
+
+#[doc = include_str!("../../md_doc/system.md")]
 pub struct System {
     processes_list: HashMap<Pid, Process>,
     networks: Networks,
-    global_processor: Processor,
+    global_cpu: Cpu,
 }
 
 impl SystemExt for System {
     const IS_SUPPORTED: bool = false;
+    const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
 
     fn new_with_specifics(_: RefreshKind) -> System {
         System {
             processes_list: Default::default(),
             networks: Networks::new(),
-            global_processor: Processor::new(),
+            global_cpu: Cpu::new(),
         }
     }
 
     fn refresh_memory(&mut self) {}
 
-    fn refresh_cpu(&mut self) {}
+    fn refresh_cpu_specifics(&mut self, _refresh_kind: CpuRefreshKind) {}
 
     fn refresh_components_list(&mut self) {}
 
-    fn refresh_processes(&mut self) {}
+    fn refresh_processes_specifics(&mut self, _refresh_kind: ProcessRefreshKind) {}
 
-    fn refresh_process(&mut self, _pid: Pid) -> bool {
+    fn refresh_process_specifics(&mut self, _pid: Pid, _refresh_kind: ProcessRefreshKind) -> bool {
         false
     }
 
@@ -65,11 +67,11 @@ impl SystemExt for System {
         &mut self.networks
     }
 
-    fn global_processor_info(&self) -> &Processor {
-        &self.global_processor
+    fn global_cpu_info(&self) -> &Cpu {
+        &self.global_cpu
     }
 
-    fn processors(&self) -> &[Processor] {
+    fn cpus(&self) -> &[Cpu] {
         &[]
     }
 
@@ -119,6 +121,13 @@ impl SystemExt for System {
 
     fn disks_mut(&mut self) -> &mut [Disk] {
         &mut []
+    }
+
+    fn sort_disks_by<F>(&mut self, _compare: F)
+    where
+        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
+    {
+        // does nothing.
     }
 
     fn uptime(&self) -> u64 {

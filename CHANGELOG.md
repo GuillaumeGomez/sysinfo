@@ -1,3 +1,244 @@
+# 0.25.3
+
+ * Add macOS M1 CI checks.
+ * macOS M1: Add temperature support.
+ * macOS: Fix leak in disk retrieval.
+
+# 0.25.2
+
+ * Windows: Fix `Process::exe` information retrieval.
+ * All supported platforms: Correctly handle a PID owner change (#809).
+
+# 0.25.1
+
+ * Linux: Fix potential problem on `ProcessExt::exe` in case `/proc/<pid>/exe` cannot be read.
+ * Add `SystemExt::sort_disks_by`.
+
+# 0.25.0
+
+ * Linux: CPU frequency is now retrieved on-demand as expected when `CpuRefreshKind::frequency` is `true`.
+ * `System::refresh_cpu` behaviour changed: it only computes CPU usage and doesn't retrieve CPU frequency.
+
+# 0.24.7
+
+ * Windows: Fix boot time computation.
+ * macOS: Fix available memory computation.
+ * Some documentation fixes.
+
+# 0.24.6
+
+ * macOS: Don't compute CPU usage when elapsed time is 0.
+ * macOS: Fix memory leak when retrieving disks.
+ * C interface: Fix `char` cast when platform is using unsigned `char`s.
+
+# 0.24.5
+
+ * Implement `Hash` trait on `Uid` and `Gid` types.
+ * Remove dependency `once_cell` for targets other than `linux`, `android` and `windows`.
+
+# 0.24.4
+
+ * Windows: Fix `System::refresh_process` when required higher priviledges.
+
+# 0.24.3
+
+ * macOS: Fix `System::refresh_processes` badly handling updates.
+ * FreeBSD: Improve performance of `System::refresh_processes`.
+
+# 0.24.2
+
+ * Windows: Fix CPU usage computation.
+ * Windows: Enable extra feature on `winapi`.
+ * macOS: Fix executable path retrieval.
+
+# 0.24.1
+
+ * Use `saturating_*` function for mathematical operations to prevent overflows/underflows.
+
+# 0.24.0
+
+ * Rename `Processor` into `Cpu` and `ProcessorExt` into `CpuExt`.
+ * Retrieve information about a process' owner.
+ * Add `SystemExt::get_user_by_id`.
+ * Add `ProcessExt::user_id`.
+ * Add `ProcessExt::group_id`.
+ * Add `user`-related methods to `ProcessRefreshKind`.
+ * Linux: Improve performance when creating new `Process` by improving retrieval of user ID and group ID.
+
+# 0.23.14
+
+ * Linux: Fix processes' virtual memory computation.
+
+# 0.23.13
+
+ * macOS/FreeBSD: Fix `System::refresh_process` and `System::refresh_process_specifics` returned value.
+ * Linux: Small performance improvement when updating process list.
+
+# 0.23.12
+
+ * Linux: Improve `System::refresh_cpu` performance.
+ * Fix clippy lints.
+
+# 0.23.11
+
+ * Add FreeBSD to the "supported OS" list
+ * Remove useless benchmark results
+
+# 0.23.10
+
+ * Improve documentation of `SystemExt::refresh_cpu`.
+
+# 0.23.9
+
+ * macOS: Fix disk retrieval
+
+# 0.23.8
+
+ * Windows: Fix underflow for `Process` run_time computation
+
+# 0.23.7
+
+ * macOS: Ignore non-root drive partitions
+
+# 0.23.6
+
+ * Windows: Fix process name retrieval
+ * Windows: Unify internal process creation methods
+ * FreeBSD: Simplify code for process update
+
+# 0.23.5
+
+ * Windows: Fix a bug which prevent all disks to be listed.
+
+# 0.23.4
+
+ * Linux (raspberry): Fix physical core count.
+
+# 0.23.3
+
+ * Impl `From<Pid>` for Pid inner type.
+ * Code cleanup.
+
+# 0.23.2
+
+ * Fix unsafe "correctness".
+ * Correctly handle `MaybeUninit::assume_init`.
+
+# 0.23.1
+
+ * Implement `Into` trait on `Pid`
+ * Add `#[repr(transparent)]` on `Pid`
+ * Clean up `refresh_process` and `refresh_processes`: only `refresh_processes` removes non-existing processes.
+
+# 0.23.0
+
+ * Linux: Fix process uptime.
+ * Rename `process_by_name` into `processes_by_name`.
+ * Rename `process_by_name_exact` into `processes_by_name_exact`.
+ * Change returned type of `process_by_name` and of `process_by_name_exact` into an iterator.
+ * Improved `Signal` documentation.
+ * Turned `Pid` type alias into a newtype.
+
+# 0.22.5
+
+ * Linux: Improve documentation on how processes queries are handled.
+ * FreeBSD: Fix type error for 32-bit (on i386, armv6, armv7, powerpc).
+ * Improve Pid type documentation.
+ * Add `SystemExt::process_by_exact_name` method.
+ * Add `SUPPORTED_SIGNALS` constant on `SystemExt`.
+ * Fix common type aliases.
+ * Implement `Display` for `Signal`.
+
+# 0.22.4
+
+ * Windows: Correctly handle COM initialization/deinitialization.
+ * Linux: Fix panic when changing the limit of open files.
+
+# 0.22.3
+
+ * FreeBSD: Take ZFS ARC value into account when computing used system memory.
+ * Add some missing `#[must_use]`.
+
+# 0.22.2
+
+ * FreeBSD: Improve memory information retrieval.
+
+# 0.22.1
+
+ * Remove forgotten debug.
+
+# 0.22.0
+
+ * Add FreeBSD support.
+ * Create `SystemExt::refresh_processes_specifics` and `SystemExt::refresh_process_specifics` methods.
+ * Update `ProcessExt::kill` API and add `ProcessExt::kill_with`.
+ * Add `ProcessExt::run_time`.
+
+# 0.21.2
+
+ * Unsupported targets: Fix build.
+ * Linux: Exclude rootfs disk type as well.
+ * Windows: Performance improvement by lazily creating queries.
+
+# 0.21.1
+
+ * Linux: Process CPU usage cannot go above maximum value (number of CPUs * 100) anymore.
+ * Linux: Improve processors update.
+ * Linux: Improve processes CPU usage computation speed.
+
+# 0.21.0
+
+ * Linux: Fix processes CPU computation (if `System::refresh_cpu` wasn't used).
+ * Fix build for unsupported targets.
+ * Make `ProcessStatus` enum unique for all platforms.
+ * Unify documentation over all platforms.
+
+# 0.20.5
+
+ * Linux: Prevented overflow in disk size computation (bug in `davfs2`).
+ * Fixed clippy lints
+
+# 0.20.4
+
+ * Update libc version, allowing to remove a lot of FFI bindings.
+
+# 0.20.3
+
+ * Windows: Reworked process information retrieval
+ * Windows: Fixed issue on `c_void` size.
+ * Improved documentation of `ProcessExt::environ`.
+
+# 0.20.2
+
+ * Windows: Added support for getting process' current working directory
+ * Windows: Added support for getting process' environment variables
+ * Removed more FFI bindings and replaced them with libc's.
+
+# 0.20.1
+
+ * macOS: Added better support for sandboxing.
+ * macOS: Added support for getting process current working directory.
+ * Added more explanations in crate level code example.
+ * Updated rayon version to 1.5.1.
+
+# 0.20.0
+
+ * macOS: Improved code readability.
+ * Windows: Prevented the `taskkill.exe` console window from appearing when using `kill`.
+ * Fixed benchmarks compilation issue.
+ * Upgraded minimum supported Rust version to 1.54.
+ * Removed doc-comment dependency.
+ * Merged README and crate documentation.
+
+# 0.19.2
+
+ * Windows: Fixed swap memory information computation.
+
+# 0.19.1
+
+ * Windows: Got swap memory information.
+ * Linux: Fixed memory information gathering (bad parsing of `/proc/meminfo`).
+
 # 0.19.0
 
  * Renamed functions/methods to follow [Rust API guidelines on naming](https://rust-lang.github.io/api-guidelines/naming.html#getter-names-follow-rust-convention-c-getter).

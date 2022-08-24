@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2017 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 #![crate_type = "bin"]
 #![allow(unused_must_use, non_upper_case_globals)]
@@ -13,7 +9,7 @@ use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::Signal::*;
 use sysinfo::{
-    NetworkExt, NetworksExt, Pid, ProcessExt, ProcessorExt, Signal, System, SystemExt, UserExt,
+    CpuExt, NetworkExt, NetworksExt, Pid, ProcessExt, Signal, System, SystemExt, UserExt,
 };
 
 const signals: &[Signal] = &[
@@ -84,7 +80,7 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
-        "processors         : Displays processors state"
+        "cpus               : Displays CPUs state"
     );
     writeln!(
         &mut io::stdout(),
@@ -116,19 +112,16 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
-        "vendor_id          : Displays processor vendor id"
+        "vendor_id          : Displays CPU vendor id"
     );
-    writeln!(
-        &mut io::stdout(),
-        "brand              : Displays processor brand"
-    );
+    writeln!(&mut io::stdout(), "brand              : Displays CPU brand");
     writeln!(
         &mut io::stdout(),
         "load_avg           : Displays system load average"
     );
     writeln!(
         &mut io::stdout(),
-        "frequency          : Displays processor frequency"
+        "frequency          : Displays CPU frequency"
     );
     writeln!(&mut io::stdout(), "users              : Displays all users");
     writeln!(
@@ -163,7 +156,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 nb += 1;
             }
         }
-        "processors" => {
+        "cpus" => {
             // Note: you should refresh a few times before using this, so that usage statistics
             // can be ascertained
             writeln!(
@@ -176,9 +169,9 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             writeln!(
                 &mut io::stdout(),
                 "total process usage: {}%",
-                sys.global_processor_info().cpu_usage()
+                sys.global_cpu_info().cpu_usage()
             );
-            for proc_ in sys.processors() {
+            for proc_ in sys.cpus() {
                 writeln!(&mut io::stdout(), "{:?}", proc_);
             }
         }
@@ -204,18 +197,18 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             writeln!(
                 &mut io::stdout(),
                 "{} MHz",
-                sys.global_processor_info().frequency()
+                sys.global_cpu_info().frequency()
             );
         }
         "vendor_id" => {
             writeln!(
                 &mut io::stdout(),
                 "vendor ID: {}",
-                sys.processors()[0].vendor_id()
+                sys.cpus()[0].vendor_id()
             );
         }
         "brand" => {
-            writeln!(&mut io::stdout(), "brand: {}", sys.processors()[0].brand());
+            writeln!(&mut io::stdout(), "brand: {}", sys.cpus()[0].brand());
         }
         "load_avg" => {
             let load_avg = sys.load_average();
@@ -239,7 +232,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 };
             } else {
                 let proc_name = tmp[1];
-                for proc_ in sys.process_by_name(proc_name) {
+                for proc_ in sys.processes_by_name(proc_name) {
                     writeln!(&mut io::stdout(), "==== {} ====", proc_.name());
                     writeln!(&mut io::stdout(), "{:?}", proc_);
                 }
@@ -275,7 +268,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             if tmp.len() != 3 {
                 writeln!(
                     &mut io::stdout(),
-                    "kill command takes the pid and a signal number in parameter !"
+                    "kill command takes the pid and a signal number in parameter!"
                 );
                 writeln!(&mut io::stdout(), "example: kill 1254 9");
             } else {
@@ -291,11 +284,16 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 } else {
                     match sys.process(pid) {
                         Some(p) => {
-                            writeln!(
-                                &mut io::stdout(),
-                                "kill: {}",
-                                p.kill(*signals.get(signal as usize - 1).unwrap())
-                            );
+                            if let Some(res) =
+                                p.kill_with(*signals.get(signal as usize - 1).unwrap())
+                            {
+                                writeln!(&mut io::stdout(), "kill: {}", res,);
+                            } else {
+                                writeln!(
+                                    &mut io::stdout(),
+                                    "kill: signal not supported on this platform"
+                                );
+                            }
                         }
                         None => {
                             writeln!(&mut io::stdout(), "pid not found");
@@ -378,14 +376,17 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "system" => {
             writeln!(
                 &mut io::stdout(),
-                "System name:           {}\n\
-                System kernel version: {}\n\
-                System OS version:     {}\n\
-                System host name:      {}",
+                "System name:              {}\n\
+                 System kernel version:    {}\n\
+                 System OS version:        {}\n\
+                 System OS (long) version: {}\n\
+                 System host name:         {}",
                 sys.name().unwrap_or_else(|| "<unknown>".to_owned()),
                 sys.kernel_version()
                     .unwrap_or_else(|| "<unknown>".to_owned()),
                 sys.os_version().unwrap_or_else(|| "<unknown>".to_owned()),
+                sys.long_os_version()
+                    .unwrap_or_else(|| "<unknown>".to_owned()),
                 sys.host_name().unwrap_or_else(|| "<unknown>".to_owned()),
             );
         }

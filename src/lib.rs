@@ -1,101 +1,26 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2015 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
-//! `sysinfo` is a crate used to get a system's information.
-//!
-//! ## Supported Oses
-//!
-//! It currently supports the following OSes (alphabetically sorted):
-//!  * Android
-//!  * iOS
-//!  * Linux
-//!  * macOS
-//!  * Windows
-//!
-//! You can still use `sysinfo` on non-supported OSes, it'll simply do nothing and always return
-//! empty values. You can check in your program directly if an OS is supported by checking the
-//! [`SystemExt::IS_SUPPORTED`] constant.
-//!
-//! ## Usage
-//!
-//! /!\ Before any attempt to read the different structs' information, you need to update them to
-//! get up-to-date information because for most of them, it works on diff between the current value
-//! and the old one.
-//!
-//! Which is why, it's much better to keep the same instance of [`System`] around instead of
-//! recreating it multiple times.
-//!
-//! ## Examples
-//!
-//! ```
-//! use sysinfo::{ProcessExt, SystemExt};
-//!
-//! let mut system = sysinfo::System::new_all();
-//!
-//! // First we update all information of our system struct.
-//! system.refresh_all();
-//!
-//! // Now let's print every process' id and name:
-//! for (pid, proc_) in system.processes() {
-//!     println!("{}:{} => status: {:?}", pid, proc_.name(), proc_.status());
-//! }
-//!
-//! // Then let's print the temperature of the different components:
-//! for component in system.components() {
-//!     println!("{:?}", component);
-//! }
-//!
-//! // And then all disks' information:
-//! for disk in system.disks() {
-//!     println!("{:?}", disk);
-//! }
-//!
-//! // And finally the RAM and SWAP information:
-//! println!("total memory: {} KB", system.total_memory());
-//! println!("used memory : {} KB", system.used_memory());
-//! println!("total swap  : {} KB", system.total_swap());
-//! println!("used swap   : {} KB", system.used_swap());
-//!
-//! // Display system information:
-//! println!("System name:             {:?}", system.name());
-//! println!("System kernel version:   {:?}", system.kernel_version());
-//! println!("System OS version:       {:?}", system.os_version());
-//! println!("System host name:        {:?}", system.host_name());
-//! ```
-
-#![crate_name = "sysinfo"]
-#![crate_type = "lib"]
-#![crate_type = "rlib"]
+#![doc = include_str!("../README.md")]
 #![allow(unknown_lints)]
 #![deny(missing_docs)]
-#![deny(broken_intra_doc_links)]
+#![deny(rustdoc::broken_intra_doc_links)]
 #![allow(clippy::upper_case_acronyms)]
+#![allow(clippy::non_send_fields_in_send_ty)]
 #![allow(renamed_and_removed_lints)]
+#![allow(unknown_lints)]
 
-#[cfg(doctest)]
-doc_comment::doctest!("../README.md");
-
-#[cfg(feature = "debug")]
-#[doc(hidden)]
-#[allow(unused)]
-macro_rules! sysinfo_debug {
-    ($($x:tt)*) => {{
-        eprintln!($($x)*);
-    }}
-}
-
-#[cfg(not(feature = "debug"))]
-#[doc(hidden)]
-#[allow(unused)]
-macro_rules! sysinfo_debug {
-    ($($x:tt)*) => {{}};
-}
+#[macro_use]
+mod macros;
 
 cfg_if::cfg_if! {
-    if #[cfg(any(target_os = "macos", target_os = "ios"))] {
+    if #[cfg(feature = "unknown-ci")] {
+        // This is used in CI to check that the build for unknown targets is compiling fine.
+        mod unknown;
+        use unknown as sys;
+
+        #[cfg(test)]
+        pub(crate) const MIN_USERS: usize = 0;
+    } else if #[cfg(any(target_os = "macos", target_os = "ios"))] {
         mod apple;
         use apple as sys;
         extern crate core_foundation_sys;
@@ -113,6 +38,14 @@ cfg_if::cfg_if! {
     } else if #[cfg(any(target_os = "linux", target_os = "android"))] {
         mod linux;
         use linux as sys;
+        pub(crate) mod users;
+
+        #[cfg(test)]
+        pub(crate) const MIN_USERS: usize = 1;
+    } else if #[cfg(target_os = "freebsd")] {
+        mod freebsd;
+        use freebsd as sys;
+        pub(crate) mod users;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -126,16 +59,16 @@ cfg_if::cfg_if! {
 }
 
 pub use common::{
-    AsU32, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid, RefreshKind, Signal, Uid, User,
+    get_current_pid, CpuRefreshKind, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid, PidExt,
+    ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, Uid, User,
 };
-pub use sys::{Component, Disk, NetworkData, Networks, Process, ProcessStatus, Processor, System};
+pub use sys::{Component, Cpu, Disk, NetworkData, Networks, Process, System};
 pub use traits::{
-    ComponentExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, ProcessorExt, SystemExt, UserExt,
+    ComponentExt, CpuExt, DiskExt, NetworkExt, NetworksExt, ProcessExt, SystemExt, UserExt,
 };
 
 #[cfg(feature = "c-interface")]
 pub use c_interface::*;
-pub use utils::get_current_pid;
 
 #[cfg(feature = "c-interface")]
 mod c_interface;
@@ -169,72 +102,178 @@ mod utils;
 /// let s = System::new_all();
 /// ```
 pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    {
-        if _new_limit < 0 {
-            _new_limit = 0;
-        }
-        let max = sys::system::get_max_nb_fds();
-        if _new_limit > max {
-            _new_limit = max;
-        }
-        if let Ok(ref mut x) = unsafe { sys::system::REMAINING_FILES.lock() } {
-            // If files are already open, to be sure that the number won't be bigger when those
-            // files are closed, we subtract the current number of opened files to the new limit.
-            let diff = max - **x;
-            **x = _new_limit - diff;
-            true
+    cfg_if::cfg_if! {
+        if #[cfg(all(not(feature = "unknown-ci"), any(target_os = "linux", target_os = "android")))]
+        {
+            if _new_limit < 0 {
+                _new_limit = 0;
+            }
+            let max = sys::system::get_max_nb_fds();
+            if _new_limit > max {
+                _new_limit = max;
+            }
+            unsafe {
+                if let Ok(ref mut x) = sys::system::REMAINING_FILES.lock() {
+                    // If files are already open, to be sure that the number won't be bigger when those
+                    // files are closed, we subtract the current number of opened files to the new
+                    // limit.
+                    let diff = max.saturating_sub(**x);
+                    **x = _new_limit.saturating_sub(diff);
+                    true
+                } else {
+                    false
+                }
+            }
         } else {
             false
         }
     }
-    #[cfg(all(not(target_os = "linux"), not(target_os = "android")))]
-    {
-        false
-    }
+}
+
+// FIXME: Can be removed once negative trait bounds are supported.
+#[cfg(doctest)]
+mod doctest {
+    /// Check that `Process` doesn't implement `Clone`.
+    ///
+    /// First we check that the "basic" code works:
+    ///
+    /// ```no_run
+    /// use sysinfo::{Process, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// let p: &Process = s.processes().values().next().unwrap();
+    /// ```
+    ///
+    /// And now we check if it fails when we try to clone it:
+    ///
+    /// ```compile_fail
+    /// use sysinfo::{Process, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// let p: &Process = s.processes().values().next().unwrap();
+    /// let p = (*p).clone();
+    /// ```
+    mod process_clone {}
+
+    /// Check that `System` doesn't implement `Clone`.
+    ///
+    /// First we check that the "basic" code works:
+    ///
+    /// ```no_run
+    /// use sysinfo::{Process, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// ```
+    ///
+    /// And now we check if it fails when we try to clone it:
+    ///
+    /// ```compile_fail
+    /// use sysinfo::{Process, System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// let s = s.clone();
+    /// ```
+    mod system_clone {}
 }
 
 #[cfg(test)]
 mod test {
     use crate::*;
 
+    #[cfg(feature = "unknown-ci")]
+    #[test]
+    fn check_unknown_ci_feature() {
+        assert!(!System::IS_SUPPORTED);
+    }
+
+    #[test]
+    fn check_process_memory_usage() {
+        let mut s = System::new();
+        s.refresh_all();
+
+        if System::IS_SUPPORTED {
+            // No process should have 0 as memory usage.
+            #[cfg(not(feature = "apple-sandbox"))]
+            assert!(!s.processes().iter().all(|(_, proc_)| proc_.memory() == 0));
+        } else {
+            // There should be no process, but if there is one, its memory usage should be 0.
+            assert!(s.processes().iter().all(|(_, proc_)| proc_.memory() == 0));
+        }
+    }
+
     #[test]
     fn check_memory_usage() {
-        // We don't want to test on unsupported systems.
+        let mut s = System::new();
+
+        assert_eq!(s.total_memory(), 0);
+        assert_eq!(s.free_memory(), 0);
+        assert_eq!(s.available_memory(), 0);
+        assert_eq!(s.used_memory(), 0);
+        assert_eq!(s.total_swap(), 0);
+        assert_eq!(s.free_swap(), 0);
+        assert_eq!(s.used_swap(), 0);
+
+        s.refresh_memory();
         if System::IS_SUPPORTED {
-            let mut s = System::new();
-            s.refresh_all();
-            assert_eq!(
-                s.processes().iter().all(|(_, proc_)| proc_.memory() == 0),
-                false
-            );
+            assert!(s.total_memory() > 0);
+            assert!(s.used_memory() > 0);
+            if s.total_swap() > 0 {
+                // I think it's pretty safe to assume that there is still some swap left...
+                assert!(s.free_swap() > 0);
+            }
+        } else {
+            assert_eq!(s.total_memory(), 0);
+            assert_eq!(s.used_memory(), 0);
+            assert_eq!(s.total_swap(), 0);
+            assert_eq!(s.free_swap(), 0);
         }
     }
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn check_cpu_usage() {
+    fn check_processes_cpu_usage() {
+        if !System::IS_SUPPORTED {
+            return;
+        }
         let mut s = System::new();
 
-        s.refresh_all();
+        s.refresh_processes();
         // All CPU usage will start at zero until the second refresh
-        assert_eq!(
-            s.processes()
-                .iter()
-                .all(|(_, proc_)| proc_.cpu_usage() == 0.0),
-            true
-        );
+        assert!(s
+            .processes()
+            .iter()
+            .all(|(_, proc_)| proc_.cpu_usage() == 0.0));
 
         // Wait a bit to update CPU usage values
         std::thread::sleep(std::time::Duration::from_millis(100));
-        s.refresh_all();
-        assert_eq!(
-            s.processes()
-                .iter()
-                .all(|(_, proc_)| proc_.cpu_usage() >= 0.0
-                    && proc_.cpu_usage() <= (s.processors().len() as f32) * 100.0),
-            true
-        );
+        s.refresh_processes();
+        assert!(s
+            .processes()
+            .iter()
+            .all(|(_, proc_)| proc_.cpu_usage() >= 0.0
+                && proc_.cpu_usage() <= (s.cpus().len() as f32) * 100.0));
+        assert!(s
+            .processes()
+            .iter()
+            .any(|(_, proc_)| proc_.cpu_usage() > 0.0));
+    }
+
+    #[test]
+    fn check_cpu_usage() {
+        if !System::IS_SUPPORTED {
+            return;
+        }
+        let mut s = System::new();
+        for _ in 0..10 {
+            s.refresh_cpu();
+            // Wait a bit to update CPU usage values
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            if s.cpus().iter().any(|c| c.cpu_usage() > 0.0) {
+                // All good!
+                return;
+            }
+        }
+        panic!("CPU usage is always zero...");
     }
 
     #[test]
@@ -268,17 +307,22 @@ mod test {
                     .iter()
                     .find(|u| u.name() == "root")
                     .expect("no root user");
-                assert_eq!(*user.uid(), 0);
-                assert_eq!(*user.gid(), 0);
-                if let Some(user) = users.iter().find(|u| *u.gid() > 0) {
-                    assert!(*user.uid() > 0);
-                    assert!(*user.gid() > 0);
+                assert_eq!(**user.id(), 0);
+                assert_eq!(*user.group_id(), 0);
+                if let Some(user) = users.iter().find(|u| *u.group_id() > 0) {
+                    assert!(**user.id() > 0);
+                    assert!(*user.group_id() > 0);
                 }
+                assert!(users.iter().filter(|u| **u.id() > 0).count() > 0);
             }
-            #[cfg(not(target_os = "windows"))]
-            {
-                assert!(users.iter().filter(|u| *u.uid() > 0).count() > 0);
-            }
+
+            // And now check that our `get_user_by_id` method works.
+            s.refresh_processes();
+            assert!(s
+                .processes()
+                .iter()
+                .filter_map(|(_, p)| p.user_id())
+                .any(|uid| s.get_user_by_id(uid).is_some()));
         }
     }
 
@@ -308,7 +352,7 @@ mod test {
         // We don't want to test on unsupported systems.
         if System::IS_SUPPORTED {
             let s = System::new();
-            assert!(!s.host_name().expect("Failed to get host name").is_empty());
+            assert!(s.host_name().is_some());
         }
     }
 
@@ -316,13 +360,16 @@ mod test {
     fn check_refresh_process_return_value() {
         // We don't want to test on unsupported systems.
         if System::IS_SUPPORTED {
-            let pid = get_current_pid().expect("Failed to get current PID");
-            let mut s = System::new();
+            let _pid = get_current_pid().expect("Failed to get current PID");
 
-            // First check what happens in case the process isn't already in our process list.
-            assert!(s.refresh_process(pid));
-            // Then check that it still returns true if the process is already in our process list.
-            assert!(s.refresh_process(pid));
+            #[cfg(not(feature = "apple-sandbox"))]
+            {
+                let mut s = System::new();
+                // First check what happens in case the process isn't already in our process list.
+                assert!(s.refresh_process(_pid));
+                // Then check that it still returns true if the process is already in our process list.
+                assert!(s.refresh_process(_pid));
+            }
         }
     }
 
@@ -336,35 +383,90 @@ mod test {
     }
 
     #[test]
-    fn check_processors_number() {
-        let s = System::new();
+    fn check_cpus_number() {
+        let mut s = System::new();
 
+        // This information isn't retrieved by default.
+        assert!(s.cpus().is_empty());
         if System::IS_SUPPORTED {
-            assert!(!s.processors().is_empty());
-            // In case we are running inside a VM, it's possible to not have a physical core, only
-            // logical ones, which is why we don't test `physical_cores_count > 0`.
+            // The physical cores count is recomputed every time the function is called, so the
+            // information must be relevant even with nothing initialized.
             let physical_cores_count = s
                 .physical_core_count()
                 .expect("failed to get number of physical cores");
-            assert!(physical_cores_count <= s.processors().len());
+
+            s.refresh_cpu();
+            // The cpus shouldn't be empty anymore.
+            assert!(!s.cpus().is_empty());
+
+            // In case we are running inside a VM, it's possible to not have a physical core, only
+            // logical ones, which is why we don't test `physical_cores_count > 0`.
+            let physical_cores_count2 = s
+                .physical_core_count()
+                .expect("failed to get number of physical cores");
+            assert!(physical_cores_count2 <= s.cpus().len());
+            assert_eq!(physical_cores_count, physical_cores_count2);
         } else {
-            assert!(s.processors().is_empty());
             assert_eq!(s.physical_core_count(), None);
         }
+        assert!(s.physical_core_count().unwrap_or(0) <= s.cpus().len());
+    }
+
+    #[test]
+    fn check_nb_supported_signals() {
+        if System::IS_SUPPORTED {
+            assert!(
+                !System::SUPPORTED_SIGNALS.is_empty(),
+                "SUPPORTED_SIGNALS shoudn't be empty on supported systems!"
+            );
+        } else {
+            assert!(
+                System::SUPPORTED_SIGNALS.is_empty(),
+                "SUPPORTED_SIGNALS should be empty on not support systems!"
+            );
+        }
+    }
+
+    // Ensure that the CPUs frequency isn't retrieved until we ask for it.
+    #[test]
+    fn check_cpu_frequency() {
+        if !System::IS_SUPPORTED {
+            return;
+        }
+        let mut s = System::new();
+        s.refresh_processes();
+        for proc_ in s.cpus() {
+            assert_eq!(proc_.frequency(), 0);
+        }
+        s.refresh_cpu();
+        for proc_ in s.cpus() {
+            assert_eq!(proc_.frequency(), 0);
+        }
+        // In a VM, it'll fail.
+        if std::env::var("APPLE_CI").is_err() && std::env::var("FREEBSD_CI").is_err() {
+            s.refresh_cpu_specifics(CpuRefreshKind::everything());
+            for proc_ in s.cpus() {
+                assert_ne!(proc_.frequency(), 0);
+            }
+        }
+    }
+
+    // In case `Process::updated` is misused, `System::refresh_processes` might remove them
+    // so this test ensures that it doesn't happen.
+    #[test]
+    fn check_refresh_process_update() {
+        if !System::IS_SUPPORTED {
+            return;
+        }
+        let mut s = System::new_all();
+        let total = s.processes().len() as isize;
+        s.refresh_processes();
+        let new_total = s.processes().len() as isize;
+        // There should be almost no difference in the processes count.
+        assert!(
+            (new_total - total).abs() <= 5,
+            "{} <= 5",
+            (new_total - total).abs()
+        );
     }
 }
-
-// Used to check that System is Send and Sync.
-#[cfg(doctest)]
-doc_comment::doc_comment!(
-    "
-```
-fn is_send<T: Send>() {}
-is_send::<sysinfo::System>();
-```
-
-```
-fn is_sync<T: Sync>() {}
-is_sync::<sysinfo::System>();
-```"
-);

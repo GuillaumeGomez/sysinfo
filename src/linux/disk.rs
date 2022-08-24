@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2017 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::get_all_data;
 use crate::{utils, DiskExt, DiskType};
@@ -20,8 +16,8 @@ macro_rules! cast {
     };
 }
 
-/// Struct containing a disk information.
-#[derive(PartialEq)]
+#[doc = include_str!("../../md_doc/disk.md")]
+#[derive(PartialEq, Eq)]
 pub struct Disk {
     type_: DiskType,
     device_name: OsString,
@@ -66,7 +62,7 @@ impl DiskExt for Disk {
             let mut stat: statvfs = mem::zeroed();
             let mount_point_cpath = utils::to_cpath(&self.mount_point);
             if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
-                let tmp = cast!(stat.f_bsize) * cast!(stat.f_bavail);
+                let tmp = cast!(stat.f_bsize).saturating_mul(cast!(stat.f_bavail));
                 self.available_space = cast!(tmp);
                 true
             } else {
@@ -89,26 +85,29 @@ fn new_disk(
     unsafe {
         let mut stat: statvfs = mem::zeroed();
         if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
-            total = cast!(stat.f_bsize) * cast!(stat.f_blocks);
-            available = cast!(stat.f_bsize) * cast!(stat.f_bavail);
+            let bsize = cast!(stat.f_bsize);
+            let blocks = cast!(stat.f_blocks);
+            let bavail = cast!(stat.f_bavail);
+            total = bsize.saturating_mul(blocks);
+            available = bsize.saturating_mul(bavail);
         }
+        if total == 0 {
+            return None;
+        }
+        let mount_point = mount_point.to_owned();
+        let is_removable = removable_entries
+            .iter()
+            .any(|e| e.as_os_str() == device_name);
+        Some(Disk {
+            type_,
+            device_name: device_name.to_owned(),
+            file_system: file_system.to_owned(),
+            mount_point,
+            total_space: cast!(total),
+            available_space: cast!(available),
+            is_removable,
+        })
     }
-    if total == 0 {
-        return None;
-    }
-    let mount_point = mount_point.to_owned();
-    let is_removable = removable_entries
-        .iter()
-        .any(|e| e.as_os_str() == device_name);
-    Some(Disk {
-        type_,
-        device_name: device_name.to_owned(),
-        file_system: file_system.to_owned(),
-        mount_point,
-        total_space: cast!(total),
-        available_space: cast!(available),
-        is_removable,
-    })
 }
 
 #[allow(clippy::manual_range_contains)]
@@ -223,6 +222,7 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
             // Check if fs_vfstype is one of our 'ignored' file systems.
             let filtered = matches!(
                 *fs_vfstype,
+                "rootfs" | // https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt
                 "sysfs" | // pseudo file system for kernel objects
                 "proc" |  // another pseudo file system
                 "tmpfs" |
@@ -252,7 +252,7 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
         .collect()
 }
 
-pub fn get_all_disks() -> Vec<Disk> {
+pub(crate) fn get_all_disks() -> Vec<Disk> {
     get_all_disks_inner(&get_all_data("/proc/mounts", 16_385).unwrap_or_default())
 }
 

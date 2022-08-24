@@ -1,13 +1,8 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2018 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::ComponentExt;
 
-/// Dummy struct representing a component since iOS doesn't support
-/// obtaining CPU information.
+#[doc = include_str!("../../../md_doc/component.md")]
 pub struct Component {}
 
 impl ComponentExt for Component {

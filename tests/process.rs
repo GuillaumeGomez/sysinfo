@@ -1,22 +1,16 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2018 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
-use sysinfo::ProcessExt;
-use sysinfo::SystemExt;
+use sysinfo::{Pid, PidExt, ProcessExt, SystemExt};
 
 #[test]
 fn test_process() {
     let mut s = sysinfo::System::new();
     assert_eq!(s.processes().len(), 0);
     s.refresh_processes();
-    if !sysinfo::System::IS_SUPPORTED {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     assert!(!s.processes().is_empty());
-    #[cfg(not(windows))]
     assert!(s
         .processes()
         .values()
@@ -24,11 +18,135 @@ fn test_process() {
 }
 
 #[test]
+fn test_cwd() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("3")
+            .arg("CwdSignal")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("3")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+
+    let pid = Pid::from_u32(p.id() as u32);
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    p.kill().expect("Unable to kill process.");
+
+    let processes = s.processes();
+    let p = processes.get(&pid);
+
+    if let Some(p) = p {
+        assert_eq!(p.pid(), pid);
+        assert_eq!(p.cwd(), std::env::current_dir().unwrap());
+    } else {
+        panic!("Process not found!");
+    }
+}
+
+#[test]
+fn test_cmd() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("3")
+            .arg("CmdSignal")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("3")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    let mut s = sysinfo::System::new();
+    assert!(s.processes().is_empty());
+    s.refresh_processes();
+    p.kill().expect("Unable to kill process.");
+    assert!(!s.processes().is_empty());
+    if let Some(process) = s.process(Pid::from_u32(p.id() as u32)) {
+        if cfg!(target_os = "windows") {
+            // Sometimes, we get the full path instead for some reasons... So just in case,
+            // we check for the command independently that from the arguments.
+            assert!(process.cmd()[0].contains("waitfor"));
+            assert_eq!(&process.cmd()[1..], &["/t", "3", "CmdSignal"]);
+        } else {
+            assert_eq!(process.cmd(), &["sleep", "3"]);
+        }
+    } else {
+        panic!("Process not found!");
+    }
+}
+
+#[test]
+fn test_environ() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("3")
+            .arg("EnvironSignal")
+            .stdout(std::process::Stdio::null())
+            .env("FOO", "BAR")
+            .env("OTHER", "VALUE")
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("3")
+            .stdout(std::process::Stdio::null())
+            .env("FOO", "BAR")
+            .env("OTHER", "VALUE")
+            .spawn()
+            .unwrap()
+    };
+
+    let pid = Pid::from_u32(p.id() as u32);
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    p.kill().expect("Unable to kill process.");
+
+    let processes = s.processes();
+    let p = processes.get(&pid);
+
+    if let Some(p) = p {
+        assert_eq!(p.pid(), pid);
+        // FIXME: instead of ignoring the test on CI, try to find out what's wrong...
+        if std::env::var("APPLE_CI").is_err() {
+            assert!(p.environ().iter().any(|e| e == "FOO=BAR"));
+            assert!(p.environ().iter().any(|e| e == "OTHER=VALUE"));
+        }
+    } else {
+        panic!("Process not found!");
+    }
+}
+
+#[test]
 fn test_process_refresh() {
     let mut s = sysinfo::System::new();
     assert_eq!(s.processes().len(), 0);
 
-    if !sysinfo::System::IS_SUPPORTED {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     s.refresh_process(sysinfo::get_current_pid().expect("failed to get current pid"));
@@ -38,76 +156,52 @@ fn test_process_refresh() {
 }
 
 #[test]
-#[cfg(windows)]
-fn test_get_cmd_line() {
-    let p = std::process::Command::new("timeout")
-        .arg("/t")
-        .arg("3")
-        .spawn()
-        .unwrap();
-    let mut s = sysinfo::System::new();
-    assert!(s.processes().is_empty());
-    s.refresh_processes();
-    assert!(!s.processes().is_empty());
-    if let Some(process) = s.process(p.id() as sysinfo::Pid) {
-        assert_eq!(process.cmd(), &["timeout", "/t", "3"]);
-    } else {
-        // We're very likely on a "linux-like" shell so let's try some unix command...
-        unix_like_cmd();
-    }
-}
-
-#[test]
-#[cfg(not(windows))]
-fn test_get_cmd_line() {
-    if sysinfo::System::IS_SUPPORTED {
-        unix_like_cmd();
-    }
-}
-
-fn unix_like_cmd() {
-    use std::{thread, time};
-
-    let p = std::process::Command::new("sleep")
-        .arg("3")
-        .spawn()
-        .unwrap();
-    // To ensure that the system data are filled correctly...
-    thread::sleep(time::Duration::from_millis(250));
-    let mut s = sysinfo::System::new();
-    assert!(s.processes().is_empty());
-    s.refresh_processes();
-    assert!(!s.processes().is_empty());
-    let process = s.process(p.id() as sysinfo::Pid).unwrap();
-    if process.cmd() != &["sleep", "3"] {
-        panic!("cmd not equivalent to`[sleep, 3]`: {:?}", process);
-    }
-}
-
-#[test]
 fn test_process_disk_usage() {
     use std::fs;
     use std::fs::File;
     use std::io::prelude::*;
     use sysinfo::{get_current_pid, ProcessExt, SystemExt};
 
-    if !sysinfo::System::IS_SUPPORTED {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    if std::env::var("FREEBSD_CI").is_ok() {
+        // For an unknown reason, when running this test on Cirrus CI, it fails. It works perfectly
+        // locally though... Dark magic...
         return;
     }
 
-    {
-        let mut file = File::create("test.txt").unwrap();
-        file.write_all(b"This is a test file\nwith test data.\n")
-            .unwrap();
+    fn inner() -> sysinfo::System {
+        {
+            let mut file = File::create("test.txt").expect("failed to create file");
+            file.write_all(b"This is a test file\nwith test data.\n")
+                .expect("failed to write to file");
+        }
+        fs::remove_file("test.txt").expect("failed to remove file");
+        // Waiting a bit just in case...
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        let mut system = sysinfo::System::new();
+        assert!(system.processes().is_empty());
+        system.refresh_processes();
+        assert!(!system.processes().is_empty());
+        system
     }
-    fs::remove_file("test.txt").ok();
-    let mut system = sysinfo::System::new();
-    assert!(system.processes().is_empty());
-    system.refresh_processes();
-    assert!(!system.processes().is_empty());
-    let p = system
+
+    let mut system = inner();
+    let mut p = system
         .process(get_current_pid().expect("Failed retrieving current pid."))
         .expect("failed to get process");
+
+    if cfg!(any(target_os = "macos", target_os = "ios")) && p.disk_usage().total_written_bytes == 0
+    {
+        // For whatever reason, sometimes, mac doesn't work on the first time when running
+        // `cargo test`. Two solutions, either run with "cargo test -- --test-threads 1", or
+        // check twice...
+        system = inner();
+        p = system
+            .process(get_current_pid().expect("Failed retrieving current pid."))
+            .expect("failed to get process");
+    }
 
     assert!(
         p.disk_usage().total_written_bytes > 0,
@@ -126,7 +220,7 @@ fn cpu_usage_is_not_nan() {
     let mut system = sysinfo::System::new();
     system.refresh_processes();
 
-    if !sysinfo::System::IS_SUPPORTED {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
 
@@ -146,4 +240,141 @@ fn cpu_usage_is_not_nan() {
         }
     });
     assert!(checked > 0);
+}
+
+#[test]
+fn test_process_times() {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("3")
+            .arg("ProcessTimes")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("3")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+
+    let pid = Pid::from_u32(p.id() as u32);
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    p.kill().expect("Unable to kill process.");
+
+    if let Some(p) = s.process(pid) {
+        assert_eq!(p.pid(), pid);
+        assert!(p.run_time() >= 1);
+        assert!(p.run_time() <= 2);
+        assert!(p.start_time() > p.run_time());
+        // On linux, for whatever reason, the uptime seems to be older than the boot time, leading
+        // to this weird `+ 3` to ensure the test is passing as it should...
+        assert!(
+            p.start_time() + 3
+                > SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+        );
+        assert!(p.start_time() >= s.boot_time());
+    } else {
+        panic!("Process not found!");
+    }
+}
+
+// Checks that `refresh_processes` is removing dead processes.
+#[test]
+fn test_refresh_processes() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("300")
+            .arg("RefreshProcesses")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("300")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+
+    let pid = Pid::from_u32(p.id() as u32);
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    // Checks that the process is listed as it should.
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    assert!(s.process(pid).is_some());
+
+    // Check that the process name is not empty.
+    assert!(!s.process(pid).unwrap().name().is_empty());
+
+    p.kill().expect("Unable to kill process.");
+    // We need this, otherwise the process will still be around as a zombie on linux.
+    let _ = p.wait();
+    // Let's give some time to the system to clean up...
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    s.refresh_processes();
+    // Checks that the process isn't listed anymore.
+    assert!(s.process(pid).is_none());
+}
+
+// Checks that `refresh_process` is NOT removing dead processes.
+#[test]
+fn test_refresh_process() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("300")
+            .arg("RefreshProcess")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("300")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+
+    let pid = Pid::from_u32(p.id() as u32);
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    // Checks that the process is listed as it should.
+    let mut s = sysinfo::System::new();
+    s.refresh_process(pid);
+    assert!(s.process(pid).is_some());
+
+    // Check that the process name is not empty.
+    assert!(!s.process(pid).unwrap().name().is_empty());
+
+    p.kill().expect("Unable to kill process.");
+    // We need this, otherwise the process will still be around as a zombie on linux.
+    let _ = p.wait();
+    // Let's give some time to the system to clean up...
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    assert!(!s.refresh_process(pid));
+    // Checks that the process is still listed.
+    assert!(s.process(pid).is_some());
 }

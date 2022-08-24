@@ -1,15 +1,11 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2015 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 // Once https://github.com/rust-lang/rfcs/blob/master/text/1422-pub-restricted.md
 // feature gets stabilized, we can move common parts in here.
 
 #[cfg(test)]
 mod tests {
-    use crate::{utils, ProcessExt, System, SystemExt};
+    use crate::{ProcessExt, System, SystemExt};
 
     #[test]
     fn test_refresh_system() {
@@ -28,13 +24,18 @@ mod tests {
     fn test_refresh_process() {
         let mut sys = System::new();
         assert!(sys.processes().is_empty(), "no process should be listed!");
-        sys.refresh_processes();
         // We don't want to test on unsupported systems.
+
+        #[cfg(not(feature = "apple-sandbox"))]
         if System::IS_SUPPORTED {
             assert!(
-                sys.refresh_process(utils::get_current_pid().expect("failed to get current pid")),
+                sys.refresh_process(crate::get_current_pid().expect("failed to get current pid")),
                 "process not listed",
             );
+            // Ensure that the process was really added to the list!
+            assert!(sys
+                .process(crate::get_current_pid().expect("failed to get current pid"))
+                .is_some());
         }
     }
 
@@ -42,9 +43,19 @@ mod tests {
     fn test_get_process() {
         let mut sys = System::new();
         sys.refresh_processes();
-        if let Some(p) = sys.process(utils::get_current_pid().expect("failed to get current pid")) {
+        let current_pid = match crate::get_current_pid() {
+            Ok(pid) => pid,
+            _ => {
+                if !System::IS_SUPPORTED {
+                    return;
+                }
+                panic!("get_current_pid should work!");
+            }
+        };
+        if let Some(p) = sys.process(current_pid) {
             assert!(p.memory() > 0);
         } else {
+            #[cfg(not(feature = "apple-sandbox"))]
             assert!(!System::IS_SUPPORTED);
         }
     }
@@ -64,12 +75,22 @@ mod tests {
 
         let mut sys = System::new();
         sys.refresh_processes();
-        if let Some(p) = sys.process(utils::get_current_pid().expect("failed to get current pid")) {
+        let current_pid = match crate::get_current_pid() {
+            Ok(pid) => pid,
+            _ => {
+                if !System::IS_SUPPORTED {
+                    return;
+                }
+                panic!("get_current_pid should work!");
+            }
+        };
+        if let Some(p) = sys.process(current_pid) {
             p.foo(); // If this doesn't compile, it'll simply mean that the Process type
                      // doesn't implement the Send trait.
             p.bar(); // If this doesn't compile, it'll simply mean that the Process type
                      // doesn't implement the Sync trait.
         } else {
+            #[cfg(not(feature = "apple-sandbox"))]
             assert!(!System::IS_SUPPORTED);
         }
     }

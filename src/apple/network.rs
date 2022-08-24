@@ -1,12 +1,6 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2017 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::ffi;
-
-use libc::{self, c_char, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
+use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
 
 use std::collections::{hash_map, HashMap};
 use std::ptr::null_mut;
@@ -20,14 +14,7 @@ macro_rules! old_and_new {
     }};
 }
 
-/// Network interfaces.
-///
-/// ```no_run
-/// use sysinfo::{NetworksExt, System, SystemExt};
-///
-/// let s = System::new_all();
-/// let networks = s.networks();
-/// ```
+#[doc = include_str!("../../md_doc/networks.md")]
 pub struct Networks {
     interfaces: HashMap<String, NetworkData>,
 }
@@ -39,20 +26,30 @@ impl Networks {
         }
     }
 
+    #[allow(unknown_lints)]
     #[allow(clippy::cast_ptr_alignment)]
+    #[allow(clippy::uninit_vec)]
     fn update_networks(&mut self) {
         let mib = &mut [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0];
         let mut len = 0;
-        if unsafe { libc::sysctl(mib.as_mut_ptr(), 6, null_mut(), &mut len, null_mut(), 0) } < 0 {
-            // TODO: might be nice to put an error in here...
-            return;
-        }
-        let mut buf = Vec::with_capacity(len);
         unsafe {
+            if libc::sysctl(
+                mib.as_mut_ptr(),
+                mib.len() as _,
+                null_mut(),
+                &mut len,
+                null_mut(),
+                0,
+            ) < 0
+            {
+                // TODO: might be nice to put an error in here...
+                return;
+            }
+            let mut buf = Vec::with_capacity(len);
             buf.set_len(len);
             if libc::sysctl(
                 mib.as_mut_ptr(),
-                6,
+                mib.len() as _,
                 buf.as_mut_ptr(),
                 &mut len,
                 null_mut(),
@@ -62,12 +59,10 @@ impl Networks {
                 // TODO: might be nice to put an error in here...
                 return;
             }
-        }
-        let buf = buf.as_ptr() as *const c_char;
-        let lim = unsafe { buf.add(len) };
-        let mut next = buf;
-        while next < lim {
-            unsafe {
+            let buf = buf.as_ptr() as *const c_char;
+            let lim = buf.add(len);
+            let mut next = buf;
+            while next < lim {
                 let ifm = next as *const libc::if_msghdr;
                 next = next.offset((*ifm).ifm_msglen as isize);
                 if (*ifm).ifm_type == RTM_IFINFO2 as u8 {
@@ -77,7 +72,7 @@ impl Networks {
                     // IFNAMSIZ (16) bytes may be needed. 22 bytes is large enough for all CCSIDs.
                     let mut name = vec![0u8; libc::IFNAMSIZ + 6];
 
-                    let if2m: *const ffi::if_msghdr2 = ifm as *const ffi::if_msghdr2;
+                    let if2m: *const if_msghdr2 = ifm as *const if_msghdr2;
                     let pname =
                         libc::if_indextoname((*if2m).ifm_index as _, name.as_mut_ptr() as _);
                     if pname.is_null() {
@@ -176,7 +171,7 @@ impl NetworksExt for Networks {
     }
 }
 
-/// Contains network information.
+#[doc = include_str!("../../md_doc/network_data.md")]
 #[derive(PartialEq, Eq)]
 pub struct NetworkData {
     current_in: u64,

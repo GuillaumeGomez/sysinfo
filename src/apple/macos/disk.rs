@@ -1,14 +1,11 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2017 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::sys::macos::utils::CFReleaser;
 use crate::sys::{ffi, utils};
 use crate::utils::to_cpath;
 use crate::{Disk, DiskType};
 
-use core_foundation_sys::base::{kCFAllocatorDefault, kCFAllocatorNull, CFRelease};
+use core_foundation_sys::base::{kCFAllocatorDefault, kCFAllocatorNull};
 use core_foundation_sys::dictionary::{CFDictionaryGetValueIfPresent, CFDictionaryRef};
 use core_foundation_sys::number::{kCFBooleanTrue, CFBooleanRef};
 use core_foundation_sys::string as cfs;
@@ -41,44 +38,41 @@ pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
     if session.is_null() {
         return Vec::new();
     }
-    let count = unsafe { libc::getfsstat(ptr::null_mut(), 0, libc::MNT_NOWAIT) };
-    if count < 1 {
-        return Vec::new();
-    }
-    let bufsize = count * mem::size_of::<libc::statfs>() as c_int;
-    let mut disks = Vec::with_capacity(count as _);
-    let count = unsafe { libc::getfsstat(disks.as_mut_ptr(), bufsize, libc::MNT_NOWAIT) };
-    if count < 1 {
-        return Vec::new();
-    }
     unsafe {
+        let count = libc::getfsstat(ptr::null_mut(), 0, libc::MNT_NOWAIT);
+        if count < 1 {
+            return Vec::new();
+        }
+        let bufsize = count * mem::size_of::<libc::statfs>() as c_int;
+        let mut disks = Vec::with_capacity(count as _);
+        let count = libc::getfsstat(disks.as_mut_ptr(), bufsize, libc::MNT_NOWAIT);
+        if count < 1 {
+            return Vec::new();
+        }
         disks.set_len(count as _);
-    }
-    disks
-        .into_iter()
-        .filter_map(|c_disk| {
-            let mount_point = to_path(&c_disk.f_mntonname)?;
-            unsafe {
-                let disk = ffi::DADiskCreateFromBSDName(
+        disks
+            .into_iter()
+            .filter_map(|c_disk| {
+                let mount_point = to_path(&c_disk.f_mntonname)?;
+                let disk = CFReleaser::new(ffi::DADiskCreateFromBSDName(
                     kCFAllocatorDefault as _,
                     session,
                     c_disk.f_mntfromname.as_ptr(),
-                );
-                let dict = ffi::DADiskCopyDescription(disk);
-                if dict.is_null() {
-                    return None;
-                }
+                ))?;
+                let dict = CFReleaser::new(ffi::DADiskCopyDescription(disk.inner()))?;
                 // Keeping this around in case one might want the list of the available
                 // keys in "dict".
                 // core_foundation_sys::base::CFShow(dict as _);
-                let name = match get_str_value(dict, b"DAMediaName\0").map(OsString::from) {
+                let name = match get_str_value(dict.inner(), b"DAMediaName\0").map(OsString::from) {
                     Some(n) => n,
                     None => return None,
                 };
-                let removable = get_bool_value(dict, b"DAMediaRemovable\0").unwrap_or(false);
-                let ejectable = get_bool_value(dict, b"DAMediaEjectable\0").unwrap_or(false);
+                let removable =
+                    get_bool_value(dict.inner(), b"DAMediaRemovable\0").unwrap_or(false);
+                let ejectable =
+                    get_bool_value(dict.inner(), b"DAMediaEjectable\0").unwrap_or(false);
                 // This is very hackish but still better than nothing...
-                let type_ = if let Some(model) = get_str_value(dict, b"DADeviceModel\0") {
+                let type_ = if let Some(model) = get_str_value(dict.inner(), b"DADeviceModel\0") {
                     if model.contains("SSD") {
                         DiskType::SSD
                     } else {
@@ -89,11 +83,10 @@ pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
                     DiskType::Unknown(-1)
                 };
 
-                CFRelease(dict as _);
                 new_disk(name, mount_point, type_, removable || ejectable)
-            }
-        })
-        .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
+    }
 }
 
 unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
@@ -101,30 +94,50 @@ unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
     key: &[u8],
     callback: F,
 ) -> Option<T> {
-    let key = ffi::CFStringCreateWithCStringNoCopy(
+    match CFReleaser::new(ffi::CFStringCreateWithCStringNoCopy(
         ptr::null_mut(),
         key.as_ptr() as *const c_char,
         cfs::kCFStringEncodingUTF8,
         kCFAllocatorNull as _,
-    );
-    let mut value = std::ptr::null();
-    let ret = if CFDictionaryGetValueIfPresent(dict, key as _, &mut value) != 0 {
-        callback(value)
-    } else {
-        None
-    };
-    CFRelease(key as _);
-    ret
+    )) {
+        Some(c_key) => {
+            let mut value = std::ptr::null();
+            if CFDictionaryGetValueIfPresent(dict, c_key.inner() as _, &mut value) != 0 {
+                callback(value)
+            } else {
+                None
+            }
+        }
+        None => None,
+    }
 }
 
 unsafe fn get_str_value(dict: CFDictionaryRef, key: &[u8]) -> Option<String> {
     get_dict_value(dict, key, |v| {
         let v = v as cfs::CFStringRef;
-        let len = cfs::CFStringGetLength(v);
-        utils::cstr_to_rust_with_size(
-            cfs::CFStringGetCStringPtr(v, cfs::kCFStringEncodingUTF8),
-            Some(len as _),
-        )
+
+        let len_utf16 = cfs::CFStringGetLength(v);
+        let len_bytes = len_utf16 as usize * 2; // Two bytes per UTF-16 codepoint.
+
+        let v_ptr = cfs::CFStringGetCStringPtr(v, cfs::kCFStringEncodingUTF8);
+        if v_ptr.is_null() {
+            // Fallback on CFStringGetString to read the underlying bytes from the CFString.
+            let mut buf = vec![0; len_bytes];
+            let success = cfs::CFStringGetCString(
+                v,
+                buf.as_mut_ptr(),
+                len_bytes as _,
+                cfs::kCFStringEncodingUTF8,
+            );
+
+            if success != 0 {
+                utils::vec_to_rust(buf)
+            } else {
+                None
+            }
+        } else {
+            utils::cstr_to_rust_with_size(v_ptr, Some(len_bytes))
+        }
     })
 }
 
@@ -145,8 +158,23 @@ fn new_disk(
     unsafe {
         let mut stat: statfs = mem::zeroed();
         if statfs(mount_point_cpath.as_ptr() as *const i8, &mut stat) == 0 {
-            total_space = u64::from(stat.f_bsize) * stat.f_blocks;
-            available_space = u64::from(stat.f_bsize) * stat.f_bavail;
+            // APFS is "special" because its a snapshot-based filesystem, and modern
+            // macOS devices take full advantage of this.
+            //
+            // By default, listing volumes with `statfs` can return both the root-level
+            // "data" partition and any snapshots that exist. However, other than some flags and
+            // reserved(undocumented) bytes, there is no difference between the OS boot snapshot
+            // and the "data" partition.
+            //
+            // To avoid duplicating the number of disks (and therefore available space, etc), only return
+            // a disk (which is really a partition with APFS) if it is the root of the filesystem.
+            let is_root = stat.f_flags & libc::MNT_ROOTFS as u32 == 0;
+            if !is_root {
+                return None;
+            }
+
+            total_space = u64::from(stat.f_bsize).saturating_mul(stat.f_blocks);
+            available_space = u64::from(stat.f_bsize).saturating_mul(stat.f_bavail);
             let mut vec = Vec::with_capacity(stat.f_fstypename.len());
             for x in &stat.f_fstypename {
                 if *x == 0 {
@@ -156,17 +184,17 @@ fn new_disk(
             }
             file_system = Some(vec);
         }
+        if total_space == 0 {
+            return None;
+        }
+        Some(Disk {
+            type_,
+            name,
+            file_system: file_system.unwrap_or_else(|| b"<Unknown>".to_vec()),
+            mount_point,
+            total_space,
+            available_space,
+            is_removable,
+        })
     }
-    if total_space == 0 {
-        return None;
-    }
-    Some(Disk {
-        type_,
-        name,
-        file_system: file_system.unwrap_or_else(|| b"<Unknown>".to_vec()),
-        mount_point,
-        total_space,
-        available_space,
-        is_removable,
-    })
 }

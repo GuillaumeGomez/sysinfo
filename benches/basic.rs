@@ -1,5 +1,7 @@
 #![feature(test)]
 
+extern crate test;
+
 use sysinfo::get_current_pid;
 use sysinfo::{DiskExt, SystemExt};
 
@@ -42,6 +44,14 @@ fn bench_refresh_processes(b: &mut test::Bencher) {
 
     s.refresh_processes(); // to load the whole processes list a first time.
     b.iter(move || {
+        s.refresh_processes();
+    });
+}
+
+#[bench]
+fn bench_first_refresh_processes(b: &mut test::Bencher) {
+    b.iter(move || {
+        let mut s = sysinfo::System::new();
         s.refresh_processes();
     });
 }

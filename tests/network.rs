@@ -1,14 +1,9 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2020 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
-// This test is used to ensure that the processors are loaded whatever the method
-// used to initialize `System`.
+// This test is used to ensure that the networks are not loaded by default.
 
 #[test]
-fn test_processor() {
+fn test_networks() {
     use sysinfo::{NetworksExt, SystemExt};
 
     if sysinfo::System::IS_SUPPORTED {

@@ -1,8 +1,4 @@
-// 
-// Sysinfo
-// 
-// Copyright (c) 2017 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,9 +69,9 @@ int main() {
     printf("networks transmitted: %ld\n", sysinfo_get_networks_transmitted(system));
     unsigned int len = 0, i = 0;
     float *procs = NULL;
-    sysinfo_get_processors_usage(system, &len, &procs);
+    sysinfo_get_cpus_usage(system, &len, &procs);
     while (i < len) {
-        printf("Processor #%d usage: %f%%\n", i, procs[i]);
+        printf("CPU #%d usage: %f%%\n", i, procs[i]);
         i += 1;
     }
     free(procs);

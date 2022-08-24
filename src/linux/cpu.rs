@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2015 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 #![allow(clippy::too_many_arguments)]
 
@@ -10,11 +6,11 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read;
 
-use crate::ProcessorExt;
+use crate::CpuExt;
 
 /// Struct containing values to compute a CPU usage.
 #[derive(Clone, Copy)]
-pub struct CpuValues {
+pub(crate) struct CpuValues {
     user: u64,
     nice: u64,
     system: u64,
@@ -105,19 +101,26 @@ impl CpuValues {
 
     /// Returns work time.
     pub fn work_time(&self) -> u64 {
-        self.user + self.nice + self.system + self.irq + self.softirq + self.steal
+        self.user
+            .saturating_add(self.nice)
+            .saturating_add(self.system)
+            .saturating_add(self.irq)
+            .saturating_add(self.softirq)
+            .saturating_add(self.steal)
     }
 
     /// Returns total time.
     pub fn total_time(&self) -> u64 {
         // `guest` is already included in `user`
         // `guest_nice` is already included in `nice`
-        self.work_time() + self.idle + self.iowait
+        self.work_time()
+            .saturating_add(self.idle)
+            .saturating_add(self.iowait)
     }
 }
 
-/// Struct containing a processor information.
-pub struct Processor {
+#[doc = include_str!("../../md_doc/cpu.md")]
+pub struct Cpu {
     old_values: CpuValues,
     new_values: CpuValues,
     pub(crate) name: String,
@@ -129,7 +132,7 @@ pub struct Processor {
     pub(crate) brand: String,
 }
 
-impl Processor {
+impl Cpu {
     pub(crate) fn new_with_values(
         name: &str,
         user: u64,
@@ -145,8 +148,8 @@ impl Processor {
         frequency: u64,
         vendor_id: String,
         brand: String,
-    ) -> Processor {
-        Processor {
+    ) -> Cpu {
+        Cpu {
             name: name.to_owned(),
             old_values: CpuValues::new(),
             new_values: CpuValues::new_with_values(
@@ -193,12 +196,12 @@ impl Processor {
             / min!(self.total_time, self.old_total_time)
             * 100.;
         if self.cpu_usage > 100. {
-            self.cpu_usage = 100.; // to prevent the pourcentage to go above 100%
+            self.cpu_usage = 100.; // to prevent the percentage to go above 100%
         }
     }
 }
 
-impl ProcessorExt for Processor {
+impl CpuExt for Cpu {
     fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
@@ -221,11 +224,11 @@ impl ProcessorExt for Processor {
     }
 }
 
-pub fn get_raw_times(p: &Processor) -> (u64, u64) {
+pub(crate) fn get_raw_times(p: &Cpu) -> (u64, u64) {
     (p.total_time, p.old_total_time)
 }
 
-pub fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
+pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
     let mut s = String::new();
     if File::open(format!(
         "/sys/devices/system/cpu/cpu{}/cpufreq/scaling_cur_freq",
@@ -261,18 +264,45 @@ pub fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
         .unwrap_or_default()
 }
 
-pub fn get_physical_core_count() -> Option<usize> {
+#[allow(unused_assignments)]
+pub(crate) fn get_physical_core_count() -> Option<usize> {
     let mut s = String::new();
     if let Err(_e) = File::open("/proc/cpuinfo").and_then(|mut f| f.read_to_string(&mut s)) {
         sysinfo_debug!("Cannot read `/proc/cpuinfo` file: {:?}", _e);
         return None;
     }
 
+    macro_rules! add_core {
+        ($core_ids_and_physical_ids:ident, $core_id:ident, $physical_id:ident, $cpu:ident) => {{
+            if !$core_id.is_empty() && !$physical_id.is_empty() {
+                $core_ids_and_physical_ids.insert(format!("{} {}", $core_id, $physical_id));
+            } else if !$cpu.is_empty() {
+                // On systems with only physical cores like raspberry, there is no "core id" or
+                // "physical id" fields. So if one of them is missing, we simply use the "CPU"
+                // info and count it as a physical core.
+                $core_ids_and_physical_ids.insert($cpu.to_owned());
+            }
+            $core_id = "";
+            $physical_id = "";
+            $cpu = "";
+        }};
+    }
+
     let mut core_ids_and_physical_ids: HashSet<String> = HashSet::new();
     let mut core_id = "";
     let mut physical_id = "";
+    let mut cpu = "";
+
     for line in s.lines() {
-        if line.starts_with("core id") {
+        if line.is_empty() {
+            add_core!(core_ids_and_physical_ids, core_id, physical_id, cpu);
+        } else if line.starts_with("processor") {
+            cpu = line
+                .splitn(2, ':')
+                .last()
+                .map(|x| x.trim())
+                .unwrap_or_default();
+        } else if line.starts_with("core id") {
             core_id = line
                 .splitn(2, ':')
                 .last()
@@ -285,18 +315,14 @@ pub fn get_physical_core_count() -> Option<usize> {
                 .map(|x| x.trim())
                 .unwrap_or_default();
         }
-        if !core_id.is_empty() && !physical_id.is_empty() {
-            core_ids_and_physical_ids.insert(format!("{} {}", core_id, physical_id));
-            core_id = "";
-            physical_id = "";
-        }
     }
+    add_core!(core_ids_and_physical_ids, core_id, physical_id, cpu);
 
     Some(core_ids_and_physical_ids.len())
 }
 
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
-pub fn get_vendor_id_and_brand() -> (String, String) {
+pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
     let mut s = String::new();
     if File::open("/proc/cpuinfo")
         .and_then(|mut f| f.read_to_string(&mut s))

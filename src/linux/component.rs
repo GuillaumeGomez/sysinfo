@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2018 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::ComponentExt;
 
@@ -11,13 +7,7 @@ use std::fs::{metadata, read_dir, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-/// More information can be found at [kernel.org][k].
-///
-/// Note: these may not be present on virtual Linux systems, such as **Docker**
-/// or **Windows Subsystem for Linux**. These hosts do not expose this information
-/// and therefore `Component` elements may be missing or not as expected.
-///
-/// [k]: https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface
+#[doc = include_str!("../../md_doc/component.md")]
 pub struct Component {
     temperature: f32,
     max: f32,
@@ -103,12 +93,12 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                 if is_file(&p_input) {
                     let label = get_file_line(p_label.as_path(), 10)
                         .unwrap_or_else(|| format!("Component {}", key)) // needed for raspberry pi
-                        .replace("\n", "");
+                        .replace('\n', "");
                     let max = get_file_line(p_max.as_path(), 10).map(|max| {
-                        max.replace("\n", "").parse::<f32>().unwrap_or(100_000f32) / 1000f32
+                        max.replace('\n', "").parse::<f32>().unwrap_or(100_000f32) / 1000f32
                     });
                     let crit = get_file_line(p_crit.as_path(), 10).map(|crit| {
-                        crit.replace("\n", "").parse::<f32>().unwrap_or(100_000f32) / 1000f32
+                        crit.replace('\n', "").parse::<f32>().unwrap_or(100_000f32) / 1000f32
                     });
                     components.push(Component::new(label, p_input.as_path(), max, crit));
                 }
@@ -157,7 +147,7 @@ impl ComponentExt for Component {
     fn refresh(&mut self) {
         if let Some(content) = get_file_line(self.input_file.as_path(), 10) {
             self.temperature = content
-                .replace("\n", "")
+                .replace('\n', "")
                 .parse::<f32>()
                 .unwrap_or(100_000f32)
                 / 1000f32;
@@ -168,7 +158,7 @@ impl ComponentExt for Component {
     }
 }
 
-pub fn get_components() -> Vec<Component> {
+pub(crate) fn get_components() -> Vec<Component> {
     let mut components = Vec::with_capacity(10);
     if let Ok(dir) = read_dir(&Path::new("/sys/class/hwmon/")) {
         for entry in dir.flatten() {

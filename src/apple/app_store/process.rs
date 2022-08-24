@@ -1,27 +1,15 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2021 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::path::Path;
 
-use crate::{DiskUsage, Pid, ProcessExt, ProcessStatus, Signal};
+use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessStatus, Signal, Uid};
 
-/// Dummy struct representing a process because iOS doesn't support
-/// obtaining process information due to sandboxing.
-///
-/// MacOS apps in Apple's app store are also not able to access this information.
-#[derive(Clone)]
+#[doc = include_str!("../../../md_doc/process.md")]
 pub struct Process;
 
 impl ProcessExt for Process {
-    fn new(_pid: Pid, _parent: Option<Pid>, _start_time: u64) -> Process {
-        Process {}
-    }
-
-    fn kill(&self, _signal: Signal) -> bool {
-        false
+    fn kill_with(&self, _signal: Signal) -> Option<bool> {
+        None
     }
 
     fn name(&self) -> &str {
@@ -37,7 +25,7 @@ impl ProcessExt for Process {
     }
 
     fn pid(&self) -> Pid {
-        0
+        Pid(0)
     }
 
     fn environ(&self) -> &[String] {
@@ -72,11 +60,23 @@ impl ProcessExt for Process {
         0
     }
 
+    fn run_time(&self) -> u64 {
+        0
+    }
+
     fn cpu_usage(&self) -> f32 {
         0.0
     }
 
     fn disk_usage(&self) -> DiskUsage {
         DiskUsage::default()
+    }
+
+    fn user_id(&self) -> Option<&Uid> {
+        None
+    }
+
+    fn group_id(&self) -> Option<Gid> {
+        None
     }
 }

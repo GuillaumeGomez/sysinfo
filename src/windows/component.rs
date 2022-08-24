@@ -1,8 +1,4 @@
-//
-// Sysinfo
-//
-// Copyright (c) 2018 Guillaume Gomez
-//
+// Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::ComponentExt;
 
@@ -12,7 +8,7 @@ use winapi::shared::rpcdce::{
     RPC_C_AUTHN_LEVEL_CALL, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE,
     RPC_C_IMP_LEVEL_IMPERSONATE,
 };
-use winapi::shared::winerror::{FAILED, SUCCEEDED};
+use winapi::shared::winerror::{FAILED, SUCCEEDED, S_FALSE, S_OK};
 use winapi::shared::wtypesbase::CLSCTX_INPROC_SERVER;
 use winapi::um::combaseapi::{
     CoCreateInstance, CoInitializeEx, CoInitializeSecurity, CoSetProxyBlanket, CoUninitialize,
@@ -25,10 +21,7 @@ use winapi::um::wbemcli::{
     IWbemServices, WBEM_FLAG_FORWARD_ONLY, WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY,
 };
 
-/// Struct containing a component information (temperature and name for the moment).
-///
-/// Please note that on Windows, you need to have Administrator priviledges to get this
-/// information.
+#[doc = include_str!("../../md_doc/component.md")]
 pub struct Component {
     temperature: f32,
     max: f32,
@@ -99,7 +92,7 @@ impl ComponentExt for Component {
     }
 }
 
-pub fn get_components() -> Vec<Component> {
+pub(crate) fn get_components() -> Vec<Component> {
     match Component::new() {
         Some(c) => vec![c],
         None => Vec::new(),
@@ -153,27 +146,30 @@ struct Connection {
     instance: Option<Instance>,
     server_connection: Option<ServerConnection>,
     enumerator: Option<Enumerator>,
+    initialized: bool,
 }
 
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for Connection {}
 unsafe impl Sync for Connection {}
 
 impl Connection {
     #[allow(clippy::unnecessary_wraps)]
     fn new() -> Option<Connection> {
-        // "Funnily", this function returns ok, false or "this function has already been called".
-        // So whatever, let's just ignore whatever it might return then!
-        unsafe { CoInitializeEx(null_mut(), 0) };
-        Some(Connection {
-            instance: None,
-            server_connection: None,
-            enumerator: None,
-        })
+        unsafe {
+            let val = CoInitializeEx(null_mut(), 0);
+            Some(Connection {
+                instance: None,
+                server_connection: None,
+                enumerator: None,
+                initialized: val == S_OK || val == S_FALSE,
+            })
+        }
     }
 
     fn initialize_security(self) -> Option<Connection> {
-        if FAILED(unsafe {
-            CoInitializeSecurity(
+        unsafe {
+            if FAILED(CoInitializeSecurity(
                 null_mut(),
                 -1,
                 null_mut(),
@@ -183,30 +179,30 @@ impl Connection {
                 null_mut(),
                 EOAC_NONE,
                 null_mut(),
-            )
-        }) {
-            None
-        } else {
-            Some(self)
+            )) {
+                None
+            } else {
+                Some(self)
+            }
         }
     }
 
     fn create_instance(mut self) -> Option<Connection> {
         let mut p_loc = null_mut();
 
-        if FAILED(unsafe {
-            CoCreateInstance(
+        unsafe {
+            if FAILED(CoCreateInstance(
                 &CLSID_WbemLocator as *const _,
                 null_mut(),
                 CLSCTX_INPROC_SERVER,
                 &IID_IWbemLocator as *const _,
                 &mut p_loc as *mut _ as *mut _,
-            )
-        }) {
-            None
-        } else {
-            self.instance = Some(Instance(p_loc));
-            Some(self)
+            )) {
+                None
+            } else {
+                self.instance = Some(Instance(p_loc));
+                Some(self)
+            }
         }
     }
 
@@ -295,6 +291,8 @@ impl Connection {
     }
 
     fn temperature(&mut self, get_critical: bool) -> Option<(f32, Option<f32>)> {
+        use winapi::um::wbemcli::WBEM_INFINITE;
+
         let p_enum = match self.enumerator.take() {
             Some(x) => x,
             None => {
@@ -305,20 +303,17 @@ impl Connection {
         let mut nb_returned = 0;
 
         unsafe {
-            use winapi::um::wbemcli::WBEM_INFINITE;
             (*p_enum.0).Next(
                 WBEM_INFINITE as _, // Time out
                 1,                  // One object
                 &mut p_obj as *mut _,
                 &mut nb_returned,
             );
-        };
 
-        if nb_returned == 0 {
-            return None; // not enough rights I suppose...
-        }
+            if nb_returned == 0 {
+                return None; // not enough rights I suppose...
+            }
 
-        unsafe {
             (*p_obj).BeginEnumeration(WBEM_FLAG_NONSYSTEM_ONLY as _);
 
             let mut p_val = std::mem::MaybeUninit::<VARIANT>::uninit();
@@ -370,8 +365,10 @@ impl Drop for Connection {
         self.enumerator.take();
         self.server_connection.take();
         self.instance.take();
-        unsafe {
-            CoUninitialize();
+        if self.initialized {
+            unsafe {
+                CoUninitialize();
+            }
         }
     }
 }
