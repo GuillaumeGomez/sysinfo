@@ -80,4 +80,4 @@ multithread = ["rayon"]
 debug = ["libc/extra_traits"]
 # This feature is used on CI to emulate unknown/unsupported target.
 unknown-ci = []
-report_memory_in_kibi = []
+report_windows_memory_in_kibi = []
