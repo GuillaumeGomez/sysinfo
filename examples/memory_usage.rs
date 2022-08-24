@@ -33,6 +33,8 @@ fn main() {
     print!("total_total =  "); print_value(total_memory + total_swap);
     println!();
     print!("free_memory =  "); print_value(free_memory);
-    print!("used_swap =    "); print_value(used_swap);
+    print!("free_swap =    "); print_value(total_swap - used_swap);
+    println!();
+    print!("free_total =   "); print_value(free_memory + (total_swap - used_swap));
     println!();
 }
