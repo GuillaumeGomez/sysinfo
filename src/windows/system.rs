@@ -18,6 +18,7 @@ use crate::utils::into_iter;
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
 use std::os::windows::ffi::OsStrExt;
@@ -91,6 +92,18 @@ unsafe fn boot_time() -> u64 {
             sysinfo_debug!("Failed to compute boot time: {:?}", _e);
             0
         }
+    }
+}
+
+impl System {
+    #[cfg(not(feature = "report_windows_memory_in_kibi"))]
+    fn adjust_memory_value(value: u64) -> u64 {
+        value / 1_000
+    }
+
+    #[cfg(feature = "report_windows_memory_in_kibi")]
+    fn adjust_memory_value(value: u64) -> u64 {
+        value / 1_024
     }
 }
 
@@ -175,8 +188,8 @@ impl SystemExt for System {
             let mut mem_info: MEMORYSTATUSEX = zeroed();
             mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
             GlobalMemoryStatusEx(&mut mem_info);
-            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_000;
-            self.mem_available = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
+            self.mem_total = Self::adjust_memory_value(auto_cast!(mem_info.ullTotalPhys, u64));
+            self.mem_available = Self::adjust_memory_value(auto_cast!(mem_info.ullAvailPhys, u64));
             let mut perf_info: PERFORMANCE_INFORMATION = zeroed();
             if GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as u32)
                 == TRUE
@@ -191,8 +204,8 @@ impl SystemExt for System {
                         .CommitTotal
                         .saturating_sub(perf_info.PhysicalTotal),
                 );
-                self.swap_total = (swap_total / 1000) as u64;
-                self.swap_used = (swap_used / 1000) as u64;
+                self.swap_total = Self::adjust_memory_value(swap_total.try_into().unwrap());
+                self.swap_used = Self::adjust_memory_value(swap_used.try_into().unwrap());
             }
         }
     }
