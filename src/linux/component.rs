@@ -80,13 +80,21 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                     _ => {}
                 }
             }
-            if let (Some(_), Some(found_input)) = (found_label, found_input) {
+
+            if let Some(found_input) = found_input {
                 let mut p_label = folder.to_path_buf();
                 let mut p_input = folder.to_path_buf();
                 let mut p_crit = folder.to_path_buf();
                 let mut p_max = folder.to_path_buf();
 
-                p_label.push(&format!("temp{}_label", key));
+                // Disk have no labe why Don't know.
+                // So we use model name instead
+                let fragment_label = match found_label {
+                    Some(_) => format!("temp{}_label", key),
+                    None => "device/model".to_string(),
+                };
+
+                p_label.push(&fragment_label);
                 p_input.push(&format!("temp{}{}", key, val[found_input]));
                 p_max.push(&format!("temp{}_max", key));
                 p_crit.push(&format!("temp{}_crit", key));
