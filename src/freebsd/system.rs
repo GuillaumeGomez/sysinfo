@@ -655,8 +655,8 @@ impl SystemInfo {
                 )
             });
             (
-                used.saturating_mul(self.page_size as _) / 1_000,
-                total.saturating_mul(self.page_size as _) / 1_000,
+                used.saturating_mul(self.page_size as _),
+                total.saturating_mul(self.page_size as _),
             )
         }
     }
@@ -665,14 +665,14 @@ impl SystemInfo {
         let mut nb_pages: u64 = 0;
         unsafe {
             if get_sys_value(&self.virtual_page_count, &mut nb_pages) {
-                return nb_pages.saturating_mul(self.page_size as _) / 1_000;
+                return nb_pages.saturating_mul(self.page_size as _);
             }
 
             // This is a fallback. It includes all the available memory, not just the one available for
             // the users.
             let mut total_memory: u64 = 0;
             get_sys_value(&self.hw_physical_memory, &mut total_memory);
-            total_memory / 1_000
+            total_memory
         }
     }
 
@@ -690,10 +690,9 @@ impl SystemInfo {
             if let Some(arc_size) = self.zfs.arc_size() {
                 mem_wire -= arc_size;
             }
-            let used = mem_active
+            mem_active
                 .saturating_mul(self.page_size as _)
-                .saturating_add(mem_wire);
-            used / 1_000
+                .saturating_add(mem_wire)
         }
     }
 
@@ -709,11 +708,10 @@ impl SystemInfo {
             get_sys_value(&self.virtual_cache_count, &mut cached_mem);
             get_sys_value(&self.virtual_free_count, &mut free_mem);
             // For whatever reason, buffers_mem is already the right value...
-            let free = buffers_mem
-                .saturating_add(inactive_mem.saturating_mul(self.page_size as u64))
-                .saturating_add(cached_mem.saturating_mul(self.page_size as u64))
-                .saturating_add(free_mem.saturating_mul(self.page_size as u64));
-            free / 1_000
+            buffers_mem
+                .saturating_add(inactive_mem.saturating_mul(self.page_size as _))
+                .saturating_add(cached_mem.saturating_mul(self.page_size as _))
+                .saturating_add(free_mem.saturating_mul(self.page_size as _))
         }
     }
 

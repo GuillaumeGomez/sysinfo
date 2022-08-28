@@ -111,7 +111,7 @@ impl SystemInfo {
     fn new() -> Self {
         unsafe {
             Self {
-                page_size_kb: (sysconf(_SC_PAGESIZE) / 1024) as _,
+                page_size_kb: sysconf(_SC_PAGESIZE) as _,
                 clock_cycle: sysconf(_SC_CLK_TCK) as _,
                 boot_time: boot_time(),
             }
@@ -418,7 +418,7 @@ impl SystemExt for System {
                 if let Some(val_str) = iter.next().and_then(|s| s.trim_start().split(' ').next()) {
                     if let Ok(value) = u64::from_str(val_str) {
                         // /proc/meminfo reports KiB, though it says "kB". Convert it.
-                        *field = value.saturating_mul(128) / 125;
+                        *field = value.saturating_mul(1_024);
                     }
                 }
             }

@@ -86,7 +86,7 @@ unsafe impl<T> Sync for Wrap<T> {}
 
 unsafe fn boot_time() -> u64 {
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_secs().saturating_sub(GetTickCount64() / 1000),
+        Ok(n) => n.as_secs().saturating_sub(GetTickCount64() / 1_000),
         Err(_e) => {
             sysinfo_debug!("Failed to compute boot time: {:?}", _e);
             0
@@ -175,8 +175,8 @@ impl SystemExt for System {
             let mut mem_info: MEMORYSTATUSEX = zeroed();
             mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
             GlobalMemoryStatusEx(&mut mem_info);
-            self.mem_total = auto_cast!(mem_info.ullTotalPhys, u64) / 1_000;
-            self.mem_available = auto_cast!(mem_info.ullAvailPhys, u64) / 1_000;
+            self.mem_total = mem_info.ullTotalPhys as _;
+            self.mem_available = mem_info.ullAvailPhys as _;
             let mut perf_info: PERFORMANCE_INFORMATION = zeroed();
             if GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as u32)
                 == TRUE
@@ -191,8 +191,8 @@ impl SystemExt for System {
                         .CommitTotal
                         .saturating_sub(perf_info.PhysicalTotal),
                 );
-                self.swap_total = (swap_total / 1000) as u64;
-                self.swap_used = (swap_used / 1000) as u64;
+                self.swap_total = swap_total as _;
+                self.swap_used = swap_used as _;
             }
         }
     }
@@ -289,8 +289,8 @@ impl SystemExt for System {
                                     .map(|start| start == proc_.start_time())
                                     .unwrap_or(true)
                                 {
-                                    proc_.memory = (pi.WorkingSetSize as u64) / 1_000;
-                                    proc_.virtual_memory = (pi.VirtualSize as u64) / 1_000;
+                                    proc_.memory = pi.WorkingSetSize as _;
+                                    proc_.virtual_memory = pi.VirtualSize as _;
                                     proc_.update(refresh_kind, nb_cpus, now);
                                     return None;
                                 }
@@ -305,8 +305,8 @@ impl SystemExt for System {
                                 } else {
                                     None
                                 },
-                                (pi.WorkingSetSize as u64) / 1_000,
-                                (pi.VirtualSize as u64) / 1_000,
+                                pi.WorkingSetSize as _,
+                                pi.VirtualSize as _,
                                 name,
                                 now,
                                 refresh_kind,
@@ -432,7 +432,7 @@ impl SystemExt for System {
     }
 
     fn uptime(&self) -> u64 {
-        unsafe { GetTickCount64() / 1000 }
+        unsafe { GetTickCount64() / 1_000 }
     }
 
     fn boot_time(&self) -> u64 {

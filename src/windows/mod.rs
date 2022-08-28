@@ -3,8 +3,6 @@
 mod component;
 mod cpu;
 mod disk;
-#[macro_use]
-mod macros;
 mod network;
 mod process;
 mod system;

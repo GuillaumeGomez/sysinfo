@@ -176,10 +176,26 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "memory" => {
-            writeln!(&mut io::stdout(), "total memory: {} KB", sys.total_memory());
-            writeln!(&mut io::stdout(), "used memory : {} KB", sys.used_memory());
-            writeln!(&mut io::stdout(), "total swap  : {} KB", sys.total_swap());
-            writeln!(&mut io::stdout(), "used swap   : {} KB", sys.used_swap());
+            writeln!(
+                &mut io::stdout(),
+                "total memory: {} KB",
+                sys.total_memory() / 1_000
+            );
+            writeln!(
+                &mut io::stdout(),
+                "used memory : {} KB",
+                sys.used_memory() / 1_000
+            );
+            writeln!(
+                &mut io::stdout(),
+                "total swap  : {} KB",
+                sys.total_swap() / 1_000
+            );
+            writeln!(
+                &mut io::stdout(),
+                "used swap   : {} KB",
+                sys.used_swap() / 1_000
+            );
         }
         "quit" | "exit" => return true,
         "all" => {

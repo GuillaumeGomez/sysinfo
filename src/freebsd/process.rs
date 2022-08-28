@@ -171,8 +171,8 @@ pub(crate) unsafe fn get_process_data(
     let status = ProcessStatus::from(kproc.ki_stat);
 
     // from FreeBSD source /src/usr.bin/top/machine.c
-    let virtual_memory = (kproc.ki_size / 1_000) as u64;
-    let memory = (kproc.ki_rssize as u64).saturating_mul(page_size as _) / 1_000;
+    let virtual_memory = kproc.ki_size as _;
+    let memory = (kproc.ki_rssize as u64).saturating_mul(page_size as _);
     // FIXME: This is to get the "real" run time (in micro-seconds).
     // let run_time = (kproc.ki_runtime + 5_000) / 10_000;
 
