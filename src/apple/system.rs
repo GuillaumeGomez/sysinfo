@@ -169,7 +169,7 @@ impl SystemExt for System {
                     String::new(),
                 ),
                 cpus: Vec::new(),
-                page_size_kb: sysconf(_SC_PAGESIZE) as u64 / 1_000,
+                page_size_kb: sysconf(_SC_PAGESIZE) as _,
                 #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
                 components: Components::new(),
                 disks: Vec::with_capacity(1),
@@ -202,8 +202,8 @@ impl SystemExt for System {
                 &mut xs as *mut _ as *mut c_void,
                 &mut mib,
             ) {
-                self.swap_total = xs.xsu_total / 1_000;
-                self.swap_free = xs.xsu_avail / 1_000;
+                self.swap_total = xs.xsu_total;
+                self.swap_free = xs.xsu_avail;
             }
             // get ram info
             if self.mem_total < 1 {
@@ -214,7 +214,6 @@ impl SystemExt for System {
                     &mut self.mem_total as *mut u64 as *mut c_void,
                     &mut mib,
                 );
-                self.mem_total /= 1_000;
             }
             let mut count: u32 = libc::HOST_VM_INFO64_COUNT as _;
             let mut stat = mem::zeroed::<vm_statistics64>();

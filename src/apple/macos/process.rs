@@ -503,8 +503,8 @@ unsafe fn create_new_process(
 
     let task_info = get_task_info(pid);
 
-    p.memory = task_info.pti_resident_size / 1_000;
-    p.virtual_memory = task_info.pti_virtual_size / 1_000;
+    p.memory = task_info.pti_resident_size;
+    p.virtual_memory = task_info.pti_virtual_size;
 
     p.user_id = Some(Uid(info.pbi_uid));
     p.group_id = Some(Gid(info.pbi_gid));
@@ -572,8 +572,8 @@ pub(crate) fn update_process(
                 compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
             }
 
-            p.memory = task_info.pti_resident_size / 1_000;
-            p.virtual_memory = task_info.pti_virtual_size / 1_000;
+            p.memory = task_info.pti_resident_size;
+            p.virtual_memory = task_info.pti_virtual_size;
             if refresh_kind.disk_usage() {
                 update_proc_disk_activity(p);
             }

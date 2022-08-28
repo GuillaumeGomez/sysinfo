@@ -270,26 +270,26 @@ pub trait ProcessExt: Debug {
     /// ```
     fn root(&self) -> &Path;
 
-    /// Returns the memory usage (in KB).
+    /// Returns the memory usage (in bytes).
     ///
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("{} KB", process.memory());
+    ///     println!("{} bytes", process.memory());
     /// }
     /// ```
     fn memory(&self) -> u64;
 
-    /// Returns the virtual memory usage (in KB).
+    /// Returns the virtual memory usage (in bytes).
     ///
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("{} KB", process.virtual_memory());
+    ///     println!("{} bytes", process.virtual_memory());
     /// }
     /// ```
     fn virtual_memory(&self) -> u64;
@@ -969,17 +969,17 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn physical_core_count(&self) -> Option<usize>;
 
-    /// Returns the RAM size in KB.
+    /// Returns the RAM size in bytes.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KB", s.total_memory());
+    /// println!("{} bytes", s.total_memory());
     /// ```
     fn total_memory(&self) -> u64;
 
-    /// Returns the amount of free RAM in KB.
+    /// Returns the amount of free RAM in bytes.
     ///
     /// Generally, "free" memory refers to unallocated memory whereas "available" memory refers to
     /// memory that is available for (re)use.
@@ -991,11 +991,11 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KB", s.free_memory());
+    /// println!("{} bytes", s.free_memory());
     /// ```
     fn free_memory(&self) -> u64;
 
-    /// Returns the amount of available RAM in KB.
+    /// Returns the amount of available RAM in bytes.
     ///
     /// Generally, "free" memory refers to unallocated memory whereas "available" memory refers to
     /// memory that is available for (re)use.
@@ -1007,47 +1007,47 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KB", s.available_memory());
+    /// println!("{} bytes", s.available_memory());
     /// ```
     fn available_memory(&self) -> u64;
 
-    /// Returns the amount of used RAM in KB.
+    /// Returns the amount of used RAM in bytes.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KB", s.used_memory());
+    /// println!("{} bytes", s.used_memory());
     /// ```
     fn used_memory(&self) -> u64;
 
-    /// Returns the SWAP size in KB.
+    /// Returns the SWAP size in bytes.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KB", s.total_swap());
+    /// println!("{} bytes", s.total_swap());
     /// ```
     fn total_swap(&self) -> u64;
 
-    /// Returns the amount of free SWAP in KB.
+    /// Returns the amount of free SWAP in bytes.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KB", s.free_swap());
+    /// println!("{} bytes", s.free_swap());
     /// ```
     fn free_swap(&self) -> u64;
 
-    /// Returns the amount of used SWAP in KB.
+    /// Returns the amount of used SWAP in bytes.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
     /// let s = System::new_all();
-    /// println!("{} KB", s.used_swap());
+    /// println!("{} bytes", s.used_swap());
     /// ```
     fn used_swap(&self) -> u64;
 
