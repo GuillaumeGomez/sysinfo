@@ -100,7 +100,7 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                     let crit = get_file_line(p_crit.as_path(), 10).map(|crit| {
                         crit.replace('\n', "").parse::<f32>().unwrap_or(100_000f32) / 1000f32
                     });
-                    components.push(Component::new(label, p_input.as_path(), max, crit));
+                    components.push(Component::new(label, p_input, max, crit));
                 }
             }
         }
@@ -111,14 +111,14 @@ impl Component {
     /// Creates a new component with the given information.
     pub(crate) fn new(
         label: String,
-        input_path: &Path,
+        input_file: PathBuf,
         max: Option<f32>,
         critical: Option<f32>,
     ) -> Component {
         let mut c = Component {
             temperature: 0f32,
             label,
-            input_file: input_path.to_path_buf(),
+            input_file,
             max: max.unwrap_or(0.0),
             critical,
         };
@@ -160,7 +160,7 @@ impl ComponentExt for Component {
 
 pub(crate) fn get_components() -> Vec<Component> {
     let mut components = Vec::with_capacity(10);
-    if let Ok(dir) = read_dir(&Path::new("/sys/class/hwmon/")) {
+    if let Ok(dir) = read_dir(Path::new("/sys/class/hwmon/")) {
         for entry in dir.flatten() {
             let entry = entry.path();
             if !entry.is_dir()
@@ -180,7 +180,7 @@ pub(crate) fn get_components() -> Vec<Component> {
         // Specfic to raspberry pi.
         components.push(Component::new(
             "CPU".to_owned(),
-            Path::new("/sys/class/thermal/thermal_zone0/temp"),
+            Path::new("/sys/class/thermal/thermal_zone0/temp").to_path_buf(),
             None,
             None,
         ));
