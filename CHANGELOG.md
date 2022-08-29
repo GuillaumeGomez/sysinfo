@@ -1,3 +1,8 @@
+# 0.26.0
+
+ * Switch memory unit from kilobytes to bytes.
+ * Windows: Fix Windows version display on Windows 11.
+
 # 0.25.3
 
  * Add macOS M1 CI checks.
