@@ -87,8 +87,8 @@ fn append_files(components: &mut Vec<Component>, folder: &Path) {
                 let mut p_crit = folder.to_path_buf();
                 let mut p_max = folder.to_path_buf();
 
-                // Disk have no labe why Don't know.
-                // So we use model name instead
+                // Disk have no label. Why? Don't know.
+                // So we use the model name instead.
                 let fragment_label = match found_label {
                     Some(_) => format!("temp{}_label", key),
                     None => "device/model".to_string(),
