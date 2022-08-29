@@ -33,6 +33,35 @@ fn is_file<T: AsRef<Path>>(path: T) -> bool {
     metadata(path).ok().map(|m| m.is_file()).unwrap_or(false)
 }
 
+/// Read out `hwmon` info (hardware monitor) from `folder` [Path]
+/// for value path to check at refresh and files containing `max`,
+/// `critical value and `label` and store this info in `components`.
+///
+/// What is read:
+///
+/// - Optionnal: sensor label, in the general case content of `tempN_label`
+///   see below for special cases
+/// - Optionnal: max value defined in `tempN_max`
+/// - Optionnal: critical value defined in `tempN_crit`
+///
+/// Where `N` is a u32 associated to a sensor like `temp1_max`, `temp1_input`.
+///
+/// ## Special case: Disk drive with `drivetemp` module
+///
+/// For some crazy rational, hardware monitoring exposed by `drivetemp` has no label so the `label of a `Component`
+/// deduced.
+///
+/// So the `device/model` content will be used instead of `tempN_label` content.
+///
+/// ## Special case: RasperryPy CPU and some vendor sensors
+///
+/// Have empty label, file exist but is empty, they will be labelled `Components N`.
+///
+/// ## Doc to Linux kernel API.
+///
+/// Kernel hwmon API: https://www.kernel.org/doc/html/latest/hwmon/hwmon-kernel-api.html
+/// DriveTemp kernel API: https://docs.kernel.org/gpu/amdgpu/thermal.html#hwmon-interfaces
+/// Amdgpu hwmon interface: https://www.kernel.org/doc/html/latest/hwmon/drivetemp.html
 fn append_files(components: &mut Vec<Component>, folder: &Path) {
     let mut matchings: HashMap<u32, Vec<String>> = HashMap::with_capacity(10);
 
