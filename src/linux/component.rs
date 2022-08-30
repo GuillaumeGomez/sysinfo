@@ -35,7 +35,7 @@ fn is_file<T: AsRef<Path>>(path: T) -> bool {
 
 /// Read out `hwmon` info (hardware monitor) from `folder` [Path]
 /// for value path to check at refresh and files containing `max`,
-/// `critical value and `label` and store this info in `components`.
+/// `critical value` and `label` and store this info in `components`.
 ///
 /// What is read:
 ///
