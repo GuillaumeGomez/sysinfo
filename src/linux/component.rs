@@ -39,23 +39,23 @@ fn is_file<T: AsRef<Path>>(path: T) -> bool {
 ///
 /// What is read:
 ///
-/// - Optionnal: sensor label, in the general case content of `tempN_label`
+/// - Optional: sensor label, in the general case content of `tempN_label`
 ///   see below for special cases
-/// - Optionnal: max value defined in `tempN_max`
-/// - Optionnal: critical value defined in `tempN_crit`
+/// - Optional: max value defined in `tempN_max`
+/// - Optional: critical value defined in `tempN_crit`
 ///
 /// Where `N` is a u32 associated to a sensor like `temp1_max`, `temp1_input`.
 ///
 /// ## Special case: Disk drive with `drivetemp` module
 ///
-/// For some crazy rational, hardware monitoring exposed by `drivetemp` has no label so the `label of a `Component`
-/// deduced.
+/// For some crazy rational, hardware monitoring exposed by `drivetemp` has no label so the `label`
+/// of a `Component` is deduced and not retrieved.
 ///
 /// So the `device/model` content will be used instead of `tempN_label` content.
 ///
-/// ## Special case: RasperryPy CPU and some vendor sensors
+/// ## Special case: Rasperry Pi CPU and some vendor sensors
 ///
-/// Have empty label, file exist but is empty, they will be labelled `Components N`.
+/// Have empty label, files exist but are empty, they will be labelled `Components N`.
 ///
 /// ## Doc to Linux kernel API.
 ///
