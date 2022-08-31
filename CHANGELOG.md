@@ -1,3 +1,7 @@
+# 0.26.1
+
+ * macOS M1: Fix segmentation fault crash.
+
 # 0.26.0
 
  * Switch memory unit from kilobytes to bytes.
