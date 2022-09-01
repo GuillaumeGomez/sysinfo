@@ -136,9 +136,10 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskType {
         real_path = real_path.trim_end_matches(|c| c >= '0' && c <= '9');
     } else if device_name_path.starts_with("/dev/nvme") {
         // Turn "nvme0n1p1" into "nvme0n1"
-        real_path = real_path.trim_start_matches("/dev/");
-        real_path = real_path.trim_end_matches(|c| c >= '0' && c <= '9');
-        real_path = real_path.trim_end_matches(|c| c == 'p');
+        real_path = match real_path.find('p') {
+            Some(idx) => &real_path["/dev/".len()..idx],
+            None => &real_path["/dev/".len()..],
+        };
     } else if device_name_path.starts_with("/dev/root") {
         // Recursively solve, for example /dev/mmcblk0p1
         if real_path != device_name_path {
@@ -146,9 +147,10 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskType {
         }
     } else if device_name_path.starts_with("/dev/mmcblk") {
         // Turn "mmcblk0p1" into "mmcblk0"
-        real_path = real_path.trim_start_matches("/dev/");
-        real_path = real_path.trim_end_matches(|c| c >= '0' && c <= '9');
-        real_path = real_path.trim_end_matches(|c| c == 'p');
+        real_path = match real_path.find('p') {
+            Some(idx) => &real_path["/dev/".len()..idx],
+            None => &real_path["/dev/".len()..],
+        };
     } else {
         // Default case: remove /dev/ and expects the name presents under /sys/block/
         // For example, /dev/dm-0 to dm-0
