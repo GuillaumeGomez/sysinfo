@@ -550,14 +550,11 @@ pub(crate) fn refresh_procs(
     if let Ok(d) = fs::read_dir(path) {
         let folders = d
             .filter_map(|entry| {
-                if let Ok(entry) = entry {
-                    let entry = entry.path();
+                let entry = entry.ok()?;
+                let entry = entry.path();
 
-                    if entry.is_dir() {
-                        Some(entry)
-                    } else {
-                        None
-                    }
+                if entry.is_dir() {
+                    Some(entry)
                 } else {
                     None
                 }
@@ -571,18 +568,16 @@ pub(crate) fn refresh_procs(
 
             into_iter(folders)
                 .filter_map(|e| {
-                    if let Ok((p, _)) = _get_process_data(
+                    let (p, _) = _get_process_data(
                         e.as_path(),
                         proc_list.get(),
                         pid,
                         uptime,
                         info,
                         refresh_kind,
-                    ) {
-                        p
-                    } else {
-                        None
-                    }
+                    )
+                    .ok()?;
+                    p
                 })
                 .collect::<Vec<_>>()
         } else {
@@ -590,14 +585,11 @@ pub(crate) fn refresh_procs(
             let new_tasks = folders
                 .iter()
                 .filter_map(|e| {
-                    if let Ok((p, pid)) =
+                    let (p, pid) =
                         _get_process_data(e.as_path(), proc_list, pid, uptime, info, refresh_kind)
-                    {
-                        updated_pids.push(pid);
-                        p
-                    } else {
-                        None
-                    }
+                            .ok()?;
+                    updated_pids.push(pid);
+                    p
                 })
                 .collect::<Vec<_>>();
             // Sub-tasks are not cleaned up outside so we do it here directly.
