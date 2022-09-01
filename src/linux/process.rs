@@ -447,7 +447,7 @@ pub(crate) fn _get_process_data(
         } else {
             _get_stat_data(path, &mut entry.stat_file)?
         };
-        let parts = parse_stat_file(&data)?;
+        let parts = parse_stat_file(&data).ok_or(())?;
         let start_time_without_boot_time = compute_start_time_without_boot_time(&parts, info);
 
         // It's possible that a new process took this same PID when the "original one" terminated.
@@ -477,7 +477,7 @@ pub(crate) fn _get_process_data(
     } else {
         let mut stat_file = None;
         let data = _get_stat_data(path, &mut stat_file)?;
-        let parts = parse_stat_file(&data)?;
+        let parts = parse_stat_file(&data).ok_or(())?;
 
         let mut p =
             retrieve_all_new_process_info(pid, proc_list, &parts, path, info, refresh_kind, uptime);
@@ -696,16 +696,7 @@ fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
     }
 }
 
-macro_rules! unwrap_or_return {
-    ($data:expr) => {{
-        match $data {
-            Some(x) => x,
-            None => return Err(()),
-        }
-    }};
-}
-
-fn parse_stat_file(data: &str) -> Result<Vec<&str>, ()> {
+fn parse_stat_file(data: &str) -> Option<Vec<&str>> {
     // The stat file is "interesting" to parse, because spaces cannot
     // be used as delimiters. The second field stores the command name
     // surrounded by parentheses. Unfortunately, whitespace and
@@ -717,14 +708,14 @@ fn parse_stat_file(data: &str) -> Result<Vec<&str>, ()> {
 
     let mut parts = Vec::with_capacity(52);
     let mut data_it = data.splitn(2, ' ');
-    parts.push(unwrap_or_return!(data_it.next()));
-    let mut data_it = unwrap_or_return!(data_it.next()).rsplitn(2, ')');
-    let data = unwrap_or_return!(data_it.next());
-    parts.push(unwrap_or_return!(data_it.next()));
+    parts.push(data_it.next()?);
+    let mut data_it = data_it.next()?.rsplitn(2, ')');
+    let data = data_it.next()?;
+    parts.push(data_it.next()?);
     parts.extend(data.split_whitespace());
     // Remove command name '('
     if let Some(name) = parts[1].strip_prefix('(') {
         parts[1] = name;
     }
-    Ok(parts)
+    Some(parts)
 }
