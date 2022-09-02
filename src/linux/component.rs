@@ -33,6 +33,7 @@ fn is_file<T: AsRef<Path>>(path: T) -> bool {
     metadata(path).ok().map(|m| m.is_file()).unwrap_or(false)
 }
 
+
 fn append_files(components: &mut Vec<Component>, folder: &Path) {
     let mut matchings: HashMap<u32, Vec<String>> = HashMap::with_capacity(10);
 
@@ -175,15 +176,6 @@ pub(crate) fn get_components() -> Vec<Component> {
             append_files(&mut components, &entry);
         }
         components.sort_by(|c1, c2| c1.label.to_lowercase().cmp(&c2.label.to_lowercase()));
-    }
-    if is_file("/sys/class/thermal/thermal_zone0/temp") {
-        // Specfic to raspberry pi.
-        components.push(Component::new(
-            "CPU".to_owned(),
-            Path::new("/sys/class/thermal/thermal_zone0/temp").to_path_buf(),
-            None,
-            None,
-        ));
     }
     components
 }
