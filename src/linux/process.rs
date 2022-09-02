@@ -653,7 +653,7 @@ fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
         }
     }
 
-    let status_data = get_all_data(&file_path, 16_385).ok()?;
+    let status_data = get_all_data(file_path, 16_385).ok()?;
 
     // We're only interested in the lines starting with Uid: and Gid:
     // here. From these lines, we're looking at the second entry to get
