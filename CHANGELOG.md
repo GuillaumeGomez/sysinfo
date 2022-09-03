@@ -1,3 +1,9 @@
+# 0.26.2
+
+ * Linux: Fix process information retrieval.
+ * Linux: Get more components temperature.
+ * Linux: Fix disk name retrieval (which in turn fixed disk type retrieval).
+
 # 0.26.1
 
  * macOS M1: Fix segmentation fault crash.
