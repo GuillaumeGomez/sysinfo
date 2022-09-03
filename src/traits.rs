@@ -1486,9 +1486,16 @@ pub trait ComponentExt: Debug {
     ///     println!("{}°C", component.temperature());
     /// }
     /// ```
+    ///
+    /// ## Linux
+    ///
+    /// Returns `f32::NAN` if it failed to retrieve it.
     fn temperature(&self) -> f32;
 
     /// Returns the maximum temperature of the component (in celsius degree).
+    ///
+    /// Note: if `temperature` is higher than the current `max`,
+    /// `max` value will be updated on refresh.
     ///
     /// ```no_run
     /// use sysinfo::{ComponentExt, System, SystemExt};
@@ -1498,6 +1505,11 @@ pub trait ComponentExt: Debug {
     ///     println!("{}°C", component.max());
     /// }
     /// ```
+    ///
+    /// ## Linux
+    ///
+    /// May be computed by sysinfo from kernel.
+    /// Returns `f32::NAN` if it failed to retrieve it.
     fn max(&self) -> f32;
 
     /// Returns the highest temperature before the component halts (in celsius degree).
@@ -1510,6 +1522,10 @@ pub trait ComponentExt: Debug {
     ///     println!("{:?}°C", component.critical());
     /// }
     /// ```
+    ///
+    /// ## Linux
+    ///
+    /// Critical threshold defined by chip or kernel.
     fn critical(&self) -> Option<f32>;
 
     /// Returns the label of the component.
@@ -1522,6 +1538,19 @@ pub trait ComponentExt: Debug {
     ///     println!("{}", component.label());
     /// }
     /// ```
+    ///
+    /// ## Linux
+    ///
+    /// Since components informations are retrieved thanks to `hwmon`,
+    /// the labels are generated as follows.
+    /// Note: it may change and it was inspired by `sensors` own formatting.
+    ///
+    /// | name | label | device_model | id_sensor | Computed label by `sysinfo` |
+    /// |---------|--------|------------|----------|----------------------|
+    /// | ✓    | ✓    | ✓  | ✓ | `"{name} {label} {device_model} temp{id}"` |
+    /// | ✓    | ✓    | ✗  | ✓ | `"{name} {label} {id}"` |
+    /// | ✓    | ✗    | ✓  | ✓ | `"{name} {device_model}"` |
+    /// | ✓    | ✗    | ✗  | ✓ | `"{name} temp{id}"` |
     fn label(&self) -> &str;
 
     /// Refreshes component.
