@@ -353,6 +353,7 @@ fn retrieve_all_new_process_info(
 
     if refresh_kind.user() {
         refresh_user_group_ids(&mut p, &mut tmp);
+        tmp.pop();
     }
 
     if proc_list.pid.0 != 0 {
@@ -367,7 +368,6 @@ fn retrieve_all_new_process_info(
     } else {
         p.name = name.into();
 
-        tmp.pop();
         tmp.push("cmdline");
         p.cmd = copy_from_file(&tmp);
 
