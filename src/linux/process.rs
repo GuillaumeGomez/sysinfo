@@ -353,6 +353,7 @@ fn retrieve_all_new_process_info(
 
     if refresh_kind.user() {
         refresh_user_group_ids(&mut p, &mut tmp);
+        tmp.pop();
     }
 
     if proc_list.pid.0 != 0 {
@@ -367,7 +368,6 @@ fn retrieve_all_new_process_info(
     } else {
         p.name = name.into();
 
-        tmp.pop();
         tmp.push("cmdline");
         p.cmd = copy_from_file(&tmp);
 
@@ -547,65 +547,65 @@ pub(crate) fn refresh_procs(
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
 ) -> bool {
-    if let Ok(d) = fs::read_dir(path) {
-        let folders = d
-            .filter_map(|entry| {
-                let entry = entry.ok()?;
-                let entry = entry.path();
+    let d = match fs::read_dir(path) {
+        Ok(d) => d,
+        Err(_) => return false,
+    };
+    let folders = d
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let entry = entry.path();
 
-                if entry.is_dir() {
-                    Some(entry)
-                } else {
-                    None
-                }
+            if entry.is_dir() {
+                Some(entry)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    if pid.0 == 0 {
+        let proc_list = Wrap(UnsafeCell::new(proc_list));
+
+        #[cfg(feature = "multithread")]
+        use rayon::iter::ParallelIterator;
+
+        into_iter(folders)
+            .filter_map(|e| {
+                let (p, _) = _get_process_data(
+                    e.as_path(),
+                    proc_list.get(),
+                    pid,
+                    uptime,
+                    info,
+                    refresh_kind,
+                )
+                .ok()?;
+                p
+            })
+            .collect::<Vec<_>>()
+    } else {
+        let mut updated_pids = Vec::with_capacity(folders.len());
+        let new_tasks = folders
+            .iter()
+            .filter_map(|e| {
+                let (p, pid) =
+                    _get_process_data(e.as_path(), proc_list, pid, uptime, info, refresh_kind)
+                        .ok()?;
+                updated_pids.push(pid);
+                p
             })
             .collect::<Vec<_>>();
-        if pid.0 == 0 {
-            let proc_list = Wrap(UnsafeCell::new(proc_list));
-
-            #[cfg(feature = "multithread")]
-            use rayon::iter::ParallelIterator;
-
-            into_iter(folders)
-                .filter_map(|e| {
-                    let (p, _) = _get_process_data(
-                        e.as_path(),
-                        proc_list.get(),
-                        pid,
-                        uptime,
-                        info,
-                        refresh_kind,
-                    )
-                    .ok()?;
-                    p
-                })
-                .collect::<Vec<_>>()
-        } else {
-            let mut updated_pids = Vec::with_capacity(folders.len());
-            let new_tasks = folders
-                .iter()
-                .filter_map(|e| {
-                    let (p, pid) =
-                        _get_process_data(e.as_path(), proc_list, pid, uptime, info, refresh_kind)
-                            .ok()?;
-                    updated_pids.push(pid);
-                    p
-                })
-                .collect::<Vec<_>>();
-            // Sub-tasks are not cleaned up outside so we do it here directly.
-            proc_list
-                .tasks
-                .retain(|&pid, _| updated_pids.iter().any(|&x| x == pid));
-            new_tasks
-        }
-        .into_iter()
-        .for_each(|e| {
-            proc_list.tasks.insert(e.pid(), e);
-        });
-        true
-    } else {
-        false
+        // Sub-tasks are not cleaned up outside so we do it here directly.
+        proc_list
+            .tasks
+            .retain(|&pid, _| updated_pids.iter().any(|&x| x == pid));
+        new_tasks
     }
+    .into_iter()
+    .for_each(|e| {
+        proc_list.tasks.insert(e.pid(), e);
+    });
+    true
 }
 
 fn copy_from_file(entry: &Path) -> Vec<String> {
