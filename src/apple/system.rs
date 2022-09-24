@@ -605,6 +605,10 @@ impl SystemExt for System {
             }
         }
     }
+
+    fn distribution_id(&self) -> String {
+        std::env::consts::OS.to_owned()
+    }
 }
 
 impl Default for System {

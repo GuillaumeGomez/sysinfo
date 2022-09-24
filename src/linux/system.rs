@@ -697,6 +697,25 @@ impl SystemExt for System {
     fn os_version(&self) -> Option<String> {
         get_system_info_android(InfoType::OsVersion)
     }
+
+    #[cfg(not(target_os = "android"))]
+    fn distribution_id(&self) -> String {
+        get_system_info_linux(
+            InfoType::DistributionID,
+            Path::new("/etc/os-release"),
+            Path::new(""),
+        )
+        .unwrap_or_else(|| std::env::consts::OS.to_owned())
+    }
+
+    #[cfg(target_os = "android")]
+    fn distribution_id(&self) -> String {
+        // Currently get_system_info_android doesn't support InfoType::DistributionID and always
+        // returns None. This call is done anyway for consistency with non-Android implementation
+        // and to suppress dead-code warning for DistributionID on Android.
+        get_system_info_android(InfoType::DistributionID)
+            .unwrap_or_else(|| std::env::consts::OS.to_owned())
+    }
 }
 
 impl Default for System {
@@ -722,6 +741,9 @@ enum InfoType {
     /// - Linux: The distributions name
     Name,
     OsVersion,
+    /// Machine-parseable ID of a distribution, see
+    /// https://www.freedesktop.org/software/systemd/man/os-release.html#ID=
+    DistributionID,
 }
 
 #[cfg(not(target_os = "android"))]
@@ -732,6 +754,7 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
         let info_str = match info {
             InfoType::Name => "NAME=",
             InfoType::OsVersion => "VERSION_ID=",
+            InfoType::DistributionID => "ID=",
         };
 
         for line in reader.lines().flatten() {
@@ -750,6 +773,10 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
     let info_str = match info {
         InfoType::OsVersion => "DISTRIB_RELEASE=",
         InfoType::Name => "DISTRIB_ID=",
+        InfoType::DistributionID => {
+            // lsb-release is inconsistent with os-release and unsupported.
+            return None;
+        }
     };
     for line in reader.lines().flatten() {
         if let Some(stripped) = line.strip_prefix(info_str) {
@@ -765,6 +792,10 @@ fn get_system_info_android(info: InfoType) -> Option<String> {
     let name: &'static [u8] = match info {
         InfoType::Name => b"ro.product.model\0",
         InfoType::OsVersion => b"ro.build.version.release\0",
+        InfoType::DistributionID => {
+            // Not supported.
+            return None;
+        }
     };
 
     let mut value_buffer = vec![0u8; libc::PROP_VALUE_MAX as usize];
@@ -798,6 +829,7 @@ mod test {
     fn lsb_release_fallback_android() {
         assert!(get_system_info_android(InfoType::OsVersion).is_some());
         assert!(get_system_info_android(InfoType::Name).is_some());
+        assert!(get_system_info_android(InfoType::DistributionID).is_none());
     }
 
     #[test]
@@ -844,6 +876,10 @@ DISTRIB_DESCRIPTION="Ubuntu 20.10"
             get_system_info_linux(InfoType::Name, &tmp1, Path::new("")),
             Some("Ubuntu".to_owned())
         );
+        assert_eq!(
+            get_system_info_linux(InfoType::DistributionID, &tmp1, Path::new("")),
+            Some("ubuntu".to_owned())
+        );
 
         // Check for the "fallback" path: "/etc/lsb-release"
         assert_eq!(
@@ -853,6 +889,10 @@ DISTRIB_DESCRIPTION="Ubuntu 20.10"
         assert_eq!(
             get_system_info_linux(InfoType::Name, Path::new(""), &tmp2),
             Some("Ubuntu".to_owned())
+        );
+        assert_eq!(
+            get_system_info_linux(InfoType::DistributionID, Path::new(""), &tmp2),
+            None
         );
     }
 }
