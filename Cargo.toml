@@ -7,7 +7,7 @@ description = "Library to get system information such as processes, CPUs, disks,
 repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "MIT"
 readme = "README.md"
-rust-version = "1.54"
+rust-version = "1.56"
 exclude = ["/test-unknown"]
 
 categories = ["filesystem", "os", "api-bindings"]
