@@ -20,7 +20,8 @@ cfg-if = "1.0"
 rayon = { version = "^1.5.1", optional = true }
 
 [target.'cfg(any(windows, target_os = "linux", target_os = "android"))'.dependencies]
-once_cell = "1.0"
+# Once we update the MSRV, we can remove this constraint.
+once_cell = "<1.15"
 
 [target.'cfg(windows)'.dependencies]
 # FIXME: remove std feature once https://github.com/retep998/winapi-rs/pull/1003 has been merged.
