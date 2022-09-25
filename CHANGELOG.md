@@ -1,3 +1,7 @@
+# 0.26.3
+
+ * Update minimum supported Rust version (MSRV) to `1.56`.
+
 # 0.26.2
 
  * Linux: Fix process information retrieval.

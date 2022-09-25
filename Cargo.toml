@@ -1,13 +1,13 @@
 [package]
 name = "sysinfo"
-version = "0.26.2"
+version = "0.26.3"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 
 description = "Library to get system information such as processes, CPUs, disks, components and networks"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "MIT"
 readme = "README.md"
-rust-version = "1.54"
+rust-version = "1.56"
 exclude = ["/test-unknown"]
 
 categories = ["filesystem", "os", "api-bindings"]
