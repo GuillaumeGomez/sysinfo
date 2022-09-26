@@ -1235,6 +1235,23 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn long_os_version(&self) -> Option<String>;
 
+    /// Returns the distribution id as defined by os-release,
+    /// or [`std::env::consts::OS`].
+    ///
+    /// See also
+    /// - https://www.freedesktop.org/software/systemd/man/os-release.html#ID=
+    /// - https://doc.rust-lang.org/std/env/consts/constant.OS.html
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let s = System::new();
+    /// println!("Distribution ID: {:?}", s.distribution_id());
+    /// ```
+    fn distribution_id(&self) -> String;
+
     /// Returns the system hostname based off DNS
     ///
     /// **Important**: this information is computed every time this function is called.

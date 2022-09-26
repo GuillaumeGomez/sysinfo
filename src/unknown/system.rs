@@ -166,6 +166,10 @@ impl SystemExt for System {
         None
     }
 
+    fn distribution_id(&self) -> String {
+        std::env::consts::OS.to_owned()
+    }
+
     fn host_name(&self) -> Option<String> {
         None
     }

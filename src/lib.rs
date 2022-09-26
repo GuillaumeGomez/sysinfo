@@ -328,9 +328,10 @@ mod test {
 
     #[test]
     fn check_system_info() {
+        let s = System::new();
+
         // We don't want to test on unsupported systems.
         if System::IS_SUPPORTED {
-            let s = System::new();
             assert!(!s.name().expect("Failed to get system name").is_empty());
 
             assert!(!s
@@ -345,6 +346,8 @@ mod test {
                 .expect("Failed to get long OS version")
                 .is_empty());
         }
+
+        assert!(!s.distribution_id().is_empty());
     }
 
     #[test]

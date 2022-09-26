@@ -496,6 +496,10 @@ impl SystemExt for System {
         };
         Some(format!("{} ({})", major, build_number))
     }
+
+    fn distribution_id(&self) -> String {
+        std::env::consts::OS.to_owned()
+    }
 }
 
 impl Default for System {
