@@ -1,6 +1,6 @@
 # 0.26.3
 
- * Update minimum supported Rust version (MSRV) to `1.56`.
+ * Update minimum supported Rust version (MSRV) to `1.59`.
 
 # 0.26.2
 
