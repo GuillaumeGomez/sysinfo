@@ -1,6 +1,12 @@
+# 0.26.4
+
+ * Add `SystemExt::distribution_id` method.
+ * Update `ntapi` version to `0.4`.
+ * Update minimum supported Rust version (MSRV) to `1.59` for `ntapi` 0.4.
+
 # 0.26.3
 
- * Update minimum supported Rust version (MSRV) to `1.59`.
+ * Update minimum supported Rust version (MSRV) to `1.56` to follow `once_cell` minor update.
 
 # 0.26.2
 
