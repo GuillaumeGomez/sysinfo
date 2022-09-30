@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::macos::utils::CFReleaser;
+use crate::sys::macos::utils::{CFReleaser, IOReleaser};
 use crate::sys::{ffi, utils};
 use crate::utils::to_cpath;
 use crate::{Disk, DiskType};
@@ -71,22 +71,121 @@ pub(crate) fn get_disks(session: ffi::DASessionRef) -> Vec<Disk> {
                     get_bool_value(dict.inner(), b"DAMediaRemovable\0").unwrap_or(false);
                 let ejectable =
                     get_bool_value(dict.inner(), b"DAMediaEjectable\0").unwrap_or(false);
-                // This is very hackish but still better than nothing...
-                let type_ = if let Some(model) = get_str_value(dict.inner(), b"DADeviceModel\0") {
-                    if model.contains("SSD") {
-                        DiskType::SSD
-                    } else {
-                        // We just assume by default that this is a HDD
-                        DiskType::HDD
-                    }
-                } else {
-                    DiskType::Unknown(-1)
-                };
+
+                let type_ = get_disk_type(&c_disk);
 
                 new_disk(name, mount_point, type_, removable || ejectable)
             })
             .collect::<Vec<_>>()
     }
+}
+
+const UNKNOWN_DISK_TYPE: DiskType = DiskType::Unknown(-1);
+
+fn get_disk_type(disk: &statfs) -> DiskType {
+    let characteristics_string = CFReleaser::new(unsafe {
+        cfs::CFStringCreateWithBytesNoCopy(
+            kCFAllocatorDefault,
+            ffi::kIOPropertyDeviceCharacteristicsKey.as_ptr(),
+            ffi::kIOPropertyDeviceCharacteristicsKey.len() as _,
+            cfs::kCFStringEncodingUTF8,
+            false as _,
+            kCFAllocatorNull,
+        )
+    })
+    .unwrap();
+
+    // Removes `/dev/` from the value.
+    let bsd_name = {
+        let full =
+            std::str::from_utf8(unsafe { &*(&disk.f_mntfromname as *const [i8] as *const [u8]) })
+                .unwrap();
+        full.strip_prefix("/dev/")
+            .expect("device mount point in unknown format")
+    };
+
+    let matching =
+        unsafe { ffi::IOBSDNameMatching(ffi::kIOMasterPortDefault, 0, bsd_name.as_ptr().cast()) };
+
+    if matching.is_null() {
+        return UNKNOWN_DISK_TYPE;
+    }
+
+    let mut service_iterator: ffi::io_iterator_t = 0;
+
+    if unsafe {
+        ffi::IOServiceGetMatchingServices(
+            ffi::kIOMasterPortDefault,
+            matching.cast(),
+            &mut service_iterator,
+        )
+    } != libc::KERN_SUCCESS
+    {
+        return UNKNOWN_DISK_TYPE;
+    }
+
+    let service_iterator = IOReleaser::new(service_iterator).unwrap();
+
+    let mut parent_entry: ffi::io_registry_entry_t = 0;
+
+    loop {
+        let mut current_service_entry =
+            match IOReleaser::new(unsafe { ffi::IOIteratorNext(service_iterator.inner()) }) {
+                Some(entry) => entry,
+                None => break, // The iterator is empty
+            };
+
+        loop {
+            let result = unsafe {
+                ffi::IORegistryEntryGetParentEntry(
+                    current_service_entry.inner(),
+                    ffi::kIOServicePlane.as_ptr().cast(),
+                    &mut parent_entry,
+                )
+            };
+            if result != libc::KERN_SUCCESS {
+                break;
+            }
+
+            current_service_entry = IOReleaser::new(parent_entry).unwrap();
+
+            // There were no more parents left.
+            if parent_entry == 0 {
+                break;
+            }
+
+            let properties_result = unsafe {
+                CFReleaser::new(ffi::IORegistryEntryCreateCFProperty(
+                    current_service_entry.inner(),
+                    characteristics_string.inner(),
+                    kCFAllocatorDefault,
+                    0,
+                ))
+            };
+
+            if let Some(device_properties) = properties_result {
+                let disk_type = unsafe {
+                    get_str_value(device_properties.inner(), ffi::kIOPropertyMediumTypeKey)
+                };
+
+                if let Some(disk_type) = disk_type.and_then(|medium| match medium.as_str() {
+                    _ if medium == ffi::kIOPropertyMediumTypeSolidStateKey => Some(DiskType::SSD),
+                    _ if medium == ffi::kIOPropertyMediumTypeRotationalKey => Some(DiskType::HDD),
+                    _ => None,
+                }) {
+                    return disk_type;
+                } else {
+                    // Many external drive vendors do not advertise their device's storage medium.
+                    //
+                    // In these cases, assuming that there were _any_ properties about them registered, we fallback
+                    // to `HDD` when no storage medium is provided by the device instead of `Unknown`.
+                    return DiskType::HDD;
+                }
+            }
+        }
+    }
+
+    UNKNOWN_DISK_TYPE
 }
 
 unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(

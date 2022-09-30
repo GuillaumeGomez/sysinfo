@@ -32,3 +32,27 @@ impl<T> Drop for CFReleaser<T> {
 
 unsafe impl<T> Send for CFReleaser<T> {}
 unsafe impl<T> Sync for CFReleaser<T> {}
+
+pub(crate) struct IOReleaser(super::ffi::io_object_t);
+
+impl IOReleaser {
+    pub(crate) fn new(obj: u32) -> Option<Self> {
+        if obj == 0 {
+            None
+        } else {
+            Some(Self(obj))
+        }
+    }
+
+    pub(crate) fn inner(&self) -> u32 {
+        self.0
+    }
+}
+
+impl Drop for IOReleaser {
+    fn drop(&mut self) {
+        if self.0 != 0 {
+            unsafe { super::ffi::IOObjectRelease(self.0 as _) };
+        }
+    }
+}

@@ -3,7 +3,7 @@
 use crate::sys::ffi;
 use crate::ComponentExt;
 
-use libc::{c_char, c_int, c_void, mach_port_t};
+use libc::{c_char, c_int, c_void};
 
 use std::mem;
 
@@ -296,15 +296,15 @@ impl IoService {
     // code from https://github.com/Chris911/iStats
     // Not supported on iOS, or in the default macOS
     pub(crate) fn new_connection() -> Option<Self> {
-        let mut master_port: mach_port_t = 0;
         let mut iterator: ffi::io_iterator_t = 0;
 
         unsafe {
-            ffi::IOMasterPort(libc::MACH_PORT_NULL, &mut master_port);
-
             let matching_dictionary = ffi::IOServiceMatching(b"AppleSMC\0".as_ptr() as *const i8);
-            let result =
-                ffi::IOServiceGetMatchingServices(master_port, matching_dictionary, &mut iterator);
+            let result = ffi::IOServiceGetMatchingServices(
+                ffi::kIOMasterPortDefault,
+                matching_dictionary,
+                &mut iterator,
+            );
             if result != ffi::KIO_RETURN_SUCCESS {
                 sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
                 return None;
