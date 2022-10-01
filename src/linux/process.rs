@@ -245,9 +245,7 @@ pub(crate) fn set_time(p: &mut Process, utime: u64, stime: u64) {
 }
 
 pub(crate) fn update_process_disk_activity(p: &mut Process, path: &Path) {
-    let mut path = PathBuf::from(path);
-    path.push("io");
-    let data = match get_all_data(&path, 16_384) {
+    let data = match get_all_data(path.join("io"), 16_384) {
         Ok(d) => d,
         Err(_) => return,
     };
@@ -299,9 +297,7 @@ fn compute_start_time_without_boot_time(parts: &[&str], info: &SystemInfo) -> u6
 }
 
 fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<String, ()> {
-    let mut tmp = PathBuf::from(path);
-    tmp.push("stat");
-    let mut file = File::open(tmp).map_err(|_| ())?;
+    let mut file = File::open(path.join("stat")).map_err(|_| ())?;
     let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
     *stat_file = FileCounter::new(file);
     Ok(data)
