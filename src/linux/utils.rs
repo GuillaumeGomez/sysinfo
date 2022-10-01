@@ -2,7 +2,7 @@
 
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::sys::system::REMAINING_FILES;
 
@@ -94,5 +94,37 @@ impl Drop for FileCounter {
                 **x += 1;
             }
         }
+    }
+}
+
+/// This type is used in `retrieve_all_new_process_info` because we have a "parent" path and
+/// from it, we `pop`/`join` every time because it's more memory efficient than using `Path::join`.
+pub(crate) struct PathHandler(PathBuf);
+
+impl PathHandler {
+    pub(crate) fn new(path: &Path) -> Self {
+        // `path` is the "parent" for all paths which will follow so we add a fake element at
+        // the end since every `PathHandler::join` call will first call `pop` internally.
+        Self(path.join("a"))
+    }
+}
+
+pub(crate) trait PathPush {
+    fn join(&mut self, p: &str) -> &Path;
+}
+
+impl PathPush for PathHandler {
+    fn join(&mut self, p: &str) -> &Path {
+        self.0.pop();
+        self.0.push(p);
+        self.0.as_path()
+    }
+}
+
+// This implementation allows to skip one allocation that is done in `PathHandler`.
+impl PathPush for PathBuf {
+    fn join(&mut self, p: &str) -> &Path {
+        self.push(p);
+        self.as_path()
     }
 }

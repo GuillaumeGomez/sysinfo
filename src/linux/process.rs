@@ -12,7 +12,9 @@ use std::str::FromStr;
 use libc::{gid_t, kill, uid_t};
 
 use crate::sys::system::SystemInfo;
-use crate::sys::utils::{get_all_data, get_all_data_from_file, realpath, FileCounter};
+use crate::sys::utils::{
+    get_all_data, get_all_data_from_file, realpath, FileCounter, PathHandler, PathPush,
+};
 use crate::utils::into_iter;
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
@@ -314,9 +316,8 @@ fn get_status(p: &mut Process, part: &str) {
         .unwrap_or_else(|| ProcessStatus::Unknown(0));
 }
 
-fn refresh_user_group_ids(p: &mut Process, path: &mut PathBuf) {
-    path.push("status");
-    if let Some((user_id, group_id)) = get_uid_and_gid(path) {
+fn refresh_user_group_ids<P: PathPush>(p: &mut Process, path: &mut P) {
+    if let Some((user_id, group_id)) = get_uid_and_gid(path.join("status")) {
         p.user_id = Some(Uid(user_id));
         p.group_id = Some(Gid(group_id));
     }
@@ -332,7 +333,7 @@ fn retrieve_all_new_process_info(
     uptime: u64,
 ) -> Process {
     let mut p = Process::new(pid);
-    let mut tmp = PathBuf::from(path);
+    let mut tmp = PathHandler::new(path);
     let name = parts[1];
 
     p.parent = if proc_list.pid.0 != 0 {
@@ -353,7 +354,6 @@ fn retrieve_all_new_process_info(
 
     if refresh_kind.user() {
         refresh_user_group_ids(&mut p, &mut tmp);
-        tmp.pop();
     }
 
     if proc_list.pid.0 != 0 {
@@ -368,12 +368,7 @@ fn retrieve_all_new_process_info(
     } else {
         p.name = name.into();
 
-        tmp.push("cmdline");
-        p.cmd = copy_from_file(&tmp);
-
-        tmp.pop();
-        tmp.push("exe");
-        match tmp.read_link() {
+        match tmp.join("exe").read_link() {
             Ok(exe_path) => {
                 p.exe = exe_path;
             }
@@ -384,17 +379,10 @@ fn retrieve_all_new_process_info(
             }
         }
 
-        tmp.pop();
-        tmp.push("environ");
-        p.environ = copy_from_file(&tmp);
-
-        tmp.pop();
-        tmp.push("cwd");
-        p.cwd = realpath(&tmp);
-
-        tmp.pop();
-        tmp.push("root");
-        p.root = realpath(&tmp);
+        p.cmd = copy_from_file(tmp.join("cmdline"));
+        p.environ = copy_from_file(tmp.join("environ"));
+        p.cwd = realpath(tmp.join("cwd"));
+        p.root = realpath(tmp.join("root"));
     }
 
     update_time_and_memory(
