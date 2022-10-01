@@ -4,7 +4,7 @@ use crate::sys::component::{self, Component};
 use crate::sys::cpu::*;
 use crate::sys::disk;
 use crate::sys::process::*;
-use crate::sys::utils::get_all_data;
+use crate::sys::utils::{get_all_data, to_u64};
 use crate::{
     CpuRefreshKind, Disk, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
@@ -61,12 +61,6 @@ pub(crate) fn get_max_nb_fds() -> isize {
             limits.rlim_max as isize / 2
         }
     }
-}
-
-macro_rules! to_str {
-    ($e:expr) => {
-        unsafe { std::str::from_utf8_unchecked($e) }
-    };
 }
 
 fn boot_time() -> u64 {
@@ -166,19 +160,12 @@ pub struct System {
     mem_slab_reclaimable: u64,
     swap_total: u64,
     swap_free: u64,
-    global_cpu: Cpu,
-    cpus: Vec<Cpu>,
     components: Vec<Component>,
     disks: Vec<Disk>,
     networks: Networks,
     users: Vec<User>,
-    /// Field set to `false` in `update_cpus` and to `true` in `refresh_processes_specifics`.
-    ///
-    /// The reason behind this is to avoid calling the `update_cpus` more than necessary.
-    /// For example when running `refresh_all` or `refresh_specifics`.
-    need_cpus_update: bool,
     info: SystemInfo,
-    got_cpu_frequency: bool,
+    cpus: CpusWrapper,
 }
 
 impl System {
@@ -193,15 +180,14 @@ impl System {
 
     fn clear_procs(&mut self, refresh_kind: ProcessRefreshKind) {
         let (total_time, compute_cpu, max_value) = if refresh_kind.cpu() {
-            if self.need_cpus_update {
-                self.refresh_cpus(true, CpuRefreshKind::new().with_cpu_usage());
-            }
+            self.cpus
+                .refresh_if_needed(true, CpuRefreshKind::new().with_cpu_usage());
 
             if self.cpus.is_empty() {
                 sysinfo_debug!("cannot compute processes CPU usage: no CPU found...");
                 (0., false, 0.)
             } else {
-                let (new, old) = get_raw_times(&self.global_cpu);
+                let (new, old) = self.cpus.get_global_raw_times();
                 let total_time = if old > new { 1 } else { new - old };
                 (
                     total_time as f32 / self.cpus.len() as f32,
@@ -226,128 +212,7 @@ impl System {
     }
 
     fn refresh_cpus(&mut self, only_update_global_cpu: bool, refresh_kind: CpuRefreshKind) {
-        if let Ok(f) = File::open("/proc/stat") {
-            self.need_cpus_update = false;
-
-            let buf = BufReader::new(f);
-            let mut i: usize = 0;
-            let first = self.cpus.is_empty();
-            let mut it = buf.split(b'\n');
-            let (vendor_id, brand) = if first {
-                get_vendor_id_and_brand()
-            } else {
-                (String::new(), String::new())
-            };
-
-            if first || refresh_kind.cpu_usage() {
-                if let Some(Ok(line)) = it.next() {
-                    if &line[..4] != b"cpu " {
-                        return;
-                    }
-                    let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
-                    if first {
-                        self.global_cpu.name = to_str!(parts.next().unwrap_or(&[])).to_owned();
-                    } else {
-                        parts.next();
-                    }
-                    self.global_cpu.set(
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                        parts.next().map(to_u64).unwrap_or(0),
-                    );
-                }
-                if first || !only_update_global_cpu {
-                    while let Some(Ok(line)) = it.next() {
-                        if &line[..3] != b"cpu" {
-                            break;
-                        }
-
-                        let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
-                        if first {
-                            self.cpus.push(Cpu::new_with_values(
-                                to_str!(parts.next().unwrap_or(&[])),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                0,
-                                vendor_id.clone(),
-                                brand.clone(),
-                            ));
-                        } else {
-                            parts.next(); // we don't want the name again
-                            self.cpus[i].set(
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                            );
-                        }
-
-                        i += 1;
-                    }
-                }
-            }
-
-            if refresh_kind.frequency() {
-                #[cfg(feature = "multithread")]
-                use rayon::iter::{
-                    IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
-                };
-
-                #[cfg(feature = "multithread")]
-                // This function is voluntarily made generic in case we want to generalize it.
-                fn iter_mut<'a, T>(
-                    val: &'a mut T,
-                ) -> <&'a mut T as rayon::iter::IntoParallelIterator>::Iter
-                where
-                    &'a mut T: rayon::iter::IntoParallelIterator,
-                {
-                    val.par_iter_mut()
-                }
-
-                #[cfg(not(feature = "multithread"))]
-                fn iter_mut<'a>(val: &'a mut Vec<Cpu>) -> std::slice::IterMut<'a, Cpu> {
-                    val.iter_mut()
-                }
-
-                // `get_cpu_frequency` is very slow, so better run it in parallel.
-                self.global_cpu.frequency = iter_mut(&mut self.cpus)
-                    .enumerate()
-                    .map(|(pos, proc_)| {
-                        proc_.frequency = get_cpu_frequency(pos);
-                        proc_.frequency
-                    })
-                    .max()
-                    .unwrap_or(0);
-
-                self.got_cpu_frequency = true;
-            }
-
-            if first {
-                self.global_cpu.vendor_id = vendor_id;
-                self.global_cpu.brand = brand;
-            }
-        }
+        self.cpus.refresh(only_update_global_cpu, refresh_kind);
     }
 }
 
@@ -367,30 +232,12 @@ impl SystemExt for System {
             mem_slab_reclaimable: 0,
             swap_total: 0,
             swap_free: 0,
-            global_cpu: Cpu::new_with_values(
-                "",
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                String::new(),
-                String::new(),
-            ),
-            cpus: Vec::with_capacity(4),
+            cpus: CpusWrapper::new(),
             components: Vec::new(),
             disks: Vec::with_capacity(2),
             networks: Networks::new(),
             users: Vec::new(),
-            need_cpus_update: true,
             info: SystemInfo::new(),
-            got_cpu_frequency: false,
         };
         s.refresh_specifics(refreshes);
         s
@@ -440,7 +287,7 @@ impl SystemExt for System {
             refresh_kind,
         );
         self.clear_procs(refresh_kind);
-        self.need_cpus_update = true;
+        self.cpus.set_need_cpus_update();
     }
 
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
@@ -468,7 +315,7 @@ impl SystemExt for System {
                     sysinfo_debug!("Cannot compute process CPU usage: no cpus found...");
                     return found;
                 }
-                let (new, old) = get_raw_times(&self.global_cpu);
+                let (new, old) = self.cpus.get_global_raw_times();
                 let total_time = (if old >= new { 1 } else { new - old }) as f32;
 
                 let max_cpu_usage = self.get_max_process_cpu_usage();
@@ -512,11 +359,11 @@ impl SystemExt for System {
     }
 
     fn global_cpu_info(&self) -> &Cpu {
-        &self.global_cpu
+        &self.cpus.global_cpu
     }
 
     fn cpus(&self) -> &[Cpu] {
-        &self.cpus
+        &self.cpus.cpus
     }
 
     fn physical_core_count(&self) -> Option<usize> {
@@ -722,16 +569,6 @@ impl Default for System {
     fn default() -> System {
         System::new()
     }
-}
-
-fn to_u64(v: &[u8]) -> u64 {
-    let mut x = 0;
-
-    for c in v {
-        x *= 10;
-        x += u64::from(c - b'0');
-    }
-    x
 }
 
 #[derive(PartialEq, Eq)]

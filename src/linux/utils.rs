@@ -128,3 +128,13 @@ impl PathPush for PathBuf {
         self.as_path()
     }
 }
+
+pub(crate) fn to_u64(v: &[u8]) -> u64 {
+    let mut x = 0;
+
+    for c in v {
+        x *= 10;
+        x += u64::from(c - b'0');
+    }
+    x
+}
