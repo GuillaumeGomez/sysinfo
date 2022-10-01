@@ -82,7 +82,25 @@ println!("NB CPUs: {}", sys.cpus().len());
 for (pid, process) in sys.processes() {
     println!("[{}] {} {:?}", pid, process.name(), process.disk_usage());
 }
+```
 
+Please remember that to have some up-to-date information, you need to call the equivalent
+`refresh` method. For example, for the CPU usage:
+
+```rust,no_run
+use sysinfo::{CpuExt, System, SystemExt};
+
+let mut sys = System::new();
+
+loop {
+    sys.refresh_cpu(); // Refreshing CPU information.
+    for cpu in sys.cpus() {
+        print!("{}% ", cpu.cpu_usage());
+    }
+    // Sleeping for 500 ms to let time for the system to run for long
+    // enough to have useful information.
+    std::thread::sleep(std::time::Duration::from_millis(500));
+}
 ```
 
 By default, `sysinfo` uses multiple threads. However, this can increase the memory usage on some
