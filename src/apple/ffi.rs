@@ -3,6 +3,9 @@
 // Reexport items defined in either macos or ios ffi module.
 pub use crate::sys::inner::ffi::*;
 
+#[link(name = "CoreFoundation", kind = "framework")]
+extern "C" {}
+
 #[cfg_attr(feature = "debug", derive(Eq, Hash, PartialEq))]
 #[derive(Clone)]
 #[repr(C)]

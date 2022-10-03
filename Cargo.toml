@@ -12,7 +12,6 @@ exclude = ["/test-unknown"]
 
 categories = ["filesystem", "os", "api-bindings"]
 
-build = "build.rs"
 edition = "2018"
 
 [dependencies]

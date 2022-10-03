@@ -34,6 +34,7 @@ pub const kIOPropertyMediumTypeSolidStateKey: &str = "Solid State";
 pub const kIOPropertyMediumTypeRotationalKey: &str = "Rotational";
 
 // Note: Obtaining information about disks using IOKIt is allowed inside the default macOS App Sandbox.
+#[link(name = "IOKit", kind = "framework")]
 extern "C" {
     pub fn IOServiceGetMatchingServices(
         mainPort: mach_port_t,
