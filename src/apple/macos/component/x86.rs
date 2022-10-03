@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::ffi;
+use crate::sys::{ffi, macos::utils::IOReleaser};
 use crate::ComponentExt;
 
 use libc::{c_char, c_int, c_void};
@@ -253,31 +253,6 @@ fn get_temperature(con: ffi::io_connect_t, key: &[i8]) -> Option<f32> {
     }
 }
 
-#[repr(transparent)]
-pub(crate) struct IoObject(ffi::io_object_t);
-
-impl IoObject {
-    fn new(obj: ffi::io_object_t) -> Option<Self> {
-        if obj == 0 {
-            None
-        } else {
-            Some(Self(obj))
-        }
-    }
-
-    fn inner(&self) -> ffi::io_object_t {
-        self.0
-    }
-}
-
-impl Drop for IoObject {
-    fn drop(&mut self) {
-        unsafe {
-            ffi::IOObjectRelease(self.0);
-        }
-    }
-}
-
 pub(crate) struct IoService(ffi::io_connect_t);
 
 impl IoService {
@@ -309,7 +284,7 @@ impl IoService {
                 sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
                 return None;
             }
-            let iterator = match IoObject::new(iterator) {
+            let iterator = match IOReleaser::new(iterator) {
                 Some(i) => i,
                 None => {
                     sysinfo_debug!("Error: IOServiceGetMatchingServices() succeeded but returned invalid descriptor");
@@ -317,7 +292,7 @@ impl IoService {
                 }
             };
 
-            let device = match IoObject::new(ffi::IOIteratorNext(iterator.inner())) {
+            let device = match IOReleaser::new(ffi::IOIteratorNext(iterator.inner())) {
                 Some(d) => d,
                 None => {
                     sysinfo_debug!("Error: no SMC found");

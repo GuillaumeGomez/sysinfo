@@ -3,19 +3,13 @@
 use crate::sys::component::Component;
 use crate::sys::cpu::*;
 use crate::sys::disk::*;
-#[cfg(target_os = "macos")]
-use crate::sys::ffi;
 use crate::sys::network::Networks;
 use crate::sys::process::*;
-#[cfg(target_os = "macos")]
-use core_foundation_sys::base::kCFAllocatorDefault;
 
 use crate::{
     CpuExt, CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
-#[cfg(target_os = "macos")]
-use crate::sys::macos::utils::CFReleaser;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::ProcessExt;
 
@@ -99,10 +93,6 @@ pub struct System {
     port: mach_port_t,
     users: Vec<User>,
     boot_time: u64,
-    // Used to get disk information, to be more specific, it's needed by the
-    // DADiskCreateFromVolumePath function. Not supported on iOS.
-    #[cfg(target_os = "macos")]
-    session: Option<CFReleaser<ffi::__DASession>>,
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
     got_cpu_frequency: bool,
@@ -177,8 +167,6 @@ impl SystemExt for System {
                 port,
                 users: Vec::new(),
                 boot_time: boot_time(),
-                #[cfg(target_os = "macos")]
-                session: None,
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
                 clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
                 got_cpu_frequency: false,
@@ -369,14 +357,7 @@ impl SystemExt for System {
 
     #[cfg(target_os = "macos")]
     fn refresh_disks_list(&mut self) {
-        unsafe {
-            if self.session.is_none() {
-                self.session = CFReleaser::new(ffi::DASessionCreate(kCFAllocatorDefault as _));
-            }
-            if let Some(ref session) = self.session {
-                self.disks = get_disks(session.inner());
-            }
-        }
+        self.disks = get_disks();
     }
 
     fn refresh_users_list(&mut self) {

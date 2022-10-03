@@ -1,14 +1,14 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use core_foundation_sys::base::{mach_port_t, CFAllocatorRef, CFRelease};
+use core_foundation_sys::array::CFArrayRef;
+use core_foundation_sys::base::{mach_port_t, CFAllocatorRef};
 use core_foundation_sys::dictionary::{CFDictionaryRef, CFMutableDictionaryRef};
-use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
+use core_foundation_sys::string::CFStringRef;
 
-use libc::{c_char, c_void, kern_return_t};
+use core_foundation_sys::url::CFURLRef;
+use libc::{c_char, kern_return_t};
 
 // Note: IOKit is only available on MacOS up until very recent iOS versions: https://developer.apple.com/documentation/iokit
-
-pub(crate) use crate::sys::ffi::*;
 
 #[allow(non_camel_case_types)]
 pub type io_object_t = mach_port_t;
@@ -27,7 +27,7 @@ pub const kIOServicePlane: &str = "IOService\0";
 #[allow(non_upper_case_globals)]
 pub const kIOPropertyDeviceCharacteristicsKey: &str = "Device Characteristics";
 #[allow(non_upper_case_globals)]
-pub const kIOPropertyMediumTypeKey: &[u8] = b"Medium Type\0";
+pub const kIOPropertyMediumTypeKey: &str = "Medium Type";
 #[allow(non_upper_case_globals)]
 pub const kIOPropertyMediumTypeSolidStateKey: &str = "Solid State";
 #[allow(non_upper_case_globals)]
@@ -68,52 +68,21 @@ extern "C" {
 }
 
 extern "C" {
-    pub fn CFStringCreateWithCStringNoCopy(
-        alloc: *mut c_void,
-        cStr: *const c_char,
-        encoding: CFStringEncoding,
-        contentsDeallocator: *mut c_void,
-    ) -> CFStringRef;
+    pub fn CFURLCopyResourcePropertiesForKeys(
+        url: CFURLRef,
+        keys: CFArrayRef,
+        error: *mut CFArrayRef,
+    ) -> CFDictionaryRef;
 
-    // Disk information functions are non-operational on iOS because of the sandboxing
-    // restrictions of apps, so they don't can't filesystem information. This results in
-    // mountedVolumeURLs and similar returning `nil`. Hence, they are MacOS specific here.
-
-    pub fn DASessionCreate(allocator: CFAllocatorRef) -> DASessionRef;
-
-    // pub fn DADiskCreateFromVolumePath(
-    //     allocator: CFAllocatorRef,
-    //     session: DASessionRef,
-    //     path: CFURLRef,
-    // ) -> DADiskRef;
-    pub fn DADiskCreateFromBSDName(
-        allocator: CFAllocatorRef,
-        session: DASessionRef,
-        path: *const c_char,
-    ) -> DADiskRef;
-    // pub fn DADiskGetBSDName(disk: DADiskRef) -> *const c_char;
-
-    pub fn DADiskCopyDescription(disk: DADiskRef) -> CFMutableDictionaryRef;
+    pub static kCFURLVolumeIsEjectableKey: CFStringRef;
+    pub static kCFURLVolumeIsRemovableKey: CFStringRef;
+    pub static kCFURLVolumeAvailableCapacityKey: CFStringRef;
+    pub static kCFURLVolumeAvailableCapacityForImportantUsageKey: CFStringRef;
+    pub static kCFURLVolumeTotalCapacityKey: CFStringRef;
+    pub static kCFURLVolumeNameKey: CFStringRef;
+    pub static kCFURLVolumeIsLocalKey: CFStringRef;
+    pub static kCFURLVolumeIsBrowsableKey: CFStringRef;
 }
-
-pub type DADiskRef = *const __DADisk;
-pub type DASessionRef = *const __DASession;
-
-// We need to wrap `DASessionRef` to be sure `System` remains Send+Sync.
-pub struct SessionWrap(pub DASessionRef);
-
-impl Drop for SessionWrap {
-    fn drop(&mut self) {
-        if !self.0.is_null() {
-            unsafe {
-                CFRelease(self.0 as _);
-            }
-        }
-    }
-}
-
-unsafe impl Send for SessionWrap {}
-unsafe impl Sync for SessionWrap {}
 
 #[cfg(all(
     not(feature = "apple-sandbox"),

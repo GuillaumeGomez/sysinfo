@@ -8,8 +8,6 @@ fn main() {
 
     if is_apple {
         if !is_ios {
-            // DiskArbitration is not available on iOS: https://developer.apple.com/documentation/diskarbitration
-            println!("cargo:rustc-link-lib=framework=DiskArbitration");
             // IOKit is not available on iOS: https://developer.apple.com/documentation/iokit
             println!("cargo:rustc-link-lib=framework=IOKit");
         }
