@@ -23,6 +23,7 @@ extern "C" {
     pub static kCFURLVolumeTotalCapacityKey: CFStringRef;
     pub static kCFURLVolumeNameKey: CFStringRef;
     pub static kCFURLVolumeIsLocalKey: CFStringRef;
+    pub static kCFURLVolumeIsInternalKey: CFStringRef;
     pub static kCFURLVolumeIsBrowsableKey: CFStringRef;
 }
 

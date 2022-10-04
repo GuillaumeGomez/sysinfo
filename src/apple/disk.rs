@@ -100,6 +100,7 @@ pub(super) unsafe fn get_disks() -> Vec<Disk> {
     let requested_properties = build_requested_properties(&[
         ffi::kCFURLVolumeIsEjectableKey,
         ffi::kCFURLVolumeIsRemovableKey,
+        ffi::kCFURLVolumeIsInternalKey,
         ffi::kCFURLVolumeTotalCapacityKey,
         ffi::kCFURLVolumeAvailableCapacityForImportantUsageKey,
         ffi::kCFURLVolumeAvailableCapacityKey,
@@ -209,7 +210,7 @@ fn get_available_volume_space(disk_props: &RetainedCFDictionary) -> u64 {
             )
         })
     }
-    .unwrap() as u64
+    .unwrap_or_default() as u64
 }
 
 pub(super) enum DictKey {
@@ -336,7 +337,21 @@ unsafe fn new_disk(
         )
         .unwrap_or_default();
 
-        ejectable || removable
+        let is_removable = ejectable || removable;
+
+        if is_removable {
+            is_removable
+        } else {
+            // If neither `ejectable` or `removable` return `true`, fallback to checking
+            // if the disk is attached to the internal system.
+            let internal = get_bool_value(
+                disk_props.inner(),
+                DictKey::Extern(ffi::kCFURLVolumeIsInternalKey),
+            )
+            .unwrap_or_default();
+
+            !internal
+        }
     };
 
     let total_space = get_int_value(
