@@ -3,7 +3,7 @@
 /* convert a path to a NUL-terminated Vec<u8> suitable for use with C functions */
 #[cfg(all(
     not(feature = "unknown-ci"),
-    any(target_os = "linux", target_os = "android", target_vendor = "apple")
+    any(target_os = "linux", target_os = "android")
 ))]
 pub(crate) fn to_cpath(path: &std::path::Path) -> Vec<u8> {
     use std::{ffi::OsStr, os::unix::ffi::OsStrExt};

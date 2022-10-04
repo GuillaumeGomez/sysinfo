@@ -352,12 +352,8 @@ impl SystemExt for System {
         }
     }
 
-    #[cfg(target_os = "ios")]
-    fn refresh_disks_list(&mut self) {}
-
-    #[cfg(target_os = "macos")]
     fn refresh_disks_list(&mut self) {
-        self.disks = get_disks();
+        self.disks = unsafe { get_disks() };
     }
 
     fn refresh_users_list(&mut self) {

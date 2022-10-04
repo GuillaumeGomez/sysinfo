@@ -1,11 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use core_foundation_sys::array::CFArrayRef;
 use core_foundation_sys::base::{mach_port_t, CFAllocatorRef};
 use core_foundation_sys::dictionary::{CFDictionaryRef, CFMutableDictionaryRef};
 use core_foundation_sys::string::CFStringRef;
 
-use core_foundation_sys::url::CFURLRef;
 use libc::{c_char, kern_return_t};
 
 // Note: IOKit is only available on MacOS up until very recent iOS versions: https://developer.apple.com/documentation/iokit
@@ -66,23 +64,6 @@ extern "C" {
 
     // This is deprecated as of macOS 12.0, but Rust doesn't have a good way to only use the replacement on 12+.
     pub static kIOMasterPortDefault: mach_port_t;
-}
-
-extern "C" {
-    pub fn CFURLCopyResourcePropertiesForKeys(
-        url: CFURLRef,
-        keys: CFArrayRef,
-        error: *mut CFArrayRef,
-    ) -> CFDictionaryRef;
-
-    pub static kCFURLVolumeIsEjectableKey: CFStringRef;
-    pub static kCFURLVolumeIsRemovableKey: CFStringRef;
-    pub static kCFURLVolumeAvailableCapacityKey: CFStringRef;
-    pub static kCFURLVolumeAvailableCapacityForImportantUsageKey: CFStringRef;
-    pub static kCFURLVolumeTotalCapacityKey: CFStringRef;
-    pub static kCFURLVolumeNameKey: CFStringRef;
-    pub static kCFURLVolumeIsLocalKey: CFStringRef;
-    pub static kCFURLVolumeIsBrowsableKey: CFStringRef;
 }
 
 #[cfg(all(

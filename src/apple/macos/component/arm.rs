@@ -15,7 +15,7 @@ use crate::apple::inner::ffi::{
     IOHIDServiceClientCopyProperty, __IOHIDEventSystemClient, __IOHIDServiceClient,
     HID_DEVICE_PROPERTY_PRODUCT,
 };
-use crate::sys::macos::utils::CFReleaser;
+use crate::sys::utils::CFReleaser;
 use crate::ComponentExt;
 
 pub(crate) struct Components {
