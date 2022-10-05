@@ -126,6 +126,10 @@ pub(super) unsafe fn get_disks() -> Vec<Disk> {
             None => continue,
         };
 
+        // Future note: There is a difference between `kCFURLVolumeIsBrowsableKey` and the
+        // `kCFURLEnumeratorSkipInvisibles` option of `CFURLEnumeratorOptions`. Specifically,
+        // the first one considers the writable `Data`(`/System/Volumes/Data`) partition to be
+        // browsable, while it is classified as "invisible" by CoreFoundation's volume emumerator.
         let browsable = get_bool_value(
             prop_dict.inner(),
             DictKey::Extern(ffi::kCFURLVolumeIsBrowsableKey),
