@@ -27,7 +27,7 @@ pub(crate) fn to_cpath(path: &std::path::Path) -> Vec<u8> {
         ),
         feature = "multithread"
     ),
-    not(feature = "apple-sandbox"),
+    not(all(target_os = "macos", feature = "apple-sandbox")),
     not(feature = "unknown-ci")
 ))]
 pub(crate) fn into_iter<T>(val: T) -> T::Iter
@@ -51,7 +51,7 @@ where
         not(feature = "multithread")
     ),
     not(feature = "unknown-ci"),
-    not(feature = "apple-sandbox")
+    not(all(target_os = "macos", feature = "apple-sandbox"))
 ))]
 pub(crate) fn into_iter<T>(val: T) -> T::IntoIter
 where
