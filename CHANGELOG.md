@@ -1,3 +1,10 @@
+# 0.26.5
+
+ * Windows: Fix disk information retrieval.
+ * Linux: Improve `Process` document.
+ * Linux: Fix a compilation error if the `apple-sandbox` feature is enabled.
+ * Internal code improvements.
+
 # 0.26.4
 
  * Add `SystemExt::distribution_id` method.
