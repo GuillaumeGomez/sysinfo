@@ -582,7 +582,7 @@ impl SystemExt for System {
                 && size > 0
             {
                 // now create a buffer with the size and get the real value
-                let mut buf = vec![0_u8; size as usize];
+                let mut buf = vec![0_u8; size as _];
 
                 if get_sys_value_by_name(
                     b"kern.osproductversion\0",
@@ -688,7 +688,7 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
             default.map(|s| s.to_owned())
         } else {
             // set the buffer to the correct size
-            let mut buf = vec![0_u8; size as usize];
+            let mut buf = vec![0_u8; size as _];
 
             if sysctl(
                 mib.as_mut_ptr(),

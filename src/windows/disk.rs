@@ -122,8 +122,8 @@ unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {
     ) != 0
     {
         Some((
-            *total_size.QuadPart() as u64,
-            *available_space.QuadPart() as u64,
+            *total_size.QuadPart() as _,
+            *available_space.QuadPart() as _,
         ))
     } else {
         None

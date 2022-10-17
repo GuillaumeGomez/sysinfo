@@ -365,7 +365,7 @@ unsafe fn create_new_process(
         p => Some(Pid(p)),
     };
 
-    let mut proc_args = Vec::with_capacity(size as usize);
+    let mut proc_args = Vec::with_capacity(size as _);
     let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
     let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
     /*
