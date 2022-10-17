@@ -16,9 +16,10 @@ use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
 use winapi::um::ioapiset::DeviceIoControl;
 use winapi::um::winbase::{DRIVE_FIXED, DRIVE_REMOVABLE};
 use winapi::um::winioctl::{
-    DEVICE_TRIM_DESCRIPTOR, IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
+    PropertyStandardQuery, StorageDeviceSeekPenaltyProperty, IOCTL_STORAGE_QUERY_PROPERTY,
+    STORAGE_PROPERTY_QUERY,
 };
-use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE, ULARGE_INTEGER};
+use winapi::um::winnt::{BOOLEAN, FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE, ULARGE_INTEGER};
 
 #[doc = include_str!("../../md_doc/disk.md")]
 pub struct Disk {
@@ -130,6 +131,15 @@ unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {
     }
 }
 
+// FIXME: To be removed once <https://github.com/retep998/winapi-rs/pull/1028> has been merged.
+#[allow(non_snake_case)]
+#[repr(C)]
+struct DEVICE_SEEK_PENALTY_DESCRIPTOR {
+    Version: DWORD,
+    Size: DWORD,
+    IncursSeekPenalty: BOOLEAN,
+}
+
 pub(crate) unsafe fn get_disks() -> Vec<Disk> {
     let drives = GetLogicalDrives();
     if drives == 0 {
@@ -201,16 +211,12 @@ pub(crate) unsafe fn get_disks() -> Vec<Disk> {
             if total_space == 0 {
                 return None;
             }
-            /*let mut spq_trim: STORAGE_PROPERTY_QUERY = std::mem::zeroed();
-            spq_trim.PropertyId = StorageDeviceTrimProperty;
-            spq_trim.QueryType = PropertyStandardQuery;
-            let mut dtd: DEVICE_TRIM_DESCRIPTOR = std::mem::zeroed();*/
             let mut spq_trim = STORAGE_PROPERTY_QUERY {
-                PropertyId: 8,
-                QueryType: 0,
+                PropertyId: StorageDeviceSeekPenaltyProperty,
+                QueryType: PropertyStandardQuery,
                 AdditionalParameters: [0],
             };
-            let mut dtd: DEVICE_TRIM_DESCRIPTOR = std::mem::zeroed();
+            let mut result: DEVICE_SEEK_PENALTY_DESCRIPTOR = std::mem::zeroed();
 
             let mut dw_size = 0;
             let type_ = if DeviceIoControl(
@@ -218,16 +224,16 @@ pub(crate) unsafe fn get_disks() -> Vec<Disk> {
                 IOCTL_STORAGE_QUERY_PROPERTY,
                 &mut spq_trim as *mut STORAGE_PROPERTY_QUERY as *mut c_void,
                 size_of::<STORAGE_PROPERTY_QUERY>() as DWORD,
-                &mut dtd as *mut DEVICE_TRIM_DESCRIPTOR as *mut c_void,
-                size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD,
+                &mut result as *mut DEVICE_SEEK_PENALTY_DESCRIPTOR as *mut c_void,
+                size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as DWORD,
                 &mut dw_size,
                 std::ptr::null_mut(),
             ) == 0
-                || dw_size != size_of::<DEVICE_TRIM_DESCRIPTOR>() as DWORD
+                || dw_size != size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as DWORD
             {
                 DiskType::Unknown(-1)
             } else {
-                let is_ssd = dtd.TrimEnabled != 0;
+                let is_ssd = result.IncursSeekPenalty == 0;
                 if is_ssd {
                     DiskType::SSD
                 } else {
