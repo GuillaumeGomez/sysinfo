@@ -16,7 +16,7 @@ use crate::sys::utils::{
     get_all_data, get_all_data_from_file, realpath, FileCounter, PathHandler, PathPush,
 };
 use crate::utils::into_iter;
-use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
+use crate::{DiskUsage, Gid, Pid, PidExt, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 #[doc(hidden)]
 impl From<u32> for ProcessStatus {
@@ -218,6 +218,25 @@ impl ProcessExt for Process {
 
     fn group_id(&self) -> Option<Gid> {
         self.group_id
+    }
+
+    fn wait(&self) -> Option<Pid> {
+        let (mut status, mut _pid): (libc::c_int, i32) = (0, -1);
+        let _ppid = self.parent().unwrap().as_u32();
+        let _uppid = std::process::id();
+        if _ppid == _uppid {
+            unsafe {
+                Some(Pid(libc::waitpid(self.pid.0, &mut status, 0)))
+            }
+        } else {
+            while self.kill_with(Signal::Null).unwrap_or(false) {
+                unsafe {
+                    Pid(libc::waitpid(self.pid.as_u32() as i32, &mut status, 0))
+                };
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Some(Pid(-1))
+        }
     }
 }
 

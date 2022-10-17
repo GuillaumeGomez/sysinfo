@@ -115,6 +115,7 @@ impl SystemInfo {
 
 declare_signals! {
     c_int,
+    Signal::Null => 0,
     Signal::Hangup => libc::SIGHUP,
     Signal::Interrupt => libc::SIGINT,
     Signal::Quit => libc::SIGQUIT,
