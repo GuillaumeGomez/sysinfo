@@ -169,7 +169,7 @@ pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
             && size > 0
         {
             // now create a buffer with the size and get the real value
-            let mut buf: Vec<libc::c_char> = vec![0; size as usize];
+            let mut buf: Vec<libc::c_char> = vec![0; size as _];
 
             if libc::sysctlbyname(
                 name.as_ptr() as *const c_char,
@@ -210,7 +210,7 @@ pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<St
             default.map(|s| s.to_owned())
         } else {
             // set the buffer to the correct size
-            let mut buf: Vec<libc::c_char> = vec![0; size as usize];
+            let mut buf: Vec<libc::c_char> = vec![0; size as _];
 
             if libc::sysctl(
                 mib.as_ptr(),

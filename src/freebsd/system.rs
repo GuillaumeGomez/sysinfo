@@ -736,8 +736,10 @@ impl SystemInfo {
                 if i != libc::CP_IDLE as usize {
                     cp_diff += new_cp_time[i] - old_cp_time[i];
                 }
-                total_new += new_cp_time[i] as u64;
-                total_old += old_cp_time[i] as u64;
+                let mut tmp: u64 = new_cp_time[i] as _;
+                total_new += tmp;
+                tmp = old_cp_time[i] as _;
+                total_old += tmp;
             }
 
             let total_diff = total_new - total_old;

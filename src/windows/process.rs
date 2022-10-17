@@ -1006,7 +1006,7 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
         }
 
         p.cpu_usage = 100.0
-            * (delta_user_time.saturating_add(delta_sys_time) as f32 / denominator as f32)
+            * (delta_user_time.saturating_add(delta_sys_time) as f32 / denominator)
             * nb_cpus as f32;
     }
 }
