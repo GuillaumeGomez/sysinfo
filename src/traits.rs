@@ -878,6 +878,12 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// If you want only the processes with exactly the given `name`, take a look at
     /// [`SystemExt::processes_by_exact_name`].
     ///
+    /// **⚠️ Important ⚠️**
+    ///
+    /// On **linux**, there are two things to know about processes' name:
+    ///  1. It is limited to 15 characters.
+    ///  2. It is not always the exe name.
+    ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
     ///
@@ -902,6 +908,12 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// If you instead want the processes containing `name`, take a look at
     /// [`SystemExt::processes_by_name`].
+    ///
+    /// **⚠️ Important ⚠️**
+    ///
+    /// On **linux**, there are two things to know about processes' name:
+    ///  1. It is limited to 15 characters.
+    ///  2. It is not always the exe name.
     ///
     /// ```no_run
     /// use sysinfo::{ProcessExt, System, SystemExt};
