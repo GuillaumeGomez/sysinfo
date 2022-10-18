@@ -547,6 +547,18 @@ impl ProcessExt for Process {
     fn group_id(&self) -> Option<Gid> {
         None
     }
+
+    fn wait(&self) -> Option<Pid> {
+        let (mut status, mut _pid): (libc::c_int, i32) = (0, -1);
+        let _ppid =  self.parent().unwrap().as_u32();
+        let _uppid = std::process::id();
+        if _ppid == _uppid {
+            let process_handler = get_process_handler(self.pid.0);
+            winapi::um::synchapi::WaitForSingleObject(process_handler, -1);
+        } else {
+            Some(Pid(-1))
+        }
+    }
 }
 
 #[inline]

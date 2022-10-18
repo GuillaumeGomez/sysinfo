@@ -528,8 +528,6 @@ pub enum DiskType {
 /// [`SystemExt::SUPPORTED_SIGNALS`][crate::SystemExt::SUPPORTED_SIGNALS].
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 pub enum Signal {
-    /// Null to check if process is still alive.
-    Null,
     /// Hangup detected on controlling terminal or death of controlling process.
     Hangup,
     /// Interrupt from keyboard.
@@ -601,7 +599,6 @@ pub enum Signal {
 impl std::fmt::Display for Signal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match *self {
-            Self::Null => "Null",
             Self::Hangup => "Hangup",
             Self::Interrupt => "Interrupt",
             Self::Quit => "Quit",

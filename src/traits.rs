@@ -415,6 +415,8 @@ pub trait ProcessExt: Debug {
 
     /// Wait for process termination.
     ///
+    /// ⚠️ It returns `-1` for non child process on Windows.
+    ///
     ///```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///

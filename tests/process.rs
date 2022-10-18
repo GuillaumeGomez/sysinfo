@@ -419,6 +419,7 @@ fn test_wait_child() {
 }
 
 #[test]
+#[ignore]
 fn test_wait_non_child() {
     if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
@@ -442,14 +443,23 @@ fn test_wait_non_child() {
             .unwrap()
     };
 
-    //let before = std::time::Instant::now();
+    let before = std::time::Instant::now();
 
     let mut s = sysinfo::System::new();
     s.refresh_all();
     let processes = s.processes();
-    let pid = processes.iter().
-        find_map(|(&pid, process)|
-                 if process.name() == "sleep" { Some(pid) } else { None } ).unwrap();
+    // Try to find the grand child process
+    // whose current parent is init.
+    let pid = processes
+        .iter()
+        .find_map(|(&pid, process)| {
+            if process.name() == "sleep" {
+                Some(pid)
+            } else {
+                None
+            }
+        })
+        .unwrap();
     s.refresh_process(pid);
     let process = s.process(pid).expect("Process not found!");
 
@@ -461,6 +471,6 @@ fn test_wait_non_child() {
     assert!(!s.refresh_process(pid));
 
     // should wait for 2s.
-    //assert!(before.elapsed() > std::time::Duration::from_millis(2000));
-    //assert!(before.elapsed() < std::time::Duration::from_millis(3000));
+    assert!(before.elapsed() > std::time::Duration::from_millis(2000));
+    assert!(before.elapsed() < std::time::Duration::from_millis(3000));
 }
