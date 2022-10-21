@@ -1251,8 +1251,8 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// or [`std::env::consts::OS`].
     ///
     /// See also
-    /// - https://www.freedesktop.org/software/systemd/man/os-release.html#ID=
-    /// - https://doc.rust-lang.org/std/env/consts/constant.OS.html
+    /// - <https://www.freedesktop.org/software/systemd/man/os-release.html#ID=>
+    /// - <https://doc.rust-lang.org/std/env/consts/constant.OS.html>
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
