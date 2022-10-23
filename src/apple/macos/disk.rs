@@ -13,34 +13,36 @@ use core_foundation_sys::string as cfs;
 
 use std::ffi::CStr;
 
-const UNKNOWN_DISK_TYPE: DiskType = DiskType::Unknown(-1);
-
-pub(crate) fn get_disk_type(disk: &libc::statfs) -> DiskType {
-    let characteristics_string = CFReleaser::new(unsafe {
-        cfs::CFStringCreateWithBytesNoCopy(
+pub(crate) fn get_disk_type(disk: &libc::statfs) -> Option<DiskType> {
+    let characteristics_string = unsafe {
+        CFReleaser::new(cfs::CFStringCreateWithBytesNoCopy(
             kCFAllocatorDefault,
             ffi::kIOPropertyDeviceCharacteristicsKey.as_ptr(),
             ffi::kIOPropertyDeviceCharacteristicsKey.len() as _,
             cfs::kCFStringEncodingUTF8,
             false as _,
             kCFAllocatorNull,
-        )
-    })
-    .unwrap();
+        ))?
+    };
 
     // Removes `/dev/` from the value.
     let bsd_name = unsafe {
         CStr::from_ptr(disk.f_mntfromname.as_ptr())
             .to_bytes()
             .strip_prefix(b"/dev/")
-            .expect("device mount point in unknown format")
+            .or_else(|| {
+                sysinfo_debug!("unknown disk mount path format");
+                None
+            })?
     };
 
+    // We don't need to wrap this in an auto-releaser because the following call to `IOServiceGetMatchingServices`
+    // will take ownership of one retain reference.
     let matching =
         unsafe { ffi::IOBSDNameMatching(ffi::kIOMasterPortDefault, 0, bsd_name.as_ptr().cast()) };
 
     if matching.is_null() {
-        return UNKNOWN_DISK_TYPE;
+        return None;
     }
 
     let mut service_iterator: ffi::io_iterator_t = 0;
@@ -53,10 +55,11 @@ pub(crate) fn get_disk_type(disk: &libc::statfs) -> DiskType {
         )
     } != libc::KERN_SUCCESS
     {
-        return UNKNOWN_DISK_TYPE;
+        return None;
     }
 
-    let service_iterator = IOReleaser::new(service_iterator).unwrap();
+    // Safety: We checked for success, so there is always a valid iterator, even if its empty.
+    let service_iterator = unsafe { IOReleaser::new_unchecked(service_iterator) };
 
     let mut parent_entry: ffi::io_registry_entry_t = 0;
 
@@ -68,23 +71,22 @@ pub(crate) fn get_disk_type(disk: &libc::statfs) -> DiskType {
         // the values we are looking for. The function may return nothing if we aren't deep enough into the registry
         // tree, so we need to continue going from child->parent node until its found.
         loop {
-            let result = unsafe {
+            if unsafe {
                 ffi::IORegistryEntryGetParentEntry(
                     current_service_entry.inner(),
                     ffi::kIOServicePlane.as_ptr().cast(),
                     &mut parent_entry,
                 )
+            } != libc::KERN_SUCCESS
+            {
+                break;
+            }
+
+            current_service_entry = match IOReleaser::new(parent_entry) {
+                Some(service) => service,
+                // There were no more parents left
+                None => break,
             };
-            if result != libc::KERN_SUCCESS {
-                break;
-            }
-
-            current_service_entry = IOReleaser::new(parent_entry).unwrap();
-
-            // There were no more parents left.
-            if parent_entry == 0 {
-                break;
-            }
 
             let properties_result = unsafe {
                 CFReleaser::new(ffi::IORegistryEntryCreateCFProperty(
@@ -108,17 +110,17 @@ pub(crate) fn get_disk_type(disk: &libc::statfs) -> DiskType {
                     _ if medium == ffi::kIOPropertyMediumTypeRotationalKey => Some(DiskType::HDD),
                     _ => None,
                 }) {
-                    return disk_type;
+                    return Some(disk_type);
                 } else {
                     // Many external drive vendors do not advertise their device's storage medium.
                     //
                     // In these cases, assuming that there were _any_ properties about them registered, we fallback
                     // to `HDD` when no storage medium is provided by the device instead of `Unknown`.
-                    return DiskType::HDD;
+                    return Some(DiskType::HDD);
                 }
             }
         }
     }
 
-    UNKNOWN_DISK_TYPE
+    None
 }

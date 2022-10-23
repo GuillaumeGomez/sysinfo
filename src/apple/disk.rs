@@ -62,16 +62,20 @@ impl DiskExt for Disk {
 
     fn refresh(&mut self) -> bool {
         unsafe {
-            let requested_properties = build_requested_properties(&[
+            if let Some(requested_properties) = build_requested_properties(&[
                 ffi::kCFURLVolumeAvailableCapacityKey,
                 ffi::kCFURLVolumeAvailableCapacityForImportantUsageKey,
-            ]);
-            match get_disk_properties(&self.volume_url, &requested_properties) {
-                Some(disk_props) => {
-                    self.available_space = get_available_volume_space(&disk_props);
-                    true
+            ]) {
+                match get_disk_properties(&self.volume_url, &requested_properties) {
+                    Some(disk_props) => {
+                        self.available_space = get_available_volume_space(&disk_props);
+                        true
+                    }
+                    None => false,
                 }
-                None => false,
+            } else {
+                sysinfo_debug!("failed to create volume key list, skipping refresh");
+                false
             }
         }
     }
@@ -97,7 +101,7 @@ pub(super) unsafe fn get_disks() -> Vec<Disk> {
     };
 
     // Create a list of properties about the disk that we want to fetch.
-    let requested_properties = build_requested_properties(&[
+    let requested_properties = match build_requested_properties(&[
         ffi::kCFURLVolumeIsEjectableKey,
         ffi::kCFURLVolumeIsRemovableKey,
         ffi::kCFURLVolumeIsInternalKey,
@@ -107,19 +111,30 @@ pub(super) unsafe fn get_disks() -> Vec<Disk> {
         ffi::kCFURLVolumeNameKey,
         ffi::kCFURLVolumeIsBrowsableKey,
         ffi::kCFURLVolumeIsLocalKey,
-    ]);
+    ]) {
+        Some(properties) => properties,
+        None => {
+            sysinfo_debug!("failed to create volume key list");
+            return Vec::new();
+        }
+    };
 
     let mut disks = Vec::with_capacity(raw_disks.len());
     for c_disk in raw_disks {
-        let volume_url = CFReleaser::new(
+        let volume_url = match CFReleaser::new(
             core_foundation_sys::url::CFURLCreateFromFileSystemRepresentation(
                 kCFAllocatorDefault,
                 c_disk.f_mntonname.as_ptr() as *const _,
                 c_disk.f_mntonname.len() as _,
                 false as _,
             ),
-        )
-        .unwrap();
+        ) {
+            Some(url) => url,
+            None => {
+                sysinfo_debug!("getfsstat returned incompatible paths");
+                continue;
+            }
+        };
 
         let prop_dict = match get_disk_properties(&volume_url, &requested_properties) {
             Some(props) => props,
@@ -173,14 +188,13 @@ type RetainedCFArray = CFReleaser<core_foundation_sys::array::__CFArray>;
 type RetainedCFDictionary = CFReleaser<core_foundation_sys::dictionary::__CFDictionary>;
 type RetainedCFURL = CFReleaser<core_foundation_sys::url::__CFURL>;
 
-unsafe fn build_requested_properties(properties: &[CFStringRef]) -> RetainedCFArray {
+unsafe fn build_requested_properties(properties: &[CFStringRef]) -> Option<RetainedCFArray> {
     CFReleaser::new(CFArrayCreate(
         ptr::null_mut(),
         properties.as_ptr() as *const *const c_void,
         properties.len() as _,
         &core_foundation_sys::array::kCFTypeArrayCallBacks,
     ))
-    .unwrap()
 }
 
 fn get_disk_properties(
@@ -241,8 +255,7 @@ unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
                 cfs::kCFStringEncodingUTF8,
                 false as _,
                 core_foundation_sys::base::kCFAllocatorNull,
-            ))
-            .unwrap();
+            ))?;
 
             _defined.inner()
         }
@@ -315,7 +328,7 @@ unsafe fn new_disk(
     // so we just assume the disk type is an SSD until Rust has a way to conditionally link to
     // IOKit in more recent deployment versions.
     #[cfg(target_os = "macos")]
-    let type_ = crate::sys::inner::disk::get_disk_type(&c_disk);
+    let type_ = crate::sys::inner::disk::get_disk_type(&c_disk).unwrap_or(DiskType::Unknown(-1));
     #[cfg(not(target_os = "macos"))]
     let type_ = DiskType::SSD;
 
