@@ -107,6 +107,28 @@ By default, `sysinfo` uses multiple threads. However, this can increase the memo
 platforms (macOS for example). The behavior can be disabled by setting `default-features = false`
 in `Cargo.toml` (which disables the `multithread` cargo feature).
 
+### Good practice / Performance tips
+
+Most of the time, you don't want all information provided by `sysinfo` but just a subset of it.
+In this case, it's recommended to use `refresh_specifics(...)` methods with only what you need
+to have much better performance.
+
+Another issues frequently encountered: unless you know what you're doing, it's almost all the
+time better to instantiate the `System` struct once and use this one instance through your
+program. The reason is because a lot of information needs a previous measure to be computed
+(the CPU usage for example). Another example why it's much better: in case you want to list
+all running processes, `sysinfo` needs to allocate all memory for the `Process` struct list,
+which takes quite some time on the first run.
+
+If your program needs to use a lot of file descriptors, you'd better use:
+
+```rust,no_run
+sysinfo::set_open_files_limit(0);
+```
+
+as `sysinfo` keeps a number of file descriptors open to have better performance on some
+targets when refreshing processes.
+
 ### Running on Raspberry Pi
 
 It'll be difficult to build on Raspberry Pi. A good way-around is to cross-build, then send the
