@@ -383,11 +383,7 @@ impl SystemExt for System {
     }
 
     fn used_memory(&self) -> u64 {
-        self.mem_total
-            - self.mem_free
-            - self.mem_buffers
-            - self.mem_page_cache
-            - self.mem_slab_reclaimable
+        self.mem_total - self.mem_available
     }
 
     fn total_swap(&self) -> u64 {
