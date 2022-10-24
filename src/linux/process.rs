@@ -222,17 +222,16 @@ impl ProcessExt for Process {
         self.group_id
     }
 
-    fn wait(&self) -> Option<Pid> {
+    fn wait(&self) {
         let (mut status, mut _pid): (libc::c_int, i32) = (0, -1);
         let _ppid = self.parent().unwrap().as_u32();
         let _uppid = std::process::id();
         if _ppid == _uppid {
-            unsafe { Some(Pid(libc::waitpid(self.pid.0, &mut status, 0))) }
+            unsafe { libc::waitpid(self.pid.0, &mut status, 0); };
         } else {
             while unsafe { kill(self.pid.0, 0) == 0 } {
                 std::thread::sleep(std::time::Duration::from_millis(10));
             }
-            Some(Pid(-1))
         }
     }
 }

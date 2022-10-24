@@ -415,7 +415,7 @@ pub trait ProcessExt: Debug {
 
     /// Wait for process termination.
     ///
-    /// ⚠️ It returns `-1` for non child process on Windows.
+    /// ⚠️ It does not wait non child process to end on Windows.
     ///
     ///```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
@@ -428,7 +428,7 @@ pub trait ProcessExt: Debug {
     ///     eprintln!("Pid 1337 exited");
     /// }
     ///````
-    fn wait(&self) -> Option<Pid>;
+    fn wait(&self);
 }
 
 /// Contains all the methods of the [`Cpu`][crate::Cpu] struct.

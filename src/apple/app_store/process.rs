@@ -80,7 +80,7 @@ impl ProcessExt for Process {
         None
     }
 
-    fn wait(&self) -> Option(Pid) {
+    fn wait(&self) {
         None
     }
 }
