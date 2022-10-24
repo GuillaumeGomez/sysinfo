@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::to_str;
+use crate::sys::system::is_proc_running;
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 use std::ffi::OsString;
@@ -548,15 +549,19 @@ impl ProcessExt for Process {
         None
     }
 
-    fn wait(&self) -> Option<Pid> {
-        let (mut status, mut _pid): (libc::c_int, i32) = (0, -1);
-        let _ppid =  self.parent().unwrap().as_u32();
-        let _uppid = std::process::id();
-        if _ppid == _uppid {
-            let process_handler = get_process_handler(self.pid.0);
-            winapi::um::synchapi::WaitForSingleObject(process_handler, -1);
+
+    fn wait(&self) {
+        if let Some(handle) = self.get_handle() {
+            while is_proc_running(handle) {
+                if get_start_time(handle) != self.start_time() {
+                    // PID owner changed so the previous process was finished!
+                    return
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
         } else {
-            Some(Pid(-1))
+            // In this case, we can't do anything so we just return.
+            sysinfo_debug!("can't wait on this process so returning");
         }
     }
 }
