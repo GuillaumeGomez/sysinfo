@@ -223,12 +223,15 @@ impl ProcessExt for Process {
     fn wait(&self) {
         let mut status = 0;
         // attempt waiting
-        if unsafe { libc::waitpid(self.pid.0, &mut status, 0) == -1 } {
-            // attempt failed (non-child process) so loop until process ends
-            while unsafe { kill(self.pid.0, 0) == 0 } {
-                std::thread::sleep(std::time::Duration::from_millis(10));
-            }
-        }
+      unsafe {
+          if libc::waitpid(self.pid.0, &mut status, 0) < 0 {
+              // attempt failed (non-child process) so loop until process ends
+              let duration = std::time::Duration::from_millis(10);
+              while kill(self.pid.0, 0) == 0 {
+                  std::thread::sleep(duration);
+              }
+          }
+      }
     }
 }
 
