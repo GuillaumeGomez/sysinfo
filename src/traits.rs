@@ -412,6 +412,21 @@ pub trait ProcessExt: Debug {
     /// }
     /// ```
     fn group_id(&self) -> Option<Gid>;
+
+    /// Wait for process termination.
+    ///
+    ///```no_run
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     eprintln!("Waiting for pid 1337");
+    ///     process.wait();
+    ///     eprintln!("Pid 1337 exited");
+    /// }
+    ///````
+    fn wait(&self);
 }
 
 /// Contains all the methods of the [`Cpu`][crate::Cpu] struct.

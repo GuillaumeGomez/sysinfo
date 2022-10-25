@@ -378,3 +378,78 @@ fn test_refresh_process() {
     // Checks that the process is still listed.
     assert!(s.process(pid).is_some());
 }
+
+#[test]
+fn test_wait_child() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("300")
+            .arg("RefreshProcess")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("300")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+
+    let before = std::time::Instant::now();
+    let pid = Pid::from_u32(p.id() as u32);
+
+    let mut s = sysinfo::System::new();
+    s.refresh_process(pid);
+    let process = s.process(pid).unwrap();
+
+    // Kill the child process.
+    process.kill();
+    // Wait for child process should work.
+    process.wait();
+
+    // Child process should not be present.
+    assert!(!s.refresh_process(pid));
+    assert!(before.elapsed() < std::time::Duration::from_millis(1000));
+}
+
+#[test]
+fn test_wait_non_child() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+
+    // spawn non child process.
+    let p = if !cfg!(target_os = "linux") {
+        return;
+    } else {
+        std::process::Command::new("setsid")
+            .arg("-w")
+            .arg("sleep")
+            .arg("2")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+    let pid = Pid::from_u32(p.id());
+
+    let before = std::time::Instant::now();
+
+    let mut s = sysinfo::System::new();
+    s.refresh_process(pid);
+    let process = s.process(pid).expect("Process not found!");
+
+    // Wait for a non child process.
+    process.wait();
+
+    // Child process should not be present.
+    assert!(!s.refresh_process(pid));
+
+    // should wait for 2s.
+    assert!(before.elapsed() > std::time::Duration::from_millis(2000));
+    assert!(before.elapsed() < std::time::Duration::from_millis(3000));
+}

@@ -5,6 +5,8 @@ use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, 
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use libc::kill;
+
 use super::utils::{get_sys_value_str, WrapMap};
 
 #[doc(hidden)]
@@ -140,6 +142,20 @@ impl ProcessExt for Process {
 
     fn group_id(&self) -> Option<Gid> {
         Some(self.group_id)
+    }
+
+    fn wait(&self) {
+        let mut status = 0;
+        // attempt waiting
+        unsafe {
+            if libc::waitpid(self.pid.0, &mut status, 0) < 0 {
+                // attempt failed (non-child process) so loop until process ends
+                let duration = std::time::Duration::from_millis(10);
+                while kill(self.pid.0, 0) == 0 {
+                    std::thread::sleep(duration);
+                }
+            }
+        }
     }
 }
 

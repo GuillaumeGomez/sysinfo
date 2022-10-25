@@ -184,6 +184,20 @@ impl ProcessExt for Process {
     fn group_id(&self) -> Option<Gid> {
         self.group_id
     }
+
+    fn wait(&self) {
+        let mut status = 0;
+        // attempt waiting
+        unsafe {
+            if libc::waitpid(self.pid.0, &mut status, 0) < 0 {
+                // attempt failed (non-child process) so loop until process ends
+                let duration = std::time::Duration::from_millis(10);
+                while kill(self.pid.0, 0) == 0 {
+                    std::thread::sleep(duration);
+                }
+            }
+        }
+    }
 }
 
 #[allow(deprecated)] // Because of libc::mach_absolute_time.

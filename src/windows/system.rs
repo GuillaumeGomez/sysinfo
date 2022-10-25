@@ -508,7 +508,7 @@ impl Default for System {
     }
 }
 
-fn is_proc_running(handle: HANDLE) -> bool {
+pub(crate) fn is_proc_running(handle: HANDLE) -> bool {
     let mut exit_code = 0;
     unsafe {
         let ret = GetExitCodeProcess(handle, &mut exit_code);

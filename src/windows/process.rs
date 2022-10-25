@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::sys::system::is_proc_running;
 use crate::sys::utils::to_str;
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
@@ -546,6 +547,21 @@ impl ProcessExt for Process {
 
     fn group_id(&self) -> Option<Gid> {
         None
+    }
+
+    fn wait(&self) {
+        if let Some(handle) = self.get_handle() {
+            while is_proc_running(handle) {
+                if get_start_time(handle) != self.start_time() {
+                    // PID owner changed so the previous process was finished!
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        } else {
+            // In this case, we can't do anything so we just return.
+            sysinfo_debug!("can't wait on this process so returning");
+        }
     }
 }
 
