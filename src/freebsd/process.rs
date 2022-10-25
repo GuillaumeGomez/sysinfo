@@ -5,6 +5,8 @@ use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, 
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use libc::kill;
+
 use super::utils::{get_sys_value_str, WrapMap};
 
 #[doc(hidden)]
