@@ -105,7 +105,7 @@ impl fmt::Debug for Networks {
             f,
             "Networks {{ {} }}",
             self.iter()
-                .map(|x| format!("{:?}", x))
+                .map(|x| format!("{x:?}"))
                 .collect::<Vec<_>>()
                 .join(", ")
         )

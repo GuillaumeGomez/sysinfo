@@ -45,5 +45,5 @@ fn read_file<P: AsRef<Path>>(p: P) -> String {
 }
 
 pub fn show_error(p: &Path, err: &str) {
-    eprintln!("=> [{}]: {}", p.display(), err);
+    eprintln!("=> [{}]: {err}", p.display());
 }

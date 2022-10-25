@@ -297,7 +297,7 @@ mod test {
         let itf1_dir = sys_net_dir.path().join("itf1");
         let itf2_dir = sys_net_dir.path().join("itf2");
         fs::create_dir(&itf1_dir).expect("failed to create subdirectory");
-        fs::create_dir(&itf2_dir).expect("failed to create subdirectory");
+        fs::create_dir(itf2_dir).expect("failed to create subdirectory");
 
         let mut interfaces = HashMap::new();
 

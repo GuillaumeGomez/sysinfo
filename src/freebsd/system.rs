@@ -126,11 +126,8 @@ impl SystemExt for System {
                         frequency = get_frequency_for_cpu(pos);
                     }
                 }
-                self.cpus.push(Cpu::new(
-                    format!("cpu {}", pos),
-                    vendor_id.clone(),
-                    frequency,
-                ));
+                self.cpus
+                    .push(Cpu::new(format!("cpu {pos}"), vendor_id.clone(), frequency));
             }
             self.global_cpu.vendor_id = vendor_id;
             self.got_cpu_frequency = refresh_kind.frequency();
