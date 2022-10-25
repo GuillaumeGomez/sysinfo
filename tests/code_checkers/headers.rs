@@ -19,7 +19,7 @@ pub fn check_license_header(content: &str, p: &Path) -> TestResult {
                 Some(s) => {
                     show_error(
                         p,
-                        &format!("Expected empty line after license header, found `{}`", s),
+                        &format!("Expected empty line after license header, found `{s}`"),
                     );
                     TestResult {
                         nb_tests: 1,

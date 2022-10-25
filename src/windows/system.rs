@@ -130,10 +130,10 @@ impl SystemExt for System {
                 );
                 for (pos, proc_) in self.cpus.iter_mut(refresh_kind).enumerate() {
                     add_english_counter(
-                        format!(r"\Processor({})\% Processor Time", pos),
+                        format!(r"\Processor({pos})\% Processor Time"),
                         query,
                         get_key_used(proc_),
-                        format!("{}_0", pos),
+                        format!("{pos}_0"),
                     );
                 }
             }
@@ -494,7 +494,7 @@ impl SystemExt for System {
                 .unwrap_or_default(),
             )
         };
-        Some(format!("{} ({})", major, build_number))
+        Some(format!("{major} ({build_number})"))
     }
 
     fn distribution_id(&self) -> String {
@@ -550,7 +550,7 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
         match process_id.0 {
             0 => "Idle".to_owned(),
             4 => "System".to_owned(),
-            _ => format!("<no name> Process {}", process_id),
+            _ => format!("<no name> Process {process_id}"),
         }
     } else {
         unsafe {

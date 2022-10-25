@@ -287,7 +287,7 @@ pub(crate) unsafe fn get_frequency_for_cpu(cpu_nb: c_int) -> u64 {
 
     // The information can be missing if it's running inside a VM.
     if !get_sys_value_by_name(
-        format!("dev.cpu.{}.freq\0", cpu_nb).as_bytes(),
+        format!("dev.cpu.{cpu_nb}.freq\0").as_bytes(),
         &mut frequency,
     ) {
         frequency = 0;

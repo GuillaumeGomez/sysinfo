@@ -55,9 +55,7 @@ pub unsafe fn get_components(nb_cpus: usize) -> Vec<Component> {
     let mut components = Vec::with_capacity(nb_cpus);
 
     for core in 0..nb_cpus {
-        let id = format!("dev.cpu.{}.temperature\0", core)
-            .as_bytes()
-            .to_vec();
+        let id = format!("dev.cpu.{core}.temperature\0").as_bytes().to_vec();
         if let Some(temperature) = refresh_component(&id) {
             components.push(Component {
                 id,

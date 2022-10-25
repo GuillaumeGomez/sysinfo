@@ -45,9 +45,9 @@ fn check_md_doc_path(p: &Path, md_line: &str, ty_line: &str) -> bool {
                 return false;
             }
         }
-        show_error(p, &format!("Cannot extract type name from `{}`", ty_line));
+        show_error(p, &format!("Cannot extract type name from `{ty_line}`"));
     } else {
-        show_error(p, &format!("Cannot extract md name from `{}`", md_line));
+        show_error(p, &format!("Cannot extract md name from `{md_line}`"));
     }
     false
 }

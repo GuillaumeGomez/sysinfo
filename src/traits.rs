@@ -415,7 +415,7 @@ pub trait ProcessExt: Debug {
 
     /// Wait for process termination.
     ///
-    ///```no_run
+    /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
     /// let mut s = System::new_all();
@@ -425,7 +425,7 @@ pub trait ProcessExt: Debug {
     ///     process.wait();
     ///     eprintln!("Pid 1337 exited");
     /// }
-    ///````
+    /// ```
     fn wait(&self);
 }
 

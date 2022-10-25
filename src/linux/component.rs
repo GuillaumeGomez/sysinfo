@@ -284,11 +284,11 @@ impl Component {
         let has_label = !label.is_empty();
         match (has_label, device_model) {
             (true, Some(device_model)) => {
-                format!("{} {} {} {}{}", name, label, device_model, class, id)
+                format!("{name} {label} {device_model} {class}{id}")
             }
-            (true, None) => format!("{} {}", name, label),
-            (false, Some(device_model)) => format!("{} {}", name, device_model),
-            (false, None) => format!("{} {}{}", name, class, id),
+            (true, None) => format!("{name} {label}"),
+            (false, Some(device_model)) => format!("{name} {device_model}"),
+            (false, None) => format!("{name} {class}{id}"),
         }
     }
 }
