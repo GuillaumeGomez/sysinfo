@@ -157,6 +157,7 @@ pub struct System {
     mem_available: u64,
     mem_buffers: u64,
     mem_page_cache: u64,
+    mem_shmem: u64,
     mem_slab_reclaimable: u64,
     swap_total: u64,
     swap_free: u64,
@@ -229,6 +230,7 @@ impl SystemExt for System {
             mem_available: 0,
             mem_buffers: 0,
             mem_page_cache: 0,
+            mem_shmem: 0,
             mem_slab_reclaimable: 0,
             swap_total: 0,
             swap_free: 0,
@@ -249,14 +251,20 @@ impl SystemExt for System {
 
     fn refresh_memory(&mut self) {
         if let Ok(data) = get_all_data("/proc/meminfo", 16_385) {
+            let mut mem_available_found = false;
+
             for line in data.split('\n') {
                 let mut iter = line.split(':');
                 let field = match iter.next() {
                     Some("MemTotal") => &mut self.mem_total,
                     Some("MemFree") => &mut self.mem_free,
-                    Some("MemAvailable") => &mut self.mem_available,
+                    Some("MemAvailable") => {
+                        mem_available_found = true;
+                        &mut self.mem_available
+                    }
                     Some("Buffers") => &mut self.mem_buffers,
                     Some("Cached") => &mut self.mem_page_cache,
+                    Some("Shmem") => &mut self.mem_shmem,
                     Some("SReclaimable") => &mut self.mem_slab_reclaimable,
                     Some("SwapTotal") => &mut self.swap_total,
                     Some("SwapFree") => &mut self.swap_free,
@@ -268,6 +276,17 @@ impl SystemExt for System {
                         *field = value.saturating_mul(1_024);
                     }
                 }
+            }
+
+            // Linux < 3.14 may not have MemAvailable in /proc/meminfo
+            // So it should fallback to the old way of estimating available memory
+            // https://github.com/KittyKatt/screenFetch/issues/386#issuecomment-249312716
+            if !mem_available_found {
+                self.mem_available = self.mem_free
+                    + self.mem_buffers
+                    + self.mem_page_cache
+                    + self.mem_slab_reclaimable
+                    - self.mem_shmem;
             }
         }
     }
