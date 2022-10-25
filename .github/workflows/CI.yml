@@ -5,6 +5,11 @@ on:
 
 name: CI
 
+# If a new push on the PR is done, cancel the build
+concurrency: 
+  group: ${{ github.head_ref }}
+  cancel-in-progress: true
+
 jobs:
   rustfmt:
     runs-on: ubuntu-latest
