@@ -34,7 +34,7 @@ jobs:
           toolchain: nightly
           override: true
           components: clippy
-      - run: cargo clippy -- -D warnings
+      - run: cargo clippy --all-targets -- -D warnings
 
   check:
     name: Check ${{ matrix.toolchain }} / ${{ matrix.triple.target }}
