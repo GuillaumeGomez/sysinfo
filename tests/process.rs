@@ -424,7 +424,7 @@ fn test_wait_non_child() {
     }
 
     // spawn non child process.
-    let p = if cfg!(target_os = "windows") {
+    let p = if cfg!(target_os = "windows") || cfg!(target_os = "macos") {
         return;
     } else {
         std::process::Command::new("setsid")
