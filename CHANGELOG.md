@@ -1,3 +1,9 @@
+# 0.26.6
+
+ * Add `Process::wait`.
+ * Add "Good pratice" entry into the crate level documentation and in the README.
+ * Linux: More precise used memory computation.
+
 # 0.26.5
 
  * Windows: Fix disk information retrieval.
