@@ -111,3 +111,13 @@ pub(crate) fn to_u64(v: &[u8]) -> u64 {
     }
     x
 }
+
+/// Converts a path to a NUL-terminated `Vec<u8>` suitable for use with C functions.
+pub(crate) fn to_cpath(path: &std::path::Path) -> Vec<u8> {
+    use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+
+    let path_os: &OsStr = path.as_ref();
+    let mut cpath = path_os.as_bytes().to_vec();
+    cpath.push(0);
+    cpath
+}
