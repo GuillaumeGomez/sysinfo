@@ -1,21 +1,31 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use libc::c_void;
+use core_foundation_sys::{
+    array::CFArrayRef, dictionary::CFDictionaryRef, error::CFErrorRef, string::CFStringRef,
+    url::CFURLRef,
+};
 
 // Reexport items defined in either macos or ios ffi module.
 pub use crate::sys::inner::ffi::*;
 
-#[repr(C)]
-pub struct __DADisk(c_void);
-#[repr(C)]
-pub struct __DASession(c_void);
+#[link(name = "CoreFoundation", kind = "framework")]
+extern "C" {
+    pub fn CFURLCopyResourcePropertiesForKeys(
+        url: CFURLRef,
+        keys: CFArrayRef,
+        error: *mut CFErrorRef,
+    ) -> CFDictionaryRef;
 
-// #[allow(non_camel_case_types)]
-// pub type io_name_t = [u8; 128];
-// #[allow(non_camel_case_types)]
-// pub type io_registry_entry_t = io_object_t;
-
-// pub type IOOptionBits = u32;
+    pub static kCFURLVolumeIsEjectableKey: CFStringRef;
+    pub static kCFURLVolumeIsRemovableKey: CFStringRef;
+    pub static kCFURLVolumeAvailableCapacityKey: CFStringRef;
+    pub static kCFURLVolumeAvailableCapacityForImportantUsageKey: CFStringRef;
+    pub static kCFURLVolumeTotalCapacityKey: CFStringRef;
+    pub static kCFURLVolumeNameKey: CFStringRef;
+    pub static kCFURLVolumeIsLocalKey: CFStringRef;
+    pub static kCFURLVolumeIsInternalKey: CFStringRef;
+    pub static kCFURLVolumeIsBrowsableKey: CFStringRef;
+}
 
 #[cfg_attr(feature = "debug", derive(Eq, Hash, PartialEq))]
 #[derive(Clone)]

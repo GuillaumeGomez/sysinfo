@@ -1,34 +1,30 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use core_foundation_sys::base::CFRelease;
+use std::num::NonZeroU32;
 
-// A helper using to auto release the resource got from CoreFoundation.
-// More information about the ownership policy for CoreFoundation pelease refer the link below:
-// https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFMemoryMgmt/Concepts/Ownership.html#//apple_ref/doc/uid/20001148-CJBEJBHH
-#[repr(transparent)]
-pub(crate) struct CFReleaser<T>(*const T);
+type IoObject = NonZeroU32;
 
-impl<T> CFReleaser<T> {
-    pub(crate) fn new(ptr: *const T) -> Option<Self> {
-        if ptr.is_null() {
-            None
-        } else {
-            Some(Self(ptr))
-        }
+pub(crate) struct IOReleaser(IoObject);
+
+impl IOReleaser {
+    pub(crate) fn new(obj: u32) -> Option<Self> {
+        IoObject::new(obj).map(Self)
     }
 
-    pub(crate) fn inner(&self) -> *const T {
-        self.0
+    pub(crate) unsafe fn new_unchecked(obj: u32) -> Self {
+        // Chance at catching in-development mistakes
+        debug_assert_ne!(obj, 0);
+        Self(IoObject::new_unchecked(obj))
+    }
+
+    #[inline]
+    pub(crate) fn inner(&self) -> u32 {
+        self.0.get()
     }
 }
 
-impl<T> Drop for CFReleaser<T> {
+impl Drop for IOReleaser {
     fn drop(&mut self) {
-        if !self.0.is_null() {
-            unsafe { CFRelease(self.0 as _) }
-        }
+        unsafe { super::ffi::IOObjectRelease(self.0.get() as _) };
     }
 }
-
-unsafe impl<T> Send for CFReleaser<T> {}
-unsafe impl<T> Sync for CFReleaser<T> {}
