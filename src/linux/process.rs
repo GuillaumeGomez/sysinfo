@@ -233,6 +233,17 @@ impl ProcessExt for Process {
             }
         }
     }
+
+    fn session_id(&self) -> Option<Pid> {
+        unsafe {
+            let session_id = libc::getsid(self.pid.0);
+            if session_id < 0 {
+                None
+            } else {
+                Some(Pid(session_id))
+            }
+        }
+    }
 }
 
 pub(crate) fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32) {

@@ -2,7 +2,9 @@
 
 use crate::sys::system::is_proc_running;
 use crate::sys::utils::to_str;
-use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
+use crate::{
+    DiskUsage, Gid, Pid, PidExt, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid,
+};
 
 use std::ffi::OsString;
 use std::fmt;
@@ -39,7 +41,7 @@ use winapi::um::handleapi::CloseHandle;
 use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapFree};
 use winapi::um::memoryapi::{ReadProcessMemory, VirtualQueryEx};
 use winapi::um::processthreadsapi::{
-    GetProcessTimes, GetSystemTimes, OpenProcess, OpenProcessToken,
+    GetProcessTimes, GetSystemTimes, OpenProcess, OpenProcessToken, ProcessIdToSessionId,
 };
 use winapi::um::psapi::{
     EnumProcessModulesEx, GetModuleBaseNameW, GetModuleFileNameExW, GetProcessMemoryInfo,
@@ -561,6 +563,17 @@ impl ProcessExt for Process {
         } else {
             // In this case, we can't do anything so we just return.
             sysinfo_debug!("can't wait on this process so returning");
+        }
+    }
+
+    fn session_id(&self) -> Option<Pid> {
+        unsafe {
+            let mut out = 0;
+            if ProcessIdToSessionId(self.pid.as_u32(), &mut out) != 0 {
+                return Some(Pid(out as _));
+            }
+            sysinfo_debug!("ProcessIdToSessionId failed, error: {:?}", GetLastError());
+            None
         }
     }
 }
