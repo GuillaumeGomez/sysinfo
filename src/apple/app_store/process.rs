@@ -81,4 +81,8 @@ impl ProcessExt for Process {
     }
 
     fn wait(&self) {}
+
+    fn session_id(&self) -> Option<Pid> {
+        None
+    }
 }

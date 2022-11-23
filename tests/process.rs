@@ -293,6 +293,17 @@ fn test_process_times() {
     }
 }
 
+// Checks that `session_id` is working.
+#[test]
+fn test_process_session_id() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    assert!(s.processes().values().any(|p| p.session_id().is_some()));
+}
+
 // Checks that `refresh_processes` is removing dead processes.
 #[test]
 fn test_refresh_processes() {
