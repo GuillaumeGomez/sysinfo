@@ -1,3 +1,8 @@
+# 0.26.8
+
+ * Add `ProcessExt::session_id` method.
+ * Linux: Ignore NFS disks.
+
 # 0.26.7
 
  * Apple: Greatly improve disk retrieval (I recommend reading the pull request first comment for more information here: <https://github.com/GuillaumeGomez/sysinfo/pull/855>).
