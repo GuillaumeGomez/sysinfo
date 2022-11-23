@@ -234,7 +234,9 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
                 "pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
                 "squashfs" | // squashfs is a compressed read-only file system (for snaps)
                 "rpc_pipefs" | // The pipefs pseudo file system service
-                "iso9660" // optical media
+                "iso9660" | // optical media
+                "nfs4" | // calling statvfs on a mounted NFS may hang
+                "nfs" // nfs2 or nfs3
             );
 
             !(filtered ||
