@@ -235,7 +235,7 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
                 "squashfs" | // squashfs is a compressed read-only file system (for snaps)
                 "rpc_pipefs" | // The pipefs pseudo file system service
                 "iso9660" | // optical media
-                "nfs4" | // stopped nfs server causes statvfs to hang
+                "nfs4" | // calling statvfs on a mounted NFS may hang
                 "nfs" // nfs2 or nfs3
             );
 
