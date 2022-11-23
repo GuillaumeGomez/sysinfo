@@ -1,14 +1,14 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::fs::File;
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, Read, Seek};
 use std::path::{Path, PathBuf};
 
 use crate::sys::system::REMAINING_FILES;
 
 pub(crate) fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
     let mut buf = String::with_capacity(size);
-    file.seek(SeekFrom::Start(0))?;
+    file.rewind()?;
     file.read_to_string(&mut buf)?;
     Ok(buf)
 }

@@ -801,6 +801,16 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
 
     /// The disk list will be emptied then completely recomputed.
     ///
+    /// ## Linux
+    ///
+    /// ⚠️ On linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
+    /// systems are ignored and the information of a mounted NFS **cannot** be obtained
+    /// via [`SystemExt::refresh_disks_list`]. This is due to the fact that I/O function
+    /// `statvfs` used by [`SystemExt::refresh_disks_list`] is blocking and
+    /// [may hang](https://github.com/GuillaumeGomez/sysinfo/pull/876) in some cases,
+    /// requiring to call `systemctl stop` to terminate the NFS service from the remote
+    /// server in some cases.
+    ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
     ///
