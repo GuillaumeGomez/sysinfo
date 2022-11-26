@@ -1,9 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::fs::File;
+use std::str::FromStr;
+use std::{fs::File, u8};
 use std::io::Read;
 use std::path::Path;
 
+use crate::common::MacAddress;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
 
@@ -42,6 +44,16 @@ fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
     0
 }
 
+fn read_mac<P: AsRef<Path> + std::fmt::Debug>(path: P) -> MacAddress {
+    let mut buf = String::new();
+    if let Ok(_) = File::open(path).and_then(|mut f| f.read_to_string(&mut buf)) {
+        if let Ok(mac) = MacAddress::from_str(buf.trim()) {
+            return mac;
+        }
+    }
+    MacAddress::new()
+}
+
 impl Networks {
     pub(crate) fn new() -> Self {
         Networks {
@@ -62,6 +74,7 @@ fn refresh_networks_list_from_sysfs(
         }
 
         for entry in dir.flatten() {
+            let mac_addr = read_mac(&entry.path().join("address"));
             let parent = &entry.path().join("statistics");
             let entry = match entry.file_name().into_string() {
                 Ok(entry) => entry,
@@ -102,6 +115,7 @@ fn refresh_networks_list_from_sysfs(
                         old_rx_errors: rx_errors,
                         tx_errors,
                         old_tx_errors: tx_errors,
+                        mac_addr,
                         // rx_compressed,
                         // old_rx_compressed: rx_compressed,
                         // tx_compressed,
@@ -157,6 +171,8 @@ pub struct NetworkData {
     /// similar to `rx_errors`
     tx_errors: u64,
     old_tx_errors: u64,
+    /// MAC address
+    mac_addr: MacAddress,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
     // /// that support packet compression (e.g: PPP).
@@ -173,7 +189,10 @@ pub struct NetworkData {
 
 impl NetworkData {
     fn update(&mut self, path: &str, data: &mut Vec<u8>) {
-        let path = &Path::new("/sys/class/net/").join(path).join("statistics");
+        let path = Path::new("/sys/class/net/").join(path);
+        self.mac_addr = read_mac(path.join("address"));
+
+        let path = &path.join("statistics");
         old_and_new!(self, rx_bytes, old_rx_bytes, read(path, "rx_bytes", data));
         old_and_new!(self, tx_bytes, old_tx_bytes, read(path, "tx_bytes", data));
         old_and_new!(
@@ -263,6 +282,11 @@ impl NetworkExt for NetworkData {
     fn total_errors_on_transmitted(&self) -> u64 {
         self.tx_errors
     }
+
+    fn mac_address(&self) -> &MacAddress {
+        &self.mac_addr
+    }
+
 }
 
 #[cfg(test)]
@@ -312,3 +336,4 @@ mod test {
         assert_eq!(interfaces.keys().collect::<Vec<_>>(), ["itf2"]);
     }
 }
+
