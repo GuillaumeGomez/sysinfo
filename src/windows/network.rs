@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::common::MacAddr;
+use crate::network::refresh_networks_addresses;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 use std::collections::{hash_map, HashMap};
@@ -137,6 +139,7 @@ impl NetworksExt for Networks {
                             old_errors_in: ptr.InErrors,
                             errors_out: ptr.OutErrors,
                             old_errors_out: ptr.OutErrors,
+                            mac_addr: MacAddr::UNSPECIFIED,
                             updated: true,
                         });
                     }
@@ -146,6 +149,8 @@ impl NetworksExt for Networks {
         }
         // Remove interfaces which are gone.
         self.interfaces.retain(|_, d| d.updated);
+        // Refresh all interfaces' addresses.
+        refresh_networks_addresses(&mut self.interfaces);
     }
 
     fn refresh(&mut self) {
@@ -196,6 +201,7 @@ pub struct NetworkData {
     errors_out: u64,
     old_errors_out: u64,
     updated: bool,
+    pub(crate) mac_addr: MacAddr,
 }
 
 impl NetworkExt for NetworkData {
@@ -245,5 +251,9 @@ impl NetworkExt for NetworkData {
 
     fn total_errors_on_transmitted(&self) -> u64 {
         self.errors_out
+    }
+
+    fn mac_address(&self) -> MacAddr {
+        self.mac_addr
     }
 }

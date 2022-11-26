@@ -264,8 +264,9 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             for (interface_name, data) in sys.networks().iter() {
                 writeln!(
                     &mut io::stdout(),
-                    "{}:\n  input data  (new / total): {} / {} B\n  output data (new / total): {} / {} B",
+                    "{}:\n  ether {}\n  input data  (new / total): {} / {} B\n  output data (new / total): {} / {} B",
                     interface_name,
+                    data.mac_address(),
                     data.received(),
                     data.total_received(),
                     data.transmitted(),
