@@ -1,10 +1,12 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
+use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2, RTA_IFP, sockaddr_dl};
 
 use std::collections::{hash_map, HashMap};
+use std::convert::TryFrom;
 use std::ptr::null_mut;
 
+use crate::common::MacAddress;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {
@@ -80,6 +82,15 @@ impl Networks {
                     }
                     name.set_len(libc::strlen(pname));
                     let name = String::from_utf8_unchecked(name);
+                    // Let's try to obtain the MAC address if RTA_IFP is presented
+                    let mac_addr = if (*if2m).ifm_addrs & RTA_IFP != 0 {
+                        // https://stackoverflow.com/a/10593782
+                        // the sockaddr_dl struct resides exactly after if2m
+                        let sdl = if2m.add(1) as *const libc::sockaddr_dl;
+                        MacAddress::try_from(&(*sdl)).unwrap_or_else(|_| MacAddress::new())
+                    } else {
+                        MacAddress::new()
+                    };
                     match self.interfaces.entry(name) {
                         hash_map::Entry::Occupied(mut e) => {
                             let mut interface = e.get_mut();
@@ -120,6 +131,7 @@ impl Networks {
                                 (*if2m).ifm_data.ifi_oerrors
                             );
                             interface.updated = true;
+                            interface.mac_addr = mac_addr;
                         }
                         hash_map::Entry::Vacant(e) => {
                             let current_in = (*if2m).ifm_data.ifi_ibytes;
@@ -143,6 +155,7 @@ impl Networks {
                                 errors_out,
                                 old_errors_out: errors_out,
                                 updated: true,
+                                mac_addr
                             });
                         }
                     }
@@ -187,6 +200,7 @@ pub struct NetworkData {
     errors_out: u64,
     old_errors_out: u64,
     updated: bool,
+    mac_addr: MacAddress,
 }
 
 impl NetworkExt for NetworkData {
@@ -236,5 +250,32 @@ impl NetworkExt for NetworkData {
 
     fn total_errors_on_transmitted(&self) -> u64 {
         self.errors_out
+    }
+
+    fn mac_address(&self) -> &MacAddress {
+        &self.mac_addr
+    }
+}
+
+impl TryFrom<&sockaddr_dl> for MacAddress {
+    type Error = String;
+
+    fn try_from(value: &sockaddr_dl) -> Result<Self, Self::Error> {
+        let sdl_data = value.sdl_data;
+        // interface name length, NO trailing 0
+        let sdl_nlen = value.sdl_nlen as usize;
+        // make sure that it is never out of bound
+        if sdl_nlen + 5 < 12 {
+            Ok(MacAddress::from([
+                sdl_data[sdl_nlen] as u8,
+                sdl_data[sdl_nlen + 1] as u8,
+                sdl_data[sdl_nlen + 2] as u8,
+                sdl_data[sdl_nlen + 3] as u8,
+                sdl_data[sdl_nlen + 4] as u8,
+                sdl_data[sdl_nlen + 5] as u8,
+            ]))
+        } else {
+            Err("invalid sockaddr_dl".to_string())
+        }
     }
 }

@@ -953,6 +953,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 }
 
 /// MAC address for network interface
+#[derive(PartialEq, Eq)]
 pub struct MacAddress {
     data: [u8; 6]
 }
@@ -964,6 +965,12 @@ impl MacAddress {
 
     pub fn data(&self) -> &[u8; 6] {
         &self.data
+    }
+}
+
+impl From<[u8; 6]> for MacAddress {
+    fn from(data: [u8; 6]) -> Self {
+        Self { data }
     }
 }
 
