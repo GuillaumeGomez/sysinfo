@@ -1,13 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 use core::ffi;
-use libc::sockaddr_dl;
+
 use std::collections::{hash_map, HashMap};
 use std::mem::MaybeUninit;
 use std::ptr::null_mut;
 use std::convert::TryFrom;
 
 use super::utils;
-use crate::common::MacAddress;
+use crate::common::{IFAddress, MacAddress, get_interface_address};
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {
@@ -50,31 +50,6 @@ impl NetworksExt for Networks {
     }
 }
 
-pub fn get_interface_address() -> HashMap::<String, MacAddress> {
-    let mut address = HashMap::<String, MacAddress>::new();
-    unsafe {
-        let mut ifap = null_mut();
-        if libc::getifaddrs(&mut ifap) == 0 {
-            while !ifap.is_null() {
-                match (*((*ifap).ifa_addr)).sa_family as libc::c_int {
-                    libc::AF_LINK => {
-                        let addr = (*ifap).ifa_addr as *const sockaddr_dl;
-                        if let Ok(addr) = MacAddress::try_from(&*addr) {
-                            let name = String::from_utf8_lossy(ffi::CStr::from_ptr((*ifap).ifa_name).to_bytes()).to_string();
-                            address.insert(name, addr);
-                        }
-                    },
-                    _ => { }
-                }
-                ifap = (*ifap).ifa_next;
-            }
-            libc::freeifaddrs(ifap);
-        }
-    }
-    address
-}
-
-
 impl Networks {
     unsafe fn refresh_interfaces(&mut self, refresh_all: bool) {
         let mut nb_interfaces: libc::c_int = 0;
@@ -96,7 +71,6 @@ impl Networks {
                 interface.updated = false;
             }
         }
-        let mut addresses = get_interface_address();
         let mut data: libc::ifmibdata = MaybeUninit::zeroed().assume_init();
         for row in 1..nb_interfaces {
             let mib = [
@@ -113,7 +87,6 @@ impl Networks {
             }
             if let Some(name) = utils::c_buf_to_string(&data.ifmd_name) {
                 let data = &data.ifmd_data;
-                let mac_addr = addresses.remove(&name).unwrap_or_else(|| MacAddress::new());
                 match self.interfaces.entry(name) {
                     hash_map::Entry::Occupied(mut e) => {
                         let mut interface = e.get_mut();
@@ -125,7 +98,6 @@ impl Networks {
                         old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
                         old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
                         interface.updated = true;
-                        interface.mac_addr = mac_addr;
                     }
                     hash_map::Entry::Vacant(e) => {
                         if !refresh_all {
@@ -146,8 +118,22 @@ impl Networks {
                             ifi_oerrors: data.ifi_oerrors,
                             old_ifi_oerrors: 0,
                             updated: true,
-                            mac_addr,
+                            mac_addr: MacAddress::new(),
                         });
+                    }
+                }
+            }
+        }
+        if let Ok(iterator) = get_interface_address() {
+            for (name, ifa) in iterator {
+                if let (Some(interface), Ok(ifa)) = (self.interfaces.get_mut(&name), ifa) {
+                    match ifa {
+                        IFAddress::MAC(mac_addr) => {
+                            interface.mac_addr = mac_addr;
+                        },
+                        _ => {
+
+                        }
                     }
                 }
             }
@@ -236,25 +222,3 @@ impl NetworkExt for NetworkData {
     }
 }
 
-impl TryFrom<&sockaddr_dl> for MacAddress {
-    type Error = String;
-
-    fn try_from(value: &sockaddr_dl) -> Result<Self, Self::Error> {
-        let sdl_data = value.sdl_data;
-        // interface name length, NO trailing 0
-        let sdl_nlen = value.sdl_nlen as usize;
-        // make sure that it is never out of bound
-        if sdl_nlen + 5 < 12 {
-            Ok(MacAddress::from([
-                sdl_data[sdl_nlen] as u8,
-                sdl_data[sdl_nlen + 1] as u8,
-                sdl_data[sdl_nlen + 2] as u8,
-                sdl_data[sdl_nlen + 3] as u8,
-                sdl_data[sdl_nlen + 4] as u8,
-                sdl_data[sdl_nlen + 5] as u8,
-            ]))
-        } else {
-            Err("invalid sockaddr_dl".to_string())
-        }
-    }
-}

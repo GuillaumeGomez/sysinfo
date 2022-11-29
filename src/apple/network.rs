@@ -1,12 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2, RTA_IFP, sockaddr_dl};
+use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2, RTA_IFP};
 
 use std::collections::{hash_map, HashMap};
 use std::convert::TryFrom;
 use std::ptr::null_mut;
 
-use crate::common::MacAddress;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {
@@ -257,25 +256,3 @@ impl NetworkExt for NetworkData {
     }
 }
 
-impl TryFrom<&sockaddr_dl> for MacAddress {
-    type Error = String;
-
-    fn try_from(value: &sockaddr_dl) -> Result<Self, Self::Error> {
-        let sdl_data = value.sdl_data;
-        // interface name length, NO trailing 0
-        let sdl_nlen = value.sdl_nlen as usize;
-        // make sure that it is never out of bound
-        if sdl_nlen + 5 < 12 {
-            Ok(MacAddress::from([
-                sdl_data[sdl_nlen] as u8,
-                sdl_data[sdl_nlen + 1] as u8,
-                sdl_data[sdl_nlen + 2] as u8,
-                sdl_data[sdl_nlen + 3] as u8,
-                sdl_data[sdl_nlen + 4] as u8,
-                sdl_data[sdl_nlen + 5] as u8,
-            ]))
-        } else {
-            Err("invalid sockaddr_dl".to_string())
-        }
-    }
-}

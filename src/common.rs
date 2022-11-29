@@ -2,8 +2,9 @@
 
 use crate::{NetworkData, Networks, NetworksExt, UserExt};
 
-use std::convert::From;
+use std::convert::{From, TryFrom};
 use std::fmt;
+use std::ptr::null_mut;
 use std::str::FromStr;
 
 /// Trait to have a common conversions for the [`Pid`][crate::Pid] type.
@@ -997,11 +998,110 @@ impl std::fmt::Display for MacAddress {
     }
 }
 
+
+#[cfg(any(target_os = "macos", target_os = "freebsd"))]
+impl TryFrom<&libc::sockaddr_dl> for MacAddress {
+    type Error = String;
+
+    fn try_from(value: &libc::sockaddr_dl) -> Result<Self, Self::Error> {
+        let sdl_data = value.sdl_data;
+        // interface name length, NO trailing 0
+        let sdl_nlen = value.sdl_nlen as usize;
+        // make sure that it is never out of bound
+        if sdl_nlen + 5 < 12 {
+            Ok(MacAddress::from([
+                sdl_data[sdl_nlen] as u8,
+                sdl_data[sdl_nlen + 1] as u8,
+                sdl_data[sdl_nlen + 2] as u8,
+                sdl_data[sdl_nlen + 3] as u8,
+                sdl_data[sdl_nlen + 4] as u8,
+                sdl_data[sdl_nlen + 5] as u8,
+            ]))
+        } else {
+            Err("invalid sockaddr_dl".to_string())
+        }
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "freebsd"))]
+unsafe fn parse_sock_addr(sock_addr: *const libc::sockaddr) -> Result<IFAddress, String> {
+    match (*sock_addr).sa_family as libc::c_int {
+        libc::AF_LINK => {
+            let addr = sock_addr as *const libc::sockaddr_dl;
+            let addr = MacAddress::try_from(&*addr)?;
+            Ok(IFAddress::MAC(addr))
+        },
+        _ => { Err("not implemented".to_string()) }
+    }
+}
+
+#[cfg(target_os = "linux")]
+unsafe fn parse_sock_addr(sock_addr: *const libc::sockaddr) -> Result<IFAddress, String> {
+    use libc::sockaddr_ll;
+
+    match (*sock_addr).sa_family as libc::c_int {
+        libc::AF_PACKET => {
+            let addr = sock_addr as *const sockaddr_ll;
+            // Take the first 6 bytes
+            let [ref addr @ .., _, __] = (*addr).sll_addr;
+            let addr = MacAddress::from(addr.clone());
+            Ok(IFAddress::MAC(addr))
+        },
+        _ => { Err("not implemented".to_string()) }
+    }
+}
+
+pub(crate) struct IFAddressIter {
+    ifap: *mut libc::ifaddrs,
+}
+
+pub(crate) enum IFAddress {
+    MAC(MacAddress),
+}
+
+impl Iterator for IFAddressIter {
+    // interface name and the result of address
+    type Item = (String, Result<IFAddress, String>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            let ifap = self.ifap;
+            if !ifap.is_null() {
+                self.ifap = (*ifap).ifa_next;
+                // libc::IFNAMSIZ + 6 -> ./apple/network.rs:75
+                let mut name = vec![0u8; libc::IFNAMSIZ + 6];
+                let ifa_name = libc::strcpy(name.as_mut_ptr() as _, (*ifap).ifa_name);
+                if ifa_name.is_null() {
+                    return Some((String::new(), Err("failed to parse interface name".to_string())));
+                }
+                name.set_len(libc::strlen(ifa_name));
+                let name = String::from_utf8_unchecked(name);
+
+                Some((name, parse_sock_addr((*ifap).ifa_addr)))
+            } else {
+                libc::freeifaddrs(ifap);
+                self.ifap = null_mut();
+                None
+            }
+        }
+    }
+}
+
+pub(crate) fn get_interface_address() -> Result<IFAddressIter, String> {
+    let mut ifap = null_mut();
+    unsafe {
+        if libc::getifaddrs(&mut ifap) == 0 {
+            return Ok(IFAddressIter { ifap })
+        }
+    }
+    Err("failed to call getifaddrs".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
 
-    use super::{ProcessStatus, MacAddress};
+    use super::{ProcessStatus, MacAddress, get_interface_address};
 
     // This test only exists to ensure that the `Display` trait is implemented on the
     // `ProcessStatus` enum on all targets.
@@ -1020,6 +1120,24 @@ mod tests {
         assert_eq!(mac[3], 0xe9);
         assert_eq!(mac[4], 0x6e);
         assert_eq!(mac[5], 0xb5);
+    }
+
+    #[test]
+    fn test_get_interface_address() {
+        if let Ok(iterator) = get_interface_address() {
+            for (name, ifa) in iterator {
+                if let Ok(ifa) = ifa {
+                    match ifa {
+                        IFAddress::MAC(mac_addr) => {
+                            println!("name: {} - {}", name, mac_addr)
+                        },
+                        _ => {
+
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
