@@ -6,6 +6,7 @@ use std::collections::{hash_map, HashMap};
 use std::convert::TryFrom;
 use std::ptr::null_mut;
 
+use crate::common::MacAddress;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {

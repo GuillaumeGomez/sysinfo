@@ -1101,7 +1101,7 @@ pub(crate) fn get_interface_address() -> Result<IFAddressIter, String> {
 mod tests {
     use std::str::FromStr;
 
-    use super::{ProcessStatus, MacAddress, get_interface_address};
+    use super::{ProcessStatus, MacAddress,IFAddress, get_interface_address};
 
     // This test only exists to ensure that the `Display` trait is implemented on the
     // `ProcessStatus` enum on all targets.
