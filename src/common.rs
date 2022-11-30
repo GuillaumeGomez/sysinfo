@@ -1060,7 +1060,7 @@ pub(crate) enum IFAddress {
 }
 
 impl Iterator for IFAddressIter {
-    // interface name and the result of address
+    // this iterator yields an interface name and the Result containing IFAddress
     type Item = (String, Result<IFAddress, String>);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1079,14 +1079,21 @@ impl Iterator for IFAddressIter {
 
                 Some((name, parse_sock_addr((*ifap).ifa_addr)))
             } else {
-                libc::freeifaddrs(ifap);
-                self.ifap = null_mut();
                 None
             }
         }
     }
 }
 
+impl Drop for IFAddressIter {
+    fn drop(&mut self) {
+        unsafe {
+            libc::freeifaddrs(self.ifap);
+        }
+    }
+}
+
+#[allow(unused)]
 pub(crate) fn get_interface_address() -> Result<IFAddressIter, String> {
     let mut ifap = null_mut();
     unsafe {
