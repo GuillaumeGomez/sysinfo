@@ -1,7 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    common::{Gid, Uid, MacAddress},
+    common::{Gid, Uid},
+    socket::MacAddress,
     sys::{Component, Cpu, Disk, Networks, Process},
 };
 use crate::{

@@ -1,13 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
-use core::ffi;
-
 use std::collections::{hash_map, HashMap};
 use std::mem::MaybeUninit;
-use std::ptr::null_mut;
-use std::convert::TryFrom;
 
 use super::utils;
-use crate::common::{IFAddress, MacAddress, get_interface_address};
+use crate::socket::{IFAddress, MacAddress, get_interface_address};
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {

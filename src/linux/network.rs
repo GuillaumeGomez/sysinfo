@@ -5,7 +5,7 @@ use std::{fs::File, u8};
 use std::io::Read;
 use std::path::Path;
 
-use crate::common::MacAddress;
+use crate::socket::MacAddress;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
 
