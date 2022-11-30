@@ -10,7 +10,7 @@ use crate::{
     ProcessStatus, RefreshKind, Signal, User,
 };
 
-use std::collections::HashMap;
+use std::{collections::HashMap, net::Ipv4Addr};
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::Path;
@@ -1505,8 +1505,38 @@ pub trait NetworkExt: Debug {
     /// ```
     fn total_errors_on_transmitted(&self) -> u64;
     
-    /// Returns the MAC address associated to current interface
+    /// Returns the MAC address associated to current interface, respectively
+    /// ```no_run
+    /// use sysinfo::{System}
+    /// 
+    /// let s = System::new_all();
+    /// for (interface_name, network) in networks {
+    ///     println!("out: {}", network.mac_address());
+    /// }
+    /// ```
     fn mac_address(&self) -> &MacAddress;
+    
+    /// Returns the MAC address associated to current interface, respectively
+    /// ```no_run
+    /// use sysinfo::{System}
+    /// 
+    /// let s = System::new_all();
+    /// for (interface_name, network) in networks {
+    ///     println!("out: {}", network.ipv4_address());
+    /// }
+    /// ```
+    fn ipv4_address(&self) -> &Ipv4Addr;
+
+    /// Returns the MAC address associated to current interface, respectively
+    /// ```no_run
+    /// use sysinfo::{System}
+    /// 
+    /// let s = System::new_all();
+    /// for (interface_name, network) in networks {
+    ///     println!("out: {}", network.ipv4_netmask());
+    /// }
+    /// ```
+    fn ipv4_netmask(&self) -> &Ipv4Addr;
 }
 
 /// Interacting with network interfaces.
@@ -1705,4 +1735,5 @@ pub trait UserExt: Debug {
     /// ```
     fn groups(&self) -> &[String];
 }
+
 

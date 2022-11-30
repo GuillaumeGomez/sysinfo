@@ -1,11 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::str::FromStr;
 use std::{fs::File, u8};
 use std::io::Read;
 use std::path::Path;
+use std::net::Ipv4Addr;
 
-use crate::socket::MacAddress;
+use crate::socket::{MacAddress, get_interface_address, IFAddress};
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
 
@@ -44,16 +44,6 @@ fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
     0
 }
 
-fn read_mac<P: AsRef<Path> + std::fmt::Debug>(path: P) -> MacAddress {
-    let mut buf = String::new();
-    if let Ok(_) = File::open(path).and_then(|mut f| f.read_to_string(&mut buf)) {
-        if let Ok(mac) = MacAddress::from_str(buf.trim()) {
-            return mac;
-        }
-    }
-    MacAddress::new()
-}
-
 impl Networks {
     pub(crate) fn new() -> Self {
         Networks {
@@ -74,7 +64,9 @@ fn refresh_networks_list_from_sysfs(
         }
 
         for entry in dir.flatten() {
-            let mac_addr = read_mac(&entry.path().join("address"));
+            // let (mac_addr, ipv4_addr, ipv4_mask, ipv4_broadcast) = (
+            //     MacAddress::new(),
+            // )
             let parent = &entry.path().join("statistics");
             let entry = match entry.file_name().into_string() {
                 Ok(entry) => entry,
@@ -115,7 +107,9 @@ fn refresh_networks_list_from_sysfs(
                         old_rx_errors: rx_errors,
                         tx_errors,
                         old_tx_errors: tx_errors,
-                        mac_addr,
+                        mac_addr: MacAddress::UNSPECIFIED,
+                        ipv4_addr: Ipv4Addr::UNSPECIFIED,
+                        ipv4_mask: Ipv4Addr::UNSPECIFIED,
                         // rx_compressed,
                         // old_rx_compressed: rx_compressed,
                         // tx_compressed,
@@ -124,6 +118,22 @@ fn refresh_networks_list_from_sysfs(
                     });
                 }
             };
+        }
+
+        if let Ok(iter) = get_interface_address() {
+            for (name, result) in iter {
+                if let (Some(interface), Ok(ifa)) = (interfaces.get_mut(&name), result) {
+                    match ifa {
+                        IFAddress::MAC(mac_addr) => {
+                            interface.mac_addr = mac_addr;
+                        },
+                        IFAddress::IPv4(addr, mask) => {
+                            interface.ipv4_addr = addr;
+                            interface.ipv4_mask = mask;
+                        }
+                    }
+                }
+            }
         }
 
         // Remove interfaces which are gone.
@@ -173,6 +183,8 @@ pub struct NetworkData {
     old_tx_errors: u64,
     /// MAC address
     mac_addr: MacAddress,
+    ipv4_addr: Ipv4Addr,
+    ipv4_mask: Ipv4Addr,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
     // /// that support packet compression (e.g: PPP).
@@ -190,7 +202,6 @@ pub struct NetworkData {
 impl NetworkData {
     fn update(&mut self, path: &str, data: &mut Vec<u8>) {
         let path = Path::new("/sys/class/net/").join(path);
-        self.mac_addr = read_mac(path.join("address"));
 
         let path = &path.join("statistics");
         old_and_new!(self, rx_bytes, old_rx_bytes, read(path, "rx_bytes", data));
@@ -231,6 +242,7 @@ impl NetworkData {
         //     old_tx_compressed,
         //     read(path, "tx_compressed", data)
         // );
+        // FIXME: update mac and ipv4 address
     }
 }
 
@@ -287,6 +299,14 @@ impl NetworkExt for NetworkData {
         &self.mac_addr
     }
 
+    fn ipv4_address(&self) -> &Ipv4Addr {
+        &self.ipv4_addr
+    }
+
+    fn ipv4_netmask(&self) -> &Ipv4Addr {
+        &self.ipv4_mask
+    }
+
 }
 
 #[cfg(test)]
@@ -336,4 +356,5 @@ mod test {
         assert_eq!(interfaces.keys().collect::<Vec<_>>(), ["itf2"]);
     }
 }
+
 

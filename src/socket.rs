@@ -1,14 +1,17 @@
 ///
-use std::{fmt, str::FromStr, ptr::null_mut};
+use std::{fmt, str::FromStr, ptr::null_mut, net::Ipv4Addr};
 
 /// MAC address for network interface
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub struct MacAddress {
     data: [u8; 6],
 }
 
 impl MacAddress {
-    pub(crate) fn new() -> Self {
+    pub const UNSPECIFIED: Self = MacAddress::new();
+
+    #[inline]
+    pub(crate) const fn new() -> Self {
         Self { data: [0; 6] }
     }
 
@@ -55,6 +58,8 @@ impl std::fmt::Display for MacAddress {
 }
 pub(crate) enum IFAddress {
     MAC(MacAddress),
+    // IPv4 address and subnet mask
+    IPv4(Ipv4Addr, Ipv4Addr),
 }
 
 pub(crate) struct IFAddressIter {
@@ -83,7 +88,7 @@ impl Iterator for IFAddressIter {
                 name.set_len(libc::strlen(ifa_name));
                 let name = String::from_utf8_unchecked(name);
 
-                Some((name, parse_sock_addr((*ifap).ifa_addr)))
+                Some((name, parse_interface_address(ifap)))
             } else {
                 None
             }
@@ -123,25 +128,48 @@ impl std::convert::TryFrom<&libc::sockaddr_dl> for MacAddress {
     }
 }
 
+
+unsafe fn get_raw_ipv4(sock_addr: *const libc::sockaddr) -> u32 {
+    let sock_addr = sock_addr as *const libc::sockaddr_in;
+    (*sock_addr).sin_addr.s_addr
+}
+
+unsafe fn get_ipv4_interface_address(ifap: *const libc::ifaddrs) -> IFAddress {
+    let sock_addr = (*ifap).ifa_addr;
+    let address = get_raw_ipv4(sock_addr);
+    let netmask = get_raw_ipv4((*ifap).ifa_netmask);
+    
+    IFAddress::IPv4(
+        Ipv4Addr::from(address.to_be()), 
+        Ipv4Addr::from(netmask.to_be()), 
+        // Ipv4Addr::from((address & netmask | (!netmask)).to_be())
+    )
+}
+
+
 #[cfg(any(target_os = "macos", target_os = "freebsd"))]
-unsafe fn parse_sock_addr(sock_addr: *const libc::sockaddr) -> Result<IFAddress, String> {
+unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> Result<IFAddress, String> {
     use std::convert::TryFrom;
 
+    let sock_addr = (*ifap).ifa_addr;
     match (*sock_addr).sa_family as libc::c_int {
         libc::AF_LINK => {
             let addr = sock_addr as *const libc::sockaddr_dl;
             let addr = MacAddress::try_from(&*addr)?;
             Ok(IFAddress::MAC(addr))
         },
+        libc::AF_INET => {
+            Ok(get_ipv4_interface_address(ifap))
+        }
         _ => { Err("not implemented".to_string()) }
     }
 }
 
 
 #[cfg(any(target_os = "linux"))]
-unsafe fn parse_sock_addr(sock_addr: *const libc::sockaddr) -> Result<IFAddress, String> {
+unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> Result<IFAddress, String> {
     use libc::sockaddr_ll;
-
+    let sock_addr = (*ifap).ifa_addr;
     match (*sock_addr).sa_family as libc::c_int {
         libc::AF_PACKET => {
             let addr = sock_addr as *const sockaddr_ll;
@@ -150,6 +178,9 @@ unsafe fn parse_sock_addr(sock_addr: *const libc::sockaddr) -> Result<IFAddress,
             let addr = MacAddress::from(addr.clone());
             Ok(IFAddress::MAC(addr))
         },
+        libc::AF_INET => {
+            Ok(get_ipv4_interface_address(ifap))
+        }
         _ => { Err("not implemented".to_string()) }
     }
 }
@@ -193,6 +224,9 @@ mod tests {
                         IFAddress::MAC(mac_addr) => {
                             println!("name: {} - {}", name, mac_addr)
                         },
+                        IFAddress::IPv4(addr, netmask, broadcast) => {
+                            println!("name: {} - {} / {} / {}", name, addr, netmask, broadcast)
+                        },
                         _ => {
 
                         }
@@ -202,3 +236,4 @@ mod tests {
         }
     }
 }
+
