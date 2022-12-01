@@ -25,6 +25,7 @@ cfg_if::cfg_if! {
         mod apple;
         use apple as sys;
         extern crate core_foundation_sys;
+        pub(crate) mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -40,6 +41,7 @@ cfg_if::cfg_if! {
         mod linux;
         use linux as sys;
         pub(crate) mod users;
+        pub(crate) mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -47,6 +49,7 @@ cfg_if::cfg_if! {
         mod freebsd;
         use freebsd as sys;
         pub(crate) mod users;
+        pub(crate) mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -78,7 +81,6 @@ mod debug;
 mod system;
 mod traits;
 mod utils;
-mod network;
 
 /// This function is only used on linux targets, on the other platforms it does nothing and returns
 /// `false`.
