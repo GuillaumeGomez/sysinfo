@@ -268,16 +268,16 @@ impl NetworkExt for NetworkData {
         self.errors_out
     }
 
-    fn mac_address(&self) -> &MacAddr {
-        &self.mac_addr
+    fn mac_address(&self) -> MacAddr {
+        self.mac_addr
     }
 
-    fn ipv4_address(&self) -> &Ipv4Addr {
-        &self.ipv4_addr
+    fn ipv4_address(&self) -> Ipv4Addr {
+        self.ipv4_addr
     }
 
-    fn ipv4_netmask(&self) -> &Ipv4Addr {
-        &self.ipv4_mask
+    fn ipv4_netmask(&self) -> Ipv4Addr {
+        self.ipv4_mask
     }
 }
 

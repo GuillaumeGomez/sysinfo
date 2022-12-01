@@ -1513,7 +1513,7 @@ pub trait NetworkExt: Debug {
     ///     println!("MAC: {}", network.mac_address());
     /// }
     /// ```
-    fn mac_address(&self) -> &MacAddr;
+    fn mac_address(&self) -> MacAddr;
     
     /// Returns the IPv4 address associated to current interface
     /// ```no_run
@@ -1524,7 +1524,7 @@ pub trait NetworkExt: Debug {
     ///     println!("IPv4: {}", network.ipv4_address());
     /// }
     /// ```
-    fn ipv4_address(&self) -> &Ipv4Addr;
+    fn ipv4_address(&self) -> Ipv4Addr;
 
     /// Returns the IPv4 subnet mast associated to current interface
     /// ```no_run
@@ -1535,7 +1535,7 @@ pub trait NetworkExt: Debug {
     ///     println!("IPv4 mask: {}", network.ipv4_netmask());
     /// }
     /// ```
-    fn ipv4_netmask(&self) -> &Ipv4Addr;
+    fn ipv4_netmask(&self) -> Ipv4Addr;
 }
 
 /// Interacting with network interfaces.
