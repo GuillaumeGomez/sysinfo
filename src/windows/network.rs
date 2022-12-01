@@ -1,8 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::common::MacAddr;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 use std::collections::{hash_map, HashMap};
+use std::net::Ipv4Addr;
 
 use winapi::shared::ifdef::{MediaConnectStateDisconnected, NET_LUID};
 use winapi::shared::netioapi::{
@@ -245,5 +247,17 @@ impl NetworkExt for NetworkData {
 
     fn total_errors_on_transmitted(&self) -> u64 {
         self.errors_out
+    }
+
+    fn mac_address(&self) -> MacAddr {
+        MacAddr::UNSPECIFIED
+    }
+
+    fn ipv4_address(&self) -> Ipv4Addr {
+        Ipv4Addr::UNSPECIFIED
+    }
+
+    fn ipv4_netmask(&self) -> Ipv4Addr {
+        Ipv4Addr::UNSPECIFIED
     }
 }
