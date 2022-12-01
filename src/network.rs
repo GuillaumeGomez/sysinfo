@@ -1,7 +1,7 @@
 ///
 use std::{net::Ipv4Addr, ptr::null_mut};
 
-use crate::common::InterfaceAddress;
+use crate::common::{InterfaceAddress, MacAddr};
 
 
 pub(crate) struct IFAddressIter {
@@ -98,7 +98,6 @@ unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddres
 unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddress {
     use libc::sockaddr_ll;
 
-    use crate::common::MacAddr;
     let sock_addr = (*ifap).ifa_addr;
     match (*sock_addr).sa_family as libc::c_int {
         libc::AF_PACKET => {
