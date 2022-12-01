@@ -64,9 +64,6 @@ fn refresh_networks_list_from_sysfs(
         }
 
         for entry in dir.flatten() {
-            // let (mac_addr, ipv4_addr, ipv4_mask, ipv4_broadcast) = (
-            //     MacAddress::new(),
-            // )
             let parent = &entry.path().join("statistics");
             let entry = match entry.file_name().into_string() {
                 Ok(entry) => entry,
