@@ -1,12 +1,12 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2, RTA_IFP};
+use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
 
 use std::collections::{hash_map, HashMap};
-use std::convert::TryFrom;
+use std::net::Ipv4Addr;
 use std::ptr::null_mut;
 
-use crate::socket::MacAddress;
+use crate::socket::{MacAddress, get_interface_address, IFAddress};
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {
@@ -83,14 +83,6 @@ impl Networks {
                     name.set_len(libc::strlen(pname));
                     let name = String::from_utf8_unchecked(name);
                     // Let's try to obtain the MAC address if RTA_IFP is presented
-                    let mac_addr = if (*if2m).ifm_addrs & RTA_IFP != 0 {
-                        // https://stackoverflow.com/a/10593782
-                        // the sockaddr_dl struct resides exactly after if2m
-                        let sdl = if2m.add(1) as *const libc::sockaddr_dl;
-                        MacAddress::try_from(&(*sdl)).unwrap_or_else(|_| MacAddress::new())
-                    } else {
-                        MacAddress::new()
-                    };
                     match self.interfaces.entry(name) {
                         hash_map::Entry::Occupied(mut e) => {
                             let mut interface = e.get_mut();
@@ -131,7 +123,6 @@ impl Networks {
                                 (*if2m).ifm_data.ifi_oerrors
                             );
                             interface.updated = true;
-                            interface.mac_addr = mac_addr;
                         }
                         hash_map::Entry::Vacant(e) => {
                             let current_in = (*if2m).ifm_data.ifi_ibytes;
@@ -155,13 +146,35 @@ impl Networks {
                                 errors_out,
                                 old_errors_out: errors_out,
                                 updated: true,
-                                mac_addr
+                                mac_addr: MacAddress::UNSPECIFIED,
+                                ipv4_addr: Ipv4Addr::UNSPECIFIED,
+                                ipv4_mask: Ipv4Addr::UNSPECIFIED,
                             });
                         }
                     }
                 }
             }
         }
+
+        if let Ok(iter) = get_interface_address() {
+            for (name, ifa) in iter {
+                if let Some(interface) = self.interfaces.get_mut(&name) {
+                    match ifa {
+                        IFAddress::MAC(mac_addr) => {
+                            interface.mac_addr = mac_addr;
+                        },
+                        IFAddress::IPv4(addr, mask) => {
+                            interface.ipv4_addr = addr;
+                            interface.ipv4_mask = mask;
+                        }
+                        _ => {
+
+                        }
+                    }
+                }
+            }
+        }
+
     }
 }
 
@@ -201,6 +214,8 @@ pub struct NetworkData {
     old_errors_out: u64,
     updated: bool,
     mac_addr: MacAddress,
+    ipv4_addr: Ipv4Addr,
+    ipv4_mask: Ipv4Addr,
 }
 
 impl NetworkExt for NetworkData {
@@ -255,5 +270,14 @@ impl NetworkExt for NetworkData {
     fn mac_address(&self) -> &MacAddress {
         &self.mac_addr
     }
+
+    fn ipv4_address(&self) -> &Ipv4Addr {
+        &self.ipv4_addr
+    }
+
+    fn ipv4_netmask(&self) -> &Ipv4Addr {
+        &self.ipv4_mask
+    }
 }
+
 

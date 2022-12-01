@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 use std::collections::{hash_map, HashMap};
 use std::mem::MaybeUninit;
+use std::net::Ipv4Addr;
 
 use super::utils;
 use crate::socket::{IFAddress, MacAddress, get_interface_address};
@@ -114,7 +115,9 @@ impl Networks {
                             ifi_oerrors: data.ifi_oerrors,
                             old_ifi_oerrors: 0,
                             updated: true,
-                            mac_addr: MacAddress::new(),
+                            mac_addr: MacAddress::UNSPECIFIED,
+                            ipv4_addr: Ipv4Addr::UNSPECIFIED,
+                            ipv4_mask: Ipv4Addr::UNSPECIFIED,
                         });
                     }
                 }
@@ -122,10 +125,14 @@ impl Networks {
         }
         if let Ok(iterator) = get_interface_address() {
             for (name, ifa) in iterator {
-                if let (Some(interface), Ok(ifa)) = (self.interfaces.get_mut(&name), ifa) {
+                if let Some(interface) = self.interfaces.get_mut(&name) {
                     match ifa {
                         IFAddress::MAC(mac_addr) => {
                             interface.mac_addr = mac_addr;
+                        },
+                        IFAddress::IPv4(addr, mask) => {
+                            interface.ipv4_addr = addr;
+                            interface.ipv4_mask = mask;
                         },
                         _ => {
 
@@ -162,6 +169,8 @@ pub struct NetworkData {
     /// Whether or not the above data has been updated during refresh
     updated: bool,
     mac_addr: MacAddress,
+    ipv4_addr: Ipv4Addr,
+    ipv4_mask: Ipv4Addr,
 }
 
 impl NetworkExt for NetworkData {
@@ -215,6 +224,14 @@ impl NetworkExt for NetworkData {
 
     fn mac_address(&self) -> &MacAddress {
         &self.mac_addr
+    }
+
+    fn ipv4_address(&self) -> &Ipv4Addr {
+        &self.ipv4_addr
+    }
+
+    fn ipv4_netmask(&self) -> &Ipv4Addr {
+        &self.ipv4_mask
     }
 }
 

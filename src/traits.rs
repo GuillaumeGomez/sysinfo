@@ -1505,35 +1505,35 @@ pub trait NetworkExt: Debug {
     /// ```
     fn total_errors_on_transmitted(&self) -> u64;
     
-    /// Returns the MAC address associated to current interface, respectively
+    /// Returns the MAC address associated to current interface.
     /// ```no_run
     /// use sysinfo::{System}
     /// 
     /// let s = System::new_all();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {}", network.mac_address());
+    ///     println!("MAC: {}", network.mac_address());
     /// }
     /// ```
     fn mac_address(&self) -> &MacAddress;
     
-    /// Returns the MAC address associated to current interface, respectively
+    /// Returns the IPv4 address associated to current interface
     /// ```no_run
     /// use sysinfo::{System}
     /// 
     /// let s = System::new_all();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {}", network.ipv4_address());
+    ///     println!("IPv4: {}", network.ipv4_address());
     /// }
     /// ```
     fn ipv4_address(&self) -> &Ipv4Addr;
 
-    /// Returns the MAC address associated to current interface, respectively
+    /// Returns the IPv4 subnet mast associated to current interface
     /// ```no_run
     /// use sysinfo::{System}
     /// 
     /// let s = System::new_all();
     /// for (interface_name, network) in networks {
-    ///     println!("out: {}", network.ipv4_netmask());
+    ///     println!("IPv4 mask: {}", network.ipv4_netmask());
     /// }
     /// ```
     fn ipv4_netmask(&self) -> &Ipv4Addr;
@@ -1735,5 +1735,6 @@ pub trait UserExt: Debug {
     /// ```
     fn groups(&self) -> &[String];
 }
+
 
 

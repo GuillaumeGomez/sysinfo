@@ -120,26 +120,12 @@ fn refresh_networks_list_from_sysfs(
             };
         }
 
-        if let Ok(iter) = get_interface_address() {
-            for (name, result) in iter {
-                if let (Some(interface), Ok(ifa)) = (interfaces.get_mut(&name), result) {
-                    match ifa {
-                        IFAddress::MAC(mac_addr) => {
-                            interface.mac_addr = mac_addr;
-                        },
-                        IFAddress::IPv4(addr, mask) => {
-                            interface.ipv4_addr = addr;
-                            interface.ipv4_mask = mask;
-                        }
-                    }
-                }
-            }
-        }
 
         // Remove interfaces which are gone.
         interfaces.retain(|_, d| d.updated);
     }
 }
+
 
 impl NetworksExt for Networks {
     fn iter(&self) -> NetworksIter {
@@ -156,6 +142,13 @@ impl NetworksExt for Networks {
 
     fn refresh_networks_list(&mut self) {
         refresh_networks_list_from_sysfs(&mut self.interfaces, Path::new("/sys/class/net/"));
+        if let Ok(iter) = get_interface_address() {
+            for (name, ifa) in iter {
+                if let Some(interface) = self.interfaces.get_mut(&name) {
+                    interface.update_interface_address(ifa);
+                }
+            }
+        }
     }
 }
 
@@ -307,6 +300,21 @@ impl NetworkExt for NetworkData {
         &self.ipv4_mask
     }
 
+}
+
+impl NetworkData {
+    fn update_interface_address(&mut self, ifa: IFAddress) {
+        match ifa {
+            IFAddress::MAC(mac_addr) => {
+                self.mac_addr = mac_addr;
+            },
+            IFAddress::IPv4(addr, mask) => {
+                self.ipv4_addr = addr;
+                self.ipv4_mask = mask;
+            },
+            _ => { }
+        }
+    }
 }
 
 #[cfg(test)]
