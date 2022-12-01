@@ -4,7 +4,7 @@ use std::mem::MaybeUninit;
 use std::net::Ipv4Addr;
 
 use super::utils;
-use crate::socket::{IFAddress, MacAddress, get_interface_address};
+use crate::socket::{IFAddress, MacAddr, get_interface_address};
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {
@@ -115,7 +115,7 @@ impl Networks {
                             ifi_oerrors: data.ifi_oerrors,
                             old_ifi_oerrors: 0,
                             updated: true,
-                            mac_addr: MacAddress::UNSPECIFIED,
+                            mac_addr: MacAddr::UNSPECIFIED,
                             ipv4_addr: Ipv4Addr::UNSPECIFIED,
                             ipv4_mask: Ipv4Addr::UNSPECIFIED,
                         });
@@ -168,7 +168,7 @@ pub struct NetworkData {
     old_ifi_oerrors: u64,
     /// Whether or not the above data has been updated during refresh
     updated: bool,
-    mac_addr: MacAddress,
+    mac_addr: MacAddr,
     ipv4_addr: Ipv4Addr,
     ipv4_mask: Ipv4Addr,
 }
@@ -222,7 +222,7 @@ impl NetworkExt for NetworkData {
         self.ifi_oerrors
     }
 
-    fn mac_address(&self) -> &MacAddress {
+    fn mac_address(&self) -> &MacAddr {
         &self.mac_addr
     }
 

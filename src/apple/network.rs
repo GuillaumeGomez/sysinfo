@@ -6,7 +6,7 @@ use std::collections::{hash_map, HashMap};
 use std::net::Ipv4Addr;
 use std::ptr::null_mut;
 
-use crate::socket::{MacAddress, get_interface_address, IFAddress};
+use crate::socket::{MacAddr, get_interface_address, IFAddress};
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {
@@ -146,7 +146,7 @@ impl Networks {
                                 errors_out,
                                 old_errors_out: errors_out,
                                 updated: true,
-                                mac_addr: MacAddress::UNSPECIFIED,
+                                mac_addr: MacAddr::UNSPECIFIED,
                                 ipv4_addr: Ipv4Addr::UNSPECIFIED,
                                 ipv4_mask: Ipv4Addr::UNSPECIFIED,
                             });
@@ -213,7 +213,7 @@ pub struct NetworkData {
     errors_out: u64,
     old_errors_out: u64,
     updated: bool,
-    mac_addr: MacAddress,
+    mac_addr: MacAddr,
     ipv4_addr: Ipv4Addr,
     ipv4_mask: Ipv4Addr,
 }
@@ -267,7 +267,7 @@ impl NetworkExt for NetworkData {
         self.errors_out
     }
 
-    fn mac_address(&self) -> &MacAddress {
+    fn mac_address(&self) -> &MacAddr {
         &self.mac_addr
     }
 

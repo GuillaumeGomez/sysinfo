@@ -5,7 +5,7 @@ use std::io::Read;
 use std::path::Path;
 use std::net::Ipv4Addr;
 
-use crate::socket::{MacAddress, get_interface_address, IFAddress};
+use crate::socket::{MacAddr, get_interface_address, IFAddress};
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
 
@@ -104,7 +104,7 @@ fn refresh_networks_list_from_sysfs(
                         old_rx_errors: rx_errors,
                         tx_errors,
                         old_tx_errors: tx_errors,
-                        mac_addr: MacAddress::UNSPECIFIED,
+                        mac_addr: MacAddr::UNSPECIFIED,
                         ipv4_addr: Ipv4Addr::UNSPECIFIED,
                         ipv4_mask: Ipv4Addr::UNSPECIFIED,
                         // rx_compressed,
@@ -178,7 +178,7 @@ pub struct NetworkData {
     tx_errors: u64,
     old_tx_errors: u64,
     /// MAC address
-    mac_addr: MacAddress,
+    mac_addr: MacAddr,
     ipv4_addr: Ipv4Addr,
     ipv4_mask: Ipv4Addr,
     // /// Indicates the number of compressed packets received by this
@@ -288,7 +288,7 @@ impl NetworkExt for NetworkData {
         self.tx_errors
     }
 
-    fn mac_address(&self) -> &MacAddress {
+    fn mac_address(&self) -> &MacAddr {
         &self.mac_addr
     }
 

@@ -2,7 +2,7 @@
 
 use crate::{
     common::{Gid, Uid},
-    socket::MacAddress,
+    socket::MacAddr,
     sys::{Component, Cpu, Disk, Networks, Process},
 };
 use crate::{
@@ -1514,7 +1514,7 @@ pub trait NetworkExt: Debug {
     ///     println!("MAC: {}", network.mac_address());
     /// }
     /// ```
-    fn mac_address(&self) -> &MacAddress;
+    fn mac_address(&self) -> &MacAddr;
     
     /// Returns the IPv4 address associated to current interface
     /// ```no_run
