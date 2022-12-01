@@ -126,6 +126,17 @@ fn refresh_networks_list_from_sysfs(
     }
 }
 
+impl Networks {
+    fn refresh_interface_address(&mut self) {
+        if let Ok(iter) = get_interface_address() {
+            for (name, ifa) in iter {
+                if let Some(interface) = self.interfaces.get_mut(&name) {
+                    interface.update_interface_address(ifa);
+                }
+            }
+        }
+    }
+}
 
 impl NetworksExt for Networks {
     fn iter(&self) -> NetworksIter {
@@ -138,17 +149,12 @@ impl NetworksExt for Networks {
         for (interface_name, data) in self.interfaces.iter_mut() {
             data.update(interface_name, &mut v);
         }
+        self.refresh_interface_address();
     }
 
     fn refresh_networks_list(&mut self) {
         refresh_networks_list_from_sysfs(&mut self.interfaces, Path::new("/sys/class/net/"));
-        if let Ok(iter) = get_interface_address() {
-            for (name, ifa) in iter {
-                if let Some(interface) = self.interfaces.get_mut(&name) {
-                    interface.update_interface_address(ifa);
-                }
-            }
-        }
+        self.refresh_interface_address();
     }
 }
 
@@ -235,7 +241,6 @@ impl NetworkData {
         //     old_tx_compressed,
         //     read(path, "tx_compressed", data)
         // );
-        // FIXME: update mac and ipv4 address
     }
 }
 
@@ -364,5 +369,4 @@ mod test {
         assert_eq!(interfaces.keys().collect::<Vec<_>>(), ["itf2"]);
     }
 }
-
 
