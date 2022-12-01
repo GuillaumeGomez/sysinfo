@@ -4,6 +4,7 @@ use crate::{NetworkData, Networks, NetworksExt, UserExt};
 
 use std::convert::From;
 use std::fmt;
+use std::net::Ipv4Addr;
 use std::str::FromStr;
 
 /// Trait to have a common conversions for the [`Pid`][crate::Pid] type.
@@ -952,9 +953,74 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
     inner()
 }
 
+/// MAC address for network interface
+#[derive(PartialEq, Eq, Copy, Clone)]
+pub struct MacAddr {
+    data: [u8; 6],
+}
+
+impl MacAddr {
+    pub const UNSPECIFIED: Self = MacAddr::new();
+
+    #[inline]
+    pub(crate) const fn new() -> Self {
+        Self { data: [0; 6] }
+    }
+
+    pub fn data(&self) -> &[u8; 6] {
+        &self.data
+    }
+}
+
+impl From<[u8; 6]> for MacAddr {
+    fn from(data: [u8; 6]) -> Self {
+        Self { data }
+    }
+}
+
+impl FromStr for MacAddr {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = s
+            .split(":")
+            .filter_map(|s| u8::from_str_radix(s, 16).ok())
+            .collect::<Vec<u8>>();
+        if bytes.len() == 6 {
+            let mut data = [0; 6];
+            for (index, byte) in bytes.iter().enumerate() {
+                data[index] = *byte;
+            }
+            return Ok(MacAddr { data });
+        }
+        Err("invalid MAC address syntax".to_string())
+    }
+}
+
+impl std::fmt::Display for MacAddr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = self
+            .data
+            .iter()
+            .map(|b| format!("{:02x}", *b))
+            .collect::<Vec<String>>()
+            .join(":");
+        f.write_str(&s)
+    }
+}
+pub(crate) enum InterfaceAddress {
+    MAC(MacAddr),
+    // IPv4 address and subnet mask
+    IPv4(Ipv4Addr, Ipv4Addr),
+    NotImplemented,
+}
+
+
 #[cfg(test)]
 mod tests {
-    use super::ProcessStatus;
+    use std::str::FromStr;
+
+    use super::{ProcessStatus,MacAddr};
 
     // This test only exists to ensure that the `Display` trait is implemented on the
     // `ProcessStatus` enum on all targets.
@@ -962,4 +1028,17 @@ mod tests {
     fn check_display_impl_process_status() {
         println!("{} {:?}", ProcessStatus::Parked, ProcessStatus::Idle);
     }
+
+    #[test]
+    fn from_str_mac_address() {
+        let mac = MacAddr::from_str("e5:5d:59:e9:6e:b5").unwrap();
+        let mac = mac.data();
+        assert_eq!(mac[0], 0xe5);
+        assert_eq!(mac[1], 0x5d);
+        assert_eq!(mac[2], 0x59);
+        assert_eq!(mac[3], 0xe9);
+        assert_eq!(mac[4], 0x6e);
+        assert_eq!(mac[5], 0xb5);
+    }
+
 }

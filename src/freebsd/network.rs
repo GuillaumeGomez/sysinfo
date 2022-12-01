@@ -4,7 +4,8 @@ use std::mem::MaybeUninit;
 use std::net::Ipv4Addr;
 
 use super::utils;
-use crate::socket::{IFAddress, MacAddr, get_interface_address};
+use crate::common::{InterfaceAddress, MacAddr};
+use crate::network::get_interface_address;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {
@@ -127,10 +128,10 @@ impl Networks {
             for (name, ifa) in iterator {
                 if let Some(interface) = self.interfaces.get_mut(&name) {
                     match ifa {
-                        IFAddress::MAC(mac_addr) => {
+                        InterfaceAddress::MAC(mac_addr) => {
                             interface.mac_addr = mac_addr;
                         },
-                        IFAddress::IPv4(addr, mask) => {
+                        InterfaceAddress::IPv4(addr, mask) => {
                             interface.ipv4_addr = addr;
                             interface.ipv4_mask = mask;
                         },

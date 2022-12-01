@@ -78,7 +78,7 @@ mod debug;
 mod system;
 mod traits;
 mod utils;
-mod socket;
+mod network;
 
 /// This function is only used on linux targets, on the other platforms it does nothing and returns
 /// `false`.

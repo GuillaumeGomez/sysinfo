@@ -5,7 +5,8 @@ use std::io::Read;
 use std::path::Path;
 use std::net::Ipv4Addr;
 
-use crate::socket::{MacAddr, get_interface_address, IFAddress};
+use crate::common::{MacAddr, InterfaceAddress};
+use crate::network::get_interface_address;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
 
@@ -303,12 +304,12 @@ impl NetworkExt for NetworkData {
 }
 
 impl NetworkData {
-    fn update_interface_address(&mut self, ifa: IFAddress) {
+    fn update_interface_address(&mut self, ifa: InterfaceAddress) {
         match ifa {
-            IFAddress::MAC(mac_addr) => {
+            InterfaceAddress::MAC(mac_addr) => {
                 self.mac_addr = mac_addr;
             },
-            IFAddress::IPv4(addr, mask) => {
+            InterfaceAddress::IPv4(addr, mask) => {
                 self.ipv4_addr = addr;
                 self.ipv4_mask = mask;
             },
