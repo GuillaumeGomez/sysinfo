@@ -200,9 +200,7 @@ pub struct NetworkData {
 
 impl NetworkData {
     fn update(&mut self, path: &str, data: &mut Vec<u8>) {
-        let path = Path::new("/sys/class/net/").join(path);
-
-        let path = &path.join("statistics");
+        let path = &Path::new("/sys/class/net/").join(path).join("statistics");
         old_and_new!(self, rx_bytes, old_rx_bytes, read(path, "rx_bytes", data));
         old_and_new!(self, tx_bytes, old_tx_bytes, read(path, "tx_bytes", data));
         old_and_new!(
