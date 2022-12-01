@@ -2,7 +2,7 @@
 
 use crate::{NetworkData, Networks, NetworksExt, UserExt};
 
-use std::convert::From;
+use std::convert::{From, TryFrom};
 use std::fmt;
 use std::str::FromStr;
 
@@ -14,7 +14,7 @@ use std::str::FromStr;
 /// let p = Pid::from_u32(0);
 /// let value: u32 = p.as_u32();
 /// ```
-pub trait PidExt<T>: Copy + From<T> + FromStr + fmt::Display {
+pub trait PidExt: Copy + From<usize> + FromStr + fmt::Display {
     /// Allows to convert [`Pid`][crate::Pid] into [`u32`].
     ///
     /// ```
@@ -41,19 +41,19 @@ macro_rules! pid_decl {
         #[repr(transparent)]
         pub struct Pid(pub(crate) $typ);
 
-        impl From<$typ> for Pid {
-            fn from(v: $typ) -> Self {
-                Self(v)
+        impl From<usize> for Pid {
+            fn from(v: usize) -> Self {
+                Self(v as _)
             }
         }
-        impl From<Pid> for $typ {
+        impl From<Pid> for usize {
             fn from(v: Pid) -> Self {
-                v.0
+                v.0 as _
             }
         }
-        impl PidExt<$typ> for Pid {
+        impl PidExt for Pid {
             fn as_u32(self) -> u32 {
-                self.0 as u32
+                self.0 as _
             }
             fn from_u32(v: u32) -> Self {
                 Self(v as _)
@@ -664,7 +664,7 @@ pub struct LoadAvg {
 }
 
 macro_rules! xid {
-    ($(#[$outer:meta])+ $name:ident, $type:ty) => {
+    ($(#[$outer:meta])+ $name:ident, $type:ty $(, $trait:ty)?) => {
         $(#[$outer])+
         #[repr(transparent)]
         #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -677,18 +677,51 @@ macro_rules! xid {
                 &self.0
             }
         }
+
+        $(
+        impl TryFrom<usize> for $name {
+            type Error = <$type as TryFrom<usize>>::Error;
+
+            fn try_from(t: usize) -> Result<Self, <$type as TryFrom<usize>>::Error> {
+                Ok(Self(<$type>::try_from(t)?))
+            }
+        }
+
+        impl $trait for $name {
+            type Err = <$type as FromStr>::Err;
+
+            fn from_str(t: &str) -> Result<Self, <$type as FromStr>::Err> {
+                Ok(Self(<$type>::from_str(t)?))
+            }
+        }
+        )?
     };
 }
 
 macro_rules! uid {
-    ($(#[$outer:meta])+ $type:ty) => {
-        xid!($(#[$outer])+ Uid, $type);
+    ($type:ty$(, $trait:ty)?) => {
+        xid!(
+            /// A user id wrapping a platform specific type.
+            ///
+            /// ⚠️ On windows, `Uid` is actually wrapping a `Box<str>` due to some
+            /// Windows limitations around their users ID. For the time being, `Uid`
+            /// is the user name on this platform.
+            Uid,
+            $type
+            $(, $trait)?
+        );
     };
 }
 
 macro_rules! gid {
-    ($(#[$outer:meta])+ $type:ty) => {
-        xid!($(#[$outer])+ #[derive(Copy)] Gid, $type);
+    ($type:ty) => {
+        xid!(
+            /// A group id wrapping a platform specific type.
+            #[derive(Copy)]
+            Gid,
+            $type,
+            FromStr
+        );
     };
 }
 
@@ -703,33 +736,29 @@ cfg_if::cfg_if! {
             target_os = "ios",
         )
     ))] {
-        uid!(
-            /// A user id wrapping a platform specific type.
-            libc::uid_t
-        );
-        gid!(
-            /// A group id wrapping a platform specific type.
-            libc::gid_t
-        );
+        uid!(libc::uid_t, FromStr);
+        gid!(libc::gid_t);
     } else if #[cfg(windows)] {
-        uid!(
-            /// A user id wrapping a platform specific type.
-            Box<str>
-        );
-        gid!(
-            /// A group id wrapping a platform specific type.
-            u32
-        );
-    } else {
-        uid!(
-            /// A user id wrapping a platform specific type.
-            u32
-        );
-        gid!(
-            /// A group id wrapping a platform specific type.
-            u32
-        );
+        uid!(Box<str>);
+        gid!(u32);
+        // Manual implementation outside of the macro...
+        impl FromStr for Uid {
+            type Err = <String as FromStr>::Err;
 
+            fn from_str(t: &str) -> Result<Self, <String as FromStr>::Err> {
+                Ok(Self(t.into()))
+            }
+        }
+        impl TryFrom<usize> for Uid {
+            type Error = <u32 as TryFrom<usize>>::Error;
+
+            fn try_from(t: usize) -> Result<Self, <u32 as TryFrom<usize>>::Error> {
+                Ok(Self(t.to_string().into_boxed_str()))
+            }
+        }
+    } else {
+        uid!(u32, FromStr);
+        gid!(u32);
     }
 }
 
@@ -961,5 +990,24 @@ mod tests {
     #[test]
     fn check_display_impl_process_status() {
         println!("{} {:?}", ProcessStatus::Parked, ProcessStatus::Idle);
+    }
+
+    // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented
+    // on `Uid`, `Gid` and `Pid`.
+    #[test]
+    fn check_uid_gid_from_impls() {
+        use std::convert::TryFrom;
+        use std::str::FromStr;
+
+        assert!(crate::Uid::try_from(0usize).is_ok());
+        assert!(crate::Uid::from_str("0").is_ok());
+
+        assert!(crate::Gid::try_from(0usize).is_ok());
+        assert!(crate::Gid::from_str("0").is_ok());
+
+        assert!(crate::Pid::try_from(0usize).is_ok());
+        // If it doesn't panic, it's fine.
+        let _ = crate::Pid::from(0);
+        assert!(crate::Pid::from_str("0").is_ok());
     }
 }
