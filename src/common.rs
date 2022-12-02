@@ -1008,10 +1008,14 @@ impl std::fmt::Display for MacAddr {
         f.write_str(&s)
     }
 }
+
+// This type can hold different addresses associated to the network interface
 pub(crate) enum InterfaceAddress {
+    // MAC address
     MAC(MacAddr),
     // IPv4 address and subnet mask
     IPv4(Ipv4Addr, Ipv4Addr),
+    // Stub for IPv6
     NotImplemented,
 }
 

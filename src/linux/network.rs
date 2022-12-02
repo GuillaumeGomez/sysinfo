@@ -147,7 +147,6 @@ impl NetworksExt for Networks {
         for (interface_name, data) in self.interfaces.iter_mut() {
             data.update(interface_name, &mut v);
         }
-        self.refresh_interface_address();
     }
 
     fn refresh_networks_list(&mut self) {
