@@ -2,7 +2,7 @@
 // to obtain all interface-related addresses in *nix. It is done by
 // calling getifaddrs and hence is not available on Windows.
 use std::{net::Ipv4Addr, ptr::null_mut};
-
+#[allow(unused)]
 use crate::common::{InterfaceAddress, MacAddr};
 
 
@@ -85,7 +85,7 @@ unsafe fn get_ipv4_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAdd
     )
 }
 
-#[cfg(any(target_os = "macos", target_os = "freebsd"))]
+#[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "ios"))]
 unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddress {
     let sock_addr = (*ifap).ifa_addr;
     match (*sock_addr).sa_family as libc::c_int {
@@ -107,8 +107,8 @@ unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddres
         libc::AF_PACKET => {
             let addr = sock_addr as *const sockaddr_ll;
             // Take the first 6 bytes
-            let [ref addr @ .., _, __] = (*addr).sll_addr;
-            let addr = MacAddr::from(addr.clone());
+            let [addr @ .., _, _] = (*addr).sll_addr;
+            let addr = MacAddr::from(addr);
             InterfaceAddress::MAC(addr)
         }
         libc::AF_INET => get_ipv4_interface_address(ifap),

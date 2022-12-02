@@ -1012,7 +1012,7 @@ impl FromStr for MacAddr {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let bytes = s
-            .split(":")
+            .split(':')
             .filter_map(|s| u8::from_str_radix(s, 16).ok())
             .collect::<Vec<u8>>();
         if bytes.len() == 6 {
@@ -1039,6 +1039,7 @@ impl std::fmt::Display for MacAddr {
 }
 
 // This type can hold different addresses associated to the network interface
+#[allow(unused)]
 pub(crate) enum InterfaceAddress {
     // MAC address
     MAC(MacAddr),
