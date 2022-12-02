@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    common::{Gid, Uid, MacAddr},
+    common::{Gid, MacAddr, Uid},
     sys::{Component, Cpu, Disk, Networks, Process},
 };
 use crate::{
@@ -9,10 +9,10 @@ use crate::{
     ProcessStatus, RefreshKind, Signal, User,
 };
 
-use std::{collections::HashMap, net::Ipv4Addr};
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::Path;
+use std::{collections::HashMap, net::Ipv4Addr};
 
 /// Contains all the methods of the [`Disk`][crate::Disk] struct.
 ///
@@ -1503,22 +1503,22 @@ pub trait NetworkExt: Debug {
     /// }
     /// ```
     fn total_errors_on_transmitted(&self) -> u64;
-    
+
     /// Returns the MAC address associated to current interface.
     /// ```no_run
     /// use sysinfo::{System}
-    /// 
+    ///
     /// let s = System::new_all();
     /// for (interface_name, network) in networks {
     ///     println!("MAC: {}", network.mac_address());
     /// }
     /// ```
     fn mac_address(&self) -> MacAddr;
-    
+
     /// Returns the IPv4 address associated to current interface
     /// ```no_run
     /// use sysinfo::{System}
-    /// 
+    ///
     /// let s = System::new_all();
     /// for (interface_name, network) in networks {
     ///     println!("IPv4: {}", network.ipv4_address());
@@ -1529,7 +1529,7 @@ pub trait NetworkExt: Debug {
     /// Returns the IPv4 subnet mast associated to current interface
     /// ```no_run
     /// use sysinfo::{System}
-    /// 
+    ///
     /// let s = System::new_all();
     /// for (interface_name, network) in networks {
     ///     println!("IPv4 mask: {}", network.ipv4_netmask());
@@ -1734,6 +1734,3 @@ pub trait UserExt: Debug {
     /// ```
     fn groups(&self) -> &[String];
 }
-
-
-

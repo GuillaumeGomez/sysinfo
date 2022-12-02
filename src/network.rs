@@ -1,10 +1,9 @@
 // This module provides a function named `get_interface_address`,
 // to obtain all interface-related addresses in *nix. It is done by
 // calling getifaddrs and hence is not available on Windows.
-use std::{net::Ipv4Addr, ptr::null_mut};
 #[allow(unused)]
 use crate::common::{InterfaceAddress, MacAddr};
-
+use std::{net::Ipv4Addr, ptr::null_mut};
 
 pub(crate) struct InterfaceAddressIterator {
     /// Pointer to the current ifaddrs struct
@@ -150,4 +149,3 @@ mod tests {
         }
     }
 }
-

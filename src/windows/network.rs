@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::common::{MacAddr, InterfaceAddress};
+use crate::common::{InterfaceAddress, MacAddr};
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 use std::collections::{hash_map, HashMap};
@@ -12,14 +12,17 @@ use std::ptr::null_mut;
 use winapi::shared::ifdef::{MediaConnectStateDisconnected, NET_LUID};
 use winapi::shared::minwindef::ULONG;
 use winapi::shared::netioapi::{
-    FreeMibTable, GetIfEntry2, GetIfTable2, MIB_IF_ROW2, PMIB_IF_TABLE2, ConvertLengthToIpv4Mask
+    ConvertLengthToIpv4Mask, FreeMibTable, GetIfEntry2, GetIfTable2, MIB_IF_ROW2, PMIB_IF_TABLE2,
 };
-use winapi::shared::winerror::{NO_ERROR, ERROR_SUCCESS};
-use winapi::shared::ws2def::{AF_UNSPEC, AF_INET, SOCKADDR_IN};
 use winapi::shared::ntdef::NULL;
+use winapi::shared::winerror::{ERROR_SUCCESS, NO_ERROR};
+use winapi::shared::ws2def::{AF_INET, AF_UNSPEC, SOCKADDR_IN};
 use winapi::um::iphlpapi::GetAdaptersAddresses;
+use winapi::um::iptypes::{
+    GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_DNS_SERVER, GAA_FLAG_SKIP_MULTICAST,
+    PIP_ADAPTER_ADDRESSES, PIP_ADAPTER_UNICAST_ADDRESS,
+};
 use winapi::um::winsock2::htonl;
-use winapi::um::iptypes::{PIP_ADAPTER_ADDRESSES, GAA_FLAG_SKIP_MULTICAST, GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_DNS_SERVER, PIP_ADAPTER_UNICAST_ADDRESS};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $new_val:expr) => {{
@@ -47,14 +50,12 @@ impl Networks {
                     match ifa {
                         InterfaceAddress::MAC(mac_addr) => {
                             interface.mac_addr = mac_addr;
-                        },
+                        }
                         InterfaceAddress::IPv4(addr, mask) => {
                             interface.ipv4_addr = addr;
                             interface.ipv4_mask = mask;
-                        },
-                        _ => {
-
                         }
+                        _ => {}
                     }
                 }
             }
@@ -309,7 +310,6 @@ pub(crate) struct InterfaceAddressIterator {
     unicast_address: PIP_ADAPTER_UNICAST_ADDRESS,
 }
 
-
 // Need a function to convert u16 pointer into String
 // https://stackoverflow.com/a/48587463/8706476
 unsafe fn u16_ptr_to_string(ptr: *const u16) -> OsString {
@@ -336,8 +336,8 @@ impl Iterator for InterfaceAddressIterator {
                     // and return the MAC address instead
                     let [ref mac @ .., _, _] = (*adapter).PhysicalAddress;
                     Some((
-                        interface_name, 
-                        InterfaceAddress::MAC(MacAddr::from(mac.clone()))
+                        interface_name,
+                        InterfaceAddress::MAC(MacAddr::from(mac.clone())),
                     ))
                 } else {
                     // otherwise, generate an IP adddress
@@ -349,7 +349,7 @@ impl Iterator for InterfaceAddressIterator {
                     }
                     // FIXME: should we perform a null check on (*address).Address.lpSockaddr
                     let sock_addr = (*address).Address.lpSockaddr;
-                    
+
                     match (*sock_addr).sa_family as _ {
                         AF_INET => {
                             let sock_addr = sock_addr as *const SOCKADDR_IN;
@@ -357,19 +357,20 @@ impl Iterator for InterfaceAddressIterator {
                             let mut subnet_mask = 0 as ULONG;
                             // only avaialbe on vista and later
                             // https://learn.microsoft.com/zh-cn/windows/win32/api/netioapi/nf-netioapi-convertlengthtoipv4mask
-                            ConvertLengthToIpv4Mask((*address).OnLinkPrefixLength as _, &mut subnet_mask as _);
+                            ConvertLengthToIpv4Mask(
+                                (*address).OnLinkPrefixLength as _,
+                                &mut subnet_mask as _,
+                            );
 
                             Some((
                                 interface_name,
                                 InterfaceAddress::IPv4(
                                     Ipv4Addr::from(htonl(*sock_addr)),
-                                    Ipv4Addr::from(htonl(subnet_mask)) 
-                                )
+                                    Ipv4Addr::from(htonl(subnet_mask)),
+                                ),
                             ))
-                        },
-                        _ => {
-                            Some((interface_name, InterfaceAddress::NotImplemented))
                         }
+                        _ => Some((interface_name, InterfaceAddress::NotImplemented)),
                     }
                 }
             } else {
@@ -378,9 +379,7 @@ impl Iterator for InterfaceAddressIterator {
                 self.adapter = (*adapter).Next;
                 self.next()
             }
-  
         }
-
     }
 }
 
@@ -396,27 +395,28 @@ fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
     unsafe {
         // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#remarks
         // A 15k buffer is recommended
-        let mut size: u32 = 16*1024;
+        let mut size: u32 = 16 * 1024;
         let buf = libc::malloc(size as usize) as PIP_ADAPTER_ADDRESSES;
         if buf.is_null() {
             // TODO: more details
-            return Err("malloc failed".to_string()); 
+            return Err("malloc failed".to_string());
         }
 
         let ret = GetAdaptersAddresses(
-            AF_UNSPEC as u32, 
-            GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER, 
-            NULL, 
-            buf, 
-            &mut size);
+            AF_UNSPEC as u32,
+            GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER,
+            NULL,
+            buf,
+            &mut size,
+        );
 
         if ret != ERROR_SUCCESS {
             return Err("GetAdaptersAddresses() failed".to_string());
         }
 
-        Ok(InterfaceAddressIterator { 
-            buf, 
-            adapter: buf, 
+        Ok(InterfaceAddressIterator {
+            buf,
+            adapter: buf,
             unicast_address: null_mut(),
         })
     }

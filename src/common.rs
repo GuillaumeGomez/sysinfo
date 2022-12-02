@@ -1049,12 +1049,11 @@ pub(crate) enum InterfaceAddress {
     NotImplemented,
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
 
-    use super::{ProcessStatus,MacAddr};
+    use super::{MacAddr, ProcessStatus};
 
     // This test only exists to ensure that the `Display` trait is implemented on the
     // `ProcessStatus` enum on all targets.

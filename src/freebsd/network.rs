@@ -130,14 +130,12 @@ impl Networks {
                     match ifa {
                         InterfaceAddress::MAC(mac_addr) => {
                             interface.mac_addr = mac_addr;
-                        },
+                        }
                         InterfaceAddress::IPv4(addr, mask) => {
                             interface.ipv4_addr = addr;
                             interface.ipv4_mask = mask;
-                        },
-                        _ => {
-
                         }
+                        _ => {}
                     }
                 }
             }
@@ -235,4 +233,3 @@ impl NetworkExt for NetworkData {
         self.ipv4_mask
     }
 }
-

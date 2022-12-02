@@ -1,11 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::{fs::File, u8};
 use std::io::Read;
-use std::path::Path;
 use std::net::Ipv4Addr;
+use std::path::Path;
+use std::{fs::File, u8};
 
-use crate::common::{MacAddr, InterfaceAddress};
+use crate::common::{InterfaceAddress, MacAddr};
 use crate::network::get_interface_address;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
@@ -117,7 +117,6 @@ fn refresh_networks_list_from_sysfs(
                 }
             };
         }
-
 
         // Remove interfaces which are gone.
         interfaces.retain(|_, d| d.updated);
@@ -299,7 +298,6 @@ impl NetworkExt for NetworkData {
     fn ipv4_netmask(&self) -> Ipv4Addr {
         self.ipv4_mask
     }
-
 }
 
 impl NetworkData {
@@ -307,12 +305,12 @@ impl NetworkData {
         match ifa {
             InterfaceAddress::MAC(mac_addr) => {
                 self.mac_addr = mac_addr;
-            },
+            }
             InterfaceAddress::IPv4(addr, mask) => {
                 self.ipv4_addr = addr;
                 self.ipv4_mask = mask;
-            },
-            _ => { }
+            }
+            _ => {}
         }
     }
 }
@@ -364,4 +362,3 @@ mod test {
         assert_eq!(interfaces.keys().collect::<Vec<_>>(), ["itf2"]);
     }
 }
-
