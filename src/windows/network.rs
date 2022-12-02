@@ -300,7 +300,7 @@ impl NetworkExt for NetworkData {
     }
 }
 
-pub(crate) struct IFAddressIter {
+pub(crate) struct InterfaceAddressIterator {
     buf: PIP_ADAPTER_ADDRESSES,
     adapter: PIP_ADAPTER_ADDRESSES,
     
@@ -317,7 +317,7 @@ unsafe fn u16_ptr_to_string(ptr: *const u16) -> OsString {
     OsString::from_wide(slice)
 }
 
-impl Iterator for IFAddressIter {
+impl Iterator for InterfaceAddressIterator {
     type Item = (String, InterfaceAddress);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -382,7 +382,7 @@ impl Iterator for IFAddressIter {
     }
 }
 
-impl Drop for IFAddressIter {
+impl Drop for InterfaceAddressIterator {
     fn drop(&mut self) {
         unsafe {
             libc::malloc(self.buf as _);
@@ -390,7 +390,7 @@ impl Drop for IFAddressIter {
     }
 }
 
-fn get_interface_address() -> Result<IFAddressIter, String> {
+fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
     unsafe {
         let mut size: u32 = 16*1024;
         let buf = libc::malloc(size as usize) as PIP_ADAPTER_ADDRESSES;
@@ -410,7 +410,7 @@ fn get_interface_address() -> Result<IFAddressIter, String> {
             return Err("GetAdaptersAddresses() failed".to_string());
         }
 
-        Ok(IFAddressIter { 
+        Ok(InterfaceAddressIterator { 
             buf, 
             adapter: buf, 
             unicast_address: null_mut(),

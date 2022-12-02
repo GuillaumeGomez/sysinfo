@@ -6,11 +6,11 @@ use std::{net::Ipv4Addr, ptr::null_mut};
 use crate::common::{InterfaceAddress, MacAddr};
 
 
-pub(crate) struct IFAddressIter {
+pub(crate) struct InterfaceAddressIterator {
     ifap: *mut libc::ifaddrs,
 }
 
-impl Iterator for IFAddressIter {
+impl Iterator for InterfaceAddressIterator {
     // this iterator yields an interface name and address
     type Item = (String, InterfaceAddress);
 
@@ -35,7 +35,7 @@ impl Iterator for IFAddressIter {
     }
 }
 
-impl Drop for IFAddressIter {
+impl Drop for InterfaceAddressIterator {
     fn drop(&mut self) {
         unsafe {
             libc::freeifaddrs(self.ifap);
@@ -114,11 +114,11 @@ unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddres
 }
 
 #[allow(unused)]
-pub(crate) fn get_interface_address() -> Result<IFAddressIter, String> {
+pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
     let mut ifap = null_mut();
     unsafe {
         if libc::getifaddrs(&mut ifap) == 0 {
-            return Ok(IFAddressIter { ifap });
+            return Ok(InterfaceAddressIterator { ifap });
         }
     }
     Err("failed to call getifaddrs".to_string())
