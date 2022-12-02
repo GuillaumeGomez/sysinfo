@@ -334,10 +334,10 @@ impl Iterator for InterfaceAddressIterator {
                     // set unicast address,
                     self.unicast_address = (*adapter).FirstUnicastAddress;
                     // and return the MAC address instead
-                    let [ref mac @ .., _, _] = (*adapter).PhysicalAddress;
+                    let [mac @ .., _, _] = (*adapter).PhysicalAddress;
                     Some((
                         interface_name,
-                        InterfaceAddress::MAC(MacAddr::from(mac.clone())),
+                        InterfaceAddress::MAC(MacAddr::from(mac)),
                     ))
                 } else {
                     // otherwise, generate an IP adddress

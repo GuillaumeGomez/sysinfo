@@ -45,7 +45,7 @@ impl Drop for InterfaceAddressIterator {
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "freebsd"))]
+#[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "ios"))]
 impl From<&libc::sockaddr_dl> for MacAddr {
     fn from(value: &libc::sockaddr_dl) -> Self {
         let sdl_data = value.sdl_data;
@@ -97,7 +97,7 @@ unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddres
     }
 }
 
-#[cfg(any(target_os = "linux"))]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddress {
     use libc::sockaddr_ll;
 
