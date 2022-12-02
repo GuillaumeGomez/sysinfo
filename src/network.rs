@@ -1,5 +1,5 @@
 // This module provides a function named `get_interface_address`,
-// to obtain socket-related addresses in *nix. It is done by
+// to obtain all interface-related addresses in *nix. It is done by
 // calling getifaddrs and hence is not available on Windows.
 use std::{net::Ipv4Addr, ptr::null_mut};
 
@@ -7,7 +7,10 @@ use crate::common::{InterfaceAddress, MacAddr};
 
 
 pub(crate) struct InterfaceAddressIterator {
+    // Pointer to the current ifaddrs struct
     ifap: *mut libc::ifaddrs,
+    // Pointer to the first element in linked list
+    buf: *mut libc::ifaddrs,
 }
 
 impl Iterator for InterfaceAddressIterator {
@@ -38,7 +41,7 @@ impl Iterator for InterfaceAddressIterator {
 impl Drop for InterfaceAddressIterator {
     fn drop(&mut self) {
         unsafe {
-            libc::freeifaddrs(self.ifap);
+            libc::freeifaddrs(self.buf);
         }
     }
 }
@@ -113,12 +116,12 @@ unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddres
     }
 }
 
-#[allow(unused)]
+/// Return an iterator on (interface_name, address) pairs
 pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
     let mut ifap = null_mut();
     unsafe {
         if libc::getifaddrs(&mut ifap) == 0 {
-            return Ok(InterfaceAddressIterator { ifap });
+            return Ok(InterfaceAddressIterator { ifap, buf: ifap });
         }
     }
     Err("failed to call getifaddrs".to_string())
