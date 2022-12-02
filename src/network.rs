@@ -7,9 +7,9 @@ use crate::common::{InterfaceAddress, MacAddr};
 
 
 pub(crate) struct InterfaceAddressIterator {
-    // Pointer to the current ifaddrs struct
+    /// Pointer to the current ifaddrs struct
     ifap: *mut libc::ifaddrs,
-    // Pointer to the first element in linked list
+    /// Pointer to the first element in linked list
     buf: *mut libc::ifaddrs,
 }
 

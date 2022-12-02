@@ -301,9 +301,11 @@ impl NetworkExt for NetworkData {
 }
 
 pub(crate) struct InterfaceAddressIterator {
+    /// The first item in the linked list
     buf: PIP_ADAPTER_ADDRESSES,
+    /// The current adapter
     adapter: PIP_ADAPTER_ADDRESSES,
-    
+    /// IP addresses grouped by current adapter
     unicast_address: PIP_ADAPTER_UNICAST_ADDRESS,
 }
 
@@ -392,6 +394,8 @@ impl Drop for InterfaceAddressIterator {
 
 fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
     unsafe {
+        // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#remarks
+        // A 15k buffer is recommended
         let mut size: u32 = 16*1024;
         let buf = libc::malloc(size as usize) as PIP_ADAPTER_ADDRESSES;
         if buf.is_null() {
