@@ -1,6 +1,5 @@
-// This module provides a function named `get_interface_address`,
-// to obtain all interface-related addresses in *nix. It is done by
-// calling getifaddrs and hence is not available on Windows.
+// Take a look at the license at the top of the repository in the LICENSE file.
+
 #[allow(unused)]
 use crate::common::{InterfaceAddress, MacAddr};
 use std::{net::Ipv4Addr, ptr::null_mut};
@@ -119,33 +118,10 @@ unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddres
 pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
     let mut ifap = null_mut();
     unsafe {
-        if libc::getifaddrs(&mut ifap) == 0 {
-            return Ok(InterfaceAddressIterator { ifap, buf: ifap });
-        }
-    }
-    Err("failed to call getifaddrs".to_string())
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::common::InterfaceAddress;
-
-    use super::get_interface_address;
-
-    #[test]
-    fn test_get_interface_address() {
-        if let Ok(iterator) = get_interface_address() {
-            for (name, ifa) in iterator {
-                match ifa {
-                    InterfaceAddress::MAC(mac_addr) => {
-                        println!("name: {} - {}", name, mac_addr)
-                    }
-                    InterfaceAddress::IPv4(addr, netmask) => {
-                        println!("name: {} - {} / {}", name, addr, netmask)
-                    }
-                    _ => {}
-                }
-            }
+        if libc::getifaddrs(&mut ifap) == 0 && !ifap.is_null() {
+            Ok(InterfaceAddressIterator { ifap, buf: ifap })
+        } else {
+            Err("failed to call getifaddrs()".to_string())
         }
     }
 }

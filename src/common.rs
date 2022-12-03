@@ -1008,7 +1008,7 @@ impl From<[u8; 6]> for MacAddr {
 }
 
 impl FromStr for MacAddr {
-    type Err = String;
+    type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let bytes = s
@@ -1022,7 +1022,7 @@ impl FromStr for MacAddr {
             }
             return Ok(MacAddr { data });
         }
-        Err("invalid MAC address syntax".to_string())
+        Err("invalid MAC address syntax")
     }
 }
 
@@ -1038,14 +1038,14 @@ impl std::fmt::Display for MacAddr {
     }
 }
 
-// This type can hold different addresses associated to the network interface
+/// This type can hold different addresses associated to the network interface
 #[allow(unused)]
 pub(crate) enum InterfaceAddress {
-    // MAC address
+    /// MAC address
     MAC(MacAddr),
-    // IPv4 address and subnet mask
+    /// IPv4 address and subnet mask
     IPv4(Ipv4Addr, Ipv4Addr),
-    // Stub for IPv6
+    /// Stub for IPv6
     NotImplemented,
 }
 
@@ -1063,7 +1063,7 @@ mod tests {
     }
 
     #[test]
-    fn from_str_mac_address() {
+    fn test_mac_address_from_str_ok() {
         let mac = MacAddr::from_str("e5:5d:59:e9:6e:b5").unwrap();
         let mac = mac.data();
         assert_eq!(mac[0], 0xe5);
@@ -1072,6 +1072,12 @@ mod tests {
         assert_eq!(mac[3], 0xe9);
         assert_eq!(mac[4], 0x6e);
         assert_eq!(mac[5], 0xb5);
+    }
+
+    #[test]
+    fn test_mac_address_from_str_fail() {
+        let result = MacAddr::from_str("127.0.0.1");
+        assert_eq!(result.is_err(), true);
     }
 
     // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented

@@ -15,7 +15,7 @@ use winapi::shared::netioapi::{
     ConvertLengthToIpv4Mask, FreeMibTable, GetIfEntry2, GetIfTable2, MIB_IF_ROW2, PMIB_IF_TABLE2,
 };
 use winapi::shared::ntdef::NULL;
-use winapi::shared::winerror::{ERROR_SUCCESS, NO_ERROR};
+use winapi::shared::winerror::{ERROR_BUFFER_OVERFLOW, ERROR_SUCCESS, NO_ERROR};
 use winapi::shared::ws2def::{AF_INET, AF_UNSPEC, SOCKADDR_IN};
 use winapi::um::iphlpapi::GetAdaptersAddresses;
 use winapi::um::iptypes::{
@@ -333,44 +333,44 @@ impl Iterator for InterfaceAddressIterator {
                     // if we found that this interface has not been visited yet,
                     // set unicast address,
                     self.unicast_address = (*adapter).FirstUnicastAddress;
-                    // and return the MAC address instead
+                    // take the first 6 bytes and return the MAC address instead
                     let [mac @ .., _, _] = (*adapter).PhysicalAddress;
-                    Some((
-                        interface_name,
-                        InterfaceAddress::MAC(MacAddr::from(mac)),
-                    ))
+                    Some((interface_name, InterfaceAddress::MAC(MacAddr::from(mac))))
                 } else {
-                    // otherwise, generate an IP adddress
+                    // otherwise, generate an IP address
                     let address = self.unicast_address;
                     self.unicast_address = (*address).Next;
                     if self.unicast_address.is_null() {
                         // if we have visited all unicast addresses, move to next adapter
                         self.adapter = (*adapter).Next;
                     }
-                    // FIXME: should we perform a null check on (*address).Address.lpSockaddr
                     let sock_addr = (*address).Address.lpSockaddr;
+                    if sock_addr.is_null() {
+                        // if sock_addr is null, move to next iteration
+                        self.next()
+                    } else {
+                        match (*sock_addr).sa_family as _ {
+                            AF_INET => {
+                                let sock_addr = sock_addr as *const SOCKADDR_IN;
+                                let sock_addr = (*sock_addr).sin_addr.S_un.S_addr();
+                                let mut subnet_mask = 0 as ULONG;
+                                // only available on vista and later
+                                // https://learn.microsoft.com/zh-cn/windows/win32/api/netioapi/nf-netioapi-convertlengthtoipv4mask
+                                ConvertLengthToIpv4Mask(
+                                    (*address).OnLinkPrefixLength as _,
+                                    &mut subnet_mask as _,
+                                );
 
-                    match (*sock_addr).sa_family as _ {
-                        AF_INET => {
-                            let sock_addr = sock_addr as *const SOCKADDR_IN;
-                            let sock_addr = (*sock_addr).sin_addr.S_un.S_addr();
-                            let mut subnet_mask = 0 as ULONG;
-                            // only avaialbe on vista and later
-                            // https://learn.microsoft.com/zh-cn/windows/win32/api/netioapi/nf-netioapi-convertlengthtoipv4mask
-                            ConvertLengthToIpv4Mask(
-                                (*address).OnLinkPrefixLength as _,
-                                &mut subnet_mask as _,
-                            );
-
-                            Some((
-                                interface_name,
-                                InterfaceAddress::IPv4(
-                                    Ipv4Addr::from(htonl(*sock_addr)),
-                                    Ipv4Addr::from(htonl(subnet_mask)),
-                                ),
-                            ))
+                                Some((
+                                    interface_name,
+                                    InterfaceAddress::IPv4(
+                                        Ipv4Addr::from(htonl(*sock_addr)),
+                                        Ipv4Addr::from(htonl(subnet_mask)),
+                                    ),
+                                ))
+                            }
+                            _ => Some((interface_name, InterfaceAddress::NotImplemented)),
                         }
-                        _ => Some((interface_name, InterfaceAddress::NotImplemented)),
                     }
                 }
             } else {
@@ -386,7 +386,7 @@ impl Iterator for InterfaceAddressIterator {
 impl Drop for InterfaceAddressIterator {
     fn drop(&mut self) {
         unsafe {
-            libc::malloc(self.buf as _);
+            libc::free(self.buf as _);
         }
     }
 }
@@ -395,29 +395,49 @@ fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
     unsafe {
         // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#remarks
         // A 15k buffer is recommended
-        let mut size: u32 = 16 * 1024;
-        let buf = libc::malloc(size as usize) as PIP_ADAPTER_ADDRESSES;
-        if buf.is_null() {
-            // TODO: more details
-            return Err("malloc failed".to_string());
+        let mut size: u32 = 15 * 1024;
+        let mut buf = null_mut();
+        let mut ret = ERROR_SUCCESS;
+
+        // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#examples
+        // Try to retreive adapter information up to 3 times
+        for _ in 0..3 {
+            buf = libc::malloc(size as usize) as PIP_ADAPTER_ADDRESSES;
+            if buf.is_null() {
+                // insufficient memory available
+                // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/malloc?view=msvc-170#return-value
+                // malloc is not documented to set the last-error code
+                return Err("failed to allocate memory for IP_ADAPTER_ADDRESSES".to_string());
+            }
+
+            ret = GetAdaptersAddresses(
+                AF_UNSPEC as u32,
+                GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER,
+                NULL,
+                buf,
+                &mut size,
+            );
+
+            if ret == ERROR_BUFFER_OVERFLOW {
+                // if the given memory size is too small to hold the adapter information,
+                // the SizePointer returned will point to the required size of the buffer,
+                // and we should continue.
+                libc::free(buf as _);
+                buf = null_mut();
+            } else {
+                // Otherwise, break the loop and check the return code again
+                break;
+            }
         }
 
-        let ret = GetAdaptersAddresses(
-            AF_UNSPEC as u32,
-            GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER,
-            NULL,
-            buf,
-            &mut size,
-        );
-
-        if ret != ERROR_SUCCESS {
-            return Err("GetAdaptersAddresses() failed".to_string());
+        if ret == ERROR_SUCCESS && !buf.is_null() {
+            Ok(InterfaceAddressIterator {
+                buf,
+                adapter: buf,
+                unicast_address: null_mut(),
+            })
+        } else {
+            Err(format!("GetAdaptersAddresses() failed with code {}", ret))
         }
-
-        Ok(InterfaceAddressIterator {
-            buf,
-            adapter: buf,
-            unicast_address: null_mut(),
-        })
     }
 }

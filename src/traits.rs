@@ -9,10 +9,11 @@ use crate::{
     ProcessStatus, RefreshKind, Signal, User,
 };
 
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
+use std::net::Ipv4Addr;
 use std::path::Path;
-use std::{collections::HashMap, net::Ipv4Addr};
 
 /// Contains all the methods of the [`Disk`][crate::Disk] struct.
 ///
@@ -1506,9 +1507,10 @@ pub trait NetworkExt: Debug {
 
     /// Returns the MAC address associated to current interface.
     /// ```no_run
-    /// use sysinfo::{System}
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
     ///     println!("MAC: {}", network.mac_address());
     /// }
@@ -1517,9 +1519,10 @@ pub trait NetworkExt: Debug {
 
     /// Returns the IPv4 address associated to current interface
     /// ```no_run
-    /// use sysinfo::{System}
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
     ///     println!("IPv4: {}", network.ipv4_address());
     /// }
@@ -1528,9 +1531,10 @@ pub trait NetworkExt: Debug {
 
     /// Returns the IPv4 subnet mast associated to current interface
     /// ```no_run
-    /// use sysinfo::{System}
+    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
+    /// let networks = s.networks();
     /// for (interface_name, network) in networks {
     ///     println!("IPv4 mask: {}", network.ipv4_netmask());
     /// }
