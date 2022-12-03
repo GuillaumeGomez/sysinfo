@@ -5,8 +5,8 @@ use std::net::Ipv4Addr;
 use std::path::Path;
 use std::{fs::File, u8};
 
-use crate::common::{InterfaceAddress, MacAddr};
-use crate::network::get_interface_address;
+use crate::common::MacAddr;
+use crate::network::refresh_networks_addresses;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
 
@@ -123,18 +123,6 @@ fn refresh_networks_list_from_sysfs(
     }
 }
 
-impl Networks {
-    fn refresh_interface_address(&mut self) {
-        if let Ok(iter) = get_interface_address() {
-            for (name, ifa) in iter {
-                if let Some(interface) = self.interfaces.get_mut(&name) {
-                    interface.update_interface_address(ifa);
-                }
-            }
-        }
-    }
-}
-
 impl NetworksExt for Networks {
     fn iter(&self) -> NetworksIter {
         NetworksIter::new(self.interfaces.iter())
@@ -150,7 +138,7 @@ impl NetworksExt for Networks {
 
     fn refresh_networks_list(&mut self) {
         refresh_networks_list_from_sysfs(&mut self.interfaces, Path::new("/sys/class/net/"));
-        self.refresh_interface_address();
+        refresh_networks_addresses(&mut self.interfaces);
     }
 }
 
@@ -177,9 +165,11 @@ pub struct NetworkData {
     tx_errors: u64,
     old_tx_errors: u64,
     /// MAC address
-    mac_addr: MacAddr,
-    ipv4_addr: Ipv4Addr,
-    ipv4_mask: Ipv4Addr,
+    pub(crate) mac_addr: MacAddr,
+    /// IPv4 address
+    pub(crate) ipv4_addr: Ipv4Addr,
+    /// IPv4 subnet mask
+    pub(crate) ipv4_mask: Ipv4Addr,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
     // /// that support packet compression (e.g: PPP).
@@ -297,21 +287,6 @@ impl NetworkExt for NetworkData {
 
     fn ipv4_netmask(&self) -> Ipv4Addr {
         self.ipv4_mask
-    }
-}
-
-impl NetworkData {
-    fn update_interface_address(&mut self, ifa: InterfaceAddress) {
-        match ifa {
-            InterfaceAddress::MAC(mac_addr) => {
-                self.mac_addr = mac_addr;
-            }
-            InterfaceAddress::IPv4(addr, mask) => {
-                self.ipv4_addr = addr;
-                self.ipv4_mask = mask;
-            }
-            _ => {}
-        }
     }
 }
 

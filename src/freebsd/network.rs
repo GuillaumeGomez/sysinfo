@@ -5,8 +5,8 @@ use std::mem::MaybeUninit;
 use std::net::Ipv4Addr;
 
 use super::utils;
-use crate::common::{InterfaceAddress, MacAddr};
-use crate::network::get_interface_address;
+use crate::common::MacAddr;
+use crate::network::refresh_networks_addresses;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {
@@ -40,6 +40,7 @@ impl NetworksExt for Networks {
         }
         // Remove interfaces which are gone.
         self.interfaces.retain(|_, n| n.updated);
+        refresh_networks_addresses(&mut self.interfaces);
     }
 
     fn refresh(&mut self) {
@@ -125,22 +126,6 @@ impl Networks {
                 }
             }
         }
-        if let Ok(iterator) = get_interface_address() {
-            for (name, ifa) in iterator {
-                if let Some(interface) = self.interfaces.get_mut(&name) {
-                    match ifa {
-                        InterfaceAddress::MAC(mac_addr) => {
-                            interface.mac_addr = mac_addr;
-                        }
-                        InterfaceAddress::IPv4(addr, mask) => {
-                            interface.ipv4_addr = addr;
-                            interface.ipv4_mask = mask;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -168,9 +153,12 @@ pub struct NetworkData {
     old_ifi_oerrors: u64,
     /// Whether or not the above data has been updated during refresh
     updated: bool,
-    mac_addr: MacAddr,
-    ipv4_addr: Ipv4Addr,
-    ipv4_mask: Ipv4Addr,
+    /// MAC address
+    pub(crate) mac_addr: MacAddr,
+    /// IPv4 address
+    pub(crate) ipv4_addr: Ipv4Addr,
+    /// IPv4 subnet mask
+    pub(crate) ipv4_mask: Ipv4Addr,
 }
 
 impl NetworkExt for NetworkData {
