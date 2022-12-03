@@ -30,7 +30,14 @@ impl NetworksExt for Networks {
 }
 
 #[doc = include_str!("../../md_doc/network_data.md")]
-pub struct NetworkData;
+pub struct NetworkData {
+    /// MAC address
+    pub(crate) mac_addr: MacAddr,
+    /// IPv4 address
+    pub(crate) ipv4_addr: Ipv4Addr,
+    /// IPv4 subnet mask
+    pub(crate) ipv4_mask: Ipv4Addr,
+}
 
 impl NetworkExt for NetworkData {
     fn received(&self) -> u64 {
@@ -82,14 +89,14 @@ impl NetworkExt for NetworkData {
     }
 
     fn mac_address(&self) -> MacAddr {
-        MacAddr::UNSPECIFIED
+        self.mac_addr
     }
 
     fn ipv4_address(&self) -> Ipv4Addr {
-        Ipv4Addr::UNSPECIFIED
+        self.ipv4_addr
     }
 
     fn ipv4_netmask(&self) -> Ipv4Addr {
-        Ipv4Addr::UNSPECIFIED
+        self.ipv4_mask
     }
 }
