@@ -1077,9 +1077,9 @@ mod tests {
     #[test]
     fn test_mac_address_from_str_fail() {
         let result = MacAddr::from_str("127.0.0.1");
-        assert_eq!(result.is_err(), true);
+        assert!(result.is_err());
         let result = MacAddr::from_str("");
-        assert_eq!(result.is_err(), true);
+        assert!(result.is_err());
     }
 
     // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented
