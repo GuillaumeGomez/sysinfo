@@ -1011,17 +1011,26 @@ impl FromStr for MacAddr {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bytes = s
+        let mut data = [0; 6];
+        for (index, result) in s
             .split(':')
-            .filter_map(|s| u8::from_str_radix(s, 16).ok())
-            .collect::<Vec<u8>>();
-        if bytes.len() == 6 {
-            let mut data = [0; 6];
-            for (index, byte) in bytes.iter().enumerate() {
-                data[index] = *byte;
+            .take(6)
+            .map(|x| u8::from_str_radix(x, 16))
+            .enumerate()
+        {
+            match result {
+                Ok(result) => {
+                    data[index] = result;
+                }
+                Err(_) => {
+                    break;
+                }
             }
-            return Ok(MacAddr { data });
+            if index == 5 {
+                return Ok(MacAddr { data });
+            }
         }
+
         Err("invalid MAC address syntax")
     }
 }
@@ -1079,6 +1088,10 @@ mod tests {
         let result = MacAddr::from_str("127.0.0.1");
         assert!(result.is_err());
         let result = MacAddr::from_str("");
+        assert!(result.is_err());
+        let result = MacAddr::from_str("any string");
+        assert!(result.is_err());
+        let result = MacAddr::from_str("e5:5d:rr:59:e9:6e:b5");
         assert!(result.is_err());
     }
 
