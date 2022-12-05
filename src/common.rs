@@ -1035,15 +1035,18 @@ impl FromStr for MacAddr {
     }
 }
 
-impl std::fmt::Display for MacAddr {
+impl fmt::Display for MacAddr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = self
-            .data
-            .iter()
-            .map(|b| format!("{:02x}", *b))
-            .collect::<Vec<String>>()
-            .join(":");
-        f.write_str(&s)
+        write!(
+            f,
+            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            self.data[0],
+            self.data[1],
+            self.data[2],
+            self.data[3],
+            self.data[4],
+            self.data[5],
+        )
     }
 }
 
