@@ -983,7 +983,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 }
 
 /// MAC address for network interface
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct MacAddr {
     data: [u8; 6],
 }
