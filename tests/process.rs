@@ -184,7 +184,7 @@ fn test_big_environ() {
         assert_eq!(p.pid(), pid);
         // FIXME: instead of ignoring the test on CI, try to find out what's wrong...
         if std::env::var("APPLE_CI").is_err() {
-            let env = format!("FOO={}", big_env);
+            let env = format!("FOO={big_env}");
             assert!(p.environ().iter().any(|e| *e == env));
         }
     } else {

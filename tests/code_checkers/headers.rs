@@ -39,8 +39,7 @@ pub fn check_license_header(content: &str, p: &Path) -> TestResult {
             show_error(
                 p,
                 &format!(
-                    "Expected license header at the top of the file (`{}`), found: `{}`",
-                    header, s
+                    "Expected license header at the top of the file (`{header}`), found: `{s}`",
                 ),
             );
             TestResult {
