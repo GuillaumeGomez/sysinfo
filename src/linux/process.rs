@@ -620,10 +620,12 @@ pub(crate) fn refresh_procs(
 fn copy_from_file(entry: &Path) -> Vec<String> {
     match File::open(entry) {
         Ok(mut f) => {
-            let mut data = vec![0; 16_384];
+            let mut data = Vec::with_capacity(16_384);
 
-            if let Ok(size) = f.read(&mut data) {
-                data.truncate(size);
+            if let Err(_e) = f.read_to_end(&mut data) {
+                sysinfo_debug!("Failed to read file in `copy_from_file`: {:?}", _e);
+                Vec::new()
+            } else {
                 let mut out = Vec::with_capacity(20);
                 let mut start = 0;
                 for (pos, x) in data.iter().enumerate() {
@@ -639,11 +641,12 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
                     }
                 }
                 out
-            } else {
-                Vec::new()
             }
         }
-        Err(_) => Vec::new(),
+        Err(_e) => {
+            sysinfo_debug!("Failed to open file in `copy_from_file`: {:?}", _e);
+            Vec::new()
+        }
     }
 }
 

@@ -427,8 +427,7 @@ impl CpuExt for Cpu {
 pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
     let mut s = String::new();
     if File::open(format!(
-        "/sys/devices/system/cpu/cpu{}/cpufreq/scaling_cur_freq",
-        cpu_core_index
+        "/sys/devices/system/cpu/cpu{cpu_core_index}/cpufreq/scaling_cur_freq",
     ))
     .and_then(|mut f| f.read_to_string(&mut s))
     .is_ok()
