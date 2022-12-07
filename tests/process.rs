@@ -141,6 +141,57 @@ fn test_environ() {
     }
 }
 
+// Test to ensure that a process with a lot of environment variables doesn't get truncated.
+// More information in <https://github.com/GuillaumeGomez/sysinfo/issues/886>.
+#[test]
+fn test_big_environ() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    const SIZE: usize = 30_000;
+    let mut big_env = String::with_capacity(SIZE);
+    for _ in 0..SIZE {
+        big_env.push('a');
+    }
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("3")
+            .arg("EnvironSignal")
+            .stdout(std::process::Stdio::null())
+            .env("FOO", &big_env)
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("3")
+            .stdout(std::process::Stdio::null())
+            .env("FOO", &big_env)
+            .spawn()
+            .unwrap()
+    };
+
+    let pid = Pid::from_u32(p.id() as _);
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+    p.kill().expect("Unable to kill process.");
+
+    let processes = s.processes();
+    let p = processes.get(&pid);
+
+    if let Some(p) = p {
+        assert_eq!(p.pid(), pid);
+        // FIXME: instead of ignoring the test on CI, try to find out what's wrong...
+        if std::env::var("APPLE_CI").is_err() {
+            let env = format!("FOO={}", big_env);
+            assert!(p.environ().iter().any(|e| *e == env));
+        }
+    } else {
+        panic!("Process not found!");
+    }
+}
+
 #[test]
 fn test_process_refresh() {
     let mut s = sysinfo::System::new();
