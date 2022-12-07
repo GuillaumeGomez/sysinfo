@@ -536,9 +536,10 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     const SUPPORTED_SIGNALS: &'static [Signal];
 
-    /// Creates a new [`System`] instance with nothing loaded except the cpus list. If you
-    /// want to load components, network interfaces or the disks, you'll have to use the
-    /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for example.
+    /// Creates a new [`System`] instance with nothing loaded. If you want to
+    /// load components, network interfaces or the disks, you'll have to use the
+    /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for
+    /// example.
     ///
     /// Use the [`refresh_all`] method to update its internal information (or any of the `refresh_`
     /// method).
