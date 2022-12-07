@@ -38,8 +38,7 @@ fn check_md_doc_path(p: &Path, md_line: &str, ty_line: &str) -> bool {
                 show_error(
                     p,
                     &format!(
-                        "Invalid markdown file name `{}`, should have been `{}`",
-                        md_name, correct
+                        "Invalid markdown file name `{md_name}`, should have been `{correct}`",
                     ),
                 );
                 return false;

@@ -342,11 +342,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             let minutes = uptime / 60;
             writeln!(
                 &mut io::stdout(),
-                "{} days {} hours {} minutes ({} seconds in total)",
-                days,
-                hours,
-                minutes,
-                up,
+                "{days} days {hours} hours {minutes} minutes ({up} seconds in total)",
             );
         }
         x if x.starts_with("refresh") => {
@@ -365,11 +361,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                     if sys.refresh_process(pid) {
                         writeln!(&mut io::stdout(), "Process `{pid}` updated successfully");
                     } else {
-                        writeln!(
-                            &mut io::stdout(),
-                            "Process `{}` couldn't be updated...",
-                            pid
-                        );
+                        writeln!(&mut io::stdout(), "Process `{pid}` couldn't be updated...");
                     }
                 } else {
                     writeln!(&mut io::stdout(), "Invalid [pid] received...");
@@ -377,9 +369,8 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             } else {
                 writeln!(
                     &mut io::stdout(),
-                    "\"{}\": Unknown command. Enter 'help' if you want to get the commands' \
+                    "\"{x}\": Unknown command. Enter 'help' if you want to get the commands' \
                      list.",
-                    x
                 );
             }
         }
@@ -410,9 +401,8 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         e => {
             writeln!(
                 &mut io::stdout(),
-                "\"{}\": Unknown command. Enter 'help' if you want to get the commands' \
+                "\"{e}\": Unknown command. Enter 'help' if you want to get the commands' \
                  list.",
-                e
             );
         }
     }
