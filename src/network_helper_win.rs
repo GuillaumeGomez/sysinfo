@@ -66,13 +66,14 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
         // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#remarks
         // A 15k buffer is recommended
         let mut size: u32 = 15 * 1024;
-        let mut buf = null_mut();
         let mut ret = ERROR_SUCCESS;
 
         // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#examples
         // Try to retrieve adapter information up to 3 times
         for _ in 0..3 {
-            buf = libc::malloc(size as usize) as PIP_ADAPTER_ADDRESSES;
+            let buf = libc::malloc(size as _) as PIP_ADAPTER_ADDRESSES;
+            // free memory on drop
+            let iterator = InterfaceAddressIterator { buf, adapter: buf };
             if buf.is_null() {
                 // insufficient memory available
                 // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/malloc?view=msvc-170#return-value
@@ -87,23 +88,17 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
                 buf,
                 &mut size,
             );
-
-            if ret == ERROR_BUFFER_OVERFLOW {
-                // if the given memory size is too small to hold the adapter information,
-                // the SizePointer returned will point to the required size of the buffer,
-                // and we should continue.
-                libc::free(buf as _);
-                buf = null_mut();
-            } else {
-                // Otherwise, break the loop and check the return code again
+            if ret == ERROR_SUCCESS {
+                return Ok(iterator);
+            } else if ret != ERROR_BUFFER_OVERFLOW {
                 break;
             }
+            // if the given memory size is too small to hold the adapter information,
+            // the SizePointer returned will point to the required size of the buffer,
+            // and we should continue.
+            // Otherwise, break the loop and check the return code again
         }
 
-        if ret == ERROR_SUCCESS && !buf.is_null() {
-            Ok(InterfaceAddressIterator { buf, adapter: buf })
-        } else {
-            Err(format!("GetAdaptersAddresses() failed with code {}", ret))
-        }
+        Err(format!("GetAdaptersAddresses() failed with code {}", ret))
     }
 }
