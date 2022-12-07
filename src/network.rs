@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 
-use crate::common::InterfaceAddress;
 use crate::network_helper::get_interface_address;
 use crate::NetworkData;
 
@@ -11,16 +10,7 @@ pub(crate) fn refresh_networks_addresses(interfaces: &mut HashMap<String, Networ
     if let Ok(ifa_iterator) = get_interface_address() {
         for (name, ifa) in ifa_iterator {
             if let Some(interface) = interfaces.get_mut(&name) {
-                match ifa {
-                    InterfaceAddress::MAC(mac_address) => {
-                        interface.mac_addr = mac_address;
-                    }
-                    InterfaceAddress::IPv4(address, netmask) => {
-                        interface.ipv4_addr = address;
-                        interface.ipv4_mask = netmask;
-                    }
-                    _ => {}
-                }
+                interface.mac_addr = ifa;
             }
         }
     }

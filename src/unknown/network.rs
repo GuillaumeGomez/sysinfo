@@ -1,7 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::collections::HashMap;
-use std::net::Ipv4Addr;
 
 use crate::common::MacAddr;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
@@ -30,14 +29,7 @@ impl NetworksExt for Networks {
 }
 
 #[doc = include_str!("../../md_doc/network_data.md")]
-pub struct NetworkData {
-    /// MAC address
-    pub(crate) mac_addr: MacAddr,
-    /// IPv4 address
-    pub(crate) ipv4_addr: Ipv4Addr,
-    /// IPv4 subnet mask
-    pub(crate) ipv4_mask: Ipv4Addr,
-}
+pub struct NetworkData;
 
 impl NetworkExt for NetworkData {
     fn received(&self) -> u64 {
@@ -89,14 +81,6 @@ impl NetworkExt for NetworkData {
     }
 
     fn mac_address(&self) -> MacAddr {
-        self.mac_addr
-    }
-
-    fn ipv4_address(&self) -> Ipv4Addr {
-        self.ipv4_addr
-    }
-
-    fn ipv4_netmask(&self) -> Ipv4Addr {
-        self.ipv4_mask
+        MacAddr::UNSPECIFIED
     }
 }

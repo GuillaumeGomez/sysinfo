@@ -1,8 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#[allow(unused)]
-use crate::common::{InterfaceAddress, MacAddr};
-use std::net::Ipv4Addr;
+use crate::common::MacAddr;
 use std::ptr::null_mut;
 
 /// this iterator yields an interface name and address
@@ -14,25 +12,27 @@ pub(crate) struct InterfaceAddressIterator {
 }
 
 impl Iterator for InterfaceAddressIterator {
-    type Item = (String, InterfaceAddress);
+    type Item = (String, MacAddr);
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            let ifap = self.ifap;
-            if !ifap.is_null() {
-                // don't forget to move on next pointer
+            while !self.ifap.is_null() {
+                // advance the pointer until a MAC address is found
+                let ifap = self.ifap;
                 self.ifap = (*ifap).ifa_next;
-                // libc::IFNAMSIZ + 6
-                // This size refers to ./apple/network.rs:75
-                let mut name = vec![0u8; libc::IFNAMSIZ + 6];
-                libc::strcpy(name.as_mut_ptr() as _, (*ifap).ifa_name);
-                name.set_len(libc::strlen((*ifap).ifa_name));
-                let name = String::from_utf8_unchecked(name);
 
-                Some((name, parse_interface_address(ifap)))
-            } else {
-                None
+                if let Some(addr) = parse_interface_address(ifap) {
+                    // libc::IFNAMSIZ + 6
+                    // This size refers to ./apple/network.rs:75
+                    let mut name = vec![0u8; libc::IFNAMSIZ + 6];
+                    libc::strcpy(name.as_mut_ptr() as _, (*ifap).ifa_name);
+                    name.set_len(libc::strlen((*ifap).ifa_name));
+                    let name = String::from_utf8_unchecked(name);
+
+                    return Some((name, addr));
+                }
             }
+            None
         }
     }
 }
@@ -67,38 +67,20 @@ impl From<&libc::sockaddr_dl> for MacAddr {
     }
 }
 
-unsafe fn get_raw_ipv4(sock_addr: *const libc::sockaddr) -> u32 {
-    let sock_addr = sock_addr as *const libc::sockaddr_in;
-    (*sock_addr).sin_addr.s_addr
-}
-
-unsafe fn get_ipv4_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddress {
-    let sock_addr = (*ifap).ifa_addr;
-    let address = get_raw_ipv4(sock_addr);
-    let netmask = get_raw_ipv4((*ifap).ifa_netmask);
-
-    InterfaceAddress::IPv4(
-        Ipv4Addr::from(address.to_be()),
-        Ipv4Addr::from(netmask.to_be()),
-        // Ipv4Addr::from((address & netmask | (!netmask)).to_be())
-    )
-}
-
 #[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "ios"))]
-unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddress {
+unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> Option<MacAddr> {
     let sock_addr = (*ifap).ifa_addr;
     match (*sock_addr).sa_family as libc::c_int {
         libc::AF_LINK => {
             let addr = sock_addr as *const libc::sockaddr_dl;
-            InterfaceAddress::MAC(MacAddr::from(&*addr))
+            Some(MacAddr::from(&*addr))
         }
-        libc::AF_INET => get_ipv4_interface_address(ifap),
-        _ => InterfaceAddress::NotImplemented,
+        _ => None,
     }
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddress {
+unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> Option<MacAddr> {
     use libc::sockaddr_ll;
 
     let sock_addr = (*ifap).ifa_addr;
@@ -107,11 +89,9 @@ unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> InterfaceAddres
             let addr = sock_addr as *const sockaddr_ll;
             // Take the first 6 bytes
             let [addr @ .., _, _] = (*addr).sll_addr;
-            let addr = MacAddr::from(addr);
-            InterfaceAddress::MAC(addr)
+            Some(MacAddr::from(addr))
         }
-        libc::AF_INET => get_ipv4_interface_address(ifap),
-        _ => InterfaceAddress::NotImplemented,
+        _ => None,
     }
 }
 

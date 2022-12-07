@@ -2,7 +2,6 @@
 
 use std::collections::{hash_map, HashMap};
 use std::mem::MaybeUninit;
-use std::net::Ipv4Addr;
 
 use super::utils;
 use crate::common::MacAddr;
@@ -119,8 +118,6 @@ impl Networks {
                             old_ifi_oerrors: 0,
                             updated: true,
                             mac_addr: MacAddr::UNSPECIFIED,
-                            ipv4_addr: Ipv4Addr::UNSPECIFIED,
-                            ipv4_mask: Ipv4Addr::UNSPECIFIED,
                         });
                     }
                 }
@@ -155,10 +152,6 @@ pub struct NetworkData {
     updated: bool,
     /// MAC address
     pub(crate) mac_addr: MacAddr,
-    /// IPv4 address
-    pub(crate) ipv4_addr: Ipv4Addr,
-    /// IPv4 subnet mask
-    pub(crate) ipv4_mask: Ipv4Addr,
 }
 
 impl NetworkExt for NetworkData {
@@ -212,13 +205,5 @@ impl NetworkExt for NetworkData {
 
     fn mac_address(&self) -> MacAddr {
         self.mac_addr
-    }
-
-    fn ipv4_address(&self) -> Ipv4Addr {
-        self.ipv4_addr
-    }
-
-    fn ipv4_netmask(&self) -> Ipv4Addr {
-        self.ipv4_mask
     }
 }

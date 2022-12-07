@@ -3,7 +3,6 @@
 use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
 
 use std::collections::{hash_map, HashMap};
-use std::net::Ipv4Addr;
 use std::ptr::null_mut;
 
 use crate::common::MacAddr;
@@ -83,7 +82,6 @@ impl Networks {
                     }
                     name.set_len(libc::strlen(pname));
                     let name = String::from_utf8_unchecked(name);
-                    // Let's try to obtain the MAC address if RTA_IFP is presented
                     match self.interfaces.entry(name) {
                         hash_map::Entry::Occupied(mut e) => {
                             let mut interface = e.get_mut();
@@ -148,8 +146,6 @@ impl Networks {
                                 old_errors_out: errors_out,
                                 updated: true,
                                 mac_addr: MacAddr::UNSPECIFIED,
-                                ipv4_addr: Ipv4Addr::UNSPECIFIED,
-                                ipv4_mask: Ipv4Addr::UNSPECIFIED,
                             });
                         }
                     }
@@ -197,10 +193,6 @@ pub struct NetworkData {
     updated: bool,
     /// MAC address
     pub(crate) mac_addr: MacAddr,
-    /// IPv4 address
-    pub(crate) ipv4_addr: Ipv4Addr,
-    /// IPv4 subnet mask
-    pub(crate) ipv4_mask: Ipv4Addr,
 }
 
 impl NetworkExt for NetworkData {
@@ -254,13 +246,5 @@ impl NetworkExt for NetworkData {
 
     fn mac_address(&self) -> MacAddr {
         self.mac_addr
-    }
-
-    fn ipv4_address(&self) -> Ipv4Addr {
-        self.ipv4_addr
-    }
-
-    fn ipv4_netmask(&self) -> Ipv4Addr {
-        self.ipv4_mask
     }
 }

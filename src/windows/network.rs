@@ -5,7 +5,6 @@ use crate::network::refresh_networks_addresses;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 use std::collections::{hash_map, HashMap};
-use std::net::Ipv4Addr;
 
 use winapi::shared::ifdef::{MediaConnectStateDisconnected, NET_LUID};
 use winapi::shared::netioapi::{
@@ -141,8 +140,6 @@ impl NetworksExt for Networks {
                             errors_out: ptr.OutErrors,
                             old_errors_out: ptr.OutErrors,
                             mac_addr: MacAddr::UNSPECIFIED,
-                            ipv4_addr: Ipv4Addr::UNSPECIFIED,
-                            ipv4_mask: Ipv4Addr::UNSPECIFIED,
                             updated: true,
                         });
                     }
@@ -205,8 +202,6 @@ pub struct NetworkData {
     old_errors_out: u64,
     updated: bool,
     pub(crate) mac_addr: MacAddr,
-    pub(crate) ipv4_addr: Ipv4Addr,
-    pub(crate) ipv4_mask: Ipv4Addr,
 }
 
 impl NetworkExt for NetworkData {
@@ -260,13 +255,5 @@ impl NetworkExt for NetworkData {
 
     fn mac_address(&self) -> MacAddr {
         self.mac_addr
-    }
-
-    fn ipv4_address(&self) -> Ipv4Addr {
-        self.ipv4_addr
-    }
-
-    fn ipv4_netmask(&self) -> Ipv4Addr {
-        self.ipv4_mask
     }
 }

@@ -4,7 +4,6 @@ use crate::{NetworkData, Networks, NetworksExt, UserExt};
 
 use std::convert::{From, TryFrom};
 use std::fmt;
-use std::net::Ipv4Addr;
 use std::str::FromStr;
 
 /// Trait to have a common conversions for the [`Pid`][crate::Pid] type.
@@ -1007,63 +1006,18 @@ impl From<[u8; 6]> for MacAddr {
     }
 }
 
-impl FromStr for MacAddr {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut data = [0; 6];
-        for (index, result) in s
-            .split(':')
-            .take(6)
-            .map(|x| u8::from_str_radix(x, 16))
-            .enumerate()
-        {
-            match result {
-                Ok(result) => {
-                    data[index] = result;
-                }
-                Err(_) => {
-                    break;
-                }
-            }
-            if index == 5 {
-                return Ok(MacAddr { data });
-            }
-        }
-
-        Err("invalid MAC address syntax")
-    }
-}
-
 impl fmt::Display for MacAddr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-            self.data[0],
-            self.data[1],
-            self.data[2],
-            self.data[3],
-            self.data[4],
-            self.data[5],
+            self.data[0], self.data[1], self.data[2], self.data[3], self.data[4], self.data[5],
         )
     }
 }
 
-/// This type can hold different addresses associated to the network interface
-#[allow(unused)]
-pub(crate) enum InterfaceAddress {
-    /// MAC address
-    MAC(MacAddr),
-    /// IPv4 address and subnet mask
-    IPv4(Ipv4Addr, Ipv4Addr),
-    /// Stub for IPv6
-    NotImplemented,
-}
-
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
 
     use super::{MacAddr, ProcessStatus};
 
@@ -1074,28 +1028,18 @@ mod tests {
         println!("{} {:?}", ProcessStatus::Parked, ProcessStatus::Idle);
     }
 
+    // Ensure that the `Display` trait is implemented on the `MacAddr` struct
     #[test]
-    fn test_mac_address_from_str_ok() {
-        let mac = MacAddr::from_str("e5:5d:59:e9:6e:b5").unwrap();
-        let mac = mac.data();
-        assert_eq!(mac[0], 0xe5);
-        assert_eq!(mac[1], 0x5d);
-        assert_eq!(mac[2], 0x59);
-        assert_eq!(mac[3], 0xe9);
-        assert_eq!(mac[4], 0x6e);
-        assert_eq!(mac[5], 0xb5);
-    }
-
-    #[test]
-    fn test_mac_address_from_str_fail() {
-        let result = MacAddr::from_str("127.0.0.1");
-        assert!(result.is_err());
-        let result = MacAddr::from_str("");
-        assert!(result.is_err());
-        let result = MacAddr::from_str("any string");
-        assert!(result.is_err());
-        let result = MacAddr::from_str("e5:5d:rr:59:e9:6e:b5");
-        assert!(result.is_err());
+    fn check_display_impl_mac_address() {
+        println!(
+            "{} {:?}",
+            MacAddr {
+                data: [0x1, 0x2, 0x3, 0x4, 0x5, 0x6],
+            },
+            MacAddr {
+                data: [0xa, 0xb, 0xc, 0xd, 0xe, 0xf],
+            }
+        );
     }
 
     // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented

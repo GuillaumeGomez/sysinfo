@@ -83,6 +83,7 @@ pub use c_interface::*;
 mod c_interface;
 mod common;
 mod debug;
+#[cfg(not(target_os = "unknown"))]
 mod network;
 mod system;
 mod traits;

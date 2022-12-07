@@ -12,7 +12,6 @@ use crate::{
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
-use std::net::Ipv4Addr;
 use std::path::Path;
 
 /// Contains all the methods of the [`Disk`][crate::Disk] struct.
@@ -1516,30 +1515,6 @@ pub trait NetworkExt: Debug {
     /// }
     /// ```
     fn mac_address(&self) -> MacAddr;
-
-    /// Returns the IPv4 address associated to current interface
-    /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
-    ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
-    ///     println!("IPv4: {}", network.ipv4_address());
-    /// }
-    /// ```
-    fn ipv4_address(&self) -> Ipv4Addr;
-
-    /// Returns the IPv4 subnet mast associated to current interface
-    /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
-    ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
-    ///     println!("IPv4 mask: {}", network.ipv4_netmask());
-    /// }
-    /// ```
-    fn ipv4_netmask(&self) -> Ipv4Addr;
 }
 
 /// Interacting with network interfaces.

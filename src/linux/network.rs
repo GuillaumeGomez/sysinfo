@@ -1,7 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::io::Read;
-use std::net::Ipv4Addr;
 use std::path::Path;
 use std::{fs::File, u8};
 
@@ -106,8 +105,6 @@ fn refresh_networks_list_from_sysfs(
                         tx_errors,
                         old_tx_errors: tx_errors,
                         mac_addr: MacAddr::UNSPECIFIED,
-                        ipv4_addr: Ipv4Addr::UNSPECIFIED,
-                        ipv4_mask: Ipv4Addr::UNSPECIFIED,
                         // rx_compressed,
                         // old_rx_compressed: rx_compressed,
                         // tx_compressed,
@@ -166,10 +163,6 @@ pub struct NetworkData {
     old_tx_errors: u64,
     /// MAC address
     pub(crate) mac_addr: MacAddr,
-    /// IPv4 address
-    pub(crate) ipv4_addr: Ipv4Addr,
-    /// IPv4 subnet mask
-    pub(crate) ipv4_mask: Ipv4Addr,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
     // /// that support packet compression (e.g: PPP).
@@ -279,14 +272,6 @@ impl NetworkExt for NetworkData {
 
     fn mac_address(&self) -> MacAddr {
         self.mac_addr
-    }
-
-    fn ipv4_address(&self) -> Ipv4Addr {
-        self.ipv4_addr
-    }
-
-    fn ipv4_netmask(&self) -> Ipv4Addr {
-        self.ipv4_mask
     }
 }
 
