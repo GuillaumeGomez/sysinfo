@@ -27,6 +27,7 @@ cfg_if::cfg_if! {
         extern crate core_foundation_sys;
         mod network_helper_nix;
         use network_helper_nix as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -37,6 +38,7 @@ cfg_if::cfg_if! {
         extern crate ntapi;
         mod network_helper_win;
         use network_helper_win as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -46,6 +48,7 @@ cfg_if::cfg_if! {
         pub(crate) mod users;
         mod network_helper_nix;
         use network_helper_nix as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -55,6 +58,7 @@ cfg_if::cfg_if! {
         pub(crate) mod users;
         mod network_helper_nix;
         use network_helper_nix as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -83,8 +87,6 @@ pub use c_interface::*;
 mod c_interface;
 mod common;
 mod debug;
-#[cfg(not(target_os = "unknown"))]
-mod network;
 mod system;
 mod traits;
 mod utils;
