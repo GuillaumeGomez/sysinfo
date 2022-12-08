@@ -1,3 +1,11 @@
+# 0.27.0
+
+ * Add `NetworkExt::mac_address` method and `MacAddr` type.
+ * Linux: Fix truncated environment retrieval.
+ * Implement `TryFrom<usize>` and `FromStr` for `Gid` and `Uid`.
+ * Implement `TryFrom<usize>` for `Pid`.
+ * Fix documentation of `System::new` about CPU list not loaded by default.
+
 # 0.26.8
 
  * Add `ProcessExt::session_id` method.
