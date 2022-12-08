@@ -1506,13 +1506,14 @@ pub trait NetworkExt: Debug {
     fn total_errors_on_transmitted(&self) -> u64;
 
     /// Returns the MAC address associated to current interface.
+    ///
     /// ```no_run
     /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
     ///
     /// let s = System::new_all();
     /// let networks = s.networks();
     /// for (interface_name, network) in networks {
-    ///     println!("MAC: {}", network.mac_address());
+    ///     println!("MAC address: {}", network.mac_address());
     /// }
     /// ```
     fn mac_address(&self) -> MacAddr;
