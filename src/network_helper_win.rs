@@ -44,7 +44,7 @@ impl Iterator for InterfaceAddressIterator {
             if let Ok(interface_name) = u16_ptr_to_string((*adapter).FriendlyName).into_string() {
                 // take the first 6 bytes and return the MAC address instead
                 let [mac @ .., _, _] = (*adapter).PhysicalAddress;
-                Some((interface_name, MacAddr::from(mac)))
+                Some((interface_name, MacAddr(mac)))
             } else {
                 // Not sure whether error can occur when parsing adapter name.
                 self.next()
@@ -99,6 +99,6 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
             // Otherwise, break the loop and check the return code again
         }
 
-        Err(format!("GetAdaptersAddresses() failed with code {}", ret))
+        Err(format!("GetAdaptersAddresses() failed with code {ret}"))
     }
 }

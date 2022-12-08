@@ -983,63 +983,57 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 
 /// MAC address for network interface
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub struct MacAddr {
-    data: [u8; 6],
-}
+pub struct MacAddr(pub [u8; 6]);
 
 impl MacAddr {
-    pub const UNSPECIFIED: Self = MacAddr::new();
+    pub const UNSPECIFIED: Self = MacAddr([0; 6]);
 
-    #[inline]
-    pub(crate) const fn new() -> Self {
-        Self { data: [0; 6] }
-    }
-
-    pub fn data(&self) -> &[u8; 6] {
-        &self.data
-    }
-}
-
-impl From<[u8; 6]> for MacAddr {
-    fn from(data: [u8; 6]) -> Self {
-        Self { data }
+    pub fn is_unspecified(&self) -> bool {
+        self == &MacAddr::UNSPECIFIED
     }
 }
 
 impl fmt::Display for MacAddr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let data = &self.0;
         write!(
             f,
             "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-            self.data[0], self.data[1], self.data[2], self.data[3], self.data[4], self.data[5],
+            data[0], data[1], data[2], data[3], data[4], data[5],
         )
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::{MacAddr, ProcessStatus};
 
-    // This test only exists to ensure that the `Display` trait is implemented on the
+    // This test only exists to ensure that the `Display` and `Debug` traits are implemented on the
     // `ProcessStatus` enum on all targets.
     #[test]
     fn check_display_impl_process_status() {
         println!("{} {:?}", ProcessStatus::Parked, ProcessStatus::Idle);
     }
 
-    // Ensure that the `Display` trait is implemented on the `MacAddr` struct
+    // Ensure that the `Display` and `Debug` traits are implemented on the `MacAddr` struct
     #[test]
     fn check_display_impl_mac_address() {
         println!(
             "{} {:?}",
-            MacAddr {
-                data: [0x1, 0x2, 0x3, 0x4, 0x5, 0x6],
-            },
-            MacAddr {
-                data: [0xa, 0xb, 0xc, 0xd, 0xe, 0xf],
-            }
+            MacAddr([0x1, 0x2, 0x3, 0x4, 0x5, 0x6]),
+            MacAddr([0xa, 0xb, 0xc, 0xd, 0xe, 0xf])
         );
+    }
+
+    #[test]
+    fn check_mac_address_is_unspecified_true() {
+        assert!(MacAddr::UNSPECIFIED.is_unspecified());
+        assert!(MacAddr([0; 6]).is_unspecified());
+    }
+
+    #[test]
+    fn check_mac_address_is_unspecified_false() {
+        assert!(!MacAddr([1, 2, 3, 4, 5, 6]).is_unspecified());
     }
 
     // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented

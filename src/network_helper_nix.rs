@@ -53,7 +53,7 @@ impl From<&libc::sockaddr_dl> for MacAddr {
         let sdl_nlen = value.sdl_nlen as usize;
         // make sure that it is never out of bound
         if sdl_nlen + 5 < 12 {
-            MacAddr::from([
+            MacAddr([
                 sdl_data[sdl_nlen] as u8,
                 sdl_data[sdl_nlen + 1] as u8,
                 sdl_data[sdl_nlen + 2] as u8,
@@ -89,7 +89,7 @@ unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> Option<MacAddr>
             let addr = sock_addr as *const sockaddr_ll;
             // Take the first 6 bytes
             let [addr @ .., _, _] = (*addr).sll_addr;
-            Some(MacAddr::from(addr))
+            Some(MacAddr(addr))
         }
         _ => None,
     }
