@@ -1,9 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use std::{fs::File, u8};
 
+use crate::common::MacAddr;
+use crate::network::refresh_networks_addresses;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
 
@@ -102,6 +104,7 @@ fn refresh_networks_list_from_sysfs(
                         old_rx_errors: rx_errors,
                         tx_errors,
                         old_tx_errors: tx_errors,
+                        mac_addr: MacAddr::UNSPECIFIED,
                         // rx_compressed,
                         // old_rx_compressed: rx_compressed,
                         // tx_compressed,
@@ -132,6 +135,7 @@ impl NetworksExt for Networks {
 
     fn refresh_networks_list(&mut self) {
         refresh_networks_list_from_sysfs(&mut self.interfaces, Path::new("/sys/class/net/"));
+        refresh_networks_addresses(&mut self.interfaces);
     }
 }
 
@@ -157,6 +161,8 @@ pub struct NetworkData {
     /// similar to `rx_errors`
     tx_errors: u64,
     old_tx_errors: u64,
+    /// MAC address
+    pub(crate) mac_addr: MacAddr,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
     // /// that support packet compression (e.g: PPP).
@@ -262,6 +268,10 @@ impl NetworkExt for NetworkData {
 
     fn total_errors_on_transmitted(&self) -> u64 {
         self.tx_errors
+    }
+
+    fn mac_address(&self) -> MacAddr {
+        self.mac_addr
     }
 }
 

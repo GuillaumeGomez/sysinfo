@@ -981,15 +981,59 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
     inner()
 }
 
+/// MAC address for network interface
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub struct MacAddr(pub [u8; 6]);
+
+impl MacAddr {
+    pub const UNSPECIFIED: Self = MacAddr([0; 6]);
+
+    pub fn is_unspecified(&self) -> bool {
+        self == &MacAddr::UNSPECIFIED
+    }
+}
+
+impl fmt::Display for MacAddr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let data = &self.0;
+        write!(
+            f,
+            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            data[0], data[1], data[2], data[3], data[4], data[5],
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::ProcessStatus;
+    use super::{MacAddr, ProcessStatus};
 
-    // This test only exists to ensure that the `Display` trait is implemented on the
+    // This test only exists to ensure that the `Display` and `Debug` traits are implemented on the
     // `ProcessStatus` enum on all targets.
     #[test]
     fn check_display_impl_process_status() {
         println!("{} {:?}", ProcessStatus::Parked, ProcessStatus::Idle);
+    }
+
+    // Ensure that the `Display` and `Debug` traits are implemented on the `MacAddr` struct
+    #[test]
+    fn check_display_impl_mac_address() {
+        println!(
+            "{} {:?}",
+            MacAddr([0x1, 0x2, 0x3, 0x4, 0x5, 0x6]),
+            MacAddr([0xa, 0xb, 0xc, 0xd, 0xe, 0xf])
+        );
+    }
+
+    #[test]
+    fn check_mac_address_is_unspecified_true() {
+        assert!(MacAddr::UNSPECIFIED.is_unspecified());
+        assert!(MacAddr([0; 6]).is_unspecified());
+    }
+
+    #[test]
+    fn check_mac_address_is_unspecified_false() {
+        assert!(!MacAddr([1, 2, 3, 4, 5, 6]).is_unspecified());
     }
 
     // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented

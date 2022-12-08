@@ -5,6 +5,8 @@ use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFIN
 use std::collections::{hash_map, HashMap};
 use std::ptr::null_mut;
 
+use crate::common::MacAddr;
+use crate::network::refresh_networks_addresses;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {
@@ -143,6 +145,7 @@ impl Networks {
                                 errors_out,
                                 old_errors_out: errors_out,
                                 updated: true,
+                                mac_addr: MacAddr::UNSPECIFIED,
                             });
                         }
                     }
@@ -164,6 +167,7 @@ impl NetworksExt for Networks {
         }
         self.update_networks();
         self.interfaces.retain(|_, data| data.updated);
+        refresh_networks_addresses(&mut self.interfaces);
     }
 
     fn refresh(&mut self) {
@@ -187,6 +191,8 @@ pub struct NetworkData {
     errors_out: u64,
     old_errors_out: u64,
     updated: bool,
+    /// MAC address
+    pub(crate) mac_addr: MacAddr,
 }
 
 impl NetworkExt for NetworkData {
@@ -236,5 +242,9 @@ impl NetworkExt for NetworkData {
 
     fn total_errors_on_transmitted(&self) -> u64 {
         self.errors_out
+    }
+
+    fn mac_address(&self) -> MacAddr {
+        self.mac_addr
     }
 }

@@ -25,6 +25,9 @@ cfg_if::cfg_if! {
         mod apple;
         use apple as sys;
         extern crate core_foundation_sys;
+        mod network_helper_nix;
+        use network_helper_nix as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -33,6 +36,9 @@ cfg_if::cfg_if! {
         use windows as sys;
         extern crate winapi;
         extern crate ntapi;
+        mod network_helper_win;
+        use network_helper_win as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -40,6 +46,9 @@ cfg_if::cfg_if! {
         mod linux;
         use linux as sys;
         pub(crate) mod users;
+        mod network_helper_nix;
+        use network_helper_nix as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -47,6 +56,9 @@ cfg_if::cfg_if! {
         mod freebsd;
         use freebsd as sys;
         pub(crate) mod users;
+        mod network_helper_nix;
+        use network_helper_nix as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
