@@ -70,6 +70,9 @@ impl From<&libc::sockaddr_dl> for MacAddr {
 #[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "ios"))]
 unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> Option<MacAddr> {
     let sock_addr = (*ifap).ifa_addr;
+    if sock_addr.is_null() {
+        return None;
+    }
     match (*sock_addr).sa_family as libc::c_int {
         libc::AF_LINK => {
             let addr = sock_addr as *const libc::sockaddr_dl;
@@ -84,6 +87,9 @@ unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> Option<MacAddr>
     use libc::sockaddr_ll;
 
     let sock_addr = (*ifap).ifa_addr;
+    if sock_addr.is_null() {
+        return None;
+    }
     match (*sock_addr).sa_family as libc::c_int {
         libc::AF_PACKET => {
             let addr = sock_addr as *const sockaddr_ll;
