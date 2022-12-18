@@ -1,3 +1,7 @@
+# 0.27.1
+
+ * Unix systems: Fix network address segfault issue.
+
 # 0.27.0
 
  * Add `NetworkExt::mac_address` method and `MacAddr` type.
