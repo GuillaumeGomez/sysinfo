@@ -311,7 +311,7 @@ impl SystemExt for System {
 
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
         let uptime = self.uptime();
-        let found = match _get_process_data(
+        match _get_process_data(
             &Path::new("/proc/").join(pid.to_string()),
             &mut self.process_list,
             Pid(0),
@@ -321,32 +321,32 @@ impl SystemExt for System {
         ) {
             Ok((Some(p), pid)) => {
                 self.process_list.tasks.insert(pid, p);
-                true
             }
-            Ok(_) => true,
-            Err(_) => false,
+            Ok(_) => {}
+            Err(_e) => {
+                sysinfo_debug!("Cannot get information for PID {:?}: {:?}", pid, _e);
+                return false;
+            }
         };
-        if found {
-            if refresh_kind.cpu() {
-                self.refresh_cpus(true, CpuRefreshKind::new().with_cpu_usage());
+        if refresh_kind.cpu() {
+            self.refresh_cpus(true, CpuRefreshKind::new().with_cpu_usage());
 
-                if self.cpus.is_empty() {
-                    sysinfo_debug!("Cannot compute process CPU usage: no cpus found...");
-                    return found;
-                }
-                let (new, old) = self.cpus.get_global_raw_times();
-                let total_time = (if old >= new { 1 } else { new - old }) as f32;
+            if self.cpus.is_empty() {
+                eprintln!("Cannot compute process CPU usage: no cpus found...");
+                return true;
+            }
+            let (new, old) = self.cpus.get_global_raw_times();
+            let total_time = (if old >= new { 1 } else { new - old }) as f32;
 
-                let max_cpu_usage = self.get_max_process_cpu_usage();
-                if let Some(p) = self.process_list.tasks.get_mut(&pid) {
-                    compute_cpu_usage(p, total_time / self.cpus.len() as f32, max_cpu_usage);
-                    p.updated = false;
-                }
-            } else if let Some(p) = self.process_list.tasks.get_mut(&pid) {
+            let max_cpu_usage = self.get_max_process_cpu_usage();
+            if let Some(p) = self.process_list.tasks.get_mut(&pid) {
+                compute_cpu_usage(p, total_time / self.cpus.len() as f32, max_cpu_usage);
                 p.updated = false;
             }
+        } else if let Some(p) = self.process_list.tasks.get_mut(&pid) {
+            p.updated = false;
         }
-        found
+        true
     }
 
     fn refresh_disks_list(&mut self) {
