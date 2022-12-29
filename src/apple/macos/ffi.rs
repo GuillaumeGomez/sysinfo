@@ -31,6 +31,11 @@ pub const kIOPropertyMediumTypeSolidStateKey: &str = "Solid State";
 #[allow(non_upper_case_globals)]
 pub const kIOPropertyMediumTypeRotationalKey: &str = "Rotational";
 
+// Based on https://github.com/libusb/libusb/blob/bed8d3034eac74a6e1ba123b5c270ea63cb6cf1a/libusb/os/darwin_usb.c#L54-L55,
+// we can simply set it to 0 (and is the same value as its replacement `kIOMainPortDefault`).
+#[allow(non_upper_case_globals)]
+pub const kIOMasterPortDefault: mach_port_t = 0;
+
 // Note: Obtaining information about disks using IOKIt is allowed inside the default macOS App Sandbox.
 #[link(name = "IOKit", kind = "framework")]
 extern "C" {
@@ -61,9 +66,6 @@ extern "C" {
         options: u32,
         bsdName: *const c_char,
     ) -> CFMutableDictionaryRef;
-
-    // This is deprecated as of macOS 12.0, but Rust doesn't have a good way to only use the replacement on 12+.
-    pub static kIOMasterPortDefault: mach_port_t;
 }
 
 #[cfg(all(
