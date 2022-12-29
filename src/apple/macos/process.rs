@@ -265,14 +265,6 @@ pub(crate) fn compute_cpu_usage(
     }
 }
 
-/*pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
-    p.old_utime = p.utime;
-    p.old_stime = p.stime;
-    p.utime = utime;
-    p.stime = stime;
-    p.updated = true;
-}*/
-
 unsafe fn get_task_info(pid: Pid) -> libc::proc_taskinfo {
     let mut task_info = mem::zeroed::<libc::proc_taskinfo>();
     // If it doesn't work, we just don't have memory information for this process
