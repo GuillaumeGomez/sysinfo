@@ -128,6 +128,8 @@ mod tests {
 
         let mut sys = System::new();
         sys.refresh_processes_specifics(ProcessRefreshKind::new().with_cpu());
+        sys.refresh_cpu();
+        assert!(!sys.cpus().is_empty());
         let mut pids = sys
             .processes()
             .iter()
