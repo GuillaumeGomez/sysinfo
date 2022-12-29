@@ -114,4 +114,38 @@ mod tests {
             assert!(uptime < new_uptime);
         }
     }
+
+    // This test is used to ensure that the CPU usage computation isn't completely going off
+    // when refreshing it too frequently (ie, multiple times in a row in a very small interval).
+    #[test]
+    fn test_consecutive_cpu_usage_update() {
+        use crate::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
+        use std::time::Duration;
+
+        if !System::IS_SUPPORTED {
+            return;
+        }
+
+        let mut sys = System::new();
+        sys.refresh_processes_specifics(ProcessRefreshKind::new().with_cpu());
+        sys.refresh_cpu();
+        assert!(!sys.cpus().is_empty());
+        let mut pids = sys
+            .processes()
+            .iter()
+            .map(|(pid, _)| *pid)
+            .take(2)
+            .collect::<Vec<_>>();
+        let pid = std::process::id();
+        pids.push(PidExt::from_u32(pid));
+        assert_eq!(pids.len(), 3);
+
+        for _ in 0..3 {
+            for pid in &pids {
+                sys.refresh_process_specifics(*pid, ProcessRefreshKind::new().with_cpu());
+            }
+            assert!(sys.process(pids[2]).unwrap().cpu_usage() < sys.cpus().len() as f32 * 100.);
+            std::thread::sleep(Duration::from_millis(500));
+        }
+    }
 }

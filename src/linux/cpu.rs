@@ -5,6 +5,7 @@
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
+use std::time::{Duration, Instant};
 
 use crate::sys::utils::to_u64;
 use crate::{CpuExt, CpuRefreshKind};
@@ -24,6 +25,8 @@ pub(crate) struct CpusWrapper {
     /// For example when running `refresh_all` or `refresh_specifics`.
     need_cpus_update: bool,
     got_cpu_frequency: bool,
+    /// This field is needed to prevent updating when not enough time passed since last update.
+    last_update: Option<Instant>,
 }
 
 impl CpusWrapper {
@@ -48,6 +51,7 @@ impl CpusWrapper {
             cpus: Vec::with_capacity(4),
             need_cpus_update: true,
             got_cpu_frequency: false,
+            last_update: None,
         }
     }
 
@@ -62,90 +66,101 @@ impl CpusWrapper {
     }
 
     pub(crate) fn refresh(&mut self, only_update_global_cpu: bool, refresh_kind: CpuRefreshKind) {
-        let f = match File::open("/proc/stat") {
-            Ok(f) => f,
-            Err(_e) => {
-                sysinfo_debug!("failed to retrieve CPU information: {:?}", _e);
-                return;
-            }
-        };
-        let buf = BufReader::new(f);
+        let need_cpu_usage_update = self
+            .last_update
+            .map(|last_update| last_update.elapsed() > Duration::from_millis(200))
+            .unwrap_or(true);
 
-        self.need_cpus_update = false;
-        let mut i: usize = 0;
         let first = self.cpus.is_empty();
-        let mut it = buf.split(b'\n');
         let (vendor_id, brand) = if first {
             get_vendor_id_and_brand()
         } else {
             (String::new(), String::new())
         };
 
-        if first || refresh_kind.cpu_usage() {
-            if let Some(Ok(line)) = it.next() {
-                if &line[..4] != b"cpu " {
+        // If the last CPU usage update is too close (less than 200ms), we don't want to update
+        // CPUs times.
+        if need_cpu_usage_update {
+            self.last_update = Some(Instant::now());
+            let f = match File::open("/proc/stat") {
+                Ok(f) => f,
+                Err(_e) => {
+                    sysinfo_debug!("failed to retrieve CPU information: {:?}", _e);
                     return;
                 }
-                let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
-                if first {
-                    self.global_cpu.name = to_str!(parts.next().unwrap_or(&[])).to_owned();
-                } else {
-                    parts.next();
-                }
-                self.global_cpu.set(
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                    parts.next().map(to_u64).unwrap_or(0),
-                );
-            }
-            if first || !only_update_global_cpu {
-                while let Some(Ok(line)) = it.next() {
-                    if &line[..3] != b"cpu" {
-                        break;
-                    }
+            };
+            let buf = BufReader::new(f);
 
+            self.need_cpus_update = false;
+            let mut i: usize = 0;
+            let mut it = buf.split(b'\n');
+
+            if first || refresh_kind.cpu_usage() {
+                if let Some(Ok(line)) = it.next() {
+                    if &line[..4] != b"cpu " {
+                        return;
+                    }
                     let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
                     if first {
-                        self.cpus.push(Cpu::new_with_values(
-                            to_str!(parts.next().unwrap_or(&[])),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            0,
-                            vendor_id.clone(),
-                            brand.clone(),
-                        ));
+                        self.global_cpu.name = to_str!(parts.next().unwrap_or(&[])).to_owned();
                     } else {
-                        parts.next(); // we don't want the name again
-                        self.cpus[i].set(
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                            parts.next().map(to_u64).unwrap_or(0),
-                        );
+                        parts.next();
                     }
+                    self.global_cpu.set(
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                        parts.next().map(to_u64).unwrap_or(0),
+                    );
+                }
+                if first || !only_update_global_cpu {
+                    while let Some(Ok(line)) = it.next() {
+                        if &line[..3] != b"cpu" {
+                            break;
+                        }
 
-                    i += 1;
+                        let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
+                        if first {
+                            self.cpus.push(Cpu::new_with_values(
+                                to_str!(parts.next().unwrap_or(&[])),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                0,
+                                vendor_id.clone(),
+                                brand.clone(),
+                            ));
+                        } else {
+                            parts.next(); // we don't want the name again
+                            self.cpus[i].set(
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                                parts.next().map(to_u64).unwrap_or(0),
+                            );
+                        }
+
+                        i += 1;
+                    }
                 }
             }
         }
