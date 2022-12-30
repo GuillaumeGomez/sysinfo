@@ -1,3 +1,8 @@
+# 0.27.2
+
+ * Linux: Fix consecutive process CPU usage updates.
+ * Linux: Ignore NFS disks.
+
 # 0.27.1
 
  * Unix systems: Fix network address segfault issue.
