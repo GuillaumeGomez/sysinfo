@@ -120,6 +120,8 @@ mod tests {
     #[test]
     fn test_consecutive_cpu_usage_update() {
         use crate::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
         use std::time::Duration;
 
         if !System::IS_SUPPORTED {
@@ -130,6 +132,18 @@ mod tests {
         sys.refresh_processes_specifics(ProcessRefreshKind::new().with_cpu());
         sys.refresh_cpu();
         assert!(!sys.cpus().is_empty());
+
+        let stop = Arc::new(AtomicBool::new(false));
+        // Spawning a few threads to ensure that it will actually have an impact on the CPU usage.
+        for _ in 0..sys.cpus().len() / 2 + 1 {
+            let stop_c = Arc::clone(&stop);
+            std::thread::spawn(move || {
+                while !stop_c.load(Ordering::Relaxed) {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            });
+        }
+
         let mut pids = sys
             .processes()
             .iter()
@@ -140,12 +154,16 @@ mod tests {
         pids.push(PidExt::from_u32(pid));
         assert_eq!(pids.len(), 3);
 
-        for _ in 0..3 {
+        for it in 0..3 {
+            std::thread::sleep(crate::System::MINIMUM_CPU_UPDATE_INTERVAL_MS);
             for pid in &pids {
                 sys.refresh_process_specifics(*pid, ProcessRefreshKind::new().with_cpu());
             }
+            // To ensure that linux doesn't give too high numbers.
             assert!(sys.process(pids[2]).unwrap().cpu_usage() < sys.cpus().len() as f32 * 100.);
-            std::thread::sleep(Duration::from_millis(500));
+            // To ensure it's not 0 either.
+            assert!(sys.process(pids[2]).unwrap().cpu_usage() > 0., "failed at iteration {}", it);
         }
+        stop.store(false, Ordering::Relaxed);
     }
 }
