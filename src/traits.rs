@@ -934,10 +934,10 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// }
     /// ```
     // FIXME: replace the returned type with `impl Iterator<Item = &Process>` when it's supported!
-    fn processes_by_name<'a>(
+    fn processes_by_name<'a: 'b, 'b>(
         &'a self,
-        name: &'a str,
-    ) -> Box<dyn Iterator<Item = &'a Process> + 'a> {
+        name: &'b str,
+    ) -> Box<dyn Iterator<Item = &'a Process> + 'b> {
         Box::new(
             self.processes()
                 .values()
@@ -965,10 +965,10 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// }
     /// ```
     // FIXME: replace the returned type with `impl Iterator<Item = &Process>` when it's supported!
-    fn processes_by_exact_name<'a>(
+    fn processes_by_exact_name<'a: 'b, 'b>(
         &'a self,
-        name: &'a str,
-    ) -> Box<dyn Iterator<Item = &'a Process> + 'a> {
+        name: &'b str,
+    ) -> Box<dyn Iterator<Item = &'a Process> + 'b> {
         Box::new(
             self.processes()
                 .values()
