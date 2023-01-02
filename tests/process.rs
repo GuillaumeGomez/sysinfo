@@ -517,3 +517,29 @@ fn test_wait_non_child() {
     assert!(before.elapsed() > std::time::Duration::from_millis(2000));
     assert!(before.elapsed() < std::time::Duration::from_millis(3000));
 }
+
+#[test]
+fn test_process_iterator_lifetimes() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+
+    let s = sysinfo::System::new_with_specifics(
+        sysinfo::RefreshKind::new().with_processes(sysinfo::ProcessRefreshKind::new()),
+    );
+
+    let process: Option<&sysinfo::Process>;
+    {
+        let name = String::from("");
+        // errors before PR #904: name does not live long enough
+        process = s.processes_by_name(&name).next();
+    }
+    process.unwrap();
+
+    let process: Option<&sysinfo::Process>;
+    {
+        // worked fine before and after: &'static str lives longer than System, error couldn't appear
+        process = s.processes_by_name("").next();
+    }
+    process.unwrap();
+}
