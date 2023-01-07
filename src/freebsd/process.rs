@@ -9,6 +9,9 @@ use libc::kill;
 
 use super::utils::{get_sys_value_str, WrapMap};
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 #[doc(hidden)]
 impl From<libc::c_char> for ProcessStatus {
     fn from(status: libc::c_char) -> ProcessStatus {
@@ -41,6 +44,7 @@ impl fmt::Display for ProcessStatus {
 }
 
 #[doc = include_str!("../../md_doc/process.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Process {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,

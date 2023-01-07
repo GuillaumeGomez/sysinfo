@@ -8,6 +8,9 @@ use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $data:expr) => {{
         $ty_.$old = $ty_.$name;
@@ -16,6 +19,7 @@ macro_rules! old_and_new {
 }
 
 #[doc = include_str!("../../md_doc/networks.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Networks {
     interfaces: HashMap<String, NetworkData>,
 }
@@ -127,6 +131,7 @@ impl Networks {
 }
 
 #[doc = include_str!("../../md_doc/network_data.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct NetworkData {
     /// Total number of bytes received over interface.
     ifi_ibytes: u64,

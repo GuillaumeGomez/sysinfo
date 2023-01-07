@@ -12,6 +12,9 @@ use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 use super::utils::{
     self, boot_time, c_buf_to_string, from_cstr_array, get_frequency_for_cpu, get_sys_value,
     get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name, get_system_info,
@@ -56,6 +59,7 @@ declare_signals! {
 }
 
 #[doc = include_str!("../../md_doc/system.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct System {
     process_list: HashMap<Pid, Process>,
     mem_total: u64,
@@ -448,6 +452,7 @@ impl System {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 struct Zfs {
     enabled: bool,
     mib_arcstats_size: [c_int; 5],
@@ -487,6 +492,7 @@ impl Zfs {
 
 /// This struct is used to get system information more easily.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 struct SystemInfo {
     hw_physical_memory: [c_int; 2],
     page_size: c_int,
@@ -502,17 +508,21 @@ struct SystemInfo {
     hostname: [c_int; 2],
     buf_space: [c_int; 2],
     nb_cpus: c_int,
+    #[cfg_attr(feature = "serde", serde(skip_serializing))]
     kd: NonNull<libc::kvm_t>,
     // For these two fields, we could use `kvm_getcptime` but the function isn't very efficient...
     mib_cp_time: [c_int; 2],
     mib_cp_times: [c_int; 2],
     // For the global CPU usage.
+    #[cfg_attr(feature = "serde", serde(skip_serializing))]
     cp_time: utils::VecSwitcher<libc::c_ulong>,
     // For each CPU usage.
+    #[cfg_attr(feature = "serde", serde(skip_serializing))]
     cp_times: utils::VecSwitcher<libc::c_ulong>,
     /// From FreeBSD manual: "The kernel fixed-point scale factor". It's used when computing
     /// processes' CPU usage.
     fscale: f32,
+    #[cfg_attr(feature = "serde", serde(skip_serializing))]
     procstat: *mut libc::procstat,
     zfs: Zfs,
 }
