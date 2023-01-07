@@ -2,7 +2,11 @@
 
 use crate::CpuExt;
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 #[doc = include_str!("../../md_doc/cpu.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cpu {
     pub(crate) cpu_usage: f32,
     name: String,

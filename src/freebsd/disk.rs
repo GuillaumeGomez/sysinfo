@@ -7,7 +7,11 @@ use std::path::{Path, PathBuf};
 
 use super::utils::c_buf_to_str;
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 #[doc = include_str!("../../md_doc/disk.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Disk {
     name: OsString,
     c_mount_point: Vec<libc::c_char>,

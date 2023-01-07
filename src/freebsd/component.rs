@@ -3,7 +3,11 @@
 use super::utils::get_sys_value_by_name;
 use crate::ComponentExt;
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 #[doc = include_str!("../../md_doc/component.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Component {
     id: Vec<u8>,
     label: String,
