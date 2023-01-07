@@ -9,7 +9,11 @@ use crate::network::refresh_networks_addresses;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 #[doc = include_str!("../../md_doc/networks.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Networks {
     interfaces: HashMap<String, NetworkData>,
 }
@@ -140,6 +144,7 @@ impl NetworksExt for Networks {
 }
 
 #[doc = include_str!("../../md_doc/network_data.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct NetworkData {
     /// Total number of bytes received over interface.
     rx_bytes: u64,

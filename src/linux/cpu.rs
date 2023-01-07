@@ -10,12 +10,16 @@ use std::time::{Duration, Instant};
 use crate::sys::utils::to_u64;
 use crate::{CpuExt, CpuRefreshKind};
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 macro_rules! to_str {
     ($e:expr) => {
         unsafe { std::str::from_utf8_unchecked($e) }
     };
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub(crate) struct CpusWrapper {
     pub(crate) global_cpu: Cpu,
     pub(crate) cpus: Vec<Cpu>,
@@ -26,6 +30,7 @@ pub(crate) struct CpusWrapper {
     need_cpus_update: bool,
     got_cpu_frequency: bool,
     /// This field is needed to prevent updating when not enough time passed since last update.
+    #[cfg_attr(feature = "serde", serde(skip_serializing))]
     last_update: Option<Instant>,
 }
 
@@ -225,6 +230,7 @@ impl CpusWrapper {
 
 /// Struct containing values to compute a CPU usage.
 #[derive(Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub(crate) struct CpuValues {
     user: u64,
     nice: u64,
@@ -335,6 +341,7 @@ impl CpuValues {
 }
 
 #[doc = include_str!("../../md_doc/cpu.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Cpu {
     old_values: CpuValues,
     new_values: CpuValues,

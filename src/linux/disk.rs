@@ -10,6 +10,9 @@ use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 macro_rules! cast {
     ($x:expr) => {
         u64::from($x)
@@ -18,6 +21,7 @@ macro_rules! cast {
 
 #[doc = include_str!("../../md_doc/disk.md")]
 #[derive(PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Disk {
     type_: DiskType,
     device_name: OsString,

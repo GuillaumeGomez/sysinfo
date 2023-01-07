@@ -6,6 +6,9 @@ use std::path::{Path, PathBuf};
 
 use crate::sys::system::REMAINING_FILES;
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 pub(crate) fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
     let mut buf = String::with_capacity(size);
     file.rewind()?;
@@ -30,6 +33,7 @@ pub(crate) fn realpath(path: &Path) -> std::path::PathBuf {
 }
 
 /// Type used to correctly handle the `REMAINING_FILES` global.
+// #[cfg_attr(feature = "serde", derive(Serialize))]
 pub(crate) struct FileCounter(File);
 
 impl FileCounter {
@@ -72,6 +76,7 @@ impl Drop for FileCounter {
 
 /// This type is used in `retrieve_all_new_process_info` because we have a "parent" path and
 /// from it, we `pop`/`join` every time because it's more memory efficient than using `Path::join`.
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub(crate) struct PathHandler(PathBuf);
 
 impl PathHandler {

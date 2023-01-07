@@ -6,6 +6,9 @@ use std::convert::{From, TryFrom};
 use std::fmt;
 use std::str::FromStr;
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 /// Trait to have a common conversions for the [`Pid`][crate::Pid] type.
 ///
 /// ```
@@ -39,6 +42,7 @@ macro_rules! pid_decl {
         #[doc = include_str!("../md_doc/pid.md")]
         #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
         #[repr(transparent)]
+	#[cfg_attr(feature = "serde", derive(Serialize))]
         pub struct Pid(pub(crate) $typ);
 
         impl From<usize> for Pid {
@@ -227,6 +231,7 @@ assert_eq!(r.", stringify!($name), "().is_some(), false);
 ///
 /// [`Process`]: crate::Process
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct ProcessRefreshKind {
     cpu: bool,
     disk_usage: bool,
@@ -304,6 +309,7 @@ on Windows as other platforms get this information alongside the Process informa
 ///
 /// [`Cpu`]: crate::Cpu
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct CpuRefreshKind {
     cpu_usage: bool,
     frequency: bool,
@@ -363,6 +369,7 @@ impl CpuRefreshKind {
 ///
 /// [`System`]: crate::System
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct RefreshKind {
     networks: bool,
     networks_list: bool,
@@ -510,6 +517,7 @@ impl<'a> IntoIterator for &'a Networks {
 /// }
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum DiskType {
     /// HDD type.
     HDD,
@@ -527,6 +535,7 @@ pub enum DiskType {
 /// If you want the list of the supported signals on the current system, use
 /// [`SystemExt::SUPPORTED_SIGNALS`][crate::SystemExt::SUPPORTED_SIGNALS].
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum Signal {
     /// Hangup detected on controlling terminal or death of controlling process.
     Hangup,
@@ -654,6 +663,7 @@ impl std::fmt::Display for Signal {
 /// ```
 #[repr(C)]
 #[derive(Default, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct LoadAvg {
     /// Average load within one minute.
     pub one: f64,
@@ -668,6 +678,7 @@ macro_rules! xid {
         $(#[$outer])+
         #[repr(transparent)]
         #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+	#[cfg_attr(feature = "serde", derive(Serialize))]
         pub struct $name(pub(crate) $type);
 
         impl std::ops::Deref for $name {
@@ -773,6 +784,7 @@ cfg_if::cfg_if! {
 /// println!("users: {:?}", s.users());
 /// ```
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct User {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,
@@ -821,6 +833,7 @@ impl UserExt for User {
 /// }
 /// ```
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct DiskUsage {
     /// Total number of written bytes.
     pub total_written_bytes: u64,
@@ -834,6 +847,7 @@ pub struct DiskUsage {
 
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum ProcessStatus {
     /// ## Linux/FreeBSD
     ///
@@ -983,6 +997,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 
 /// MAC address for network interface.
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct MacAddr(pub [u8; 6]);
 
 impl MacAddr {

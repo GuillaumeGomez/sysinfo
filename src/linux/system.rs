@@ -17,6 +17,9 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 // This whole thing is to prevent having too many files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
 #[allow(clippy::mutex_atomic)]
@@ -95,6 +98,7 @@ fn boot_time() -> u64 {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub(crate) struct SystemInfo {
     pub(crate) page_size_kb: u64,
     pub(crate) clock_cycle: u64,
@@ -150,6 +154,7 @@ declare_signals! {
 }
 
 #[doc = include_str!("../../md_doc/system.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct System {
     process_list: Process,
     mem_total: u64,
@@ -587,6 +592,7 @@ impl Default for System {
 }
 
 #[derive(PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 enum InfoType {
     /// The end-user friendly name of:
     /// - Android: The device model

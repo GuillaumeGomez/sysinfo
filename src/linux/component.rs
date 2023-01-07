@@ -11,8 +11,12 @@ use std::fs::{read_dir, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 #[doc = include_str!("../../md_doc/component.md")]
 #[derive(Default)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Component {
     /// Optional associated device of a `Component`.
     device_model: Option<String>,
@@ -140,6 +144,7 @@ fn convert_temp_celsius(temp: Option<i32>) -> Option<f32> {
 
 /// Information about thermal sensor. It may be unavailable as it's
 /// kernel module and chip dependant.
+#[cfg_attr(feature = "serde", derive(Serialize))]
 enum TermalSensorType {
     /// 1: CPU embedded diode
     CPUEmbeddedDiode,

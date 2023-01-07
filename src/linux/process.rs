@@ -18,6 +18,9 @@ use crate::sys::utils::{
 use crate::utils::into_iter;
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 #[doc(hidden)]
 impl From<u32> for ProcessStatus {
     fn from(status: u32) -> ProcessStatus {
@@ -70,6 +73,7 @@ impl fmt::Display for ProcessStatus {
 }
 
 #[doc = include_str!("../../md_doc/process.md")]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Process {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
@@ -95,6 +99,7 @@ pub struct Process {
     pub(crate) status: ProcessStatus,
     /// Tasks run by this process.
     pub tasks: HashMap<Pid, Process>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing))]
     pub(crate) stat_file: Option<FileCounter>,
     old_read_bytes: u64,
     old_written_bytes: u64,
