@@ -1,3 +1,8 @@
+# 0.27.3
+
+ * macOS: Fix free/available memory computation.
+ * Fix processes_by_name* lifetimes
+
 # 0.27.2
 
  * Linux: Fix consecutive process CPU usage updates.
