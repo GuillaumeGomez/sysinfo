@@ -17,6 +17,7 @@ use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
+use std::time::Duration;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::time::SystemTime;
 
@@ -139,6 +140,7 @@ fn get_now() -> u64 {
 impl SystemExt for System {
     const IS_SUPPORTED: bool = true;
     const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
+    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         unsafe {
@@ -324,10 +326,14 @@ impl SystemExt for System {
 
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
-        let now = get_now();
+        let mut time_interval = None;
         let arg_max = get_arg_max();
-        let port = self.port;
-        let time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
+        let now = get_now();
+
+        if refresh_kind.cpu() {
+            let port = self.port;
+            time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
+        }
         match {
             let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
             update_process(

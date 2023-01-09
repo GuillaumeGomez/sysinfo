@@ -22,7 +22,7 @@ use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
 use std::os::windows::ffi::OsStrExt;
 use std::slice::from_raw_parts;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemProcessInformation, SYSTEM_PROCESS_INFORMATION,
@@ -97,6 +97,7 @@ unsafe fn boot_time() -> u64 {
 impl SystemExt for System {
     const IS_SUPPORTED: bool = true;
     const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
+    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
 
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {

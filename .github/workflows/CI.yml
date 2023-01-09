@@ -177,6 +177,10 @@ jobs:
         env:
           RUST_BACKTRACE: full
           APPLE_CI: 1 # FIXME: remove this once CI mac tests are fixed
+      - name: Run CPU test
+        run: cargo test --lib -- --ignored --test-threads 1
+        env:
+          RUST_BACKTRACE: full
 
   c_interface:
     runs-on: ubuntu-latest

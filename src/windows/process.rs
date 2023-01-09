@@ -979,6 +979,8 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
                 &mut fuser as *mut FILETIME,
             );
         }
+        // FIXME: should these values be stored in one place to make use of
+        // `MINIMUM_CPU_UPDATE_INTERVAL`?
         GetSystemTimes(
             &mut fglobal_idle_time as *mut FILETIME,
             &mut fglobal_kernel_time as *mut FILETIME,

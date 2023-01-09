@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::SystemExt;
+
 #[allow(deprecated)]
 use libc::{mach_timebase_info, mach_timebase_info_data_t};
 
@@ -122,8 +124,10 @@ impl SystemTimeInfo {
 
             self.old_cpu_info = new_cpu_info;
 
-            // Now we convert the ticks to nanoseconds:
-            total as f64 / self.timebase_to_ns * self.clock_per_sec / cpu_count as f64
+            // Now we convert the ticks to nanoseconds (if the interval is less than
+            // `MINIMUM_CPU_UPDATE_INTERVAL`, we replace it with it instead):
+            (total as f64 / self.timebase_to_ns * self.clock_per_sec / cpu_count as f64)
+                .max(crate::System::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() * 1_000_000_000.)
         }
     }
 }

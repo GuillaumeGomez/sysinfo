@@ -118,8 +118,11 @@ mod tests {
     // This test is used to ensure that the CPU usage computation isn't completely going off
     // when refreshing it too frequently (ie, multiple times in a row in a very small interval).
     #[test]
+    #[ignore] // This test MUST be run on its own to prevent wrong CPU usage measurements.
     fn test_consecutive_cpu_usage_update() {
         use crate::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
         use std::time::Duration;
 
         if !System::IS_SUPPORTED {
@@ -130,6 +133,21 @@ mod tests {
         sys.refresh_processes_specifics(ProcessRefreshKind::new().with_cpu());
         sys.refresh_cpu();
         assert!(!sys.cpus().is_empty());
+
+        let stop = Arc::new(AtomicBool::new(false));
+        // Spawning a few threads to ensure that it will actually have an impact on the CPU usage.
+        for it in 0..sys.cpus().len() / 2 + 1 {
+            let stop_c = Arc::clone(&stop);
+            std::thread::spawn(move || {
+                while !stop_c.load(Ordering::Relaxed) {
+                    if it != 0 {
+                        // The first thread runs at 100% to be sure it'll be noticeable.
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                }
+            });
+        }
+
         let mut pids = sys
             .processes()
             .iter()
@@ -140,12 +158,26 @@ mod tests {
         pids.push(PidExt::from_u32(pid));
         assert_eq!(pids.len(), 3);
 
-        for _ in 0..3 {
+        for it in 0..3 {
+            std::thread::sleep(
+                crate::System::MINIMUM_CPU_UPDATE_INTERVAL + Duration::from_millis(1),
+            );
             for pid in &pids {
                 sys.refresh_process_specifics(*pid, ProcessRefreshKind::new().with_cpu());
             }
-            assert!(sys.process(pids[2]).unwrap().cpu_usage() < sys.cpus().len() as f32 * 100.);
-            std::thread::sleep(Duration::from_millis(500));
+            // To ensure that linux doesn't give too high numbers.
+            assert!(
+                sys.process(pids[2]).unwrap().cpu_usage() < sys.cpus().len() as f32 * 100.,
+                "using ALL CPU: failed at iteration {}",
+                it
+            );
+            // To ensure it's not 0 either.
+            assert!(
+                sys.process(pids[2]).unwrap().cpu_usage() > 0.,
+                "using NO CPU: failed at iteration {}",
+                it
+            );
         }
+        stop.store(false, Ordering::Relaxed);
     }
 }

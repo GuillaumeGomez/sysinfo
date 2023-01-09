@@ -16,6 +16,7 @@ task:
     - cargo clippy -- -D warnings
     - cargo check --example simple
     - FREEBSD_CI=1 cargo test -j1
+    - FREEBSD_CI=1 cargo test --lib -j1 -- --ignored
 
 task:
   name: rust nightly on freebsd 13
@@ -35,6 +36,7 @@ task:
     - cargo clippy -- -D warnings
     - cargo check --example simple
     - FREEBSD_CI=1 cargo test -j1
+    - FREEBSD_CI=1 cargo test --lib -j1 -- --ignored
 
 task:
   name: rust 1.59 on mac m1
@@ -55,3 +57,4 @@ task:
     - cargo clippy -- -D warnings
     - cargo check --example simple
     - APPLE_CI=1 cargo test -j1
+    - APPLE_CI=1 cargo test --lib -j1 -- --ignored
