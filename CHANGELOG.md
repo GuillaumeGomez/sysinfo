@@ -1,3 +1,8 @@
+# 0.27.4
+
+ * Create `SystemExt::MINIMUM_CPU_UPDATE_INTERVAL` constant.
+ * Fix consecutive processes updates CPU usage computation.
+
 # 0.27.3
 
  * macOS: Fix free/available memory computation.
