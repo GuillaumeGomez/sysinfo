@@ -6,6 +6,7 @@ use crate::{
 };
 
 use std::collections::HashMap;
+use std::time::Duration;
 
 declare_signals! {
     (),
@@ -22,6 +23,7 @@ pub struct System {
 impl SystemExt for System {
     const IS_SUPPORTED: bool = false;
     const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
+    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(0);
 
     fn new_with_specifics(_: RefreshKind) -> System {
         System {

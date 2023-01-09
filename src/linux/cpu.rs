@@ -5,10 +5,10 @@
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crate::sys::utils::to_u64;
-use crate::{CpuExt, CpuRefreshKind};
+use crate::{CpuExt, CpuRefreshKind, SystemExt};
 
 macro_rules! to_str {
     ($e:expr) => {
@@ -68,7 +68,7 @@ impl CpusWrapper {
     pub(crate) fn refresh(&mut self, only_update_global_cpu: bool, refresh_kind: CpuRefreshKind) {
         let need_cpu_usage_update = self
             .last_update
-            .map(|last_update| last_update.elapsed() > Duration::from_millis(200))
+            .map(|last_update| last_update.elapsed() > crate::System::MINIMUM_CPU_UPDATE_INTERVAL)
             .unwrap_or(true);
 
         let first = self.cpus.is_empty();
@@ -78,8 +78,8 @@ impl CpusWrapper {
             (String::new(), String::new())
         };
 
-        // If the last CPU usage update is too close (less than 200ms), we don't want to update
-        // CPUs times.
+        // If the last CPU usage update is too close (less than `MINIMUM_CPU_UPDATE_INTERVAL`),
+        // we don't want to update CPUs times.
         if need_cpu_usage_update {
             self.last_update = Some(Instant::now());
             let f = match File::open("/proc/stat") {

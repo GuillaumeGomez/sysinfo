@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::Path;
+use std::time::Duration;
 
 /// Contains all the methods of the [`Disk`][crate::Disk] struct.
 ///
@@ -349,7 +350,8 @@ pub trait ProcessExt: Debug {
     /// CPUs.
     ///
     /// **Warning**: If you want accurate CPU usage number, better leave a bit of time
-    /// between two calls of this method (200 ms for example).
+    /// between two calls of this method (200 ms for example, take a look at
+    /// [`SystemExt::MINIMUM_CPU_UPDATE_INTERVAL`] for more information).
     ///
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
@@ -536,6 +538,16 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     const SUPPORTED_SIGNALS: &'static [Signal];
 
+    /// This is the minimum interval time used internally by `sysinfo` to refresh the CPU time.
+    ///
+    /// ⚠️ This value differs from one OS to another.
+    ///
+    /// Why is this constant even needed?
+    ///
+    /// If refreshed too often (200ms on macOS, 1s onFreeBSD), the CPU usage of processes will be
+    /// `0` whereas on Linux it'll always be the maximum value (`number of CPUs * 100`).
+    const MINIMUM_CPU_UPDATE_INTERVAL: Duration;
+
     /// Creates a new [`System`] instance with nothing loaded. If you want to
     /// load components, network interfaces or the disks, you'll have to use the
     /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for
@@ -690,7 +702,8 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// ⚠️ Please note that the result will very likely be inaccurate at the first call.
     /// You need to call this method at least twice (with a bit of time between each call, like
-    /// 200ms) to get accurate values as it uses previous results to compute the next value.
+    /// 200 ms, take a look at [`SystemExt::MINIMUM_CPU_UPDATE_INTERVAL`] for more information)
+    /// to get accurate value as it uses previous results to compute the next value.
     ///
     /// Calling this method is the same as calling
     /// `refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())`.
@@ -1324,7 +1337,8 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// It is a shorthand for:
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use sysinfo::{Pid, ProcessExt, System, SystemExt};
     /// let s = System::new_all();
     /// s.users().find(|user| user.id() == user_id);
     /// ```
