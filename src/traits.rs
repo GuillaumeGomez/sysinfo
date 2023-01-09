@@ -1337,8 +1337,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// It is a shorthand for:
     ///
-    /// ```no_run
-    /// # use sysinfo::{Pid, ProcessExt, System, SystemExt};
+    /// ```ignore
     /// let s = System::new_all();
     /// s.users().find(|user| user.id() == user_id);
     /// ```
