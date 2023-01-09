@@ -123,7 +123,11 @@ impl SystemTimeInfo {
             self.old_cpu_info = new_cpu_info;
 
             // Now we convert the ticks to nanoseconds:
-            total as f64 / self.timebase_to_ns * self.clock_per_sec / cpu_count as f64
+            let ret = total as f64 / self.timebase_to_ns * self.clock_per_sec / cpu_count as f64;
+            if ret < 200. * 1_000_000. {
+                ret = 200. * 1_000_000.;
+            }
+            ret
         }
     }
 }

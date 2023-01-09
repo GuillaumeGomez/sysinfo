@@ -221,7 +221,7 @@ pub(crate) fn compute_cpu_usage(
 ) {
     if let Some(time_interval) = time_interval {
         let total_existing_time = p.old_stime.saturating_add(p.old_utime);
-        if time_interval > 0.000001 && total_existing_time > 0 {
+        if time_interval > 0.000001 {
             let total_current_time = task_info
                 .pti_total_system
                 .saturating_add(task_info.pti_total_user);
