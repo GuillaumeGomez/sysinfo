@@ -81,11 +81,8 @@ fn boot_time() -> u64 {
         }
     }
     // Either we didn't find "btime" or "/proc/stat" wasn't available for some reason...
-    let mut up = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
     unsafe {
+        let mut up: libc::timespec = std::mem::zeroed();
         if libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut up) == 0 {
             up.tv_sec as u64
         } else {

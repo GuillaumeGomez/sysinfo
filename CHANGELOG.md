@@ -1,3 +1,7 @@
+# 0.26.9
+
+ * Linux: Improve compatibility with upcoming `libc` changes for musl targets.
+
 # 0.26.8
 
  * Add `ProcessExt::session_id` method.
