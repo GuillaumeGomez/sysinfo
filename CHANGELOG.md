@@ -1,3 +1,7 @@
+# 0.27.5
+
+ * Linux: Improve compatibility with upcoming `libc` changes for musl targets.
+
 # 0.27.4
 
  * Create `SystemExt::MINIMUM_CPU_UPDATE_INTERVAL` constant.
@@ -24,6 +28,10 @@
  * Implement `TryFrom<usize>` and `FromStr` for `Gid` and `Uid`.
  * Implement `TryFrom<usize>` for `Pid`.
  * Fix documentation of `System::new` about CPU list not loaded by default.
+
+# 0.26.9
+
+ * (backport) Linux: Improve compatibility with upcoming `libc` changes for musl targets.
 
 # 0.26.8
 
