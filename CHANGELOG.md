@@ -1,3 +1,7 @@
+# 0.27.6
+
+ * Make `MacAddr` public.
+
 # 0.27.5
 
  * Linux: Improve compatibility with upcoming `libc` changes for musl targets.
