@@ -982,12 +982,16 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 }
 
 /// MAC address for network interface.
+///
+/// It is returned by [`NetworkExt::mac_address`][crate::NetworkExt::mac_address].
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct MacAddr(pub [u8; 6]);
 
 impl MacAddr {
+    /// A `MacAddr` with all bytes set to `0`.
     pub const UNSPECIFIED: Self = MacAddr([0; 6]);
 
+    /// Checks if this `MacAddr` has all bytes equal to `0`.
     pub fn is_unspecified(&self) -> bool {
         self == &MacAddr::UNSPECIFIED
     }
