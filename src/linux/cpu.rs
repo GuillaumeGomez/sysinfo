@@ -790,7 +790,17 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
     }
     if let (Some(implementer), Some(part)) = (implementer, part) {
         vendor_id = get_arm_implementer(implementer).map(String::from);
-        brand = get_arm_part(implementer, part).map(String::from);
+        // It's possible to "model name" even with an ARM CPU, so just in case we can't retrieve
+        // the brand from "CPU part", we will then use the value from "model name".
+        //
+        // Example from raspberry pi 3B+:
+        //
+        // ```
+        // model name      : ARMv7 Processor rev 4 (v7l)
+        // CPU implementer : 0x41
+        // CPU part        : 0xd03
+        // ```
+        brand = get_arm_part(implementer, part).map(String::from).or(brand);
     }
     (vendor_id.unwrap_or_default(), brand.unwrap_or_default())
 }
