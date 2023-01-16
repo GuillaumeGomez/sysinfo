@@ -207,7 +207,7 @@ pub(crate) fn init_cpus(
     let frequency = if refresh_kind.frequency() {
         get_cpu_frequency()
     } else {
-        0
+        global_cpu.frequency
     };
 
     unsafe {
