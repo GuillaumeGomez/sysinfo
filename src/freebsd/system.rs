@@ -78,7 +78,7 @@ pub struct System {
 impl SystemExt for System {
     const IS_SUPPORTED: bool = true;
     const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
-    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(1000);
+    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(100);
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let system_info = SystemInfo::new();
