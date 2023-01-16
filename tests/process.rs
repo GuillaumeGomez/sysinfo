@@ -543,3 +543,23 @@ fn test_process_iterator_lifetimes() {
     }
     process.unwrap();
 }
+
+// Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/918>.
+#[test]
+fn test_process_cpu_usage() {
+    use sysinfo::{ProcessExt, System, SystemExt};
+
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+
+    let mut sys = System::new_all();
+    std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
+    sys.refresh_all();
+
+    let max_usage = sys.cpus().len() as f32 * 100.;
+
+    for process in sys.processes().values() {
+        assert!(process.cpu_usage() <= max_usage);
+    }
+}

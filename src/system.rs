@@ -129,10 +129,9 @@ mod tests {
             return;
         }
 
-        let mut sys = System::new();
-        sys.refresh_processes_specifics(ProcessRefreshKind::new().with_cpu());
-        sys.refresh_cpu();
+        let mut sys = System::new_all();
         assert!(!sys.cpus().is_empty());
+        sys.refresh_processes_specifics(ProcessRefreshKind::new().with_cpu());
 
         let stop = Arc::new(AtomicBool::new(false));
         // Spawning a few threads to ensure that it will actually have an impact on the CPU usage.
