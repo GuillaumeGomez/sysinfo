@@ -24,7 +24,6 @@ cfg_if::cfg_if! {
     } else if #[cfg(any(target_os = "macos", target_os = "ios"))] {
         mod apple;
         use apple as sys;
-        extern crate core_foundation_sys;
         mod network_helper_nix;
         use network_helper_nix as network_helper;
         mod network;
@@ -34,8 +33,6 @@ cfg_if::cfg_if! {
     } else if #[cfg(windows)] {
         mod windows;
         use windows as sys;
-        extern crate winapi;
-        extern crate ntapi;
         mod network_helper_win;
         use network_helper_win as network_helper;
         mod network;

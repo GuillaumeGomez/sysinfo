@@ -4,8 +4,6 @@
 #![allow(unused_must_use, non_upper_case_globals)]
 #![allow(clippy::manual_range_contains)]
 
-extern crate sysinfo;
-
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::Signal::*;
