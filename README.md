@@ -1,4 +1,4 @@
-# sysinfo ![img_github_ci] [![][img_crates]][crates] [![][img_doc]][doc]
+# sysinfo [![][img_crates]][crates] [![][img_doc]][doc]
 
 `sysinfo` is a crate used to get a system's information.
 
@@ -206,7 +206,6 @@ If you appreciate my work and want to support me, you can do it with
 [github sponsors](https://github.com/sponsors/GuillaumeGomez) or with
 [patreon](https://www.patreon.com/GuillaumeGomez).
 
-[img_github_ci]: https://github.com/GuillaumeGomez/sysinfo/actions/workflows/CI.yml/badge.svg
 [img_crates]: https://img.shields.io/crates/v/sysinfo.svg
 [img_doc]: https://img.shields.io/badge/rust-documentation-blue.svg
 
