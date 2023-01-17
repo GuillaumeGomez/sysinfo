@@ -346,11 +346,14 @@ pub trait ProcessExt: Debug {
     /// Returns the total CPU usage (in %). Notice that it might be bigger than 100 if run on a
     /// multicore machine.
     ///
-    /// If you want a value between 0% and 100%, divide the returned value by the number of CPU
-    /// CPUs.
+    /// If you want a value between 0% and 100%, divide the returned value by the number of CPUs.
     ///
-    /// **Warning**: If you want accurate CPU usage number, better leave a bit of time
-    /// between two calls of this method (200 ms for example, take a look at
+    /// ⚠️ To start to have accurate CPU usage, a process needs to be refreshed **twice** because
+    /// CPU usage computation is based on time diff (process time on a given time period divided by
+    /// total system time on the same time period).
+    ///
+    /// ⚠️ If you want accurate CPU usage number, better leave a bit of time
+    /// between two calls of this method (take a look at
     /// [`SystemExt::MINIMUM_CPU_UPDATE_INTERVAL`] for more information).
     ///
     /// ```no_run
