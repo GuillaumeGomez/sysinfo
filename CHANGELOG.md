@@ -1,3 +1,10 @@
+# 0.27.7
+
+ * macOS: Fix process CPU usage computation
+ * Linux: Improve ARM CPU `brand` and `name` information.
+ * Windows: Fix resource leak.
+ * Documentation improvements.
+
 # 0.27.6
 
  * Make `MacAddr` public.
