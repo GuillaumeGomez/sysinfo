@@ -170,7 +170,7 @@ pub trait ProcessExt: Debug {
     ///
     /// **⚠️ Important ⚠️**
     ///
-    /// On **linux**, there are two things to know about processes' name:
+    /// On **Linux**, there are two things to know about processes' name:
     ///  1. It is limited to 15 characters.
     ///  2. It is not always the exe name.
     ///
@@ -223,7 +223,7 @@ pub trait ProcessExt: Debug {
     /// freely, making this an untrustworthy source of information.
     fn exe(&self) -> &Path;
 
-    /// Returns the pid of the process.
+    /// Returns the PID of the process.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
@@ -295,7 +295,7 @@ pub trait ProcessExt: Debug {
     /// ```
     fn virtual_memory(&self) -> u64;
 
-    /// Returns the parent pid.
+    /// Returns the parent PID.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
@@ -307,7 +307,7 @@ pub trait ProcessExt: Debug {
     /// ```
     fn parent(&self) -> Option<Pid>;
 
-    /// Returns the status of the processus.
+    /// Returns the status of the process.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
@@ -344,7 +344,7 @@ pub trait ProcessExt: Debug {
     fn run_time(&self) -> u64;
 
     /// Returns the total CPU usage (in %). Notice that it might be bigger than 100 if run on a
-    /// multicore machine.
+    /// multi-core machine.
     ///
     /// If you want a value between 0% and 100%, divide the returned value by the number of CPUs.
     ///
@@ -547,8 +547,8 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// Why is this constant even needed?
     ///
-    /// If refreshed too often (200ms on macOS, 1s onFreeBSD), the CPU usage of processes will be
-    /// `0` whereas on Linux it'll always be the maximum value (`number of CPUs * 100`).
+    /// If refreshed too often, the CPU usage of processes will be `0` whereas on Linux it'll
+    /// always be the maximum value (`number of CPUs * 100`).
     const MINIMUM_CPU_UPDATE_INTERVAL: Duration;
 
     /// Creates a new [`System`] instance with nothing loaded. If you want to
@@ -835,7 +835,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// ## Linux
     ///
-    /// ⚠️ On linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
+    /// ⚠️ On Linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
     /// systems are ignored and the information of a mounted NFS **cannot** be obtained
     /// via [`SystemExt::refresh_disks_list`]. This is due to the fact that I/O function
     /// `statvfs` used by [`SystemExt::refresh_disks_list`] is blocking and
@@ -918,7 +918,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn processes(&self) -> &HashMap<Pid, Process>;
 
-    /// Returns the process corresponding to the given pid or `None` if no such process exists.
+    /// Returns the process corresponding to the given `pid` or `None` if no such process exists.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
@@ -937,7 +937,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// **⚠️ Important ⚠️**
     ///
-    /// On **linux**, there are two things to know about processes' name:
+    /// On **Linux**, there are two things to know about processes' name:
     ///  1. It is limited to 15 characters.
     ///  2. It is not always the exe name.
     ///
@@ -968,7 +968,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// **⚠️ Important ⚠️**
     ///
-    /// On **linux**, there are two things to know about processes' name:
+    /// On **Linux**, there are two things to know about processes' name:
     ///  1. It is limited to 15 characters.
     ///  2. It is not always the exe name.
     ///
@@ -992,7 +992,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         )
     }
 
-    /// Returns "global" cpus information (aka the addition of all the CPUs).
+    /// Returns "global" CPUs information (aka the addition of all the CPUs).
     ///
     /// To have up-to-date information, you need to call [`SystemExt::refresh_cpu`] or
     /// [`SystemExt::refresh_specifics`] with `cpu` enabled.
@@ -1009,7 +1009,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
 
     /// Returns the list of the CPUs.
     ///
-    /// By default, the list of cpus is empty until you call [`SystemExt::refresh_cpu`] or
+    /// By default, the list of CPUs is empty until you call [`SystemExt::refresh_cpu`] or
     /// [`SystemExt::refresh_specifics`] with `cpu` enabled.
     ///
     /// ```no_run
@@ -1607,7 +1607,7 @@ pub trait ComponentExt: Debug {
     ///
     /// ## Linux
     ///
-    /// May be computed by sysinfo from kernel.
+    /// May be computed by `sysinfo` from kernel.
     /// Returns `f32::NAN` if it failed to retrieve it.
     fn max(&self) -> f32;
 
@@ -1640,7 +1640,7 @@ pub trait ComponentExt: Debug {
     ///
     /// ## Linux
     ///
-    /// Since components informations are retrieved thanks to `hwmon`,
+    /// Since components information is retrieved thanks to `hwmon`,
     /// the labels are generated as follows.
     /// Note: it may change and it was inspired by `sensors` own formatting.
     ///

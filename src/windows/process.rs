@@ -596,7 +596,7 @@ unsafe fn get_process_times(handle: HANDLE) -> u64 {
 #[inline]
 fn compute_start(process_times: u64) -> u64 {
     // 11_644_473_600 is the number of seconds between the Windows epoch (1601-01-01) and
-    // the linux epoch (1970-01-01).
+    // the Linux epoch (1970-01-01).
     process_times / 10_000_000 - 11_644_473_600
 }
 
@@ -960,7 +960,7 @@ fn check_sub(a: u64, b: u64) -> u64 {
 }
 
 /// Before changing this function, you must consider the following:
-/// https://github.com/GuillaumeGomez/sysinfo/issues/459
+/// <https://github.com/GuillaumeGomez/sysinfo/issues/459>
 pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
     unsafe {
         let mut ftime: FILETIME = zeroed();

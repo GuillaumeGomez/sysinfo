@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-/// Converts the value into a parallel iterator (if the multithread feature is enabled)
-/// Uses the rayon::iter::IntoParallelIterator trait
+/// Converts the value into a parallel iterator (if the multi-thread feature is enabled).
+/// Uses the `rayon::iter::IntoParallelIterator` trait.
 #[cfg(all(
     all(
         any(
@@ -23,8 +23,8 @@ where
     val.into_par_iter()
 }
 
-/// Converts the value into a sequential iterator (if the multithread feature is disabled)
-/// Uses the std::iter::IntoIterator trait
+/// Converts the value into a sequential iterator (if the multithread feature is disabled).
+/// Uses the `std::iter::IntoIterator` trait.
 #[cfg(all(
     all(
         any(

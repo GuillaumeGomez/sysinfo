@@ -259,8 +259,8 @@ pub extern "C" fn sysinfo_networks_transmitted(system: CSystem) -> size_t {
 
 /// Equivalent of [`System::cpus_usage()`][crate::System#method.cpus_usage].
 ///
-/// * `length` will contain the number of cpu usage added into `procs`.
-/// * `procs` will be allocated if it's null and will contain of cpu usage.
+/// * `length` will contain the number of CPU usage added into `procs`.
+/// * `procs` will be allocated if it's null and will contain of CPU usage.
 #[no_mangle]
 pub extern "C" fn sysinfo_cpus_usage(
     system: CSystem,
@@ -291,7 +291,7 @@ pub extern "C" fn sysinfo_cpus_usage(
 /// Equivalent of [`System::processes()`][crate::System#method.processes]. Returns an
 /// array ended by a null pointer. Must be freed.
 ///
-/// # /!\ WARNING /!\
+/// # ⚠️ WARNING ⚠️
 ///
 /// While having this method returned processes, you should *never* call any refresh method!
 #[no_mangle]
@@ -323,7 +323,7 @@ pub extern "C" fn sysinfo_processes(
 
 /// Equivalent of [`System::process()`][crate::System#method.process].
 ///
-/// # /!\ WARNING /!\
+/// # ⚠️ WARNING ⚠️
 ///
 /// While having this method returned process, you should *never* call any
 /// refresh method!
@@ -344,7 +344,7 @@ pub extern "C" fn sysinfo_process_by_pid(system: CSystem, pid: pid_t) -> CProces
 
 /// Equivalent of iterating over [`Process::tasks()`][crate::Process#method.tasks].
 ///
-/// # /!\ WARNING /!\
+/// # ⚠️ WARNING ⚠️
 ///
 /// While having this method processes, you should *never* call any refresh method!
 #[cfg(target_os = "linux")]

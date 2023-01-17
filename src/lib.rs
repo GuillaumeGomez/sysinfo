@@ -88,10 +88,10 @@ mod system;
 mod traits;
 mod utils;
 
-/// This function is only used on linux targets, on the other platforms it does nothing and returns
+/// This function is only used on Linux targets, on the other platforms it does nothing and returns
 /// `false`.
 ///
-/// On linux, to improve performance, we keep a `/proc` file open for each process we index with
+/// On Linux, to improve performance, we keep a `/proc` file open for each process we index with
 /// a maximum number of files open equivalent to half of the system limit.
 ///
 /// The problem is that some users might need all the available file descriptors so we need to
