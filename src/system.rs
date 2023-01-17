@@ -164,7 +164,7 @@ mod tests {
             for pid in &pids {
                 sys.refresh_process_specifics(*pid, ProcessRefreshKind::new().with_cpu());
             }
-            // To ensure that linux doesn't give too high numbers.
+            // To ensure that Linux doesn't give too high numbers.
             assert!(
                 sys.process(pids[2]).unwrap().cpu_usage() < sys.cpus().len() as f32 * 100.,
                 "using ALL CPU: failed at iteration {}",

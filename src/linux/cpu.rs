@@ -533,10 +533,10 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
 
 /// Obtain the implementer of this CPU core.
 ///
-/// This has been obtained from util-linux’s lscpu implementation, see
+/// This has been obtained from util-linux's lscpu implementation, see
 /// https://github.com/util-linux/util-linux/blob/7076703b529d255600631306419cca1b48ab850a/sys-utils/lscpu-arm.c#L240
 ///
-/// This list will have to be updated every time a new vendor appears, please keep it synchronised
+/// This list will have to be updated every time a new vendor appears, please keep it synchronized
 /// with util-linux and update the link above with the commit you have used.
 fn get_arm_implementer(implementer: u32) -> Option<&'static str> {
     Some(match implementer {
@@ -564,10 +564,10 @@ fn get_arm_implementer(implementer: u32) -> Option<&'static str> {
 
 /// Obtain the part of this CPU core.
 ///
-/// This has been obtained from util-linux’s lscpu implementation, see
+/// This has been obtained from util-linux's lscpu implementation, see
 /// https://github.com/util-linux/util-linux/blob/7076703b529d255600631306419cca1b48ab850a/sys-utils/lscpu-arm.c#L34
 ///
-/// This list will have to be updated every time a new core appears, please keep it synchronised
+/// This list will have to be updated every time a new core appears, please keep it synchronized
 /// with util-linux and update the link above with the commit you have used.
 fn get_arm_part(implementer: u32, part: u32) -> Option<&'static str> {
     Some(match (implementer, part) {

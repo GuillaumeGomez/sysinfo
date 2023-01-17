@@ -31,7 +31,7 @@ pub struct Component {
     /// - Read in: `temp[1-*]_input`.
     /// - Unit: read as millidegree Celsius converted to Celsius.
     temperature: Option<f32>,
-    /// Maximum value computed by sysinfo
+    /// Maximum value computed by `sysinfo`.
     max: Option<f32>,
     /// Max threshold provided by the chip/kernel
     /// - Read in:`temp[1-*]_max`
@@ -60,7 +60,7 @@ pub struct Component {
     sensor_type: Option<TermalSensorType>,
     /// Component Label
     ///
-    /// For formating detail see `Component::label` function docstring.
+    /// For formatting detail see `Component::label` function docstring.
     ///
     /// ## Linux implementation details
     ///
@@ -89,7 +89,7 @@ pub struct Component {
     /// File to read current temperature shall be `temp[1-*]_input`
     /// It may be absent but we don't continue if absent.
     input_file: Option<PathBuf>,
-    /// `temp[1-*]_highest file` to read if disponnible highest value.
+    /// `temp[1-*]_highest file` to read if available highest value.
     highest_file: Option<PathBuf>,
 }
 
@@ -132,14 +132,14 @@ fn get_temperature_from_file(file: &Path) -> Option<f32> {
     convert_temp_celsius(temp)
 }
 
-/// Takes a raw temperature in mili-celsius and convert it to celsius
+/// Takes a raw temperature in mili-celsius and convert it to celsius.
 #[inline]
 fn convert_temp_celsius(temp: Option<i32>) -> Option<f32> {
     temp.map(|n| (n as f32) / 1000f32)
 }
 
 /// Information about thermal sensor. It may be unavailable as it's
-/// kernel module and chip dependant.
+/// kernel module and chip dependent.
 enum TermalSensorType {
     /// 1: CPU embedded diode
     CPUEmbeddedDiode,
@@ -228,7 +228,7 @@ impl Component {
     /// - Optional: max threshold value defined in `tempN_max`
     /// - Optional: critical threshold value defined in `tempN_crit`
     ///
-    /// Where `N` is a u32 associated to a sensor like `temp1_max`, `temp1_input`.
+    /// Where `N` is a `u32` associated to a sensor like `temp1_max`, `temp1_input`.
     ///
     /// ## Doc to Linux kernel API.
     ///

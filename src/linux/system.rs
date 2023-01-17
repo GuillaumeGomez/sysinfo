@@ -29,7 +29,7 @@ pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<isize>>> 
                 rlim_max: 0,
             };
             if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
-                // Most linux system now defaults to 1024.
+                // Most Linux system now defaults to 1024.
                 return Arc::new(Mutex::new(1024 / 2));
             }
             // We save the value in case the update fails.
@@ -56,7 +56,7 @@ pub(crate) fn get_max_nb_fds() -> isize {
             rlim_max: 0,
         };
         if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
-            // Most linux system now defaults to 1024.
+            // Most Linux system now defaults to 1024.
             1024 / 2
         } else {
             limits.rlim_max as isize / 2

@@ -3,11 +3,11 @@
 use crate::common::MacAddr;
 use std::ptr::null_mut;
 
-/// this iterator yields an interface name and address
+/// This iterator yields an interface name and address.
 pub(crate) struct InterfaceAddressIterator {
-    /// Pointer to the current ifaddrs struct
+    /// Pointer to the current `ifaddrs` struct.
     ifap: *mut libc::ifaddrs,
-    /// Pointer to the first element in linked list
+    /// Pointer to the first element in linked list.
     buf: *mut libc::ifaddrs,
 }
 
