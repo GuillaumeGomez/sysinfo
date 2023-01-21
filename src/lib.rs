@@ -84,6 +84,8 @@ pub use c_interface::*;
 mod c_interface;
 mod common;
 mod debug;
+#[cfg(feature = "serde")]
+mod serde;
 mod system;
 mod traits;
 mod utils;
