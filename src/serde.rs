@@ -81,6 +81,7 @@ impl Serialize for dyn CpuExt {
     }
 }
 
+/*
 impl serde::Serialize for dyn SystemExt {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -124,6 +125,7 @@ impl serde::Serialize for dyn SystemExt {
         state.end()
     }
 }
+*/
 
 impl Serialize for dyn NetworkExt {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
