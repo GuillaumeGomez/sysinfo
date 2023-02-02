@@ -1,5 +1,8 @@
 use crate::common::PidExt;
-use crate::{ComponentExt, CpuExt, DiskExt, NetworkExt, ProcessExt, SystemExt, UserExt};
+use crate::{
+    ComponentExt, CpuExt, DiskExt, DiskType, DiskUsage, MacAddr, NetworkExt, ProcessExt,
+    ProcessStatus, SystemExt, UserExt,
+};
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::ops::Deref;
 
@@ -81,7 +84,6 @@ impl Serialize for dyn CpuExt {
     }
 }
 
-/*
 impl serde::Serialize for dyn SystemExt {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -92,7 +94,6 @@ impl serde::Serialize for dyn SystemExt {
         // IS_SUPPORTED: bool
         // SUPPORTED_SIGNALS: &'static [Signal]
         // MINIMUM_CPU_UPDATE_INTERVAL: Duration;
-        // &self.processes() -> &HashMap<Pid, Process>;
         // &self.global_cpu_info() -> &Cpu;
         // &self.cpus -> &[Cpu];
 
@@ -125,7 +126,6 @@ impl serde::Serialize for dyn SystemExt {
         state.end()
     }
 }
-*/
 
 impl Serialize for dyn NetworkExt {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -193,8 +193,6 @@ impl Serialize for dyn UserExt {
         state.end()
     }
 }
-
-use crate::{DiskType, DiskUsage, MacAddr, ProcessStatus};
 
 impl Serialize for DiskType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
