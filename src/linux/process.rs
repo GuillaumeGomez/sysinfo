@@ -19,26 +19,13 @@ use crate::utils::into_iter;
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 #[doc(hidden)]
-impl From<u32> for ProcessStatus {
-    fn from(status: u32) -> ProcessStatus {
-        match status {
-            1 => ProcessStatus::Idle,
-            2 => ProcessStatus::Run,
-            3 => ProcessStatus::Sleep,
-            4 => ProcessStatus::Stop,
-            5 => ProcessStatus::Zombie,
-            x => ProcessStatus::Unknown(x),
-        }
-    }
-}
-
-#[doc(hidden)]
 impl From<char> for ProcessStatus {
     fn from(status: char) -> ProcessStatus {
         match status {
             'R' => ProcessStatus::Run,
             'S' => ProcessStatus::Sleep,
-            'D' => ProcessStatus::Idle,
+            'I' => ProcessStatus::Idle,
+            'D' => ProcessStatus::UninterruptibleDiskSleep,
             'Z' => ProcessStatus::Zombie,
             'T' => ProcessStatus::Stop,
             't' => ProcessStatus::Tracing,
@@ -64,6 +51,7 @@ impl fmt::Display for ProcessStatus {
             ProcessStatus::Wakekill => "Wakekill",
             ProcessStatus::Waking => "Waking",
             ProcessStatus::Parked => "Parked",
+            ProcessStatus::UninterruptibleDiskSleep => "UninterruptibleDiskSleep",
             _ => "Unknown",
         })
     }
@@ -431,6 +419,11 @@ pub(crate) fn _get_process_data(
     refresh_kind: ProcessRefreshKind,
 ) -> Result<(Option<Process>, Pid), ()> {
     let pid = match path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
+        // If `pid` and `nb` are the same, it means the file is linking to itself so we skip it.
+        //
+        // It's because when reading `/proc/[PID]` folder, we then go through the folders inside it.
+        // Then, if we encounter a sub-folder with the same PID as the parent, then it's a link to
+        // the current folder we already did read so no need to do anything.
         Some(Ok(nb)) if nb != pid => nb,
         _ => return Err(()),
     };
