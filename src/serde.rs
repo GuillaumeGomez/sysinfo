@@ -94,34 +94,33 @@ impl serde::Serialize for dyn SystemExt {
         // IS_SUPPORTED: bool
         // SUPPORTED_SIGNALS: &'static [Signal]
         // MINIMUM_CPU_UPDATE_INTERVAL: Duration;
-        // &self.global_cpu_info() -> &Cpu;
-        // &self.cpus -> &[Cpu];
 
-        state.serialize_field("physical_core_count", &self.physical_core_count())?; // Option<usize>
-        state.serialize_field("total_memory", &self.total_memory())?; // u64
-        state.serialize_field("free_memory", &self.free_memory())?; // u64
-        state.serialize_field("available_memory", &self.available_memory())?; // u64
-        state.serialize_field("used_memory", &self.used_memory())?; // u64
-        state.serialize_field("total_swap", &self.total_swap())?; // u64
-        state.serialize_field("free_swap", &self.free_swap())?; // u64
-        state.serialize_field("used_swap", &self.used_swap())?; // u64
+        state.serialize_field("global_cpu_info", &self.global_cpu_info())?; // serialize as dyn CpuExt?
+        state.serialize_field("cpus", &self.cpus())?; // serialize as dyn CpuExt?
 
-        // &self.components() -> &[Component]
-        // &self.users() -> &[User]
-        // &self.disks() -> &[Disk]
-        // &self.networks() -> &Networks
+        state.serialize_field("physical_core_count", &self.physical_core_count())?;
+        state.serialize_field("total_memory", &self.total_memory())?;
+        state.serialize_field("free_memory", &self.free_memory())?;
+        state.serialize_field("available_memory", &self.available_memory())?;
+        state.serialize_field("used_memory", &self.used_memory())?;
+        state.serialize_field("total_swap", &self.total_swap())?;
+        state.serialize_field("free_swap", &self.free_swap())?;
+        state.serialize_field("used_swap", &self.used_swap())?;
 
-        state.serialize_field("uptime", &self.uptime())?; // u64
-        state.serialize_field("boot_time", &self.boot_time())?; // u64
+        state.serialize_field("components", &self.components())?; // serialize as dyn ComponentExt?
+        state.serialize_field("users", &self.users())?; // serialize as dyn UserExt?
+        state.serialize_field("disks", &self.disks())?; // serialize as dyn DiskExt?
+        state.serialize_field("networks", &self.networks())?; // serialize as dyn NetworkExt?
 
-        // &self.load_average() -> LoadAvg
-
-        state.serialize_field("name", &self.name())?; // Option<String>
-        state.serialize_field("kernel_version", &self.kernel_version())?; // Option<String>
-        state.serialize_field("os_version", &self.os_version())?; // Option<String>
-        state.serialize_field("long_os_version", &self.long_os_version())?; // Option<String>
-        state.serialize_field("distribution_id", &self.distribution_id())?; // String
-        state.serialize_field("host_name", &self.host_name())?; // Option<String>
+        state.serialize_field("uptime", &self.uptime())?;
+        state.serialize_field("boot_time", &self.boot_time())?;
+        state.serialize_field("load_average", &self.load_average())?;
+        state.serialize_field("name", &self.name())?;
+        state.serialize_field("kernel_version", &self.kernel_version())?;
+        state.serialize_field("os_version", &self.os_version())?;
+        state.serialize_field("long_os_version", &self.long_os_version())?;
+        state.serialize_field("distribution_id", &self.distribution_id())?;
+        state.serialize_field("host_name", &self.host_name())?;
 
         state.end()
     }
