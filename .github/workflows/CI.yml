@@ -181,6 +181,10 @@ jobs:
         run: cargo test --lib -- --ignored --test-threads 1
         env:
           RUST_BACKTRACE: full
+      - name: Check serde feature
+        run: cargo check --features serde
+        env:
+          RUST_BACKTRACE: full
 
   c_interface:
     runs-on: ubuntu-latest
@@ -192,17 +196,6 @@ jobs:
           toolchain: stable
           override: true
       - run: make
-
-  serde:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: cargo build --features=serde
 
   unknown-targets:
     runs-on: ubuntu-latest
