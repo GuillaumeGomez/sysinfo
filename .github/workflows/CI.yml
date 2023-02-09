@@ -193,6 +193,17 @@ jobs:
           override: true
       - run: cargo build --features=c-interface
 
+  serde:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: cargo build --features=serde
+
   unknown-targets:
     runs-on: ubuntu-latest
     strategy:
