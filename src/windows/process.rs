@@ -595,7 +595,6 @@ pub(crate) fn get_start_time(handle: HANDLE) -> u64 {
     }
 }
 
-#[allow(clippy::uninit_vec)]
 unsafe fn ph_query_process_variable_size(
     process_handle: &HandleWrapper,
     process_information_class: PROCESSINFOCLASS,
@@ -620,8 +619,6 @@ unsafe fn ph_query_process_variable_size(
     let mut return_length = return_length.assume_init();
     let buf_len = (return_length as usize) / 2;
     let mut buffer: Vec<u16> = Vec::with_capacity(buf_len + 1);
-    buffer.set_len(buf_len);
-
     status = NtQueryInformationProcess(
         **process_handle,
         process_information_class,
@@ -632,6 +629,7 @@ unsafe fn ph_query_process_variable_size(
     if !NT_SUCCESS(status) {
         return None;
     }
+    buffer.set_len(buf_len);
     buffer.push(0);
     Some(buffer)
 }
