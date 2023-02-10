@@ -702,10 +702,6 @@ macro_rules! uid {
     ($type:ty$(, $trait:ty)?) => {
         xid!(
             /// A user id wrapping a platform specific type.
-            ///
-            /// ⚠️ On windows, `Uid` is actually wrapping a `Box<str>` due to some
-            /// Windows limitations around their users ID. For the time being, `Uid`
-            /// is the user name on this platform.
             Uid,
             $type
             $(, $trait)?
@@ -739,21 +735,14 @@ cfg_if::cfg_if! {
         uid!(libc::uid_t, FromStr);
         gid!(libc::gid_t);
     } else if #[cfg(windows)] {
-        uid!(Box<str>);
+        uid!(crate::windows::Sid);
         gid!(u32);
         // Manual implementation outside of the macro...
         impl FromStr for Uid {
-            type Err = <String as FromStr>::Err;
+            type Err = <crate::windows::Sid as FromStr>::Err;
 
-            fn from_str(t: &str) -> Result<Self, <String as FromStr>::Err> {
-                Ok(Self(t.into()))
-            }
-        }
-        impl TryFrom<usize> for Uid {
-            type Error = <u32 as TryFrom<usize>>::Error;
-
-            fn try_from(t: usize) -> Result<Self, <u32 as TryFrom<usize>>::Error> {
-                Ok(Self(t.to_string().into_boxed_str()))
+            fn from_str(t: &str) -> Result<Self, Self::Err> {
+                Ok(Self(t.parse()?))
             }
         }
     } else {
@@ -1059,8 +1048,16 @@ mod tests {
         use std::convert::TryFrom;
         use std::str::FromStr;
 
-        assert!(crate::Uid::try_from(0usize).is_ok());
-        assert!(crate::Uid::from_str("0").is_ok());
+        #[cfg(not(windows))]
+        {
+            assert!(crate::Uid::try_from(0usize).is_ok());
+            assert!(crate::Uid::from_str("0").is_ok());
+        }
+        #[cfg(windows)]
+        {
+            assert!(crate::Uid::from_str("S-1-5-18").is_ok()); // SECURITY_LOCAL_SYSTEM_RID
+            assert!(crate::Uid::from_str("0").is_err());
+        }
 
         assert!(crate::Gid::try_from(0usize).is_ok());
         assert!(crate::Gid::from_str("0").is_ok());

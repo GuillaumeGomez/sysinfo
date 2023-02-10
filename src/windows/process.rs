@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::system::is_proc_running;
-use crate::sys::utils::to_str;
+use crate::windows::Sid;
 use crate::{
     DiskUsage, Gid, Pid, PidExt, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid,
 };
@@ -143,29 +143,7 @@ unsafe fn get_process_user_id(
         return None;
     }
 
-    let mut name_use = 0;
-    let mut name = [0u16; 256];
-    let mut domain_name = [0u16; 256];
-    let mut size = 256;
-
-    if winapi::um::winbase::LookupAccountSidW(
-        std::ptr::null_mut(),
-        (*ptu.0).User.Sid,
-        name.as_mut_ptr(),
-        &mut size,
-        domain_name.as_mut_ptr(),
-        &mut size,
-        &mut name_use,
-    ) == 0
-    {
-        sysinfo_debug!(
-            "LookupAccountSidW failed: {:?}",
-            winapi::um::errhandlingapi::GetLastError(),
-        );
-        None
-    } else {
-        Some(Uid(to_str(name.as_mut_ptr()).into_boxed_str()))
-    }
+    Sid::from_psid((*ptu.0).User.Sid).map(Uid)
 }
 
 struct HandleWrapper(HANDLE);
