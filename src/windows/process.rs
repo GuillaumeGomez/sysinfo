@@ -673,24 +673,31 @@ unsafe fn get_region_size(handle: &HandleWrapper, ptr: LPVOID) -> Result<usize, 
     Ok((meminfo.RegionSize as isize - ptr.offset_from(meminfo.BaseAddress)) as usize)
 }
 
-#[allow(clippy::uninit_vec)]
 unsafe fn get_process_data(
     handle: &HandleWrapper,
     ptr: LPVOID,
     size: usize,
 ) -> Result<Vec<u16>, &'static str> {
     let mut buffer: Vec<u16> = Vec::with_capacity(size / 2 + 1);
-    buffer.set_len(size / 2);
+    let mut bytes_read = 0;
+
     if ReadProcessMemory(
         **handle,
         ptr as *mut _,
         buffer.as_mut_ptr() as *mut _,
         size,
-        null_mut(),
-    ) != TRUE
+        &mut bytes_read,
+    ) == FALSE
     {
         return Err("Unable to read process data");
     }
+
+    // Documentation states that the function fails if not all data is accessible
+    assert_eq!(bytes_read, size);
+
+    buffer.set_len(size / 2);
+    buffer.push(0);
+
     Ok(buffer)
 }
 
