@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::system::is_proc_running;
-use crate::sys::utils::to_str;
+use crate::windows::Sid;
 use crate::{
     DiskUsage, Gid, Pid, PidExt, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid,
 };
@@ -143,29 +143,7 @@ unsafe fn get_process_user_id(
         return None;
     }
 
-    let mut name_use = 0;
-    let mut name = [0u16; 256];
-    let mut domain_name = [0u16; 256];
-    let mut size = 256;
-
-    if winapi::um::winbase::LookupAccountSidW(
-        std::ptr::null_mut(),
-        (*ptu.0).User.Sid,
-        name.as_mut_ptr(),
-        &mut size,
-        domain_name.as_mut_ptr(),
-        &mut size,
-        &mut name_use,
-    ) == 0
-    {
-        sysinfo_debug!(
-            "LookupAccountSidW failed: {:?}",
-            winapi::um::errhandlingapi::GetLastError(),
-        );
-        None
-    } else {
-        Some(Uid(to_str(name.as_mut_ptr()).into_boxed_str()))
-    }
+    Sid::from_psid((*ptu.0).User.Sid).map(Uid)
 }
 
 struct HandleWrapper(HANDLE);
@@ -617,7 +595,6 @@ pub(crate) fn get_start_time(handle: HANDLE) -> u64 {
     }
 }
 
-#[allow(clippy::uninit_vec)]
 unsafe fn ph_query_process_variable_size(
     process_handle: &HandleWrapper,
     process_information_class: PROCESSINFOCLASS,
@@ -642,8 +619,6 @@ unsafe fn ph_query_process_variable_size(
     let mut return_length = return_length.assume_init();
     let buf_len = (return_length as usize) / 2;
     let mut buffer: Vec<u16> = Vec::with_capacity(buf_len + 1);
-    buffer.set_len(buf_len);
-
     status = NtQueryInformationProcess(
         **process_handle,
         process_information_class,
@@ -654,6 +629,7 @@ unsafe fn ph_query_process_variable_size(
     if !NT_SUCCESS(status) {
         return None;
     }
+    buffer.set_len(buf_len);
     buffer.push(0);
     Some(buffer)
 }
@@ -695,24 +671,31 @@ unsafe fn get_region_size(handle: &HandleWrapper, ptr: LPVOID) -> Result<usize, 
     Ok((meminfo.RegionSize as isize - ptr.offset_from(meminfo.BaseAddress)) as usize)
 }
 
-#[allow(clippy::uninit_vec)]
 unsafe fn get_process_data(
     handle: &HandleWrapper,
     ptr: LPVOID,
     size: usize,
 ) -> Result<Vec<u16>, &'static str> {
     let mut buffer: Vec<u16> = Vec::with_capacity(size / 2 + 1);
-    buffer.set_len(size / 2);
+    let mut bytes_read = 0;
+
     if ReadProcessMemory(
         **handle,
         ptr as *mut _,
         buffer.as_mut_ptr() as *mut _,
         size,
-        null_mut(),
-    ) != TRUE
+        &mut bytes_read,
+    ) == FALSE
     {
         return Err("Unable to read process data");
     }
+
+    // Documentation states that the function fails if not all data is accessible
+    assert_eq!(bytes_read, size);
+
+    buffer.set_len(size / 2);
+    buffer.push(0);
+
     Ok(buffer)
 }
 

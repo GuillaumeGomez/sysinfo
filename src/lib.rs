@@ -337,6 +337,25 @@ mod test {
     }
 
     #[test]
+    fn check_all_process_uids_resolvable() {
+        if System::IS_SUPPORTED {
+            let s = System::new_with_specifics(
+                RefreshKind::new()
+                    .with_processes(ProcessRefreshKind::new().with_user())
+                    .with_users_list(),
+            );
+
+            // For every process where we can get a user ID, we should also be able
+            // to find that user ID in the global user list
+            for process in s.processes().values() {
+                if let Some(uid) = process.user_id() {
+                    assert!(s.get_user_by_id(uid).is_some());
+                }
+            }
+        }
+    }
+
+    #[test]
     fn check_system_info() {
         let s = System::new();
 

@@ -55,7 +55,8 @@ winapi = { version = "0.3.9", features = [
   "shellapi",
   "std",
   "iphlpapi",
-  "winsock2"
+  "winsock2",
+  "sddl",
 ]}
 ntapi = "0.4"
 
