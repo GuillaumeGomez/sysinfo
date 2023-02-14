@@ -71,7 +71,6 @@ tempfile = "3.2"
 
 [lib]
 name = "sysinfo"
-crate_type = ["rlib", "cdylib"]
 
 [features]
 default = ["multithread"]
