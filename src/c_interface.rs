@@ -26,7 +26,7 @@ pub extern "C" fn sysinfo_init() -> CSystem {
 pub extern "C" fn sysinfo_destroy(system: CSystem) {
     assert!(!system.is_null());
     unsafe {
-        Box::from_raw(system as *mut System);
+        drop(Box::from_raw(system as *mut System));
     }
 }
 
