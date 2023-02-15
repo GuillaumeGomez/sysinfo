@@ -336,11 +336,18 @@ impl SystemExt for System {
             }
             let (new, old) = self.cpus.get_global_raw_times();
             let total_time = (if old >= new { 1 } else { new - old }) as f32;
+            let total_time = total_time / self.cpus.len() as f32;
 
             let max_cpu_usage = self.get_max_process_cpu_usage();
             if let Some(p) = self.process_list.tasks.get_mut(&pid) {
-                compute_cpu_usage(p, total_time / self.cpus.len() as f32, max_cpu_usage);
+                compute_cpu_usage(p, total_time, max_cpu_usage);
                 p.updated = false;
+                if !p.tasks.is_empty() {
+                    for (_pid, task) in p.tasks.iter_mut() {
+                        compute_cpu_usage(task, total_time, max_cpu_usage);
+                        task.updated = false;
+                    }
+                }
             }
         } else if let Some(p) = self.process_list.tasks.get_mut(&pid) {
             p.updated = false;
