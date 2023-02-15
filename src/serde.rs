@@ -1,12 +1,14 @@
+// Take a look at the license at the top of the repository in the LICENSE file.
+
 use crate::common::PidExt;
 use crate::{
-    ComponentExt, CpuExt, DiskExt, DiskType, DiskUsage, MacAddr, NetworkExt, ProcessExt,
-    ProcessStatus, SystemExt, UserExt,
+    ComponentExt, CpuExt, DiskExt, DiskType, DiskUsage, MacAddr, NetworkExt, NetworksExt,
+    ProcessExt, ProcessStatus, Signal, SystemExt, UserExt,
 };
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::ops::Deref;
 
-impl Serialize for dyn DiskExt {
+impl Serialize for crate::Disk {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -27,7 +29,7 @@ impl Serialize for dyn DiskExt {
     }
 }
 
-impl Serialize for dyn ProcessExt {
+impl Serialize for crate::Process {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -52,8 +54,7 @@ impl Serialize for dyn ProcessExt {
         state.serialize_field("cpu_usage", &self.cpu_usage())?;
         state.serialize_field("disk_usage", &self.disk_usage())?;
         if let Some(uid) = self.user_id() {
-            let uid = *uid.deref();
-            state.serialize_field("user_id", &uid)?;
+            state.serialize_field("user_id", &uid.to_string())?;
         }
         if let Some(gid) = self.group_id() {
             let gid = *gid.deref();
@@ -67,7 +68,7 @@ impl Serialize for dyn ProcessExt {
     }
 }
 
-impl Serialize for dyn CpuExt {
+impl Serialize for crate::Cpu {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -84,19 +85,22 @@ impl Serialize for dyn CpuExt {
     }
 }
 
-impl serde::Serialize for dyn SystemExt {
+impl serde::Serialize for crate::System {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_struct("System", 27)?;
 
-        // IS_SUPPORTED: bool
-        // SUPPORTED_SIGNALS: &'static [Signal]
-        // MINIMUM_CPU_UPDATE_INTERVAL: Duration;
+        state.serialize_field("IS_SUPPORTED", &<Self as SystemExt>::IS_SUPPORTED)?;
+        state.serialize_field("SUPPORTED_SIGNALS", <Self as SystemExt>::SUPPORTED_SIGNALS)?;
+        state.serialize_field(
+            "MINIMUM_CPU_UPDATE_INTERVAL",
+            &<Self as SystemExt>::MINIMUM_CPU_UPDATE_INTERVAL,
+        )?;
 
-        state.serialize_field("global_cpu_info", &self.global_cpu_info())?; // serialize as dyn CpuExt?
-        state.serialize_field("cpus", &self.cpus())?; // serialize as dyn CpuExt?
+        state.serialize_field("global_cpu_info", &self.global_cpu_info())?;
+        state.serialize_field("cpus", &self.cpus())?;
 
         state.serialize_field("physical_core_count", &self.physical_core_count())?;
         state.serialize_field("total_memory", &self.total_memory())?;
@@ -107,10 +111,10 @@ impl serde::Serialize for dyn SystemExt {
         state.serialize_field("free_swap", &self.free_swap())?;
         state.serialize_field("used_swap", &self.used_swap())?;
 
-        state.serialize_field("components", &self.components())?; // serialize as dyn ComponentExt?
-        state.serialize_field("users", &self.users())?; // serialize as dyn UserExt?
-        state.serialize_field("disks", &self.disks())?; // serialize as dyn DiskExt?
-        state.serialize_field("networks", &self.networks())?; // serialize as dyn NetworkExt?
+        state.serialize_field("components", &self.components())?;
+        state.serialize_field("users", &self.users())?;
+        state.serialize_field("disks", &self.disks())?;
+        state.serialize_field("networks", &self.networks())?;
 
         state.serialize_field("uptime", &self.uptime())?;
         state.serialize_field("boot_time", &self.boot_time())?;
@@ -126,12 +130,88 @@ impl serde::Serialize for dyn SystemExt {
     }
 }
 
-impl Serialize for dyn NetworkExt {
+impl Serialize for crate::Networks {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("Network", 1)?;
+        serializer.collect_seq(self.iter())
+    }
+}
+
+impl Serialize for Signal {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let (index, variant) = match *self {
+            Signal::Hangup => (0, "Hangup"),
+            Signal::Interrupt => (1, "Interrupt"),
+            Signal::Quit => (2, "Quit"),
+            Signal::Illegal => (3, "Illegal"),
+            Signal::Trap => (4, "Trap"),
+            Signal::Abort => (5, "Abort"),
+            Signal::IOT => (6, "IOT"),
+            Signal::Bus => (7, "Bus"),
+            Signal::FloatingPointException => (8, "FloatingPointException"),
+            Signal::Kill => (9, "Kill"),
+            Signal::User1 => (10, "User1"),
+            Signal::Segv => (11, "Segv"),
+            Signal::User2 => (12, "User2"),
+            Signal::Pipe => (13, "Pipe"),
+            Signal::Alarm => (14, "Alarm"),
+            Signal::Term => (15, "Term"),
+            Signal::Child => (16, "Child"),
+            Signal::Continue => (17, "Continue"),
+            Signal::Stop => (18, "Stop"),
+            Signal::TSTP => (19, "TSTP"),
+            Signal::TTIN => (20, "TTIN"),
+            Signal::TTOU => (21, "TTOU"),
+            Signal::Urgent => (22, "Urgent"),
+            Signal::XCPU => (23, "XCPU"),
+            Signal::XFSZ => (24, "XFSZ"),
+            Signal::VirtualAlarm => (25, "VirtualAlarm"),
+            Signal::Profiling => (26, "Profiling"),
+            Signal::Winch => (27, "Winch"),
+            Signal::IO => (28, "IO"),
+            Signal::Poll => (29, "Poll"),
+            Signal::Power => (30, "Power"),
+            Signal::Sys => (31, "Sys"),
+        };
+
+        serializer.serialize_unit_variant("Signal", index, variant)
+    }
+}
+
+impl Serialize for crate::LoadAvg {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("LoadAvg", 1)?;
+
+        state.serialize_field("one", &self.one)?;
+        state.serialize_field("five", &self.five)?;
+        state.serialize_field("fifteen", &self.fifteen)?;
+        state.end()
+    }
+}
+
+// impl Serialize for crate::NetworkData {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         let mut state = serializer.serialize_struct("NetworkData", 1)?;
+//     }
+// }
+
+impl Serialize for crate::NetworkData {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("NetworkData", 1)?;
 
         state.serialize_field("received", &self.received())?;
         state.serialize_field("total_received", &self.total_received())?;
@@ -157,7 +237,7 @@ impl Serialize for dyn NetworkExt {
     }
 }
 
-impl Serialize for dyn ComponentExt {
+impl Serialize for crate::Component {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -173,15 +253,14 @@ impl Serialize for dyn ComponentExt {
     }
 }
 
-impl Serialize for dyn UserExt {
+impl Serialize for crate::User {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("User", 1)?;
 
-        let uid = *self.id().deref();
-        state.serialize_field("id", &uid)?;
+        state.serialize_field("id", &self.id().to_string())?;
 
         let gid = *self.group_id().deref();
         state.serialize_field("group_id", &gid)?;
@@ -229,7 +308,8 @@ impl Serialize for ProcessStatus {
             ProcessStatus::Waking => (8, "Waking", None),
             ProcessStatus::Parked => (9, "Parked", None),
             ProcessStatus::LockBlocked => (10, "LockBlocked", None),
-            ProcessStatus::Unknown(n) => (11, "Unknown", Some(n)),
+            ProcessStatus::UninterruptibleDiskSleep => (11, "UninterruptibleDiskSleep", None),
+            ProcessStatus::Unknown(n) => (12, "Unknown", Some(n)),
         };
 
         if let Some(ref value) = maybe_value {

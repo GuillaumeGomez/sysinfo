@@ -70,6 +70,9 @@ core-foundation-sys = "0.8"
 [target.'cfg(all(target_os = "linux", not(target_os = "android")))'.dev-dependencies]
 tempfile = "3.2"
 
+[dev-dependencies]
+serde_json = "1.0" # Used in documentation tests.
+
 [lib]
 name = "sysinfo"
 

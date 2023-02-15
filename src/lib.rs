@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 #![doc = include_str!("../README.md")]
+#![cfg_attr(feature = "serde", doc = include_str!("../md_doc/serde.md"))]
 #![allow(unknown_lints)]
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
