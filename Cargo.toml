@@ -2,17 +2,31 @@
 name = "sysinfo"
 version = "0.27.7"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
-
 description = "Library to get system information such as processes, CPUs, disks, components and networks"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "MIT"
 readme = "README.md"
 rust-version = "1.59"
 exclude = ["/test-unknown"]
-
 categories = ["filesystem", "os", "api-bindings"]
-
 edition = "2018"
+
+[lib]
+name = "sysinfo"
+
+[features]
+default = ["multithread"]
+apple-sandbox = []
+apple-app-store = ["apple-sandbox"]
+c-interface = []
+multithread = ["rayon"]
+debug = ["libc/extra_traits"]
+# This feature is used on CI to emulate unknown/unsupported target.
+unknown-ci = []
+serde = ["dep:serde"]
+
+[package.metadata.docs.rs]
+features = ["serde"]
 
 [dependencies]
 cfg-if = "1.0"
@@ -72,17 +86,3 @@ tempfile = "3.2"
 
 [dev-dependencies]
 serde_json = "1.0" # Used in documentation tests.
-
-[lib]
-name = "sysinfo"
-
-[features]
-default = ["multithread"]
-apple-sandbox = []
-apple-app-store = ["apple-sandbox"]
-c-interface = []
-multithread = ["rayon"]
-debug = ["libc/extra_traits"]
-# This feature is used on CI to emulate unknown/unsupported target.
-unknown-ci = []
-serde = ["dep:serde"]
