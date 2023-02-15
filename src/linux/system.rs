@@ -204,6 +204,12 @@ impl System {
             }
             if compute_cpu {
                 compute_cpu_usage(proc_, total_time, max_value);
+                if !proc_.tasks.is_empty() {
+                    for (_pid, task) in proc_.tasks.iter_mut() {
+                        compute_cpu_usage(task, total_time, max_value);
+                        task.updated = false;
+                    }
+                }
             }
             proc_.updated = false;
             true
