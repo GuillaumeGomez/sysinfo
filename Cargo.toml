@@ -23,7 +23,6 @@ multithread = ["rayon"]
 debug = ["libc/extra_traits"]
 # This feature is used on CI to emulate unknown/unsupported target.
 unknown-ci = []
-serde = ["dep:serde"]
 
 [package.metadata.docs.rs]
 features = ["serde"]
