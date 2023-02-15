@@ -28,7 +28,11 @@ fn read_dir<P: AsRef<Path>, F: FnMut(&Path, &str)>(dir: P, callback: &mut F) {
         let path = entry.path();
         if path.is_dir() {
             read_dir(path, callback);
-        } else {
+        } else if path
+            .extension()
+            .map(|ext| ext == "rs" || ext == "c" || ext == "h")
+            .unwrap_or(false)
+        {
             let content = read_file(&path);
             callback(&path, &content);
         }
@@ -36,11 +40,15 @@ fn read_dir<P: AsRef<Path>, F: FnMut(&Path, &str)>(dir: P, callback: &mut F) {
 }
 
 fn read_file<P: AsRef<Path>>(p: P) -> String {
-    let mut f = File::open(p).expect("read_file::open failed");
+    let mut f = File::open(&p).expect("read_file::open failed");
     let mut content =
         String::with_capacity(f.metadata().map(|m| m.len() as usize + 1).unwrap_or(0));
-    f.read_to_string(&mut content)
-        .expect("read_file::read_to_end failed");
+    if let Err(e) = f.read_to_string(&mut content) {
+        panic!(
+            "read_file::read_to_end failed for `{}: {e:?}",
+            p.as_ref().display()
+        );
+    }
     content
 }
 
