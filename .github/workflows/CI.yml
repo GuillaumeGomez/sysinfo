@@ -39,7 +39,7 @@ jobs:
           toolchain: nightly
           override: true
           components: clippy
-      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo clippy --all-targets --features serde -- -D warnings
 
   check:
     name: Check ${{ matrix.toolchain }} / ${{ matrix.triple.target }}
@@ -155,6 +155,9 @@ jobs:
       - name: Check docs
         run: cargo doc
         if: matrix.toolchain == 'nightly'
+      - name: Check docs with serde
+        run: cargo doc --features serde
+        if: matrix.toolchain == 'nightly'
       - name: Execute tests (not mac)
         run: cargo test
         if: matrix.os != 'macos-latest'
@@ -179,6 +182,12 @@ jobs:
           APPLE_CI: 1 # FIXME: remove this once CI mac tests are fixed
       - name: Run CPU test
         run: cargo test --lib -- --ignored --test-threads 1
+        env:
+          RUST_BACKTRACE: full
+      - name: Check serde feature
+        run: |
+          cargo check --features serde
+          cargo test --features serde --doc
         env:
           RUST_BACKTRACE: full
 
