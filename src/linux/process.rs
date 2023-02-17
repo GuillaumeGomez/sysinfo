@@ -247,6 +247,17 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32
         / total_time
         * 100.)
         .min(max_value);
+
+    for task in p.tasks.values_mut() {
+        compute_cpu_usage(task, total_time, max_value);
+    }
+}
+
+pub(crate) fn unset_updated(p: &mut Process) {
+    p.updated = false;
+    for task in p.tasks.values_mut() {
+        unset_updated(task);
+    }
 }
 
 pub(crate) fn set_time(p: &mut Process, utime: u64, stime: u64) {
@@ -365,34 +376,23 @@ fn retrieve_all_new_process_info(
         refresh_user_group_ids(&mut p, &mut tmp);
     }
 
-    if proc_list.pid.0 != 0 {
-        // If we're getting information for a child, no need to get those info since we
-        // already have them...
-        p.cmd = proc_list.cmd.clone();
-        p.name = proc_list.name.clone();
-        p.environ = proc_list.environ.clone();
-        p.exe = proc_list.exe.clone();
-        p.cwd = proc_list.cwd.clone();
-        p.root = proc_list.root.clone();
-    } else {
-        p.name = name.into();
+    p.name = name.into();
 
-        match tmp.join("exe").read_link() {
-            Ok(exe_path) => {
-                p.exe = exe_path;
-            }
-            Err(_) => {
-                // Do not use cmd[0] because it is not the same thing.
-                // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
-                p.exe = PathBuf::new()
-            }
+    match tmp.join("exe").read_link() {
+        Ok(exe_path) => {
+            p.exe = exe_path;
         }
-
-        p.cmd = copy_from_file(tmp.join("cmdline"));
-        p.environ = copy_from_file(tmp.join("environ"));
-        p.cwd = realpath(tmp.join("cwd"));
-        p.root = realpath(tmp.join("root"));
+        Err(_) => {
+            // Do not use cmd[0] because it is not the same thing.
+            // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
+            p.exe = PathBuf::new()
+        }
     }
+
+    p.cmd = copy_from_file(tmp.join("cmdline"));
+    p.environ = copy_from_file(tmp.join("environ"));
+    p.cwd = realpath(tmp.join("cwd"));
+    p.root = realpath(tmp.join("root"));
 
     update_time_and_memory(
         path,
