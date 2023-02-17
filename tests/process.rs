@@ -399,6 +399,46 @@ fn test_refresh_processes() {
     assert!(s.process(pid).is_none());
 }
 
+// Checks that `refresh_processes` is adding and removing task.
+#[test]
+fn test_refresh_tasks() {
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let task_name = "task_1_second";
+    std::thread::Builder::new()
+        .name(task_name.into())
+        .spawn(|| {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        })
+        .unwrap();
+
+    let pid = Pid::from_u32(std::process::id() as _);
+
+    // Checks that the task is listed as it should.
+    let mut s = sysinfo::System::new();
+    s.refresh_processes();
+
+    assert!(s
+        .process(pid)
+        .unwrap()
+        .tasks
+        .values()
+        .any(|t| t.name() == task_name));
+
+    // Let's give some time to the system to clean up...
+    std::thread::sleep(std::time::Duration::from_secs(2));
+
+    s.refresh_processes();
+
+    assert!(!s
+        .process(pid)
+        .unwrap()
+        .tasks
+        .values()
+        .any(|t| t.name() == task_name));
+}
+
 // Checks that `refresh_process` is NOT removing dead processes.
 #[test]
 fn test_refresh_process() {
