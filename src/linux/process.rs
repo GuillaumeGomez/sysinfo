@@ -247,6 +247,17 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32
         / total_time
         * 100.)
         .min(max_value);
+
+    for task in p.tasks.values_mut() {
+        compute_cpu_usage(task, total_time, max_value);
+    }
+}
+
+pub(crate) fn unset_updated(p: &mut Process) {
+    p.updated = false;
+    for task in p.tasks.values_mut() {
+        unset_updated(task);
+    }
 }
 
 pub(crate) fn set_time(p: &mut Process, utime: u64, stime: u64) {
