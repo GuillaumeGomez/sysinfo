@@ -137,11 +137,13 @@ pub(crate) fn get_cpu_frequency() -> u64 {
 }
 
 #[inline]
-fn get_in_use(cpu_info: *mut i32, offset: isize) -> i32 {
+fn get_in_use(cpu_info: *mut i32, offset: isize) -> i64 {
     unsafe {
-        *cpu_info.offset(offset + libc::CPU_STATE_USER as isize)
-            + *cpu_info.offset(offset + libc::CPU_STATE_SYSTEM as isize)
-            + *cpu_info.offset(offset + libc::CPU_STATE_NICE as isize)
+        let user = *cpu_info.offset(offset + libc::CPU_STATE_USER as isize) as i64;
+        let system = *cpu_info.offset(offset + libc::CPU_STATE_SYSTEM as isize) as i64;
+        let nice = *cpu_info.offset(offset + libc::CPU_STATE_NICE as isize) as i64;
+
+        user.saturating_add(system).saturating_add(nice)
     }
 }
 
@@ -158,10 +160,12 @@ pub(crate) fn compute_usage_of_cpu(proc_: &Cpu, cpu_info: *mut i32, offset: isiz
     // In case we are initializing cpus, there is no "old value" yet.
     if old_cpu_info == cpu_info {
         in_use = get_in_use(cpu_info, offset);
-        total = in_use + get_idle(cpu_info, offset);
+        total = in_use.saturating_add(get_idle(cpu_info, offset) as _);
     } else {
-        in_use = get_in_use(cpu_info, offset) - get_in_use(old_cpu_info, offset);
-        total = in_use + (get_idle(cpu_info, offset) - get_idle(old_cpu_info, offset));
+        in_use = get_in_use(cpu_info, offset).saturating_sub(get_in_use(old_cpu_info, offset));
+        total = in_use.saturating_add(
+            get_idle(cpu_info, offset).saturating_sub(get_idle(old_cpu_info, offset)) as _,
+        );
     }
     in_use as f32 / total as f32 * 100.
 }
