@@ -1,3 +1,7 @@
+# 0.27.8
+
+ * macOS: Fix overflow when computing CPU usage.
+
 # 0.27.7
 
  * macOS: Fix process CPU usage computation
