@@ -1,3 +1,7 @@
+# 0.28.1
+
+ * macOS: Fix overflow when computing CPU usage.
+
 # 0.28.0
 
  * Linux: Fix name and CPU usage for processes tasks.
