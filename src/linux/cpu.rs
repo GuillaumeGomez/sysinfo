@@ -234,8 +234,8 @@ pub(crate) struct CpuValues {
     irq: u64,
     softirq: u64,
     steal: u64,
-    _guest: u64,
-    _guest_nice: u64,
+    guest: u64,
+    guest_nice: u64,
 }
 
 impl CpuValues {
@@ -250,43 +250,10 @@ impl CpuValues {
             irq: 0,
             softirq: 0,
             steal: 0,
-            _guest: 0,
-            _guest_nice: 0,
+            guest: 0,
+            guest_nice: 0,
         }
     }
-
-    /// Creates a new instance of `CpuValues` with everything set to the corresponding argument.
-    pub fn new_with_values(
-        user: u64,
-        nice: u64,
-        system: u64,
-        idle: u64,
-        iowait: u64,
-        irq: u64,
-        softirq: u64,
-        steal: u64,
-        guest: u64,
-        guest_nice: u64,
-    ) -> CpuValues {
-        CpuValues {
-            user,
-            nice,
-            system,
-            idle,
-            iowait,
-            irq,
-            softirq,
-            steal,
-            _guest: guest,
-            _guest_nice: guest_nice,
-        }
-    }
-
-    /*pub fn is_zero(&self) -> bool {
-        self.user == 0 && self.nice == 0 && self.system == 0 && self.idle == 0 &&
-        self.iowait == 0 && self.irq == 0 && self.softirq == 0 && self.steal == 0 &&
-        self.guest == 0 && self.guest_nice == 0
-    }*/
 
     /// Sets the given argument to the corresponding fields.
     pub fn set(
@@ -302,16 +269,18 @@ impl CpuValues {
         guest: u64,
         guest_nice: u64,
     ) {
-        self.user = user;
-        self.nice = nice;
+        // `guest` is already accounted in `user`.
+        self.user = user.saturating_sub(guest);
+        // `guest_nice` is already accounted in `nice`.
+        self.nice = nice.saturating_sub(guest_nice);
         self.system = system;
         self.idle = idle;
         self.iowait = iowait;
         self.irq = irq;
         self.softirq = softirq;
         self.steal = steal;
-        self._guest = guest;
-        self._guest_nice = guest_nice;
+        self.guest = guest;
+        self.guest_nice = guest_nice;
     }
 
     /// Returns work time.
@@ -321,16 +290,18 @@ impl CpuValues {
             .saturating_add(self.system)
             .saturating_add(self.irq)
             .saturating_add(self.softirq)
-            .saturating_add(self.steal)
     }
 
     /// Returns total time.
     pub fn total_time(&self) -> u64 {
-        // `guest` is already included in `user`
-        // `guest_nice` is already included in `nice`
         self.work_time()
             .saturating_add(self.idle)
             .saturating_add(self.iowait)
+            // `steal`, `guest` and `guest_nice` are only used if we want to account the "guest"
+            // into the computation.
+            .saturating_add(self.guest)
+            .saturating_add(self.guest_nice)
+            .saturating_add(self.steal)
     }
 }
 
@@ -364,12 +335,14 @@ impl Cpu {
         vendor_id: String,
         brand: String,
     ) -> Cpu {
+        let mut new_values = CpuValues::new();
+        new_values.set(
+            user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
+        );
         Cpu {
             name: name.to_owned(),
             old_values: CpuValues::new(),
-            new_values: CpuValues::new_with_values(
-                user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
-            ),
+            new_values,
             cpu_usage: 0f32,
             total_time: 0,
             old_total_time: 0,
@@ -393,11 +366,11 @@ impl Cpu {
         guest_nice: u64,
     ) {
         macro_rules! min {
-            ($a:expr, $b:expr) => {
+            ($a:expr, $b:expr, $def:expr) => {
                 if $a > $b {
                     ($a - $b) as f32
                 } else {
-                    1.
+                    $def
                 }
             };
         }
@@ -407,8 +380,8 @@ impl Cpu {
         );
         self.total_time = self.new_values.total_time();
         self.old_total_time = self.old_values.total_time();
-        self.cpu_usage = min!(self.new_values.work_time(), self.old_values.work_time())
-            / min!(self.total_time, self.old_total_time)
+        self.cpu_usage = min!(self.new_values.work_time(), self.old_values.work_time(), 0.)
+            / min!(self.total_time, self.old_total_time, 1.)
             * 100.;
         if self.cpu_usage > 100. {
             self.cpu_usage = 100.; // to prevent the percentage to go above 100%
