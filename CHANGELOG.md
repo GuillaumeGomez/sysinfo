@@ -1,3 +1,7 @@
+# 0.28.2
+
+ * Linux: Improve CPU usage computation.
+
 # 0.28.1
 
  * macOS: Fix overflow when computing CPU usage.
