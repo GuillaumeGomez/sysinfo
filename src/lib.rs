@@ -36,8 +36,8 @@ cfg_if::cfg_if! {
         pub(crate) const MIN_USERS: usize = 1;
     } else if #[cfg(windows)] {
         mod windows;
-        use windows as sys;
-        use windows::network_helper;
+        use crate::windows as sys;
+        use crate::windows::network_helper;
         mod network;
 
         #[cfg(test)]

@@ -8,56 +8,40 @@ use crate::{
 };
 
 use std::ptr::null_mut;
-use winapi::shared::lmcons::{MAX_PREFERRED_LENGTH, NET_API_STATUS};
-use winapi::shared::minwindef::{DWORD, LPBYTE};
-use winapi::shared::ntstatus::STATUS_SUCCESS;
-use winapi::shared::winerror::ERROR_MORE_DATA;
-use winapi::um::lmaccess::{
-    NetUserEnum, NetUserGetInfo, NetUserGetLocalGroups, LOCALGROUP_USERS_INFO_0, USER_INFO_23,
+use windows::core::{w, PCWSTR};
+use windows::Win32::Foundation::{ERROR_MORE_DATA, LUID};
+use windows::Win32::NetworkManagement::NetManagement::{
+    NERR_Success, NetApiBufferFree, NetUserEnum, NetUserGetInfo, NetUserGetLocalGroups,
+    FILTER_NORMAL_ACCOUNT, LG_INCLUDE_INDIRECT, LOCALGROUP_USERS_INFO_0, MAX_PREFERRED_LENGTH,
+    USER_INFO_0, USER_INFO_23,
 };
-use winapi::um::lmaccess::{FILTER_NORMAL_ACCOUNT, LG_INCLUDE_INDIRECT, USER_INFO_0};
-use winapi::um::lmapibuf::NetApiBufferFree;
-use winapi::um::ntlsa::{
+use windows::Win32::Security::Authentication::Identity::{
     LsaEnumerateLogonSessions, LsaFreeReturnBuffer, LsaGetLogonSessionData,
-    SECURITY_LOGON_SESSION_DATA,
+    SECURITY_LOGON_SESSION_DATA, SECURITY_LOGON_TYPE,
 };
-use winapi::um::winnt::{LPWSTR, LUID, WCHAR};
 
 #[doc = include_str!("../../md_doc/user.md")]
 pub struct User {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,
     pub(crate) name: String,
-    c_user_name: Option<Vec<WCHAR>>,
+    c_user_name: Option<Vec<u16>>,
     is_local: bool,
 }
 
 impl User {
-    fn new(uid: Uid, name: String, c_name: LPWSTR, is_local: bool) -> Self {
-        unsafe {
-            let c_user_name = if is_local && !c_name.is_null() {
-                let mut i = 0;
-                loop {
-                    let c = *c_name.offset(i);
-                    if c == 0 {
-                        i += 1; // We increase by 1 because we need the '\0' at the end.
-                        break;
-                    }
-                    i += 1;
-                }
-                Some(Vec::from(std::slice::from_raw_parts(c_name, i as _)))
-            } else {
-                // There is no local groups for a non-local user.
-                None
-            };
-
-            Self {
-                uid,
-                gid: Gid(0),
-                name,
-                c_user_name,
-                is_local,
-            }
+    fn new(uid: Uid, name: String, c_name: PCWSTR, is_local: bool) -> Self {
+        let c_user_name = if c_name.is_null() {
+            None
+        } else {
+            Some(unsafe { c_name.as_wide() }.into())
+        };
+        Self {
+            uid,
+            gid: Gid(0),
+            name,
+            c_user_name,
+            is_local,
         }
     }
 }
@@ -76,27 +60,20 @@ impl UserExt for User {
     }
 
     fn groups(&self) -> Vec<Group> {
-        if self.is_local {
-            if let Some(c_user_name) = &self.c_user_name {
-                unsafe { return get_groups_for_user(c_user_name.as_ptr() as _) };
-            }
+        if let (Some(c_user_name), true) = (&self.c_user_name, self.is_local) {
+            unsafe { get_groups_for_user(PCWSTR(c_user_name.as_ptr())) }
+        } else {
+            Vec::new()
         }
-        Vec::new()
     }
 }
-
-// FIXME: Can be removed once merged in winapi.
-#[allow(non_upper_case_globals)]
-const NERR_Success: NET_API_STATUS = 0;
 
 struct NetApiBuffer<T>(*mut T);
 
 impl<T> Drop for NetApiBuffer<T> {
     fn drop(&mut self) {
-        unsafe {
-            if !self.0.is_null() {
-                NetApiBufferFree(self.0 as *mut _);
-            }
+        if !self.0.is_null() {
+            unsafe { NetApiBufferFree(Some(self.0.cast())) };
         }
     }
 }
@@ -113,10 +90,10 @@ impl<T> NetApiBuffer<T> {
         &mut self.0
     }
 
-    pub unsafe fn inner_mut_as_bytes(&mut self) -> &mut LPBYTE {
+    pub unsafe fn inner_mut_as_bytes(&mut self) -> &mut *mut u8 {
         // https://doc.rust-lang.org/std/mem/fn.transmute.html
         // Turning an &mut T into an &mut U:
-        &mut *(self.inner_mut() as *mut *mut T as *mut LPBYTE)
+        &mut *(self.inner_mut() as *mut *mut T as *mut *mut u8)
     }
 }
 
@@ -124,10 +101,8 @@ struct LsaBuffer<T>(*mut T);
 
 impl<T> Drop for LsaBuffer<T> {
     fn drop(&mut self) {
-        unsafe {
-            if !self.0.is_null() {
-                LsaFreeReturnBuffer(self.0 as *mut _);
-            }
+        if !self.0.is_null() {
+            let _r = unsafe { LsaFreeReturnBuffer(self.0 as *mut _) };
         }
     }
 }
@@ -145,14 +120,14 @@ impl<T> LsaBuffer<T> {
     }
 }
 
-unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<Group> {
+unsafe fn get_groups_for_user(username: PCWSTR) -> Vec<Group> {
     let mut buf: NetApiBuffer<LOCALGROUP_USERS_INFO_0> = Default::default();
     let mut nb_entries = 0;
     let mut total_entries = 0;
     let mut groups;
 
     let status = NetUserGetLocalGroups(
-        [0u16].as_ptr(),
+        w!(""),
         username,
         0,
         LG_INCLUDE_INDIRECT,
@@ -182,22 +157,22 @@ unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<Group> {
 pub unsafe fn get_users() -> Vec<User> {
     let mut users = Vec::new();
 
-    let mut resume_handle: DWORD = 0;
+    let mut resume_handle: u32 = 0;
     loop {
         let mut buffer: NetApiBuffer<USER_INFO_0> = Default::default();
         let mut nb_read = 0;
         let mut total = 0;
         let status = NetUserEnum(
-            null_mut(),
+            PCWSTR::null(),
             0,
             FILTER_NORMAL_ACCOUNT,
             buffer.inner_mut_as_bytes(),
             MAX_PREFERRED_LENGTH,
             &mut nb_read,
             &mut total,
-            &mut resume_handle,
+            Some(&mut resume_handle),
         );
-        if status == NERR_Success || status == ERROR_MORE_DATA {
+        if status == NERR_Success || status == ERROR_MORE_DATA.0 {
             let entries = std::slice::from_raw_parts(buffer.0, nb_read as _);
             for entry in entries {
                 if entry.usri0_name.is_null() {
@@ -205,8 +180,12 @@ pub unsafe fn get_users() -> Vec<User> {
                 }
 
                 let mut user: NetApiBuffer<USER_INFO_23> = Default::default();
-                if NetUserGetInfo(null_mut(), entry.usri0_name, 23, user.inner_mut_as_bytes())
-                    == NERR_Success
+                if NetUserGetInfo(
+                    PCWSTR::null(),
+                    PCWSTR::from_raw(entry.usri0_name.as_ptr()),
+                    23,
+                    user.inner_mut_as_bytes(),
+                ) == NERR_Success
                 {
                     if let Some(sid) = Sid::from_psid((*user.0).usri23_user_sid) {
                         // Get the account name from the SID (because it's usually
@@ -215,23 +194,28 @@ pub unsafe fn get_users() -> Vec<User> {
                         let name = sid
                             .account_name()
                             .unwrap_or_else(|| to_str(entry.usri0_name));
-                        users.push(User::new(Uid(sid), name, entry.usri0_name, true))
+                        users.push(User::new(
+                            Uid(sid),
+                            name,
+                            PCWSTR(entry.usri0_name.0 as *const _),
+                            true,
+                        ))
                     }
                 }
             }
         } else {
             sysinfo_debug!(
                 "NetUserEnum error: {}",
-                if status == winapi::shared::winerror::ERROR_ACCESS_DENIED {
+                if status == windows::Win32::Foundation::ERROR_ACCESS_DENIED.0 {
                     "access denied"
-                } else if status == winapi::shared::winerror::ERROR_INVALID_LEVEL {
+                } else if status == windows::Win32::Foundation::ERROR_INVALID_LEVEL.0 {
                     "invalid level"
                 } else {
                     "unknown error"
                 }
             );
         }
-        if status != ERROR_MORE_DATA {
+        if status != ERROR_MORE_DATA.0 {
             break;
         }
     }
@@ -239,17 +223,15 @@ pub unsafe fn get_users() -> Vec<User> {
     // First part done. Second part now!
     let mut nb_sessions = 0;
     let mut uids: LsaBuffer<LUID> = Default::default();
-    if LsaEnumerateLogonSessions(&mut nb_sessions, uids.inner_mut()) != STATUS_SUCCESS {
+    if LsaEnumerateLogonSessions(&mut nb_sessions, uids.inner_mut()).is_err() {
         sysinfo_debug!("LsaEnumerateLogonSessions failed");
     } else {
         let entries = std::slice::from_raw_parts_mut(uids.0, nb_sessions as _);
         for entry in entries {
             let mut data: LsaBuffer<SECURITY_LOGON_SESSION_DATA> = Default::default();
-            if LsaGetLogonSessionData(entry, data.inner_mut()) == STATUS_SUCCESS
-                && !data.0.is_null()
-            {
+            if LsaGetLogonSessionData(entry, data.inner_mut()).is_ok() && !data.0.is_null() {
                 let data = *data.0;
-                if data.LogonType == winapi::um::ntlsa::Network {
+                if data.LogonType == SECURITY_LOGON_TYPE::Network.0 as u32 {
                     continue;
                 }
 
@@ -267,7 +249,7 @@ pub unsafe fn get_users() -> Vec<User> {
                 // if this fails.
                 let name = sid.account_name().unwrap_or_else(|| {
                     String::from_utf16(std::slice::from_raw_parts(
-                        data.UserName.Buffer,
+                        data.UserName.Buffer.as_ptr(),
                         data.UserName.Length as usize / std::mem::size_of::<u16>(),
                     ))
                     .unwrap_or_else(|_err| {
@@ -276,7 +258,7 @@ pub unsafe fn get_users() -> Vec<User> {
                     })
                 });
 
-                users.push(User::new(Uid(sid), name, std::ptr::null_mut(), false));
+                users.push(User::new(Uid(sid), name, PCWSTR::null(), false));
             }
         }
     }
