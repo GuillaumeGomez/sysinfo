@@ -145,6 +145,9 @@ impl SystemExt for System {
             self.system_info
                 .get_cpu_usage(&mut self.global_cpu, &mut self.cpus);
         }
+        if refresh_kind.frequency() {
+            self.global_cpu.frequency = self.cpus.get(0).map(|cpu| cpu.frequency).unwrap_or(0);
+        }
     }
 
     fn refresh_components_list(&mut self) {
