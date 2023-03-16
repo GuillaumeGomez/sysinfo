@@ -296,6 +296,8 @@ impl CpusWrapper {
         for (cpu, frequency) in self.cpus.iter_mut().zip(frequencies) {
             cpu.set_frequency(frequency);
         }
+        self.global
+            .set_frequency(self.cpus.get(0).map(|cpu| cpu.frequency()).unwrap_or(0));
         self.got_cpu_frequency = true;
     }
 }
