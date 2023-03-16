@@ -81,6 +81,7 @@ pub struct System {
     process_list: HashMap<Pid, Process>,
     mem_total: u64,
     mem_free: u64,
+    mem_used: u64,
     mem_available: u64,
     swap_total: u64,
     swap_free: u64,
@@ -151,6 +152,7 @@ impl SystemExt for System {
                 mem_total: 0,
                 mem_free: 0,
                 mem_available: 0,
+                mem_used: 0,
                 swap_total: 0,
                 swap_free: 0,
                 global_cpu: Cpu::new(
@@ -224,6 +226,13 @@ impl SystemExt for System {
                 //  */
                 self.mem_available = u64::from(stat.free_count)
                     .saturating_add(u64::from(stat.inactive_count))
+                    .saturating_add(u64::from(stat.purgeable_count))
+                    .saturating_sub(u64::from(stat.compressor_page_count))
+                    .saturating_mul(self.page_size_kb);
+                self.mem_used = u64::from(stat.active_count)
+                    .saturating_add(u64::from(stat.wire_count))
+                    .saturating_add(u64::from(stat.compressor_page_count))
+                    .saturating_add(u64::from(stat.speculative_count))
                     .saturating_mul(self.page_size_kb);
                 self.mem_free = u64::from(stat.free_count)
                     .saturating_sub(u64::from(stat.speculative_count))
@@ -420,7 +429,7 @@ impl SystemExt for System {
     }
 
     fn used_memory(&self) -> u64 {
-        self.mem_total - self.mem_free
+        self.mem_used
     }
 
     fn total_swap(&self) -> u64 {
