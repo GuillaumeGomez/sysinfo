@@ -675,10 +675,10 @@ fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
     let mut gid = None;
     for line in status_data.lines() {
         if let Some(u) = f(line, "Uid:") {
-            assert!(uid.is_none());
+            debug_assert!(uid.is_none());
             uid = Some(u);
         } else if let Some(g) = f(line, "Gid:") {
-            assert!(gid.is_none());
+            debug_assert!(gid.is_none());
             gid = Some(g);
         } else {
             continue;

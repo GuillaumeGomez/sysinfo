@@ -690,8 +690,10 @@ unsafe fn get_process_data(
         return Err("Unable to read process data");
     }
 
-    // Documentation states that the function fails if not all data is accessible
-    assert_eq!(bytes_read, size);
+    // Documentation states that the function fails if not all data is accessible.
+    if bytes_read != size {
+        return Err("ReadProcessMemory returned unexpected number of bytes read");
+    }
 
     buffer.set_len(size / 2);
     buffer.push(0);
