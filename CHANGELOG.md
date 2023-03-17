@@ -1,3 +1,10 @@
+# 0.28.3
+
+ * FreeBSD/Windows: Add missing frequency for global CPU.
+ * macOS: Fix used memory computation.
+ * macOS: Improve available memory computation.
+ * Windows: Fix potential panic when getting process data.
+
 # 0.28.2
 
  * Linux: Improve CPU usage computation.
