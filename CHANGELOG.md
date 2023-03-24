@@ -1,3 +1,8 @@
+# 0.28.4
+
+ * macOS: Improve CPU computation.
+ * Strengthen a process test (needed for debian).
+
 # 0.28.3
 
  * FreeBSD/Windows: Add missing frequency for global CPU.
