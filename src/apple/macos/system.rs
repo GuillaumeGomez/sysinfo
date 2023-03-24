@@ -126,8 +126,40 @@ impl SystemTimeInfo {
 
             // Now we convert the ticks to nanoseconds (if the interval is less than
             // `MINIMUM_CPU_UPDATE_INTERVAL`, we replace it with it instead):
-            (total as f64 / self.timebase_to_ns * self.clock_per_sec / cpu_count as f64)
-                .max(crate::System::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() * 1_000_000_000.)
+            let base_interval = total as f64 / cpu_count as f64 * self.clock_per_sec;
+            let smallest =
+                crate::System::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() * 1_000_000_000.0;
+            if base_interval < smallest {
+                smallest
+            } else {
+                base_interval / self.timebase_to_ns
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    /// Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/956>.
+    #[test]
+    fn test_getting_time_interval() {
+        if !crate::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+            return;
+        }
+
+        let port = unsafe { libc::mach_host_self() };
+        let mut info = SystemTimeInfo::new(port).unwrap();
+        info.get_time_interval(port);
+
+        std::thread::sleep(crate::System::MINIMUM_CPU_UPDATE_INTERVAL.saturating_mul(5));
+
+        let val = info.get_time_interval(port);
+        assert_ne!(
+            val,
+            crate::System::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() * 1_000_000_000.0
+        );
     }
 }
