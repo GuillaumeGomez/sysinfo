@@ -126,8 +126,14 @@ impl SystemTimeInfo {
 
             // Now we convert the ticks to nanoseconds (if the interval is less than
             // `MINIMUM_CPU_UPDATE_INTERVAL`, we replace it with it instead):
-            (total as f64 / self.timebase_to_ns * self.clock_per_sec / cpu_count as f64)
-                .max(crate::System::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() * 1_000_000_000.)
+            let base_interval = total as f64 / cpu_count as f64 * self.clock_per_sec;
+            let smallest =
+                crate::System::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() * 1_000_000_000.0;
+            if base_interval < smallest {
+                smallest
+            } else {
+                base_interval / self.timebase_to_ns
+            }
         }
     }
 }
