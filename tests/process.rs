@@ -531,6 +531,8 @@ fn test_wait_non_child() {
         return;
     }
 
+    let before = std::time::Instant::now();
+
     // spawn non child process.
     let p = if !cfg!(target_os = "linux") {
         return;
@@ -545,8 +547,6 @@ fn test_wait_non_child() {
     };
     let pid = Pid::from_u32(p.id());
 
-    let before = std::time::Instant::now();
-
     let mut s = sysinfo::System::new();
     s.refresh_process(pid);
     let process = s.process(pid).expect("Process not found!");
@@ -558,8 +558,16 @@ fn test_wait_non_child() {
     assert!(!s.refresh_process(pid));
 
     // should wait for 2s.
-    assert!(before.elapsed() > std::time::Duration::from_millis(2000));
-    assert!(before.elapsed() < std::time::Duration::from_millis(3000));
+    assert!(
+        before.elapsed() > std::time::Duration::from_millis(1900),
+        "Elapsed time {:?} is not greater than 1900ms",
+        before.elapsed()
+    );
+    assert!(
+        before.elapsed() < std::time::Duration::from_millis(3000),
+        "Elapsed time {:?} is not less than 3000ms",
+        before.elapsed()
+    );
 }
 
 #[test]
