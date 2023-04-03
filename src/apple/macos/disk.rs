@@ -6,14 +6,14 @@ use crate::sys::{
     macos::utils::IOReleaser,
     utils::CFReleaser,
 };
-use crate::DiskType;
+use crate::DiskKind;
 
 use core_foundation_sys::base::{kCFAllocatorDefault, kCFAllocatorNull};
 use core_foundation_sys::string as cfs;
 
 use std::ffi::CStr;
 
-pub(crate) fn get_disk_type(disk: &libc::statfs) -> Option<DiskType> {
+pub(crate) fn get_disk_type(disk: &libc::statfs) -> Option<DiskKind> {
     let characteristics_string = unsafe {
         CFReleaser::new(cfs::CFStringCreateWithBytesNoCopy(
             kCFAllocatorDefault,
@@ -106,8 +106,8 @@ pub(crate) fn get_disk_type(disk: &libc::statfs) -> Option<DiskType> {
                 };
 
                 if let Some(disk_type) = disk_type.and_then(|medium| match medium.as_str() {
-                    _ if medium == ffi::kIOPropertyMediumTypeSolidStateKey => Some(DiskType::SSD),
-                    _ if medium == ffi::kIOPropertyMediumTypeRotationalKey => Some(DiskType::HDD),
+                    _ if medium == ffi::kIOPropertyMediumTypeSolidStateKey => Some(DiskKind::SSD),
+                    _ if medium == ffi::kIOPropertyMediumTypeRotationalKey => Some(DiskKind::HDD),
                     _ => None,
                 }) {
                     return Some(disk_type);
@@ -116,7 +116,7 @@ pub(crate) fn get_disk_type(disk: &libc::statfs) -> Option<DiskType> {
                     //
                     // In these cases, assuming that there were _any_ properties about them registered, we fallback
                     // to `HDD` when no storage medium is provided by the device instead of `Unknown`.
-                    return Some(DiskType::HDD);
+                    return Some(DiskKind::HDD);
                 }
             }
         }

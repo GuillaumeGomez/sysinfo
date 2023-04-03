@@ -499,7 +499,7 @@ impl<'a> IntoIterator for &'a Networks {
 
 /// Enum containing the different supported kinds of disks.
 ///
-/// This type is returned by [`crate::DiskExt::kind`].
+/// This type is returned by [`DiskExt::kind`](`crate::DiskExt::kind`).
 ///
 /// ```no_run
 /// use sysinfo::{System, SystemExt, DiskExt};

@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskExt, DiskType};
+use crate::{DiskExt, DiskKind};
 
 use std::{ffi::OsStr, path::Path};
 
@@ -8,7 +8,7 @@ use std::{ffi::OsStr, path::Path};
 pub struct Disk {}
 
 impl DiskExt for Disk {
-    fn type_(&self) -> DiskType {
+    fn kind(&self) -> DiskKind {
         unreachable!()
     }
 

@@ -2,7 +2,7 @@
 
 use crate::common::PidExt;
 use crate::{
-    ComponentExt, CpuExt, DiskExt, DiskType, DiskUsage, MacAddr, NetworkExt, NetworksExt,
+    ComponentExt, CpuExt, DiskExt, DiskKind, DiskUsage, MacAddr, NetworkExt, NetworksExt,
     ProcessExt, ProcessStatus, Signal, SystemExt, UserExt,
 };
 use serde::{ser::SerializeStruct, Serialize, Serializer};
@@ -15,7 +15,7 @@ impl Serialize for crate::Disk {
     {
         let mut state = serializer.serialize_struct("Disk", 7)?;
 
-        state.serialize_field("DiskType", &self.type_())?;
+        state.serialize_field("DiskKind", &self.kind())?;
         if let Some(s) = self.name().to_str() {
             state.serialize_field("name", s)?;
         }
@@ -272,21 +272,21 @@ impl Serialize for crate::User {
     }
 }
 
-impl Serialize for DiskType {
+impl Serialize for DiskKind {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let (index, variant, maybe_value) = match *self {
-            DiskType::HDD => (0, "HDD", None),
-            DiskType::SSD => (1, "SSD", None),
-            DiskType::Unknown(ref s) => (2, "Unknown", Some(s)),
+            DiskKind::HDD => (0, "HDD", None),
+            DiskKind::SSD => (1, "SSD", None),
+            DiskKind::Unknown(ref s) => (2, "Unknown", Some(s)),
         };
 
         if let Some(ref value) = maybe_value {
-            serializer.serialize_newtype_variant("DiskType", index, variant, value)
+            serializer.serialize_newtype_variant("DiskKind", index, variant, value)
         } else {
-            serializer.serialize_unit_variant("DiskType", index, variant)
+            serializer.serialize_unit_variant("DiskKind", index, variant)
         }
     }
 }

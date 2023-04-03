@@ -4,7 +4,7 @@ use crate::sys::{
     ffi,
     utils::{self, CFReleaser},
 };
-use crate::{DiskExt, DiskType};
+use crate::{DiskExt, DiskKind};
 
 use core_foundation_sys::array::CFArrayCreate;
 use core_foundation_sys::base::kCFAllocatorDefault;
@@ -21,7 +21,7 @@ use std::ptr;
 
 #[doc = include_str!("../../md_doc/disk.md")]
 pub struct Disk {
-    pub(crate) type_: DiskType,
+    pub(crate) type_: DiskKind,
     pub(crate) name: OsString,
     pub(crate) file_system: Vec<u8>,
     pub(crate) mount_point: PathBuf,
@@ -32,7 +32,7 @@ pub struct Disk {
 }
 
 impl DiskExt for Disk {
-    fn type_(&self) -> DiskType {
+    fn kind(&self) -> DiskKind {
         self.type_
     }
 
@@ -328,9 +328,9 @@ unsafe fn new_disk(
     // so we just assume the disk type is an SSD until Rust has a way to conditionally link to
     // IOKit in more recent deployment versions.
     #[cfg(target_os = "macos")]
-    let type_ = crate::sys::inner::disk::get_disk_type(&c_disk).unwrap_or(DiskType::Unknown(-1));
+    let type_ = crate::sys::inner::disk::get_disk_type(&c_disk).unwrap_or(DiskKind::Unknown(-1));
     #[cfg(not(target_os = "macos"))]
-    let type_ = DiskType::SSD;
+    let type_ = DiskKind::SSD;
 
     // Note: Since we requested these properties from the system, we don't expect
     // these property retrievals to fail.
