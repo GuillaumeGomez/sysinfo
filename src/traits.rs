@@ -5,7 +5,7 @@ use crate::{
     sys::{Component, Cpu, Disk, Networks, Process},
 };
 use crate::{
-    CpuRefreshKind, DiskType, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessRefreshKind,
+    CpuRefreshKind, DiskKind, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessRefreshKind,
     ProcessStatus, RefreshKind, Signal, User,
 };
 
@@ -22,21 +22,21 @@ use std::time::Duration;
 ///
 /// let s = System::new();
 /// for disk in s.disks() {
-///     println!("{:?}: {:?}", disk.name(), disk.type_());
+///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```
 pub trait DiskExt: Debug {
-    /// Returns the disk type.
+    /// Returns the kind of disk.
     ///
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
     /// let s = System::new();
     /// for disk in s.disks() {
-    ///     println!("{:?}", disk.type_());
+    ///     println!("{:?}", disk.kind());
     /// }
     /// ```
-    fn type_(&self) -> DiskType;
+    fn kind(&self) -> DiskKind;
 
     /// Returns the disk name.
     ///

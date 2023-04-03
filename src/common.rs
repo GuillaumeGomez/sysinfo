@@ -497,20 +497,20 @@ impl<'a> IntoIterator for &'a Networks {
     }
 }
 
-/// Enum containing the different supported disks types.
+/// Enum containing the different supported kinds of disks.
 ///
-/// This type is returned by [`Disk::get_type`][crate::Disk#method.type].
+/// This type is returned by [`crate::DiskExt::kind`].
 ///
 /// ```no_run
 /// use sysinfo::{System, SystemExt, DiskExt};
 ///
 /// let system = System::new_all();
 /// for disk in system.disks() {
-///     println!("{:?}: {:?}", disk.name(), disk.type_());
+///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum DiskType {
+pub enum DiskKind {
     /// HDD type.
     HDD,
     /// SSD type.
