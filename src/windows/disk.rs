@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskExt, DiskType};
+use crate::{DiskExt, DiskKind};
 
 use std::ffi::{OsStr, OsString};
 use std::mem::size_of;
@@ -23,7 +23,7 @@ use winapi::um::winnt::{BOOLEAN, FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE, ULAR
 
 #[doc = include_str!("../../md_doc/disk.md")]
 pub struct Disk {
-    type_: DiskType,
+    type_: DiskKind,
     name: OsString,
     file_system: Vec<u8>,
     mount_point: Vec<u16>,
@@ -34,7 +34,7 @@ pub struct Disk {
 }
 
 impl DiskExt for Disk {
-    fn type_(&self) -> DiskType {
+    fn kind(&self) -> DiskKind {
         self.type_
     }
 
@@ -231,13 +231,13 @@ pub(crate) unsafe fn get_disks() -> Vec<Disk> {
             ) == 0
                 || dw_size != size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as DWORD
             {
-                DiskType::Unknown(-1)
+                DiskKind::Unknown(-1)
             } else {
                 let is_ssd = result.IncursSeekPenalty == 0;
                 if is_ssd {
-                    DiskType::SSD
+                    DiskKind::SSD
                 } else {
-                    DiskType::HDD
+                    DiskKind::HDD
                 }
             };
             Some(Disk {
