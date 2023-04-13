@@ -119,14 +119,14 @@ impl SystemExt for System {
             self.query = Query::new();
             if let Some(ref mut query) = self.query {
                 add_english_counter(
-                    r"\Processor(_Total)\% Processor Time".to_string(),
+                    r"\Processor(_Total)\% Idle Time".to_string(),
                     query,
                     get_key_used(self.cpus.global_cpu_mut()),
                     "tot_0".to_owned(),
                 );
                 for (pos, proc_) in self.cpus.iter_mut(refresh_kind).enumerate() {
                     add_english_counter(
-                        format!(r"\Processor({pos})\% Processor Time"),
+                        format!(r"\Processor({pos})\% Idle Time"),
                         query,
                         get_key_used(proc_),
                         format!("{pos}_0"),
@@ -136,28 +136,30 @@ impl SystemExt for System {
         }
         if let Some(ref mut query) = self.query {
             query.refresh();
-            let mut used_time = None;
+            let mut total_idle_time = None;
             if let Some(ref key_used) = *get_key_used(self.cpus.global_cpu_mut()) {
-                used_time = Some(
+                total_idle_time = Some(
                     query
                         .get(&key_used.unique_id)
                         .expect("global_key_idle disappeared"),
                 );
             }
-            if let Some(used_time) = used_time {
-                self.cpus.global_cpu_mut().set_cpu_usage(used_time);
+            if let Some(total_idle_time) = total_idle_time {
+                self.cpus
+                    .global_cpu_mut()
+                    .set_cpu_usage(100.0 - total_idle_time);
             }
             for p in self.cpus.iter_mut(refresh_kind) {
-                let mut used_time = None;
+                let mut idle_time = None;
                 if let Some(ref key_used) = *get_key_used(p) {
-                    used_time = Some(
+                    idle_time = Some(
                         query
                             .get(&key_used.unique_id)
                             .expect("key_used disappeared"),
                     );
                 }
-                if let Some(used_time) = used_time {
-                    p.set_cpu_usage(used_time);
+                if let Some(idle_time) = idle_time {
+                    p.set_cpu_usage(100.0 - idle_time);
                 }
             }
             if refresh_kind.frequency() {
