@@ -27,12 +27,12 @@ OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 simple: $(OBJ)
 	@echo "Compiling in debug mode"
-	cargo build --features=c-interface
+	cargo rustc --features=c-interface --crate-type cdylib
 	gcc -o $@ $^ $(CFLAGS) -L$(LDIR) $(LIBS)
 
 release: $(OBJ)
 	@echo "Compiling in release mode"
-	cargo build --features=c-interface --release
+	cargo rustc --features=c-interface --release --crate-type cdylib
 	gcc -o simple $^ $(CFLAGS) -L$(LDIR-RELEASE) $(LIBS)
 
 $(ODIR)/%.o: %.c $(DEPS)

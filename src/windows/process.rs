@@ -1,7 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::utils::to_str;
-use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
+use crate::sys::system::is_proc_running;
+use crate::windows::Sid;
+use crate::{
+    DiskUsage, Gid, Pid, PidExt, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid,
+};
 
 use std::ffi::OsString;
 use std::fmt;
@@ -38,7 +41,7 @@ use winapi::um::handleapi::CloseHandle;
 use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapFree};
 use winapi::um::memoryapi::{ReadProcessMemory, VirtualQueryEx};
 use winapi::um::processthreadsapi::{
-    GetProcessTimes, GetSystemTimes, OpenProcess, OpenProcessToken,
+    GetProcessTimes, GetSystemTimes, OpenProcess, OpenProcessToken, ProcessIdToSessionId,
 };
 use winapi::um::psapi::{
     EnumProcessModulesEx, GetModuleBaseNameW, GetModuleFileNameExW, GetProcessMemoryInfo,
@@ -140,29 +143,7 @@ unsafe fn get_process_user_id(
         return None;
     }
 
-    let mut name_use = 0;
-    let mut name = [0u16; 256];
-    let mut domain_name = [0u16; 256];
-    let mut size = 256;
-
-    if winapi::um::winbase::LookupAccountSidW(
-        std::ptr::null_mut(),
-        (*ptu.0).User.Sid,
-        name.as_mut_ptr(),
-        &mut size,
-        domain_name.as_mut_ptr(),
-        &mut size,
-        &mut name_use,
-    ) == 0
-    {
-        sysinfo_debug!(
-            "LookupAccountSidW failed: {:?}",
-            winapi::um::errhandlingapi::GetLastError(),
-        );
-        None
-    } else {
-        Some(Uid(to_str(name.as_mut_ptr()).into_boxed_str()))
-    }
+    Sid::from_psid((*ptu.0).User.Sid).map(Uid)
 }
 
 struct HandleWrapper(HANDLE);
@@ -547,6 +528,32 @@ impl ProcessExt for Process {
     fn group_id(&self) -> Option<Gid> {
         None
     }
+
+    fn wait(&self) {
+        if let Some(handle) = self.get_handle() {
+            while is_proc_running(handle) {
+                if get_start_time(handle) != self.start_time() {
+                    // PID owner changed so the previous process was finished!
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        } else {
+            // In this case, we can't do anything so we just return.
+            sysinfo_debug!("can't wait on this process so returning");
+        }
+    }
+
+    fn session_id(&self) -> Option<Pid> {
+        unsafe {
+            let mut out = 0;
+            if ProcessIdToSessionId(self.pid.as_u32(), &mut out) != 0 {
+                return Some(Pid(out as _));
+            }
+            sysinfo_debug!("ProcessIdToSessionId failed, error: {:?}", GetLastError());
+            None
+        }
+    }
 }
 
 #[inline]
@@ -567,7 +574,7 @@ unsafe fn get_process_times(handle: HANDLE) -> u64 {
 #[inline]
 fn compute_start(process_times: u64) -> u64 {
     // 11_644_473_600 is the number of seconds between the Windows epoch (1601-01-01) and
-    // the linux epoch (1970-01-01).
+    // the Linux epoch (1970-01-01).
     process_times / 10_000_000 - 11_644_473_600
 }
 
@@ -588,7 +595,6 @@ pub(crate) fn get_start_time(handle: HANDLE) -> u64 {
     }
 }
 
-#[allow(clippy::uninit_vec)]
 unsafe fn ph_query_process_variable_size(
     process_handle: &HandleWrapper,
     process_information_class: PROCESSINFOCLASS,
@@ -613,8 +619,6 @@ unsafe fn ph_query_process_variable_size(
     let mut return_length = return_length.assume_init();
     let buf_len = (return_length as usize) / 2;
     let mut buffer: Vec<u16> = Vec::with_capacity(buf_len + 1);
-    buffer.set_len(buf_len);
-
     status = NtQueryInformationProcess(
         **process_handle,
         process_information_class,
@@ -625,6 +629,7 @@ unsafe fn ph_query_process_variable_size(
     if !NT_SUCCESS(status) {
         return None;
     }
+    buffer.set_len(buf_len);
     buffer.push(0);
     Some(buffer)
 }
@@ -666,24 +671,33 @@ unsafe fn get_region_size(handle: &HandleWrapper, ptr: LPVOID) -> Result<usize, 
     Ok((meminfo.RegionSize as isize - ptr.offset_from(meminfo.BaseAddress)) as usize)
 }
 
-#[allow(clippy::uninit_vec)]
 unsafe fn get_process_data(
     handle: &HandleWrapper,
     ptr: LPVOID,
     size: usize,
 ) -> Result<Vec<u16>, &'static str> {
     let mut buffer: Vec<u16> = Vec::with_capacity(size / 2 + 1);
-    buffer.set_len(size / 2);
+    let mut bytes_read = 0;
+
     if ReadProcessMemory(
         **handle,
         ptr as *mut _,
         buffer.as_mut_ptr() as *mut _,
         size,
-        null_mut(),
-    ) != TRUE
+        &mut bytes_read,
+    ) == FALSE
     {
         return Err("Unable to read process data");
     }
+
+    // Documentation states that the function fails if not all data is accessible.
+    if bytes_read != size {
+        return Err("ReadProcessMemory returned unexpected number of bytes read");
+    }
+
+    buffer.set_len(size / 2);
+    buffer.push(0);
+
     Ok(buffer)
 }
 
@@ -931,7 +945,7 @@ fn check_sub(a: u64, b: u64) -> u64 {
 }
 
 /// Before changing this function, you must consider the following:
-/// https://github.com/GuillaumeGomez/sysinfo/issues/459
+/// <https://github.com/GuillaumeGomez/sysinfo/issues/459>
 pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
     unsafe {
         let mut ftime: FILETIME = zeroed();
@@ -950,6 +964,8 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
                 &mut fuser as *mut FILETIME,
             );
         }
+        // FIXME: should these values be stored in one place to make use of
+        // `MINIMUM_CPU_UPDATE_INTERVAL`?
         GetSystemTimes(
             &mut fglobal_idle_time as *mut FILETIME,
             &mut fglobal_kernel_time as *mut FILETIME,
@@ -1006,7 +1022,7 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
         }
 
         p.cpu_usage = 100.0
-            * (delta_user_time.saturating_add(delta_sys_time) as f32 / denominator as f32)
+            * (delta_user_time.saturating_add(delta_sys_time) as f32 / denominator)
             * nb_cpus as f32;
     }
 }
@@ -1041,8 +1057,8 @@ pub(crate) fn update_memory(p: &mut Process) {
                 size_of::<PROCESS_MEMORY_COUNTERS_EX>() as DWORD,
             ) != 0
             {
-                p.memory = (pmc.WorkingSetSize as u64) / 1_000;
-                p.virtual_memory = (pmc.PrivateUsage as u64) / 1_000;
+                p.memory = pmc.WorkingSetSize as _;
+                p.virtual_memory = pmc.PrivateUsage as _;
             }
         }
     }

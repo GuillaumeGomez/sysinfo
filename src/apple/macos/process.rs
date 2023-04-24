@@ -184,6 +184,31 @@ impl ProcessExt for Process {
     fn group_id(&self) -> Option<Gid> {
         self.group_id
     }
+
+    fn wait(&self) {
+        let mut status = 0;
+        // attempt waiting
+        unsafe {
+            if libc::waitpid(self.pid.0, &mut status, 0) < 0 {
+                // attempt failed (non-child process) so loop until process ends
+                let duration = std::time::Duration::from_millis(10);
+                while kill(self.pid.0, 0) == 0 {
+                    std::thread::sleep(duration);
+                }
+            }
+        }
+    }
+
+    fn session_id(&self) -> Option<Pid> {
+        unsafe {
+            let session_id = libc::getsid(self.pid.0);
+            if session_id < 0 {
+                None
+            } else {
+                Some(Pid(session_id))
+            }
+        }
+    }
 }
 
 #[allow(deprecated)] // Because of libc::mach_absolute_time.
@@ -196,6 +221,7 @@ pub(crate) fn compute_cpu_usage(
 ) {
     if let Some(time_interval) = time_interval {
         let total_existing_time = p.old_stime.saturating_add(p.old_utime);
+        let mut updated_cpu_usage = false;
         if time_interval > 0.000001 && total_existing_time > 0 {
             let total_current_time = task_info
                 .pti_total_system
@@ -204,8 +230,10 @@ pub(crate) fn compute_cpu_usage(
             let total_time_diff = total_current_time.saturating_sub(total_existing_time);
             if total_time_diff > 0 {
                 p.cpu_usage = (total_time_diff as f64 / time_interval * 100.) as f32;
+                updated_cpu_usage = true;
             }
-        } else {
+        }
+        if !updated_cpu_usage {
             p.cpu_usage = 0.;
         }
         p.old_stime = task_info.pti_total_system;
@@ -239,14 +267,6 @@ pub(crate) fn compute_cpu_usage(
         }
     }
 }
-
-/*pub fn set_time(p: &mut Process, utime: u64, stime: u64) {
-    p.old_utime = p.utime;
-    p.old_stime = p.stime;
-    p.utime = utime;
-    p.stime = stime;
-    p.updated = true;
-}*/
 
 unsafe fn get_task_info(pid: Pid) -> libc::proc_taskinfo {
     let mut task_info = mem::zeroed::<libc::proc_taskinfo>();
@@ -365,7 +385,7 @@ unsafe fn create_new_process(
         p => Some(Pid(p)),
     };
 
-    let mut proc_args = Vec::with_capacity(size as usize);
+    let mut proc_args = Vec::with_capacity(size as _);
     let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
     let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
     /*
@@ -503,8 +523,8 @@ unsafe fn create_new_process(
 
     let task_info = get_task_info(pid);
 
-    p.memory = task_info.pti_resident_size / 1_000;
-    p.virtual_memory = task_info.pti_virtual_size / 1_000;
+    p.memory = task_info.pti_resident_size;
+    p.virtual_memory = task_info.pti_virtual_size;
 
     p.user_id = Some(Uid(info.pbi_uid));
     p.group_id = Some(Gid(info.pbi_gid));
@@ -572,8 +592,8 @@ pub(crate) fn update_process(
                 compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
             }
 
-            p.memory = task_info.pti_resident_size / 1_000;
-            p.virtual_memory = task_info.pti_virtual_size / 1_000;
+            p.memory = task_info.pti_resident_size;
+            p.virtual_memory = task_info.pti_virtual_size;
             if refresh_kind.disk_usage() {
                 update_proc_disk_activity(p);
             }

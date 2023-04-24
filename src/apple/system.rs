@@ -3,19 +3,13 @@
 use crate::sys::component::Component;
 use crate::sys::cpu::*;
 use crate::sys::disk::*;
-#[cfg(target_os = "macos")]
-use crate::sys::ffi;
 use crate::sys::network::Networks;
 use crate::sys::process::*;
-#[cfg(target_os = "macos")]
-use core_foundation_sys::base::kCFAllocatorDefault;
 
 use crate::{
     CpuExt, CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
-#[cfg(target_os = "macos")]
-use crate::sys::macos::utils::CFReleaser;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::ProcessExt;
 
@@ -23,6 +17,7 @@ use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
+use std::time::Duration;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::time::SystemTime;
 
@@ -86,6 +81,7 @@ pub struct System {
     process_list: HashMap<Pid, Process>,
     mem_total: u64,
     mem_free: u64,
+    mem_used: u64,
     mem_available: u64,
     swap_total: u64,
     swap_free: u64,
@@ -99,10 +95,6 @@ pub struct System {
     port: mach_port_t,
     users: Vec<User>,
     boot_time: u64,
-    // Used to get disk information, to be more specific, it's needed by the
-    // DADiskCreateFromVolumePath function. Not supported on iOS.
-    #[cfg(target_os = "macos")]
-    session: Option<CFReleaser<ffi::__DASession>>,
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
     got_cpu_frequency: bool,
@@ -149,6 +141,7 @@ fn get_now() -> u64 {
 impl SystemExt for System {
     const IS_SUPPORTED: bool = true;
     const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
+    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         unsafe {
@@ -159,6 +152,7 @@ impl SystemExt for System {
                 mem_total: 0,
                 mem_free: 0,
                 mem_available: 0,
+                mem_used: 0,
                 swap_total: 0,
                 swap_free: 0,
                 global_cpu: Cpu::new(
@@ -169,7 +163,7 @@ impl SystemExt for System {
                     String::new(),
                 ),
                 cpus: Vec::new(),
-                page_size_kb: sysconf(_SC_PAGESIZE) as u64 / 1_000,
+                page_size_kb: sysconf(_SC_PAGESIZE) as _,
                 #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
                 components: Components::new(),
                 disks: Vec::with_capacity(1),
@@ -177,8 +171,6 @@ impl SystemExt for System {
                 port,
                 users: Vec::new(),
                 boot_time: boot_time(),
-                #[cfg(target_os = "macos")]
-                session: None,
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
                 clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
                 got_cpu_frequency: false,
@@ -202,8 +194,8 @@ impl SystemExt for System {
                 &mut xs as *mut _ as *mut c_void,
                 &mut mib,
             ) {
-                self.swap_total = xs.xsu_total / 1_000;
-                self.swap_free = xs.xsu_avail / 1_000;
+                self.swap_total = xs.xsu_total;
+                self.swap_free = xs.xsu_avail;
             }
             // get ram info
             if self.mem_total < 1 {
@@ -214,7 +206,6 @@ impl SystemExt for System {
                     &mut self.mem_total as *mut u64 as *mut c_void,
                     &mut mib,
                 );
-                self.mem_total /= 1_000;
             }
             let mut count: u32 = libc::HOST_VM_INFO64_COUNT as _;
             let mut stat = mem::zeroed::<vm_statistics64>();
@@ -233,15 +224,19 @@ impl SystemExt for System {
                 //  * used to hold data that was read speculatively from disk but
                 //  * haven't actually been used by anyone so far.
                 //  */
-                self.mem_available = self.mem_total.saturating_sub(
-                    u64::from(stat.active_count)
-                        .saturating_add(u64::from(stat.inactive_count))
-                        .saturating_add(u64::from(stat.wire_count))
-                        .saturating_add(u64::from(stat.speculative_count))
-                        .saturating_sub(u64::from(stat.purgeable_count))
-                        .saturating_mul(self.page_size_kb),
-                );
-                self.mem_free = u64::from(stat.free_count).saturating_mul(self.page_size_kb);
+                self.mem_available = u64::from(stat.free_count)
+                    .saturating_add(u64::from(stat.inactive_count))
+                    .saturating_add(u64::from(stat.purgeable_count))
+                    .saturating_sub(u64::from(stat.compressor_page_count))
+                    .saturating_mul(self.page_size_kb);
+                self.mem_used = u64::from(stat.active_count)
+                    .saturating_add(u64::from(stat.wire_count))
+                    .saturating_add(u64::from(stat.compressor_page_count))
+                    .saturating_add(u64::from(stat.speculative_count))
+                    .saturating_mul(self.page_size_kb);
+                self.mem_free = u64::from(stat.free_count)
+                    .saturating_sub(u64::from(stat.speculative_count))
+                    .saturating_mul(self.page_size_kb);
             }
         }
     }
@@ -340,10 +335,14 @@ impl SystemExt for System {
 
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
-        let now = get_now();
+        let mut time_interval = None;
         let arg_max = get_arg_max();
-        let port = self.port;
-        let time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
+        let now = get_now();
+
+        if refresh_kind.cpu() {
+            let port = self.port;
+            time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
+        }
         match {
             let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
             update_process(
@@ -365,19 +364,8 @@ impl SystemExt for System {
         }
     }
 
-    #[cfg(target_os = "ios")]
-    fn refresh_disks_list(&mut self) {}
-
-    #[cfg(target_os = "macos")]
     fn refresh_disks_list(&mut self) {
-        unsafe {
-            if self.session.is_none() {
-                self.session = CFReleaser::new(ffi::DASessionCreate(kCFAllocatorDefault as _));
-            }
-            if let Some(ref session) = self.session {
-                self.disks = get_disks(session.inner());
-            }
-        }
+        self.disks = unsafe { get_disks() };
     }
 
     fn refresh_users_list(&mut self) {
@@ -441,7 +429,7 @@ impl SystemExt for System {
     }
 
     fn used_memory(&self) -> u64 {
-        self.mem_total - self.mem_free
+        self.mem_used
     }
 
     fn total_swap(&self) -> u64 {
@@ -583,7 +571,7 @@ impl SystemExt for System {
                 && size > 0
             {
                 // now create a buffer with the size and get the real value
-                let mut buf = vec![0_u8; size as usize];
+                let mut buf = vec![0_u8; size as _];
 
                 if get_sys_value_by_name(
                     b"kern.osproductversion\0",
@@ -605,6 +593,10 @@ impl SystemExt for System {
                 None
             }
         }
+    }
+
+    fn distribution_id(&self) -> String {
+        std::env::consts::OS.to_owned()
     }
 }
 
@@ -685,7 +677,7 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
             default.map(|s| s.to_owned())
         } else {
             // set the buffer to the correct size
-            let mut buf = vec![0_u8; size as usize];
+            let mut buf = vec![0_u8; size as _];
 
             if sysctl(
                 mib.as_mut_ptr(),

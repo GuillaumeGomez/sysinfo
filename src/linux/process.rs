@@ -12,23 +12,11 @@ use std::str::FromStr;
 use libc::{gid_t, kill, uid_t};
 
 use crate::sys::system::SystemInfo;
-use crate::sys::utils::{get_all_data, get_all_data_from_file, realpath, FileCounter};
+use crate::sys::utils::{
+    get_all_data, get_all_data_from_file, realpath, FileCounter, PathHandler, PathPush,
+};
 use crate::utils::into_iter;
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
-
-#[doc(hidden)]
-impl From<u32> for ProcessStatus {
-    fn from(status: u32) -> ProcessStatus {
-        match status {
-            1 => ProcessStatus::Idle,
-            2 => ProcessStatus::Run,
-            3 => ProcessStatus::Sleep,
-            4 => ProcessStatus::Stop,
-            5 => ProcessStatus::Zombie,
-            x => ProcessStatus::Unknown(x),
-        }
-    }
-}
 
 #[doc(hidden)]
 impl From<char> for ProcessStatus {
@@ -36,7 +24,8 @@ impl From<char> for ProcessStatus {
         match status {
             'R' => ProcessStatus::Run,
             'S' => ProcessStatus::Sleep,
-            'D' => ProcessStatus::Idle,
+            'I' => ProcessStatus::Idle,
+            'D' => ProcessStatus::UninterruptibleDiskSleep,
             'Z' => ProcessStatus::Zombie,
             'T' => ProcessStatus::Stop,
             't' => ProcessStatus::Tracing,
@@ -62,6 +51,7 @@ impl fmt::Display for ProcessStatus {
             ProcessStatus::Wakekill => "Wakekill",
             ProcessStatus::Waking => "Waking",
             ProcessStatus::Parked => "Parked",
+            ProcessStatus::UninterruptibleDiskSleep => "UninterruptibleDiskSleep",
             _ => "Unknown",
         })
     }
@@ -217,6 +207,31 @@ impl ProcessExt for Process {
     fn group_id(&self) -> Option<Gid> {
         self.group_id
     }
+
+    fn wait(&self) {
+        let mut status = 0;
+        // attempt waiting
+        unsafe {
+            if libc::waitpid(self.pid.0, &mut status, 0) < 0 {
+                // attempt failed (non-child process) so loop until process ends
+                let duration = std::time::Duration::from_millis(10);
+                while kill(self.pid.0, 0) == 0 {
+                    std::thread::sleep(duration);
+                }
+            }
+        }
+    }
+
+    fn session_id(&self) -> Option<Pid> {
+        unsafe {
+            let session_id = libc::getsid(self.pid.0);
+            if session_id < 0 {
+                None
+            } else {
+                Some(Pid(session_id))
+            }
+        }
+    }
 }
 
 pub(crate) fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32) {
@@ -232,6 +247,17 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32
         / total_time
         * 100.)
         .min(max_value);
+
+    for task in p.tasks.values_mut() {
+        compute_cpu_usage(task, total_time, max_value);
+    }
+}
+
+pub(crate) fn unset_updated(p: &mut Process) {
+    p.updated = false;
+    for task in p.tasks.values_mut() {
+        unset_updated(task);
+    }
 }
 
 pub(crate) fn set_time(p: &mut Process, utime: u64, stime: u64) {
@@ -243,9 +269,7 @@ pub(crate) fn set_time(p: &mut Process, utime: u64, stime: u64) {
 }
 
 pub(crate) fn update_process_disk_activity(p: &mut Process, path: &Path) {
-    let mut path = PathBuf::from(path);
-    path.push("io");
-    let data = match get_all_data(&path, 16_384) {
+    let data = match get_all_data(path.join("io"), 16_384) {
         Ok(d) => d,
         Err(_) => return,
     };
@@ -297,9 +321,7 @@ fn compute_start_time_without_boot_time(parts: &[&str], info: &SystemInfo) -> u6
 }
 
 fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<String, ()> {
-    let mut tmp = PathBuf::from(path);
-    tmp.push("stat");
-    let mut file = File::open(tmp).map_err(|_| ())?;
+    let mut file = File::open(path.join("stat")).map_err(|_| ())?;
     let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
     *stat_file = FileCounter::new(file);
     Ok(data)
@@ -314,9 +336,8 @@ fn get_status(p: &mut Process, part: &str) {
         .unwrap_or_else(|| ProcessStatus::Unknown(0));
 }
 
-fn refresh_user_group_ids(p: &mut Process, path: &mut PathBuf) {
-    path.push("status");
-    if let Some((user_id, group_id)) = get_uid_and_gid(path) {
+fn refresh_user_group_ids<P: PathPush>(p: &mut Process, path: &mut P) {
+    if let Some((user_id, group_id)) = get_uid_and_gid(path.join("status")) {
         p.user_id = Some(Uid(user_id));
         p.group_id = Some(Gid(group_id));
     }
@@ -332,7 +353,7 @@ fn retrieve_all_new_process_info(
     uptime: u64,
 ) -> Process {
     let mut p = Process::new(pid);
-    let mut tmp = PathBuf::from(path);
+    let mut tmp = PathHandler::new(path);
     let name = parts[1];
 
     p.parent = if proc_list.pid.0 != 0 {
@@ -355,47 +376,23 @@ fn retrieve_all_new_process_info(
         refresh_user_group_ids(&mut p, &mut tmp);
     }
 
-    if proc_list.pid.0 != 0 {
-        // If we're getting information for a child, no need to get those info since we
-        // already have them...
-        p.cmd = proc_list.cmd.clone();
-        p.name = proc_list.name.clone();
-        p.environ = proc_list.environ.clone();
-        p.exe = proc_list.exe.clone();
-        p.cwd = proc_list.cwd.clone();
-        p.root = proc_list.root.clone();
-    } else {
-        p.name = name.into();
+    p.name = name.into();
 
-        tmp.pop();
-        tmp.push("cmdline");
-        p.cmd = copy_from_file(&tmp);
-
-        tmp.pop();
-        tmp.push("exe");
-        match tmp.read_link() {
-            Ok(exe_path) => {
-                p.exe = exe_path;
-            }
-            Err(_) => {
-                // Do not use cmd[0] because it is not the same thing.
-                // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
-                p.exe = PathBuf::new()
-            }
+    match tmp.join("exe").read_link() {
+        Ok(exe_path) => {
+            p.exe = exe_path;
         }
-
-        tmp.pop();
-        tmp.push("environ");
-        p.environ = copy_from_file(&tmp);
-
-        tmp.pop();
-        tmp.push("cwd");
-        p.cwd = realpath(&tmp);
-
-        tmp.pop();
-        tmp.push("root");
-        p.root = realpath(&tmp);
+        Err(_) => {
+            // Do not use cmd[0] because it is not the same thing.
+            // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
+            p.exe = PathBuf::new()
+        }
     }
+
+    p.cmd = copy_from_file(tmp.join("cmdline"));
+    p.environ = copy_from_file(tmp.join("environ"));
+    p.cwd = realpath(tmp.join("cwd"));
+    p.root = realpath(tmp.join("root"));
 
     update_time_and_memory(
         path,
@@ -422,6 +419,11 @@ pub(crate) fn _get_process_data(
     refresh_kind: ProcessRefreshKind,
 ) -> Result<(Option<Process>, Pid), ()> {
     let pid = match path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
+        // If `pid` and `nb` are the same, it means the file is linking to itself so we skip it.
+        //
+        // It's because when reading `/proc/[PID]` folder, we then go through the folders inside it.
+        // Then, if we encounter a sub-folder with the same PID as the parent, then it's a link to
+        // the current folder we already did read so no need to do anything.
         Some(Ok(nb)) if nb != pid => nb,
         _ => return Err(()),
     };
@@ -447,7 +449,7 @@ pub(crate) fn _get_process_data(
         } else {
             _get_stat_data(path, &mut entry.stat_file)?
         };
-        let parts = parse_stat_file(&data)?;
+        let parts = parse_stat_file(&data).ok_or(())?;
         let start_time_without_boot_time = compute_start_time_without_boot_time(&parts, info);
 
         // It's possible that a new process took this same PID when the "original one" terminated.
@@ -477,7 +479,7 @@ pub(crate) fn _get_process_data(
     } else {
         let mut stat_file = None;
         let data = _get_stat_data(path, &mut stat_file)?;
-        let parts = parse_stat_file(&data)?;
+        let parts = parse_stat_file(&data).ok_or(())?;
 
         let mut p =
             retrieve_all_new_process_info(pid, proc_list, &parts, path, info, refresh_kind, uptime);
@@ -516,9 +518,9 @@ fn update_time_and_memory(
         if entry.memory >= parent_memory {
             entry.memory -= parent_memory;
         }
-        // vsz correspond to the Virtual memory size in bytes. Divising by 1_000 gives us kb.
+        // vsz correspond to the Virtual memory size in bytes.
         // see: https://man7.org/linux/man-pages/man5/proc.5.html
-        entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0) / 1_000;
+        entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0);
         if entry.virtual_memory >= parent_virtual_memory {
             entry.virtual_memory -= parent_virtual_memory;
         }
@@ -547,82 +549,76 @@ pub(crate) fn refresh_procs(
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
 ) -> bool {
-    if let Ok(d) = fs::read_dir(path) {
-        let folders = d
-            .filter_map(|entry| {
-                if let Ok(entry) = entry {
-                    let entry = entry.path();
+    let d = match fs::read_dir(path) {
+        Ok(d) => d,
+        Err(_) => return false,
+    };
+    let folders = d
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let entry = entry.path();
 
-                    if entry.is_dir() {
-                        Some(entry)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
+            if entry.is_dir() {
+                Some(entry)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    if pid.0 == 0 {
+        let proc_list = Wrap(UnsafeCell::new(proc_list));
+
+        #[cfg(feature = "multithread")]
+        use rayon::iter::ParallelIterator;
+
+        into_iter(folders)
+            .filter_map(|e| {
+                let (p, _) = _get_process_data(
+                    e.as_path(),
+                    proc_list.get(),
+                    pid,
+                    uptime,
+                    info,
+                    refresh_kind,
+                )
+                .ok()?;
+                p
+            })
+            .collect::<Vec<_>>()
+    } else {
+        let mut updated_pids = Vec::with_capacity(folders.len());
+        let new_tasks = folders
+            .iter()
+            .filter_map(|e| {
+                let (p, pid) =
+                    _get_process_data(e.as_path(), proc_list, pid, uptime, info, refresh_kind)
+                        .ok()?;
+                updated_pids.push(pid);
+                p
             })
             .collect::<Vec<_>>();
-        if pid.0 == 0 {
-            let proc_list = Wrap(UnsafeCell::new(proc_list));
-
-            #[cfg(feature = "multithread")]
-            use rayon::iter::ParallelIterator;
-
-            into_iter(folders)
-                .filter_map(|e| {
-                    if let Ok((p, _)) = _get_process_data(
-                        e.as_path(),
-                        proc_list.get(),
-                        pid,
-                        uptime,
-                        info,
-                        refresh_kind,
-                    ) {
-                        p
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>()
-        } else {
-            let mut updated_pids = Vec::with_capacity(folders.len());
-            let new_tasks = folders
-                .iter()
-                .filter_map(|e| {
-                    if let Ok((p, pid)) =
-                        _get_process_data(e.as_path(), proc_list, pid, uptime, info, refresh_kind)
-                    {
-                        updated_pids.push(pid);
-                        p
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-            // Sub-tasks are not cleaned up outside so we do it here directly.
-            proc_list
-                .tasks
-                .retain(|&pid, _| updated_pids.iter().any(|&x| x == pid));
-            new_tasks
-        }
-        .into_iter()
-        .for_each(|e| {
-            proc_list.tasks.insert(e.pid(), e);
-        });
-        true
-    } else {
-        false
+        // Sub-tasks are not cleaned up outside so we do it here directly.
+        proc_list
+            .tasks
+            .retain(|&pid, _| updated_pids.iter().any(|&x| x == pid));
+        new_tasks
     }
+    .into_iter()
+    .for_each(|e| {
+        proc_list.tasks.insert(e.pid(), e);
+    });
+    true
 }
 
 fn copy_from_file(entry: &Path) -> Vec<String> {
     match File::open(entry) {
         Ok(mut f) => {
-            let mut data = vec![0; 16_384];
+            let mut data = Vec::with_capacity(16_384);
 
-            if let Ok(size) = f.read(&mut data) {
-                data.truncate(size);
+            if let Err(_e) = f.read_to_end(&mut data) {
+                sysinfo_debug!("Failed to read file in `copy_from_file`: {:?}", _e);
+                Vec::new()
+            } else {
                 let mut out = Vec::with_capacity(20);
                 let mut start = 0;
                 for (pos, x) in data.iter().enumerate() {
@@ -638,11 +634,12 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
                     }
                 }
                 out
-            } else {
-                Vec::new()
             }
         }
-        Err(_) => Vec::new(),
+        Err(_e) => {
+            sysinfo_debug!("Failed to open file in `copy_from_file`: {:?}", _e);
+            Vec::new()
+        }
     }
 }
 
@@ -661,7 +658,7 @@ fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
         }
     }
 
-    let status_data = get_all_data(&file_path, 16_385).ok()?;
+    let status_data = get_all_data(file_path, 16_385).ok()?;
 
     // We're only interested in the lines starting with Uid: and Gid:
     // here. From these lines, we're looking at the second entry to get
@@ -678,10 +675,10 @@ fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
     let mut gid = None;
     for line in status_data.lines() {
         if let Some(u) = f(line, "Uid:") {
-            assert!(uid.is_none());
+            debug_assert!(uid.is_none());
             uid = Some(u);
         } else if let Some(g) = f(line, "Gid:") {
-            assert!(gid.is_none());
+            debug_assert!(gid.is_none());
             gid = Some(g);
         } else {
             continue;
@@ -696,16 +693,7 @@ fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
     }
 }
 
-macro_rules! unwrap_or_return {
-    ($data:expr) => {{
-        match $data {
-            Some(x) => x,
-            None => return Err(()),
-        }
-    }};
-}
-
-fn parse_stat_file(data: &str) -> Result<Vec<&str>, ()> {
+fn parse_stat_file(data: &str) -> Option<Vec<&str>> {
     // The stat file is "interesting" to parse, because spaces cannot
     // be used as delimiters. The second field stores the command name
     // surrounded by parentheses. Unfortunately, whitespace and
@@ -717,14 +705,14 @@ fn parse_stat_file(data: &str) -> Result<Vec<&str>, ()> {
 
     let mut parts = Vec::with_capacity(52);
     let mut data_it = data.splitn(2, ' ');
-    parts.push(unwrap_or_return!(data_it.next()));
-    let mut data_it = unwrap_or_return!(data_it.next()).rsplitn(2, ')');
-    let data = unwrap_or_return!(data_it.next());
-    parts.push(unwrap_or_return!(data_it.next()));
+    parts.push(data_it.next()?);
+    let mut data_it = data_it.next()?.rsplitn(2, ')');
+    let data = data_it.next()?;
+    parts.push(data_it.next()?);
     parts.extend(data.split_whitespace());
     // Remove command name '('
     if let Some(name) = parts[1].strip_prefix('(') {
         parts[1] = name;
     }
-    Ok(parts)
+    Some(parts)
 }

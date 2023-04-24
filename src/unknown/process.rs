@@ -89,4 +89,10 @@ impl ProcessExt for Process {
     fn group_id(&self) -> Option<Gid> {
         None
     }
+
+    fn wait(&self) {}
+
+    fn session_id(&self) -> Option<Pid> {
+        None
+    }
 }

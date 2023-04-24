@@ -1,23 +1,37 @@
 [package]
 name = "sysinfo"
-version = "0.25.3"
+version = "0.28.4"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
-
 description = "Library to get system information such as processes, CPUs, disks, components and networks"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "MIT"
 readme = "README.md"
-rust-version = "1.54"
+rust-version = "1.59"
 exclude = ["/test-unknown"]
-
 categories = ["filesystem", "os", "api-bindings"]
-
-build = "build.rs"
 edition = "2018"
+
+[lib]
+name = "sysinfo"
+
+[features]
+default = ["multithread"]
+apple-sandbox = []
+apple-app-store = ["apple-sandbox"]
+c-interface = []
+multithread = ["rayon"]
+debug = ["libc/extra_traits"]
+# This feature is used on CI to emulate unknown/unsupported target.
+unknown-ci = []
+report_memory_in_kibi = []
+
+[package.metadata.docs.rs]
+features = ["serde"]
 
 [dependencies]
 cfg-if = "1.0"
 rayon = { version = "^1.5.1", optional = true }
+serde = { version = "^1.0.152", optional = true }
 
 [target.'cfg(any(windows, target_os = "linux", target_os = "android"))'.dependencies]
 once_cell = "1.0"
@@ -54,9 +68,12 @@ winapi = { version = "0.3.9", features = [
   "ntlsa",
   "securitybaseapi",
   "shellapi",
-  "std"
+  "std",
+  "iphlpapi",
+  "winsock2",
+  "sddl",
 ]}
-ntapi = "0.3"
+ntapi = "0.4"
 
 [target.'cfg(not(any(target_os = "unknown", target_arch = "wasm32")))'.dependencies]
 libc = "^0.2.112"
@@ -67,17 +84,5 @@ core-foundation-sys = "0.8"
 [target.'cfg(all(target_os = "linux", not(target_os = "android")))'.dev-dependencies]
 tempfile = "3.2"
 
-[lib]
-name = "sysinfo"
-crate_type = ["rlib", "cdylib"]
-
-[features]
-default = ["multithread"]
-apple-sandbox = []
-apple-app-store = ["apple-sandbox"]
-c-interface = []
-multithread = ["rayon"]
-debug = ["libc/extra_traits"]
-# This feature is used on CI to emulate unknown/unsupported target.
-unknown-ci = []
-report_memory_in_kibi = []
+[dev-dependencies]
+serde_json = "1.0" # Used in documentation tests.

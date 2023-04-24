@@ -8,6 +8,7 @@ mod utils;
 use std::path::Path;
 use utils::TestResult;
 
+#[allow(clippy::type_complexity)]
 const CHECKS: &[(fn(&str, &Path) -> TestResult, &[&str])] = &[
     (headers::check_license_header, &["src", "tests", "examples"]),
     (signals::check_signals, &["src"]),

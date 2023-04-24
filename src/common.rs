@@ -2,7 +2,7 @@
 
 use crate::{NetworkData, Networks, NetworksExt, UserExt};
 
-use std::convert::From;
+use std::convert::{From, TryFrom};
 use std::fmt;
 use std::str::FromStr;
 
@@ -14,7 +14,7 @@ use std::str::FromStr;
 /// let p = Pid::from_u32(0);
 /// let value: u32 = p.as_u32();
 /// ```
-pub trait PidExt<T>: Copy + From<T> + FromStr + fmt::Display {
+pub trait PidExt: Copy + From<usize> + FromStr + fmt::Display {
     /// Allows to convert [`Pid`][crate::Pid] into [`u32`].
     ///
     /// ```
@@ -41,19 +41,19 @@ macro_rules! pid_decl {
         #[repr(transparent)]
         pub struct Pid(pub(crate) $typ);
 
-        impl From<$typ> for Pid {
-            fn from(v: $typ) -> Self {
-                Self(v)
+        impl From<usize> for Pid {
+            fn from(v: usize) -> Self {
+                Self(v as _)
             }
         }
-        impl From<Pid> for $typ {
+        impl From<Pid> for usize {
             fn from(v: Pid) -> Self {
-                v.0
+                v.0 as _
             }
         }
-        impl PidExt<$typ> for Pid {
+        impl PidExt for Pid {
             fn as_u32(self) -> u32 {
-                self.0 as u32
+                self.0 as _
             }
             fn from_u32(v: u32) -> Self {
                 Self(v as _)
@@ -497,20 +497,20 @@ impl<'a> IntoIterator for &'a Networks {
     }
 }
 
-/// Enum containing the different supported disks types.
+/// Enum containing the different supported kinds of disks.
 ///
-/// This type is returned by [`Disk::get_type`][crate::Disk#method.type].
+/// This type is returned by [`DiskExt::kind`](`crate::DiskExt::kind`).
 ///
 /// ```no_run
 /// use sysinfo::{System, SystemExt, DiskExt};
 ///
 /// let system = System::new_all();
 /// for disk in system.disks() {
-///     println!("{:?}: {:?}", disk.name(), disk.type_());
+///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum DiskType {
+pub enum DiskKind {
     /// HDD type.
     HDD,
     /// SSD type.
@@ -664,7 +664,7 @@ pub struct LoadAvg {
 }
 
 macro_rules! xid {
-    ($(#[$outer:meta])+ $name:ident, $type:ty) => {
+    ($(#[$outer:meta])+ $name:ident, $type:ty $(, $trait:ty)?) => {
         $(#[$outer])+
         #[repr(transparent)]
         #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -677,18 +677,47 @@ macro_rules! xid {
                 &self.0
             }
         }
+
+        $(
+        impl TryFrom<usize> for $name {
+            type Error = <$type as TryFrom<usize>>::Error;
+
+            fn try_from(t: usize) -> Result<Self, <$type as TryFrom<usize>>::Error> {
+                Ok(Self(<$type>::try_from(t)?))
+            }
+        }
+
+        impl $trait for $name {
+            type Err = <$type as FromStr>::Err;
+
+            fn from_str(t: &str) -> Result<Self, <$type as FromStr>::Err> {
+                Ok(Self(<$type>::from_str(t)?))
+            }
+        }
+        )?
     };
 }
 
 macro_rules! uid {
-    ($(#[$outer:meta])+ $type:ty) => {
-        xid!($(#[$outer])+ Uid, $type);
+    ($type:ty$(, $trait:ty)?) => {
+        xid!(
+            /// A user id wrapping a platform specific type.
+            Uid,
+            $type
+            $(, $trait)?
+        );
     };
 }
 
 macro_rules! gid {
-    ($(#[$outer:meta])+ $type:ty) => {
-        xid!($(#[$outer])+ #[derive(Copy)] Gid, $type);
+    ($type:ty) => {
+        xid!(
+            /// A group id wrapping a platform specific type.
+            #[derive(Copy)]
+            Gid,
+            $type,
+            FromStr
+        );
     };
 }
 
@@ -703,33 +732,22 @@ cfg_if::cfg_if! {
             target_os = "ios",
         )
     ))] {
-        uid!(
-            /// A user id wrapping a platform specific type.
-            libc::uid_t
-        );
-        gid!(
-            /// A group id wrapping a platform specific type.
-            libc::gid_t
-        );
+        uid!(libc::uid_t, FromStr);
+        gid!(libc::gid_t);
     } else if #[cfg(windows)] {
-        uid!(
-            /// A user id wrapping a platform specific type.
-            Box<str>
-        );
-        gid!(
-            /// A group id wrapping a platform specific type.
-            u32
-        );
-    } else {
-        uid!(
-            /// A user id wrapping a platform specific type.
-            u32
-        );
-        gid!(
-            /// A group id wrapping a platform specific type.
-            u32
-        );
+        uid!(crate::windows::Sid);
+        gid!(u32);
+        // Manual implementation outside of the macro...
+        impl FromStr for Uid {
+            type Err = <crate::windows::Sid as FromStr>::Err;
 
+            fn from_str(t: &str) -> Result<Self, Self::Err> {
+                Ok(Self(t.parse()?))
+            }
+        }
+    } else {
+        uid!(u32, FromStr);
+        gid!(u32);
     }
 }
 
@@ -806,11 +824,11 @@ pub struct DiskUsage {
 /// Enum describing the different status of a process.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProcessStatus {
-    /// ## Linux/FreeBSD
+    /// ## Linux
     ///
-    /// Waiting in uninterruptible disk sleep.
+    /// Idle kernel thread.
     ///
-    /// ## macOs
+    /// ## macOs/FreeBSD
     ///
     /// Process being created by fork.
     ///
@@ -820,11 +838,11 @@ pub enum ProcessStatus {
     Idle,
     /// Running.
     Run,
-    /// ## Linux/FreeBSD
+    /// ## Linux
     ///
     /// Sleeping in an interruptible waiting.
     ///
-    /// ## macOS
+    /// ## macOS/FreeBSD
     ///
     /// Sleeping on an address.
     ///
@@ -832,11 +850,11 @@ pub enum ProcessStatus {
     ///
     /// Not available.
     Sleep,
-    /// ## Linux/FreeBSD
+    /// ## Linux
     ///
     /// Stopped (on a signal) or (before Linux 2.6.33) trace stopped.
     ///
-    /// ## macOS
+    /// ## macOS/FreeBSD
     ///
     /// Process debugging or suspension.
     ///
@@ -860,9 +878,13 @@ pub enum ProcessStatus {
     ///
     /// Not available.
     Tracing,
-    /// ## Linux/FreeBSD
+    /// ## Linux
     ///
     /// Dead/uninterruptible sleep (usually IO).
+    ///
+    /// ## FreeBSD
+    ///
+    /// A process should never end up in this state.
     ///
     /// ## Other OS
     ///
@@ -900,6 +922,14 @@ pub enum ProcessStatus {
     ///
     /// Not available.
     LockBlocked,
+    /// ## Linux
+    ///
+    /// Waiting in uninterruptible disk sleep.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    UninterruptibleDiskSleep,
     /// Unknown.
     Unknown(u32),
 }
@@ -952,14 +982,89 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
     inner()
 }
 
+/// MAC address for network interface.
+///
+/// It is returned by [`NetworkExt::mac_address`][crate::NetworkExt::mac_address].
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub struct MacAddr(pub [u8; 6]);
+
+impl MacAddr {
+    /// A `MacAddr` with all bytes set to `0`.
+    pub const UNSPECIFIED: Self = MacAddr([0; 6]);
+
+    /// Checks if this `MacAddr` has all bytes equal to `0`.
+    pub fn is_unspecified(&self) -> bool {
+        self == &MacAddr::UNSPECIFIED
+    }
+}
+
+impl fmt::Display for MacAddr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let data = &self.0;
+        write!(
+            f,
+            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            data[0], data[1], data[2], data[3], data[4], data[5],
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::ProcessStatus;
+    use super::{MacAddr, ProcessStatus};
 
-    // This test only exists to ensure that the `Display` trait is implemented on the
+    // This test only exists to ensure that the `Display` and `Debug` traits are implemented on the
     // `ProcessStatus` enum on all targets.
     #[test]
     fn check_display_impl_process_status() {
         println!("{} {:?}", ProcessStatus::Parked, ProcessStatus::Idle);
+    }
+
+    // Ensure that the `Display` and `Debug` traits are implemented on the `MacAddr` struct
+    #[test]
+    fn check_display_impl_mac_address() {
+        println!(
+            "{} {:?}",
+            MacAddr([0x1, 0x2, 0x3, 0x4, 0x5, 0x6]),
+            MacAddr([0xa, 0xb, 0xc, 0xd, 0xe, 0xf])
+        );
+    }
+
+    #[test]
+    fn check_mac_address_is_unspecified_true() {
+        assert!(MacAddr::UNSPECIFIED.is_unspecified());
+        assert!(MacAddr([0; 6]).is_unspecified());
+    }
+
+    #[test]
+    fn check_mac_address_is_unspecified_false() {
+        assert!(!MacAddr([1, 2, 3, 4, 5, 6]).is_unspecified());
+    }
+
+    // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented
+    // on `Uid`, `Gid` and `Pid`.
+    #[test]
+    fn check_uid_gid_from_impls() {
+        use std::convert::TryFrom;
+        use std::str::FromStr;
+
+        #[cfg(not(windows))]
+        {
+            assert!(crate::Uid::try_from(0usize).is_ok());
+            assert!(crate::Uid::from_str("0").is_ok());
+        }
+        #[cfg(windows)]
+        {
+            assert!(crate::Uid::from_str("S-1-5-18").is_ok()); // SECURITY_LOCAL_SYSTEM_RID
+            assert!(crate::Uid::from_str("0").is_err());
+        }
+
+        assert!(crate::Gid::try_from(0usize).is_ok());
+        assert!(crate::Gid::from_str("0").is_ok());
+
+        assert!(crate::Pid::try_from(0usize).is_ok());
+        // If it doesn't panic, it's fine.
+        let _ = crate::Pid::from(0);
+        assert!(crate::Pid::from_str("0").is_ok());
     }
 }

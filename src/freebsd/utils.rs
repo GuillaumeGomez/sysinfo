@@ -169,7 +169,7 @@ pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
             && size > 0
         {
             // now create a buffer with the size and get the real value
-            let mut buf: Vec<libc::c_char> = vec![0; size as usize];
+            let mut buf: Vec<libc::c_char> = vec![0; size as _];
 
             if libc::sysctlbyname(
                 name.as_ptr() as *const c_char,
@@ -210,7 +210,7 @@ pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<St
             default.map(|s| s.to_owned())
         } else {
             // set the buffer to the correct size
-            let mut buf: Vec<libc::c_char> = vec![0; size as usize];
+            let mut buf: Vec<libc::c_char> = vec![0; size as _];
 
             if libc::sysctl(
                 mib.as_ptr(),
@@ -287,7 +287,7 @@ pub(crate) unsafe fn get_frequency_for_cpu(cpu_nb: c_int) -> u64 {
 
     // The information can be missing if it's running inside a VM.
     if !get_sys_value_by_name(
-        format!("dev.cpu.{}.freq\0", cpu_nb).as_bytes(),
+        format!("dev.cpu.{cpu_nb}.freq\0").as_bytes(),
         &mut frequency,
     ) {
         frequency = 0;

@@ -1,4 +1,4 @@
-Process id
+Process ID.
 
 Can be used as an integer type by simple casting. For example:
 

@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use crate::common::MacAddr;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 
 #[doc = include_str!("../../md_doc/networks.md")]
@@ -77,5 +78,9 @@ impl NetworkExt for NetworkData {
 
     fn total_errors_on_transmitted(&self) -> u64 {
         0
+    }
+
+    fn mac_address(&self) -> MacAddr {
+        MacAddr::UNSPECIFIED
     }
 }

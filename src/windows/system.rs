@@ -12,27 +12,24 @@ use crate::sys::disk::{get_disks, Disk};
 use crate::sys::process::{get_start_time, update_memory, Process};
 use crate::sys::tools::*;
 use crate::sys::users::get_users;
-use crate::sys::utils::get_now;
+use crate::sys::utils::{get_now, get_reg_string_value, get_reg_value_u32};
 
 use crate::utils::into_iter;
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::convert::TryInto;
-use std::ffi::OsStr;
+// rmv? use std::convert::TryInto;
+// rmv? use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
-use std::os::windows::ffi::OsStrExt;
-use std::slice::from_raw_parts;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use ntapi::ntexapi::{
     NtQuerySystemInformation, SystemProcessInformation, SYSTEM_PROCESS_INFORMATION,
 };
 use winapi::ctypes::wchar_t;
-use winapi::shared::minwindef::{DWORD, FALSE, HKEY, LPBYTE, TRUE};
+use winapi::shared::minwindef::{FALSE, TRUE};
 use winapi::shared::ntdef::{PVOID, ULONG};
 use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
-use winapi::shared::winerror;
 use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
 use winapi::um::psapi::{GetPerformanceInfo, PERFORMANCE_INFORMATION};
@@ -40,8 +37,7 @@ use winapi::um::sysinfoapi::{
     ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetTickCount64, GlobalMemoryStatusEx,
     MEMORYSTATUSEX,
 };
-use winapi::um::winnt::{HANDLE, KEY_READ};
-use winapi::um::winreg::{RegOpenKeyExW, RegQueryValueExW};
+use winapi::um::winnt::HANDLE;
 
 declare_signals! {
     (),
@@ -87,7 +83,7 @@ unsafe impl<T> Sync for Wrap<T> {}
 
 unsafe fn boot_time() -> u64 {
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_secs().saturating_sub(GetTickCount64() / 1000),
+        Ok(n) => n.as_secs().saturating_sub(GetTickCount64() / 1_000),
         Err(_e) => {
             sysinfo_debug!("Failed to compute boot time: {:?}", _e);
             0
@@ -110,6 +106,7 @@ impl System {
 impl SystemExt for System {
     const IS_SUPPORTED: bool = true;
     const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
+    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
 
     #[allow(non_snake_case)]
     fn new_with_specifics(refreshes: RefreshKind) -> System {
@@ -136,45 +133,47 @@ impl SystemExt for System {
             self.query = Query::new();
             if let Some(ref mut query) = self.query {
                 add_english_counter(
-                    r"\Processor(_Total)\% Processor Time".to_string(),
+                    r"\Processor(_Total)\% Idle Time".to_string(),
                     query,
                     get_key_used(self.cpus.global_cpu_mut()),
                     "tot_0".to_owned(),
                 );
                 for (pos, proc_) in self.cpus.iter_mut(refresh_kind).enumerate() {
                     add_english_counter(
-                        format!(r"\Processor({})\% Processor Time", pos),
+                        format!(r"\Processor({pos})\% Idle Time"),
                         query,
                         get_key_used(proc_),
-                        format!("{}_0", pos),
+                        format!("{pos}_0"),
                     );
                 }
             }
         }
         if let Some(ref mut query) = self.query {
             query.refresh();
-            let mut used_time = None;
+            let mut total_idle_time = None;
             if let Some(ref key_used) = *get_key_used(self.cpus.global_cpu_mut()) {
-                used_time = Some(
+                total_idle_time = Some(
                     query
                         .get(&key_used.unique_id)
                         .expect("global_key_idle disappeared"),
                 );
             }
-            if let Some(used_time) = used_time {
-                self.cpus.global_cpu_mut().set_cpu_usage(used_time);
+            if let Some(total_idle_time) = total_idle_time {
+                self.cpus
+                    .global_cpu_mut()
+                    .set_cpu_usage(100.0 - total_idle_time);
             }
             for p in self.cpus.iter_mut(refresh_kind) {
-                let mut used_time = None;
+                let mut idle_time = None;
                 if let Some(ref key_used) = *get_key_used(p) {
-                    used_time = Some(
+                    idle_time = Some(
                         query
                             .get(&key_used.unique_id)
                             .expect("key_used disappeared"),
                     );
                 }
-                if let Some(used_time) = used_time {
-                    p.set_cpu_usage(used_time);
+                if let Some(idle_time) = idle_time {
+                    p.set_cpu_usage(100.0 - idle_time);
                 }
             }
             if refresh_kind.frequency() {
@@ -188,8 +187,10 @@ impl SystemExt for System {
             let mut mem_info: MEMORYSTATUSEX = zeroed();
             mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
             GlobalMemoryStatusEx(&mut mem_info);
-            self.mem_total = Self::adjust_memory_value(auto_cast!(mem_info.ullTotalPhys, u64));
-            self.mem_available = Self::adjust_memory_value(auto_cast!(mem_info.ullAvailPhys, u64));
+            self.mem_total = mem_info.ullTotalPhys as _;
+            self.mem_available = mem_info.ullAvailPhys as _;
+            // nfx self.mem_total = Self::adjust_memory_value(auto_cast!(mem_info.ullTotalPhys, u64));
+            // nfx self.mem_available = Self::adjust_memory_value(auto_cast!(mem_info.ullAvailPhys, u64));
             let mut perf_info: PERFORMANCE_INFORMATION = zeroed();
             if GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as u32)
                 == TRUE
@@ -204,8 +205,10 @@ impl SystemExt for System {
                         .CommitTotal
                         .saturating_sub(perf_info.PhysicalTotal),
                 );
-                self.swap_total = Self::adjust_memory_value(swap_total.try_into().unwrap());
-                self.swap_used = Self::adjust_memory_value(swap_used.try_into().unwrap());
+                self.swap_total = swap_total as _;
+                self.swap_used = swap_used as _;
+                // nfx self.swap_total = Self::adjust_memory_value(swap_total.try_into().unwrap());
+                // nfx self.swap_used = Self::adjust_memory_value(swap_used.try_into().unwrap());
             }
         }
     }
@@ -302,8 +305,8 @@ impl SystemExt for System {
                                     .map(|start| start == proc_.start_time())
                                     .unwrap_or(true)
                                 {
-                                    proc_.memory = (pi.WorkingSetSize as u64) / 1_000;
-                                    proc_.virtual_memory = (pi.VirtualSize as u64) / 1_000;
+                                    proc_.memory = pi.WorkingSetSize as _;
+                                    proc_.virtual_memory = pi.VirtualSize as _;
                                     proc_.update(refresh_kind, nb_cpus, now);
                                     return None;
                                 }
@@ -318,8 +321,8 @@ impl SystemExt for System {
                                 } else {
                                     None
                                 },
-                                (pi.WorkingSetSize as u64) / 1_000,
-                                (pi.VirtualSize as u64) / 1_000,
+                                pi.WorkingSetSize as _,
+                                pi.VirtualSize as _,
                                 name,
                                 now,
                                 refresh_kind,
@@ -445,7 +448,7 @@ impl SystemExt for System {
     }
 
     fn uptime(&self) -> u64 {
-        unsafe { GetTickCount64() / 1000 }
+        unsafe { GetTickCount64() / 1_000 }
     }
 
     fn boot_time(&self) -> u64 {
@@ -507,7 +510,11 @@ impl SystemExt for System {
                 .unwrap_or_default(),
             )
         };
-        Some(format!("{} ({})", major, build_number))
+        Some(format!("{major} ({build_number})"))
+    }
+
+    fn distribution_id(&self) -> String {
+        std::env::consts::OS.to_owned()
     }
 }
 
@@ -517,7 +524,7 @@ impl Default for System {
     }
 }
 
-fn is_proc_running(handle: HANDLE) -> bool {
+pub(crate) fn is_proc_running(handle: HANDLE) -> bool {
     let mut exit_code = 0;
     unsafe {
         let ret = GetExitCodeProcess(handle, &mut exit_code);
@@ -559,7 +566,7 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
         match process_id.0 {
             0 => "Idle".to_owned(),
             4 => "System".to_owned(),
-            _ => format!("<no name> Process {}", process_id),
+            _ => format!("<no name> Process {process_id}"),
         }
     } else {
         unsafe {
@@ -570,84 +577,6 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
             );
 
             String::from_utf16_lossy(slice)
-        }
-    }
-}
-
-fn utf16_str<S: AsRef<OsStr> + ?Sized>(text: &S) -> Vec<u16> {
-    OsStr::new(text)
-        .encode_wide()
-        .chain(Some(0).into_iter())
-        .collect::<Vec<_>>()
-}
-
-fn get_reg_string_value(hkey: HKEY, path: &str, field_name: &str) -> Option<String> {
-    let c_path = utf16_str(path);
-    let c_field_name = utf16_str(field_name);
-
-    let mut new_hkey: HKEY = std::ptr::null_mut();
-    unsafe {
-        if RegOpenKeyExW(hkey, c_path.as_ptr(), 0, KEY_READ, &mut new_hkey) != 0 {
-            return None;
-        }
-
-        let mut buf_len: DWORD = 2048;
-        let mut buf_type: DWORD = 0;
-        let mut buf: Vec<u8> = Vec::with_capacity(buf_len as usize);
-        loop {
-            match RegQueryValueExW(
-                new_hkey,
-                c_field_name.as_ptr(),
-                std::ptr::null_mut(),
-                &mut buf_type,
-                buf.as_mut_ptr() as LPBYTE,
-                &mut buf_len,
-            ) as DWORD
-            {
-                0 => break,
-                winerror::ERROR_MORE_DATA => {
-                    buf.reserve(buf_len as _);
-                }
-                _ => return None,
-            }
-        }
-
-        buf.set_len(buf_len as _);
-
-        let words = from_raw_parts(buf.as_ptr() as *const u16, buf.len() / 2);
-        let mut s = String::from_utf16_lossy(words);
-        while s.ends_with('\u{0}') {
-            s.pop();
-        }
-        Some(s)
-    }
-}
-
-fn get_reg_value_u32(hkey: HKEY, path: &str, field_name: &str) -> Option<[u8; 4]> {
-    let c_path = utf16_str(path);
-    let c_field_name = utf16_str(field_name);
-
-    let mut new_hkey: HKEY = std::ptr::null_mut();
-    unsafe {
-        if RegOpenKeyExW(hkey, c_path.as_ptr(), 0, KEY_READ, &mut new_hkey) != 0 {
-            return None;
-        }
-
-        let mut buf_len: DWORD = 4;
-        let mut buf_type: DWORD = 0;
-        let mut buf = [0u8; 4];
-
-        match RegQueryValueExW(
-            new_hkey,
-            c_field_name.as_ptr(),
-            std::ptr::null_mut(),
-            &mut buf_type,
-            buf.as_mut_ptr() as LPBYTE,
-            &mut buf_len,
-        ) as DWORD
-        {
-            0 => Some(buf),
-            _ => None,
         }
     }
 }

@@ -30,7 +30,7 @@ use winapi::um::winnt::{
     PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, PVOID, WT_EXECUTEDEFAULT,
 };
 
-// This formula comes from linux's include/linux/sched/loadavg.h
+// This formula comes from Linux's include/linux/sched/loadavg.h
 // https://github.com/torvalds/linux/blob/345671ea0f9258f410eb057b9ced9cefbbe5dc78/include/linux/sched/loadavg.h#L20-L23
 #[allow(clippy::excessive_precision)]
 const LOADAVG_FACTOR_1F: f64 = 0.9200444146293232478931553241;
@@ -296,6 +296,8 @@ impl CpusWrapper {
         for (cpu, frequency) in self.cpus.iter_mut().zip(frequencies) {
             cpu.set_frequency(frequency);
         }
+        self.global
+            .set_frequency(self.cpus.get(0).map(|cpu| cpu.frequency()).unwrap_or(0));
         self.got_cpu_frequency = true;
     }
 }

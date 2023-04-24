@@ -137,11 +137,13 @@ pub(crate) fn get_cpu_frequency() -> u64 {
 }
 
 #[inline]
-fn get_in_use(cpu_info: *mut i32, offset: isize) -> i32 {
+fn get_in_use(cpu_info: *mut i32, offset: isize) -> i64 {
     unsafe {
-        *cpu_info.offset(offset + libc::CPU_STATE_USER as isize)
-            + *cpu_info.offset(offset + libc::CPU_STATE_SYSTEM as isize)
-            + *cpu_info.offset(offset + libc::CPU_STATE_NICE as isize)
+        let user = *cpu_info.offset(offset + libc::CPU_STATE_USER as isize) as i64;
+        let system = *cpu_info.offset(offset + libc::CPU_STATE_SYSTEM as isize) as i64;
+        let nice = *cpu_info.offset(offset + libc::CPU_STATE_NICE as isize) as i64;
+
+        user.saturating_add(system).saturating_add(nice)
     }
 }
 
@@ -158,10 +160,12 @@ pub(crate) fn compute_usage_of_cpu(proc_: &Cpu, cpu_info: *mut i32, offset: isiz
     // In case we are initializing cpus, there is no "old value" yet.
     if old_cpu_info == cpu_info {
         in_use = get_in_use(cpu_info, offset);
-        total = in_use + get_idle(cpu_info, offset);
+        total = in_use.saturating_add(get_idle(cpu_info, offset) as _);
     } else {
-        in_use = get_in_use(cpu_info, offset) - get_in_use(old_cpu_info, offset);
-        total = in_use + (get_idle(cpu_info, offset) - get_idle(old_cpu_info, offset));
+        in_use = get_in_use(cpu_info, offset).saturating_sub(get_in_use(old_cpu_info, offset));
+        total = in_use.saturating_add(
+            get_idle(cpu_info, offset).saturating_sub(get_idle(old_cpu_info, offset)) as _,
+        );
     }
     in_use as f32 / total as f32 * 100.
 }
@@ -207,7 +211,7 @@ pub(crate) fn init_cpus(
     let frequency = if refresh_kind.frequency() {
         get_cpu_frequency()
     } else {
-        0
+        global_cpu.frequency
     };
 
     unsafe {
@@ -317,14 +321,14 @@ mod test {
         let cpus = sys.cpus();
         assert!(!cpus.is_empty(), "no CPU found");
         if let Some(line) = stdout.lines().find(|l| l.contains("machdep.cpu.vendor")) {
-            let sysctl_value = line.split(":").skip(1).next().unwrap();
+            let sysctl_value = line.split(':').nth(1).unwrap();
             assert_eq!(cpus[0].vendor_id(), sysctl_value.trim());
         }
         if let Some(line) = stdout
             .lines()
             .find(|l| l.contains("machdep.cpu.brand_string"))
         {
-            let sysctl_value = line.split(":").skip(1).next().unwrap();
+            let sysctl_value = line.split(':').nth(1).unwrap();
             assert_eq!(cpus[0].brand(), sysctl_value.trim());
         }
     }

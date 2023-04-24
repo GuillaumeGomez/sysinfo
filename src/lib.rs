@@ -1,12 +1,14 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 #![doc = include_str!("../README.md")]
+#![cfg_attr(feature = "serde", doc = include_str!("../md_doc/serde.md"))]
 #![allow(unknown_lints)]
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 #![allow(clippy::upper_case_acronyms)]
 #![allow(clippy::non_send_fields_in_send_ty)]
 #![allow(renamed_and_removed_lints)]
+#![allow(clippy::assertions_on_constants)]
 #![allow(unknown_lints)]
 
 #[macro_use]
@@ -23,15 +25,18 @@ cfg_if::cfg_if! {
     } else if #[cfg(any(target_os = "macos", target_os = "ios"))] {
         mod apple;
         use apple as sys;
-        extern crate core_foundation_sys;
+        mod network_helper_nix;
+        use network_helper_nix as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
     } else if #[cfg(windows)] {
         mod windows;
         use windows as sys;
-        extern crate winapi;
-        extern crate ntapi;
+        mod network_helper_win;
+        use network_helper_win as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -39,6 +44,9 @@ cfg_if::cfg_if! {
         mod linux;
         use linux as sys;
         pub(crate) mod users;
+        mod network_helper_nix;
+        use network_helper_nix as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -46,6 +54,9 @@ cfg_if::cfg_if! {
         mod freebsd;
         use freebsd as sys;
         pub(crate) mod users;
+        mod network_helper_nix;
+        use network_helper_nix as network_helper;
+        mod network;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -59,8 +70,8 @@ cfg_if::cfg_if! {
 }
 
 pub use common::{
-    get_current_pid, CpuRefreshKind, DiskType, DiskUsage, Gid, LoadAvg, NetworksIter, Pid, PidExt,
-    ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, Uid, User,
+    get_current_pid, CpuRefreshKind, DiskKind, DiskUsage, Gid, LoadAvg, MacAddr, NetworksIter, Pid,
+    PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, Uid, User,
 };
 pub use sys::{Component, Cpu, Disk, NetworkData, Networks, Process, System};
 pub use traits::{
@@ -74,14 +85,16 @@ pub use c_interface::*;
 mod c_interface;
 mod common;
 mod debug;
+#[cfg(feature = "serde")]
+mod serde;
 mod system;
 mod traits;
 mod utils;
 
-/// This function is only used on linux targets, on the other platforms it does nothing and returns
+/// This function is only used on Linux targets, on the other platforms it does nothing and returns
 /// `false`.
 ///
-/// On linux, to improve performance, we keep a `/proc` file open for each process we index with
+/// On Linux, to improve performance, we keep a `/proc` file open for each process we index with
 /// a maximum number of files open equivalent to half of the system limit.
 ///
 /// The problem is that some users might need all the available file descriptors so we need to
@@ -327,10 +340,30 @@ mod test {
     }
 
     #[test]
+    fn check_all_process_uids_resolvable() {
+        if System::IS_SUPPORTED {
+            let s = System::new_with_specifics(
+                RefreshKind::new()
+                    .with_processes(ProcessRefreshKind::new().with_user())
+                    .with_users_list(),
+            );
+
+            // For every process where we can get a user ID, we should also be able
+            // to find that user ID in the global user list
+            for process in s.processes().values() {
+                if let Some(uid) = process.user_id() {
+                    assert!(s.get_user_by_id(uid).is_some(), "No UID {:?} found", uid);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn check_system_info() {
+        let s = System::new();
+
         // We don't want to test on unsupported systems.
         if System::IS_SUPPORTED {
-            let s = System::new();
             assert!(!s.name().expect("Failed to get system name").is_empty());
 
             assert!(!s
@@ -345,6 +378,8 @@ mod test {
                 .expect("Failed to get long OS version")
                 .is_empty());
         }
+
+        assert!(!s.distribution_id().is_empty());
     }
 
     #[test]
@@ -468,5 +503,20 @@ mod test {
             "{} <= 5",
             (new_total - total).abs()
         );
+    }
+
+    // We ensure that the `Process` cmd information is retrieved as expected.
+    #[test]
+    fn check_cmd_line() {
+        if !System::IS_SUPPORTED {
+            return;
+        }
+        let mut sys = System::new();
+        sys.refresh_processes_specifics(ProcessRefreshKind::new());
+
+        assert!(sys
+            .processes()
+            .iter()
+            .any(|(_, process)| !process.cmd().is_empty()));
     }
 }

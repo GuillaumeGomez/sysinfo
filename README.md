@@ -1,4 +1,4 @@
-# sysinfo ![img_github_ci] [![][img_crates]][crates] [![][img_doc]][doc]
+# sysinfo [![][img_crates]][crates] [![][img_doc]][doc]
 
 `sysinfo` is a crate used to get a system's information.
 
@@ -18,7 +18,7 @@ You can still use `sysinfo` on non-supported OSes, it'll simply do nothing and a
 empty values. You can check in your program directly if an OS is supported by checking the
 [`SystemExt::IS_SUPPORTED`] constant.
 
-The minimum-supported version of `rustc` is **1.54**.
+The minimum-supported version of `rustc` is **1.59**.
 
 ## Usage
 
@@ -64,10 +64,10 @@ for component in sys.components() {
 
 println!("=> system:");
 // RAM and swap information:
-println!("total memory: {} KB", sys.total_memory());
-println!("used memory : {} KB", sys.used_memory());
-println!("total swap  : {} KB", sys.total_swap());
-println!("used swap   : {} KB", sys.used_swap());
+println!("total memory: {} bytes", sys.total_memory());
+println!("used memory : {} bytes", sys.used_memory());
+println!("total swap  : {} bytes", sys.total_swap());
+println!("used swap   : {} bytes", sys.used_swap());
 
 // Display system information:
 println!("System name:             {:?}", sys.name());
@@ -82,12 +82,52 @@ println!("NB CPUs: {}", sys.cpus().len());
 for (pid, process) in sys.processes() {
     println!("[{}] {} {:?}", pid, process.name(), process.disk_usage());
 }
+```
 
+Please remember that to have some up-to-date information, you need to call the equivalent
+`refresh` method. For example, for the CPU usage:
+
+```rust,no_run
+use sysinfo::{CpuExt, System, SystemExt};
+
+let mut sys = System::new();
+
+loop {
+    sys.refresh_cpu(); // Refreshing CPU information.
+    for cpu in sys.cpus() {
+        print!("{}% ", cpu.cpu_usage());
+    }
+    // Sleeping for 500 ms to let time for the system to run for long
+    // enough to have useful information.
+    std::thread::sleep(std::time::Duration::from_millis(500));
+}
 ```
 
 By default, `sysinfo` uses multiple threads. However, this can increase the memory usage on some
 platforms (macOS for example). The behavior can be disabled by setting `default-features = false`
 in `Cargo.toml` (which disables the `multithread` cargo feature).
+
+### Good practice / Performance tips
+
+Most of the time, you don't want all information provided by `sysinfo` but just a subset of it.
+In this case, it's recommended to use `refresh_specifics(...)` methods with only what you need
+to have much better performance.
+
+Another issues frequently encountered: unless you know what you're doing, it's almost all the
+time better to instantiate the `System` struct once and use this one instance through your
+program. The reason is because a lot of information needs a previous measure to be computed
+(the CPU usage for example). Another example why it's much better: in case you want to list
+all running processes, `sysinfo` needs to allocate all memory for the `Process` struct list,
+which takes quite some time on the first run.
+
+If your program needs to use a lot of file descriptors, you'd better use:
+
+```rust,no_run
+sysinfo::set_open_files_limit(0);
+```
+
+as `sysinfo` keeps a number of file descriptors open to have better performance on some
+targets when refreshing processes.
 
 ### Running on Raspberry Pi
 
@@ -134,7 +174,7 @@ can be used alone to avoid causing policy violations at runtime.
 ### How it works
 
 I wrote a blog post you can find [here][sysinfo-blog] which explains how `sysinfo` extracts information
-on the diffent systems.
+on the different systems.
 
 [sysinfo-blog]: https://blog.guillaume-gomez.fr/articles/2021-09-06+sysinfo%3A+how+to+extract+systems%27+information
 
@@ -166,7 +206,6 @@ If you appreciate my work and want to support me, you can do it with
 [github sponsors](https://github.com/sponsors/GuillaumeGomez) or with
 [patreon](https://www.patreon.com/GuillaumeGomez).
 
-[img_github_ci]: https://github.com/GuillaumeGomez/sysinfo/workflows/CI/badge.svg
 [img_crates]: https://img.shields.io/crates/v/sysinfo.svg
 [img_doc]: https://img.shields.io/badge/rust-documentation-blue.svg
 

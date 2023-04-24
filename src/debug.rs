@@ -47,7 +47,7 @@ impl fmt::Debug for Disk {
                 .iter()
                 .map(|c| *c as char)
                 .collect::<Vec<_>>(),
-            self.type_(),
+            self.kind(),
             if self.is_removable() { "yes" } else { "no" },
             self.mount_point(),
             self.available_space(),
@@ -105,7 +105,7 @@ impl fmt::Debug for Networks {
             f,
             "Networks {{ {} }}",
             self.iter()
-                .map(|x| format!("{:?}", x))
+                .map(|x| format!("{x:?}"))
                 .collect::<Vec<_>>()
                 .join(", ")
         )

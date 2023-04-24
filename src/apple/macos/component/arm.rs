@@ -3,7 +3,7 @@
 use std::ffi::CStr;
 
 use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex};
-use core_foundation_sys::base::kCFAllocatorDefault;
+use core_foundation_sys::base::{kCFAllocatorDefault, CFRetain};
 use core_foundation_sys::string::{
     kCFStringEncodingUTF8, CFStringCreateWithBytes, CFStringGetCStringPtr,
 };
@@ -15,7 +15,7 @@ use crate::apple::inner::ffi::{
     IOHIDServiceClientCopyProperty, __IOHIDEventSystemClient, __IOHIDServiceClient,
     HID_DEVICE_PROPERTY_PRODUCT,
 };
-use crate::sys::macos::utils::CFReleaser;
+use crate::sys::utils::CFReleaser;
 use crate::ComponentExt;
 
 pub(crate) struct Components {
@@ -43,11 +43,18 @@ impl Components {
                 None => return,
             };
 
-            // FIXME: Do we really need to re-create a new `client` every time?
-            let client = match CFReleaser::new(IOHIDEventSystemClientCreate(kCFAllocatorDefault)) {
-                Some(c) => c,
-                None => return,
-            };
+            if self.client.is_none() {
+                let client =
+                    match CFReleaser::new(IOHIDEventSystemClientCreate(kCFAllocatorDefault)) {
+                        Some(c) => c,
+                        None => return,
+                    };
+                // Without this call, client is freed during the execution of the program. It must be kept!
+                CFRetain(client.inner() as _);
+                self.client = Some(client);
+            }
+
+            let client = self.client.as_ref().unwrap();
 
             let _ = IOHIDEventSystemClientSetMatching(client.inner(), matches.inner());
 
@@ -95,9 +102,6 @@ impl Components {
 
                 self.inner.push(component);
             }
-
-            // FIXME: Do we really need to re-create a new `client` every time?
-            self.client.replace(client);
         }
     }
 }

@@ -1,126 +1,113 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use core_foundation_sys::base::{CFAllocatorRef, CFRelease};
-use core_foundation_sys::dictionary::CFMutableDictionaryRef;
-use core_foundation_sys::string::{CFStringEncoding, CFStringRef};
+use core_foundation_sys::base::{mach_port_t, CFAllocatorRef};
+use core_foundation_sys::dictionary::{CFDictionaryRef, CFMutableDictionaryRef};
+use core_foundation_sys::string::CFStringRef;
 
-use libc::{c_char, c_void};
+use libc::{c_char, kern_return_t};
 
-#[cfg(all(
-    not(feature = "apple-sandbox"),
-    any(target_arch = "x86", target_arch = "x86_64")
-))]
-use libc::{mach_port_t, size_t};
+// Note: IOKit is only available on MacOS up until very recent iOS versions: https://developer.apple.com/documentation/iokit
 
-pub(crate) use crate::sys::ffi::*;
+#[allow(non_camel_case_types)]
+pub type io_object_t = mach_port_t;
 
-#[cfg(all(
-    not(feature = "apple-sandbox"),
-    any(target_arch = "x86", target_arch = "x86_64")
-))]
+#[allow(non_camel_case_types)]
+pub type io_iterator_t = io_object_t;
+#[allow(non_camel_case_types)]
+pub type io_registry_entry_t = io_object_t;
+#[allow(non_camel_case_types)]
+pub type io_name_t = *const c_char;
+
+pub type IOOptionBits = u32;
+
+#[allow(non_upper_case_globals)]
+pub const kIOServicePlane: &str = "IOService\0";
+#[allow(non_upper_case_globals)]
+pub const kIOPropertyDeviceCharacteristicsKey: &str = "Device Characteristics";
+#[allow(non_upper_case_globals)]
+pub const kIOPropertyMediumTypeKey: &str = "Medium Type";
+#[allow(non_upper_case_globals)]
+pub const kIOPropertyMediumTypeSolidStateKey: &str = "Solid State";
+#[allow(non_upper_case_globals)]
+pub const kIOPropertyMediumTypeRotationalKey: &str = "Rotational";
+
+// Based on https://github.com/libusb/libusb/blob/bed8d3034eac74a6e1ba123b5c270ea63cb6cf1a/libusb/os/darwin_usb.c#L54-L55,
+// we can simply set it to 0 (and is the same value as its replacement `kIOMainPortDefault`).
+#[allow(non_upper_case_globals)]
+pub const kIOMasterPortDefault: mach_port_t = 0;
+
+// Note: Obtaining information about disks using IOKIt is allowed inside the default macOS App Sandbox.
+#[link(name = "IOKit", kind = "framework")]
 extern "C" {
-    // The proc_* PID functions are internal Apple APIs which are not
-    // allowed in App store releases as Apple blocks any binary using them.
-
-    // IOKit is only available on MacOS: https://developer.apple.com/documentation/iokit, and when not running inside
-    // of the default macOS sandbox.
-    pub fn IOMasterPort(a: i32, b: *mut mach_port_t) -> i32;
-
-    pub fn IOServiceMatching(a: *const c_char) -> *mut c_void;
-
     pub fn IOServiceGetMatchingServices(
-        a: mach_port_t,
-        b: *mut c_void,
-        c: *mut io_iterator_t,
-    ) -> i32;
+        mainPort: mach_port_t,
+        matching: CFMutableDictionaryRef,
+        existing: *mut io_iterator_t,
+    ) -> kern_return_t;
 
     pub fn IOIteratorNext(iterator: io_iterator_t) -> io_object_t;
 
-    pub fn IOObjectRelease(obj: io_object_t) -> i32;
+    pub fn IOObjectRelease(obj: io_object_t) -> kern_return_t;
 
-    pub fn IOServiceOpen(device: io_object_t, a: u32, t: u32, x: *mut io_connect_t) -> i32;
-
-    pub fn IOServiceClose(a: io_connect_t) -> i32;
-
-    #[allow(dead_code)]
-    pub fn IOConnectCallStructMethod(
-        connection: mach_port_t,
-        selector: u32,
-        inputStruct: *const KeyData_t,
-        inputStructCnt: size_t,
-        outputStruct: *mut KeyData_t,
-        outputStructCnt: *mut size_t,
-    ) -> i32;
-    // pub fn IORegistryEntryCreateCFProperties(
-    //     entry: io_registry_entry_t,
-    //     properties: *mut CFMutableDictionaryRef,
-    //     allocator: CFAllocatorRef,
-    //     options: IOOptionBits,
-    // ) -> kern_return_t;
-    // pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: *mut c_char) -> kern_return_t;
-}
-
-extern "C" {
-    pub fn CFStringCreateWithCStringNoCopy(
-        alloc: *mut c_void,
-        cStr: *const c_char,
-        encoding: CFStringEncoding,
-        contentsDeallocator: *mut c_void,
-    ) -> CFStringRef;
-
-    // Disk information functions are non-operational on iOS because of the sandboxing
-    // restrictions of apps, so they don't can't filesystem information. This results in
-    // mountedVolumeURLs and similar returning `nil`. Hence, they are MacOS specific here.
-
-    pub fn DASessionCreate(allocator: CFAllocatorRef) -> DASessionRef;
-
-    // pub fn DADiskCreateFromVolumePath(
-    //     allocator: CFAllocatorRef,
-    //     session: DASessionRef,
-    //     path: CFURLRef,
-    // ) -> DADiskRef;
-    pub fn DADiskCreateFromBSDName(
+    pub fn IORegistryEntryCreateCFProperty(
+        entry: io_registry_entry_t,
+        key: CFStringRef,
         allocator: CFAllocatorRef,
-        session: DASessionRef,
-        path: *const c_char,
-    ) -> DADiskRef;
-    // pub fn DADiskGetBSDName(disk: DADiskRef) -> *const c_char;
+        options: IOOptionBits,
+    ) -> CFDictionaryRef;
+    pub fn IORegistryEntryGetParentEntry(
+        entry: io_registry_entry_t,
+        plane: io_name_t,
+        parent: *mut io_registry_entry_t,
+    ) -> kern_return_t;
 
-    pub fn DADiskCopyDescription(disk: DADiskRef) -> CFMutableDictionaryRef;
+    pub fn IOBSDNameMatching(
+        mainPort: mach_port_t,
+        options: u32,
+        bsdName: *const c_char,
+    ) -> CFMutableDictionaryRef;
 }
-
-pub type DADiskRef = *const __DADisk;
-pub type DASessionRef = *const __DASession;
-
-// We need to wrap `DASessionRef` to be sure `System` remains Send+Sync.
-pub struct SessionWrap(pub DASessionRef);
-
-impl Drop for SessionWrap {
-    fn drop(&mut self) {
-        if !self.0.is_null() {
-            unsafe {
-                CFRelease(self.0 as _);
-            }
-        }
-    }
-}
-
-unsafe impl Send for SessionWrap {}
-unsafe impl Sync for SessionWrap {}
 
 #[cfg(all(
     not(feature = "apple-sandbox"),
     any(target_arch = "x86", target_arch = "x86_64")
 ))]
 mod io_service {
-    use super::mach_port_t;
+    use super::{io_object_t, mach_port_t};
+    use core_foundation_sys::dictionary::CFMutableDictionaryRef;
+    use libc::{c_char, kern_return_t, size_t, task_t};
 
     #[allow(non_camel_case_types)]
-    pub type io_object_t = mach_port_t;
-    #[allow(non_camel_case_types)]
     pub type io_connect_t = io_object_t;
+
     #[allow(non_camel_case_types)]
-    pub type io_iterator_t = io_object_t;
+    pub type io_service_t = io_object_t;
+
+    #[allow(non_camel_case_types)]
+    pub type task_port_t = task_t;
+
+    extern "C" {
+        pub fn IOServiceMatching(a: *const c_char) -> CFMutableDictionaryRef;
+
+        pub fn IOServiceOpen(
+            device: io_service_t,
+            owning_task: task_port_t,
+            type_: u32,
+            connect: *mut io_connect_t,
+        ) -> kern_return_t;
+
+        pub fn IOServiceClose(a: io_connect_t) -> kern_return_t;
+
+        #[allow(dead_code)]
+        pub fn IOConnectCallStructMethod(
+            connection: mach_port_t,
+            selector: u32,
+            inputStruct: *const KeyData_t,
+            inputStructCnt: size_t,
+            outputStruct: *mut KeyData_t,
+            outputStructCnt: *mut size_t,
+        ) -> kern_return_t;
+    }
 
     #[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
     #[repr(C)]

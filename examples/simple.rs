@@ -2,8 +2,7 @@
 
 #![crate_type = "bin"]
 #![allow(unused_must_use, non_upper_case_globals)]
-
-extern crate sysinfo;
+#![allow(clippy::manual_range_contains)]
 
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
@@ -152,7 +151,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             let mut nb = 1i32;
 
             for sig in signals {
-                writeln!(&mut io::stdout(), "{:2}:{:?}", nb, sig);
+                writeln!(&mut io::stdout(), "{nb:2}:{sig:?}");
                 nb += 1;
             }
         }
@@ -172,14 +171,30 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 sys.global_cpu_info().cpu_usage()
             );
             for proc_ in sys.cpus() {
-                writeln!(&mut io::stdout(), "{:?}", proc_);
+                writeln!(&mut io::stdout(), "{proc_:?}");
             }
         }
         "memory" => {
-            writeln!(&mut io::stdout(), "total memory: {} KB", sys.total_memory());
-            writeln!(&mut io::stdout(), "used memory : {} KB", sys.used_memory());
-            writeln!(&mut io::stdout(), "total swap  : {} KB", sys.total_swap());
-            writeln!(&mut io::stdout(), "used swap   : {} KB", sys.used_swap());
+            writeln!(
+                &mut io::stdout(),
+                "total memory: {} KB",
+                sys.total_memory() / 1_000
+            );
+            writeln!(
+                &mut io::stdout(),
+                "used memory : {} KB",
+                sys.used_memory() / 1_000
+            );
+            writeln!(
+                &mut io::stdout(),
+                "total swap  : {} KB",
+                sys.total_swap() / 1_000
+            );
+            writeln!(
+                &mut io::stdout(),
+                "used swap   : {} KB",
+                sys.used_swap() / 1_000
+            );
         }
         "quit" | "exit" => return true,
         "all" => {
@@ -228,27 +243,28 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             } else if let Ok(pid) = Pid::from_str(tmp[1]) {
                 match sys.process(pid) {
                     Some(p) => writeln!(&mut io::stdout(), "{:?}", *p),
-                    None => writeln!(&mut io::stdout(), "pid \"{:?}\" not found", pid),
+                    None => writeln!(&mut io::stdout(), "pid \"{pid:?}\" not found"),
                 };
             } else {
                 let proc_name = tmp[1];
                 for proc_ in sys.processes_by_name(proc_name) {
                     writeln!(&mut io::stdout(), "==== {} ====", proc_.name());
-                    writeln!(&mut io::stdout(), "{:?}", proc_);
+                    writeln!(&mut io::stdout(), "{proc_:?}");
                 }
             }
         }
         "temperature" => {
             for component in sys.components() {
-                writeln!(&mut io::stdout(), "{:?}", component);
+                writeln!(&mut io::stdout(), "{component:?}");
             }
         }
         "network" => {
             for (interface_name, data) in sys.networks().iter() {
                 writeln!(
                     &mut io::stdout(),
-                    "{}:\n  input data  (new / total): {} / {} B\n  output data (new / total): {} / {} B",
+                    "{}:\n  ether {}\n  input data  (new / total): {} / {} B\n  output data (new / total): {} / {} B",
                     interface_name,
+                    data.mac_address(),
                     data.received(),
                     data.total_received(),
                     data.transmitted(),
@@ -287,7 +303,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                             if let Some(res) =
                                 p.kill_with(*signals.get(signal as usize - 1).unwrap())
                             {
-                                writeln!(&mut io::stdout(), "kill: {}", res,);
+                                writeln!(&mut io::stdout(), "kill: {res}");
                             } else {
                                 writeln!(
                                     &mut io::stdout(),
@@ -304,7 +320,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         }
         "disks" => {
             for disk in sys.disks() {
-                writeln!(&mut io::stdout(), "{:?}", disk);
+                writeln!(&mut io::stdout(), "{disk:?}");
             }
         }
         "users" => {
@@ -325,11 +341,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             let minutes = uptime / 60;
             writeln!(
                 &mut io::stdout(),
-                "{} days {} hours {} minutes ({} seconds in total)",
-                days,
-                hours,
-                minutes,
-                up,
+                "{days} days {hours} hours {minutes} minutes ({up} seconds in total)",
             );
         }
         x if x.starts_with("refresh") => {
@@ -346,13 +358,9 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                     .next()
                 {
                     if sys.refresh_process(pid) {
-                        writeln!(&mut io::stdout(), "Process `{}` updated successfully", pid);
+                        writeln!(&mut io::stdout(), "Process `{pid}` updated successfully");
                     } else {
-                        writeln!(
-                            &mut io::stdout(),
-                            "Process `{}` couldn't be updated...",
-                            pid
-                        );
+                        writeln!(&mut io::stdout(), "Process `{pid}` couldn't be updated...");
                     }
                 } else {
                     writeln!(&mut io::stdout(), "Invalid [pid] received...");
@@ -360,9 +368,8 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             } else {
                 writeln!(
                     &mut io::stdout(),
-                    "\"{}\": Unknown command. Enter 'help' if you want to get the commands' \
+                    "\"{x}\": Unknown command. Enter 'help' if you want to get the commands' \
                      list.",
-                    x
                 );
             }
         }
@@ -393,9 +400,8 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         e => {
             writeln!(
                 &mut io::stdout(),
-                "\"{}\": Unknown command. Enter 'help' if you want to get the commands' \
+                "\"{e}\": Unknown command. Enter 'help' if you want to get the commands' \
                  list.",
-                e
             );
         }
     }

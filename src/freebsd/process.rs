@@ -5,6 +5,8 @@ use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, 
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use libc::kill;
+
 use super::utils::{get_sys_value_str, WrapMap};
 
 #[doc(hidden)]
@@ -141,6 +143,31 @@ impl ProcessExt for Process {
     fn group_id(&self) -> Option<Gid> {
         Some(self.group_id)
     }
+
+    fn wait(&self) {
+        let mut status = 0;
+        // attempt waiting
+        unsafe {
+            if libc::waitpid(self.pid.0, &mut status, 0) < 0 {
+                // attempt failed (non-child process) so loop until process ends
+                let duration = std::time::Duration::from_millis(10);
+                while kill(self.pid.0, 0) == 0 {
+                    std::thread::sleep(duration);
+                }
+            }
+        }
+    }
+
+    fn session_id(&self) -> Option<Pid> {
+        unsafe {
+            let session_id = libc::getsid(self.pid.0);
+            if session_id < 0 {
+                None
+            } else {
+                Some(Pid(session_id))
+            }
+        }
+    }
 }
 
 pub(crate) unsafe fn get_process_data(
@@ -171,8 +198,8 @@ pub(crate) unsafe fn get_process_data(
     let status = ProcessStatus::from(kproc.ki_stat);
 
     // from FreeBSD source /src/usr.bin/top/machine.c
-    let virtual_memory = (kproc.ki_size / 1_000) as u64;
-    let memory = (kproc.ki_rssize as u64).saturating_mul(page_size as _) / 1_000;
+    let virtual_memory = kproc.ki_size as _;
+    let memory = (kproc.ki_rssize as u64).saturating_mul(page_size as _);
     // FIXME: This is to get the "real" run time (in micro-seconds).
     // let run_time = (kproc.ki_runtime + 5_000) / 10_000;
 

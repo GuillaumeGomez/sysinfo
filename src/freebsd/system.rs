@@ -11,6 +11,7 @@ use std::ffi::CStr;
 use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
+use std::time::Duration;
 
 use super::utils::{
     self, boot_time, c_buf_to_string, from_cstr_array, get_frequency_for_cpu, get_sys_value,
@@ -77,6 +78,7 @@ pub struct System {
 impl SystemExt for System {
     const IS_SUPPORTED: bool = true;
     const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
+    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(100);
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
         let system_info = SystemInfo::new();
@@ -126,11 +128,8 @@ impl SystemExt for System {
                         frequency = get_frequency_for_cpu(pos);
                     }
                 }
-                self.cpus.push(Cpu::new(
-                    format!("cpu {}", pos),
-                    vendor_id.clone(),
-                    frequency,
-                ));
+                self.cpus
+                    .push(Cpu::new(format!("cpu {pos}"), vendor_id.clone(), frequency));
             }
             self.global_cpu.vendor_id = vendor_id;
             self.got_cpu_frequency = refresh_kind.frequency();
@@ -145,6 +144,9 @@ impl SystemExt for System {
         if refresh_kind.cpu_usage() {
             self.system_info
                 .get_cpu_usage(&mut self.global_cpu, &mut self.cpus);
+        }
+        if refresh_kind.frequency() {
+            self.global_cpu.frequency = self.cpus.get(0).map(|cpu| cpu.frequency).unwrap_or(0);
         }
     }
 
@@ -360,6 +362,10 @@ impl SystemExt for System {
 
     fn os_version(&self) -> Option<String> {
         self.system_info.get_os_release()
+    }
+
+    fn distribution_id(&self) -> String {
+        std::env::consts::OS.to_owned()
     }
 }
 
@@ -655,8 +661,8 @@ impl SystemInfo {
                 )
             });
             (
-                used.saturating_mul(self.page_size as _) / 1_000,
-                total.saturating_mul(self.page_size as _) / 1_000,
+                used.saturating_mul(self.page_size as _),
+                total.saturating_mul(self.page_size as _),
             )
         }
     }
@@ -665,14 +671,14 @@ impl SystemInfo {
         let mut nb_pages: u64 = 0;
         unsafe {
             if get_sys_value(&self.virtual_page_count, &mut nb_pages) {
-                return nb_pages.saturating_mul(self.page_size as _) / 1_000;
+                return nb_pages.saturating_mul(self.page_size as _);
             }
 
             // This is a fallback. It includes all the available memory, not just the one available for
             // the users.
             let mut total_memory: u64 = 0;
             get_sys_value(&self.hw_physical_memory, &mut total_memory);
-            total_memory / 1_000
+            total_memory
         }
     }
 
@@ -690,10 +696,9 @@ impl SystemInfo {
             if let Some(arc_size) = self.zfs.arc_size() {
                 mem_wire -= arc_size;
             }
-            let used = mem_active
+            mem_active
                 .saturating_mul(self.page_size as _)
-                .saturating_add(mem_wire);
-            used / 1_000
+                .saturating_add(mem_wire)
         }
     }
 
@@ -709,11 +714,10 @@ impl SystemInfo {
             get_sys_value(&self.virtual_cache_count, &mut cached_mem);
             get_sys_value(&self.virtual_free_count, &mut free_mem);
             // For whatever reason, buffers_mem is already the right value...
-            let free = buffers_mem
-                .saturating_add(inactive_mem.saturating_mul(self.page_size as u64))
-                .saturating_add(cached_mem.saturating_mul(self.page_size as u64))
-                .saturating_add(free_mem.saturating_mul(self.page_size as u64));
-            free / 1_000
+            buffers_mem
+                .saturating_add(inactive_mem.saturating_mul(self.page_size as _))
+                .saturating_add(cached_mem.saturating_mul(self.page_size as _))
+                .saturating_add(free_mem.saturating_mul(self.page_size as _))
         }
     }
 
@@ -734,8 +738,10 @@ impl SystemInfo {
                 if i != libc::CP_IDLE as usize {
                     cp_diff += new_cp_time[i] - old_cp_time[i];
                 }
-                total_new += new_cp_time[i] as u64;
-                total_old += old_cp_time[i] as u64;
+                let mut tmp: u64 = new_cp_time[i] as _;
+                total_new += tmp;
+                tmp = old_cp_time[i] as _;
+                total_old += tmp;
             }
 
             let total_diff = total_new - total_old;

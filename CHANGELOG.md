@@ -1,3 +1,132 @@
+# 0.28.4
+
+ * macOS: Improve CPU computation.
+ * Strengthen a process test (needed for debian).
+
+# 0.28.3
+
+ * FreeBSD/Windows: Add missing frequency for global CPU.
+ * macOS: Fix used memory computation.
+ * macOS: Improve available memory computation.
+ * Windows: Fix potential panic when getting process data.
+
+# 0.28.2
+
+ * Linux: Improve CPU usage computation.
+
+# 0.28.1
+
+ * macOS: Fix overflow when computing CPU usage.
+
+# 0.28.0
+
+ * Linux: Fix name and CPU usage for processes tasks.
+ * unix: Keep all users, even "not real" accounts.
+ * Windows: Use SID for Users ID.
+ * Fix C API.
+ * Disable default cdylib compilation.
+ * Add `serde` feature to enable serialization.
+ * Linux: Handle `Idle` state in `ProcessStatus`.
+ * Linux: Add brand and name of ARM CPUs.
+
+# 0.27.8
+
+ * macOS: Fix overflow when computing CPU usage.
+
+# 0.27.7
+
+ * macOS: Fix process CPU usage computation
+ * Linux: Improve ARM CPU `brand` and `name` information.
+ * Windows: Fix resource leak.
+ * Documentation improvements.
+
+# 0.27.6
+
+ * Make `MacAddr` public.
+
+# 0.27.5
+
+ * Linux: Improve compatibility with upcoming `libc` changes for musl targets.
+
+# 0.27.4
+
+ * Create `SystemExt::MINIMUM_CPU_UPDATE_INTERVAL` constant.
+ * Fix consecutive processes updates CPU usage computation.
+
+# 0.27.3
+
+ * macOS: Fix free/available memory computation.
+ * Fix processes_by_name* lifetimes
+
+# 0.27.2
+
+ * Linux: Fix consecutive process CPU usage updates.
+ * Linux: Ignore NFS disks.
+
+# 0.27.1
+
+ * Unix systems: Fix network address segfault issue.
+
+# 0.27.0
+
+ * Add `NetworkExt::mac_address` method and `MacAddr` type.
+ * Linux: Fix truncated environment retrieval.
+ * Implement `TryFrom<usize>` and `FromStr` for `Gid` and `Uid`.
+ * Implement `TryFrom<usize>` for `Pid`.
+ * Fix documentation of `System::new` about CPU list not loaded by default.
+
+# 0.26.9
+
+ * (backport) Linux: Improve compatibility with upcoming `libc` changes for musl targets.
+
+# 0.26.8
+
+ * Add `ProcessExt::session_id` method.
+ * Linux: Ignore NFS disks.
+
+# 0.26.7
+
+ * Apple: Greatly improve disk retrieval (I recommend reading the pull request first comment for more information here: <https://github.com/GuillaumeGomez/sysinfo/pull/855>).
+ * Remove build script.
+
+# 0.26.6
+
+ * Add `Process::wait`.
+ * Add "Good pratice" entry into the crate level documentation and in the README.
+ * Linux: More precise used memory computation.
+
+# 0.26.5
+
+ * Windows: Fix disk information retrieval.
+ * Linux: Improve `Process` document.
+ * Linux: Fix a compilation error if the `apple-sandbox` feature is enabled.
+ * Internal code improvements.
+
+# 0.26.4
+
+ * Add `SystemExt::distribution_id` method.
+ * Update `ntapi` version to `0.4`.
+ * Update minimum supported Rust version (MSRV) to `1.59` for `ntapi` 0.4.
+
+# 0.26.3
+
+ * Update minimum supported Rust version (MSRV) to `1.56` to follow `once_cell` minor update.
+
+# 0.26.2
+
+ * Linux: Fix process information retrieval.
+ * Linux: Get more components temperature.
+ * Linux: Fix disk name retrieval (which in turn fixed disk type retrieval).
+
+# 0.26.1
+
+ * macOS M1: Fix segmentation fault crash.
+
+# 0.26.0
+
+ * Switch memory unit from kilobytes to bytes.
+ * Windows: Fix Windows version display on Windows 11.
+
 # 0.25.3
 
  * Add macOS M1 CI checks.

@@ -5,6 +5,11 @@ on:
 
 name: CI
 
+# If a new push on the PR is done, cancel the build
+concurrency: 
+  group: ${{ github.head_ref }}
+  cancel-in-progress: true
+
 jobs:
   rustfmt:
     runs-on: ubuntu-latest
@@ -34,7 +39,7 @@ jobs:
           toolchain: nightly
           override: true
           components: clippy
-      - run: cargo clippy -- -D warnings
+      - run: cargo clippy --all-targets --features serde -- -D warnings
 
   check:
     name: Check ${{ matrix.toolchain }} / ${{ matrix.triple.target }}
@@ -65,7 +70,7 @@ jobs:
           - { os: 'ubuntu-latest', target: 'x86_64-linux-android', cross: true }
           - { os: 'ubuntu-latest', target: 'i686-linux-android', cross: true }
         toolchain:
-          - "1.54.0"  # minimum supported rust version
+          - "1.59.0"  # minimum supported rust version
           - stable
           - nightly
     steps:
@@ -136,7 +141,7 @@ jobs:
           - macos-latest
           - windows-latest
         toolchain:
-          - "1.54.0"  # minimum supported rust version
+          - "1.59.0"  # minimum supported rust version
           - stable
           - nightly
     steps:
@@ -149,6 +154,9 @@ jobs:
           override: true
       - name: Check docs
         run: cargo doc
+        if: matrix.toolchain == 'nightly'
+      - name: Check docs with serde
+        run: cargo doc --features serde
         if: matrix.toolchain == 'nightly'
       - name: Execute tests (not mac)
         run: cargo test
@@ -172,6 +180,16 @@ jobs:
         env:
           RUST_BACKTRACE: full
           APPLE_CI: 1 # FIXME: remove this once CI mac tests are fixed
+      - name: Run CPU test
+        run: cargo test --lib -- --ignored --test-threads 1
+        env:
+          RUST_BACKTRACE: full
+      - name: Check serde feature
+        run: |
+          cargo check --features serde
+          cargo test --features serde --doc
+        env:
+          RUST_BACKTRACE: full
 
   c_interface:
     runs-on: ubuntu-latest
@@ -182,14 +200,14 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - run: cargo build --features=c-interface
+      - run: make
 
   unknown-targets:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         toolchain:
-          - "1.58.0"  # minimum supported rust version
+          - "1.59.0"  # minimum supported rust version
           - stable
           - nightly
     steps:
