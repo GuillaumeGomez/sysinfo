@@ -23,11 +23,25 @@ fn get_user_groups(name: *const c_char, group_id: gid_t) -> Vec<String> {
             return groups
                 .into_iter()
                 .filter_map(|g| {
-                    let group = getgrgid(g as _);
-                    if group.is_null() {
-                        return None;
+                    let errno = libc::__error();
+
+                    loop {
+                        // As mentioned in the man, we set `errno` to 0 to ensure that if a problem
+                        // occurs and errno is 0, then it means this group doesn't exist.
+                        if !errno.is_null() {
+                            *errno = 0;
+                        }
+
+                        let group = getgrgid(g as _);
+                        if group.is_null() {
+                            // The call was interrupted by a signal, retrying.
+                            if !errno.is_null() && *errno == libc::EINTR {
+                                continue;
+                            }
+                            return None;
+                        }
+                        return utils::cstr_to_rust((*group).gr_name);
                     }
-                    utils::cstr_to_rust((*group).gr_name)
                 })
                 .collect();
         }
@@ -60,6 +74,10 @@ where
         loop {
             let pw = getpwent();
             if pw.is_null() {
+                // The call was interrupted by a signal, retrying.
+                if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                    continue;
+                }
                 break;
             }
 

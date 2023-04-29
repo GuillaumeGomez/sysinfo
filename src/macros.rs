@@ -56,3 +56,16 @@ macro_rules! declare_signals {
         }
     )
 }
+
+#[cfg(unix)]
+macro_rules! retry_eintr {
+    ($($t:tt)+) => {
+        loop {
+            let ret = $($t)+;
+            if ret < 0 && std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            break ret;
+        }
+    }
+}
