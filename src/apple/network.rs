@@ -84,7 +84,7 @@ impl Networks {
                     let name = String::from_utf8_unchecked(name);
                     match self.interfaces.entry(name) {
                         hash_map::Entry::Occupied(mut e) => {
-                            let mut interface = e.get_mut();
+                            let interface = e.get_mut();
                             old_and_new!(
                                 interface,
                                 current_out,

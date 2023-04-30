@@ -88,7 +88,7 @@ impl Networks {
                 let data = &data.ifmd_data;
                 match self.interfaces.entry(name) {
                     hash_map::Entry::Occupied(mut e) => {
-                        let mut interface = e.get_mut();
+                        let interface = e.get_mut();
 
                         old_and_new!(interface, ifi_ibytes, old_ifi_ibytes, data);
                         old_and_new!(interface, ifi_obytes, old_ifi_obytes, data);

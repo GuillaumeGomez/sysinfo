@@ -102,7 +102,7 @@ impl NetworksExt for Networks {
                 };
                 match self.interfaces.entry(interface_name) {
                     hash_map::Entry::Occupied(mut e) => {
-                        let mut interface = e.get_mut();
+                        let interface = e.get_mut();
                         old_and_new!(interface, current_out, old_out, ptr.OutOctets);
                         old_and_new!(interface, current_in, old_in, ptr.InOctets);
                         old_and_new!(

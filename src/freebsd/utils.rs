@@ -98,7 +98,7 @@ pub(crate) unsafe fn get_sys_value<T: Sized>(mib: &[c_int], value: &mut T) -> bo
 }
 
 pub(crate) unsafe fn get_sys_value_array<T: Sized>(mib: &[c_int], value: &mut [T]) -> bool {
-    let mut len = (mem::size_of::<T>() * value.len()) as libc::size_t;
+    let mut len = mem::size_of_val(value) as libc::size_t;
     libc::sysctl(
         mib.as_ptr(),
         mib.len() as _,
@@ -126,7 +126,7 @@ pub(crate) fn c_buf_to_string(buf: &[libc::c_char]) -> Option<String> {
 }
 
 pub(crate) unsafe fn get_sys_value_str(mib: &[c_int], buf: &mut [libc::c_char]) -> Option<String> {
-    let mut len = (mem::size_of::<libc::c_char>() * buf.len()) as libc::size_t;
+    let mut len = mem::size_of_val(buf) as libc::size_t;
     if libc::sysctl(
         mib.as_ptr(),
         mib.len() as _,
