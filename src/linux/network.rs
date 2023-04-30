@@ -79,7 +79,7 @@ fn refresh_networks_list_from_sysfs(
             // let tx_compressed = read(parent, "tx_compressed", &mut data);
             match interfaces.entry(entry) {
                 hash_map::Entry::Occupied(mut e) => {
-                    let mut interface = e.get_mut();
+                    let interface = e.get_mut();
                     old_and_new!(interface, rx_bytes, old_rx_bytes);
                     old_and_new!(interface, tx_bytes, old_tx_bytes);
                     old_and_new!(interface, rx_packets, old_rx_packets);

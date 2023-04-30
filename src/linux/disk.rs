@@ -61,7 +61,7 @@ impl DiskExt for Disk {
         unsafe {
             let mut stat: statvfs = mem::zeroed();
             let mount_point_cpath = to_cpath(&self.mount_point);
-            if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
+            if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
                 let tmp = cast!(stat.f_bsize).saturating_mul(cast!(stat.f_bavail));
                 self.available_space = cast!(tmp);
                 true
@@ -84,7 +84,7 @@ fn new_disk(
     let mut available = 0;
     unsafe {
         let mut stat: statvfs = mem::zeroed();
-        if statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat) == 0 {
+        if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
             let bsize = cast!(stat.f_bsize);
             let blocks = cast!(stat.f_blocks);
             let bavail = cast!(stat.f_bavail);

@@ -212,7 +212,7 @@ impl ProcessExt for Process {
         let mut status = 0;
         // attempt waiting
         unsafe {
-            if libc::waitpid(self.pid.0, &mut status, 0) < 0 {
+            if retry_eintr!(libc::waitpid(self.pid.0, &mut status, 0)) < 0 {
                 // attempt failed (non-child process) so loop until process ends
                 let duration = std::time::Duration::from_millis(10);
                 while kill(self.pid.0, 0) == 0 {
