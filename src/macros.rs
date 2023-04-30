@@ -57,7 +57,7 @@ macro_rules! declare_signals {
     )
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, not(feature = "unknown-ci")))]
 macro_rules! retry_eintr {
     ($($t:tt)+) => {
         loop {
