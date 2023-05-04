@@ -33,7 +33,9 @@ pub struct Process {
     pub(crate) updated: bool,
     cpu_usage: f32,
     user_id: Option<Uid>,
+    effective_user_id: Option<Uid>,
     group_id: Option<Gid>,
+    effective_group_id: Option<Gid>,
     pub(crate) process_status: ProcessStatus,
     /// Status of process (running, stopped, waiting, etc). `None` means `sysinfo` doesn't have
     /// enough rights to get this information.
@@ -66,7 +68,9 @@ impl Process {
             start_time: 0,
             run_time: 0,
             user_id: None,
+            effective_user_id: None,
             group_id: None,
+            effective_group_id: None,
             process_status: ProcessStatus::Unknown(0),
             status: None,
             old_read_bytes: 0,
@@ -95,7 +99,9 @@ impl Process {
             start_time,
             run_time,
             user_id: None,
+            effective_user_id: None,
             group_id: None,
+            effective_group_id: None,
             process_status: ProcessStatus::Unknown(0),
             status: None,
             old_read_bytes: 0,
@@ -181,8 +187,16 @@ impl ProcessExt for Process {
         self.user_id.as_ref()
     }
 
+    fn effective_user_id(&self) -> Option<&Uid> {
+        self.effective_user_id.as_ref()
+    }
+
     fn group_id(&self) -> Option<Gid> {
         self.group_id
+    }
+
+    fn effective_group_id(&self) -> Option<Gid> {
+        self.effective_group_id
     }
 
     fn wait(&self) {
@@ -527,7 +541,9 @@ unsafe fn create_new_process(
     p.virtual_memory = task_info.pti_virtual_size;
 
     p.user_id = Some(Uid(info.pbi_ruid));
+    p.effective_user_id = Some(Uid(info.pbi_uid));
     p.group_id = Some(Gid(info.pbi_rgid));
+    p.effective_group_id = Some(Gid(info.pbi_gid));
     p.process_status = ProcessStatus::from(info.pbi_status);
     if refresh_kind.disk_usage() {
         update_proc_disk_activity(&mut p);

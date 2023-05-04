@@ -58,7 +58,9 @@ pub struct Process {
     run_time: u64,
     pub(crate) status: ProcessStatus,
     user_id: Uid,
+    effective_user_id: Uid,
     group_id: Gid,
+    effective_group_id: Gid,
     read_bytes: u64,
     old_read_bytes: u64,
     written_bytes: u64,
@@ -140,8 +142,16 @@ impl ProcessExt for Process {
         Some(&self.user_id)
     }
 
+    fn effective_user_id(&self) -> Option<&Uid> {
+        Some(&self.effective_user_id)
+    }
+
     fn group_id(&self) -> Option<Gid> {
         Some(self.group_id)
+    }
+
+    fn effective_group_id(&self) -> Option<Gid> {
+        Some(self.effective_group_id)
     }
 
     fn wait(&self) {
@@ -259,7 +269,9 @@ pub(crate) unsafe fn get_process_data(
         pid: Pid(kproc.ki_pid),
         parent,
         user_id: Uid(kproc.ki_ruid),
+        effective_user_id: Uid(kproc.ki_uid),
         group_id: Gid(kproc.ki_rgid),
+        effective_group_id: Gid(kproc.ki_svgid),
         start_time,
         run_time: now.saturating_sub(start_time),
         cpu_usage,
