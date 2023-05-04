@@ -661,12 +661,12 @@ fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
     let status_data = get_all_data(file_path, 16_385).ok()?;
 
     // We're only interested in the lines starting with Uid: and Gid:
-    // here. From these lines, we're looking at the second entry to get
-    // the effective u/gid.
+    // here. From these lines, we're looking at the first entry to get
+    // the real u/gid.
 
     let f = |h: &str, n: &str| -> Option<uid_t> {
         if h.starts_with(n) {
-            h.split_whitespace().nth(2).unwrap_or("0").parse().ok()
+            h.split_whitespace().nth(1).unwrap_or("0").parse().ok()
         } else {
             None
         }

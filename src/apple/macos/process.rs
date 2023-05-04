@@ -526,8 +526,8 @@ unsafe fn create_new_process(
     p.memory = task_info.pti_resident_size;
     p.virtual_memory = task_info.pti_virtual_size;
 
-    p.user_id = Some(Uid(info.pbi_uid));
-    p.group_id = Some(Gid(info.pbi_gid));
+    p.user_id = Some(Uid(info.pbi_ruid));
+    p.group_id = Some(Gid(info.pbi_rgid));
     p.process_status = ProcessStatus::from(info.pbi_status);
     if refresh_kind.disk_usage() {
         update_proc_disk_activity(&mut p);
