@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::Read;
-use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -79,7 +78,9 @@ pub struct Process {
     pub(crate) updated: bool,
     cpu_usage: f32,
     user_id: Option<Uid>,
+    effective_user_id: Option<Uid>,
     group_id: Option<Gid>,
+    effective_group_id: Option<Gid>,
     pub(crate) status: ProcessStatus,
     /// Tasks run by this process.
     pub tasks: HashMap<Pid, Process>,
@@ -113,7 +114,9 @@ impl Process {
             start_time: 0,
             run_time: 0,
             user_id: None,
+            effective_user_id: None,
             group_id: None,
+            effective_group_id: None,
             status: ProcessStatus::Unknown(0),
             tasks: if pid.0 == 0 {
                 HashMap::with_capacity(1000)
@@ -204,8 +207,16 @@ impl ProcessExt for Process {
         self.user_id.as_ref()
     }
 
+    fn effective_user_id(&self) -> Option<&Uid> {
+        self.effective_user_id.as_ref()
+    }
+
     fn group_id(&self) -> Option<Gid> {
         self.group_id
+    }
+
+    fn effective_group_id(&self) -> Option<Gid> {
+        self.effective_group_id
     }
 
     fn wait(&self) {
@@ -337,9 +348,13 @@ fn get_status(p: &mut Process, part: &str) {
 }
 
 fn refresh_user_group_ids<P: PathPush>(p: &mut Process, path: &mut P) {
-    if let Some((user_id, group_id)) = get_uid_and_gid(path.join("status")) {
+    if let Some(((user_id, effective_user_id), (group_id, effective_group_id))) =
+        get_uid_and_gid(path.join("status"))
+    {
         p.user_id = Some(Uid(user_id));
+        p.effective_user_id = Some(Uid(effective_user_id));
         p.group_id = Some(Gid(group_id));
+        p.effective_group_id = Some(Gid(effective_group_id));
     }
 }
 
@@ -643,43 +658,38 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
     }
 }
 
-fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
-    use std::os::unix::ffi::OsStrExt;
-
-    unsafe {
-        let mut sstat: MaybeUninit<libc::stat> = MaybeUninit::uninit();
-
-        let mut file_path: Vec<u8> = file_path.as_os_str().as_bytes().to_vec();
-        file_path.push(0);
-        if libc::stat(file_path.as_ptr() as *const _, sstat.as_mut_ptr()) == 0 {
-            let sstat = sstat.assume_init();
-
-            return Some((sstat.st_uid, sstat.st_gid));
-        }
-    }
-
+// Fetch tuples of real and effective UID and GID.
+fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))> {
     let status_data = get_all_data(file_path, 16_385).ok()?;
 
     // We're only interested in the lines starting with Uid: and Gid:
-    // here. From these lines, we're looking at the second entry to get
-    // the effective u/gid.
+    // here. From these lines, we're looking at the first and second entries to get
+    // the real u/gid.
 
-    let f = |h: &str, n: &str| -> Option<uid_t> {
+    let f = |h: &str, n: &str| -> (Option<uid_t>, Option<uid_t>) {
         if h.starts_with(n) {
-            h.split_whitespace().nth(2).unwrap_or("0").parse().ok()
+            let mut ids = h.split_whitespace();
+            let real = ids.nth(1).unwrap_or("0").parse().ok();
+            let effective = ids.next().unwrap_or("0").parse().ok();
+
+            (real, effective)
         } else {
-            None
+            (None, None)
         }
     };
     let mut uid = None;
+    let mut effective_uid = None;
     let mut gid = None;
+    let mut effective_gid = None;
     for line in status_data.lines() {
-        if let Some(u) = f(line, "Uid:") {
-            debug_assert!(uid.is_none());
-            uid = Some(u);
-        } else if let Some(g) = f(line, "Gid:") {
-            debug_assert!(gid.is_none());
-            gid = Some(g);
+        if let (Some(real), Some(effective)) = f(line, "Uid:") {
+            debug_assert!(uid.is_none() && effective_uid.is_none());
+            uid = Some(real);
+            effective_uid = Some(effective);
+        } else if let (Some(real), Some(effective)) = f(line, "Gid:") {
+            debug_assert!(gid.is_none() && effective_gid.is_none());
+            gid = Some(real);
+            effective_gid = Some(effective);
         } else {
             continue;
         }
@@ -687,8 +697,10 @@ fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
             break;
         }
     }
-    match (uid, gid) {
-        (Some(u), Some(g)) => Some((u, g)),
+    match (uid, effective_uid, gid, effective_gid) {
+        (Some(uid), Some(effective_uid), Some(gid), Some(effective_gid)) => {
+            Some(((uid, effective_uid), (gid, effective_gid)))
+        }
         _ => None,
     }
 }

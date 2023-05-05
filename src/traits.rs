@@ -403,6 +403,26 @@ pub trait ProcessExt: Debug {
     /// ```
     fn user_id(&self) -> Option<&Uid>;
 
+    /// Returns the user ID of the effective owner of this process or `None` if this information
+    /// couldn't be retrieved. If you want to get the [`User`] from it, take a look at
+    /// [`SystemExt::get_user_by_id`].
+    ///
+    /// If you run something with `sudo`, the real user ID of the launched process will be the ID of
+    /// the user you are logged in as but effective user ID will be `0` (i-e root).
+    ///
+    /// ⚠️ It always returns `None` on Windows.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     eprintln!("User id for process 1337: {:?}", process.effective_user_id());
+    /// }
+    /// ```
+    fn effective_user_id(&self) -> Option<&Uid>;
+
     /// Returns the process group ID of the process.
     ///
     /// ⚠️ It always returns `None` on Windows.
@@ -417,6 +437,24 @@ pub trait ProcessExt: Debug {
     /// }
     /// ```
     fn group_id(&self) -> Option<Gid>;
+
+    /// Returns the effective group ID of the process.
+    ///
+    /// If you run something with `sudo`, the real group ID of the launched process will be the
+    /// primary group ID you are logged in as but effective group ID will be `0` (i-e root).
+    ///
+    /// ⚠️ It always returns `None` on Windows.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     eprintln!("User id for process 1337: {:?}", process.effective_group_id());
+    /// }
+    /// ```
+    fn effective_group_id(&self) -> Option<Gid>;
 
     /// Wait for process termination.
     ///

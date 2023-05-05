@@ -525,7 +525,15 @@ impl ProcessExt for Process {
         self.user_id.as_ref()
     }
 
+    fn effective_user_id(&self) -> Option<&Uid> {
+        None
+    }
+
     fn group_id(&self) -> Option<Gid> {
+        None
+    }
+
+    fn effective_group_id(&self) -> Option<Gid> {
         None
     }
 
