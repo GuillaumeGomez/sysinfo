@@ -5,16 +5,37 @@ use std::fmt;
 pub use crate::sys::inner::process::*;
 use crate::ProcessStatus;
 
+// FIXME: To be removed once <https://github.com/rust-lang/libc/pull/3233> is merged and released.
+const SIDL: u32 = 1;
+const SRUN: u32 = 2;
+const SSLEEP: u32 = 3;
+const SSTOP: u32 = 4;
+const SZOMB: u32 = 5;
+
 #[doc(hidden)]
 impl From<u32> for ProcessStatus {
     fn from(status: u32) -> ProcessStatus {
         match status {
-            1 => ProcessStatus::Idle,
-            2 => ProcessStatus::Run,
-            3 => ProcessStatus::Sleep,
-            4 => ProcessStatus::Stop,
-            5 => ProcessStatus::Zombie,
+            SIDL => ProcessStatus::Idle,
+            SRUN => ProcessStatus::Run,
+            SSLEEP => ProcessStatus::Sleep,
+            SSTOP => ProcessStatus::Stop,
+            SZOMB => ProcessStatus::Zombie,
             x => ProcessStatus::Unknown(x),
+        }
+    }
+}
+
+#[doc(hidden)]
+impl From<ThreadStatus> for ProcessStatus {
+    fn from(status: ThreadStatus) -> ProcessStatus {
+        match status {
+            ThreadStatus::Running => ProcessStatus::Run,
+            ThreadStatus::Stopped => ProcessStatus::Stop,
+            ThreadStatus::Waiting => ProcessStatus::Sleep,
+            ThreadStatus::Uninterruptible => ProcessStatus::Dead,
+            ThreadStatus::Halted => ProcessStatus::Parked,
+            ThreadStatus::Unknown(x) => ProcessStatus::Unknown(x as _),
         }
     }
 }
@@ -33,8 +54,8 @@ impl fmt::Display for ProcessStatus {
 }
 
 /// Enum describing the different status of a thread.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ThreadStatus {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ThreadStatus {
     /// Thread is running normally.
     Running,
     /// Thread is stopped.
@@ -52,32 +73,12 @@ pub enum ThreadStatus {
 impl From<i32> for ThreadStatus {
     fn from(status: i32) -> ThreadStatus {
         match status {
-            1 => ThreadStatus::Running,
-            2 => ThreadStatus::Stopped,
-            3 => ThreadStatus::Waiting,
-            4 => ThreadStatus::Uninterruptible,
-            5 => ThreadStatus::Halted,
+            libc::TH_STATE_RUNNING => ThreadStatus::Running,
+            libc::TH_STATE_STOPPED => ThreadStatus::Stopped,
+            libc::TH_STATE_WAITING => ThreadStatus::Waiting,
+            libc::TH_STATE_UNINTERRUPTIBLE => ThreadStatus::Uninterruptible,
+            libc::TH_STATE_HALTED => ThreadStatus::Halted,
             x => ThreadStatus::Unknown(x),
         }
-    }
-}
-
-impl ThreadStatus {
-    /// Used to display `ThreadStatus`.
-    pub fn to_string(&self) -> &str {
-        match *self {
-            ThreadStatus::Running => "Running",
-            ThreadStatus::Stopped => "Stopped",
-            ThreadStatus::Waiting => "Waiting",
-            ThreadStatus::Uninterruptible => "Uninterruptible",
-            ThreadStatus::Halted => "Halted",
-            ThreadStatus::Unknown(_) => "Unknown",
-        }
-    }
-}
-
-impl fmt::Display for ThreadStatus {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
     }
 }

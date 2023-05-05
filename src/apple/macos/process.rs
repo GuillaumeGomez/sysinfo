@@ -39,7 +39,7 @@ pub struct Process {
     /// enough rights to get this information.
     ///
     /// This is very likely this one that you want instead of `process_status`.
-    pub status: Option<ThreadStatus>,
+    pub(crate) status: Option<ThreadStatus>,
     pub(crate) old_read_bytes: u64,
     pub(crate) old_written_bytes: u64,
     pub(crate) read_bytes: u64,
@@ -153,6 +153,13 @@ impl ProcessExt for Process {
     }
 
     fn status(&self) -> ProcessStatus {
+        // If the status is `Run`, then it's very likely wrong so we instead
+        // return a `ProcessStatus` converted from the `ThreadStatus`.
+        if self.process_status == ProcessStatus::Run {
+            if let Some(thread_status) = self.status {
+                return ProcessStatus::from(thread_status);
+            }
+        }
         self.process_status
     }
 
