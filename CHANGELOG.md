@@ -1,3 +1,11 @@
+# 0.29.0
+
+ * Add `ProcessExt::effective_user_id` and `ProcessExt::effective_group_id`.
+ * Rename `DiskType` into `DiskKind`.
+ * Rename `DiskExt::type_` into `DiskExt::kind`.
+ * macOS: Correctly handle `ProcessStatus` and remove public `ThreadStatus` field.
+ * Windows 11: Fix CPU core usage.
+
 # 0.28.4
 
  * macOS: Improve CPU computation.
