@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::Read;
-use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -644,20 +643,6 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
 }
 
 fn get_uid_and_gid(file_path: &Path) -> Option<(uid_t, gid_t)> {
-    use std::os::unix::ffi::OsStrExt;
-
-    unsafe {
-        let mut sstat: MaybeUninit<libc::stat> = MaybeUninit::uninit();
-
-        let mut file_path: Vec<u8> = file_path.as_os_str().as_bytes().to_vec();
-        file_path.push(0);
-        if libc::stat(file_path.as_ptr() as *const _, sstat.as_mut_ptr()) == 0 {
-            let sstat = sstat.assume_init();
-
-            return Some((sstat.st_uid, sstat.st_gid));
-        }
-    }
-
     let status_data = get_all_data(file_path, 16_385).ok()?;
 
     // We're only interested in the lines starting with Uid: and Gid:
