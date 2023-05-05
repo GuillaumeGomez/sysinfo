@@ -910,6 +910,10 @@ pub enum ProcessStatus {
     ///
     /// Parked (Linux 3.9 to 3.13 only).
     ///
+    /// ## macOS
+    ///
+    /// Halted at a clean point.
+    ///
     /// ## Other OS
     ///
     /// Not available.
