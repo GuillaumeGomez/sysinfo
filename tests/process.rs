@@ -615,3 +615,47 @@ fn test_process_cpu_usage() {
         assert!(process.cpu_usage() <= max_usage);
     }
 }
+
+#[test]
+fn test_process_creds() {
+    use sysinfo::{ProcessExt, System, SystemExt};
+
+    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+
+    let mut sys = System::new_all();
+    sys.refresh_all();
+
+    // Just ensure there is at least one process on the system whose credentials can be retrieved.
+    assert!(sys.processes().values().any(|process| {
+        if process.user_id().is_none() {
+            return false;
+        }
+
+        #[cfg(not(windows))]
+        {
+            if process.group_id().is_none()
+                || process.effective_user_id().is_none()
+                || process.effective_group_id().is_none()
+            {
+                return false;
+            }
+        }
+
+        true
+    }));
+
+    // On Windows, make sure no process has real group ID and no effective IDs.
+    #[cfg(windows)]
+    assert!(sys.processes().values().all(|process| {
+        if process.group_id().is_some()
+            || process.effective_user_id().is_some()
+            || process.effective_group_id().is_some()
+        {
+            return false;
+        }
+
+        true
+    }));
+}
