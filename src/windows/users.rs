@@ -23,7 +23,7 @@ use winapi::um::ntlsa::{
 };
 use winapi::um::winnt::{LPWSTR, LUID};
 
-// FIXME: once this is mreged in winapi, it can be removed.
+// FIXME: Can be removed once merged in winapi.
 #[allow(non_upper_case_globals)]
 const NERR_Success: NET_API_STATUS = 0;
 
