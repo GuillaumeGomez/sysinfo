@@ -5,22 +5,15 @@ use std::fmt;
 pub use crate::sys::inner::process::*;
 use crate::ProcessStatus;
 
-// FIXME: To be removed once <https://github.com/rust-lang/libc/pull/3233> is merged and released.
-const SIDL: u32 = 1;
-const SRUN: u32 = 2;
-const SSLEEP: u32 = 3;
-const SSTOP: u32 = 4;
-const SZOMB: u32 = 5;
-
 #[doc(hidden)]
 impl From<u32> for ProcessStatus {
     fn from(status: u32) -> ProcessStatus {
         match status {
-            SIDL => ProcessStatus::Idle,
-            SRUN => ProcessStatus::Run,
-            SSLEEP => ProcessStatus::Sleep,
-            SSTOP => ProcessStatus::Stop,
-            SZOMB => ProcessStatus::Zombie,
+            libc::SIDL => ProcessStatus::Idle,
+            libc::SRUN => ProcessStatus::Run,
+            libc::SSLEEP => ProcessStatus::Sleep,
+            libc::SSTOP => ProcessStatus::Stop,
+            libc::SZOMB => ProcessStatus::Zombie,
             x => ProcessStatus::Unknown(x),
         }
     }
