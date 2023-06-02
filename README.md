@@ -46,7 +46,7 @@ sys.refresh_all();
 
 // We display all disks' information:
 println!("=> disks:");
-for disk in sys.disks() {
+for disk in sys.disks().iter() {
     println!("{:?}", disk);
 }
 

@@ -2,12 +2,11 @@
 
 use crate::sys::component::Component;
 use crate::sys::cpu::*;
-use crate::sys::disk::*;
-use crate::sys::network::Networks;
 use crate::sys::process::*;
 
 use crate::{
-    CpuExt, CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuExt, CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind,
+    SystemExt, User,
 };
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -90,7 +89,7 @@ pub struct System {
     page_size_kb: u64,
     #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     components: Components,
-    disks: Vec<Disk>,
+    disks: Disks,
     networks: Networks,
     port: mach_port_t,
     users: Vec<User>,
@@ -166,7 +165,7 @@ impl SystemExt for System {
                 page_size_kb: sysconf(_SC_PAGESIZE) as _,
                 #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
                 components: Components::new(),
-                disks: Vec::with_capacity(1),
+                disks: Disks::new(),
                 networks: Networks::new(),
                 port,
                 users: Vec::new(),
@@ -364,10 +363,6 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_disks_list(&mut self) {
-        self.disks = unsafe { get_disks() };
-    }
-
     fn refresh_users_list(&mut self) {
         self.users = crate::apple::users::get_users_list();
     }
@@ -465,19 +460,12 @@ impl SystemExt for System {
         &mut []
     }
 
-    fn disks(&self) -> &[Disk] {
+    fn disks(&self) -> &Disks {
         &self.disks
     }
 
-    fn disks_mut(&mut self) -> &mut [Disk] {
+    fn disks_mut(&mut self) -> &mut Disks {
         &mut self.disks
-    }
-
-    fn sort_disks_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
-    {
-        self.disks.sort_unstable_by(compare);
     }
 
     fn uptime(&self) -> u64 {

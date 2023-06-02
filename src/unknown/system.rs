@@ -1,8 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    sys::{component::Component, Cpu, Disk, Networks, Process},
-    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    sys::{component::Component, Cpu, Process},
+    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt,
+    User,
 };
 
 use std::collections::HashMap;
@@ -18,6 +19,7 @@ pub struct System {
     processes_list: HashMap<Pid, Process>,
     networks: Networks,
     global_cpu: Cpu,
+    disks: Disks,
 }
 
 impl SystemExt for System {
@@ -30,6 +32,7 @@ impl SystemExt for System {
             processes_list: Default::default(),
             networks: Networks::new(),
             global_cpu: Cpu::new(),
+            disks: Disks::new(),
         }
     }
 
@@ -44,8 +47,6 @@ impl SystemExt for System {
     fn refresh_process_specifics(&mut self, _pid: Pid, _refresh_kind: ProcessRefreshKind) -> bool {
         false
     }
-
-    fn refresh_disks_list(&mut self) {}
 
     fn refresh_users_list(&mut self) {}
 
@@ -117,19 +118,12 @@ impl SystemExt for System {
         &mut []
     }
 
-    fn disks(&self) -> &[Disk] {
-        &[]
+    fn disks(&self) -> &Disks {
+        &self.disks
     }
 
-    fn disks_mut(&mut self) -> &mut [Disk] {
-        &mut []
-    }
-
-    fn sort_disks_by<F>(&mut self, _compare: F)
-    where
-        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
-    {
-        // does nothing.
+    fn disks_mut(&mut self) -> &mut Disks {
+        &mut self.disks
     }
 
     fn uptime(&self) -> u64 {

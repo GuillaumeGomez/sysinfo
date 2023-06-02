@@ -2,7 +2,7 @@
 
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkExt, NetworksExt, NetworksIter};
+use crate::{NetworkExt, Networks, NetworksExt, NetworksIter};
 
 use std::collections::{hash_map, HashMap};
 
@@ -17,19 +17,6 @@ macro_rules! old_and_new {
         $ty_.$old = $ty_.$name;
         $ty_.$name = $new_val;
     }};
-}
-
-#[doc = include_str!("../../md_doc/networks.md")]
-pub struct Networks {
-    interfaces: HashMap<String, NetworkData>,
-}
-
-impl Networks {
-    pub(crate) fn new() -> Networks {
-        Networks {
-            interfaces: HashMap::new(),
-        }
-    }
 }
 
 impl NetworksExt for Networks {

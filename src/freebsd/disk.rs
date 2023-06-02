@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskExt, DiskKind};
+use crate::{DiskExt, DiskKind, Disks, DisksExt};
 
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
@@ -55,6 +55,20 @@ impl DiskExt for Disk {
     }
 }
 
+impl DisksExt for Disks {
+    fn refresh_list(&mut self) {
+        unsafe { get_all_disks(&mut self.disks) }
+    }
+
+    fn disks(&self) -> &[Disk] {
+        &self.disks
+    }
+
+    fn disks_mut(&mut self) -> &mut [Disk] {
+        &mut self.disks
+    }
+}
+
 // FIXME: if you want to get disk I/O usage:
 // statfs.[f_syncwrites, f_asyncwrites, f_syncreads, f_asyncreads]
 
@@ -69,17 +83,18 @@ unsafe fn refresh_disk(disk: &mut Disk, vfs: &mut libc::statvfs) -> bool {
     true
 }
 
-pub unsafe fn get_all_disks() -> Vec<Disk> {
+pub unsafe fn get_all_disks(container: &mut Vec<Disk>) {
+    container.clear();
+
     let mut fs_infos: *mut libc::statfs = std::ptr::null_mut();
 
     let count = libc::getmntinfo(&mut fs_infos, libc::MNT_WAIT);
 
     if count < 1 {
-        return Vec::new();
+        return;
     }
     let mut vfs: libc::statvfs = std::mem::zeroed();
     let fs_infos: &[libc::statfs] = std::slice::from_raw_parts(fs_infos as _, count as _);
-    let mut disks = Vec::new();
 
     for fs_info in fs_infos {
         if fs_info.f_mntfromname[0] == 0 || fs_info.f_mntonname[0] == 0 {
@@ -129,7 +144,7 @@ pub unsafe fn get_all_disks() -> Vec<Disk> {
 
         let f_frsize: u64 = vfs.f_frsize as _;
 
-        disks.push(Disk {
+        container.push(Disk {
             name,
             c_mount_point: fs_info.f_mntonname.to_vec(),
             mount_point: PathBuf::from(mount_point),
@@ -139,5 +154,4 @@ pub unsafe fn get_all_disks() -> Vec<Disk> {
             is_removable,
         });
     }
-    disks
 }

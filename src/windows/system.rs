@@ -1,14 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    CpuRefreshKind, LoadAvg, Networks, Pid, ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt,
-    User,
+    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessExt, ProcessRefreshKind, RefreshKind,
+    SystemExt, User,
 };
 use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
 use crate::sys::component::{self, Component};
 use crate::sys::cpu::*;
-use crate::sys::disk::{get_disks, Disk};
 use crate::sys::process::{get_start_time, update_memory, Process};
 use crate::sys::tools::*;
 use crate::sys::users::get_users;
@@ -52,7 +51,7 @@ pub struct System {
     swap_used: u64,
     cpus: CpusWrapper,
     components: Vec<Component>,
-    disks: Vec<Disk>,
+    disks: Disks,
     query: Option<Query>,
     networks: Networks,
     boot_time: u64,
@@ -104,7 +103,7 @@ impl SystemExt for System {
             swap_used: 0,
             cpus: CpusWrapper::new(),
             components: Vec::new(),
-            disks: Vec::with_capacity(2),
+            disks: Disks::new(),
             query: None,
             networks: Networks::new(),
             boot_time: unsafe { boot_time() },
@@ -337,10 +336,6 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_disks_list(&mut self) {
-        self.disks = unsafe { get_disks() };
-    }
-
     fn refresh_users_list(&mut self) {
         self.users = unsafe { get_users() };
     }
@@ -402,19 +397,12 @@ impl SystemExt for System {
         &mut self.components
     }
 
-    fn disks(&self) -> &[Disk] {
+    fn disks(&self) -> &Disks {
         &self.disks
     }
 
-    fn disks_mut(&mut self) -> &mut [Disk] {
+    fn disks_mut(&mut self) -> &mut Disks {
         &mut self.disks
-    }
-
-    fn sort_disks_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
-    {
-        self.disks.sort_unstable_by(compare);
     }
 
     fn users(&self) -> &[User] {
