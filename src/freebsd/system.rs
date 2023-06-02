@@ -1,8 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    sys::{component::Component, Cpu, Disk, Networks, Process},
-    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    sys::{component::Component, Cpu, Process},
+    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt,
+    User,
 };
 
 use std::cell::UnsafeCell;
@@ -67,7 +68,7 @@ pub struct System {
     global_cpu: Cpu,
     cpus: Vec<Cpu>,
     components: Vec<Component>,
-    disks: Vec<Disk>,
+    disks: Disks,
     networks: Networks,
     users: Vec<User>,
     boot_time: u64,
@@ -93,7 +94,7 @@ impl SystemExt for System {
             global_cpu: Cpu::new(String::new(), String::new(), 0),
             cpus: Vec::with_capacity(system_info.nb_cpus as _),
             components: Vec::with_capacity(2),
-            disks: Vec::with_capacity(1),
+            disks: Disks::new(),
             networks: Networks::new(),
             users: Vec::new(),
             boot_time: boot_time(),
@@ -216,10 +217,6 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_disks_list(&mut self) {
-        self.disks = unsafe { super::disk::get_all_disks() };
-    }
-
     fn refresh_users_list(&mut self) {
         self.users = crate::users::get_users_list();
     }
@@ -301,19 +298,12 @@ impl SystemExt for System {
         &mut self.components
     }
 
-    fn disks(&self) -> &[Disk] {
+    fn disks(&self) -> &Disks {
         &self.disks
     }
 
-    fn disks_mut(&mut self) -> &mut [Disk] {
+    fn disks_mut(&mut self) -> &mut Disks {
         &mut self.disks
-    }
-
-    fn sort_disks_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
-    {
-        self.disks.sort_unstable_by(compare);
     }
 
     fn uptime(&self) -> u64 {
