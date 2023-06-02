@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::{get_all_data, to_cpath};
-use crate::{DiskExt, DiskKind};
+use crate::{DiskExt, DiskKind, Disks, DisksExt};
 
 use libc::statvfs;
 use std::ffi::{OsStr, OsString};
@@ -69,6 +69,23 @@ impl DiskExt for Disk {
                 false
             }
         }
+    }
+}
+
+impl DisksExt for Disks {
+    fn refresh_list(&mut self) {
+        get_all_disks(
+            &mut self.disks,
+            &get_all_data("/proc/mounts", 16_385).unwrap_or_default(),
+        )
+    }
+
+    fn disks(&self) -> &[Disk] {
+        &self.disks
+    }
+
+    fn disks_mut(&mut self) -> &mut [Disk] {
+        &mut self.disks
     }
 }
 
@@ -181,9 +198,10 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
     }
 }
 
-fn get_all_disks_inner(content: &str) -> Vec<Disk> {
+fn get_all_disks(container: &mut Vec<Disk>, content: &str) {
+    container.clear();
     // The goal of this array is to list all removable devices (the ones whose name starts with
-    // "usb-"). Then we check if
+    // "usb-").
     let removable_entries = match fs::read_dir("/dev/disk/by-id/") {
         Ok(r) => r
             .filter_map(|res| Some(res.ok()?.path()))
@@ -201,7 +219,7 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
         _ => Vec::new(),
     };
 
-    content
+    for disk in content
         .lines()
         .map(|line| {
             let line = line.trim_start();
@@ -253,11 +271,9 @@ fn get_all_disks_inner(content: &str) -> Vec<Disk> {
                 &removable_entries,
             )
         })
-        .collect()
-}
-
-pub(crate) fn get_all_disks() -> Vec<Disk> {
-    get_all_disks_inner(&get_all_data("/proc/mounts", 16_385).unwrap_or_default())
+    {
+        container.push(disk);
+    }
 }
 
 // #[test]

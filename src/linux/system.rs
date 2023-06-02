@@ -2,11 +2,10 @@
 
 use crate::sys::component::{self, Component};
 use crate::sys::cpu::*;
-use crate::sys::disk;
 use crate::sys::process::*;
 use crate::sys::utils::{get_all_data, to_u64};
 use crate::{
-    CpuRefreshKind, Disk, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
@@ -160,7 +159,7 @@ pub struct System {
     swap_total: u64,
     swap_free: u64,
     components: Vec<Component>,
-    disks: Vec<Disk>,
+    disks: Disks,
     networks: Networks,
     users: Vec<User>,
     info: SystemInfo,
@@ -235,7 +234,7 @@ impl SystemExt for System {
             swap_free: 0,
             cpus: CpusWrapper::new(),
             components: Vec::new(),
-            disks: Vec::with_capacity(2),
+            disks: Disks::new(),
             networks: Networks::new(),
             users: Vec::new(),
             info: SystemInfo::new(),
@@ -349,10 +348,6 @@ impl SystemExt for System {
         true
     }
 
-    fn refresh_disks_list(&mut self) {
-        self.disks = disk::get_all_disks();
-    }
-
     fn refresh_users_list(&mut self) {
         self.users = crate::users::get_users_list();
     }
@@ -426,19 +421,12 @@ impl SystemExt for System {
         &mut self.components
     }
 
-    fn disks(&self) -> &[Disk] {
+    fn disks(&self) -> &Disks {
         &self.disks
     }
 
-    fn disks_mut(&mut self) -> &mut [Disk] {
+    fn disks_mut(&mut self) -> &mut Disks {
         &mut self.disks
-    }
-
-    fn sort_disks_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
-    {
-        self.disks.sort_unstable_by(compare);
     }
 
     fn uptime(&self) -> u64 {
