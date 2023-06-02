@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskExt, DiskKind};
+use crate::{DiskExt, DiskKind, Disks, DisksExt};
 
 use std::ffi::{OsStr, OsString};
 use std::mem::size_of;
@@ -82,6 +82,22 @@ impl DiskExt for Disk {
     }
 }
 
+impl DisksExt for Disks {
+    fn refresh_list(&mut self) {
+        unsafe {
+            self.disks = get_disks();
+        }
+    }
+
+    fn disks(&self) -> &[Disk] {
+        &self.disks
+    }
+
+    fn disks_mut(&mut self) -> &mut [Disk] {
+        &mut self.disks
+    }
+}
+
 struct HandleWrapper(HANDLE);
 
 impl HandleWrapper {
@@ -140,7 +156,7 @@ struct DEVICE_SEEK_PENALTY_DESCRIPTOR {
     IncursSeekPenalty: BOOLEAN,
 }
 
-pub(crate) unsafe fn get_disks() -> Vec<Disk> {
+unsafe fn get_disks() -> Vec<Disk> {
     let drives = GetLogicalDrives();
     if drives == 0 {
         return Vec::new();
