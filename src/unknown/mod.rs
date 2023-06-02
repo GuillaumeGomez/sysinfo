@@ -10,6 +10,6 @@ pub mod system;
 pub use self::component::Component;
 pub use self::cpu::Cpu;
 pub use self::disk::Disk;
-pub use self::network::{NetworkData, Networks};
+pub use self::network::NetworkData;
 pub use self::process::Process;
 pub use self::system::System;

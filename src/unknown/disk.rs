@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskExt, DiskKind};
+use crate::{DiskExt, DiskKind, Disks, DisksExt};
 
 use std::{ffi::OsStr, path::Path};
 
@@ -38,5 +38,19 @@ impl DiskExt for Disk {
 
     fn refresh(&mut self) -> bool {
         true
+    }
+}
+
+impl DisksExt for Disks {
+    fn refresh_list(&mut self) {
+        // Does nothing.
+    }
+
+    fn disks(&self) -> &[Disk] {
+        &self.disks
+    }
+
+    fn disks_mut(&mut self) -> &mut [Disk] {
+        &mut self.disks
     }
 }
