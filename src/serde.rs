@@ -139,6 +139,15 @@ impl Serialize for crate::Networks {
     }
 }
 
+impl Serialize for crate::Disks {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.iter())
+    }
+}
+
 impl Serialize for Signal {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

@@ -319,7 +319,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "disks" => {
-            for disk in sys.disks() {
+            for disk in sys.disks().iter() {
                 writeln!(&mut io::stdout(), "{disk:?}");
             }
         }

@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{NetworkData, NetworksExt, UserExt};
+use crate::{Disk, NetworkData, NetworksExt, UserExt};
 
 use std::collections::HashMap;
 use std::convert::{From, TryFrom};
@@ -520,6 +520,42 @@ impl<'a> Iterator for NetworksIter<'a> {
     }
 }
 
+/// Disks interfaces.
+///
+/// ```no_run
+/// use sysinfo::{DiskExt, System, SystemExt};
+///
+/// let s = System::new_all();
+/// for disk in s.disks().iter() {
+///     println!("{:?}", disk);
+/// }
+/// ```
+pub struct Disks {
+    pub(crate) disks: Vec<Disk>,
+}
+
+impl Disks {
+    pub(crate) fn new() -> Self {
+        Self {
+            disks: Vec::with_capacity(2),
+        }
+    }
+}
+
+impl std::ops::Deref for Disks {
+    type Target = [Disk];
+
+    fn deref(&self) -> &Self::Target {
+        &self.disks
+    }
+}
+
+impl std::ops::DerefMut for Disks {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.disks
+    }
+}
+
 /// Enum containing the different supported kinds of disks.
 ///
 /// This type is returned by [`DiskExt::kind`](`crate::DiskExt::kind`).
@@ -528,7 +564,7 @@ impl<'a> Iterator for NetworksIter<'a> {
 /// use sysinfo::{System, SystemExt, DiskExt};
 ///
 /// let system = System::new_all();
-/// for disk in system.disks() {
+/// for disk in system.disks().iter() {
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```

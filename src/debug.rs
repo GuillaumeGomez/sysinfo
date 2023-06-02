@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Component, ComponentExt, Cpu, CpuExt, Disk, DiskExt, NetworkData, NetworkExt, Networks,
+    Component, ComponentExt, Cpu, CpuExt, Disk, DiskExt, Disks, NetworkData, NetworkExt, Networks,
     NetworksExt, Process, ProcessExt, System, SystemExt,
 };
 
@@ -128,5 +128,18 @@ impl fmt::Debug for NetworkData {
             .field("errors outcome", &self.errors_on_transmitted())
             .field("total errors outcome", &self.total_errors_on_transmitted())
             .finish()
+    }
+}
+
+impl fmt::Debug for Disks {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Disks {{ {} }}",
+            self.iter()
+                .map(|x| format!("{x:?}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
