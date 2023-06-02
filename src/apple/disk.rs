@@ -4,7 +4,7 @@ use crate::sys::{
     ffi,
     utils::{self, CFReleaser},
 };
-use crate::{DiskExt, DiskKind};
+use crate::{DiskExt, DiskKind, Disks, DisksExt};
 
 use core_foundation_sys::array::CFArrayCreate;
 use core_foundation_sys::base::kCFAllocatorDefault;
@@ -81,18 +81,36 @@ impl DiskExt for Disk {
     }
 }
 
-pub(super) unsafe fn get_disks() -> Vec<Disk> {
+impl DisksExt for Disks {
+    fn refresh_list(&mut self) {
+        unsafe {
+            get_disks(&mut self.disks);
+        }
+    }
+
+    fn disks(&self) -> &[Disk] {
+        &self.disks
+    }
+
+    fn disks_mut(&mut self) -> &mut [Disk] {
+        &mut self.disks
+    }
+}
+
+unsafe fn get_disks(container: &mut Vec<Disk>) {
+    container.clear();
+
     let raw_disks = {
         let count = libc::getfsstat(ptr::null_mut(), 0, libc::MNT_NOWAIT);
         if count < 1 {
-            return Vec::new();
+            return;
         }
         let bufsize = count * std::mem::size_of::<libc::statfs>() as libc::c_int;
         let mut disks = Vec::with_capacity(count as _);
         let count = libc::getfsstat(disks.as_mut_ptr(), bufsize, libc::MNT_NOWAIT);
 
         if count < 1 {
-            return Vec::new();
+            return;
         }
 
         disks.set_len(count as usize);
@@ -115,11 +133,10 @@ pub(super) unsafe fn get_disks() -> Vec<Disk> {
         Some(properties) => properties,
         None => {
             sysinfo_debug!("failed to create volume key list");
-            return Vec::new();
+            return;
         }
     };
 
-    let mut disks = Vec::with_capacity(raw_disks.len());
     for c_disk in raw_disks {
         let volume_url = match CFReleaser::new(
             core_foundation_sys::url::CFURLCreateFromFileSystemRepresentation(
@@ -178,10 +195,10 @@ pub(super) unsafe fn get_disks() -> Vec<Disk> {
             CStr::from_ptr(c_disk.f_mntonname.as_ptr()).to_bytes(),
         ));
 
-        disks.extend(new_disk(mount_point, volume_url, c_disk, &prop_dict))
+        if let Some(disk) = new_disk(mount_point, volume_url, c_disk, &prop_dict) {
+            container.push(disk);
+        }
     }
-
-    disks
 }
 
 type RetainedCFArray = CFReleaser<core_foundation_sys::array::__CFArray>;
