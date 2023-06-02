@@ -1,31 +1,18 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::collections::{hash_map, HashMap};
+use std::collections::hash_map;
 use std::mem::MaybeUninit;
 
 use super::utils;
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkExt, NetworksExt, NetworksIter};
+use crate::{NetworkExt, Networks, NetworksExt, NetworksIter};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $data:expr) => {{
         $ty_.$old = $ty_.$name;
         $ty_.$name = $data.$name;
     }};
-}
-
-#[doc = include_str!("../../md_doc/networks.md")]
-pub struct Networks {
-    interfaces: HashMap<String, NetworkData>,
-}
-
-impl Networks {
-    pub(crate) fn new() -> Networks {
-        Networks {
-            interfaces: HashMap::new(),
-        }
-    }
 }
 
 impl NetworksExt for Networks {

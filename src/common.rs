@@ -1,7 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{NetworkData, Networks, NetworksExt, UserExt};
+use crate::{NetworkData, NetworksExt, UserExt};
 
+use std::collections::HashMap;
 use std::convert::{From, TryFrom};
 use std::fmt;
 use std::str::FromStr;
@@ -460,6 +461,37 @@ impl RefreshKind {
     impl_get_set!(RefreshKind, users_list, with_users_list, without_users_list);
 }
 
+/// Networks interfaces.
+///
+/// ```no_run
+/// use sysinfo::{NetworksExt, System, SystemExt};
+///
+/// let s = System::new_all();
+/// for network in s.networks().iter() {
+///     println!("{:?}", network);
+/// }
+/// ```
+pub struct Networks {
+    pub(crate) interfaces: HashMap<String, NetworkData>,
+}
+
+impl Networks {
+    pub(crate) fn new() -> Networks {
+        Networks {
+            interfaces: HashMap::new(),
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a Networks {
+    type Item = (&'a String, &'a NetworkData);
+    type IntoIter = NetworksIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 /// Iterator over network interfaces.
 ///
 /// It is returned by [`Networks::iter`][crate::Networks#method.iter].
@@ -485,15 +517,6 @@ impl<'a> Iterator for NetworksIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next()
-    }
-}
-
-impl<'a> IntoIterator for &'a Networks {
-    type Item = (&'a String, &'a NetworkData);
-    type IntoIter = NetworksIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
     }
 }
 

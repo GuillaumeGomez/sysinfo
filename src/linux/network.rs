@@ -4,15 +4,10 @@ use std::io::Read;
 use std::path::Path;
 use std::{fs::File, u8};
 
-use crate::common::MacAddr;
+use crate::common::{MacAddr, Networks};
 use crate::network::refresh_networks_addresses;
 use crate::{NetworkExt, NetworksExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
-
-#[doc = include_str!("../../md_doc/networks.md")]
-pub struct Networks {
-    interfaces: HashMap<String, NetworkData>,
-}
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident) => {{
@@ -42,14 +37,6 @@ fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
         }
     }
     0
-}
-
-impl Networks {
-    pub(crate) fn new() -> Self {
-        Networks {
-            interfaces: HashMap::new(),
-        }
-    }
 }
 
 fn refresh_networks_list_from_sysfs(

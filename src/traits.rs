@@ -2,10 +2,10 @@
 
 use crate::{
     common::{Gid, MacAddr, Uid},
-    sys::{Component, Cpu, Disk, Networks, Process},
+    sys::{Component, Cpu, Disk, Process},
 };
 use crate::{
-    CpuRefreshKind, DiskKind, DiskUsage, LoadAvg, NetworksIter, Pid, ProcessRefreshKind,
+    CpuRefreshKind, DiskKind, DiskUsage, LoadAvg, Networks, NetworksIter, Pid, ProcessRefreshKind,
     ProcessStatus, RefreshKind, Signal, User,
 };
 
