@@ -5,7 +5,7 @@ use crate::{
     User,
 };
 
-use libc::{getgrgid, getgrouplist};
+use libc::{getgrgid_r, getgrouplist};
 use std::fs::File;
 use std::io::Read;
 
@@ -52,12 +52,23 @@ pub fn get_users_list() -> Vec<User> {
                                     groups: groups[..current as usize]
                                         .iter()
                                         .filter_map(|id| {
-                                            let g = getgrgid(*id as _);
-                                            if g.is_null() {
+                                            let mut g =
+                                                std::mem::MaybeUninit::<libc::group>::uninit();
+                                            let mut tmp_ptr = std::ptr::null_mut();
+                                            let mut buf = Vec::with_capacity(2048);
+                                            if retry_eintr!(getgrgid_r(
+                                                *id as _,
+                                                g.as_mut_ptr() as _,
+                                                buf.as_mut_ptr(),
+                                                buf.capacity() as _,
+                                                &mut tmp_ptr as _
+                                            )) != 0
+                                            {
                                                 return None;
                                             }
+                                            let g = g.assume_init();
                                             let mut group_name = Vec::new();
-                                            let c_group_name = (*g).gr_name;
+                                            let c_group_name = g.gr_name;
                                             let mut x = 0;
                                             loop {
                                                 let c = *c_group_name.offset(x);
