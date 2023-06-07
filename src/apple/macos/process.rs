@@ -316,7 +316,7 @@ fn check_if_pid_is_alive(pid: Pid, check_if_alive: bool) -> bool {
             return true;
         }
         // `kill` failed but it might not be because the process is dead.
-        let errno = libc_errno();
+        let errno = crate::libc_errno();
         // If errno is equal to ESCHR, it means the process is dead.
         !errno.is_null() && *errno != libc::ESRCH
     }

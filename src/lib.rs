@@ -25,10 +25,13 @@ cfg_if::cfg_if! {
     } else if #[cfg(any(target_os = "macos", target_os = "ios"))] {
         mod apple;
         use apple as sys;
+        pub(crate) mod users;
         mod network_helper_nix;
         use network_helper_nix as network_helper;
         mod network;
 
+        // This is needed because macos uses `int*` for `getgrouplist`...
+        pub(crate) type GroupId = libc::c_int;
         pub(crate) use libc::__error as libc_errno;
 
         #[cfg(test)]
@@ -50,7 +53,12 @@ cfg_if::cfg_if! {
         use network_helper_nix as network_helper;
         mod network;
 
+        // This is needed because macos uses `int*` for `getgrouplist`...
+        pub(crate) type GroupId = libc::gid_t;
+        #[cfg(target_os = "linux")]
         pub(crate) use libc::__errno_location as libc_errno;
+        #[cfg(target_os = "android")]
+        pub(crate) use libc::__errno as libc_errno;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -62,6 +70,8 @@ cfg_if::cfg_if! {
         use network_helper_nix as network_helper;
         mod network;
 
+        // This is needed because macos uses `int*` for `getgrouplist`...
+        pub(crate) type GroupId = libc::gid_t;
         pub(crate) use libc::__error as libc_errno;
 
         #[cfg(test)]
