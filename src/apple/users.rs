@@ -23,7 +23,7 @@ fn get_user_groups(name: *const c_char, group_id: gid_t) -> Vec<String> {
             return groups
                 .into_iter()
                 .filter_map(|g| {
-                    let errno = libc::__error();
+                    let errno = crate::libc_errno();
 
                     loop {
                         // As mentioned in the man, we set `errno` to 0 to ensure that if a problem

@@ -9,10 +9,48 @@ use libc::{getgrgid_r, getgrouplist};
 use std::fs::File;
 use std::io::Read;
 
+unsafe fn get_group_name(id: libc::gid_t, buffer: &mut Vec<libc::c_char>) -> Option<String> {
+    let mut g = std::mem::MaybeUninit::<libc::group>::uninit();
+    let mut tmp_ptr = std::ptr::null_mut();
+    let mut last_errno = 0;
+    loop {
+        if retry_eintr!(set_to_0 => last_errno => getgrgid_r(
+            id as _,
+            g.as_mut_ptr() as _,
+            buffer.as_mut_ptr(),
+            buffer.capacity() as _,
+            &mut tmp_ptr as _
+        )) != 0
+        {
+            // If there was not enough memory, we give it more.
+            if last_errno == libc::ERANGE as _ {
+                buffer.reserve(2048);
+                continue;
+            }
+            return None;
+        }
+        break;
+    }
+    let g = g.assume_init();
+    let mut group_name = Vec::new();
+    let c_group_name = g.gr_name;
+    let mut x = 0;
+    loop {
+        let c = *c_group_name.offset(x);
+        if c == 0 {
+            break;
+        }
+        group_name.push(c as u8);
+        x += 1;
+    }
+    String::from_utf8(group_name).ok()
+}
+
 pub fn get_users_list() -> Vec<User> {
     let mut s = String::new();
     let mut ngroups = 100;
     let mut groups = vec![0; ngroups as usize];
+    let mut buffer = Vec::with_capacity(2048);
 
     let _ = File::open("/etc/passwd").and_then(|mut f| f.read_to_string(&mut s));
     s.lines()
@@ -51,35 +89,7 @@ pub fn get_users_list() -> Vec<User> {
                                     name: username.to_owned(),
                                     groups: groups[..current as usize]
                                         .iter()
-                                        .filter_map(|id| {
-                                            let mut g =
-                                                std::mem::MaybeUninit::<libc::group>::uninit();
-                                            let mut tmp_ptr = std::ptr::null_mut();
-                                            let mut buf = Vec::with_capacity(2048);
-                                            if retry_eintr!(getgrgid_r(
-                                                *id as _,
-                                                g.as_mut_ptr() as _,
-                                                buf.as_mut_ptr(),
-                                                buf.capacity() as _,
-                                                &mut tmp_ptr as _
-                                            )) != 0
-                                            {
-                                                return None;
-                                            }
-                                            let g = g.assume_init();
-                                            let mut group_name = Vec::new();
-                                            let c_group_name = g.gr_name;
-                                            let mut x = 0;
-                                            loop {
-                                                let c = *c_group_name.offset(x);
-                                                if c == 0 {
-                                                    break;
-                                                }
-                                                group_name.push(c as u8);
-                                                x += 1;
-                                            }
-                                            String::from_utf8(group_name).ok()
-                                        })
+                                        .filter_map(|id| get_group_name(*id, &mut buffer))
                                         .collect(),
                                 });
                             }
