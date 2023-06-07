@@ -29,6 +29,8 @@ cfg_if::cfg_if! {
         use network_helper_nix as network_helper;
         mod network;
 
+        pub(crate) use libc::__error as libc_errno;
+
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
     } else if #[cfg(windows)] {
@@ -48,6 +50,8 @@ cfg_if::cfg_if! {
         use network_helper_nix as network_helper;
         mod network;
 
+        pub(crate) use libc::__errno_location as libc_errno;
+
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
     } else if #[cfg(target_os = "freebsd")] {
@@ -57,6 +61,8 @@ cfg_if::cfg_if! {
         mod network_helper_nix;
         use network_helper_nix as network_helper;
         mod network;
+
+        pub(crate) use libc::__error as libc_errno;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
