@@ -122,7 +122,10 @@ fn print_help() {
         &mut io::stdout(),
         "frequency          : Displays CPU frequency"
     );
-    writeln!(&mut io::stdout(), "users              : Displays all users");
+    writeln!(
+        &mut io::stdout(),
+        "users              : Displays all users and their groups"
+    );
     writeln!(
         &mut io::stdout(),
         "system             : Displays system information (such as name, version and hostname)"
@@ -325,7 +328,12 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         }
         "users" => {
             for user in sys.users() {
-                writeln!(&mut io::stdout(), "{:?}", user.name());
+                writeln!(
+                    &mut io::stdout(),
+                    "{:?} => {:?}",
+                    user.name(),
+                    user.groups()
+                );
             }
         }
         "boot_time" => {
