@@ -1,6 +1,6 @@
 [package]
 name = "sysinfo"
-version = "0.29.1"
+version = "0.29.2"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 description = "Library to get system information such as processes, CPUs, disks, components and networks"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
@@ -28,7 +28,7 @@ unknown-ci = []
 features = ["serde"]
 # Setting this default target to prevent `freebsd` to be the default one.
 default-target = "x86_64-unknown-linux-gnu"
-targets = ["x86_64-unknown-freebsd"]
+targets = ["i686-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-unknown-freebsd"]
 cargo-args = ["-Zbuild-std"]
 
 [dependencies]
