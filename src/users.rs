@@ -9,7 +9,10 @@ use libc::{getgrgid_r, getgrouplist};
 use std::fs::File;
 use std::io::Read;
 
-unsafe fn get_group_name(id: libc::gid_t, buffer: &mut Vec<libc::c_char>) -> Option<String> {
+pub(crate) unsafe fn get_group_name(
+    id: libc::gid_t,
+    buffer: &mut Vec<libc::c_char>,
+) -> Option<String> {
     let mut g = std::mem::MaybeUninit::<libc::group>::uninit();
     let mut tmp_ptr = std::ptr::null_mut();
     let mut last_errno = 0;
@@ -46,11 +49,43 @@ unsafe fn get_group_name(id: libc::gid_t, buffer: &mut Vec<libc::c_char>) -> Opt
     String::from_utf8(group_name).ok()
 }
 
-pub fn get_users_list() -> Vec<User> {
+pub(crate) unsafe fn get_user_groups(
+    name: *const libc::c_char,
+    group_id: libc::gid_t,
+    groups: &mut Vec<crate::GroupId>,
+    buffer: &mut Vec<libc::c_char>,
+) -> Vec<String> {
+    loop {
+        let mut nb_groups = groups.capacity();
+        if getgrouplist(
+            name,
+            group_id as _,
+            groups.as_mut_ptr(),
+            &mut nb_groups as *mut _ as *mut _,
+        ) == -1
+        {
+            groups.reserve(256);
+            continue;
+        }
+        groups.set_len(nb_groups as _);
+        return groups
+            .iter()
+            .filter_map(|group_id| crate::users::get_group_name(*group_id as _, buffer))
+            .collect();
+    }
+}
+
+// Not used by mac.
+#[allow(unused)]
+pub(crate) fn get_users_list() -> Vec<User> {
+    #[inline]
+    fn parse_id(id: &str) -> Option<u32> {
+        id.parse::<u32>().ok()
+    }
+
     let mut s = String::new();
-    let mut ngroups = 100;
-    let mut groups = vec![0; ngroups as usize];
     let mut buffer = Vec::with_capacity(2048);
+    let mut groups = Vec::with_capacity(256);
 
     let _ = File::open("/etc/passwd").and_then(|mut f| f.read_to_string(&mut s));
     s.lines()
@@ -63,46 +98,24 @@ pub fn get_users_list() -> Vec<User> {
                     if let Some(group_id) = parts.next().and_then(parse_id) {
                         let mut c_user = username.as_bytes().to_vec();
                         c_user.push(0);
-                        loop {
-                            let mut current = ngroups;
-
-                            unsafe {
-                                if getgrouplist(
+                        // Let's get all the group names!
+                        return Some(User {
+                            uid: Uid(uid),
+                            gid: Gid(group_id),
+                            name: username.to_owned(),
+                            groups: unsafe {
+                                get_user_groups(
                                     c_user.as_ptr() as *const _,
                                     group_id,
-                                    groups.as_mut_ptr(),
-                                    &mut current,
-                                ) == -1
-                                {
-                                    if current > ngroups {
-                                        groups.resize(current as _, 0);
-                                        ngroups = current;
-                                        continue;
-                                    }
-                                    // It really failed, let's move on...
-                                    return None;
-                                }
-                                // Let's get all the group names!
-                                return Some(User {
-                                    uid: Uid(uid),
-                                    gid: Gid(group_id),
-                                    name: username.to_owned(),
-                                    groups: groups[..current as usize]
-                                        .iter()
-                                        .filter_map(|id| get_group_name(*id, &mut buffer))
-                                        .collect(),
-                                });
-                            }
-                        }
+                                    &mut groups,
+                                    &mut buffer,
+                                )
+                            },
+                        });
                     }
                 }
             }
             None
         })
         .collect()
-}
-
-#[inline]
-fn parse_id(id: &str) -> Option<u32> {
-    id.parse::<u32>().ok()
 }
