@@ -1,3 +1,8 @@
+# 0.29.1
+
+ * Update `libc` version to 0.2.144.
+ * Linux/FreeBSD/macOS: Fix retrieval of users groups in multi-threaded context.
+
 # 0.29.0
 
  * Add `ProcessExt::effective_user_id` and `ProcessExt::effective_group_id`.
