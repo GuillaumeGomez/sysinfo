@@ -20,7 +20,8 @@ use std::time::Duration;
 /// ```no_run
 /// use sysinfo::{DiskExt, System, SystemExt};
 ///
-/// let s = System::new();
+/// let mut s = System::new();
+/// s.refresh_disks_list();
 /// for disk in s.disks().iter() {
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
@@ -31,7 +32,8 @@ pub trait DiskExt: Debug {
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let mut s = System::new();
+    /// s.refresh_disks_list();
     /// for disk in s.disks().iter() {
     ///     println!("{:?}", disk.kind());
     /// }
@@ -43,7 +45,8 @@ pub trait DiskExt: Debug {
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let mut s = System::new();
+    /// s.refresh_disks_list();
     /// for disk in s.disks().iter() {
     ///     println!("{:?}", disk.name());
     /// }
@@ -55,7 +58,8 @@ pub trait DiskExt: Debug {
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let mut s = System::new();
+    /// s.refresh_disks_list();
     /// for disk in s.disks().iter() {
     ///     println!("{:?}", disk.file_system());
     /// }
@@ -67,7 +71,8 @@ pub trait DiskExt: Debug {
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let mut s = System::new();
+    /// s.refresh_disks_list();
     /// for disk in s.disks().iter() {
     ///     println!("{:?}", disk.mount_point());
     /// }
@@ -79,7 +84,8 @@ pub trait DiskExt: Debug {
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let mut s = System::new();
+    /// s.refresh_disks_list();
     /// for disk in s.disks().iter() {
     ///     println!("{}", disk.total_space());
     /// }
@@ -91,7 +97,8 @@ pub trait DiskExt: Debug {
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let mut s = System::new();
+    /// s.refresh_disks_list();
     /// for disk in s.disks().iter() {
     ///     println!("{}", disk.available_space());
     /// }
@@ -103,7 +110,8 @@ pub trait DiskExt: Debug {
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let mut s = System::new();
+    /// s.refresh_disks_list();
     /// for disk in s.disks().iter() {
     ///     println!("{}", disk.is_removable());
     /// }
@@ -115,7 +123,8 @@ pub trait DiskExt: Debug {
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
+    /// s.refresh_disks_list();
     /// for disk in s.disks_mut().iter_mut() {
     ///     disk.refresh();
     /// }
@@ -136,7 +145,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     process.kill();
     /// }
@@ -157,7 +166,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, Signal, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     if process.kill_with(Signal::Kill).is_none() {
     ///         eprintln!("This signal isn't supported on this platform");
@@ -180,7 +189,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.name());
     /// }
@@ -192,7 +201,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.cmd());
     /// }
@@ -204,7 +213,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.exe().display());
     /// }
@@ -228,7 +237,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.pid());
     /// }
@@ -240,7 +249,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.environ());
     /// }
@@ -252,7 +261,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.cwd().display());
     /// }
@@ -264,7 +273,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.root().display());
     /// }
@@ -276,7 +285,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{} bytes", process.memory());
     /// }
@@ -288,7 +297,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{} bytes", process.virtual_memory());
     /// }
@@ -300,7 +309,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.parent());
     /// }
@@ -312,7 +321,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.status());
     /// }
@@ -324,7 +333,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("Started at {} seconds", process.start_time());
     /// }
@@ -336,7 +345,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("Running since {} seconds", process.run_time());
     /// }
@@ -359,7 +368,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}%", process.cpu_usage());
     /// }
@@ -373,7 +382,7 @@ pub trait ProcessExt: Debug {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
     ///
-    /// let s = System::new();
+    /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     let disk_usage = process.disk_usage();
     ///     println!("read bytes   : new/total => {}/{}",
@@ -495,9 +504,11 @@ pub trait CpuExt: Debug {
     /// how CPU usage is computed) at first if you want to have a non-zero value.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuExt, System, SystemExt};
+    /// use sysinfo::{CpuExt, System, SystemExt, RefreshKind, CpuRefreshKind};
     ///
-    /// let s = System::new();
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
     /// for cpu in s.cpus() {
     ///     println!("{}%", cpu.cpu_usage());
     /// }
@@ -507,9 +518,11 @@ pub trait CpuExt: Debug {
     /// Returns this CPU's name.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuExt, System, SystemExt};
+    /// use sysinfo::{CpuExt, System, SystemExt, RefreshKind, CpuRefreshKind};
     ///
-    /// let s = System::new();
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
     /// for cpu in s.cpus() {
     ///     println!("{}", cpu.name());
     /// }
@@ -519,9 +532,11 @@ pub trait CpuExt: Debug {
     /// Returns the CPU's vendor id.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuExt, System, SystemExt};
+    /// use sysinfo::{CpuExt, System, SystemExt, RefreshKind, CpuRefreshKind};
     ///
-    /// let s = System::new();
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
     /// for cpu in s.cpus() {
     ///     println!("{}", cpu.vendor_id());
     /// }
@@ -531,9 +546,11 @@ pub trait CpuExt: Debug {
     /// Returns the CPU's brand.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuExt, System, SystemExt};
+    /// use sysinfo::{CpuExt, System, SystemExt, RefreshKind, CpuRefreshKind};
     ///
-    /// let s = System::new();
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
     /// for cpu in s.cpus() {
     ///     println!("{}", cpu.brand());
     /// }
@@ -543,9 +560,11 @@ pub trait CpuExt: Debug {
     /// Returns the CPU's frequency.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuExt, System, SystemExt};
+    /// use sysinfo::{CpuExt, System, SystemExt, RefreshKind, CpuRefreshKind};
     ///
-    /// let s = System::new();
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
     /// for cpu in s.cpus() {
     ///     println!("{}", cpu.frequency());
     /// }
@@ -633,11 +652,13 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// use sysinfo::{RefreshKind, System, SystemExt};
     ///
     /// // We want everything except disks.
-    /// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
+    /// let mut system = System::new_with_specifics(
+    ///      RefreshKind::everything().without_disks_list(),
+    /// );
     ///
-    /// assert_eq!(system.disks().len(), 0);
+    /// assert!(system.disks().is_empty());
     /// # if System::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
-    /// assert!(system.processes().len() > 0);
+    /// assert!(!system.processes().is_empty());
     /// # }
     ///
     /// // If you want the disks list afterwards, just call the corresponding
@@ -792,7 +813,10 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let mut s = System::new();
+    /// assert!(s.components().is_empty());
+    ///
     /// s.refresh_components_list();
+    /// assert!(!s.components().is_empty());
     /// ```
     fn refresh_components_list(&mut self);
 
@@ -1199,7 +1223,8 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```no_run
     /// use sysinfo::{DiskExt, System, SystemExt};
     ///
-    /// let s = System::new_all();
+    /// let mut s = System::new();
+    /// s.refresh_disks_list();
     /// for disk in s.disks().iter() {
     ///     println!("{:?}", disk.name());
     /// }
