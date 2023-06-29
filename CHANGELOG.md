@@ -1,3 +1,11 @@
+# 0.29.3
+
+ * Fix some documentation examples.
+
+# 0.29.2
+
+ * <docs.rs>: Generate documentation for all supported platforms.
+
 # 0.29.1
 
  * Update `libc` version to 0.2.144.
