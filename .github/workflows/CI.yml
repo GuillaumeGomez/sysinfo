@@ -6,7 +6,7 @@ on:
 name: CI
 
 # If a new push on the PR is done, cancel the build
-concurrency: 
+concurrency:
   group: ${{ github.head_ref }}
   cancel-in-progress: true
 
