@@ -13,6 +13,15 @@ use winapi::um::iptypes::{
 
 use crate::common::MacAddr;
 
+// Need a function to convert u16 pointer into String
+// https://stackoverflow.com/a/48587463/8706476
+unsafe fn u16_ptr_to_string(ptr: *const u16) -> OsString {
+    let len = (0..).take_while(|&i| *ptr.offset(i) != 0).count();
+    let slice = std::slice::from_raw_parts(ptr, len);
+
+    OsString::from_wide(slice)
+}
+
 /// this iterator yields an interface name and address
 pub(crate) struct InterfaceAddressIterator {
     /// The first item in the linked list
@@ -21,13 +30,26 @@ pub(crate) struct InterfaceAddressIterator {
     adapter: PIP_ADAPTER_ADDRESSES,
 }
 
-// Need a function to convert u16 pointer into String
-// https://stackoverflow.com/a/48587463/8706476
-unsafe fn u16_ptr_to_string(ptr: *const u16) -> OsString {
-    let len = (0..).take_while(|&i| *ptr.offset(i) != 0).count();
-    let slice = std::slice::from_raw_parts(ptr, len);
-
-    OsString::from_wide(slice)
+impl InterfaceAddressIterator {
+    fn new() -> Self {
+        Self {
+            buf: null_mut(),
+            adapter: null_mut(),
+        }
+    }
+    unsafe fn realloc(mut self, size: libc::size_t) -> Result<Self, String> {
+        let new_buf = libc::realloc(self.buf as _, size) as PIP_ADAPTER_ADDRESSES;
+        if new_buf.is_null() {
+            // insufficient memory available
+            // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/malloc?view=msvc-170#return-value
+            // malloc is not documented to set the last-error code
+            Err("failed to allocate memory for IP_ADAPTER_ADDRESSES".to_string())
+        } else {
+            self.buf = new_buf;
+            self.adapter = new_buf;
+            Ok(self)
+        }
+    }
 }
 
 impl Iterator for InterfaceAddressIterator {
@@ -67,25 +89,17 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
         // A 15k buffer is recommended
         let mut size: u32 = 15 * 1024;
         let mut ret = ERROR_SUCCESS;
+        let mut iterator = InterfaceAddressIterator::new();
 
         // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#examples
         // Try to retrieve adapter information up to 3 times
         for _ in 0..3 {
-            let buf = libc::malloc(size as _) as PIP_ADAPTER_ADDRESSES;
-            // free memory on drop
-            let iterator = InterfaceAddressIterator { buf, adapter: buf };
-            if buf.is_null() {
-                // insufficient memory available
-                // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/malloc?view=msvc-170#return-value
-                // malloc is not documented to set the last-error code
-                return Err("failed to allocate memory for IP_ADAPTER_ADDRESSES".to_string());
-            }
-
+            iterator = iterator.realloc(size as _)?;
             ret = GetAdaptersAddresses(
                 AF_UNSPEC as u32,
                 GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER,
                 null_mut(),
-                buf,
+                iterator.buf,
                 &mut size,
             );
             if ret == ERROR_SUCCESS {
