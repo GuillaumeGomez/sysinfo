@@ -53,19 +53,23 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
-        "refresh            : reloads all processes' information"
+        "refresh            : reloads all processes information"
     );
     writeln!(
         &mut io::stdout(),
-        "refresh [pid]      : reloads corresponding process' information"
+        "refresh [pid]      : reloads corresponding process information"
     );
     writeln!(
         &mut io::stdout(),
-        "refresh_disks      : reloads only disks' information"
+        "refresh_disks      : reloads only disks information"
     );
     writeln!(
         &mut io::stdout(),
-        "refresh_users      : reloads only users' information"
+        "refresh_users      : reloads only users information"
+    );
+    writeln!(
+        &mut io::stdout(),
+        "refresh_networks   : reloads only networks information"
     );
     writeln!(
         &mut io::stdout(),
@@ -148,6 +152,11 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "refresh_users" => {
             writeln!(&mut io::stdout(), "Refreshing user list...");
             sys.refresh_users_list();
+            writeln!(&mut io::stdout(), "Done.");
+        }
+        "refresh_networks" => {
+            writeln!(&mut io::stdout(), "Refreshing network list...");
+            sys.refresh_networks_list();
             writeln!(&mut io::stdout(), "Done.");
         }
         "signals" => {
