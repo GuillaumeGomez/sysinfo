@@ -1,5 +1,7 @@
 
-With the `serde` feature enabled, you can then serialize `sysinfo` types. Let's see an example with `serde_json`:
+With the `serde` feature enabled, you can then serialize `sysinfo` types. Let's see an example
+with `serde_json` (you need to add `serde_json` dependency in your `Cargo.toml` file to run
+this example):
 
 ```
 use sysinfo::{System, SystemExt};
