@@ -1,3 +1,9 @@
+# 0.29.4
+
+ * Windows: Improve code to retrieve network interfaces.
+ * Improve serde documentation example.
+ * Fix some clippy lints.
+
 # 0.29.3
 
  * Fix some documentation examples.
