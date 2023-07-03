@@ -43,7 +43,7 @@ pub(crate) unsafe fn to_str(p: LPWSTR) -> String {
 fn utf16_str<S: AsRef<OsStr> + ?Sized>(text: &S) -> Vec<u16> {
     OsStr::new(text)
         .encode_wide()
-        .chain(Some(0).into_iter())
+        .chain(Some(0))
         .collect::<Vec<_>>()
 }
 
