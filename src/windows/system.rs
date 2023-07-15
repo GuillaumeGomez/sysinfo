@@ -27,7 +27,7 @@ use ntapi::ntexapi::{
 use winapi::ctypes::wchar_t;
 use winapi::shared::minwindef::{FALSE, TRUE};
 use winapi::shared::ntdef::{PVOID, ULONG};
-use winapi::shared::ntstatus::STATUS_INFO_LENGTH_MISMATCH;
+use winapi::shared::ntstatus::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
 use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
 use winapi::um::psapi::{GetPerformanceInfo, PERFORMANCE_INFORMATION};
@@ -223,15 +223,13 @@ impl SystemExt for System {
     #[allow(clippy::cast_ptr_alignment)]
     fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
         // Windows 10 notebook requires at least 512KiB of memory to make it in one go
-        let mut buffer_size: usize = 512 * 1024;
-        let now = get_now();
+        let mut buffer_size = 512 * 1024;
+        let mut process_information: Vec<u8> = Vec::with_capacity(buffer_size);
 
         loop {
-            let mut process_information: Vec<u8> = Vec::with_capacity(buffer_size);
             let mut cb_needed = 0;
 
             unsafe {
-                process_information.set_len(buffer_size);
                 let ntstatus = NtQuerySystemInformation(
                     SystemProcessInformation,
                     process_information.as_mut_ptr() as PVOID,
@@ -239,100 +237,105 @@ impl SystemExt for System {
                     &mut cb_needed,
                 );
 
-                if ntstatus != STATUS_INFO_LENGTH_MISMATCH {
-                    if ntstatus < 0 {
-                        sysinfo_debug!(
-                            "Couldn't get process infos: NtQuerySystemInformation returned {}",
-                            ntstatus
-                        );
+                if ntstatus == STATUS_INFO_LENGTH_MISMATCH {
+                    // GetNewBufferSize
+                    if cb_needed == 0 {
+                        process_information.reserve(buffer_size);
+                        buffer_size *= 2;
+                        continue;
                     }
-
-                    // Parse the data block to get process information
-                    let mut process_ids = Vec::with_capacity(500);
-                    let mut process_information_offset = 0;
-                    loop {
-                        let p = process_information
-                            .as_ptr()
-                            .offset(process_information_offset)
-                            as *const SYSTEM_PROCESS_INFORMATION;
-                        let pi = &*p;
-
-                        process_ids.push(Wrap(p));
-
-                        if pi.NextEntryOffset == 0 {
-                            break;
-                        }
-
-                        process_information_offset += pi.NextEntryOffset as isize;
-                    }
-                    let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
-                    let nb_cpus = if refresh_kind.cpu() {
-                        self.cpus.len() as u64
-                    } else {
-                        0
-                    };
-
-                    #[cfg(feature = "multithread")]
-                    use rayon::iter::ParallelIterator;
-
-                    // TODO: instead of using parallel iterator only here, would be better to be
-                    //       able to run it over `process_information` directly!
-                    let processes = into_iter(process_ids)
-                        .filter_map(|pi| {
-                            let pi = *pi.0;
-                            let pid = Pid(pi.UniqueProcessId as _);
-                            if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
-                                if proc_
-                                    .get_start_time()
-                                    .map(|start| start == proc_.start_time())
-                                    .unwrap_or(true)
-                                {
-                                    proc_.memory = pi.WorkingSetSize as _;
-                                    proc_.virtual_memory = pi.VirtualSize as _;
-                                    proc_.update(refresh_kind, nb_cpus, now);
-                                    return None;
-                                }
-                                // If the PID owner changed, we need to recompute the whole process.
-                                sysinfo_debug!("owner changed for PID {}", proc_.pid());
-                            }
-                            let name = get_process_name(&pi, pid);
-                            let mut p = Process::new_full(
-                                pid,
-                                if pi.InheritedFromUniqueProcessId as usize != 0 {
-                                    Some(Pid(pi.InheritedFromUniqueProcessId as _))
-                                } else {
-                                    None
-                                },
-                                pi.WorkingSetSize as _,
-                                pi.VirtualSize as _,
-                                name,
-                                now,
-                                refresh_kind,
-                            );
-                            p.update(refresh_kind, nb_cpus, now);
-                            Some(p)
-                        })
-                        .collect::<Vec<_>>();
-                    for p in processes.into_iter() {
-                        self.process_list.insert(p.pid(), p);
-                    }
-                    self.process_list.retain(|_, v| {
-                        let x = v.updated;
-                        v.updated = false;
-                        x
-                    });
-
+                    // allocating a few more kilo bytes just in case there are some new process
+                    // kicked in since new call to NtQuerySystemInformation
+                    buffer_size = (cb_needed + (1024 * 10)) as usize;
+                    continue;
+                } else if ntstatus != STATUS_SUCCESS {
+                    sysinfo_debug!(
+                        "Couldn't get process infos: NtQuerySystemInformation returned {}",
+                        ntstatus
+                    );
                     break;
                 }
 
-                // GetNewBufferSize
-                if cb_needed == 0 {
-                    buffer_size *= 2;
-                    continue;
+                process_information.set_len(buffer_size);
+
+                // Parse the data block to get process information
+                let mut process_ids = Vec::with_capacity(500);
+                let mut process_information_offset = 0;
+                loop {
+                    let p = process_information
+                        .as_ptr()
+                        .offset(process_information_offset)
+                        as *const SYSTEM_PROCESS_INFORMATION;
+                    let pi = &*p;
+
+                    process_ids.push(Wrap(p));
+
+                    if pi.NextEntryOffset == 0 {
+                        break;
+                    }
+
+                    process_information_offset += pi.NextEntryOffset as isize;
                 }
-                // allocating a few more kilo bytes just in case there are some new process
-                // kicked in since new call to NtQuerySystemInformation
-                buffer_size = (cb_needed + (1024 * 10)) as usize;
+                let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
+                let nb_cpus = if refresh_kind.cpu() {
+                    self.cpus.len() as u64
+                } else {
+                    0
+                };
+
+                let now = get_now();
+
+                #[cfg(feature = "multithread")]
+                use rayon::iter::ParallelIterator;
+
+                // TODO: instead of using parallel iterator only here, would be better to be
+                //       able to run it over `process_information` directly!
+                let processes = into_iter(process_ids)
+                    .filter_map(|pi| {
+                        let pi = *pi.0;
+                        let pid = Pid(pi.UniqueProcessId as _);
+                        if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
+                            if proc_
+                                .get_start_time()
+                                .map(|start| start == proc_.start_time())
+                                .unwrap_or(true)
+                            {
+                                proc_.memory = pi.WorkingSetSize as _;
+                                proc_.virtual_memory = pi.VirtualSize as _;
+                                proc_.update(refresh_kind, nb_cpus, now);
+                                return None;
+                            }
+                            // If the PID owner changed, we need to recompute the whole process.
+                            sysinfo_debug!("owner changed for PID {}", proc_.pid());
+                        }
+                        let name = get_process_name(&pi, pid);
+                        let mut p = Process::new_full(
+                            pid,
+                            if pi.InheritedFromUniqueProcessId as usize != 0 {
+                                Some(Pid(pi.InheritedFromUniqueProcessId as _))
+                            } else {
+                                None
+                            },
+                            pi.WorkingSetSize as _,
+                            pi.VirtualSize as _,
+                            name,
+                            now,
+                            refresh_kind,
+                        );
+                        p.update(refresh_kind, nb_cpus, now);
+                        Some(p)
+                    })
+                    .collect::<Vec<_>>();
+                for p in processes.into_iter() {
+                    self.process_list.insert(p.pid(), p);
+                }
+                self.process_list.retain(|_, v| {
+                    let x = v.updated;
+                    v.updated = false;
+                    x
+                });
+
+                break;
             }
         }
     }
