@@ -1,3 +1,8 @@
+# 0.29.5
+
+ * Windows: Remove some undefined behaviour when listing processes.
+ * <docs.rs>: Use `--generate-link-to-definition` option to have better source code pages.
+
 # 0.29.4
 
  * Windows: Improve code to retrieve network interfaces.
