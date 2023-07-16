@@ -19,6 +19,7 @@ use crate::utils::into_iter;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem::{size_of, zeroed};
+use std::ptr;
 use std::time::{Duration, SystemTime};
 
 use ntapi::ntexapi::{
@@ -268,7 +269,7 @@ impl SystemExt for System {
                         .as_ptr()
                         .offset(process_information_offset)
                         as *const SYSTEM_PROCESS_INFORMATION;
-                    let pi = &*p;
+                    let pi = &ptr::read_unaligned(p);
 
                     process_ids.push(Wrap(p));
 
@@ -294,7 +295,7 @@ impl SystemExt for System {
                 //       able to run it over `process_information` directly!
                 let processes = into_iter(process_ids)
                     .filter_map(|pi| {
-                        let pi = *pi.0;
+                        let pi = ptr::read_unaligned(pi.0);
                         let pid = Pid(pi.UniqueProcessId as _);
                         if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
                             if proc_
