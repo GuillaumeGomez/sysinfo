@@ -1,6 +1,6 @@
 [package]
 name = "sysinfo"
-version = "0.29.4"
+version = "0.29.5"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 description = "Library to get system information such as processes, CPUs, disks, components and networks"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
@@ -30,6 +30,7 @@ features = ["serde"]
 default-target = "x86_64-unknown-linux-gnu"
 targets = ["i686-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-unknown-freebsd"]
 cargo-args = ["-Zbuild-std"]
+rustdoc-args = ["--generate-link-to-definition"]
 
 [dependencies]
 cfg-if = "1.0"
