@@ -227,6 +227,9 @@ impl SystemExt for System {
 
         loop {
             let mut cb_needed = 0;
+            // reserve(n) ensures the Vec has capacity for n additional elements
+            // so we should reserve buffer_size - len
+            process_information.reserve(buffer_size - process_information.len());
 
             unsafe {
                 let ntstatus = NtQuerySystemInformation(
@@ -239,7 +242,6 @@ impl SystemExt for System {
                 if ntstatus == STATUS_INFO_LENGTH_MISMATCH {
                     // GetNewBufferSize
                     if cb_needed == 0 {
-                        process_information.reserve(buffer_size);
                         buffer_size *= 2;
                         continue;
                     }
