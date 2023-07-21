@@ -97,9 +97,9 @@ loop {
     for cpu in sys.cpus() {
         print!("{}% ", cpu.cpu_usage());
     }
-    // Sleeping for 500 ms to let time for the system to run for long
+    // Sleeping to let time for the system to run for long
     // enough to have useful information.
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
 }
 ```
 
