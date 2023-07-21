@@ -279,6 +279,8 @@ unsafe fn display_ntstatus_error(ntstatus: winapi::shared::ntdef::NTSTATUS) {
     winapi::um::libloaderapi::FreeLibrary(handler);
 }
 
+// Take a look at https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/ex/sysinfo/query.htm
+// for explanations.
 unsafe fn get_process_name(pid: Pid) -> Option<String> {
     let mut info = SYSTEM_PROCESS_ID_INFORMATION {
         ProcessId: pid.0 as _,
