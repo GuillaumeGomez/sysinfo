@@ -1,3 +1,9 @@
+# 0.29.6
+
+ * Update minimum rust version to 1.63.
+ * Windows: Fix memory corruption when listing processes.
+ * Windows: Fix name inconsistency between `refresh_processes` and `refresh_process`.
+
 # 0.29.5
 
  * Windows: Remove some undefined behaviour when listing processes.
