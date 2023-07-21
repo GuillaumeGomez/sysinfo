@@ -18,7 +18,7 @@ You can still use `sysinfo` on non-supported OSes, it'll simply do nothing and a
 empty values. You can check in your program directly if an OS is supported by checking the
 [`SystemExt::IS_SUPPORTED`] constant.
 
-The minimum-supported version of `rustc` is **1.59**.
+The minimum-supported version of `rustc` is **1.63**.
 
 ## Usage
 
@@ -97,9 +97,9 @@ loop {
     for cpu in sys.cpus() {
         print!("{}% ", cpu.cpu_usage());
     }
-    // Sleeping for 500 ms to let time for the system to run for long
+    // Sleeping to let time for the system to run for long
     // enough to have useful information.
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
 }
 ```
 
