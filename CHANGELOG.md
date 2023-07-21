@@ -3,6 +3,7 @@
  * Update minimum rust version to 1.63.
  * Windows: Fix memory corruption when listing processes.
  * Windows: Fix name inconsistency between `refresh_processes` and `refresh_process`.
+ * `Cargo.lock` is now included to prevent minimum rust version disruptions.
 
 # 0.29.5
 
