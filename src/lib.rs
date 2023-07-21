@@ -275,7 +275,7 @@ mod test {
             .all(|(_, proc_)| proc_.cpu_usage() == 0.0));
 
         // Wait a bit to update CPU usage values
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
         s.refresh_processes();
         assert!(s
             .processes()
@@ -297,7 +297,7 @@ mod test {
         for _ in 0..10 {
             s.refresh_cpu();
             // Wait a bit to update CPU usage values
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
             if s.cpus().iter().any(|c| c.cpu_usage() > 0.0) {
                 // All good!
                 return;
