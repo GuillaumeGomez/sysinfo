@@ -24,6 +24,9 @@ use ntapi::ntpebteb::PEB;
 use ntapi::ntwow64::{PEB32, PRTL_USER_PROCESS_PARAMETERS32, RTL_USER_PROCESS_PARAMETERS32};
 use once_cell::sync::Lazy;
 
+use ntapi::ntexapi::{
+    NtQuerySystemInformation, SystemProcessIdInformation, SYSTEM_PROCESS_ID_INFORMATION,
+};
 use ntapi::ntpsapi::{
     NtQueryInformationProcess, ProcessBasicInformation, ProcessCommandLineInformation,
     ProcessWow64Information, PROCESSINFOCLASS, PROCESS_BASIC_INFORMATION,
@@ -33,22 +36,22 @@ use winapi::shared::basetsd::SIZE_T;
 use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, LPVOID, MAX_PATH, TRUE, ULONG};
 use winapi::shared::ntdef::{NT_SUCCESS, UNICODE_STRING};
 use winapi::shared::ntstatus::{
-    STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH,
+    STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS,
 };
 use winapi::shared::winerror::ERROR_INSUFFICIENT_BUFFER;
 use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapFree};
 use winapi::um::memoryapi::{ReadProcessMemory, VirtualQueryEx};
+use winapi::um::minwinbase::LMEM_FIXED;
 use winapi::um::processthreadsapi::{
     GetProcessTimes, GetSystemTimes, OpenProcess, OpenProcessToken, ProcessIdToSessionId,
 };
 use winapi::um::psapi::{
-    EnumProcessModulesEx, GetModuleBaseNameW, GetModuleFileNameExW, GetProcessMemoryInfo,
-    LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
+    GetModuleFileNameExW, GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
 };
 use winapi::um::securitybaseapi::GetTokenInformation;
-use winapi::um::winbase::{GetProcessIoCounters, CREATE_NO_WINDOW};
+use winapi::um::winbase::{GetProcessIoCounters, LocalAlloc, LocalFree, CREATE_NO_WINDOW};
 use winapi::um::winnt::{
     TokenUser, HANDLE, HEAP_ZERO_MEMORY, IO_COUNTERS, MEMORY_BASIC_INFORMATION,
     PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
@@ -236,27 +239,105 @@ static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| unsafe {
         || version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 3
 });
 
-unsafe fn get_process_name(process_handler: &HandleWrapper, h_mod: *mut c_void) -> String {
-    let mut process_name = [0u16; MAX_PATH + 1];
+#[cfg(feature = "debug")]
+unsafe fn display_ntstatus_error(ntstatus: winapi::shared::ntdef::NTSTATUS) {
+    let mut buffer: LPVOID = null_mut();
+    let x = &[
+        'N' as u16, 'T' as u16, 'D' as u16, 'L' as u16, 'L' as u16, '.' as u16, 'D' as u16,
+        'L' as u16, 'L' as u16, 0,
+    ];
+    let handler = winapi::um::libloaderapi::LoadLibraryW(x.as_ptr());
 
-    GetModuleBaseNameW(
-        **process_handler,
-        h_mod as _,
-        process_name.as_mut_ptr(),
-        MAX_PATH as DWORD + 1,
+    winapi::um::winbase::FormatMessageW(
+        winapi::um::winbase::FORMAT_MESSAGE_ALLOCATE_BUFFER
+            | winapi::um::winbase::FORMAT_MESSAGE_FROM_SYSTEM
+            | winapi::um::winbase::FORMAT_MESSAGE_FROM_HMODULE,
+        handler as _,
+        ntstatus as _,
+        winapi::shared::ntdef::MAKELANGID(
+            winapi::shared::ntdef::LANG_NEUTRAL,
+            winapi::shared::ntdef::SUBLANG_DEFAULT,
+        ) as _,
+        &mut buffer as *mut _ as *mut _,
+        0,
+        null_mut(),
     );
-    null_terminated_wchar_to_string(&process_name)
+    let msg = buffer as *const u16;
+    for x in 0.. {
+        if *msg.offset(x) == 0 {
+            let slice = std::slice::from_raw_parts(msg as *const u16, x as usize);
+            let s = null_terminated_wchar_to_string(slice);
+            sysinfo_debug!(
+                "Couldn't get process infos: NtQuerySystemInformation returned {}: {}",
+                ntstatus,
+                s,
+            );
+            break;
+        }
+    }
+    LocalFree(buffer);
+    winapi::um::libloaderapi::FreeLibrary(handler);
 }
 
-unsafe fn get_h_mod(process_handler: &HandleWrapper, h_mod: &mut *mut c_void) -> bool {
-    let mut cb_needed = 0;
-    EnumProcessModulesEx(
-        **process_handler,
-        h_mod as *mut *mut c_void as _,
-        size_of::<DWORD>() as DWORD,
-        &mut cb_needed,
-        LIST_MODULES_ALL,
-    ) != 0
+unsafe fn get_process_name(pid: Pid) -> Option<String> {
+    let mut info = SYSTEM_PROCESS_ID_INFORMATION {
+        ProcessId: pid.0 as _,
+        ImageName: UNICODE_STRING {
+            Length: 0,
+            // `MaximumLength` MUST BE a power of 2.
+            MaximumLength: 1 << 7, // 128
+            Buffer: null_mut(),
+        },
+    };
+
+    for i in 0.. {
+        info.ImageName.Buffer = LocalAlloc(LMEM_FIXED, info.ImageName.MaximumLength as _) as *mut _;
+        if info.ImageName.Buffer.is_null() {
+            sysinfo_debug!("Couldn't get process infos: LocalAlloc failed");
+            return None;
+        }
+        let ntstatus = NtQuerySystemInformation(
+            SystemProcessIdInformation,
+            &mut info as *mut _ as *mut _,
+            size_of::<SYSTEM_PROCESS_ID_INFORMATION>() as _,
+            null_mut(),
+        );
+        if ntstatus == STATUS_SUCCESS {
+            break;
+        } else if ntstatus == STATUS_INFO_LENGTH_MISMATCH {
+            if !info.ImageName.Buffer.is_null() {
+                LocalFree(info.ImageName.Buffer as *mut _);
+            }
+            if i > 2 {
+                // Too many iterations, we should have the correct length at this point normally,
+                // aborting name retrieval.
+                sysinfo_debug!(
+                    "NtQuerySystemInformation returned `STATUS_INFO_LENGTH_MISMATCH` too many times"
+                );
+                return None;
+            }
+            // New length has been set into `MaximumLength` so we just continue the loop.
+        } else {
+            if !info.ImageName.Buffer.is_null() {
+                LocalFree(info.ImageName.Buffer as *mut _);
+            }
+
+            #[cfg(feature = "debug")]
+            {
+                display_ntstatus_error(ntstatus);
+            }
+            return None;
+        }
+    }
+
+    if info.ImageName.Buffer.is_null() {
+        return None;
+    }
+
+    let s = std::slice::from_raw_parts(info.ImageName.Buffer, info.ImageName.Length as _);
+    let name = String::from_utf16_lossy(s);
+    LocalFree(info.ImageName.Buffer as _);
+    Some(name)
 }
 
 unsafe fn get_exe(process_handler: &HandleWrapper) -> PathBuf {
@@ -291,14 +372,8 @@ impl Process {
                 return None;
             }
             let info = info.assume_init();
-            let mut h_mod = null_mut();
 
-            let name = if get_h_mod(&process_handler, &mut h_mod) {
-                get_process_name(&process_handler, h_mod)
-            } else {
-                String::new()
-            };
-
+            let name = get_process_name(pid).unwrap_or_default();
             let exe = get_exe(&process_handler);
             let mut root = exe.clone();
             root.pop();

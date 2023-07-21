@@ -27,7 +27,6 @@ use ntapi::ntexapi::{
 };
 use winapi::ctypes::wchar_t;
 use winapi::shared::minwindef::{FALSE, TRUE};
-use winapi::shared::ntdef::{PVOID, ULONG};
 use winapi::shared::ntstatus::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
 use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
@@ -237,8 +236,8 @@ impl SystemExt for System {
             unsafe {
                 let ntstatus = NtQuerySystemInformation(
                     SystemProcessInformation,
-                    process_information.as_mut_ptr() as PVOID,
-                    buffer_size as ULONG,
+                    process_information.as_mut_ptr() as *mut _,
+                    buffer_size as _,
                     &mut cb_needed,
                 );
 
