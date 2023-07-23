@@ -15,13 +15,17 @@ pub type io_object_t = mach_port_t;
 pub type io_iterator_t = io_object_t;
 #[allow(non_camel_case_types)]
 pub type io_registry_entry_t = io_object_t;
+// This is a hack, `io_name_t` should normally be `[c_char; 128]` but Rust makes it very annoying
+// to deal with that so we go around it a bit.
+#[allow(non_camel_case_types)]
+pub type io_name = [c_char; 128];
 #[allow(non_camel_case_types)]
 pub type io_name_t = *const c_char;
 
 pub type IOOptionBits = u32;
 
 #[allow(non_upper_case_globals)]
-pub const kIOServicePlane: &str = "IOService\0";
+pub const kIOServicePlane: &[u8] = b"IOService\0";
 #[allow(non_upper_case_globals)]
 pub const kIOPropertyDeviceCharacteristicsKey: &str = "Device Characteristics";
 #[allow(non_upper_case_globals)]
@@ -44,6 +48,8 @@ extern "C" {
         matching: CFMutableDictionaryRef,
         existing: *mut io_iterator_t,
     ) -> kern_return_t;
+    #[allow(dead_code)]
+    pub fn IOServiceMatching(a: *const c_char) -> CFMutableDictionaryRef;
 
     pub fn IOIteratorNext(iterator: io_iterator_t) -> io_object_t;
 
@@ -60,12 +66,27 @@ extern "C" {
         plane: io_name_t,
         parent: *mut io_registry_entry_t,
     ) -> kern_return_t;
+    #[allow(dead_code)]
+    pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: io_name_t) -> kern_return_t;
 
     pub fn IOBSDNameMatching(
         mainPort: mach_port_t,
         options: u32,
         bsdName: *const c_char,
     ) -> CFMutableDictionaryRef;
+}
+#[allow(dead_code)]
+pub const KIO_RETURN_SUCCESS: i32 = 0;
+
+extern "C" {
+    // FIXME: to be removed once higher version than core_foundation_sys 0.8.4 is released.
+    #[allow(dead_code)]
+    pub fn CFStringCreateWithCStringNoCopy(
+        alloc: CFAllocatorRef,
+        cStr: *const c_char,
+        encoding: core_foundation_sys::string::CFStringEncoding,
+        contentsDeallocator: CFAllocatorRef,
+    ) -> CFStringRef;
 }
 
 #[cfg(all(
@@ -74,8 +95,7 @@ extern "C" {
 ))]
 mod io_service {
     use super::{io_object_t, mach_port_t};
-    use core_foundation_sys::dictionary::CFMutableDictionaryRef;
-    use libc::{c_char, kern_return_t, size_t, task_t};
+    use libc::{kern_return_t, size_t, task_t};
 
     #[allow(non_camel_case_types)]
     pub type io_connect_t = io_object_t;
@@ -87,8 +107,6 @@ mod io_service {
     pub type task_port_t = task_t;
 
     extern "C" {
-        pub fn IOServiceMatching(a: *const c_char) -> CFMutableDictionaryRef;
-
         pub fn IOServiceOpen(
             device: io_service_t,
             owning_task: task_port_t,
@@ -159,8 +177,6 @@ mod io_service {
 
     #[allow(dead_code)]
     pub const SMC_CMD_READ_BYTES: u8 = 5;
-
-    pub const KIO_RETURN_SUCCESS: i32 = 0;
 }
 
 #[cfg(feature = "apple-sandbox")]
@@ -176,6 +192,7 @@ pub use io_service::*;
 mod io_service {
     use std::ptr::null;
 
+    use super::CFStringCreateWithCStringNoCopy;
     use core_foundation_sys::array::CFArrayRef;
     use core_foundation_sys::base::{CFAllocatorRef, CFRelease};
     use core_foundation_sys::dictionary::{
@@ -183,7 +200,7 @@ mod io_service {
         CFDictionaryRef,
     };
     use core_foundation_sys::number::{kCFNumberSInt32Type, CFNumberCreate};
-    use core_foundation_sys::string::{CFStringCreateWithCString, CFStringRef};
+    use core_foundation_sys::string::CFStringRef;
 
     #[repr(C)]
     pub struct __IOHIDServiceClient(libc::c_void);
@@ -250,15 +267,17 @@ mod io_service {
     pub(crate) fn matching(page: i32, usage: i32) -> CFDictionaryRef {
         unsafe {
             let keys = [
-                CFStringCreateWithCString(
+                CFStringCreateWithCStringNoCopy(
                     null() as *const _,
                     HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE.as_ptr() as *const _,
-                    0,
+                    core_foundation_sys::string::kCFStringEncodingUTF8,
+                    core_foundation_sys::base::kCFAllocatorNull as *mut _,
                 ),
-                CFStringCreateWithCString(
+                CFStringCreateWithCStringNoCopy(
                     null() as *const _,
                     HID_DEVICE_PROPERTY_PRIMARY_USAGE.as_ptr() as *const _,
-                    0,
+                    core_foundation_sys::string::kCFStringEncodingUTF8,
+                    core_foundation_sys::base::kCFAllocatorNull as *mut _,
                 ),
             ];
 

@@ -256,7 +256,7 @@ impl SystemExt for System {
             return;
         }
         if refresh_kind.frequency() && !self.got_cpu_frequency {
-            let frequency = get_cpu_frequency();
+            let frequency = unsafe { get_cpu_frequency() };
             for proc_ in cpus.iter_mut() {
                 proc_.set_frequency(frequency);
             }
