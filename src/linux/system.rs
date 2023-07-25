@@ -10,8 +10,10 @@ use crate::{
 
 use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::collections::HashMap;
-use std::fs::File;
+use std::error::Error;
+use std::fs::{read, File};
 use std::io::{BufRead, BufReader, Read};
+use std::os::unix::raw::uid_t;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -248,32 +250,26 @@ impl SystemExt for System {
     }
 
     fn refresh_memory(&mut self) {
-        if let Ok(data) = get_all_data("/proc/meminfo", 16_385) {
-            let mut mem_available_found = false;
-
-            for line in data.split('\n') {
-                let mut iter = line.split(':');
-                let field = match iter.next() {
-                    Some("MemTotal") => &mut self.mem_total,
-                    Some("MemFree") => &mut self.mem_free,
-                    Some("MemAvailable") => {
+        let mut mem_available_found = false;
+        if let Some(meminfo_table) = read_table("/proc/meminfo", ':') {
+            for (key, valueKiB) in meminfo_table {
+                // /proc/meminfo reports KiB, though it says "kB". Convert it.
+                let value = valueKiB.saturating_mul(1_024);
+                match key.as_str() {
+                    "MemTotal" => self.mem_total = value,
+                    "MemFree" => self.mem_free = value,
+                    "MemAvailable" => {
                         mem_available_found = true;
-                        &mut self.mem_available
+                        self.mem_available = value
                     }
-                    Some("Buffers") => &mut self.mem_buffers,
-                    Some("Cached") => &mut self.mem_page_cache,
-                    Some("Shmem") => &mut self.mem_shmem,
-                    Some("SReclaimable") => &mut self.mem_slab_reclaimable,
-                    Some("SwapTotal") => &mut self.swap_total,
-                    Some("SwapFree") => &mut self.swap_free,
+                    "Buffers" => self.mem_buffers = value,
+                    "Cached" => self.mem_page_cache = value,
+                    "Shmem" => self.mem_shmem = value,
+                    "SReclaimable" => self.mem_slab_reclaimable = value,
+                    "SwapTotal" => self.swap_total = value,
+                    "SwapFree" => self.swap_free = value,
                     _ => continue,
                 };
-                if let Some(val_str) = iter.next().and_then(|s| s.trim_start().split(' ').next()) {
-                    if let Ok(value) = u64::from_str(val_str) {
-                        // /proc/meminfo reports KiB, though it says "kB". Convert it.
-                        *field = value.saturating_mul(1_024);
-                    }
-                }
             }
 
             // Linux < 3.14 may not have MemAvailable in /proc/meminfo
@@ -285,6 +281,49 @@ impl SystemExt for System {
                     + self.mem_page_cache
                     + self.mem_slab_reclaimable
                     - self.mem_shmem;
+            }
+
+            // cgroups v2
+            if let (Some(mem_cur), Some(mem_max)) = (
+                read_u64("/sys/fs/cgroup/memory.current"),
+                read_u64("/sys/fs/cgroup/memory.max"),
+            ) {
+                self.mem_total = mem_max;
+                self.mem_free = mem_max.saturating_sub(mem_cur);
+                self.mem_available = self.mem_free;
+
+                if let Some(swap_cur) = read_u64("/sys/fs/cgroup/memory.swap.current") {
+                    self.swap_free = self.swap_total.saturating_sub(swap_cur);
+                }
+
+                if let Some(mem_stat_table) = read_table("/sys/fs/cgroup/memory.stat", ' ') {
+                    for (key, value) in mem_stat_table {
+                        match key.as_str() {
+                            "slab_reclaimable" => {
+                                self.mem_slab_reclaimable = value;
+                                self.mem_free -= value;
+                            }
+                            "file" => {
+                                self.mem_page_cache = value;
+                                self.mem_free -= value;
+                            }
+                            "shmem" => {
+                                self.mem_shmem = value;
+                                self.mem_free -= value;
+                            }
+                            _ => continue,
+                        };
+                    }
+                }
+            } else
+            // cgroups v1
+            if let (Some(mem_cur), Some(mem_max)) = (
+                read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
+                read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
+            ) {
+                self.mem_total = mem_max;
+                self.mem_free = mem_max.saturating_sub(mem_cur);
+                self.mem_available = self.mem_free;
             }
         }
     }
@@ -566,6 +605,30 @@ impl SystemExt for System {
         get_system_info_android(InfoType::DistributionID)
             .unwrap_or_else(|| std::env::consts::OS.to_owned())
     }
+}
+
+fn read_u64(filename: &str) -> Option<u64> {
+    get_all_data(filename, 16_635)
+        .ok()
+        .and_then(|d| u64::from_str(&d).ok())
+}
+
+fn read_table(filename: &str, colsep: char) -> Option<Vec<(String, u64)>> {
+    let content = get_all_data(filename, 16_635).ok()?;
+    let table = content
+        .split('\n')
+        .into_iter()
+        .map(|line| {
+            let mut split = line.split(colsep);
+            let key = split.next()?;
+            let value = split.next()?;
+            let value0 = value.trim_start().split(' ').next()?;
+            let value0_u64 = u64::from_str(value0).ok()?;
+            Some((key.to_string(), value0_u64))
+        })
+        .flatten()
+        .collect();
+    Some(table)
 }
 
 impl Default for System {

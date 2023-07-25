@@ -90,3 +90,7 @@ tempfile = "3.2"
 
 [dev-dependencies]
 serde_json = "1.0" # Used in documentation tests.
+
+[[bin]]
+name = "simple"
+path = "examples/simple.rs"
