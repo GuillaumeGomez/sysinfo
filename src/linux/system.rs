@@ -249,33 +249,25 @@ impl SystemExt for System {
     }
 
     fn refresh_memory(&mut self) {
-        if let Ok(data) = get_all_data("/proc/meminfo", 16_385) {
+        read_table("/proc/meminfo", ':', |key, value_kib| {
             let mut mem_available_found = false;
-
-            for line in data.split('\n') {
-                let mut iter = line.split(':');
-                let field = match iter.next() {
-                    Some("MemTotal") => &mut self.mem_total,
-                    Some("MemFree") => &mut self.mem_free,
-                    Some("MemAvailable") => {
-                        mem_available_found = true;
-                        &mut self.mem_available
-                    }
-                    Some("Buffers") => &mut self.mem_buffers,
-                    Some("Cached") => &mut self.mem_page_cache,
-                    Some("Shmem") => &mut self.mem_shmem,
-                    Some("SReclaimable") => &mut self.mem_slab_reclaimable,
-                    Some("SwapTotal") => &mut self.swap_total,
-                    Some("SwapFree") => &mut self.swap_free,
-                    _ => continue,
-                };
-                if let Some(val_str) = iter.next().and_then(|s| s.trim_start().split(' ').next()) {
-                    if let Ok(value) = u64::from_str(val_str) {
-                        // /proc/meminfo reports KiB, though it says "kB". Convert it.
-                        *field = value.saturating_mul(1_024);
-                    }
+            let field = match key {
+                "MemTotal" => &mut self.mem_total,
+                "MemFree" => &mut self.mem_free,
+                "MemAvailable" => {
+                    mem_available_found = true;
+                    &mut self.mem_available
                 }
-            }
+                "Buffers" => &mut self.mem_buffers,
+                "Cached" => &mut self.mem_page_cache,
+                "Shmem" => &mut self.mem_shmem,
+                "SReclaimable" => &mut self.mem_slab_reclaimable,
+                "SwapTotal" => &mut self.swap_total,
+                "SwapFree" => &mut self.swap_free,
+                _ => return,
+            };
+            // /proc/meminfo reports KiB, though it says "kB". Convert it.
+            *field = value_kib.saturating_mul(1_024);
 
             // Linux < 3.14 may not have MemAvailable in /proc/meminfo
             // So it should fallback to the old way of estimating available memory
@@ -287,7 +279,40 @@ impl SystemExt for System {
                     + self.mem_slab_reclaimable
                     - self.mem_shmem;
             }
-        }
+
+            if let (Some(mem_cur), Some(mem_max)) = (
+                read_u64("/sys/fs/cgroup/memory.current"),
+                read_u64("/sys/fs/cgroup/memory.max"),
+            ) {
+                // cgroups v2
+                self.mem_total = mem_max;
+                self.mem_free = mem_max.saturating_sub(mem_cur);
+                self.mem_available = self.mem_free;
+
+                if let Some(swap_cur) = read_u64("/sys/fs/cgroup/memory.swap.current") {
+                    self.swap_free = self.swap_total.saturating_sub(swap_cur);
+                }
+
+                read_table("/sys/fs/cgroup/memory.stat", ' ', |key, value| {
+                    let field = match key {
+                        "slab_reclaimable" => &mut self.mem_slab_reclaimable,
+                        "file" => &mut self.mem_page_cache,
+                        "shmem" => &mut self.mem_shmem,
+                        _ => return,
+                    };
+                    *field = value;
+                    self.mem_free -= value;
+                });
+            } else if let (Some(mem_cur), Some(mem_max)) = (
+                // cgroups v1
+                read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
+                read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
+            ) {
+                self.mem_total = mem_max;
+                self.mem_free = mem_max.saturating_sub(mem_cur);
+                self.mem_available = self.mem_free;
+            }
+        });
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
@@ -577,6 +602,31 @@ impl SystemExt for System {
         // and to suppress dead-code warning for DistributionID on Android.
         get_system_info_android(InfoType::DistributionID)
             .unwrap_or_else(|| std::env::consts::OS.to_owned())
+    }
+}
+
+fn read_u64(filename: &str) -> Option<u64> {
+    get_all_data(filename, 16_635)
+        .ok()
+        .and_then(|d| u64::from_str(&d).ok())
+}
+
+fn read_table<F>(filename: &str, colsep: char, mut f: F)
+where
+    F: FnMut(&str, u64),
+{
+    if let Ok(content) = get_all_data(filename, 16_635) {
+        content
+            .split('\n')
+            .flat_map(|line| {
+                let mut split = line.split(colsep);
+                let key = split.next()?;
+                let value = split.next()?;
+                let value0 = value.trim_start().split(' ').next()?;
+                let value0_u64 = u64::from_str(value0).ok()?;
+                Some((key, value0_u64))
+            })
+            .for_each(|(k, v)| f(k, v));
     }
 }
 

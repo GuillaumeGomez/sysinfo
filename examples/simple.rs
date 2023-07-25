@@ -189,22 +189,27 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         "memory" => {
             writeln!(
                 &mut io::stdout(),
-                "total memory: {} KB",
+                "total memory:     {: >10} KB",
                 sys.total_memory() / 1_000
             );
             writeln!(
                 &mut io::stdout(),
-                "used memory : {} KB",
+                "available memory: {: >10} KB",
+                sys.available_memory() / 1_000
+            );
+            writeln!(
+                &mut io::stdout(),
+                "used memory:      {: >10} KB",
                 sys.used_memory() / 1_000
             );
             writeln!(
                 &mut io::stdout(),
-                "total swap  : {} KB",
+                "total swap:       {: >10} KB",
                 sys.total_swap() / 1_000
             );
             writeln!(
                 &mut io::stdout(),
-                "used swap   : {} KB",
+                "used swap:        {: >10} KB",
                 sys.used_swap() / 1_000
             );
         }
