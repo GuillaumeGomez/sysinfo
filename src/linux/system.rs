@@ -10,10 +10,8 @@ use crate::{
 
 use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::collections::HashMap;
-use std::error::Error;
-use std::fs::{read, File};
+use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
-use std::os::unix::raw::uid_t;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -252,9 +250,9 @@ impl SystemExt for System {
     fn refresh_memory(&mut self) {
         let mut mem_available_found = false;
         if let Some(meminfo_table) = read_table("/proc/meminfo", ':') {
-            for (key, valueKiB) in meminfo_table {
+            for (key, value_kib) in meminfo_table {
                 // /proc/meminfo reports KiB, though it says "kB". Convert it.
-                let value = valueKiB.saturating_mul(1_024);
+                let value = value_kib.saturating_mul(1_024);
                 match key.as_str() {
                     "MemTotal" => self.mem_total = value,
                     "MemFree" => self.mem_free = value,
