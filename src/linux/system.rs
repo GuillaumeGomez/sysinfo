@@ -248,27 +248,25 @@ impl SystemExt for System {
     }
 
     fn refresh_memory(&mut self) {
-        let mut mem_available_found = false;
-        if let Some(meminfo_table) = read_table("/proc/meminfo", ':') {
-            for (key, value_kib) in meminfo_table {
-                // /proc/meminfo reports KiB, though it says "kB". Convert it.
-                let value = value_kib.saturating_mul(1_024);
-                match key.as_str() {
-                    "MemTotal" => self.mem_total = value,
-                    "MemFree" => self.mem_free = value,
-                    "MemAvailable" => {
-                        mem_available_found = true;
-                        self.mem_available = value
-                    }
-                    "Buffers" => self.mem_buffers = value,
-                    "Cached" => self.mem_page_cache = value,
-                    "Shmem" => self.mem_shmem = value,
-                    "SReclaimable" => self.mem_slab_reclaimable = value,
-                    "SwapTotal" => self.swap_total = value,
-                    "SwapFree" => self.swap_free = value,
-                    _ => continue,
-                };
-            }
+        read_table("/proc/meminfo", ':', |key, value_kib| {
+            let mut mem_available_found = false;
+            let field = match key {
+                "MemTotal" => &mut self.mem_total,
+                "MemFree" => &mut self.mem_free,
+                "MemAvailable" => {
+                    mem_available_found = true;
+                    &mut self.mem_available
+                }
+                "Buffers" => &mut self.mem_buffers,
+                "Cached" => &mut self.mem_page_cache,
+                "Shmem" => &mut self.mem_shmem,
+                "SReclaimable" => &mut self.mem_slab_reclaimable,
+                "SwapTotal" => &mut self.swap_total,
+                "SwapFree" => &mut self.swap_free,
+                _ => return,
+            };
+            // /proc/meminfo reports KiB, though it says "kB". Convert it.
+            *field = value_kib.saturating_mul(1_024);
 
             // Linux < 3.14 may not have MemAvailable in /proc/meminfo
             // So it should fallback to the old way of estimating available memory
@@ -294,25 +292,16 @@ impl SystemExt for System {
                     self.swap_free = self.swap_total.saturating_sub(swap_cur);
                 }
 
-                if let Some(mem_stat_table) = read_table("/sys/fs/cgroup/memory.stat", ' ') {
-                    for (key, value) in mem_stat_table {
-                        match key.as_str() {
-                            "slab_reclaimable" => {
-                                self.mem_slab_reclaimable = value;
-                                self.mem_free -= value;
-                            }
-                            "file" => {
-                                self.mem_page_cache = value;
-                                self.mem_free -= value;
-                            }
-                            "shmem" => {
-                                self.mem_shmem = value;
-                                self.mem_free -= value;
-                            }
-                            _ => continue,
-                        };
-                    }
-                }
+                read_table("/sys/fs/cgroup/memory.stat", ' ', |key, value| {
+                    let field = match key {
+                        "slab_reclaimable" => &mut self.mem_slab_reclaimable,
+                        "file" => &mut self.mem_page_cache,
+                        "shmem" => &mut self.mem_shmem,
+                        _ => return,
+                    };
+                    *field = value;
+                    self.mem_free -= value;
+                });
             } else if let (Some(mem_cur), Some(mem_max)) = (
                 // cgroups v1
                 read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
@@ -322,7 +311,7 @@ impl SystemExt for System {
                 self.mem_free = mem_max.saturating_sub(mem_cur);
                 self.mem_available = self.mem_free;
             }
-        }
+        });
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
@@ -610,20 +599,23 @@ fn read_u64(filename: &str) -> Option<u64> {
         .and_then(|d| u64::from_str(&d).ok())
 }
 
-fn read_table(filename: &str, colsep: char) -> Option<Vec<(String, u64)>> {
-    let content = get_all_data(filename, 16_635).ok()?;
-    let table = content
-        .split('\n')
-        .filter_map(|line| {
-            let mut split = line.split(colsep);
-            let key = split.next()?;
-            let value = split.next()?;
-            let value0 = value.trim_start().split(' ').next()?;
-            let value0_u64 = u64::from_str(value0).ok()?;
-            Some((key.to_string(), value0_u64))
-        })
-        .collect();
-    Some(table)
+fn read_table<F>(filename: &str, colsep: char, mut f: F)
+where
+    F: FnMut(&str, u64) -> (),
+{
+    if let Ok(content) = get_all_data(filename, 16_635) {
+        content
+            .split('\n')
+            .flat_map(|line| {
+                let mut split = line.split(colsep);
+                let key = split.next()?;
+                let value = split.next()?;
+                let value0 = value.trim_start().split(' ').next()?;
+                let value0_u64 = u64::from_str(value0).ok()?;
+                Some((key, value0_u64))
+            })
+            .for_each(|(k, v)| f(k, v));
+    }
 }
 
 impl Default for System {
