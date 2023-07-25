@@ -281,11 +281,11 @@ impl SystemExt for System {
                     - self.mem_shmem;
             }
 
-            // cgroups v2
             if let (Some(mem_cur), Some(mem_max)) = (
                 read_u64("/sys/fs/cgroup/memory.current"),
                 read_u64("/sys/fs/cgroup/memory.max"),
             ) {
+                // cgroups v2
                 self.mem_total = mem_max;
                 self.mem_free = mem_max.saturating_sub(mem_cur);
                 self.mem_available = self.mem_free;
@@ -313,9 +313,8 @@ impl SystemExt for System {
                         };
                     }
                 }
-            } else
-            // cgroups v1
-            if let (Some(mem_cur), Some(mem_max)) = (
+            } else if let (Some(mem_cur), Some(mem_max)) = (
+                // cgroups v1
                 read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
                 read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
             ) {
@@ -615,8 +614,7 @@ fn read_table(filename: &str, colsep: char) -> Option<Vec<(String, u64)>> {
     let content = get_all_data(filename, 16_635).ok()?;
     let table = content
         .split('\n')
-        .into_iter()
-        .map(|line| {
+        .filter_map(|line| {
             let mut split = line.split(colsep);
             let key = split.next()?;
             let value = split.next()?;
@@ -624,7 +622,6 @@ fn read_table(filename: &str, colsep: char) -> Option<Vec<(String, u64)>> {
             let value0_u64 = u64::from_str(value0).ok()?;
             Some((key.to_string(), value0_u64))
         })
-        .flatten()
         .collect();
     Some(table)
 }
