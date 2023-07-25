@@ -601,7 +601,7 @@ fn read_u64(filename: &str) -> Option<u64> {
 
 fn read_table<F>(filename: &str, colsep: char, mut f: F)
 where
-    F: FnMut(&str, u64) -> (),
+    F: FnMut(&str, u64),
 {
     if let Ok(content) = get_all_data(filename, 16_635) {
         content
