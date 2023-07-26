@@ -43,7 +43,7 @@ use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapFree};
 use winapi::um::memoryapi::{ReadProcessMemory, VirtualQueryEx};
-use winapi::um::minwinbase::LMEM_FIXED;
+use winapi::um::minwinbase::{LMEM_FIXED, LMEM_ZEROINIT};
 use winapi::um::processthreadsapi::{
     GetProcessTimes, GetSystemTimes, OpenProcess, OpenProcessToken, ProcessIdToSessionId,
 };
@@ -293,7 +293,10 @@ unsafe fn get_process_name(pid: Pid) -> Option<String> {
     };
 
     for i in 0.. {
-        info.ImageName.Buffer = LocalAlloc(LMEM_FIXED, info.ImageName.MaximumLength as _) as *mut _;
+        info.ImageName.Buffer = LocalAlloc(
+            LMEM_FIXED | LMEM_ZEROINIT,
+            info.ImageName.MaximumLength as _,
+        ) as *mut _;
         if info.ImageName.Buffer.is_null() {
             sysinfo_debug!("Couldn't get process infos: LocalAlloc failed");
             return None;
