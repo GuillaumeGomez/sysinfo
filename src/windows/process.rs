@@ -344,9 +344,12 @@ unsafe fn get_process_name(pid: Pid) -> Option<String> {
         // The length is in bytes, not the length of string
         info.ImageName.Length as usize / std::mem::size_of::<u16>(),
     );
-    let name = String::from_utf16_lossy(s);
+    let os_str = OsString::from_wide(s);
+    let name = Path::new(&os_str)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string());
     LocalFree(info.ImageName.Buffer as _);
-    Some(name)
+    name
 }
 
 unsafe fn get_exe(process_handler: &HandleWrapper) -> PathBuf {
