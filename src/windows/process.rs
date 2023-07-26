@@ -43,7 +43,7 @@ use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapFree};
 use winapi::um::memoryapi::{ReadProcessMemory, VirtualQueryEx};
-use winapi::um::minwinbase::LMEM_FIXED;
+use winapi::um::minwinbase::{LMEM_FIXED, LMEM_ZEROINIT};
 use winapi::um::processthreadsapi::{
     GetProcessTimes, GetSystemTimes, OpenProcess, OpenProcessToken, ProcessIdToSessionId,
 };
@@ -293,7 +293,10 @@ unsafe fn get_process_name(pid: Pid) -> Option<String> {
     };
 
     for i in 0.. {
-        info.ImageName.Buffer = LocalAlloc(LMEM_FIXED, info.ImageName.MaximumLength as _) as *mut _;
+        info.ImageName.Buffer = LocalAlloc(
+            LMEM_FIXED | LMEM_ZEROINIT,
+            info.ImageName.MaximumLength as _,
+        ) as *mut _;
         if info.ImageName.Buffer.is_null() {
             sysinfo_debug!("Couldn't get process infos: LocalAlloc failed");
             return None;
@@ -336,10 +339,17 @@ unsafe fn get_process_name(pid: Pid) -> Option<String> {
         return None;
     }
 
-    let s = std::slice::from_raw_parts(info.ImageName.Buffer, info.ImageName.Length as _);
-    let name = String::from_utf16_lossy(s);
+    let s = std::slice::from_raw_parts(
+        info.ImageName.Buffer,
+        // The length is in bytes, not the length of string
+        info.ImageName.Length as usize / std::mem::size_of::<u16>(),
+    );
+    let os_str = OsString::from_wide(s);
+    let name = Path::new(&os_str)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string());
     LocalFree(info.ImageName.Buffer as _);
-    Some(name)
+    name
 }
 
 unsafe fn get_exe(process_handler: &HandleWrapper) -> PathBuf {

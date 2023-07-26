@@ -5,6 +5,9 @@ pub mod ffi;
 pub(crate) mod utils;
 
 #[cfg(not(feature = "apple-sandbox"))]
+pub(crate) mod cpu;
+
+#[cfg(not(feature = "apple-sandbox"))]
 pub mod system;
 
 #[cfg(not(feature = "apple-sandbox"))]

@@ -121,18 +121,27 @@ impl CpuExt for Cpu {
     }
 }
 
-pub(crate) fn get_cpu_frequency() -> u64 {
+pub(crate) unsafe fn get_cpu_frequency() -> u64 {
     let mut speed: u64 = 0;
     let mut len = std::mem::size_of::<u64>();
-    unsafe {
-        libc::sysctlbyname(
-            b"hw.cpufrequency\0".as_ptr() as *const c_char,
-            &mut speed as *mut _ as _,
-            &mut len,
-            std::ptr::null_mut(),
-            0,
-        );
-        speed / 1_000_000
+    if libc::sysctlbyname(
+        b"hw.cpufrequency\0".as_ptr() as *const _,
+        &mut speed as *mut _ as _,
+        &mut len,
+        std::ptr::null_mut(),
+        0,
+    ) == 0
+    {
+        return speed / 1_000_000;
+    }
+
+    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
+    {
+        return 0;
+    }
+    #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
+    {
+        crate::sys::inner::cpu::get_cpu_frequency()
     }
 }
 
@@ -209,7 +218,7 @@ pub(crate) fn init_cpus(
 
     let (vendor_id, brand) = get_vendor_id_and_brand();
     let frequency = if refresh_kind.frequency() {
-        get_cpu_frequency()
+        unsafe { get_cpu_frequency() }
     } else {
         global_cpu.frequency
     };
