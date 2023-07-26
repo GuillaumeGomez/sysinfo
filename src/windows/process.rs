@@ -339,7 +339,11 @@ unsafe fn get_process_name(pid: Pid) -> Option<String> {
         return None;
     }
 
-    let s = std::slice::from_raw_parts(info.ImageName.Buffer, info.ImageName.Length as _);
+    let s = std::slice::from_raw_parts(
+        info.ImageName.Buffer,
+        // The length is in bytes, not the length of string
+        info.ImageName.Length as usize / std::mem::size_of::<u16>(),
+    );
     let name = String::from_utf16_lossy(s);
     LocalFree(info.ImageName.Buffer as _);
     Some(name)
