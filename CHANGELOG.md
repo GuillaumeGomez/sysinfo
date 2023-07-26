@@ -1,3 +1,9 @@
+# 0.29.7
+
+ * macOS: Fix CPU frequency retrieval for M1 and M2.
+ * Linux: Add support for cgroups v1/v2 for memory.
+ * Windows: Fix processes name encoding issues.
+
 # 0.29.6
 
  * Update minimum rust version to 1.63.
