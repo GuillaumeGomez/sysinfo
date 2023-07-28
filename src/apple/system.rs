@@ -3,10 +3,10 @@
 use crate::sys::component::Component;
 use crate::sys::cpu::*;
 use crate::sys::process::*;
+use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
 use crate::{
-    CpuExt, CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind,
-    SystemExt, User,
+    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -15,7 +15,6 @@ use crate::ProcessExt;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem;
-use std::sync::Arc;
 use std::time::Duration;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::time::SystemTime;
@@ -24,8 +23,8 @@ use std::time::SystemTime;
 use libc::size_t;
 
 use libc::{
-    c_char, c_int, c_void, host_statistics64, mach_port_t, sysconf, sysctl, sysctlbyname, timeval,
-    vm_statistics64, _SC_PAGESIZE,
+    c_int, c_void, host_statistics64, mach_port_t, sysconf, sysctl, timeval, vm_statistics64,
+    _SC_PAGESIZE,
 };
 
 #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
@@ -84,8 +83,6 @@ pub struct System {
     mem_available: u64,
     swap_total: u64,
     swap_free: u64,
-    global_cpu: Cpu,
-    cpus: Vec<Cpu>,
     page_size_kb: u64,
     #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     components: Components,
@@ -96,7 +93,7 @@ pub struct System {
     boot_time: u64,
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
-    got_cpu_frequency: bool,
+    cpus: CpusWrapper,
 }
 
 pub(crate) struct Wrap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
@@ -154,14 +151,6 @@ impl SystemExt for System {
                 mem_used: 0,
                 swap_total: 0,
                 swap_free: 0,
-                global_cpu: Cpu::new(
-                    "0".to_owned(),
-                    Arc::new(CpuData::new(std::ptr::null_mut(), 0)),
-                    0,
-                    String::new(),
-                    String::new(),
-                ),
-                cpus: Vec::new(),
                 page_size_kb: sysconf(_SC_PAGESIZE) as _,
                 #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
                 components: Components::new(),
@@ -172,7 +161,7 @@ impl SystemExt for System {
                 boot_time: boot_time(),
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
                 clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
-                got_cpu_frequency: false,
+                cpus: CpusWrapper::new(),
             };
             s.refresh_specifics(refreshes);
             s
@@ -249,33 +238,7 @@ impl SystemExt for System {
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
-        let cpus = &mut self.cpus;
-        if cpus.is_empty() {
-            init_cpus(self.port, cpus, &mut self.global_cpu, refresh_kind);
-            self.got_cpu_frequency = refresh_kind.frequency();
-            return;
-        }
-        if refresh_kind.frequency() && !self.got_cpu_frequency {
-            let frequency = unsafe { get_cpu_frequency() };
-            for proc_ in cpus.iter_mut() {
-                proc_.set_frequency(frequency);
-            }
-            self.got_cpu_frequency = true;
-        }
-        if refresh_kind.cpu_usage() {
-            update_cpu_usage(self.port, &mut self.global_cpu, |proc_data, cpu_info| {
-                let mut percentage = 0f32;
-                let mut offset = 0;
-                for proc_ in cpus.iter_mut() {
-                    let cpu_usage = compute_usage_of_cpu(proc_, cpu_info, offset);
-                    proc_.update(cpu_usage, Arc::clone(&proc_data));
-                    percentage += proc_.cpu_usage();
-
-                    offset += libc::CPU_STATE_MAX as isize;
-                }
-                (percentage, cpus.len())
-            });
-        }
+        self.cpus.refresh(refresh_kind, self.port);
     }
 
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
@@ -380,27 +343,15 @@ impl SystemExt for System {
     }
 
     fn global_cpu_info(&self) -> &Cpu {
-        &self.global_cpu
+        &self.cpus.global_cpu
     }
 
     fn cpus(&self) -> &[Cpu] {
-        &self.cpus
+        &self.cpus.cpus
     }
 
     fn physical_core_count(&self) -> Option<usize> {
-        let mut physical_core_count = 0;
-
-        unsafe {
-            if get_sys_value_by_name(
-                b"hw.physicalcpu\0",
-                &mut mem::size_of::<u32>(),
-                &mut physical_core_count as *mut usize as *mut c_void,
-            ) {
-                Some(physical_core_count)
-            } else {
-                None
-            }
-        }
+        physical_core_count()
     }
 
     fn networks(&self) -> &Networks {
@@ -614,35 +565,6 @@ fn get_arg_max() -> usize {
             arg_max as usize
         }
     }
-}
-
-pub(crate) unsafe fn get_sys_value(
-    high: u32,
-    low: u32,
-    mut len: usize,
-    value: *mut c_void,
-    mib: &mut [i32; 2],
-) -> bool {
-    mib[0] = high as i32;
-    mib[1] = low as i32;
-    sysctl(
-        mib.as_mut_ptr(),
-        mib.len() as _,
-        value,
-        &mut len as *mut usize,
-        std::ptr::null_mut(),
-        0,
-    ) == 0
-}
-
-unsafe fn get_sys_value_by_name(name: &[u8], len: &mut usize, value: *mut c_void) -> bool {
-    sysctlbyname(
-        name.as_ptr() as *const c_char,
-        value,
-        len,
-        std::ptr::null_mut(),
-        0,
-    ) == 0
 }
 
 fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
