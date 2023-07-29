@@ -1,13 +1,64 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::system::get_sys_value;
-
+use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 use crate::{CpuExt, CpuRefreshKind};
 
-use libc::{c_char, host_processor_info, mach_task_self};
+use libc::{c_char, c_void, host_processor_info, mach_port_t, mach_task_self};
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
+
+pub(crate) struct CpusWrapper {
+    pub(crate) global_cpu: Cpu,
+    pub(crate) cpus: Vec<Cpu>,
+    pub(crate) got_cpu_frequency: bool,
+}
+
+impl CpusWrapper {
+    pub(crate) fn new() -> Self {
+        Self {
+            global_cpu: Cpu::new(
+                "0".to_owned(),
+                Arc::new(CpuData::new(std::ptr::null_mut(), 0)),
+                0,
+                String::new(),
+                String::new(),
+            ),
+            cpus: Vec::new(),
+            got_cpu_frequency: false,
+        }
+    }
+
+    pub(crate) fn refresh(&mut self, refresh_kind: CpuRefreshKind, port: mach_port_t) {
+        let cpus = &mut self.cpus;
+        if cpus.is_empty() {
+            init_cpus(port, cpus, &mut self.global_cpu, refresh_kind);
+            self.got_cpu_frequency = refresh_kind.frequency();
+            return;
+        }
+        if refresh_kind.frequency() && !self.got_cpu_frequency {
+            let frequency = unsafe { get_cpu_frequency() };
+            for proc_ in cpus.iter_mut() {
+                proc_.set_frequency(frequency);
+            }
+            self.got_cpu_frequency = true;
+        }
+        if refresh_kind.cpu_usage() {
+            update_cpu_usage(port, &mut self.global_cpu, |proc_data, cpu_info| {
+                let mut percentage = 0f32;
+                let mut offset = 0;
+                for proc_ in cpus.iter_mut() {
+                    let cpu_usage = compute_usage_of_cpu(proc_, cpu_info, offset);
+                    proc_.update(cpu_usage, Arc::clone(&proc_data));
+                    percentage += proc_.cpu_usage();
+
+                    offset += libc::CPU_STATE_MAX as isize;
+                }
+                (percentage, cpus.len())
+            });
+        }
+    }
+}
 
 pub(crate) struct UnsafePtr<T>(*mut T);
 
@@ -142,6 +193,22 @@ pub(crate) unsafe fn get_cpu_frequency() -> u64 {
     #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     {
         crate::sys::inner::cpu::get_cpu_frequency()
+    }
+}
+
+pub(crate) fn physical_core_count() -> Option<usize> {
+    let mut physical_core_count = 0;
+
+    unsafe {
+        if get_sys_value_by_name(
+            b"hw.physicalcpu\0",
+            &mut mem::size_of::<u32>(),
+            &mut physical_core_count as *mut usize as *mut c_void,
+        ) {
+            Some(physical_core_count)
+        } else {
+            None
+        }
     }
 }
 

@@ -17,7 +17,7 @@ pub type io_iterator_t = io_object_t;
 pub type io_registry_entry_t = io_object_t;
 // This is a hack, `io_name_t` should normally be `[c_char; 128]` but Rust makes it very annoying
 // to deal with that so we go around it a bit.
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, dead_code)]
 pub type io_name = [c_char; 128];
 #[allow(non_camel_case_types)]
 pub type io_name_t = *const c_char;
