@@ -14,10 +14,10 @@ use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
 use std::time::Duration;
 
-use super::utils::{
-    self, boot_time, c_buf_to_string, from_cstr_array, get_frequency_for_cpu, get_sys_value,
-    get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name, get_system_info,
-    init_mib,
+use crate::sys::cpu::{physical_core_count, CpusWrapper};
+use crate::sys::utils::{
+    self, boot_time, c_buf_to_string, from_cstr_array, get_sys_value, get_sys_value_by_name,
+    get_system_info, init_mib,
 };
 
 use libc::c_int;
@@ -65,15 +65,13 @@ pub struct System {
     mem_used: u64,
     swap_total: u64,
     swap_used: u64,
-    global_cpu: Cpu,
-    cpus: Vec<Cpu>,
     components: Vec<Component>,
     disks: Disks,
     networks: Networks,
     users: Vec<User>,
     boot_time: u64,
     system_info: SystemInfo,
-    got_cpu_frequency: bool,
+    cpus: CpusWrapper,
 }
 
 impl SystemExt for System {
@@ -91,15 +89,13 @@ impl SystemExt for System {
             mem_used: 0,
             swap_total: 0,
             swap_used: 0,
-            global_cpu: Cpu::new(String::new(), String::new(), 0),
-            cpus: Vec::with_capacity(system_info.nb_cpus as _),
             components: Vec::with_capacity(2),
             disks: Disks::new(),
             networks: Networks::new(),
             users: Vec::new(),
             boot_time: boot_time(),
             system_info,
-            got_cpu_frequency: false,
+            cpus: CpusWrapper::new(),
         };
         s.refresh_specifics(refreshes);
         s
@@ -117,45 +113,14 @@ impl SystemExt for System {
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
-        if self.cpus.is_empty() {
-            let mut frequency = 0;
-
-            // We get the CPU vendor ID in here.
-            let vendor_id =
-                get_sys_value_str_by_name(b"hw.model\0").unwrap_or_else(|| "<unknown>".to_owned());
-            for pos in 0..self.system_info.nb_cpus {
-                if refresh_kind.frequency() {
-                    unsafe {
-                        frequency = get_frequency_for_cpu(pos);
-                    }
-                }
-                self.cpus
-                    .push(Cpu::new(format!("cpu {pos}"), vendor_id.clone(), frequency));
-            }
-            self.global_cpu.vendor_id = vendor_id;
-            self.got_cpu_frequency = refresh_kind.frequency();
-        } else if refresh_kind.frequency() && !self.got_cpu_frequency {
-            for (pos, proc_) in self.cpus.iter_mut().enumerate() {
-                unsafe {
-                    proc_.frequency = get_frequency_for_cpu(pos as _);
-                }
-            }
-            self.got_cpu_frequency = true;
-        }
-        if refresh_kind.cpu_usage() {
-            self.system_info
-                .get_cpu_usage(&mut self.global_cpu, &mut self.cpus);
-        }
-        if refresh_kind.frequency() {
-            self.global_cpu.frequency = self.cpus.get(0).map(|cpu| cpu.frequency).unwrap_or(0);
-        }
+        self.cpus.refresh(refresh_kind)
     }
 
     fn refresh_components_list(&mut self) {
-        if self.cpus.is_empty() {
+        if self.cpus.cpus.is_empty() {
             self.refresh_cpu();
         }
-        self.components = unsafe { super::component::get_components(self.cpus.len()) };
+        self.components = unsafe { super::component::get_components(self.cpus.cpus.len()) };
     }
 
     fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
@@ -242,23 +207,15 @@ impl SystemExt for System {
     }
 
     fn global_cpu_info(&self) -> &Cpu {
-        &self.global_cpu
+        &self.cpus.global_cpu
     }
 
     fn cpus(&self) -> &[Cpu] {
-        &self.cpus
+        &self.cpus.cpus
     }
 
     fn physical_core_count(&self) -> Option<usize> {
-        let mut physical_core_count: u32 = 0;
-
-        unsafe {
-            if get_sys_value_by_name(b"hw.ncpu\0", &mut physical_core_count) {
-                Some(physical_core_count as _)
-            } else {
-                None
-            }
-        }
+        physical_core_count()
     }
 
     fn total_memory(&self) -> u64 {
@@ -496,15 +453,7 @@ struct SystemInfo {
     kern_version: [c_int; 2],
     hostname: [c_int; 2],
     buf_space: [c_int; 2],
-    nb_cpus: c_int,
     kd: NonNull<libc::kvm_t>,
-    // For these two fields, we could use `kvm_getcptime` but the function isn't very efficient...
-    mib_cp_time: [c_int; 2],
-    mib_cp_times: [c_int; 2],
-    // For the global CPU usage.
-    cp_time: utils::VecSwitcher<libc::c_ulong>,
-    // For each CPU usage.
-    cp_times: utils::VecSwitcher<libc::c_ulong>,
     /// From FreeBSD manual: "The kernel fixed-point scale factor". It's used when computing
     /// processes' CPU usage.
     fscale: f32,
@@ -530,18 +479,6 @@ impl SystemInfo {
             ))
             .expect("kvm_openfiles failed");
 
-            let mut smp: c_int = 0;
-            let mut nb_cpus: c_int = 1;
-            if !get_sys_value_by_name(b"kern.smp.active\0", &mut smp) {
-                smp = 0;
-            }
-            #[allow(clippy::collapsible_if)] // I keep as is for readability reasons.
-            if smp != 0 {
-                if !get_sys_value_by_name(b"kern.smp.cpus\0", &mut nb_cpus) || nb_cpus < 1 {
-                    nb_cpus = 1;
-                }
-            }
-
             let mut si = SystemInfo {
                 hw_physical_memory: Default::default(),
                 page_size: 0,
@@ -556,15 +493,7 @@ impl SystemInfo {
                 os_release: Default::default(),
                 kern_version: Default::default(),
                 hostname: Default::default(),
-                nb_cpus,
                 kd,
-                mib_cp_time: Default::default(),
-                mib_cp_times: Default::default(),
-                cp_time: utils::VecSwitcher::new(vec![0; libc::CPUSTATES as usize]),
-                cp_times: utils::VecSwitcher::new(vec![
-                    0;
-                    nb_cpus as usize * libc::CPUSTATES as usize
-                ]),
                 fscale: 0.,
                 procstat: std::ptr::null_mut(),
                 zfs: Zfs::new(),
@@ -599,9 +528,6 @@ impl SystemInfo {
             init_mib(b"kern.osrelease\0", &mut si.os_release);
             init_mib(b"kern.version\0", &mut si.kern_version);
             init_mib(b"kern.hostname\0", &mut si.hostname);
-
-            init_mib(b"kern.cp_time\0", &mut si.mib_cp_time);
-            init_mib(b"kern.cp_times\0", &mut si.mib_cp_times);
 
             si
         }
@@ -708,47 +634,6 @@ impl SystemInfo {
                 .saturating_add(inactive_mem.saturating_mul(self.page_size as _))
                 .saturating_add(cached_mem.saturating_mul(self.page_size as _))
                 .saturating_add(free_mem.saturating_mul(self.page_size as _))
-        }
-    }
-
-    fn get_cpu_usage(&mut self, global: &mut Cpu, cpus: &mut [Cpu]) {
-        unsafe {
-            get_sys_value_array(&self.mib_cp_time, self.cp_time.get_mut());
-            get_sys_value_array(&self.mib_cp_times, self.cp_times.get_mut());
-        }
-
-        fn fill_cpu(proc_: &mut Cpu, new_cp_time: &[libc::c_ulong], old_cp_time: &[libc::c_ulong]) {
-            let mut total_new: u64 = 0;
-            let mut total_old: u64 = 0;
-            let mut cp_diff: libc::c_ulong = 0;
-
-            for i in 0..(libc::CPUSTATES as usize) {
-                // We obviously don't want to get the idle part of the CPU usage, otherwise
-                // we would always be at 100%...
-                if i != libc::CP_IDLE as usize {
-                    cp_diff += new_cp_time[i] - old_cp_time[i];
-                }
-                let mut tmp: u64 = new_cp_time[i] as _;
-                total_new += tmp;
-                tmp = old_cp_time[i] as _;
-                total_old += tmp;
-            }
-
-            let total_diff = total_new - total_old;
-            if total_diff < 1 {
-                proc_.cpu_usage = 0.;
-            } else {
-                proc_.cpu_usage = cp_diff as f32 / total_diff as f32 * 100.;
-            }
-        }
-
-        fill_cpu(global, self.cp_time.get_new(), self.cp_time.get_old());
-        let old_cp_times = self.cp_times.get_old();
-        let new_cp_times = self.cp_times.get_new();
-        for (pos, proc_) in cpus.iter_mut().enumerate() {
-            let index = pos * libc::CPUSTATES as usize;
-
-            fill_cpu(proc_, &new_cp_times[index..], &old_cp_times[index..]);
         }
     }
 
