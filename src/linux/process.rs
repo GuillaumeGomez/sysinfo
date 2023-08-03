@@ -529,7 +529,7 @@ fn update_time_and_memory(
         // rss
         entry.memory = u64::from_str(parts[23])
             .unwrap_or(0)
-            .saturating_mul(info.page_size_kb);
+            .saturating_mul(info.page_size_b);
         if entry.memory >= parent_memory {
             entry.memory -= parent_memory;
         }

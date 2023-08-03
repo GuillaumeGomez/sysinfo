@@ -93,7 +93,7 @@ fn boot_time() -> u64 {
 }
 
 pub(crate) struct SystemInfo {
-    pub(crate) page_size_kb: u64,
+    pub(crate) page_size_b: u64,
     pub(crate) clock_cycle: u64,
     pub(crate) boot_time: u64,
 }
@@ -102,7 +102,7 @@ impl SystemInfo {
     fn new() -> Self {
         unsafe {
             Self {
-                page_size_kb: sysconf(_SC_PAGESIZE) as _,
+                page_size_b: sysconf(_SC_PAGESIZE) as _,
                 clock_cycle: sysconf(_SC_CLK_TCK) as _,
                 boot_time: boot_time(),
             }
