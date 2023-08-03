@@ -248,7 +248,7 @@ impl Component {
             let (id, item) = filename.split_once('_')?;
             let id = id.get(4..)?.parse::<u32>().ok()?;
 
-            let component = matchings.entry(id).or_insert_with(Component::default);
+            let component = matchings.entry(id).or_default();
             let name = get_file_line(&folder.join("name"), 16);
             component.name = name.unwrap_or_default();
             let device_model = get_file_line(&folder.join("device/model"), 16);

@@ -83,7 +83,7 @@ pub struct System {
     mem_available: u64,
     swap_total: u64,
     swap_free: u64,
-    page_size_kb: u64,
+    page_size_b: u64,
     #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     components: Components,
     disks: Disks,
@@ -151,7 +151,7 @@ impl SystemExt for System {
                 mem_used: 0,
                 swap_total: 0,
                 swap_free: 0,
-                page_size_kb: sysconf(_SC_PAGESIZE) as _,
+                page_size_b: sysconf(_SC_PAGESIZE) as _,
                 #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
                 components: Components::new(),
                 disks: Disks::new(),
@@ -216,15 +216,15 @@ impl SystemExt for System {
                     .saturating_add(u64::from(stat.inactive_count))
                     .saturating_add(u64::from(stat.purgeable_count))
                     .saturating_sub(u64::from(stat.compressor_page_count))
-                    .saturating_mul(self.page_size_kb);
+                    .saturating_mul(self.page_size_b);
                 self.mem_used = u64::from(stat.active_count)
                     .saturating_add(u64::from(stat.wire_count))
                     .saturating_add(u64::from(stat.compressor_page_count))
                     .saturating_add(u64::from(stat.speculative_count))
-                    .saturating_mul(self.page_size_kb);
+                    .saturating_mul(self.page_size_b);
                 self.mem_free = u64::from(stat.free_count)
                     .saturating_sub(u64::from(stat.speculative_count))
-                    .saturating_mul(self.page_size_kb);
+                    .saturating_mul(self.page_size_b);
             }
         }
     }
