@@ -2,7 +2,7 @@
 
 use crate::{
     Component, ComponentExt, Cpu, CpuExt, Disk, DiskExt, Disks, NetworkData, NetworkExt, Networks,
-    NetworksExt, Process, ProcessExt, System, SystemExt,
+    NetworksExt, Process, ProcessExt, System, SystemExt, User, UserExt,
 };
 
 use std::fmt;
@@ -72,6 +72,8 @@ impl fmt::Debug for Process {
             .field("status", &self.status())
             .field("root", &self.root())
             .field("disk_usage", &self.disk_usage())
+            .field("user_id", &self.user_id())
+            .field("effective_user_id", &self.effective_user_id())
             .finish()
     }
 }
@@ -141,5 +143,15 @@ impl fmt::Debug for Disks {
                 .collect::<Vec<_>>()
                 .join(", ")
         )
+    }
+}
+
+impl fmt::Debug for User {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("User")
+            .field("uid", &self.id())
+            .field("gid", &self.group_id())
+            .field("name", &self.name())
+            .finish()
     }
 }

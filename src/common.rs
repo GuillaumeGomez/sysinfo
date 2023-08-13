@@ -811,16 +811,6 @@ cfg_if::cfg_if! {
     }
 }
 
-impl fmt::Debug for User {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("User")
-            .field("uid", &self.id())
-            .field("gid", &self.group_id())
-            .field("name", &self.name())
-            .finish()
-    }
-}
-
 impl PartialEq for User {
     fn eq(&self, other: &Self) -> bool {
         self.id() == other.id()
