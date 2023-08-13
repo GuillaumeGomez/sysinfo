@@ -4,7 +4,7 @@ use crate::sys::utils::to_str;
 use crate::{
     common::{Gid, Uid},
     windows::sid::Sid,
-    User,
+    Group, User,
 };
 
 use std::ptr::null_mut;
@@ -83,7 +83,7 @@ impl<T> LsaBuffer<T> {
     }
 }
 
-unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<String> {
+unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<Group> {
     let mut buf: NetApiBuffer<LOCALGROUP_USERS_INFO_0> = Default::default();
     let mut nb_entries = 0;
     let mut total_entries = 0;
@@ -104,7 +104,10 @@ unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<String> {
         groups = Vec::with_capacity(nb_entries as _);
         if !buf.0.is_null() {
             let entries = std::slice::from_raw_parts(buf.0, nb_entries as _);
-            groups.extend(entries.iter().map(|entry| to_str(entry.lgrui0_name)));
+            groups.extend(entries.iter().map(|entry| Group {
+                name: to_str(entry.lgrui0_name),
+                id: Gid(0),
+            }));
         }
     } else {
         groups = Vec::new();
