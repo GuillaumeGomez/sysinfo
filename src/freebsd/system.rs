@@ -694,7 +694,7 @@ impl SystemInfo {
             // We need to subtract "ZFS ARC" from the "wired memory" because it should belongs to cache
             // but the kernel reports it as "wired memory" instead...
             if let Some(arc_size) = self.zfs.arc_size() {
-                mem_wire -= arc_size;
+                mem_wire = mem_wire.saturating_sub(arc_size);
             }
             mem_active
                 .saturating_mul(self.page_size as _)
@@ -736,15 +736,13 @@ impl SystemInfo {
                 // We obviously don't want to get the idle part of the CPU usage, otherwise
                 // we would always be at 100%...
                 if i != libc::CP_IDLE as usize {
-                    cp_diff += new_cp_time[i] - old_cp_time[i];
+                    cp_diff = cp_diff.saturating_add(new_cp_time[i].saturating_sub(old_cp_time[i]));
                 }
-                let mut tmp: u64 = new_cp_time[i] as _;
-                total_new += tmp;
-                tmp = old_cp_time[i] as _;
-                total_old += tmp;
+                total_new = total_new.saturating_add(new_cp_time[i] as _);
+                total_old = total_old.saturating_add(old_cp_time[i] as _);
             }
 
-            let total_diff = total_new - total_old;
+            let total_diff = total_new.saturating_sub(total_old);
             if total_diff < 1 {
                 proc_.cpu_usage = 0.;
             } else {

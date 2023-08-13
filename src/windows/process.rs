@@ -601,9 +601,9 @@ impl ProcessExt for Process {
 
     fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
-            written_bytes: self.written_bytes - self.old_written_bytes,
+            written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
             total_written_bytes: self.written_bytes,
-            read_bytes: self.read_bytes - self.old_read_bytes,
+            read_bytes: self.read_bytes.saturating_sub(self.old_read_bytes),
             total_read_bytes: self.read_bytes,
         }
     }

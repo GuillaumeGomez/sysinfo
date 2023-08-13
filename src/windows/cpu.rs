@@ -529,7 +529,12 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
             } else {
                 break;
             }
-            buf.reserve(needed_size as usize - buf.capacity());
+            let reserve = if needed_size as usize > buf.capacity() {
+                needed_size as usize - buf.capacity()
+            } else {
+                1
+            };
+            buf.reserve(reserve);
         }
 
         buf.set_len(needed_size as _);
