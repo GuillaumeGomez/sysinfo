@@ -2,7 +2,7 @@
 
 use crate::{
     common::{Gid, Uid},
-    User,
+    Group, User,
 };
 
 use libc::{getgrgid_r, getgrouplist};
@@ -54,7 +54,7 @@ pub(crate) unsafe fn get_user_groups(
     group_id: libc::gid_t,
     groups: &mut Vec<crate::GroupId>,
     buffer: &mut Vec<libc::c_char>,
-) -> Vec<String> {
+) -> Vec<Group> {
     loop {
         let mut nb_groups = groups.capacity();
         if getgrouplist(
@@ -70,7 +70,13 @@ pub(crate) unsafe fn get_user_groups(
         groups.set_len(nb_groups as _);
         return groups
             .iter()
-            .filter_map(|group_id| crate::users::get_group_name(*group_id as _, buffer))
+            .filter_map(|group_id| {
+                let name = crate::users::get_group_name(*group_id as _, buffer)?;
+                Some(Group {
+                    name,
+                    id: Gid(*group_id as _),
+                })
+            })
             .collect();
     }
 }
