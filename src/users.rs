@@ -2,12 +2,51 @@
 
 use crate::{
     common::{Gid, Uid},
-    Group, User,
+    Group, UserExt,
 };
 
 use libc::{getgrgid_r, getgrouplist};
 use std::fs::File;
 use std::io::Read;
+
+#[doc = include_str!("../md_doc/user.md")]
+pub struct User {
+    pub(crate) uid: Uid,
+    pub(crate) gid: Gid,
+    pub(crate) name: String,
+    c_user: Vec<u8>,
+}
+
+impl User {
+    pub(crate) fn new(uid: Uid, gid: Gid, name: String) -> Self {
+        let mut c_user = name.as_bytes().to_vec();
+        c_user.push(0);
+        Self {
+            uid,
+            gid,
+            name,
+            c_user,
+        }
+    }
+}
+
+impl UserExt for User {
+    fn id(&self) -> &Uid {
+        &self.uid
+    }
+
+    fn group_id(&self) -> Gid {
+        self.gid
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn groups(&self) -> Vec<Group> {
+        unsafe { get_user_groups(self.c_user.as_ptr() as *const _, self.gid.0 as _) }
+    }
+}
 
 pub(crate) unsafe fn get_group_name(
     id: libc::gid_t,
@@ -52,9 +91,10 @@ pub(crate) unsafe fn get_group_name(
 pub(crate) unsafe fn get_user_groups(
     name: *const libc::c_char,
     group_id: libc::gid_t,
-    groups: &mut Vec<crate::GroupId>,
-    buffer: &mut Vec<libc::c_char>,
 ) -> Vec<Group> {
+    let mut buffer = Vec::with_capacity(2048);
+    let mut groups = Vec::with_capacity(256);
+
     loop {
         let mut nb_groups = groups.capacity();
         if getgrouplist(
@@ -71,7 +111,7 @@ pub(crate) unsafe fn get_user_groups(
         return groups
             .iter()
             .filter_map(|group_id| {
-                let name = crate::users::get_group_name(*group_id as _, buffer)?;
+                let name = crate::users::get_group_name(*group_id as _, &mut buffer)?;
                 Some(Group {
                     name,
                     id: Gid(*group_id as _),
@@ -90,8 +130,6 @@ pub(crate) fn get_users_list() -> Vec<User> {
     }
 
     let mut s = String::new();
-    let mut buffer = Vec::with_capacity(2048);
-    let mut groups = Vec::with_capacity(256);
 
     let _ = File::open("/etc/passwd").and_then(|mut f| f.read_to_string(&mut s));
     s.lines()
@@ -102,22 +140,7 @@ pub(crate) fn get_users_list() -> Vec<User> {
                 // Skip the user if the uid cannot be parsed correctly
                 if let Some(uid) = parts.next().and_then(parse_id) {
                     if let Some(group_id) = parts.next().and_then(parse_id) {
-                        let mut c_user = username.as_bytes().to_vec();
-                        c_user.push(0);
-                        // Let's get all the group names!
-                        return Some(User {
-                            uid: Uid(uid),
-                            gid: Gid(group_id),
-                            name: username.to_owned(),
-                            groups: unsafe {
-                                get_user_groups(
-                                    c_user.as_ptr() as *const _,
-                                    group_id,
-                                    &mut groups,
-                                    &mut buffer,
-                                )
-                            },
-                        });
+                        return Some(User::new(Uid(uid), Gid(group_id), username.to_owned()));
                     }
                 }
             }

@@ -29,8 +29,6 @@ where
     F: Fn(*const c_char, u32) -> bool,
 {
     let mut users = HashMap::with_capacity(10);
-    let mut buffer = Vec::with_capacity(2048);
-    let mut groups = Vec::with_capacity(256);
 
     unsafe {
         setpwent();
@@ -53,27 +51,16 @@ where
                     continue;
                 }
 
-                let groups = crate::users::get_user_groups(
-                    (*pw).pw_name,
-                    (*pw).pw_gid,
-                    &mut groups,
-                    &mut buffer,
-                );
                 let uid = (*pw).pw_uid;
                 let gid = (*pw).pw_gid;
-                users.insert(name, (Uid(uid), Gid(gid), groups));
+                users.insert(name, (Uid(uid), Gid(gid)));
             }
         }
         endpwent();
     }
     users
         .into_iter()
-        .map(|(name, (uid, gid, groups))| User {
-            uid,
-            gid,
-            name,
-            groups,
-        })
+        .map(|(name, (uid, gid))| User::new(uid, gid, name))
         .collect()
 }
 
@@ -126,7 +113,6 @@ pub(crate) fn get_users_list() -> Vec<User> {
 //                 Some(n) => n,
 //                 None => continue,
 //             };
-//             let groups = get_user_groups(&name);
 //             users.push(User { name });
 //         }
 

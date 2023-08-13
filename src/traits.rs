@@ -1830,7 +1830,7 @@ pub trait ComponentExt: Debug {
 ///     println!("{} is in {} groups", user.name(), user.groups().len());
 /// }
 /// ```
-pub trait UserExt: Debug {
+pub trait UserExt: Debug + PartialEq + Eq + PartialOrd + Ord {
     /// Returns the ID of the user.
     ///
     /// ```no_run
@@ -1876,6 +1876,8 @@ pub trait UserExt: Debug {
 
     /// Returns the groups of the user.
     ///
+    /// ⚠️ This is computed every time this method is called.
+    ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt, UserExt};
     ///
@@ -1884,7 +1886,7 @@ pub trait UserExt: Debug {
     ///     println!("{} is in {:?}", user.name(), user.groups());
     /// }
     /// ```
-    fn groups(&self) -> &[Group];
+    fn groups(&self) -> Vec<Group>;
 }
 
 /// Getting information for a user group.
@@ -1892,7 +1894,7 @@ pub trait UserExt: Debug {
 /// It is returned from [`SystemExt::users`].
 ///
 /// ```no_run
-/// use sysinfo::{System, SystemExt, UserExt};
+/// use sysinfo::{GroupExt, System, SystemExt, UserExt};
 ///
 /// let mut s = System::new_all();
 /// for user in s.users() {
@@ -1907,7 +1909,7 @@ pub trait UserExt: Debug {
 ///     }
 /// }
 /// ```
-pub trait GroupExt: Debug {
+pub trait GroupExt: Debug + PartialEq + Eq + PartialOrd + Ord {
     /// Returns the ID of the group.
     ///
     /// ⚠️ This information is not set on Windows.

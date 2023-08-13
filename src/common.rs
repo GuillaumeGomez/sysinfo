@@ -1,7 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, GroupExt, NetworkData, NetworksExt, UserExt};
+use crate::{Disk, GroupExt, NetworkData, NetworksExt, User, UserExt};
 
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::convert::{From, TryFrom};
 use std::fmt;
@@ -810,39 +811,35 @@ cfg_if::cfg_if! {
     }
 }
 
-/// Type containing user information.
-///
-/// It is returned by [`SystemExt::users`][crate::SystemExt::users].
-///
-/// ```no_run
-/// use sysinfo::{System, SystemExt};
-///
-/// let s = System::new_all();
-/// println!("users: {:?}", s.users());
-/// ```
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct User {
-    pub(crate) uid: Uid,
-    pub(crate) gid: Gid,
-    pub(crate) name: String,
-    pub(crate) groups: Vec<Group>,
+impl fmt::Debug for User {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("User")
+            .field("uid", &self.id())
+            .field("gid", &self.group_id())
+            .field("name", &self.name())
+            .finish()
+    }
 }
 
-impl UserExt for User {
-    fn id(&self) -> &Uid {
-        &self.uid
+impl PartialEq for User {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+            && self.group_id() == other.group_id()
+            && self.name() == other.name()
     }
+}
 
-    fn group_id(&self) -> Gid {
-        self.gid
+impl Eq for User {}
+
+impl PartialOrd for User {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
+}
 
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn groups(&self) -> &[Group] {
-        &self.groups
+impl Ord for User {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.name().cmp(other.name())
     }
 }
 
