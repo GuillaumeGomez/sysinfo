@@ -1,3 +1,7 @@
+# 0.29.8
+
+ * macOS: Fix overflow bug.
+
 # 0.29.7
 
  * macOS: Fix CPU frequency retrieval for M1 and M2.
