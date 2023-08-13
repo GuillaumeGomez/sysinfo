@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, NetworkData, NetworksExt, UserExt};
+use crate::{Disk, GroupExt, NetworkData, NetworksExt, UserExt};
 
 use std::collections::HashMap;
 use std::convert::{From, TryFrom};
@@ -825,7 +825,7 @@ pub struct User {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,
     pub(crate) name: String,
-    pub(crate) groups: Vec<String>,
+    pub(crate) groups: Vec<Group>,
 }
 
 impl UserExt for User {
@@ -841,8 +841,45 @@ impl UserExt for User {
         &self.name
     }
 
-    fn groups(&self) -> &[String] {
+    fn groups(&self) -> &[Group] {
         &self.groups
+    }
+}
+
+/// Type containing group information.
+///
+/// It is returned by [`User::groups`].
+///
+/// ```no_run
+/// use sysinfo::{GroupExt, System, SystemExt, UserExt};
+///
+/// let s = System::new_all();
+///
+/// for user in s.users() {
+///     println!(
+///         "user: (ID: {:?}, group ID: {:?}, name: {:?})",
+///         user.id(),
+///         user.group_id(),
+///         user.name(),
+///     );
+///     for group in user.groups() {
+///         println!("group: (ID: {:?}, name: {:?})", group.id(), group.name());
+///     }
+/// }
+/// ```
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct Group {
+    pub(crate) id: Gid,
+    pub(crate) name: String,
+}
+
+impl GroupExt for Group {
+    fn id(&self) -> &Gid {
+        &self.id
+    }
+
+    fn name(&self) -> &str {
+        &self.name
     }
 }
 

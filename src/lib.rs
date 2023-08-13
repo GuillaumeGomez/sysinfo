@@ -86,13 +86,14 @@ cfg_if::cfg_if! {
 }
 
 pub use common::{
-    get_current_pid, CpuRefreshKind, DiskKind, DiskUsage, Disks, Gid, LoadAvg, MacAddr, Networks,
-    NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, Uid, User,
+    get_current_pid, CpuRefreshKind, DiskKind, DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr,
+    Networks, NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal,
+    Uid, User,
 };
 pub use sys::{Component, Cpu, Disk, NetworkData, Process, System};
 pub use traits::{
-    ComponentExt, CpuExt, DiskExt, DisksExt, NetworkExt, NetworksExt, ProcessExt, SystemExt,
-    UserExt,
+    ComponentExt, CpuExt, DiskExt, DisksExt, GroupExt, NetworkExt, NetworksExt, ProcessExt,
+    SystemExt, UserExt,
 };
 
 #[cfg(feature = "c-interface")]
