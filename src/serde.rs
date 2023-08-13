@@ -2,7 +2,7 @@
 
 use crate::common::PidExt;
 use crate::{
-    ComponentExt, CpuExt, DiskExt, DiskKind, DiskUsage, MacAddr, NetworkExt, NetworksExt,
+    ComponentExt, CpuExt, DiskExt, DiskKind, DiskUsage, GroupExt, MacAddr, NetworkExt, NetworksExt,
     ProcessExt, ProcessStatus, Signal, SystemExt, UserExt,
 };
 use serde::{ser::SerializeStruct, Serialize, Serializer};
@@ -276,6 +276,20 @@ impl Serialize for crate::User {
 
         state.serialize_field("name", &self.name())?;
         state.serialize_field("groups", &self.groups())?;
+
+        state.end()
+    }
+}
+
+impl Serialize for crate::Group {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Group", 1)?;
+
+        state.serialize_field("id", &self.id().to_string())?;
+        state.serialize_field("name", &self.name())?;
 
         state.end()
     }
