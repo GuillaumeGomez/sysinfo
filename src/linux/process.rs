@@ -253,8 +253,10 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32
 
     // We use `max_value` to ensure that the process CPU usage will never get bigger than:
     // `"number of CPUs" * 100.`
-    p.cpu_usage = ((p.utime.saturating_sub(p.old_utime) + p.stime.saturating_sub(p.old_stime))
-        as f32
+    p.cpu_usage = (p
+        .utime
+        .saturating_sub(p.old_utime)
+        .saturating_add(p.stime.saturating_sub(p.old_stime)) as f32
         / total_time
         * 100.)
         .min(max_value);
