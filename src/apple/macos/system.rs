@@ -117,7 +117,7 @@ impl SystemTimeInfo {
                     &*self.old_cpu_info.cpu_load.offset(i as _);
                 for (new, old) in new_load.cpu_ticks.iter().zip(old_load.cpu_ticks.iter()) {
                     if new > old {
-                        total += new - old;
+                        total += new.saturating_sub(*old);
                     }
                 }
             }

@@ -610,7 +610,7 @@ impl SystemInfo {
             // We need to subtract "ZFS ARC" from the "wired memory" because it should belongs to cache
             // but the kernel reports it as "wired memory" instead...
             if let Some(arc_size) = self.zfs.arc_size() {
-                mem_wire -= arc_size;
+                mem_wire = mem_wire.saturating_sub(arc_size);
             }
             mem_active
                 .saturating_mul(self.page_size as _)

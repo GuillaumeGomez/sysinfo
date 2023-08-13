@@ -272,11 +272,12 @@ impl SystemExt for System {
             // So it should fallback to the old way of estimating available memory
             // https://github.com/KittyKatt/screenFetch/issues/386#issuecomment-249312716
             if !mem_available_found {
-                self.mem_available = self.mem_free
-                    + self.mem_buffers
-                    + self.mem_page_cache
-                    + self.mem_slab_reclaimable
-                    - self.mem_shmem;
+                self.mem_available = self
+                    .mem_free
+                    .saturating_add(self.mem_buffers)
+                    .saturating_add(self.mem_page_cache)
+                    .saturating_add(self.mem_slab_reclaimable)
+                    .saturating_sub(self.mem_shmem);
             }
 
             if let (Some(mem_cur), Some(mem_max)) = (
@@ -300,7 +301,7 @@ impl SystemExt for System {
                         _ => return,
                     };
                     *field = value;
-                    self.mem_free -= value;
+                    self.mem_free = self.mem_free.saturating_sub(value);
                 });
             } else if let (Some(mem_cur), Some(mem_max)) = (
                 // cgroups v1
