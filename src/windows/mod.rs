@@ -18,3 +18,4 @@ pub use self::network::NetworkData;
 pub use self::process::Process;
 pub use self::sid::Sid;
 pub use self::system::System;
+pub use self::users::User;

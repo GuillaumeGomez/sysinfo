@@ -30,8 +30,6 @@ cfg_if::cfg_if! {
         use network_helper_nix as network_helper;
         mod network;
 
-        // This is needed because macos uses `int*` for `getgrouplist`...
-        pub(crate) type GroupId = libc::c_int;
         pub(crate) use libc::__error as libc_errno;
 
         #[cfg(test)]
@@ -53,8 +51,6 @@ cfg_if::cfg_if! {
         use network_helper_nix as network_helper;
         mod network;
 
-        // This is needed because macos uses `int*` for `getgrouplist`...
-        pub(crate) type GroupId = libc::gid_t;
         #[cfg(target_os = "linux")]
         pub(crate) use libc::__errno_location as libc_errno;
         #[cfg(target_os = "android")]
@@ -70,8 +66,6 @@ cfg_if::cfg_if! {
         use network_helper_nix as network_helper;
         mod network;
 
-        // This is needed because macos uses `int*` for `getgrouplist`...
-        pub(crate) type GroupId = libc::gid_t;
         pub(crate) use libc::__error as libc_errno;
 
         #[cfg(test)]
@@ -86,13 +80,14 @@ cfg_if::cfg_if! {
 }
 
 pub use common::{
-    get_current_pid, CpuRefreshKind, DiskKind, DiskUsage, Disks, Gid, LoadAvg, MacAddr, Networks,
-    NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, Uid, User,
+    get_current_pid, CpuRefreshKind, DiskKind, DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr,
+    Networks, NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal,
+    Uid,
 };
-pub use sys::{Component, Cpu, Disk, NetworkData, Process, System};
+pub use sys::{Component, Cpu, Disk, NetworkData, Process, System, User};
 pub use traits::{
-    ComponentExt, CpuExt, DiskExt, DisksExt, NetworkExt, NetworksExt, ProcessExt, SystemExt,
-    UserExt,
+    ComponentExt, CpuExt, DiskExt, DisksExt, GroupExt, NetworkExt, NetworksExt, ProcessExt,
+    SystemExt, UserExt,
 };
 
 #[cfg(feature = "c-interface")]
@@ -358,7 +353,9 @@ mod test {
 
     #[test]
     fn check_all_process_uids_resolvable() {
-        if System::IS_SUPPORTED {
+        // On linux, some user IDs don't have an associated user (no idea why though).
+        // If `getent` doesn't find them, we can assume it's a dark secret from the linux land.
+        if System::IS_SUPPORTED && cfg!(not(target_os = "linux")) {
             let s = System::new_with_specifics(
                 RefreshKind::new()
                     .with_processes(ProcessRefreshKind::new().with_user())

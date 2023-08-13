@@ -4,7 +4,7 @@ use crate::sys::utils::to_str;
 use crate::{
     common::{Gid, Uid},
     windows::sid::Sid,
-    User,
+    Group, UserExt,
 };
 
 use std::ptr::null_mut;
@@ -21,7 +21,68 @@ use winapi::um::ntlsa::{
     LsaEnumerateLogonSessions, LsaFreeReturnBuffer, LsaGetLogonSessionData,
     SECURITY_LOGON_SESSION_DATA,
 };
-use winapi::um::winnt::{LPWSTR, LUID};
+use winapi::um::winnt::{LPWSTR, LUID, WCHAR};
+
+#[doc = include_str!("../../md_doc/user.md")]
+pub struct User {
+    pub(crate) uid: Uid,
+    pub(crate) gid: Gid,
+    pub(crate) name: String,
+    c_user_name: Vec<WCHAR>,
+    is_local: bool,
+}
+
+impl User {
+    fn new(uid: Uid, name: String, c_name: LPWSTR, is_local: bool) -> Self {
+        unsafe {
+            let c_user_name = if is_local {
+                let mut i = 0;
+                loop {
+                    let c = *c_name.offset(i);
+                    if c == 0 {
+                        i += 1; // We increase by 1 because we need the '\0' at the end.
+                        break;
+                    }
+                    i += 1;
+                }
+                Vec::from(std::slice::from_raw_parts(c_name, i as _))
+            } else {
+                // There is no local groups for a non-local user.
+                Vec::new()
+            };
+
+            Self {
+                uid,
+                gid: Gid(0),
+                name,
+                c_user_name,
+                is_local,
+            }
+        }
+    }
+}
+
+impl UserExt for User {
+    fn id(&self) -> &Uid {
+        &self.uid
+    }
+
+    fn group_id(&self) -> Gid {
+        self.gid
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn groups(&self) -> Vec<Group> {
+        if self.is_local {
+            unsafe { get_groups_for_user(self.c_user_name.as_ptr() as _) }
+        } else {
+            Vec::new()
+        }
+    }
+}
 
 // FIXME: Can be removed once merged in winapi.
 #[allow(non_upper_case_globals)]
@@ -83,7 +144,7 @@ impl<T> LsaBuffer<T> {
     }
 }
 
-unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<String> {
+unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<Group> {
     let mut buf: NetApiBuffer<LOCALGROUP_USERS_INFO_0> = Default::default();
     let mut nb_entries = 0;
     let mut total_entries = 0;
@@ -104,7 +165,10 @@ unsafe fn get_groups_for_user(username: LPWSTR) -> Vec<String> {
         groups = Vec::with_capacity(nb_entries as _);
         if !buf.0.is_null() {
             let entries = std::slice::from_raw_parts(buf.0, nb_entries as _);
-            groups.extend(entries.iter().map(|entry| to_str(entry.lgrui0_name)));
+            groups.extend(entries.iter().map(|entry| Group {
+                name: to_str(entry.lgrui0_name),
+                id: Gid(0),
+            }));
         }
     } else {
         groups = Vec::new();
@@ -150,12 +214,7 @@ pub unsafe fn get_users() -> Vec<User> {
                         let name = sid
                             .account_name()
                             .unwrap_or_else(|| to_str(entry.usri0_name));
-                        users.push(User {
-                            uid: Uid(sid),
-                            gid: Gid(0),
-                            name,
-                            groups: get_groups_for_user(entry.usri0_name),
-                        });
+                        users.push(User::new(Uid(sid), name, entry.usri0_name, true))
                     }
                 }
             }
@@ -216,13 +275,7 @@ pub unsafe fn get_users() -> Vec<User> {
                     })
                 });
 
-                users.push(User {
-                    uid: Uid(sid),
-                    gid: Gid(0),
-                    name,
-                    // There is no local groups for a non-local user.
-                    groups: Vec::new(),
-                });
+                users.push(User::new(Uid(sid), name, std::ptr::null_mut(), false));
             }
         }
     }

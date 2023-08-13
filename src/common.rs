@@ -1,7 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, NetworkData, NetworksExt, UserExt};
+use crate::{Disk, GroupExt, NetworkData, NetworksExt, User, UserExt};
 
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::convert::{From, TryFrom};
 use std::fmt;
@@ -810,39 +811,62 @@ cfg_if::cfg_if! {
     }
 }
 
-/// Type containing user information.
-///
-/// It is returned by [`SystemExt::users`][crate::SystemExt::users].
-///
-/// ```no_run
-/// use sysinfo::{System, SystemExt};
-///
-/// let s = System::new_all();
-/// println!("users: {:?}", s.users());
-/// ```
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct User {
-    pub(crate) uid: Uid,
-    pub(crate) gid: Gid,
-    pub(crate) name: String,
-    pub(crate) groups: Vec<String>,
+impl PartialEq for User {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+            && self.group_id() == other.group_id()
+            && self.name() == other.name()
+    }
 }
 
-impl UserExt for User {
-    fn id(&self) -> &Uid {
-        &self.uid
-    }
+impl Eq for User {}
 
-    fn group_id(&self) -> Gid {
-        self.gid
+impl PartialOrd for User {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for User {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.name().cmp(other.name())
+    }
+}
+
+/// Type containing group information.
+///
+/// It is returned by [`User::groups`].
+///
+/// ```no_run
+/// use sysinfo::{GroupExt, System, SystemExt, UserExt};
+///
+/// let s = System::new_all();
+///
+/// for user in s.users() {
+///     println!(
+///         "user: (ID: {:?}, group ID: {:?}, name: {:?})",
+///         user.id(),
+///         user.group_id(),
+///         user.name(),
+///     );
+///     for group in user.groups() {
+///         println!("group: (ID: {:?}, name: {:?})", group.id(), group.name());
+///     }
+/// }
+/// ```
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct Group {
+    pub(crate) id: Gid,
+    pub(crate) name: String,
+}
+
+impl GroupExt for Group {
+    fn id(&self) -> &Gid {
+        &self.id
     }
 
     fn name(&self) -> &str {
         &self.name
-    }
-
-    fn groups(&self) -> &[String] {
-        &self.groups
     }
 }
 

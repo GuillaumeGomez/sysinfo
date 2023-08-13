@@ -5,7 +5,7 @@ use crate::{
     sys::{Component, Cpu, Disk, Process},
 };
 use crate::{
-    CpuRefreshKind, DiskKind, DiskUsage, Disks, LoadAvg, Networks, NetworksIter, Pid,
+    CpuRefreshKind, DiskKind, DiskUsage, Disks, Group, LoadAvg, Networks, NetworksIter, Pid,
     ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, User,
 };
 
@@ -1830,8 +1830,8 @@ pub trait ComponentExt: Debug {
 ///     println!("{} is in {} groups", user.name(), user.groups().len());
 /// }
 /// ```
-pub trait UserExt: Debug {
-    /// Return the user id of the user.
+pub trait UserExt: Debug + PartialEq + Eq + PartialOrd + Ord {
+    /// Returns the ID of the user.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt, UserExt};
@@ -1843,12 +1843,14 @@ pub trait UserExt: Debug {
     /// ```
     fn id(&self) -> &Uid;
 
-    /// Return the group id of the user.
+    /// Returns the group ID of the user.
     ///
-    /// *NOTE* - On Windows, this value defaults to 0.  Windows doesn't have a `username` specific group assigned to the user.
-    /// They do however have unique [Security Identifiers](https://docs.microsoft.com/en-us/windows/win32/secauthz/security-identifiers)
+    /// ⚠️ This information is not set on Windows.  Windows doesn't have a `username` specific
+    /// group assigned to the user. They do however have unique
+    /// [Security Identifiers](https://docs.microsoft.com/en-us/windows/win32/secauthz/security-identifiers)
     /// made up of various [Components](https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-components).
-    /// Pieces of the SID may be a candidate for this field, but it doesn't map well to a single group id.
+    /// Pieces of the SID may be a candidate for this field, but it doesn't map well to a single
+    /// group ID.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt, UserExt};
@@ -1874,6 +1876,8 @@ pub trait UserExt: Debug {
 
     /// Returns the groups of the user.
     ///
+    /// ⚠️ This is computed every time this method is called.
+    ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt, UserExt};
     ///
@@ -1882,5 +1886,57 @@ pub trait UserExt: Debug {
     ///     println!("{} is in {:?}", user.name(), user.groups());
     /// }
     /// ```
-    fn groups(&self) -> &[String];
+    fn groups(&self) -> Vec<Group>;
+}
+
+/// Getting information for a user group.
+///
+/// It is returned from [`SystemExt::users`].
+///
+/// ```no_run
+/// use sysinfo::{GroupExt, System, SystemExt, UserExt};
+///
+/// let mut s = System::new_all();
+/// for user in s.users() {
+///     println!(
+///         "user: (ID: {:?}, group ID: {:?}, name: {:?})",
+///         user.id(),
+///         user.group_id(),
+///         user.name(),
+///     );
+///     for group in user.groups() {
+///         println!("group: (ID: {:?}, name: {:?})", group.id(), group.name());
+///     }
+/// }
+/// ```
+pub trait GroupExt: Debug + PartialEq + Eq + PartialOrd + Ord {
+    /// Returns the ID of the group.
+    ///
+    /// ⚠️ This information is not set on Windows.
+    ///
+    /// ```no_run
+    /// use sysinfo::{GroupExt, System, SystemExt, UserExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for user in s.users() {
+    ///     for group in user.groups() {
+    ///         println!("{:?}", group.id());
+    ///     }
+    /// }
+    /// ```
+    fn id(&self) -> &Gid;
+
+    /// Returns the name of the group.
+    ///
+    /// ```no_run
+    /// use sysinfo::{GroupExt, System, SystemExt, UserExt};
+    ///
+    /// let mut s = System::new_all();
+    /// for user in s.users() {
+    ///     for group in user.groups() {
+    ///         println!("{}", group.name());
+    ///     }
+    /// }
+    /// ```
+    fn name(&self) -> &str;
 }
