@@ -78,7 +78,7 @@ impl ProcessExt for Process {
         0.0
     }
 
-    fn total_cpu_usage(&self) -> f32 {
+    fn total_accumulated_cpu_usage(&self) -> f32 {
         0.0
     }
 

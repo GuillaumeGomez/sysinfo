@@ -384,10 +384,10 @@ pub trait ProcessExt: Debug {
     ///
     /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("{}sec", process.total_cpu_usage());
+    ///     println!("{}sec", process.total_accumulated_cpu_usage());
     /// }
     /// ```
-    fn total_cpu_usage(&self) -> f32;
+    fn total_accumulated_cpu_usage(&self) -> f32;
 
     /// Returns number of bytes read and written to disk.
     ///

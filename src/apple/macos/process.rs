@@ -181,7 +181,7 @@ impl ProcessExt for Process {
         self.cpu_usage
     }
 
-    fn total_cpu_usage(&self) -> f32 {
+    fn total_accumulated_cpu_usage(&self) -> f32 {
         (self.utime + self.stime) as f32
     }
 
