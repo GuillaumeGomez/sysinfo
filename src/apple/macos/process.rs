@@ -181,6 +181,10 @@ impl ProcessExt for Process {
         self.cpu_usage
     }
 
+    fn total_cpu_usage(&self) -> f32 {
+        (self.utime + self.stime) as f32
+    }
+
     fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             read_bytes: self.read_bytes.saturating_sub(self.old_read_bytes),

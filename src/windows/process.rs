@@ -599,6 +599,10 @@ impl ProcessExt for Process {
         self.cpu_usage
     }
 
+    fn total_cpu_usage(&self) -> f32 {
+        FIXME
+    }
+
     fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),

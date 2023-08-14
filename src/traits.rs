@@ -375,6 +375,20 @@ pub trait ProcessExt: Debug {
     /// ```
     fn cpu_usage(&self) -> f32;
 
+    /// Returns the total accumulated CPU usage (in
+    /// CPU-seconds). Notice that it might be bigger than the total
+    /// clock run time of a process if run on a multi-core machine.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{}sec", process.total_cpu_usage());
+    /// }
+    /// ```
+    fn total_cpu_usage(&self) -> f32;
+
     /// Returns number of bytes read and written to disk.
     ///
     /// ⚠️ On Windows and FreeBSD, this method actually returns **ALL** I/O read and written bytes.

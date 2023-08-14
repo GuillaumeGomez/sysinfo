@@ -78,6 +78,10 @@ impl ProcessExt for Process {
         0.0
     }
 
+    fn total_cpu_usage(&self) -> f32 {
+        0.0
+    }
+
     fn disk_usage(&self) -> DiskUsage {
         DiskUsage::default()
     }
