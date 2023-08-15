@@ -54,6 +54,7 @@ pub struct Process {
     pub(crate) virtual_memory: u64,
     pub(crate) updated: bool,
     cpu_usage: f32,
+    accum_cpu_usage: f32,
     start_time: u64,
     run_time: u64,
     pub(crate) status: ProcessStatus,
@@ -130,7 +131,7 @@ impl ProcessExt for Process {
     }
 
     fn total_accumulated_cpu_usage(&self) -> f32 {
-        FIXME
+        self.accum_cpu_usage
     }
 
     fn disk_usage(&self) -> DiskUsage {
@@ -211,6 +212,11 @@ pub(crate) unsafe fn get_process_data(
     };
     let status = ProcessStatus::from(kproc.ki_stat);
 
+    // from FreeBSD source /bin/ps/print.c
+    let accum_cpu_usage = (kproc.ki_runtime as f64 / 1000000.0) as f32
+        + kproc.ki_childtime.tv_sec as f32
+        + kproc.ki_childtime.tv_usec as f32 / 1000000.0;
+
     // from FreeBSD source /src/usr.bin/top/machine.c
     let virtual_memory = kproc.ki_size as _;
     let memory = (kproc.ki_rssize as u64).saturating_mul(page_size as _);
@@ -279,6 +285,7 @@ pub(crate) unsafe fn get_process_data(
         start_time,
         run_time: now.saturating_sub(start_time),
         cpu_usage,
+        accum_cpu_usage,
         virtual_memory,
         memory,
         // procstat_getfiles
