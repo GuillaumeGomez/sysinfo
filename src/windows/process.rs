@@ -212,6 +212,7 @@ struct CPUsageCalculationValues {
     old_process_user_cpu: u64,
     old_system_sys_cpu: u64,
     old_system_user_cpu: u64,
+    nb_cpus: u64,
 }
 
 impl CPUsageCalculationValues {
@@ -221,7 +222,17 @@ impl CPUsageCalculationValues {
             old_process_user_cpu: 0,
             old_system_sys_cpu: 0,
             old_system_user_cpu: 0,
+            nb_cpus: 0,
         }
+    }
+
+    fn total_accumulated_cpu_usage(&self) -> f32 {
+        self.old_process_user_cpu
+            .saturating_add(self.old_process_sys_cpu) as f32
+            / self
+                .old_system_user_cpu
+                .saturating_add(self.old_system_sys_cpu) as f32
+            * self.nb_cpus as f32
     }
 }
 static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| unsafe {
@@ -600,7 +611,7 @@ impl ProcessExt for Process {
     }
 
     fn total_accumulated_cpu_usage(&self) -> f32 {
-        FIXME
+        self.cpu_calc_values.total_accumulated_cpu_usage()
     }
 
     fn disk_usage(&self) -> DiskUsage {
@@ -1112,6 +1123,7 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
         p.cpu_calc_values.old_process_sys_cpu = sys;
         p.cpu_calc_values.old_system_user_cpu = global_user_time;
         p.cpu_calc_values.old_system_sys_cpu = global_kernel_time;
+        p.cpu_calc_values.nb_cpus = nb_cpus;
 
         let denominator = delta_global_user_time.saturating_add(delta_global_kernel_time) as f32;
 
