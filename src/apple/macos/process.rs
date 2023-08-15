@@ -182,7 +182,7 @@ impl ProcessExt for Process {
     }
 
     fn total_accumulated_cpu_usage(&self) -> f32 {
-        (self.utime + self.stime) as f32
+        self.old_utime.saturating_add(self.old_stime) as f32
     }
 
     fn disk_usage(&self) -> DiskUsage {
