@@ -17,8 +17,6 @@ use crate::sys::utils::{
 use crate::utils::into_iter;
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
-const HZ: f32 = 100.;
-
 #[doc(hidden)]
 impl From<char> for ProcessStatus {
     fn from(status: char) -> ProcessStatus {
@@ -197,7 +195,10 @@ impl ProcessExt for Process {
     }
 
     fn total_accumulated_cpu_usage(&self) -> f32 {
-        self.utime.saturating_add(self.stime) as f32 / HZ
+        // The external values for CPU times are in "ticks", which are
+        // scaled by "HZ", which is pegged externally at 100
+        // ticks/second.
+        self.utime.saturating_add(self.stime) as f32 / 100.
     }
 
     fn disk_usage(&self) -> DiskUsage {
@@ -264,7 +265,7 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32
         .saturating_sub(p.old_utime)
         .saturating_add(p.stime.saturating_sub(p.old_stime)) as f32
         / total_time
-        * HZ)
+        * 100.)
         .min(max_value);
 
     for task in p.tasks.values_mut() {
