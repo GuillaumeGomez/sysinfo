@@ -9,7 +9,7 @@ typedef void* CSystem;
 typedef const void* CProcess;
 typedef const char* RString;
 
-CSystem    *sysinfo_init();
+CSystem    *sysinfo_init(void);
 void        sysinfo_destroy(CSystem system);
 
 void        sysinfo_refresh_system(CSystem system);
