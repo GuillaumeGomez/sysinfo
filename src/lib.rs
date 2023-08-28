@@ -203,6 +203,8 @@ mod doctest {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
+
     use crate::*;
 
     #[cfg(feature = "unknown-ci")]
@@ -281,6 +283,42 @@ mod test {
             .processes()
             .iter()
             .any(|(_, proc_)| proc_.cpu_usage() > 0.0));
+    }
+
+    #[test]
+    fn check_processes_total_accumulated_cpu_usage() {
+        if System::IS_SUPPORTED {
+            let mut s = System::new();
+
+            s.refresh_processes();
+            let all_procs: HashMap<_, _> = s
+                .processes()
+                .iter()
+                .map(|(pid, proc)| (*pid, proc.total_accumulated_cpu_usage()))
+                .collect();
+            // All accumulated CPU usages will be non-negative.
+            assert!(all_procs.values().all(|&usage| usage >= 0.0));
+
+            // Wait a bit to update CPU usage values
+            std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
+            s.refresh_processes();
+            // They will still all be non-negative.
+            assert!(s
+                .processes()
+                .values()
+                .all(|proc| proc.total_accumulated_cpu_usage() >= 0.0));
+            // They will all have either remained the same or
+            // increased no more than a valid amount.
+            let max_delta =
+                s.cpus().len() as f32 * System::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() as f32;
+            assert!(s
+                .processes()
+                .iter()
+                .all(|(pid, proc)| all_procs.get(pid).map_or(true, |&prev| {
+                    let delta = proc.total_accumulated_cpu_usage() - prev;
+                    delta >= 0.0 && delta <= max_delta
+                })));
+        }
     }
 
     #[test]
