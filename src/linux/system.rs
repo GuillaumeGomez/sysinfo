@@ -609,7 +609,7 @@ impl SystemExt for System {
 fn read_u64(filename: &str) -> Option<u64> {
     get_all_data(filename, 16_635)
         .ok()
-        .and_then(|d| u64::from_str(&d).ok())
+        .and_then(|d| u64::from_str(d.trim()).ok())
 }
 
 fn read_table<F>(filename: &str, colsep: char, mut f: F)

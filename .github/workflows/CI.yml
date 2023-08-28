@@ -205,9 +205,8 @@ jobs:
     strategy:
       matrix:
         toolchain:
-          - "1.63.0"  # minimum supported rust version
+          - "1.63.0" # minimum supported rust version
           - stable
-          - nightly
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -220,4 +219,6 @@ jobs:
       - run: cargo check --features unknown-ci
       - run: cargo test --features unknown-ci
       - run: cargo install wasm-pack
+        if: matrix.toolchain == 'stable'
       - run: cd test-unknown && wasm-pack build --target web
+        if: matrix.toolchain == 'stable'

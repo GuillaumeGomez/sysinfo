@@ -1,6 +1,10 @@
+# 0.29.9
+
+ * Linux: Fix memory usage retrieval for cgroups.
+
 # 0.29.8
 
- * macOS: Fix overflow bug.
+ * Linux: Fix overflow bug.
 
 # 0.29.7
 
