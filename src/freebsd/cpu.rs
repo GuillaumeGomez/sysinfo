@@ -3,7 +3,7 @@
 use crate::sys::utils::{
     get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name, init_mib, VecSwitcher,
 };
-use crate::{CpuExt, CpuRefreshKind};
+use crate::{CpuExt, CpuRefreshKind, GovernorKind};
 
 use libc::{c_int, c_ulong};
 
@@ -170,6 +170,10 @@ impl CpuExt for Cpu {
 
     fn brand(&self) -> &str {
         ""
+    }
+
+    fn governor(&self) -> GovernorKind {
+        GovernorKind::default()
     }
 }
 

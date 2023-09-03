@@ -6,7 +6,8 @@ use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
 use crate::{
-    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, Disks, GovernorKind, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind,
+    SystemExt, User,
 };
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -344,6 +345,10 @@ impl SystemExt for System {
 
     fn global_cpu_info(&self) -> &Cpu {
         &self.cpus.global_cpu
+    }
+
+    fn governor(&self) -> GovernorKind {
+        GovernorKind::default()
     }
 
     fn cpus(&self) -> &[Cpu] {
