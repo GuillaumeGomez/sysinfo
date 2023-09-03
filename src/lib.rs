@@ -80,9 +80,9 @@ cfg_if::cfg_if! {
 }
 
 pub use common::{
-    get_current_pid, CpuRefreshKind, DiskKind, DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr,
-    Networks, NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal,
-    Uid,
+    get_current_pid, CpuRefreshKind, DiskKind, DiskUsage, Disks, Gid, GovernorKind, Group, LoadAvg,
+    MacAddr, Networks, NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind,
+    Signal, Uid,
 };
 pub use sys::{Component, Cpu, Disk, NetworkData, Process, System, User};
 pub use traits::{
