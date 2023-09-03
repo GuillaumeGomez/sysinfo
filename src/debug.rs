@@ -13,6 +13,7 @@ impl fmt::Debug for Cpu {
             .field("name", &self.name())
             .field("CPU usage", &self.cpu_usage())
             .field("frequency", &self.frequency())
+            .field("governor", &self.governor())
             .field("vendor ID", &self.vendor_id())
             .field("brand", &self.brand())
             .finish()
