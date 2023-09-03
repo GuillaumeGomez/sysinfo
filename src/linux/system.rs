@@ -5,7 +5,8 @@ use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_all_data, to_u64};
 use crate::{
-    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, Disks, GovernorKind, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind,
+    SystemExt, User,
 };
 
 use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
@@ -400,6 +401,10 @@ impl SystemExt for System {
 
     fn global_cpu_info(&self) -> &Cpu {
         &self.cpus.global_cpu
+    }
+
+    fn governor(&self) -> GovernorKind {
+        get_governor().unwrap_or_default()
     }
 
     fn cpus(&self) -> &[Cpu] {
