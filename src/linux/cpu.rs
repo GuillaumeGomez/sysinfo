@@ -224,7 +224,7 @@ impl CpusWrapper {
 }
 
 /// Struct containing values to compute a CPU usage.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct CpuValues {
     user: u64,
     nice: u64,
