@@ -9,6 +9,7 @@ use crate::{
 };
 
 use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
+use std::cmp::min;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
@@ -248,8 +249,8 @@ impl SystemExt for System {
     }
 
     fn refresh_memory(&mut self) {
+        let mut mem_available_found = false;
         read_table("/proc/meminfo", ':', |key, value_kib| {
-            let mut mem_available_found = false;
             let field = match key {
                 "MemTotal" => &mut self.mem_total,
                 "MemFree" => &mut self.mem_free,
@@ -267,52 +268,52 @@ impl SystemExt for System {
             };
             // /proc/meminfo reports KiB, though it says "kB". Convert it.
             *field = value_kib.saturating_mul(1_024);
-
-            // Linux < 3.14 may not have MemAvailable in /proc/meminfo
-            // So it should fallback to the old way of estimating available memory
-            // https://github.com/KittyKatt/screenFetch/issues/386#issuecomment-249312716
-            if !mem_available_found {
-                self.mem_available = self
-                    .mem_free
-                    .saturating_add(self.mem_buffers)
-                    .saturating_add(self.mem_page_cache)
-                    .saturating_add(self.mem_slab_reclaimable)
-                    .saturating_sub(self.mem_shmem);
-            }
-
-            if let (Some(mem_cur), Some(mem_max)) = (
-                read_u64("/sys/fs/cgroup/memory.current"),
-                read_u64("/sys/fs/cgroup/memory.max"),
-            ) {
-                // cgroups v2
-                self.mem_total = mem_max;
-                self.mem_free = mem_max.saturating_sub(mem_cur);
-                self.mem_available = self.mem_free;
-
-                if let Some(swap_cur) = read_u64("/sys/fs/cgroup/memory.swap.current") {
-                    self.swap_free = self.swap_total.saturating_sub(swap_cur);
-                }
-
-                read_table("/sys/fs/cgroup/memory.stat", ' ', |key, value| {
-                    let field = match key {
-                        "slab_reclaimable" => &mut self.mem_slab_reclaimable,
-                        "file" => &mut self.mem_page_cache,
-                        "shmem" => &mut self.mem_shmem,
-                        _ => return,
-                    };
-                    *field = value;
-                    self.mem_free = self.mem_free.saturating_sub(value);
-                });
-            } else if let (Some(mem_cur), Some(mem_max)) = (
-                // cgroups v1
-                read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
-                read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
-            ) {
-                self.mem_total = mem_max;
-                self.mem_free = mem_max.saturating_sub(mem_cur);
-                self.mem_available = self.mem_free;
-            }
         });
+
+        // Linux < 3.14 may not have MemAvailable in /proc/meminfo
+        // So it should fallback to the old way of estimating available memory
+        // https://github.com/KittyKatt/screenFetch/issues/386#issuecomment-249312716
+        if !mem_available_found {
+            self.mem_available = self
+                .mem_free
+                .saturating_add(self.mem_buffers)
+                .saturating_add(self.mem_page_cache)
+                .saturating_add(self.mem_slab_reclaimable)
+                .saturating_sub(self.mem_shmem);
+        }
+
+        if let (Some(mem_cur), Some(mem_max)) = (
+            read_u64("/sys/fs/cgroup/memory.current"),
+            read_u64("/sys/fs/cgroup/memory.max"),
+        ) {
+            // cgroups v2
+            self.mem_total = min(mem_max, self.mem_total);
+            self.mem_free = self.mem_total.saturating_sub(mem_cur);
+            self.mem_available = self.mem_free;
+
+            if let Some(swap_cur) = read_u64("/sys/fs/cgroup/memory.swap.current") {
+                self.swap_free = self.swap_total.saturating_sub(swap_cur);
+            }
+
+            read_table("/sys/fs/cgroup/memory.stat", ' ', |key, value| {
+                let field = match key {
+                    "slab_reclaimable" => &mut self.mem_slab_reclaimable,
+                    "file" => &mut self.mem_page_cache,
+                    "shmem" => &mut self.mem_shmem,
+                    _ => return,
+                };
+                *field = value;
+                self.mem_free = self.mem_free.saturating_sub(value);
+            });
+        } else if let (Some(mem_cur), Some(mem_max)) = (
+            // cgroups v1
+            read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
+            read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
+        ) {
+            self.mem_total = min(mem_max, self.mem_total);
+            self.mem_free = self.mem_total.saturating_sub(mem_cur);
+            self.mem_available = self.mem_free;
+        }
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
