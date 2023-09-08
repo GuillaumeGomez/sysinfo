@@ -118,7 +118,7 @@ impl SystemExt for System {
 
     fn refresh_components_list(&mut self) {
         if self.cpus.cpus.is_empty() {
-            self.refresh_cpu();
+            self.refresh_cpu_usage();
         }
         self.components = unsafe { super::component::get_components(self.cpus.cpus.len()) };
     }
