@@ -290,7 +290,7 @@ mod test {
         }
         let mut s = System::new();
         for _ in 0..10 {
-            s.refresh_cpu();
+            s.refresh_cpu_usage();
             // Wait a bit to update CPU usage values
             std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
             if s.cpus().iter().any(|c| c.cpu_usage() > 0.0) {
@@ -444,7 +444,7 @@ mod test {
                 .physical_core_count()
                 .expect("failed to get number of physical cores");
 
-            s.refresh_cpu();
+            s.refresh_cpu_usage();
             // The cpus shouldn't be empty anymore.
             assert!(!s.cpus().is_empty());
 
@@ -487,7 +487,7 @@ mod test {
         for proc_ in s.cpus() {
             assert_eq!(proc_.frequency(), 0);
         }
-        s.refresh_cpu();
+        s.refresh_cpu_usage();
         for proc_ in s.cpus() {
             assert_eq!(proc_.frequency(), 0);
         }

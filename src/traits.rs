@@ -746,7 +746,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn refresh_system(&mut self) {
         self.refresh_memory();
-        self.refresh_cpu();
+        self.refresh_cpu_usage();
         self.refresh_components();
     }
 
@@ -760,7 +760,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn refresh_memory(&mut self);
 
-    /// Refreshes CPUs information.
+    /// Refreshes CPUs usage.
     ///
     /// ⚠️ Please note that the result will very likely be inaccurate at the first call.
     /// You need to call this method at least twice (with a bit of time between each call, like
@@ -774,10 +774,45 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let mut s = System::new_all();
+    /// s.refresh_cpu_usage();
+    /// ```
+    fn refresh_cpu_usage(&mut self) {
+        self.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())
+    }
+
+    /// Refreshes CPUs frequency information.
+    ///
+    /// Calling this method is the same as calling
+    /// `refresh_cpu_specifics(CpuRefreshKind::new().with_frequency())`.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_cpu_frequency();
+    /// ```
+    fn refresh_cpu_frequency(&mut self) {
+        self.refresh_cpu_specifics(CpuRefreshKind::new().with_frequency())
+    }
+
+    /// Refreshes all information related to CPUs information.
+    ///
+    /// ⚠️ Please note that the result will very likely be inaccurate at the first call.
+    /// You need to call this method at least twice (with a bit of time between each call, like
+    /// 200 ms, take a look at [`SystemExt::MINIMUM_CPU_UPDATE_INTERVAL`] for more information)
+    /// to get accurate value as it uses previous results to compute the next value.
+    ///
+    /// Calling this method is the same as calling
+    /// `refresh_cpu_specifics(CpuRefreshKind::everything())`.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
     /// s.refresh_cpu();
     /// ```
     fn refresh_cpu(&mut self) {
-        self.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())
+        self.refresh_cpu_specifics(CpuRefreshKind::everything())
     }
 
     /// Refreshes CPUs specific information.

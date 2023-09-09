@@ -58,7 +58,7 @@ pub extern "C" fn sysinfo_refresh_memory(system: CSystem) {
     }
 }
 
-/// Equivalent of [`System::refresh_cpu()`][crate::System#method.refresh_cpu].
+/// Equivalent of [`System::refresh_cpu_usage()`][crate::System#method.refresh_cpu_usage].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_cpu(system: CSystem) {
     assert!(!system.is_null());
@@ -66,7 +66,7 @@ pub extern "C" fn sysinfo_refresh_cpu(system: CSystem) {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
         {
             let system: &mut System = system.borrow_mut();
-            system.refresh_cpu();
+            system.refresh_cpu_usage();
         }
         Box::into_raw(system);
     }
