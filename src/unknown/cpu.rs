@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::CpuExt;
+use crate::{CpuExt, GovernorKind};
 
 #[doc = include_str!("../../md_doc/cpu.md")]
 pub struct Cpu {}
@@ -30,5 +30,9 @@ impl CpuExt for Cpu {
 
     fn brand(&self) -> &str {
         ""
+    }
+
+    fn governor(&self) -> GovernorKind {
+        GovernorKind::default()
     }
 }

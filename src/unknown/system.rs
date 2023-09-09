@@ -2,8 +2,8 @@
 
 use crate::{
     sys::{component::Component, Cpu, Process},
-    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt,
-    User,
+    CpuRefreshKind, Disks, GovernorKind, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind,
+    SystemExt, User,
 };
 
 use std::collections::HashMap;
@@ -72,6 +72,10 @@ impl SystemExt for System {
 
     fn global_cpu_info(&self) -> &Cpu {
         &self.global_cpu
+    }
+
+    fn governor(&self) -> GovernorKind {
+        GovernorKind::default()
     }
 
     fn cpus(&self) -> &[Cpu] {

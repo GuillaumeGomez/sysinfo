@@ -232,6 +232,9 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
                 sys.global_cpu_info().frequency()
             );
         }
+        "governor" => {
+            writeln!(&mut io::stdout(), "governor: {}", sys.cpus()[0].governor());
+        }
         "vendor_id" => {
             writeln!(
                 &mut io::stdout(),

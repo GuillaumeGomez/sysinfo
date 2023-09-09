@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessExt, ProcessRefreshKind, RefreshKind,
-    SystemExt, User,
+    CpuRefreshKind, Disks, GovernorKind, LoadAvg, Networks, Pid, ProcessExt, ProcessRefreshKind,
+    RefreshKind, SystemExt, User,
 };
 use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
@@ -367,6 +367,10 @@ impl SystemExt for System {
 
     fn global_cpu_info(&self) -> &Cpu {
         self.cpus.global_cpu()
+    }
+
+    fn governor(&self) -> GovernorKind {
+        GovernorKind::default()
     }
 
     fn cpus(&self) -> &[Cpu] {

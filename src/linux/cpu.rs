@@ -5,10 +5,11 @@
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
+use std::str::FromStr;
 use std::time::Instant;
 
 use crate::sys::utils::to_u64;
-use crate::{CpuExt, CpuRefreshKind, SystemExt};
+use crate::{CpuExt, CpuRefreshKind, GovernorKind, SystemExt};
 
 macro_rules! to_str {
     ($e:expr) => {
@@ -47,6 +48,7 @@ impl CpusWrapper {
                 0,
                 String::new(),
                 String::new(),
+                GovernorKind::default(),
             ),
             cpus: Vec::with_capacity(4),
             need_cpus_update: true,
@@ -77,6 +79,7 @@ impl CpusWrapper {
         } else {
             (String::new(), String::new())
         };
+        let governor = get_governor();
 
         // If the last CPU usage update is too close (less than `MINIMUM_CPU_UPDATE_INTERVAL`),
         // we don't want to update CPUs times.
@@ -142,6 +145,7 @@ impl CpusWrapper {
                                 0,
                                 vendor_id.clone(),
                                 brand.clone(),
+                                governor.clone().unwrap_or_default(),
                             ));
                         } else {
                             parts.next(); // we don't want the name again
@@ -316,6 +320,7 @@ pub struct Cpu {
     pub(crate) frequency: u64,
     pub(crate) vendor_id: String,
     pub(crate) brand: String,
+    pub(crate) governor: GovernorKind,
 }
 
 impl Cpu {
@@ -334,6 +339,7 @@ impl Cpu {
         frequency: u64,
         vendor_id: String,
         brand: String,
+        governor: GovernorKind,
     ) -> Cpu {
         let mut new_values = CpuValues::new();
         new_values.set(
@@ -349,6 +355,7 @@ impl Cpu {
             frequency,
             vendor_id,
             brand,
+            governor,
         }
     }
 
@@ -403,6 +410,10 @@ impl CpuExt for Cpu {
         self.frequency
     }
 
+    fn governor(&self) -> GovernorKind {
+        self.governor.clone()
+    }
+
     fn vendor_id(&self) -> &str {
         &self.vendor_id
     }
@@ -445,6 +456,24 @@ pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
         .and_then(|val| val.replace("MHz", "").trim().parse::<f64>().ok())
         .map(|speed| speed as u64)
         .unwrap_or_default()
+}
+
+pub(crate) fn get_governor() -> Option<GovernorKind> {
+    let mut s = String::new();
+    // String should follow the pattern described in [governors.txt](https://www.kernel.org/doc/Documentation/cpu-freq/governors.txt)
+    if File::open("/sys/devices/system/cpu/cpufreq/policy0/scaling_governor")
+        .and_then(|mut f| f.read_to_string(&mut s))
+        .is_ok()
+    {
+        let governor = s.trim().split('\n').next().unwrap_or_default();
+        if governor.is_empty() {
+            return None;
+        }
+
+        return Some(GovernorKind::from_str(governor).unwrap());
+    }
+
+    None
 }
 
 #[allow(unused_assignments)]

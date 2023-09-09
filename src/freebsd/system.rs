@@ -2,8 +2,8 @@
 
 use crate::{
     sys::{component::Component, Cpu, Process},
-    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt,
-    User,
+    CpuRefreshKind, Disks, GovernorKind, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind,
+    SystemExt, User,
 };
 
 use std::cell::UnsafeCell;
@@ -208,6 +208,10 @@ impl SystemExt for System {
 
     fn global_cpu_info(&self) -> &Cpu {
         &self.cpus.global_cpu
+    }
+
+    fn governor(&self) -> GovernorKind {
+        GovernorKind::default()
     }
 
     fn cpus(&self) -> &[Cpu] {

@@ -462,6 +462,74 @@ impl RefreshKind {
     impl_get_set!(RefreshKind, users_list, with_users_list, without_users_list);
 }
 
+/// Enum containing the different supported kinds CPUs governor.
+///
+/// This type is returned by `governor`.
+///
+/// ```no_run
+/// use sysinfo::{System, SystemExt};
+/// let s = System::new_all();
+/// let governor = s.governor();
+/// ```
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum GovernorKind {
+    /// CPU operating in the highest frequency within the borders
+    /// of scaling_min_freq and scaling_max_freq.
+    Performance,
+    /// CPU operating statically to the lowest frequency within
+    /// the borders of scaling_min_freq and scaling_max_freq.
+    Powersave,
+    /// Governor that allows the user, or any userspace program
+    /// running with UID "root", to set the CPU to a specific frequency
+    /// by making a sysfs file "scaling_setspeed" available in the CPU-device directory.
+    Userspace,
+    /// CPU operating in a frequency depending on the current system load.
+    Ondemand,
+    /// Close to Ondemand, differs in behaviour in that it gracefully increases and decreases the
+    /// CPU speed rather than jumping to max speed the moment there is any load on the CPU.
+    Conservative,
+    /// Aims at better integration with the Linux kernel scheduler.
+    Schedutil,
+    /// Unknown scheduler type
+    Unknown(String),
+}
+
+impl FromStr for GovernorKind {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.to_lowercase().as_str() {
+            "performance" => GovernorKind::Performance,
+            "powersave" => GovernorKind::Powersave,
+            "userspace" => GovernorKind::Userspace,
+            "ondemand" => GovernorKind::Ondemand,
+            "conservative" => GovernorKind::Conservative,
+            "schedutil" => GovernorKind::Schedutil,
+            unknown => GovernorKind::Unknown(unknown.to_string()),
+        })
+    }
+}
+
+impl fmt::Display for GovernorKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(match self {
+            GovernorKind::Performance => "performance",
+            GovernorKind::Powersave => "powersave",
+            GovernorKind::Userspace => "userspace",
+            GovernorKind::Ondemand => "ondemand",
+            GovernorKind::Conservative => "conservative",
+            GovernorKind::Schedutil => "schedutil",
+            GovernorKind::Unknown(other) => other,
+        })
+    }
+}
+
+impl Default for GovernorKind {
+    fn default() -> Self {
+        GovernorKind::Unknown(Default::default())
+    }
+}
+
 /// Networks interfaces.
 ///
 /// ```no_run

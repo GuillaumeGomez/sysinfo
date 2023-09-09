@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
-use crate::{CpuExt, CpuRefreshKind};
+use crate::{CpuExt, CpuRefreshKind, GovernorKind};
 
 use libc::{c_char, c_void, host_processor_info, mach_port_t, mach_task_self};
 use std::mem;
@@ -169,6 +169,10 @@ impl CpuExt for Cpu {
 
     fn brand(&self) -> &str {
         &self.brand
+    }
+
+    fn governor(&self) -> GovernorKind {
+        GovernorKind::default()
     }
 }
 

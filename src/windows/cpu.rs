@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::tools::KeyHandler;
-use crate::{CpuExt, CpuRefreshKind, LoadAvg};
+use crate::{CpuExt, CpuRefreshKind, GovernorKind, LoadAvg};
 
 use std::collections::HashMap;
 use std::io::Error;
@@ -331,6 +331,10 @@ impl CpuExt for Cpu {
 
     fn brand(&self) -> &str {
         &self.brand
+    }
+
+    fn governor(&self) -> GovernorKind {
+        GovernorKind::default()
     }
 }
 

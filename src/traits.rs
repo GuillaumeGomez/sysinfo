@@ -5,8 +5,8 @@ use crate::{
     sys::{Component, Cpu, Disk, Process},
 };
 use crate::{
-    CpuRefreshKind, DiskKind, DiskUsage, Disks, Group, LoadAvg, Networks, NetworksIter, Pid,
-    ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, User,
+    CpuRefreshKind, DiskKind, DiskUsage, Disks, GovernorKind, Group, LoadAvg, Networks,
+    NetworksIter, Pid, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, User,
 };
 
 use std::collections::HashMap;
@@ -570,6 +570,20 @@ pub trait CpuExt: Debug {
     /// }
     /// ```
     fn frequency(&self) -> u64;
+
+    /// Returns the CPU's governor.
+    ///
+    /// ```no_run
+    /// use sysinfo::{CpuExt, GovernorKind, System, SystemExt, RefreshKind, CpuRefreshKind};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.governor());
+    /// }
+    /// ```
+    fn governor(&self) -> GovernorKind;
 }
 
 /// Contains all the methods of the [`System`][crate::System] type.
@@ -1103,6 +1117,18 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// println!("{}%", s.global_cpu_info().cpu_usage());
     /// ```
     fn global_cpu_info(&self) -> &Cpu;
+
+    /// Returns the CPUs governor being used.
+    ///
+    /// ```no_run
+    /// use sysinfo::{CpuRefreshKind, CpuExt, RefreshKind, System, SystemExt};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// println!("{}%", s.global_cpu_info().cpu_usage());
+    /// ```
+    fn governor(&self) -> GovernorKind;
 
     /// Returns the list of the CPUs.
     ///
