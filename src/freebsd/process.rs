@@ -213,9 +213,7 @@ pub(crate) unsafe fn get_process_data(
     let status = ProcessStatus::from(kproc.ki_stat);
 
     // from FreeBSD source /bin/ps/print.c
-    let accum_cpu_usage = (kproc.ki_runtime as f64 / 1000000.0) as f32
-        + kproc.ki_childtime.tv_sec as f32
-        + kproc.ki_childtime.tv_usec as f32 / 1000000.0;
+    let accum_cpu_usage = (kproc.ki_runtime as f64 / 1000000.0) as f32;
 
     // from FreeBSD source /src/usr.bin/top/machine.c
     let virtual_memory = kproc.ki_size as _;
