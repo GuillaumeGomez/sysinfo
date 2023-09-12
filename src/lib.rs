@@ -315,7 +315,9 @@ mod test {
                     let delta = proc.total_accumulated_cpu_usage() - prev;
                     assert!(
                         delta >= 0.0 && delta <= max_delta,
-                        "CPU time delta is out of range delta={delta} max_delta={max_delta}"
+                        "CPU time delta is out of range delta={} max_delta={}",
+                        delta,
+                        max_delta,
                     );
                 }
             });
