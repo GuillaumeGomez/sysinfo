@@ -113,7 +113,7 @@ impl Networks {
     }
 }
 
-#[doc = include_str!("../../md_doc/network_data.md")]
+#[doc = include_str!("../../../md_doc/network_data.md")]
 pub struct NetworkData {
     /// Total number of bytes received over interface.
     ifi_ibytes: u64,

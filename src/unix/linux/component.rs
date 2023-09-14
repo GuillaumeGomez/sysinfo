@@ -11,7 +11,7 @@ use std::fs::{read_dir, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-#[doc = include_str!("../../md_doc/component.md")]
+#[doc = include_str!("../../../md_doc/component.md")]
 #[derive(Default)]
 pub struct Component {
     /// Optional associated device of a `Component`.

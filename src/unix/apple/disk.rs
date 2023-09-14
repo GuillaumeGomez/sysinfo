@@ -19,7 +19,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::ptr;
 
-#[doc = include_str!("../../md_doc/disk.md")]
+#[doc = include_str!("../../../md_doc/disk.md")]
 pub struct Disk {
     pub(crate) type_: DiskKind,
     pub(crate) name: OsString,

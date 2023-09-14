@@ -60,7 +60,7 @@ macro_rules! declare_signals {
 #[cfg(all(unix, not(feature = "unknown-ci")))]
 macro_rules! retry_eintr {
     (set_to_0 => $($t:tt)+) => {{
-        let errno = crate::libc_errno();
+        let errno = crate::unix::libc_errno();
         if !errno.is_null() {
             *errno = 0;
         }

@@ -2,7 +2,7 @@
 
 use crate::ComponentExt;
 
-#[doc = include_str!("../../../md_doc/component.md")]
+#[doc = include_str!("../../../../md_doc/component.md")]
 pub struct Component {}
 
 impl ComponentExt for Component {

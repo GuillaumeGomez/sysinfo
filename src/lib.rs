@@ -22,51 +22,23 @@ cfg_if::cfg_if! {
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 0;
-    } else if #[cfg(any(target_os = "macos", target_os = "ios"))] {
-        mod apple;
-        use apple as sys;
-        pub(crate) mod users;
-        mod network_helper_nix;
-        use network_helper_nix as network_helper;
+    } else if #[cfg(any(
+        target_os = "macos", target_os = "ios",
+        target_os = "linux", target_os = "android",
+        target_os = "freebsd"))]
+    {
+        mod unix;
+        use unix::sys as sys;
+        use unix::{network_helper, users};
         mod network;
-
-        pub(crate) use libc::__error as libc_errno;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
     } else if #[cfg(windows)] {
         mod windows;
         use windows as sys;
-        mod network_helper_win;
-        use network_helper_win as network_helper;
+        use windows::network_helper;
         mod network;
-
-        #[cfg(test)]
-        pub(crate) const MIN_USERS: usize = 1;
-    } else if #[cfg(any(target_os = "linux", target_os = "android"))] {
-        mod linux;
-        use linux as sys;
-        pub(crate) mod users;
-        mod network_helper_nix;
-        use network_helper_nix as network_helper;
-        mod network;
-
-        #[cfg(target_os = "linux")]
-        pub(crate) use libc::__errno_location as libc_errno;
-        #[cfg(target_os = "android")]
-        pub(crate) use libc::__errno as libc_errno;
-
-        #[cfg(test)]
-        pub(crate) const MIN_USERS: usize = 1;
-    } else if #[cfg(target_os = "freebsd")] {
-        mod freebsd;
-        use freebsd as sys;
-        pub(crate) mod users;
-        mod network_helper_nix;
-        use network_helper_nix as network_helper;
-        mod network;
-
-        pub(crate) use libc::__error as libc_errno;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;

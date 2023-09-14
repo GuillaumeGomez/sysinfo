@@ -305,7 +305,7 @@ impl CpuValues {
     }
 }
 
-#[doc = include_str!("../../md_doc/cpu.md")]
+#[doc = include_str!("../../../md_doc/cpu.md")]
 pub struct Cpu {
     old_values: CpuValues,
     new_values: CpuValues,

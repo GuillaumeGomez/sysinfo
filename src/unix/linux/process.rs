@@ -56,7 +56,7 @@ impl fmt::Display for ProcessStatus {
     }
 }
 
-#[doc = include_str!("../../md_doc/process.md")]
+#[doc = include_str!("../../../md_doc/process.md")]
 pub struct Process {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,

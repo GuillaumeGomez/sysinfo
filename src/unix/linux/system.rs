@@ -147,7 +147,7 @@ declare_signals! {
     Signal::Sys => libc::SIGSYS,
 }
 
-#[doc = include_str!("../../md_doc/system.md")]
+#[doc = include_str!("../../../md_doc/system.md")]
 pub struct System {
     process_list: Process,
     mem_total: u64,

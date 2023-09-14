@@ -4,6 +4,7 @@ mod component;
 mod cpu;
 mod disk;
 mod network;
+pub(crate) mod network_helper;
 mod process;
 mod sid;
 mod system;

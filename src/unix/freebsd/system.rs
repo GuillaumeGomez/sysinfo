@@ -57,7 +57,7 @@ declare_signals! {
     _ => None,
 }
 
-#[doc = include_str!("../../md_doc/system.md")]
+#[doc = include_str!("../../../md_doc/system.md")]
 pub struct System {
     process_list: HashMap<Pid, Process>,
     mem_total: u64,
