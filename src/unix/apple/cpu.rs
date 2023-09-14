@@ -103,7 +103,7 @@ impl Drop for CpuData {
     }
 }
 
-#[doc = include_str!("../../md_doc/cpu.md")]
+#[doc = include_str!("../../../md_doc/cpu.md")]
 pub struct Cpu {
     name: String,
     cpu_usage: f32,

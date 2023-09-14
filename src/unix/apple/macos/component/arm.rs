@@ -8,7 +8,7 @@ use core_foundation_sys::string::{
     kCFStringEncodingUTF8, CFStringCreateWithBytes, CFStringGetCStringPtr,
 };
 
-use crate::apple::inner::ffi::{
+use crate::sys::inner::ffi::{
     kHIDPage_AppleVendor, kHIDUsage_AppleVendor_TemperatureSensor, kIOHIDEventTypeTemperature,
     matching, IOHIDEventFieldBase, IOHIDEventGetFloatValue, IOHIDEventSystemClientCopyServices,
     IOHIDEventSystemClientCreate, IOHIDEventSystemClientSetMatching, IOHIDServiceClientCopyEvent,
@@ -109,7 +109,7 @@ impl Components {
 unsafe impl Send for Components {}
 unsafe impl Sync for Components {}
 
-#[doc = include_str!("../../../../md_doc/component.md")]
+#[doc = include_str!("../../../../../md_doc/component.md")]
 pub struct Component {
     service: CFReleaser<__IOHIDServiceClient>,
     temperature: f32,

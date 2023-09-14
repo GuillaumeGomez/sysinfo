@@ -132,7 +132,7 @@ impl CpusWrapper {
     }
 }
 
-#[doc = include_str!("../../md_doc/cpu.md")]
+#[doc = include_str!("../../../md_doc/cpu.md")]
 pub struct Cpu {
     pub(crate) cpu_usage: f32,
     name: String,

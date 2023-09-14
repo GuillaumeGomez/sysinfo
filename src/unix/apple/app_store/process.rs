@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessStatus, Signal, Uid};
 
-#[doc = include_str!("../../../md_doc/process.md")]
+#[doc = include_str!("../../../../md_doc/process.md")]
 pub struct Process;
 
 impl ProcessExt for Process {

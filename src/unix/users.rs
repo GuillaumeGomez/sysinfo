@@ -9,7 +9,7 @@ use libc::{getgrgid_r, getgrouplist};
 use std::fs::File;
 use std::io::Read;
 
-#[doc = include_str!("../md_doc/user.md")]
+#[doc = include_str!("../../md_doc/user.md")]
 pub struct User {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,

@@ -16,7 +16,7 @@ macro_rules! cast {
     };
 }
 
-#[doc = include_str!("../../md_doc/disk.md")]
+#[doc = include_str!("../../../md_doc/disk.md")]
 #[derive(PartialEq, Eq)]
 pub struct Disk {
     type_: DiskKind,
