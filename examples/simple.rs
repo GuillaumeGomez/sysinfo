@@ -8,7 +8,7 @@ use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::Signal::*;
 use sysinfo::{
-    CpuExt, NetworkExt, NetworksExt, Pid, ProcessExt, Signal, System, SystemExt, UserExt,
+    CpuExt, NetworkExt, Networks, NetworksExt, Pid, ProcessExt, Signal, System, SystemExt, UserExt,
 };
 
 const signals: &[Signal] = &[
@@ -141,7 +141,7 @@ fn print_help() {
     writeln!(&mut io::stdout(), "quit               : Exit the program");
 }
 
-fn interpret_input(input: &str, sys: &mut System) -> bool {
+fn interpret_input(input: &str, sys: &mut System, networks: &mut Networks) -> bool {
     match input.trim() {
         "help" => print_help(),
         "refresh_disks" => {
@@ -156,7 +156,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         }
         "refresh_networks" => {
             writeln!(&mut io::stdout(), "Refreshing network list...");
-            sys.refresh_networks_list();
+            networks.refresh_list();
             writeln!(&mut io::stdout(), "Done.");
         }
         "signals" => {
@@ -276,7 +276,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "network" => {
-            for (interface_name, data) in sys.networks().iter() {
+            for (interface_name, data) in networks.iter() {
                 writeln!(
                     &mut io::stdout(),
                     "{}:\n  ether {}\n  input data  (new / total): {} / {} B\n  output data (new / total): {} / {} B",
@@ -431,8 +431,10 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
 }
 
 fn main() {
-    println!("Getting processes' information...");
+    println!("Getting system information...");
     let mut t = System::new_all();
+    let mut n = Networks::new();
+    n.refresh_list();
     println!("Done.");
     let t_stin = io::stdin();
     let mut stin = t_stin.lock();
@@ -454,6 +456,6 @@ fn main() {
         if (&input as &str).ends_with('\n') {
             input.pop();
         }
-        done = interpret_input(input.as_ref(), &mut t);
+        done = interpret_input(input.as_ref(), &mut t, &mut n);
     }
 }

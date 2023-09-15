@@ -2,8 +2,7 @@
 
 use crate::{
     sys::{component::Component, Cpu, Process},
-    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt,
-    User,
+    CpuRefreshKind, Disks, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 use std::collections::HashMap;
@@ -17,7 +16,6 @@ declare_signals! {
 #[doc = include_str!("../../md_doc/system.md")]
 pub struct System {
     processes_list: HashMap<Pid, Process>,
-    networks: Networks,
     global_cpu: Cpu,
     disks: Disks,
 }
@@ -30,7 +28,6 @@ impl SystemExt for System {
     fn new_with_specifics(_: RefreshKind) -> System {
         System {
             processes_list: Default::default(),
-            networks: Networks::new(),
             global_cpu: Cpu::new(),
             disks: Disks::new(),
         }
@@ -60,14 +57,6 @@ impl SystemExt for System {
 
     fn process(&self, _pid: Pid) -> Option<&Process> {
         None
-    }
-
-    fn networks(&self) -> &Networks {
-        &self.networks
-    }
-
-    fn networks_mut(&mut self) -> &mut Networks {
-        &mut self.networks
     }
 
     fn global_cpu_info(&self) -> &Cpu {

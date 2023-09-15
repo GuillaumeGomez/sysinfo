@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessExt, ProcessRefreshKind, RefreshKind,
-    SystemExt, User,
+    CpuRefreshKind, Disks, LoadAvg, Pid, ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt,
+    User,
 };
 use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
@@ -53,7 +53,6 @@ pub struct System {
     components: Vec<Component>,
     disks: Disks,
     query: Option<Query>,
-    networks: Networks,
     boot_time: u64,
     users: Vec<User>,
 }
@@ -105,7 +104,6 @@ impl SystemExt for System {
             components: Vec::new(),
             disks: Disks::new(),
             query: None,
-            networks: Networks::new(),
             boot_time: unsafe { boot_time() },
             users: Vec::new(),
         };
@@ -424,14 +422,6 @@ impl SystemExt for System {
 
     fn users(&self) -> &[User] {
         &self.users
-    }
-
-    fn networks(&self) -> &Networks {
-        &self.networks
-    }
-
-    fn networks_mut(&mut self) -> &mut Networks {
-        &mut self.networks
     }
 
     fn uptime(&self) -> u64 {

@@ -108,6 +108,12 @@ fn refresh_networks_list_from_sysfs(
 }
 
 impl NetworksExt for Networks {
+    fn new() -> Self {
+        Self {
+            interfaces: HashMap::new(),
+        }
+    }
+
     fn iter(&self) -> NetworksIter {
         NetworksIter::new(self.interfaces.iter())
     }
@@ -120,7 +126,7 @@ impl NetworksExt for Networks {
         }
     }
 
-    fn refresh_networks_list(&mut self) {
+    fn refresh_list(&mut self) {
         refresh_networks_list_from_sysfs(&mut self.interfaces, Path::new("/sys/class/net/"));
         refresh_networks_addresses(&mut self.interfaces);
     }

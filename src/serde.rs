@@ -114,7 +114,6 @@ impl serde::Serialize for crate::System {
         state.serialize_field("components", &self.components())?;
         state.serialize_field("users", &self.users())?;
         state.serialize_field("disks", &self.disks())?;
-        state.serialize_field("networks", &self.networks())?;
 
         state.serialize_field("uptime", &self.uptime())?;
         state.serialize_field("boot_time", &self.boot_time())?;

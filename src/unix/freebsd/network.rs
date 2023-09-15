@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::collections::hash_map;
+use std::collections::{hash_map, HashMap};
 use std::mem::MaybeUninit;
 
 use super::utils;
@@ -16,11 +16,17 @@ macro_rules! old_and_new {
 }
 
 impl NetworksExt for Networks {
+    fn new() -> Self {
+        Self {
+            interfaces: HashMap::new(),
+        }
+    }
+
     fn iter(&self) -> NetworksIter {
         NetworksIter::new(self.interfaces.iter())
     }
 
-    fn refresh_networks_list(&mut self) {
+    fn refresh_list(&mut self) {
         unsafe {
             self.refresh_interfaces(true);
         }

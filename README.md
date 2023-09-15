@@ -34,7 +34,7 @@ You have an example into the `examples` folder. You can run it with `cargo run -
 Otherwise, here is a little code sample:
 
 ```rust
-use sysinfo::{NetworkExt, NetworksExt, ProcessExt, System, SystemExt};
+use sysinfo::{NetworkExt, Networks, NetworksExt, ProcessExt, System, SystemExt};
 
 // Please note that we use "new_all" to ensure that all list of
 // components, network interfaces, disks and users are already
@@ -51,8 +51,10 @@ for disk in sys.disks().iter() {
 }
 
 // Network interfaces name, data received and data transmitted:
+let mut networks = Networks::new();
+networks.refresh_list();
 println!("=> networks:");
-for (interface_name, data) in sys.networks() {
+for (interface_name, data) in &networks {
     println!("{}: {}/{} B", interface_name, data.received(), data.transmitted());
 }
 

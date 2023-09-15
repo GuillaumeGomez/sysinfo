@@ -5,7 +5,7 @@ use crate::{
     sys::{Component, Cpu, Disk, Process},
 };
 use crate::{
-    CpuRefreshKind, DiskKind, DiskUsage, Disks, Group, LoadAvg, Networks, NetworksIter, Pid,
+    CpuRefreshKind, DiskKind, DiskUsage, Disks, Group, LoadAvg, NetworksIter, Pid,
     ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, User,
 };
 
@@ -610,8 +610,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
 
     /// Creates a new [`System`] instance with nothing loaded. If you want to
     /// load components, network interfaces or the disks, you'll have to use the
-    /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for
-    /// example.
+    /// `refresh_*_list` methods.
     ///
     /// Use the [`refresh_all`] method to update its internal information (or any of the `refresh_`
     /// method).
@@ -676,9 +675,9 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// let mut s = System::new_all();
     ///
-    /// // Let's just update networks and processes:
+    /// // Let's just update processes:
     /// s.refresh_specifics(
-    ///     RefreshKind::new().with_networks().with_processes(ProcessRefreshKind::everything()),
+    ///     RefreshKind::new().with_processes(ProcessRefreshKind::everything()),
     /// );
     /// ```
     fn refresh_specifics(&mut self, refreshes: RefreshKind) {
@@ -692,11 +691,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
             self.refresh_components_list();
         } else if refreshes.components() {
             self.refresh_components();
-        }
-        if refreshes.networks_list() {
-            self.refresh_networks_list();
-        } else if refreshes.networks() {
-            self.refresh_networks();
         }
         if let Some(kind) = refreshes.processes() {
             self.refresh_processes_specifics(kind);
@@ -726,7 +720,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         self.refresh_system();
         self.refresh_processes();
         self.refresh_disks();
-        self.refresh_networks();
     }
 
     /// Refreshes system information (RAM, swap, CPU usage and components' temperature).
@@ -957,51 +950,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// s.refresh_users_list();
     /// ```
     fn refresh_users_list(&mut self);
-
-    /// Refreshes networks data.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_networks();
-    /// ```
-    ///
-    /// It is a shortcut for:
-    ///
-    /// ```no_run
-    /// use sysinfo::{NetworksExt, System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// let networks = s.networks_mut();
-    /// networks.refresh();
-    /// ```
-    fn refresh_networks(&mut self) {
-        self.networks_mut().refresh();
-    }
-
-    /// The network list will be updated: removing not existing anymore interfaces and adding new
-    /// ones.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_networks_list();
-    /// ```
-    ///
-    /// This is a shortcut for:
-    ///
-    /// ```no_run
-    /// use sysinfo::{NetworksExt, System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// let networks = s.networks_mut();
-    /// networks.refresh_networks_list();
-    /// ```
-    fn refresh_networks_list(&mut self) {
-        self.networks_mut().refresh_networks_list();
-    }
 
     /// Returns the process list.
     ///
@@ -1292,35 +1240,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         self.disks_mut().sort_unstable_by(compare);
     }
 
-    /// Returns the network interfaces object.
-    ///
-    /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
-    ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, data) in networks {
-    ///     println!(
-    ///         "[{}] in: {}, out: {}",
-    ///         interface_name,
-    ///         data.received(),
-    ///         data.transmitted(),
-    ///     );
-    /// }
-    /// ```
-    fn networks(&self) -> &Networks;
-
-    /// Returns a mutable access to network interfaces.
-    ///
-    /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// let networks = s.networks_mut();
-    /// networks.refresh_networks_list();
-    /// ```
-    fn networks_mut(&mut self) -> &mut Networks;
-
     /// Returns system uptime (in seconds).
     ///
     /// ```no_run
@@ -1469,11 +1388,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of received bytes since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {} B", network.received());
     /// }
     /// ```
@@ -1482,11 +1401,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of received bytes.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {} B", network.total_received());
     /// }
     /// ```
@@ -1495,11 +1414,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of transmitted bytes since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {} B", network.transmitted());
     /// }
     /// ```
@@ -1508,11 +1427,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of transmitted bytes.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {} B", network.total_transmitted());
     /// }
     /// ```
@@ -1521,11 +1440,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of incoming packets since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.packets_received());
     /// }
     /// ```
@@ -1534,11 +1453,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of incoming packets.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.total_packets_received());
     /// }
     /// ```
@@ -1547,11 +1466,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of outcoming packets since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.packets_transmitted());
     /// }
     /// ```
@@ -1560,11 +1479,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of outcoming packets.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.total_packets_transmitted());
     /// }
     /// ```
@@ -1573,11 +1492,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of incoming errors since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.errors_on_received());
     /// }
     /// ```
@@ -1586,11 +1505,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of incoming errors.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.total_errors_on_received());
     /// }
     /// ```
@@ -1599,11 +1518,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of outcoming errors since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.errors_on_transmitted());
     /// }
     /// ```
@@ -1612,11 +1531,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of outcoming errors.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.total_errors_on_transmitted());
     /// }
     /// ```
@@ -1625,11 +1544,11 @@ pub trait NetworkExt: Debug {
     /// Returns the MAC address associated to current interface.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("MAC address: {}", network.mac_address());
     /// }
     /// ```
@@ -1638,15 +1557,32 @@ pub trait NetworkExt: Debug {
 
 /// Interacting with network interfaces.
 pub trait NetworksExt: Debug {
+    /// Creates a new `Networks` type.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Networks, NetworksExt};
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("[{interface_name}]: {network:?}");
+    /// }
+    /// ```
+    fn new() -> Self;
+
     /// Returns an iterator over the network interfaces.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt, System, SystemExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
-    ///     println!("in: {} B", network.received());
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, data) in &networks {
+    ///     println!(
+    ///         "[{interface_name}] in: {}, out: {}",
+    ///         data.received(),
+    ///         data.transmitted(),
+    ///     );
     /// }
     /// ```
     fn iter(&self) -> NetworksIter;
@@ -1654,21 +1590,23 @@ pub trait NetworksExt: Debug {
     /// Refreshes the network interfaces list.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworksExt, System, SystemExt};
     ///
-    /// let mut s = System::new_all();
-    /// let networks = s.networks_mut();
-    /// networks.refresh_networks_list();
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
     /// ```
-    fn refresh_networks_list(&mut self);
+    fn refresh_list(&mut self);
 
-    /// Refreshes the network interfaces' content.
+    /// Refreshes the network interfaces' content. If you didn't run [`NetworksExt::refresh_list`]
+    /// before, calling this method won't do anything as no interfaces are present.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworksExt, System, SystemExt};
     ///
-    /// let mut s = System::new_all();
-    /// let networks = s.networks_mut();
+    /// let mut networks = Networks::new();
+    /// // Refreshes the network interfaces list.
+    /// networks.refresh_list();
+    /// // Wait some time...? Then refresh the data of each network.
     /// networks.refresh();
     /// ```
     fn refresh(&mut self);

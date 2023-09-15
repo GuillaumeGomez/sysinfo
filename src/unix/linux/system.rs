@@ -5,7 +5,7 @@ use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_all_data, to_u64};
 use crate::{
-    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, Disks, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
@@ -161,7 +161,6 @@ pub struct System {
     swap_free: u64,
     components: Vec<Component>,
     disks: Disks,
-    networks: Networks,
     users: Vec<User>,
     info: SystemInfo,
     cpus: CpusWrapper,
@@ -236,7 +235,6 @@ impl SystemExt for System {
             cpus: CpusWrapper::new(),
             components: Vec::new(),
             disks: Disks::new(),
-            networks: Networks::new(),
             users: Vec::new(),
             info: SystemInfo::new(),
         };
@@ -389,14 +387,6 @@ impl SystemExt for System {
 
     fn process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.tasks.get(&pid)
-    }
-
-    fn networks(&self) -> &Networks {
-        &self.networks
-    }
-
-    fn networks_mut(&mut self) -> &mut Networks {
-        &mut self.networks
     }
 
     fn global_cpu_info(&self) -> &Cpu {
