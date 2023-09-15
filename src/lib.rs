@@ -204,6 +204,7 @@ mod doctest {
 #[cfg(test)]
 mod test {
     use std::collections::HashMap;
+    use std::time::Instant;
 
     use crate::*;
 
@@ -291,6 +292,7 @@ mod test {
             let mut s = System::new();
 
             s.refresh_processes();
+            let first_time = Instant::now();
             let all_procs: HashMap<_, _> = s
                 .processes()
                 .iter()
@@ -302,14 +304,14 @@ mod test {
             // Wait a bit to update CPU usage values
             std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
             s.refresh_processes();
+            let duration = Instant::now().duration_since(first_time).as_secs_f32();
             // They will still all be non-negative.
             s.processes()
                 .values()
                 .for_each(|proc| assert!(proc.total_accumulated_cpu_usage() >= 0.0));
             // They will all have either remained the same or
             // increased no more than a valid amount.
-            let max_delta =
-                s.cpus().len() as f32 * System::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() as f32;
+            let max_delta = s.cpus().len() as f32 * duration;
             s.processes().iter().for_each(|(pid, proc)| {
                 if let Some(prev) = all_procs.get(pid) {
                     let delta = proc.total_accumulated_cpu_usage() - prev;
