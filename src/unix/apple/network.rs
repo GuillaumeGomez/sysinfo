@@ -2,7 +2,7 @@
 
 use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
 
-use std::collections::hash_map;
+use std::collections::{hash_map, HashMap};
 use std::ptr::null_mut;
 
 use crate::common::MacAddr;
@@ -20,7 +20,7 @@ impl Networks {
     #[allow(unknown_lints)]
     #[allow(clippy::cast_ptr_alignment)]
     #[allow(clippy::uninit_vec)]
-    fn update_networks(&mut self) {
+    fn update_networks(&mut self, insert: bool) {
         let mib = &mut [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0];
         let mut len = 0;
         unsafe {
@@ -113,6 +113,9 @@ impl Networks {
                             interface.updated = true;
                         }
                         hash_map::Entry::Vacant(e) => {
+                            if !insert {
+                                continue;
+                            }
                             let current_in = (*if2m).ifm_data.ifi_ibytes;
                             let current_out = (*if2m).ifm_data.ifi_obytes;
                             let packets_in = (*if2m).ifm_data.ifi_ipackets;
@@ -145,22 +148,28 @@ impl Networks {
 }
 
 impl NetworksExt for Networks {
+    fn new() -> Self {
+        Self {
+            interfaces: HashMap::new(),
+        }
+    }
+
     #[allow(clippy::needless_lifetimes)]
     fn iter<'a>(&'a self) -> NetworksIter<'a> {
         NetworksIter::new(self.interfaces.iter())
     }
 
-    fn refresh_networks_list(&mut self) {
+    fn refresh_list(&mut self) {
         for (_, data) in self.interfaces.iter_mut() {
             data.updated = false;
         }
-        self.update_networks();
+        self.update_networks(true);
         self.interfaces.retain(|_, data| data.updated);
         refresh_networks_addresses(&mut self.interfaces);
     }
 
     fn refresh(&mut self) {
-        self.update_networks();
+        self.update_networks(false);
     }
 }
 

@@ -366,8 +366,6 @@ impl CpuRefreshKind {
 /// [`System`]: crate::System
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RefreshKind {
-    networks: bool,
-    networks_list: bool,
     processes: Option<ProcessRefreshKind>,
     disks_list: bool,
     disks: bool,
@@ -386,8 +384,6 @@ impl RefreshKind {
     ///
     /// let r = RefreshKind::new();
     ///
-    /// assert_eq!(r.networks(), false);
-    /// assert_eq!(r.networks_list(), false);
     /// assert_eq!(r.processes().is_some(), false);
     /// assert_eq!(r.disks_list(), false);
     /// assert_eq!(r.disks(), false);
@@ -408,8 +404,6 @@ impl RefreshKind {
     ///
     /// let r = RefreshKind::everything();
     ///
-    /// assert_eq!(r.networks(), true);
-    /// assert_eq!(r.networks_list(), true);
     /// assert_eq!(r.processes().is_some(), true);
     /// assert_eq!(r.disks_list(), true);
     /// assert_eq!(r.disks(), true);
@@ -421,8 +415,6 @@ impl RefreshKind {
     /// ```
     pub fn everything() -> Self {
         Self {
-            networks: true,
-            networks_list: true,
             processes: Some(ProcessRefreshKind::everything()),
             disks: true,
             disks_list: true,
@@ -441,13 +433,6 @@ impl RefreshKind {
         without_processes,
         ProcessRefreshKind
     );
-    impl_get_set!(RefreshKind, networks, with_networks, without_networks);
-    impl_get_set!(
-        RefreshKind,
-        networks_list,
-        with_networks_list,
-        without_networks_list
-    );
     impl_get_set!(RefreshKind, disks, with_disks, without_disks);
     impl_get_set!(RefreshKind, disks_list, with_disks_list, without_disks_list);
     impl_get_set!(RefreshKind, memory, with_memory, without_memory);
@@ -462,26 +447,22 @@ impl RefreshKind {
     impl_get_set!(RefreshKind, users_list, with_users_list, without_users_list);
 }
 
-/// Networks interfaces.
+/// Network interfaces.
+///
+/// Don't forget to also take a look at the [`NetworksExt`] trait to see the list of available
+/// methods.
 ///
 /// ```no_run
-/// use sysinfo::{NetworksExt, System, SystemExt};
+/// use sysinfo::{Networks, NetworksExt};
 ///
-/// let s = System::new_all();
-/// for network in s.networks().iter() {
+/// let mut networks = Networks::new();
+/// networks.refresh_list();
+/// for network in networks.iter() {
 ///     println!("{:?}", network);
 /// }
 /// ```
 pub struct Networks {
     pub(crate) interfaces: HashMap<String, NetworkData>,
-}
-
-impl Networks {
-    pub(crate) fn new() -> Networks {
-        Networks {
-            interfaces: HashMap::new(),
-        }
-    }
 }
 
 impl<'a> IntoIterator for &'a Networks {
@@ -498,10 +479,10 @@ impl<'a> IntoIterator for &'a Networks {
 /// It is returned by [`Networks::iter`][crate::Networks#method.iter].
 ///
 /// ```no_run
-/// use sysinfo::{System, SystemExt, NetworksExt};
+/// use sysinfo::{Networks, NetworksExt};
 ///
-/// let system = System::new_all();
-/// let networks_iter = system.networks().iter();
+/// let networks = Networks::new();
+/// let networks_iter = networks.iter();
 /// ```
 pub struct NetworksIter<'a> {
     inner: std::collections::hash_map::Iter<'a, String, NetworkData>,

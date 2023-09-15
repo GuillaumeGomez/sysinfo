@@ -6,7 +6,7 @@ use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
 use crate::{
-    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, Disks, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -87,7 +87,6 @@ pub struct System {
     #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     components: Components,
     disks: Disks,
-    networks: Networks,
     port: mach_port_t,
     users: Vec<User>,
     boot_time: u64,
@@ -155,7 +154,6 @@ impl SystemExt for System {
                 #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
                 components: Components::new(),
                 disks: Disks::new(),
-                networks: Networks::new(),
                 port,
                 users: Vec::new(),
                 boot_time: boot_time(),
@@ -352,14 +350,6 @@ impl SystemExt for System {
 
     fn physical_core_count(&self) -> Option<usize> {
         physical_core_count()
-    }
-
-    fn networks(&self) -> &Networks {
-        &self.networks
-    }
-
-    fn networks_mut(&mut self) -> &mut Networks {
-        &mut self.networks
     }
 
     fn total_memory(&self) -> u64 {

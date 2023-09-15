@@ -29,7 +29,6 @@ impl fmt::Debug for System {
             .field("total swap", &self.total_swap())
             .field("free swap", &self.free_swap())
             .field("nb CPUs", &self.cpus().len())
-            .field("nb network interfaces", &self.networks().iter().count())
             .field("nb processes", &self.processes().len())
             .field("nb disks", &self.disks().len())
             .field("nb components", &self.components().len())
