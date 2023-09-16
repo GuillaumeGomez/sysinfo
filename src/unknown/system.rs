@@ -2,7 +2,7 @@
 
 use crate::{
     sys::{component::Component, Cpu, Process},
-    CpuRefreshKind, Disks, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 use std::collections::HashMap;
@@ -17,7 +17,6 @@ declare_signals! {
 pub struct System {
     processes_list: HashMap<Pid, Process>,
     global_cpu: Cpu,
-    disks: Disks,
 }
 
 impl SystemExt for System {
@@ -29,7 +28,6 @@ impl SystemExt for System {
         System {
             processes_list: Default::default(),
             global_cpu: Cpu::new(),
-            disks: Disks::new(),
         }
     }
 
@@ -105,14 +103,6 @@ impl SystemExt for System {
 
     fn components_mut(&mut self) -> &mut [Component] {
         &mut []
-    }
-
-    fn disks(&self) -> &Disks {
-        &self.disks
-    }
-
-    fn disks_mut(&mut self) -> &mut Disks {
-        &mut self.disks
     }
 
     fn uptime(&self) -> u64 {

@@ -345,7 +345,7 @@ impl CpuRefreshKind {
     impl_get_set!(CpuRefreshKind, frequency, with_frequency, without_frequency);
 }
 
-/// Used to determine what you want to refresh specifically on the [`System`] type.
+/// Used to determine what you want to refresh specifically on the [`System`][crate::System] type.
 ///
 /// ⚠️ Just like all other refresh types, ruling out a refresh doesn't assure you that
 /// the information won't be retrieved if the information is accessible without needing
@@ -354,21 +354,17 @@ impl CpuRefreshKind {
 /// ```
 /// use sysinfo::{RefreshKind, System, SystemExt};
 ///
-/// // We want everything except disks.
-/// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
+/// // We want everything except memory.
+/// let mut system = System::new_with_specifics(RefreshKind::everything().without_memory());
 ///
-/// assert_eq!(system.disks().len(), 0);
+/// assert_eq!(system.total_memory(), 0);
 /// # if System::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
 /// assert!(system.processes().len() > 0);
 /// # }
 /// ```
-///
-/// [`System`]: crate::System
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RefreshKind {
     processes: Option<ProcessRefreshKind>,
-    disks_list: bool,
-    disks: bool,
     memory: bool,
     cpu: Option<CpuRefreshKind>,
     components: bool,
@@ -385,8 +381,6 @@ impl RefreshKind {
     /// let r = RefreshKind::new();
     ///
     /// assert_eq!(r.processes().is_some(), false);
-    /// assert_eq!(r.disks_list(), false);
-    /// assert_eq!(r.disks(), false);
     /// assert_eq!(r.memory(), false);
     /// assert_eq!(r.cpu().is_some(), false);
     /// assert_eq!(r.components(), false);
@@ -405,8 +399,6 @@ impl RefreshKind {
     /// let r = RefreshKind::everything();
     ///
     /// assert_eq!(r.processes().is_some(), true);
-    /// assert_eq!(r.disks_list(), true);
-    /// assert_eq!(r.disks(), true);
     /// assert_eq!(r.memory(), true);
     /// assert_eq!(r.cpu().is_some(), true);
     /// assert_eq!(r.components(), true);
@@ -416,8 +408,6 @@ impl RefreshKind {
     pub fn everything() -> Self {
         Self {
             processes: Some(ProcessRefreshKind::everything()),
-            disks: true,
-            disks_list: true,
             memory: true,
             cpu: Some(CpuRefreshKind::everything()),
             components: true,
@@ -433,8 +423,6 @@ impl RefreshKind {
         without_processes,
         ProcessRefreshKind
     );
-    impl_get_set!(RefreshKind, disks, with_disks, without_disks);
-    impl_get_set!(RefreshKind, disks_list, with_disks_list, without_disks_list);
     impl_get_set!(RefreshKind, memory, with_memory, without_memory);
     impl_get_set!(RefreshKind, cpu, with_cpu, without_cpu, CpuRefreshKind);
     impl_get_set!(RefreshKind, components, with_components, without_components);
@@ -505,23 +493,16 @@ impl<'a> Iterator for NetworksIter<'a> {
 /// Disks interfaces.
 ///
 /// ```no_run
-/// use sysinfo::{DiskExt, System, SystemExt};
+/// use sysinfo::{Disks, DisksExt};
 ///
-/// let s = System::new_all();
-/// for disk in s.disks().iter() {
+/// let mut disks = Disks::new();
+/// disks.refresh_list();
+/// for disk in disks.disks() {
 ///     println!("{:?}", disk);
 /// }
 /// ```
 pub struct Disks {
     pub(crate) disks: Vec<Disk>,
-}
-
-impl Disks {
-    pub(crate) fn new() -> Self {
-        Self {
-            disks: Vec::with_capacity(2),
-        }
-    }
 }
 
 impl std::ops::Deref for Disks {
@@ -543,10 +524,11 @@ impl std::ops::DerefMut for Disks {
 /// This type is returned by [`DiskExt::kind`](`crate::DiskExt::kind`).
 ///
 /// ```no_run
-/// use sysinfo::{System, SystemExt, DiskExt};
+/// use sysinfo::{DiskExt, Disks, DisksExt};
 ///
-/// let system = System::new_all();
-/// for disk in system.disks().iter() {
+/// let mut disks = Disks::new();
+/// disks.refresh_list();
+/// for disk in disks.disks() {
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```

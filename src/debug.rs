@@ -30,7 +30,6 @@ impl fmt::Debug for System {
             .field("free swap", &self.free_swap())
             .field("nb CPUs", &self.cpus().len())
             .field("nb processes", &self.processes().len())
-            .field("nb disks", &self.disks().len())
             .field("nb components", &self.components().len())
             .finish()
     }

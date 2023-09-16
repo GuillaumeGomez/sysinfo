@@ -8,7 +8,8 @@ use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::Signal::*;
 use sysinfo::{
-    CpuExt, NetworkExt, Networks, NetworksExt, Pid, ProcessExt, Signal, System, SystemExt, UserExt,
+    CpuExt, Disks, DisksExt, NetworkExt, Networks, NetworksExt, Pid, ProcessExt, Signal, System,
+    SystemExt, UserExt,
 };
 
 const signals: &[Signal] = &[
@@ -141,12 +142,17 @@ fn print_help() {
     writeln!(&mut io::stdout(), "quit               : Exit the program");
 }
 
-fn interpret_input(input: &str, sys: &mut System, networks: &mut Networks) -> bool {
+fn interpret_input(
+    input: &str,
+    sys: &mut System,
+    networks: &mut Networks,
+    disks: &mut Disks,
+) -> bool {
     match input.trim() {
         "help" => print_help(),
         "refresh_disks" => {
             writeln!(&mut io::stdout(), "Refreshing disk list...");
-            sys.refresh_disks_list();
+            disks.refresh_list();
             writeln!(&mut io::stdout(), "Done.");
         }
         "refresh_users" => {
@@ -336,7 +342,7 @@ fn interpret_input(input: &str, sys: &mut System, networks: &mut Networks) -> bo
             }
         }
         "disks" => {
-            for disk in sys.disks().iter() {
+            for disk in disks.disks() {
                 writeln!(&mut io::stdout(), "{disk:?}");
             }
         }
@@ -434,7 +440,9 @@ fn main() {
     println!("Getting system information...");
     let mut t = System::new_all();
     let mut n = Networks::new();
+    let mut d = Disks::new();
     n.refresh_list();
+    d.refresh_list();
     println!("Done.");
     let t_stin = io::stdin();
     let mut stin = t_stin.lock();
@@ -456,6 +464,6 @@ fn main() {
         if (&input as &str).ends_with('\n') {
             input.pop();
         }
-        done = interpret_input(input.as_ref(), &mut t, &mut n);
+        done = interpret_input(input.as_ref(), &mut t, &mut n, &mut d);
     }
 }

@@ -4,9 +4,7 @@ use crate::sys::component::{self, Component};
 use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_all_data, to_u64};
-use crate::{
-    CpuRefreshKind, Disks, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
-};
+use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User};
 
 use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cmp::min;
@@ -160,7 +158,6 @@ pub struct System {
     swap_total: u64,
     swap_free: u64,
     components: Vec<Component>,
-    disks: Disks,
     users: Vec<User>,
     info: SystemInfo,
     cpus: CpusWrapper,
@@ -234,7 +231,6 @@ impl SystemExt for System {
             swap_free: 0,
             cpus: CpusWrapper::new(),
             components: Vec::new(),
-            disks: Disks::new(),
             users: Vec::new(),
             info: SystemInfo::new(),
         };
@@ -436,14 +432,6 @@ impl SystemExt for System {
 
     fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
-    }
-
-    fn disks(&self) -> &Disks {
-        &self.disks
-    }
-
-    fn disks_mut(&mut self) -> &mut Disks {
-        &mut self.disks
     }
 
     fn uptime(&self) -> u64 {
