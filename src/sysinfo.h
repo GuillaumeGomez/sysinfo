@@ -8,9 +8,12 @@
 typedef void* CSystem;
 typedef const void* CProcess;
 typedef const char* RString;
+typedef void* CNetworks;
 
-CSystem    *sysinfo_init(void);
+CSystem     sysinfo_init(void);
 void        sysinfo_destroy(CSystem system);
+CNetworks   sysinfo_networks_init(void);
+void        sysinfo_networks_destroy(CNetworks networks);
 
 void        sysinfo_refresh_system(CSystem system);
 void        sysinfo_refresh_memory(CSystem system);
@@ -31,9 +34,6 @@ size_t      sysinfo_total_swap(CSystem system);
 size_t      sysinfo_free_swap(CSystem system);
 size_t      sysinfo_used_swap(CSystem system);
 
-size_t      sysinfo_networks_received(CSystem system);
-size_t      sysinfo_networks_transmitted(CSystem system);
-
 void        sysinfo_cpus_usage(CSystem system, unsigned int *length, float **cpus);
 
 size_t      sysinfo_processes(CSystem system, bool (*fn_pointer)(pid_t, CProcess, void*),
@@ -51,5 +51,9 @@ size_t      sysinfo_process_virtual_memory(CProcess process);
 RString     sysinfo_process_executable_path(CProcess process);
 RString     sysinfo_process_root_directory(CProcess process);
 RString     sysinfo_process_current_directory(CProcess process);
+void        sysinfo_networks_refresh_list(CNetworks networks);
+void        sysinfo_networks_refresh(CNetworks networks);
+size_t      sysinfo_networks_received(CNetworks networks);
+size_t      sysinfo_networks_transmitted(CNetworks networks);
 
 void        sysinfo_rstring_free(RString str);
