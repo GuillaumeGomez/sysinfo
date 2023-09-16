@@ -5,8 +5,8 @@ use crate::{
     sys::{Component, Cpu, Disk, Process},
 };
 use crate::{
-    CpuRefreshKind, DiskKind, DiskUsage, Disks, Group, LoadAvg, NetworksIter, Pid,
-    ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, User,
+    CpuRefreshKind, DiskKind, DiskUsage, Group, LoadAvg, NetworksIter, Pid, ProcessRefreshKind,
+    ProcessStatus, RefreshKind, Signal, User,
 };
 
 use std::collections::HashMap;
@@ -18,11 +18,11 @@ use std::time::Duration;
 /// Contains all the methods of the [`Disk`][crate::Disk] struct.
 ///
 /// ```no_run
-/// use sysinfo::{DiskExt, System, SystemExt};
+/// use sysinfo::{DiskExt, Disks, DisksExt};
 ///
-/// let mut s = System::new();
-/// s.refresh_disks_list();
-/// for disk in s.disks().iter() {
+/// let mut disks = Disks::new();
+/// disks.refresh_list();
+/// for disk in disks.disks() {
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```
@@ -30,12 +30,12 @@ pub trait DiskExt: Debug {
     /// Returns the kind of disk.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{:?}", disk.kind());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {:?}", disk.name(), disk.kind());
     /// }
     /// ```
     fn kind(&self) -> DiskKind;
@@ -43,11 +43,11 @@ pub trait DiskExt: Debug {
     /// Returns the disk name.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
     ///     println!("{:?}", disk.name());
     /// }
     /// ```
@@ -56,12 +56,12 @@ pub trait DiskExt: Debug {
     /// Returns the file system used on this disk (so for example: `EXT4`, `NTFS`, etc...).
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{:?}", disk.file_system());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {:?}", disk.name(), disk.file_system());
     /// }
     /// ```
     fn file_system(&self) -> &[u8];
@@ -69,12 +69,12 @@ pub trait DiskExt: Debug {
     /// Returns the mount point of the disk (`/` for example).
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{:?}", disk.mount_point());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {:?}", disk.name(), disk.mount_point());
     /// }
     /// ```
     fn mount_point(&self) -> &Path;
@@ -82,12 +82,12 @@ pub trait DiskExt: Debug {
     /// Returns the total disk size, in bytes.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{}", disk.total_space());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {}B", disk.name(), disk.total_space());
     /// }
     /// ```
     fn total_space(&self) -> u64;
@@ -95,12 +95,12 @@ pub trait DiskExt: Debug {
     /// Returns the available disk size, in bytes.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{}", disk.available_space());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {}B", disk.name(), disk.available_space());
     /// }
     /// ```
     fn available_space(&self) -> u64;
@@ -108,12 +108,12 @@ pub trait DiskExt: Debug {
     /// Returns `true` if the disk is removable.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{}", disk.is_removable());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {}", disk.name(), disk.is_removable());
     /// }
     /// ```
     fn is_removable(&self) -> bool;
@@ -121,11 +121,11 @@ pub trait DiskExt: Debug {
     /// Updates the disk' information.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks_mut().iter_mut() {
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks_mut() {
     ///     disk.refresh();
     /// }
     /// ```
@@ -608,9 +608,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// always be the maximum value (`number of CPUs * 100`).
     const MINIMUM_CPU_UPDATE_INTERVAL: Duration;
 
-    /// Creates a new [`System`] instance with nothing loaded. If you want to
-    /// load components, network interfaces or the disks, you'll have to use the
-    /// `refresh_*_list` methods.
+    /// Creates a new [`System`] instance with nothing loaded.
     ///
     /// Use the [`refresh_all`] method to update its internal information (or any of the `refresh_`
     /// method).
@@ -648,22 +646,16 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// [`System`]: crate::System
     ///
     /// ```
-    /// use sysinfo::{RefreshKind, System, SystemExt};
+    /// use sysinfo::{ProcessRefreshKind, RefreshKind, System, SystemExt};
     ///
-    /// // We want everything except disks.
+    /// // We want to only refresh processes.
     /// let mut system = System::new_with_specifics(
-    ///      RefreshKind::everything().without_disks_list(),
+    ///      RefreshKind::new().with_processes(ProcessRefreshKind::everything()),
     /// );
     ///
-    /// assert!(system.disks().is_empty());
     /// # if System::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
     /// assert!(!system.processes().is_empty());
     /// # }
-    ///
-    /// // If you want the disks list afterwards, just call the corresponding
-    /// // "refresh_disks_list":
-    /// system.refresh_disks_list();
-    /// let disks = system.disks();
     /// ```
     fn new_with_specifics(refreshes: RefreshKind) -> Self;
 
@@ -695,20 +687,12 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         if let Some(kind) = refreshes.processes() {
             self.refresh_processes_specifics(kind);
         }
-        if refreshes.disks_list() {
-            self.refresh_disks_list();
-        } else if refreshes.disks() {
-            self.refresh_disks();
-        }
         if refreshes.users_list() {
             self.refresh_users_list();
         }
     }
 
-    /// Refreshes all system, processes, disks and network interfaces information.
-    ///
-    /// Please note that it doesn't recompute disks list, components list, network interfaces
-    /// list nor users list.
+    /// Refreshes all system and processes information.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -719,7 +703,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     fn refresh_all(&mut self) {
         self.refresh_system();
         self.refresh_processes();
-        self.refresh_disks();
     }
 
     /// Refreshes system information (RAM, swap, CPU usage and components' temperature).
@@ -809,9 +792,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     }
 
     /// Refreshes CPUs specific information.
-    ///
-    /// Please note that it doesn't recompute disks list, components list, network interfaces
-    /// list nor users list.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt, CpuRefreshKind};
@@ -906,40 +886,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// s.refresh_process_specifics(Pid::from(1337), ProcessRefreshKind::new());
     /// ```
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool;
-
-    /// Refreshes the listed disks' information.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_disks();
-    /// ```
-    fn refresh_disks(&mut self) {
-        self.disks_mut().refresh();
-    }
-
-    /// The disk list will be emptied then completely recomputed.
-    ///
-    /// ## Linux
-    ///
-    /// ⚠️ On Linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
-    /// systems are ignored and the information of a mounted NFS **cannot** be obtained
-    /// via [`SystemExt::refresh_disks_list`]. This is due to the fact that I/O function
-    /// `statvfs` used by [`SystemExt::refresh_disks_list`] is blocking and
-    /// [may hang](https://github.com/GuillaumeGomez/sysinfo/pull/876) in some cases,
-    /// requiring to call `systemctl stop` to terminate the NFS service from the remote
-    /// server in some cases.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_disks_list();
-    /// ```
-    fn refresh_disks_list(&mut self) {
-        self.disks_mut().refresh_list();
-    }
 
     /// Refreshes users list.
     ///
@@ -1200,45 +1146,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// }
     /// ```
     fn users(&self) -> &[User];
-
-    /// Returns the disks list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
-    ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{:?}", disk.name());
-    /// }
-    /// ```
-    fn disks(&self) -> &Disks;
-
-    /// Returns the disks list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// for disk in s.disks_mut().iter_mut() {
-    ///     disk.refresh();
-    /// }
-    /// ```
-    fn disks_mut(&mut self) -> &mut Disks;
-
-    /// Sort the disk list with the provided callback.
-    ///
-    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
-    /// for implementation details.
-    ///
-    /// ⚠️ If you use [`SystemExt::refresh_disks_list`], you need to use this method before using
-    /// [`SystemExt::disks`] or [`SystemExt::disks_mut`] if you want them to be sorted.
-    fn sort_disks_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
-    {
-        self.disks_mut().sort_unstable_by(compare);
-    }
 
     /// Returns system uptime (in seconds).
     ///
@@ -1614,14 +1521,28 @@ pub trait NetworksExt: Debug {
 
 /// Interacting with disks.
 pub trait DisksExt: Debug {
+    /// Creates a new `Disks` type.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Disks, DisksExt};
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     eprintln!("{disk:?}");
+    /// }
+    /// ```
+    fn new() -> Self;
+
     /// Returns the disks list.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{Disks, DisksExt};
     ///
-    /// let s = System::new_all();
-    /// for disk in s.disks().iter() {
-    ///     println!("{:?}", disk.name());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     eprintln!("{disk:?}");
     /// }
     /// ```
     fn disks(&self) -> &[Disk];
@@ -1629,11 +1550,13 @@ pub trait DisksExt: Debug {
     /// Returns the disks list.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new_all();
-    /// for disk in s.disks_mut().iter_mut() {
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks_mut() {
     ///     disk.refresh();
+    ///     eprintln!("{disk:?}");
     /// }
     /// ```
     fn disks_mut(&mut self) -> &mut [Disk];
@@ -1646,17 +1569,17 @@ pub trait DisksExt: Debug {
     /// You can do the same without this method by calling:
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, DisksExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, DisksExt, Disks};
     ///
-    /// let mut s = System::new_all();
-    /// let disks = s.disks_mut();
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
     /// disks.sort_by(|disk1, disk2| {
     ///     disk1.name().partial_cmp(disk2.name()).unwrap()
     /// });
     /// ```
     ///
-    /// ⚠️ If you use [`SystemExt::refresh_disks_list`], you need to use this method before using
-    /// [`SystemExt::disks`] or [`SystemExt::disks_mut`] if you want them to be sorted again.
+    /// ⚠️ If you use [`DisksExt::refresh_list`], you will need to call this method to sort the
+    /// disks again.
     fn sort_by<F>(&mut self, compare: F)
     where
         F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
@@ -1666,11 +1589,17 @@ pub trait DisksExt: Debug {
 
     /// Refreshes the listed disks' information.
     ///
-    /// ```no_run
-    /// use sysinfo::{DisksExt, System, SystemExt};
+    /// ⚠️ If you didn't call [`DisksExt::refresh_list`] beforehand, this method will do nothing as
+    /// the disk list will be empty.
     ///
-    /// let mut s = System::new_all();
-    /// s.disks_mut().refresh();
+    /// ```no_run
+    /// use sysinfo::{Disks, DisksExt};
+    ///
+    /// let mut disks = Disks::new();
+    /// // We get the disk list.
+    /// disks.refresh_list();
+    /// // We wait some time...?
+    /// disks.refresh();
     /// ```
     fn refresh(&mut self) {
         for disk in self.disks_mut() {
@@ -1684,17 +1613,17 @@ pub trait DisksExt: Debug {
     ///
     /// ⚠️ On Linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
     /// systems are ignored and the information of a mounted NFS **cannot** be obtained
-    /// via [`SystemExt::refresh_disks_list`]. This is due to the fact that I/O function
-    /// `statvfs` used by [`SystemExt::refresh_disks_list`] is blocking and
+    /// via [`DisksExt::refresh_list`]. This is due to the fact that I/O function
+    /// `statvfs` used by [`DisksExt::refresh_list`] is blocking and
     /// [may hang](https://github.com/GuillaumeGomez/sysinfo/pull/876) in some cases,
     /// requiring to call `systemctl stop` to terminate the NFS service from the remote
     /// server in some cases.
     ///
     /// ```no_run
-    /// use sysinfo::{DisksExt, System, SystemExt};
+    /// use sysinfo::{Disks, DisksExt};
     ///
-    /// let mut s = System::new_all();
-    /// s.disks_mut().refresh_list();
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
     /// ```
     fn refresh_list(&mut self);
 }

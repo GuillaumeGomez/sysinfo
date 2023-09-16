@@ -2,7 +2,7 @@
 
 use crate::{
     sys::{component::Component, Cpu, Process},
-    CpuRefreshKind, Disks, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
 use std::cell::UnsafeCell;
@@ -65,7 +65,6 @@ pub struct System {
     swap_total: u64,
     swap_used: u64,
     components: Vec<Component>,
-    disks: Disks,
     users: Vec<User>,
     boot_time: u64,
     system_info: SystemInfo,
@@ -88,7 +87,6 @@ impl SystemExt for System {
             swap_total: 0,
             swap_used: 0,
             components: Vec::with_capacity(2),
-            disks: Disks::new(),
             users: Vec::new(),
             boot_time: boot_time(),
             system_info,
@@ -242,14 +240,6 @@ impl SystemExt for System {
 
     fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
-    }
-
-    fn disks(&self) -> &Disks {
-        &self.disks
-    }
-
-    fn disks_mut(&mut self) -> &mut Disks {
-        &mut self.disks
     }
 
     fn uptime(&self) -> u64 {

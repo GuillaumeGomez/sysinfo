@@ -3,7 +3,7 @@
 extern crate test;
 
 use sysinfo::get_current_pid;
-use sysinfo::{DiskExt, NetworksExt, SystemExt};
+use sysinfo::{DiskExt, DisksExt, NetworksExt, SystemExt};
 
 #[bench]
 fn bench_new(b: &mut test::Bencher) {
@@ -70,9 +70,10 @@ fn bench_refresh_process(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_refresh_disk(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new_all();
+    let mut disks = sysinfo::Disks::new();
+    disks.refresh_list();
 
-    let disks = s.disks_mut();
+    let disks = disks.disks_mut();
     let disk = &mut disks[0];
     b.iter(move || {
         disk.refresh();
@@ -81,19 +82,21 @@ fn bench_refresh_disk(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_refresh_disks(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new_all();
+    let mut disks = sysinfo::Disks::new();
+    disks.refresh_list();
 
     b.iter(move || {
-        s.refresh_disks();
+        disks.refresh();
     });
 }
 
 #[bench]
 fn bench_refresh_disks_list(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new();
+    let mut disks = sysinfo::Disks::new();
+    disks.refresh_list();
 
     b.iter(move || {
-        s.refresh_disks_list();
+        disks.refresh_list();
     });
 }
 

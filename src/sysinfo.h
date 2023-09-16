@@ -9,6 +9,7 @@ typedef void* CSystem;
 typedef const void* CProcess;
 typedef const char* RString;
 typedef void* CNetworks;
+typedef void* CDisks;
 
 CSystem     sysinfo_init(void);
 void        sysinfo_destroy(CSystem system);
@@ -24,8 +25,12 @@ void        sysinfo_refresh_processes(CSystem system);
 #ifdef __linux__
 void        sysinfo_refresh_process(CSystem system, pid_t pid);
 #endif
-void        sysinfo_refresh_disks(CSystem system);
-void        sysinfo_refresh_disk_list(CSystem system);
+
+
+CDisks      sysinfo_disks_init(void);
+void        sysinfo_disks_destroy(CDisks disks);
+void        sysinfo_disks_refresh(CDisks disks);
+void        sysinfo_disks_refresh_list(CDisks disks);
 
 size_t      sysinfo_total_memory(CSystem system);
 size_t      sysinfo_free_memory(CSystem system);

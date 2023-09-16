@@ -42,6 +42,10 @@ impl DiskExt for Disk {
 }
 
 impl DisksExt for Disks {
+    fn new() -> Self {
+        Self { disks: Vec::new() }
+    }
+
     fn refresh_list(&mut self) {
         // Does nothing.
     }
