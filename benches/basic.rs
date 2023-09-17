@@ -3,7 +3,7 @@
 extern crate test;
 
 use sysinfo::get_current_pid;
-use sysinfo::{DiskExt, DisksExt, NetworksExt, SystemExt};
+use sysinfo::{ComponentsExt, DiskExt, DisksExt, NetworksExt, SystemExt};
 
 #[bench]
 fn bench_new(b: &mut test::Bencher) {
@@ -140,19 +140,21 @@ fn bench_refresh_cpu(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_refresh_components(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new_all();
+    let mut c = sysinfo::Components::new();
+    c.refresh_list();
 
     b.iter(move || {
-        s.refresh_components();
+        c.refresh();
     });
 }
 
 #[bench]
 fn bench_refresh_components_list(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new_all();
+    let mut c = sysinfo::Components::new();
+    c.refresh_list();
 
     b.iter(move || {
-        s.refresh_components_list();
+        c.refresh_list();
     });
 }
 

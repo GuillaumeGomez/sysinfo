@@ -58,15 +58,19 @@ bool process_loop(pid_t pid, CProcess process, void *data) {
 
 int main() {
     CSystem system = sysinfo_init();
+    CNetworks networks = sysinfo_networks_init();
+
     sysinfo_refresh_all(system);
+    sysinfo_networks_refresh_list(networks);
+
     printf("total memory:         %ld\n", sysinfo_total_memory(system));
     printf("free memory:          %ld\n", sysinfo_free_memory(system));
     printf("used memory:          %ld\n", sysinfo_used_memory(system));
     printf("total swap:           %ld\n", sysinfo_total_swap(system));
     printf("free swap:            %ld\n", sysinfo_free_swap(system));
     printf("used swap:            %ld\n", sysinfo_used_swap(system));
-    printf("networks received:    %ld\n", sysinfo_networks_received(system));
-    printf("networks transmitted: %ld\n", sysinfo_networks_transmitted(system));
+    printf("networks received:    %ld\n", sysinfo_networks_received(networks));
+    printf("networks transmitted: %ld\n", sysinfo_networks_transmitted(networks));
     unsigned int len = 0, i = 0;
     float *procs = NULL;
     sysinfo_cpus_usage(system, &len, &procs);
@@ -80,7 +84,8 @@ int main() {
     i = 0;
     printf("For a total of %ld processes.\n", sysinfo_processes(system, process_loop, &i));
     check_tasks(system);
-    // we can now free the CSystem object.
+    // we can now free the CSystem and the CNetworks objects.
     sysinfo_destroy(system);
+    sysinfo_networks_destroy(networks);
     return 0;
 }

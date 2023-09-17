@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    sys::{component::Component, Cpu, Process},
+    sys::{Cpu, Process},
     CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
@@ -64,7 +64,6 @@ pub struct System {
     mem_used: u64,
     swap_total: u64,
     swap_used: u64,
-    components: Vec<Component>,
     users: Vec<User>,
     boot_time: u64,
     system_info: SystemInfo,
@@ -86,7 +85,6 @@ impl SystemExt for System {
             mem_used: 0,
             swap_total: 0,
             swap_used: 0,
-            components: Vec::with_capacity(2),
             users: Vec::new(),
             boot_time: boot_time(),
             system_info,
@@ -109,13 +107,6 @@ impl SystemExt for System {
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         self.cpus.refresh(refresh_kind)
-    }
-
-    fn refresh_components_list(&mut self) {
-        if self.cpus.cpus.is_empty() {
-            self.refresh_cpu_usage();
-        }
-        self.components = unsafe { super::component::get_components(self.cpus.cpus.len()) };
     }
 
     fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
@@ -232,14 +223,6 @@ impl SystemExt for System {
     // TODO: need to be checked
     fn used_swap(&self) -> u64 {
         self.swap_used
-    }
-
-    fn components(&self) -> &[Component] {
-        &self.components
-    }
-
-    fn components_mut(&mut self) -> &mut [Component] {
-        &mut self.components
     }
 
     fn uptime(&self) -> u64 {

@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use super::utils::get_sys_value_by_name;
-use crate::ComponentExt;
+use crate::{ComponentExt, ComponentsExt};
 
 #[doc = include_str!("../../../md_doc/component.md")]
 pub struct Component {
@@ -50,20 +50,43 @@ unsafe fn refresh_component(id: &[u8]) -> Option<f32> {
     }
 }
 
-pub unsafe fn get_components(nb_cpus: usize) -> Vec<Component> {
-    // For now, we only have temperature for CPUs...
-    let mut components = Vec::with_capacity(nb_cpus);
+#[doc = include_str!("../../../md_doc/components.md")]
+pub struct Components {
+    nb_cpus: usize,
+    components: Vec<Component>,
+}
 
-    for core in 0..nb_cpus {
-        let id = format!("dev.cpu.{core}.temperature\0").as_bytes().to_vec();
-        if let Some(temperature) = refresh_component(&id) {
-            components.push(Component {
-                id,
-                label: format!("CPU {}", core + 1),
-                temperature,
-                max: temperature,
-            });
+impl ComponentsExt for Components {
+    fn new() -> Self {
+        let nb_cpus = unsafe { super::cpu::get_nb_cpus() };
+        Self {
+            nb_cpus,
+            components: Vec::with_capacity(nb_cpus),
         }
     }
-    components
+
+    fn components(&self) -> &[Component] {
+        &self.components
+    }
+
+    fn components_mut(&mut self) -> &mut [Component] {
+        &mut self.components
+    }
+
+    fn refresh_list(&mut self) {
+        self.components.clear();
+        for core in 0..self.nb_cpus {
+            unsafe {
+                let id = format!("dev.cpu.{core}.temperature\0").as_bytes().to_vec();
+                if let Some(temperature) = refresh_component(&id) {
+                    self.components.push(Component {
+                        id,
+                        label: format!("CPU {}", core + 1),
+                        temperature,
+                        max: temperature,
+                    });
+                }
+            }
+        }
+    }
 }

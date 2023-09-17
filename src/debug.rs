@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Component, ComponentExt, Cpu, CpuExt, Disk, DiskExt, Disks, NetworkData, NetworkExt, Networks,
-    NetworksExt, Process, ProcessExt, System, SystemExt, User, UserExt,
+    Component, ComponentExt, Components, Cpu, CpuExt, Disk, DiskExt, Disks, NetworkData,
+    NetworkExt, Networks, NetworksExt, Process, ProcessExt, System, SystemExt, User, UserExt,
 };
 
 use std::fmt;
@@ -30,7 +30,6 @@ impl fmt::Debug for System {
             .field("free swap", &self.free_swap())
             .field("nb CPUs", &self.cpus().len())
             .field("nb processes", &self.processes().len())
-            .field("nb components", &self.components().len())
             .finish()
     }
 }
@@ -73,6 +72,19 @@ impl fmt::Debug for Process {
             .field("user_id", &self.user_id())
             .field("effective_user_id", &self.effective_user_id())
             .finish()
+    }
+}
+
+impl fmt::Debug for Components {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Components {{ {} }}",
+            self.iter()
+                .map(|x| format!("{x:?}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
 

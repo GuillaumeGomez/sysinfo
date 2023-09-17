@@ -19,7 +19,6 @@ void        sysinfo_networks_destroy(CNetworks networks);
 void        sysinfo_refresh_system(CSystem system);
 void        sysinfo_refresh_memory(CSystem system);
 void        sysinfo_refresh_cpu(CSystem system);
-void        sysinfo_refresh_components(CSystem system);
 void        sysinfo_refresh_all(CSystem system);
 void        sysinfo_refresh_processes(CSystem system);
 #ifdef __linux__

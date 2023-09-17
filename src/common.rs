@@ -1,6 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, GroupExt, NetworkData, NetworksExt, User, UserExt};
+use crate::{
+    Component, Components, ComponentsExt, Disk, GroupExt, NetworkData, NetworksExt, User, UserExt,
+};
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -367,8 +369,6 @@ pub struct RefreshKind {
     processes: Option<ProcessRefreshKind>,
     memory: bool,
     cpu: Option<CpuRefreshKind>,
-    components: bool,
-    components_list: bool,
     users_list: bool,
 }
 
@@ -383,8 +383,6 @@ impl RefreshKind {
     /// assert_eq!(r.processes().is_some(), false);
     /// assert_eq!(r.memory(), false);
     /// assert_eq!(r.cpu().is_some(), false);
-    /// assert_eq!(r.components(), false);
-    /// assert_eq!(r.components_list(), false);
     /// assert_eq!(r.users_list(), false);
     /// ```
     pub fn new() -> Self {
@@ -401,8 +399,6 @@ impl RefreshKind {
     /// assert_eq!(r.processes().is_some(), true);
     /// assert_eq!(r.memory(), true);
     /// assert_eq!(r.cpu().is_some(), true);
-    /// assert_eq!(r.components(), true);
-    /// assert_eq!(r.components_list(), true);
     /// assert_eq!(r.users_list(), true);
     /// ```
     pub fn everything() -> Self {
@@ -410,8 +406,6 @@ impl RefreshKind {
             processes: Some(ProcessRefreshKind::everything()),
             memory: true,
             cpu: Some(CpuRefreshKind::everything()),
-            components: true,
-            components_list: true,
             users_list: true,
         }
     }
@@ -425,13 +419,6 @@ impl RefreshKind {
     );
     impl_get_set!(RefreshKind, memory, with_memory, without_memory);
     impl_get_set!(RefreshKind, cpu, with_cpu, without_cpu, CpuRefreshKind);
-    impl_get_set!(RefreshKind, components, with_components, without_components);
-    impl_get_set!(
-        RefreshKind,
-        components_list,
-        with_components_list,
-        without_components_list
-    );
     impl_get_set!(RefreshKind, users_list, with_users_list, without_users_list);
 }
 
@@ -490,7 +477,7 @@ impl<'a> Iterator for NetworksIter<'a> {
     }
 }
 
-/// Disks interfaces.
+/// Disk interfaces.
 ///
 /// ```no_run
 /// use sysinfo::{Disks, DisksExt};
@@ -498,7 +485,7 @@ impl<'a> Iterator for NetworksIter<'a> {
 /// let mut disks = Disks::new();
 /// disks.refresh_list();
 /// for disk in disks.disks() {
-///     println!("{:?}", disk);
+///     println!("{disk:?}");
 /// }
 /// ```
 pub struct Disks {
@@ -540,6 +527,20 @@ pub enum DiskKind {
     SSD,
     /// Unknown type.
     Unknown(isize),
+}
+
+impl std::ops::Deref for Components {
+    type Target = [Component];
+
+    fn deref(&self) -> &Self::Target {
+        self.components()
+    }
+}
+
+impl std::ops::DerefMut for Components {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.components_mut()
+    }
 }
 
 /// An enum representing signals on UNIX-like systems.
