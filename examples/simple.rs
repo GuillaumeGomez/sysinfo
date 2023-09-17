@@ -62,15 +62,19 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
-        "refresh_disks      : reloads only disks information"
+        "refresh_components : reloads components information"
     );
     writeln!(
         &mut io::stdout(),
-        "refresh_users      : reloads only users information"
+        "refresh_disks      : reloads disks information"
     );
     writeln!(
         &mut io::stdout(),
-        "refresh_networks   : reloads only networks information"
+        "refresh_users      : reloads users information"
+    );
+    writeln!(
+        &mut io::stdout(),
+        "refresh_networks   : reloads networks information"
     );
     writeln!(
         &mut io::stdout(),
@@ -164,6 +168,11 @@ fn interpret_input(
         "refresh_networks" => {
             writeln!(&mut io::stdout(), "Refreshing network list...");
             networks.refresh_list();
+            writeln!(&mut io::stdout(), "Done.");
+        }
+        "refresh_components" => {
+            writeln!(&mut io::stdout(), "Refreshing component list...");
+            components.refresh_list();
             writeln!(&mut io::stdout(), "Done.");
         }
         "signals" => {
