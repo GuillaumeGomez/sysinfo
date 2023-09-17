@@ -5,7 +5,6 @@ use crate::{
 };
 use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
-use crate::sys::component::{self, Component};
 use crate::sys::cpu::*;
 use crate::sys::process::{get_start_time, update_memory, Process};
 use crate::sys::tools::*;
@@ -49,7 +48,6 @@ pub struct System {
     swap_total: u64,
     swap_used: u64,
     cpus: CpusWrapper,
-    components: Vec<Component>,
     query: Option<Query>,
     boot_time: u64,
     users: Vec<User>,
@@ -99,7 +97,6 @@ impl SystemExt for System {
             swap_total: 0,
             swap_used: 0,
             cpus: CpusWrapper::new(),
-            components: Vec::new(),
             query: None,
             boot_time: unsafe { boot_time() },
             users: Vec::new(),
@@ -187,10 +184,6 @@ impl SystemExt for System {
                 self.swap_used = swap_used as _;
             }
         }
-    }
-
-    fn refresh_components_list(&mut self) {
-        self.components = component::get_components();
     }
 
     #[allow(clippy::map_entry)]
@@ -399,14 +392,6 @@ impl SystemExt for System {
 
     fn used_swap(&self) -> u64 {
         self.swap_used
-    }
-
-    fn components(&self) -> &[Component] {
-        &self.components
-    }
-
-    fn components_mut(&mut self) -> &mut [Component] {
-        &mut self.components
     }
 
     fn users(&self) -> &[User] {

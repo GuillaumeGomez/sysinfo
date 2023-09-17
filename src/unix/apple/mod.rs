@@ -24,7 +24,7 @@ pub mod system;
 pub mod users;
 mod utils;
 
-pub use self::component::Component;
+pub use self::component::{Component, Components};
 pub use self::cpu::Cpu;
 pub use self::disk::Disk;
 pub use self::network::NetworkData;

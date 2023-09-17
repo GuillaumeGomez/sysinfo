@@ -1,6 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::component::Component;
 use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
@@ -24,9 +23,6 @@ use libc::{
     c_int, c_void, host_statistics64, mach_port_t, sysconf, sysctl, timeval, vm_statistics64,
     _SC_PAGESIZE,
 };
-
-#[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
-use super::inner::component::Components;
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 declare_signals! {
@@ -82,8 +78,6 @@ pub struct System {
     swap_total: u64,
     swap_free: u64,
     page_size_b: u64,
-    #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
-    components: Components,
     port: mach_port_t,
     users: Vec<User>,
     boot_time: u64,
@@ -148,8 +142,6 @@ impl SystemExt for System {
                 swap_total: 0,
                 swap_free: 0,
                 page_size_b: sysconf(_SC_PAGESIZE) as _,
-                #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
-                components: Components::new(),
                 port,
                 users: Vec::new(),
                 boot_time: boot_time(),
@@ -221,14 +213,6 @@ impl SystemExt for System {
                     .saturating_mul(self.page_size_b);
             }
         }
-    }
-
-    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    fn refresh_components_list(&mut self) {}
-
-    #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
-    fn refresh_components_list(&mut self) {
-        self.components.refresh();
     }
 
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
@@ -375,26 +359,6 @@ impl SystemExt for System {
     // TODO: need to be checked
     fn used_swap(&self) -> u64 {
         self.swap_total - self.swap_free
-    }
-
-    #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
-    fn components(&self) -> &[Component] {
-        &self.components.inner
-    }
-
-    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    fn components(&self) -> &[Component] {
-        &[]
-    }
-
-    #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
-    fn components_mut(&mut self) -> &mut [Component] {
-        &mut self.components.inner
-    }
-
-    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    fn components_mut(&mut self) -> &mut [Component] {
-        &mut []
     }
 
     fn uptime(&self) -> u64 {

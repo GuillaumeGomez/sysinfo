@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::{ffi, macos::utils::IOReleaser};
-use crate::ComponentExt;
+use crate::{ComponentExt, ComponentsExt};
 
 use libc::{c_char, c_int, c_void};
 
@@ -44,24 +44,33 @@ impl ComponentFFI {
     }
 }
 
-/// Used to get CPU information, not supported on iOS, or inside the default macOS sandbox.
-pub(crate) struct Components {
-    pub inner: Vec<Component>,
+// Used to get CPU information, not supported on iOS, or inside the default macOS sandbox.
+#[doc = include_str!("../../../../../md_doc/components.md")]
+pub struct Components {
+    pub components: Vec<Component>,
     connection: Option<IoService>,
 }
 
-impl Components {
-    pub(crate) fn new() -> Self {
+impl ComponentsExt for Components {
+    fn new() -> Self {
         Self {
-            inner: Vec::with_capacity(2),
+            components: Vec::with_capacity(2),
             connection: IoService::new_connection(),
         }
     }
 
-    pub(crate) fn refresh(&mut self) {
+    fn components(&self) -> &[Component] {
+        &self.components
+    }
+
+    fn components_mut(&mut self) -> &mut [Component] {
+        &mut self.components
+    }
+
+    fn refresh_list(&mut self) {
         if let Some(ref connection) = self.connection {
             let connection = connection.inner();
-            self.inner.clear();
+            self.components.clear();
             // getting CPU critical temperature
             let critical_temp =
                 get_temperature(connection, &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0]);
@@ -70,7 +79,7 @@ impl Components {
                 if let Some(c) =
                     Component::new((*id).to_owned(), None, critical_temp, v, connection)
                 {
-                    self.inner.push(c);
+                    self.components.push(c);
                 }
             }
         }

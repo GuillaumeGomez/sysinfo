@@ -7,6 +7,22 @@ use crate::{CpuExt, CpuRefreshKind};
 
 use libc::{c_int, c_ulong};
 
+pub(crate) unsafe fn get_nb_cpus() -> usize {
+    let mut smp: c_int = 0;
+    let mut nb_cpus: c_int = 1;
+
+    if !get_sys_value_by_name(b"kern.smp.active\0", &mut smp) {
+        smp = 0;
+    }
+    #[allow(clippy::collapsible_if)] // I keep as is for readability reasons.
+    if smp != 0 {
+        if !get_sys_value_by_name(b"kern.smp.cpus\0", &mut nb_cpus) || nb_cpus < 1 {
+            nb_cpus = 1;
+        }
+    }
+    nb_cpus as usize
+}
+
 pub(crate) struct CpusWrapper {
     pub(crate) global_cpu: Cpu,
     pub(crate) cpus: Vec<Cpu>,
@@ -25,20 +41,8 @@ impl CpusWrapper {
         let mut mib_cp_time = [0; 2];
         let mut mib_cp_times = [0; 2];
 
-        let mut smp: c_int = 0;
-        let mut nb_cpus: c_int = 1;
-
         unsafe {
-            if !get_sys_value_by_name(b"kern.smp.active\0", &mut smp) {
-                smp = 0;
-            }
-            #[allow(clippy::collapsible_if)] // I keep as is for readability reasons.
-            if smp != 0 {
-                if !get_sys_value_by_name(b"kern.smp.cpus\0", &mut nb_cpus) || nb_cpus < 1 {
-                    nb_cpus = 1;
-                }
-            }
-            let nb_cpus = nb_cpus as usize;
+            let nb_cpus = get_nb_cpus();
             init_mib(b"kern.cp_time\0", &mut mib_cp_time);
             init_mib(b"kern.cp_times\0", &mut mib_cp_times);
             Self {
@@ -48,7 +52,7 @@ impl CpusWrapper {
                 mib_cp_time,
                 mib_cp_times,
                 cp_time: VecSwitcher::new(vec![0; libc::CPUSTATES as usize]),
-                cp_times: VecSwitcher::new(vec![0; nb_cpus as usize * libc::CPUSTATES as usize]),
+                cp_times: VecSwitcher::new(vec![0; nb_cpus * libc::CPUSTATES as usize]),
                 nb_cpus,
             }
         }

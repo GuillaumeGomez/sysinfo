@@ -4,7 +4,7 @@
 //
 // Values in /sys/class/hwmonN are `c_long` or `c_ulong`
 // transposed to rust we only read `u32` or `i32` values.
-use crate::ComponentExt;
+use crate::{ComponentExt, ComponentsExt};
 
 use std::collections::HashMap;
 use std::fs::{read_dir, File};
@@ -19,6 +19,7 @@ pub struct Component {
     /// The chip name.
     ///
     /// Kernel documentation extract:
+    ///
     /// ```txt
     /// This should be a short, lowercase string, not containing
     /// whitespace, dashes, or the wildcard character '*'.
@@ -330,23 +331,42 @@ impl ComponentExt for Component {
     }
 }
 
-pub(crate) fn get_components() -> Vec<Component> {
-    let mut components = Vec::with_capacity(10);
-    if let Ok(dir) = read_dir(Path::new("/sys/class/hwmon/")) {
-        for entry in dir.flatten() {
-            let entry = entry.path();
-            if !entry.is_dir()
-                || !entry
-                    .file_name()
-                    .and_then(|x| x.to_str())
-                    .unwrap_or("")
-                    .starts_with("hwmon")
-            {
-                continue;
-            }
-            Component::from_hwmon(&mut components, &entry);
+#[doc = include_str!("../../../md_doc/components.md")]
+pub struct Components {
+    components: Vec<Component>,
+}
+
+impl ComponentsExt for Components {
+    fn new() -> Self {
+        Self {
+            components: Vec::with_capacity(4),
         }
-        components.sort_by(|c1, c2| c1.label.to_lowercase().cmp(&c2.label.to_lowercase()));
     }
-    components
+
+    fn components(&self) -> &[Component] {
+        &self.components
+    }
+
+    fn components_mut(&mut self) -> &mut [Component] {
+        &mut self.components
+    }
+
+    fn refresh_list(&mut self) {
+        self.components.clear();
+        if let Ok(dir) = read_dir(Path::new("/sys/class/hwmon/")) {
+            for entry in dir.flatten() {
+                let entry = entry.path();
+                if !entry.is_dir()
+                    || !entry
+                        .file_name()
+                        .and_then(|x| x.to_str())
+                        .unwrap_or("")
+                        .starts_with("hwmon")
+                {
+                    continue;
+                }
+                Component::from_hwmon(&mut self.components, &entry);
+            }
+        }
+    }
 }

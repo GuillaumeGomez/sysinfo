@@ -8,8 +8,8 @@ use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::Signal::*;
 use sysinfo::{
-    CpuExt, Disks, DisksExt, NetworkExt, Networks, NetworksExt, Pid, ProcessExt, Signal, System,
-    SystemExt, UserExt,
+    Components, ComponentsExt, CpuExt, Disks, DisksExt, NetworkExt, Networks, NetworksExt, Pid,
+    ProcessExt, Signal, System, SystemExt, UserExt,
 };
 
 const signals: &[Signal] = &[
@@ -147,6 +147,7 @@ fn interpret_input(
     sys: &mut System,
     networks: &mut Networks,
     disks: &mut Disks,
+    components: &mut Components,
 ) -> bool {
     match input.trim() {
         "help" => print_help(),
@@ -277,7 +278,7 @@ fn interpret_input(
             }
         }
         "temperature" => {
-            for component in sys.components() {
+            for component in components.iter() {
                 writeln!(&mut io::stdout(), "{component:?}");
             }
         }
@@ -438,11 +439,13 @@ fn interpret_input(
 
 fn main() {
     println!("Getting system information...");
-    let mut t = System::new_all();
-    let mut n = Networks::new();
-    let mut d = Disks::new();
-    n.refresh_list();
-    d.refresh_list();
+    let mut system = System::new_all();
+    let mut networks = Networks::new();
+    let mut disks = Disks::new();
+    let mut components = Components::new();
+    networks.refresh_list();
+    disks.refresh_list();
+    components.refresh_list();
     println!("Done.");
     let t_stin = io::stdin();
     let mut stin = t_stin.lock();
@@ -464,6 +467,12 @@ fn main() {
         if (&input as &str).ends_with('\n') {
             input.pop();
         }
-        done = interpret_input(input.as_ref(), &mut t, &mut n, &mut d);
+        done = interpret_input(
+            input.as_ref(),
+            &mut system,
+            &mut networks,
+            &mut disks,
+            &mut components,
+        );
     }
 }

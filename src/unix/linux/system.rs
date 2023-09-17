@@ -1,6 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::component::{self, Component};
 use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_all_data, to_u64};
@@ -157,7 +156,6 @@ pub struct System {
     mem_slab_reclaimable: u64,
     swap_total: u64,
     swap_free: u64,
-    components: Vec<Component>,
     users: Vec<User>,
     info: SystemInfo,
     cpus: CpusWrapper,
@@ -230,16 +228,11 @@ impl SystemExt for System {
             swap_total: 0,
             swap_free: 0,
             cpus: CpusWrapper::new(),
-            components: Vec::new(),
             users: Vec::new(),
             info: SystemInfo::new(),
         };
         s.refresh_specifics(refreshes);
         s
-    }
-
-    fn refresh_components_list(&mut self) {
-        self.components = component::get_components();
     }
 
     fn refresh_memory(&mut self) {
@@ -424,14 +417,6 @@ impl SystemExt for System {
     // need to be checked
     fn used_swap(&self) -> u64 {
         self.swap_total - self.swap_free
-    }
-
-    fn components(&self) -> &[Component] {
-        &self.components
-    }
-
-    fn components_mut(&mut self) -> &mut [Component] {
-        &mut self.components
     }
 
     fn uptime(&self) -> u64 {

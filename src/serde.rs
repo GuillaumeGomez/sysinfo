@@ -111,7 +111,6 @@ impl serde::Serialize for crate::System {
         state.serialize_field("free_swap", &self.free_swap())?;
         state.serialize_field("used_swap", &self.used_swap())?;
 
-        state.serialize_field("components", &self.components())?;
         state.serialize_field("users", &self.users())?;
 
         state.serialize_field("uptime", &self.uptime())?;
@@ -138,6 +137,15 @@ impl Serialize for crate::Networks {
 }
 
 impl Serialize for crate::Disks {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.iter())
+    }
+}
+
+impl Serialize for crate::Components {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

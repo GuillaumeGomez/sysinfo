@@ -35,8 +35,8 @@ Otherwise, here is a little code sample:
 
 ```rust
 use sysinfo::{
-    Disks, DisksExt, NetworkExt, Networks, NetworksExt, ProcessExt, System,
-    SystemExt,
+    Components, ComponentsExt, Disks, DisksExt, NetworkExt, Networks,
+    NetworksExt, ProcessExt, System, SystemExt,
 };
 
 // Please note that we use "new_all" to ensure that all list of
@@ -65,7 +65,7 @@ println!("NB CPUs: {}", sys.cpus().len());
 
 // Display processes ID, name na disk usage:
 for (pid, process) in sys.processes() {
-    println!("[{}] {} {:?}", pid, process.name(), process.disk_usage());
+    println!("[{pid}] {} {:?}", process.name(), process.disk_usage());
 }
 
 // We display all disks' information:
@@ -73,8 +73,8 @@ println!("=> disks:");
 let mut disks = Disks::new();
 // We refresh the disk list.
 disks.refresh_list();
-for disk in disks.disks() {
-    println!("{:?}", disk);
+for disk in disks.iter() {
+    println!("{disk:?}");
 }
 
 // Network interfaces name, data received and data transmitted:
@@ -83,13 +83,16 @@ let mut networks = Networks::new();
 networks.refresh_list();
 println!("=> networks:");
 for (interface_name, data) in &networks {
-    println!("{}: {}/{} B", interface_name, data.received(), data.transmitted());
+    println!("{interface_name}: {}/{} B", data.received(), data.transmitted());
 }
 
 // Components temperature:
+let mut components = Components::new();
+// We refresh the component list.
+components.refresh_list();
 println!("=> components:");
-for component in sys.components() {
-    println!("{:?}", component);
+for component in components.iter() {
+    println!("{component:?}");
 }
 ```
 

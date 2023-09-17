@@ -16,23 +16,32 @@ use crate::sys::inner::ffi::{
     HID_DEVICE_PROPERTY_PRODUCT,
 };
 use crate::sys::utils::CFReleaser;
-use crate::ComponentExt;
+use crate::{ComponentExt, ComponentsExt};
 
-pub(crate) struct Components {
-    pub inner: Vec<Component>,
+#[doc = include_str!("../../../../../md_doc/components.md")]
+pub struct Components {
+    pub(crate) components: Vec<Component>,
     client: Option<CFReleaser<__IOHIDEventSystemClient>>,
 }
 
-impl Components {
-    pub(crate) fn new() -> Self {
+impl ComponentsExt for Components {
+    fn new() -> Self {
         Self {
-            inner: vec![],
+            components: vec![],
             client: None,
         }
     }
 
-    pub(crate) fn refresh(&mut self) {
-        self.inner.clear();
+    fn components(&self) -> &[Component] {
+        &self.components
+    }
+
+    fn components_mut(&mut self) -> &mut [Component] {
+        &mut self.components
+    }
+
+    fn refresh_list(&mut self) {
+        self.components.clear();
 
         unsafe {
             let matches = match CFReleaser::new(matching(
@@ -100,14 +109,11 @@ impl Components {
                 let mut component = Component::new(name_str, None, None, service);
                 component.refresh();
 
-                self.inner.push(component);
+                self.components.push(component);
             }
         }
     }
 }
-
-unsafe impl Send for Components {}
-unsafe impl Sync for Components {}
 
 #[doc = include_str!("../../../../../md_doc/component.md")]
 pub struct Component {
@@ -134,9 +140,6 @@ impl Component {
         }
     }
 }
-
-unsafe impl Send for Component {}
-unsafe impl Sync for Component {}
 
 impl ComponentExt for Component {
     fn temperature(&self) -> f32 {

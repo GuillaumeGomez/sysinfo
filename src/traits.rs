@@ -679,11 +679,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         if let Some(kind) = refreshes.cpu() {
             self.refresh_cpu_specifics(kind);
         }
-        if refreshes.components_list() {
-            self.refresh_components_list();
-        } else if refreshes.components() {
-            self.refresh_components();
-        }
         if let Some(kind) = refreshes.processes() {
             self.refresh_processes_specifics(kind);
         }
@@ -708,11 +703,10 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// Refreshes system information (RAM, swap, CPU usage and components' temperature).
     ///
     /// If you want some more specific refreshes, you might be interested into looking at
-    /// [`refresh_memory`], [`refresh_cpu`] and [`refresh_components`].
+    /// [`refresh_memory`] and [`refresh_cpu`].
     ///
     /// [`refresh_memory`]: SystemExt::refresh_memory
     /// [`refresh_cpu`]: SystemExt::refresh_memory
-    /// [`refresh_components`]: SystemExt::refresh_components
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -723,7 +717,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     fn refresh_system(&mut self) {
         self.refresh_memory();
         self.refresh_cpu_usage();
-        self.refresh_components();
     }
 
     /// Refreshes RAM and SWAP usage.
@@ -800,33 +793,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// s.refresh_cpu_specifics(CpuRefreshKind::everything());
     /// ```
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind);
-
-    /// Refreshes components' temperature.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_components();
-    /// ```
-    fn refresh_components(&mut self) {
-        for component in self.components_mut() {
-            component.refresh();
-        }
-    }
-
-    /// Refreshes components list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new();
-    /// assert!(s.components().is_empty());
-    ///
-    /// s.refresh_components_list();
-    /// assert!(!s.components().is_empty());
-    /// ```
-    fn refresh_components_list(&mut self);
 
     /// Gets all processes and updates their information.
     ///
@@ -1110,30 +1076,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// println!("{} bytes", s.used_swap());
     /// ```
     fn used_swap(&self) -> u64;
-
-    /// Returns the components list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
-    ///
-    /// let s = System::new_all();
-    /// for component in s.components() {
-    ///     println!("{}: {}°C", component.label(), component.temperature());
-    /// }
-    /// ```
-    fn components(&self) -> &[Component];
-
-    /// Returns a mutable components list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// for component in s.components_mut() {
-    ///     component.refresh();
-    /// }
-    /// ```
-    fn components_mut(&mut self) -> &mut [Component];
 
     /// Returns the users list.
     ///
@@ -1521,7 +1463,7 @@ pub trait NetworksExt: Debug {
 
 /// Interacting with disks.
 pub trait DisksExt: Debug {
-    /// Creates a new `Disks` type.
+    /// Creates a new [`Disks`][crate::Disks] type.
     ///
     /// ```no_run
     /// use sysinfo::{Disks, DisksExt};
@@ -1633,10 +1575,11 @@ pub trait ComponentExt: Debug {
     /// Returns the temperature of the component (in celsius degree).
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
     ///
-    /// let s = System::new_all();
-    /// for component in s.components() {
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
     ///     println!("{}°C", component.temperature());
     /// }
     /// ```
@@ -1652,10 +1595,11 @@ pub trait ComponentExt: Debug {
     /// `max` value will be updated on refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
     ///
-    /// let s = System::new_all();
-    /// for component in s.components() {
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
     ///     println!("{}°C", component.max());
     /// }
     /// ```
@@ -1669,10 +1613,11 @@ pub trait ComponentExt: Debug {
     /// Returns the highest temperature before the component halts (in celsius degree).
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
     ///
-    /// let s = System::new_all();
-    /// for component in s.components() {
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
     ///     println!("{:?}°C", component.critical());
     /// }
     /// ```
@@ -1685,10 +1630,11 @@ pub trait ComponentExt: Debug {
     /// Returns the label of the component.
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
     ///
-    /// let s = System::new_all();
-    /// for component in s.components() {
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
     ///     println!("{}", component.label());
     /// }
     /// ```
@@ -1710,14 +1656,115 @@ pub trait ComponentExt: Debug {
     /// Refreshes component.
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
     ///
-    /// let mut s = System::new_all();
-    /// for component in s.components_mut() {
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter_mut() {
     ///     component.refresh();
     /// }
     /// ```
     fn refresh(&mut self);
+}
+
+/// Interacting with components.
+pub trait ComponentsExt: Debug {
+    /// Creates a new [`Components`][crate::Components] type.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    fn new() -> Self;
+
+    /// Returns the components list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.components() {
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    fn components(&self) -> &[Component];
+
+    /// Returns the components list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.components_mut() {
+    ///     component.refresh();
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    fn components_mut(&mut self) -> &mut [Component];
+
+    /// Sort the components list with the provided callback.
+    ///
+    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
+    /// for implementation details.
+    ///
+    /// You can do the same without this method by calling:
+    ///
+    /// ```no_run
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// components.sort_by(|component1, component2| {
+    ///     component2.label().partial_cmp(component2.label()).unwrap()
+    /// });
+    /// ```
+    ///
+    /// ⚠️ If you use [`ComponentsExt::refresh_list`], you will need to call this method to sort the
+    /// components again.
+    fn sort_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Component, &Component) -> std::cmp::Ordering,
+    {
+        self.components_mut().sort_unstable_by(compare);
+    }
+
+    /// Refreshes the listed components' information.
+    ///
+    /// ⚠️ If you didn't call [`ComponentsExt::refresh_list`] beforehand, this method will do nothing as
+    /// the component list will be empty.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// // We get the component list.
+    /// components.refresh_list();
+    /// // We wait some time...?
+    /// components.refresh();
+    /// ```
+    fn refresh(&mut self) {
+        for component in self.components_mut() {
+            component.refresh();
+        }
+    }
+
+    /// The component list will be emptied then completely recomputed.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// ```
+    fn refresh_list(&mut self);
 }
 
 /// Getting information for a user.

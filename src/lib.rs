@@ -56,10 +56,10 @@ pub use common::{
     Networks, NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal,
     Uid,
 };
-pub use sys::{Component, Cpu, Disk, NetworkData, Process, System, User};
+pub use sys::{Component, Components, Cpu, Disk, NetworkData, Process, System, User};
 pub use traits::{
-    ComponentExt, CpuExt, DiskExt, DisksExt, GroupExt, NetworkExt, NetworksExt, ProcessExt,
-    SystemExt, UserExt,
+    ComponentExt, ComponentsExt, CpuExt, DiskExt, DisksExt, GroupExt, NetworkExt, NetworksExt,
+    ProcessExt, SystemExt, UserExt,
 };
 
 #[cfg(feature = "c-interface")]

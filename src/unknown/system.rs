@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    sys::{component::Component, Cpu, Process},
+    sys::{Cpu, Process},
     CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 
@@ -34,8 +34,6 @@ impl SystemExt for System {
     fn refresh_memory(&mut self) {}
 
     fn refresh_cpu_specifics(&mut self, _refresh_kind: CpuRefreshKind) {}
-
-    fn refresh_components_list(&mut self) {}
 
     fn refresh_processes_specifics(&mut self, _refresh_kind: ProcessRefreshKind) {}
 
@@ -95,14 +93,6 @@ impl SystemExt for System {
 
     fn used_swap(&self) -> u64 {
         0
-    }
-
-    fn components(&self) -> &[Component] {
-        &[]
-    }
-
-    fn components_mut(&mut self) -> &mut [Component] {
-        &mut []
     }
 
     fn uptime(&self) -> u64 {
