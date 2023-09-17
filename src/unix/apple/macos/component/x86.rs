@@ -47,7 +47,7 @@ impl ComponentFFI {
 // Used to get CPU information, not supported on iOS, or inside the default macOS sandbox.
 #[doc = include_str!("../../../../../md_doc/components.md")]
 pub struct Components {
-    pub components: Vec<Component>,
+    components: Vec<Component>,
     connection: Option<IoService>,
 }
 

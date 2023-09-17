@@ -20,7 +20,7 @@ use crate::{ComponentExt, ComponentsExt};
 
 #[doc = include_str!("../../../../../md_doc/components.md")]
 pub struct Components {
-    pub(crate) components: Vec<Component>,
+    components: Vec<Component>,
     client: Option<CFReleaser<__IOHIDEventSystemClient>>,
 }
 

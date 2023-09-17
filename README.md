@@ -201,7 +201,7 @@ To build the C example, just run:
 > make
 > ./simple
 # If needed:
-> LD_LIBRARY_PATH=target/release/ ./simple
+> LD_LIBRARY_PATH=target/debug/ ./simple
 ```
 
 ### Benchmarks
