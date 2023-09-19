@@ -4,6 +4,7 @@ mod component;
 mod cpu;
 mod disk;
 mod network;
+pub(crate) mod network_helper;
 mod process;
 mod sid;
 mod system;
@@ -11,7 +12,7 @@ mod tools;
 mod users;
 mod utils;
 
-pub use self::component::Component;
+pub use self::component::{Component, Components};
 pub use self::cpu::Cpu;
 pub use self::disk::Disk;
 pub use self::network::NetworkData;

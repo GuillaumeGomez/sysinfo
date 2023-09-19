@@ -5,8 +5,8 @@ use crate::{
     sys::{Component, Cpu, Disk, Process},
 };
 use crate::{
-    CpuRefreshKind, DiskKind, DiskUsage, Disks, Group, LoadAvg, Networks, NetworksIter, Pid,
-    ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, User,
+    CpuRefreshKind, DiskKind, DiskUsage, Group, LoadAvg, NetworksIter, Pid, ProcessRefreshKind,
+    ProcessStatus, RefreshKind, Signal, User,
 };
 
 use std::collections::HashMap;
@@ -18,11 +18,11 @@ use std::time::Duration;
 /// Contains all the methods of the [`Disk`][crate::Disk] struct.
 ///
 /// ```no_run
-/// use sysinfo::{DiskExt, System, SystemExt};
+/// use sysinfo::{DiskExt, Disks, DisksExt};
 ///
-/// let mut s = System::new();
-/// s.refresh_disks_list();
-/// for disk in s.disks().iter() {
+/// let mut disks = Disks::new();
+/// disks.refresh_list();
+/// for disk in disks.disks() {
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```
@@ -30,12 +30,12 @@ pub trait DiskExt: Debug {
     /// Returns the kind of disk.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{:?}", disk.kind());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {:?}", disk.name(), disk.kind());
     /// }
     /// ```
     fn kind(&self) -> DiskKind;
@@ -43,11 +43,11 @@ pub trait DiskExt: Debug {
     /// Returns the disk name.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
     ///     println!("{:?}", disk.name());
     /// }
     /// ```
@@ -56,12 +56,12 @@ pub trait DiskExt: Debug {
     /// Returns the file system used on this disk (so for example: `EXT4`, `NTFS`, etc...).
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{:?}", disk.file_system());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {:?}", disk.name(), disk.file_system());
     /// }
     /// ```
     fn file_system(&self) -> &[u8];
@@ -69,12 +69,12 @@ pub trait DiskExt: Debug {
     /// Returns the mount point of the disk (`/` for example).
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{:?}", disk.mount_point());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {:?}", disk.name(), disk.mount_point());
     /// }
     /// ```
     fn mount_point(&self) -> &Path;
@@ -82,12 +82,12 @@ pub trait DiskExt: Debug {
     /// Returns the total disk size, in bytes.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{}", disk.total_space());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {}B", disk.name(), disk.total_space());
     /// }
     /// ```
     fn total_space(&self) -> u64;
@@ -95,12 +95,12 @@ pub trait DiskExt: Debug {
     /// Returns the available disk size, in bytes.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{}", disk.available_space());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {}B", disk.name(), disk.available_space());
     /// }
     /// ```
     fn available_space(&self) -> u64;
@@ -108,12 +108,12 @@ pub trait DiskExt: Debug {
     /// Returns `true` if the disk is removable.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{}", disk.is_removable());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {}", disk.name(), disk.is_removable());
     /// }
     /// ```
     fn is_removable(&self) -> bool;
@@ -121,11 +121,11 @@ pub trait DiskExt: Debug {
     /// Updates the disk' information.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks_mut().iter_mut() {
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks_mut() {
     ///     disk.refresh();
     /// }
     /// ```
@@ -622,10 +622,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// always be the maximum value (`number of CPUs * 100`).
     const MINIMUM_CPU_UPDATE_INTERVAL: Duration;
 
-    /// Creates a new [`System`] instance with nothing loaded. If you want to
-    /// load components, network interfaces or the disks, you'll have to use the
-    /// `refresh_*_list` methods. [`SystemExt::refresh_networks_list`] for
-    /// example.
+    /// Creates a new [`System`] instance with nothing loaded.
     ///
     /// Use the [`refresh_all`] method to update its internal information (or any of the `refresh_`
     /// method).
@@ -663,22 +660,16 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// [`System`]: crate::System
     ///
     /// ```
-    /// use sysinfo::{RefreshKind, System, SystemExt};
+    /// use sysinfo::{ProcessRefreshKind, RefreshKind, System, SystemExt};
     ///
-    /// // We want everything except disks.
+    /// // We want to only refresh processes.
     /// let mut system = System::new_with_specifics(
-    ///      RefreshKind::everything().without_disks_list(),
+    ///      RefreshKind::new().with_processes(ProcessRefreshKind::everything()),
     /// );
     ///
-    /// assert!(system.disks().is_empty());
     /// # if System::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
     /// assert!(!system.processes().is_empty());
     /// # }
-    ///
-    /// // If you want the disks list afterwards, just call the corresponding
-    /// // "refresh_disks_list":
-    /// system.refresh_disks_list();
-    /// let disks = system.disks();
     /// ```
     fn new_with_specifics(refreshes: RefreshKind) -> Self;
 
@@ -690,9 +681,9 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     ///
     /// let mut s = System::new_all();
     ///
-    /// // Let's just update networks and processes:
+    /// // Let's just update processes:
     /// s.refresh_specifics(
-    ///     RefreshKind::new().with_networks().with_processes(ProcessRefreshKind::everything()),
+    ///     RefreshKind::new().with_processes(ProcessRefreshKind::everything()),
     /// );
     /// ```
     fn refresh_specifics(&mut self, refreshes: RefreshKind) {
@@ -702,33 +693,15 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         if let Some(kind) = refreshes.cpu() {
             self.refresh_cpu_specifics(kind);
         }
-        if refreshes.components_list() {
-            self.refresh_components_list();
-        } else if refreshes.components() {
-            self.refresh_components();
-        }
-        if refreshes.networks_list() {
-            self.refresh_networks_list();
-        } else if refreshes.networks() {
-            self.refresh_networks();
-        }
         if let Some(kind) = refreshes.processes() {
             self.refresh_processes_specifics(kind);
-        }
-        if refreshes.disks_list() {
-            self.refresh_disks_list();
-        } else if refreshes.disks() {
-            self.refresh_disks();
         }
         if refreshes.users_list() {
             self.refresh_users_list();
         }
     }
 
-    /// Refreshes all system, processes, disks and network interfaces information.
-    ///
-    /// Please note that it doesn't recompute disks list, components list, network interfaces
-    /// list nor users list.
+    /// Refreshes all system and processes information.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -739,18 +712,15 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     fn refresh_all(&mut self) {
         self.refresh_system();
         self.refresh_processes();
-        self.refresh_disks();
-        self.refresh_networks();
     }
 
     /// Refreshes system information (RAM, swap, CPU usage and components' temperature).
     ///
     /// If you want some more specific refreshes, you might be interested into looking at
-    /// [`refresh_memory`], [`refresh_cpu`] and [`refresh_components`].
+    /// [`refresh_memory`] and [`refresh_cpu`].
     ///
     /// [`refresh_memory`]: SystemExt::refresh_memory
     /// [`refresh_cpu`]: SystemExt::refresh_memory
-    /// [`refresh_components`]: SystemExt::refresh_components
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt};
@@ -760,8 +730,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn refresh_system(&mut self) {
         self.refresh_memory();
-        self.refresh_cpu();
-        self.refresh_components();
+        self.refresh_cpu_usage();
     }
 
     /// Refreshes RAM and SWAP usage.
@@ -774,7 +743,7 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn refresh_memory(&mut self);
 
-    /// Refreshes CPUs information.
+    /// Refreshes CPUs usage.
     ///
     /// ⚠️ Please note that the result will very likely be inaccurate at the first call.
     /// You need to call this method at least twice (with a bit of time between each call, like
@@ -788,16 +757,48 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// use sysinfo::{System, SystemExt};
     ///
     /// let mut s = System::new_all();
-    /// s.refresh_cpu();
+    /// s.refresh_cpu_usage();
     /// ```
-    fn refresh_cpu(&mut self) {
+    fn refresh_cpu_usage(&mut self) {
         self.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())
     }
 
-    /// Refreshes CPUs specific information.
+    /// Refreshes CPUs frequency information.
     ///
-    /// Please note that it doesn't recompute disks list, components list, network interfaces
-    /// list nor users list.
+    /// Calling this method is the same as calling
+    /// `refresh_cpu_specifics(CpuRefreshKind::new().with_frequency())`.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_cpu_frequency();
+    /// ```
+    fn refresh_cpu_frequency(&mut self) {
+        self.refresh_cpu_specifics(CpuRefreshKind::new().with_frequency())
+    }
+
+    /// Refreshes all information related to CPUs information.
+    ///
+    /// ⚠️ Please note that the result will very likely be inaccurate at the first call.
+    /// You need to call this method at least twice (with a bit of time between each call, like
+    /// 200 ms, take a look at [`SystemExt::MINIMUM_CPU_UPDATE_INTERVAL`] for more information)
+    /// to get accurate value as it uses previous results to compute the next value.
+    ///
+    /// Calling this method is the same as calling
+    /// `refresh_cpu_specifics(CpuRefreshKind::everything())`.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, SystemExt};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_cpu();
+    /// ```
+    fn refresh_cpu(&mut self) {
+        self.refresh_cpu_specifics(CpuRefreshKind::everything())
+    }
+
+    /// Refreshes CPUs specific information.
     ///
     /// ```no_run
     /// use sysinfo::{System, SystemExt, CpuRefreshKind};
@@ -806,33 +807,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// s.refresh_cpu_specifics(CpuRefreshKind::everything());
     /// ```
     fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind);
-
-    /// Refreshes components' temperature.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_components();
-    /// ```
-    fn refresh_components(&mut self) {
-        for component in self.components_mut() {
-            component.refresh();
-        }
-    }
-
-    /// Refreshes components list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new();
-    /// assert!(s.components().is_empty());
-    ///
-    /// s.refresh_components_list();
-    /// assert!(!s.components().is_empty());
-    /// ```
-    fn refresh_components_list(&mut self);
 
     /// Gets all processes and updates their information.
     ///
@@ -893,40 +867,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool;
 
-    /// Refreshes the listed disks' information.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_disks();
-    /// ```
-    fn refresh_disks(&mut self) {
-        self.disks_mut().refresh();
-    }
-
-    /// The disk list will be emptied then completely recomputed.
-    ///
-    /// ## Linux
-    ///
-    /// ⚠️ On Linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
-    /// systems are ignored and the information of a mounted NFS **cannot** be obtained
-    /// via [`SystemExt::refresh_disks_list`]. This is due to the fact that I/O function
-    /// `statvfs` used by [`SystemExt::refresh_disks_list`] is blocking and
-    /// [may hang](https://github.com/GuillaumeGomez/sysinfo/pull/876) in some cases,
-    /// requiring to call `systemctl stop` to terminate the NFS service from the remote
-    /// server in some cases.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_disks_list();
-    /// ```
-    fn refresh_disks_list(&mut self) {
-        self.disks_mut().refresh_list();
-    }
-
     /// Refreshes users list.
     ///
     /// ```no_run
@@ -936,51 +876,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// s.refresh_users_list();
     /// ```
     fn refresh_users_list(&mut self);
-
-    /// Refreshes networks data.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_networks();
-    /// ```
-    ///
-    /// It is a shortcut for:
-    ///
-    /// ```no_run
-    /// use sysinfo::{NetworksExt, System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// let networks = s.networks_mut();
-    /// networks.refresh();
-    /// ```
-    fn refresh_networks(&mut self) {
-        self.networks_mut().refresh();
-    }
-
-    /// The network list will be updated: removing not existing anymore interfaces and adding new
-    /// ones.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_networks_list();
-    /// ```
-    ///
-    /// This is a shortcut for:
-    ///
-    /// ```no_run
-    /// use sysinfo::{NetworksExt, System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// let networks = s.networks_mut();
-    /// networks.refresh_networks_list();
-    /// ```
-    fn refresh_networks_list(&mut self) {
-        self.networks_mut().refresh_networks_list();
-    }
 
     /// Returns the process list.
     ///
@@ -1196,30 +1091,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn used_swap(&self) -> u64;
 
-    /// Returns the components list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
-    ///
-    /// let s = System::new_all();
-    /// for component in s.components() {
-    ///     println!("{}: {}°C", component.label(), component.temperature());
-    /// }
-    /// ```
-    fn components(&self) -> &[Component];
-
-    /// Returns a mutable components list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// for component in s.components_mut() {
-    ///     component.refresh();
-    /// }
-    /// ```
-    fn components_mut(&mut self) -> &mut [Component];
-
     /// Returns the users list.
     ///
     /// ```no_run
@@ -1231,74 +1102,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// }
     /// ```
     fn users(&self) -> &[User];
-
-    /// Returns the disks list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
-    ///
-    /// let mut s = System::new();
-    /// s.refresh_disks_list();
-    /// for disk in s.disks().iter() {
-    ///     println!("{:?}", disk.name());
-    /// }
-    /// ```
-    fn disks(&self) -> &Disks;
-
-    /// Returns the disks list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// for disk in s.disks_mut().iter_mut() {
-    ///     disk.refresh();
-    /// }
-    /// ```
-    fn disks_mut(&mut self) -> &mut Disks;
-
-    /// Sort the disk list with the provided callback.
-    ///
-    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
-    /// for implementation details.
-    ///
-    /// ⚠️ If you use [`SystemExt::refresh_disks_list`], you need to use this method before using
-    /// [`SystemExt::disks`] or [`SystemExt::disks_mut`] if you want them to be sorted.
-    fn sort_disks_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
-    {
-        self.disks_mut().sort_unstable_by(compare);
-    }
-
-    /// Returns the network interfaces object.
-    ///
-    /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
-    ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, data) in networks {
-    ///     println!(
-    ///         "[{}] in: {}, out: {}",
-    ///         interface_name,
-    ///         data.received(),
-    ///         data.transmitted(),
-    ///     );
-    /// }
-    /// ```
-    fn networks(&self) -> &Networks;
-
-    /// Returns a mutable access to network interfaces.
-    ///
-    /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// let networks = s.networks_mut();
-    /// networks.refresh_networks_list();
-    /// ```
-    fn networks_mut(&mut self) -> &mut Networks;
 
     /// Returns system uptime (in seconds).
     ///
@@ -1448,11 +1251,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of received bytes since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {} B", network.received());
     /// }
     /// ```
@@ -1461,11 +1264,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of received bytes.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {} B", network.total_received());
     /// }
     /// ```
@@ -1474,11 +1277,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of transmitted bytes since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {} B", network.transmitted());
     /// }
     /// ```
@@ -1487,11 +1290,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of transmitted bytes.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {} B", network.total_transmitted());
     /// }
     /// ```
@@ -1500,11 +1303,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of incoming packets since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.packets_received());
     /// }
     /// ```
@@ -1513,11 +1316,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of incoming packets.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.total_packets_received());
     /// }
     /// ```
@@ -1526,11 +1329,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of outcoming packets since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.packets_transmitted());
     /// }
     /// ```
@@ -1539,11 +1342,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of outcoming packets.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.total_packets_transmitted());
     /// }
     /// ```
@@ -1552,11 +1355,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of incoming errors since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.errors_on_received());
     /// }
     /// ```
@@ -1565,11 +1368,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of incoming errors.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.total_errors_on_received());
     /// }
     /// ```
@@ -1578,11 +1381,11 @@ pub trait NetworkExt: Debug {
     /// Returns the number of outcoming errors since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.errors_on_transmitted());
     /// }
     /// ```
@@ -1591,11 +1394,11 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of outcoming errors.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.total_errors_on_transmitted());
     /// }
     /// ```
@@ -1604,11 +1407,11 @@ pub trait NetworkExt: Debug {
     /// Returns the MAC address associated to current interface.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
     ///     println!("MAC address: {}", network.mac_address());
     /// }
     /// ```
@@ -1617,15 +1420,32 @@ pub trait NetworkExt: Debug {
 
 /// Interacting with network interfaces.
 pub trait NetworksExt: Debug {
+    /// Creates a new `Networks` type.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Networks, NetworksExt};
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("[{interface_name}]: {network:?}");
+    /// }
+    /// ```
+    fn new() -> Self;
+
     /// Returns an iterator over the network interfaces.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworkExt, NetworksExt, System, SystemExt};
     ///
-    /// let s = System::new_all();
-    /// let networks = s.networks();
-    /// for (interface_name, network) in networks {
-    ///     println!("in: {} B", network.received());
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, data) in &networks {
+    ///     println!(
+    ///         "[{interface_name}] in: {}, out: {}",
+    ///         data.received(),
+    ///         data.transmitted(),
+    ///     );
     /// }
     /// ```
     fn iter(&self) -> NetworksIter;
@@ -1633,21 +1453,23 @@ pub trait NetworksExt: Debug {
     /// Refreshes the network interfaces list.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworksExt, System, SystemExt};
     ///
-    /// let mut s = System::new_all();
-    /// let networks = s.networks_mut();
-    /// networks.refresh_networks_list();
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
     /// ```
-    fn refresh_networks_list(&mut self);
+    fn refresh_list(&mut self);
 
-    /// Refreshes the network interfaces' content.
+    /// Refreshes the network interfaces' content. If you didn't run [`NetworksExt::refresh_list`]
+    /// before, calling this method won't do anything as no interfaces are present.
     ///
     /// ```no_run
-    /// use sysinfo::{NetworksExt, System, SystemExt};
+    /// use sysinfo::{Networks, NetworksExt, System, SystemExt};
     ///
-    /// let mut s = System::new_all();
-    /// let networks = s.networks_mut();
+    /// let mut networks = Networks::new();
+    /// // Refreshes the network interfaces list.
+    /// networks.refresh_list();
+    /// // Wait some time...? Then refresh the data of each network.
     /// networks.refresh();
     /// ```
     fn refresh(&mut self);
@@ -1655,14 +1477,28 @@ pub trait NetworksExt: Debug {
 
 /// Interacting with disks.
 pub trait DisksExt: Debug {
+    /// Creates a new [`Disks`][crate::Disks] type.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Disks, DisksExt};
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     eprintln!("{disk:?}");
+    /// }
+    /// ```
+    fn new() -> Self;
+
     /// Returns the disks list.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{Disks, DisksExt};
     ///
-    /// let s = System::new_all();
-    /// for disk in s.disks().iter() {
-    ///     println!("{:?}", disk.name());
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     eprintln!("{disk:?}");
     /// }
     /// ```
     fn disks(&self) -> &[Disk];
@@ -1670,11 +1506,13 @@ pub trait DisksExt: Debug {
     /// Returns the disks list.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, Disks, DisksExt};
     ///
-    /// let mut s = System::new_all();
-    /// for disk in s.disks_mut().iter_mut() {
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks_mut() {
     ///     disk.refresh();
+    ///     eprintln!("{disk:?}");
     /// }
     /// ```
     fn disks_mut(&mut self) -> &mut [Disk];
@@ -1687,17 +1525,17 @@ pub trait DisksExt: Debug {
     /// You can do the same without this method by calling:
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, DisksExt, System, SystemExt};
+    /// use sysinfo::{DiskExt, DisksExt, Disks};
     ///
-    /// let mut s = System::new_all();
-    /// let disks = s.disks_mut();
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
     /// disks.sort_by(|disk1, disk2| {
     ///     disk1.name().partial_cmp(disk2.name()).unwrap()
     /// });
     /// ```
     ///
-    /// ⚠️ If you use [`SystemExt::refresh_disks_list`], you need to use this method before using
-    /// [`SystemExt::disks`] or [`SystemExt::disks_mut`] if you want them to be sorted again.
+    /// ⚠️ If you use [`DisksExt::refresh_list`], you will need to call this method to sort the
+    /// disks again.
     fn sort_by<F>(&mut self, compare: F)
     where
         F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
@@ -1707,11 +1545,17 @@ pub trait DisksExt: Debug {
 
     /// Refreshes the listed disks' information.
     ///
-    /// ```no_run
-    /// use sysinfo::{DisksExt, System, SystemExt};
+    /// ⚠️ If you didn't call [`DisksExt::refresh_list`] beforehand, this method will do nothing as
+    /// the disk list will be empty.
     ///
-    /// let mut s = System::new_all();
-    /// s.disks_mut().refresh();
+    /// ```no_run
+    /// use sysinfo::{Disks, DisksExt};
+    ///
+    /// let mut disks = Disks::new();
+    /// // We get the disk list.
+    /// disks.refresh_list();
+    /// // We wait some time...?
+    /// disks.refresh();
     /// ```
     fn refresh(&mut self) {
         for disk in self.disks_mut() {
@@ -1725,17 +1569,17 @@ pub trait DisksExt: Debug {
     ///
     /// ⚠️ On Linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
     /// systems are ignored and the information of a mounted NFS **cannot** be obtained
-    /// via [`SystemExt::refresh_disks_list`]. This is due to the fact that I/O function
-    /// `statvfs` used by [`SystemExt::refresh_disks_list`] is blocking and
+    /// via [`DisksExt::refresh_list`]. This is due to the fact that I/O function
+    /// `statvfs` used by [`DisksExt::refresh_list`] is blocking and
     /// [may hang](https://github.com/GuillaumeGomez/sysinfo/pull/876) in some cases,
     /// requiring to call `systemctl stop` to terminate the NFS service from the remote
     /// server in some cases.
     ///
     /// ```no_run
-    /// use sysinfo::{DisksExt, System, SystemExt};
+    /// use sysinfo::{Disks, DisksExt};
     ///
-    /// let mut s = System::new_all();
-    /// s.disks_mut().refresh_list();
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
     /// ```
     fn refresh_list(&mut self);
 }
@@ -1745,10 +1589,11 @@ pub trait ComponentExt: Debug {
     /// Returns the temperature of the component (in celsius degree).
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
     ///
-    /// let s = System::new_all();
-    /// for component in s.components() {
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
     ///     println!("{}°C", component.temperature());
     /// }
     /// ```
@@ -1764,10 +1609,11 @@ pub trait ComponentExt: Debug {
     /// `max` value will be updated on refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
     ///
-    /// let s = System::new_all();
-    /// for component in s.components() {
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
     ///     println!("{}°C", component.max());
     /// }
     /// ```
@@ -1781,10 +1627,11 @@ pub trait ComponentExt: Debug {
     /// Returns the highest temperature before the component halts (in celsius degree).
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
     ///
-    /// let s = System::new_all();
-    /// for component in s.components() {
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
     ///     println!("{:?}°C", component.critical());
     /// }
     /// ```
@@ -1797,10 +1644,11 @@ pub trait ComponentExt: Debug {
     /// Returns the label of the component.
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
     ///
-    /// let s = System::new_all();
-    /// for component in s.components() {
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
     ///     println!("{}", component.label());
     /// }
     /// ```
@@ -1822,14 +1670,115 @@ pub trait ComponentExt: Debug {
     /// Refreshes component.
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, System, SystemExt};
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
     ///
-    /// let mut s = System::new_all();
-    /// for component in s.components_mut() {
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter_mut() {
     ///     component.refresh();
     /// }
     /// ```
     fn refresh(&mut self);
+}
+
+/// Interacting with components.
+pub trait ComponentsExt: Debug {
+    /// Creates a new [`Components`][crate::Components] type.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    fn new() -> Self;
+
+    /// Returns the components list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.components() {
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    fn components(&self) -> &[Component];
+
+    /// Returns the components list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.components_mut() {
+    ///     component.refresh();
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    fn components_mut(&mut self) -> &mut [Component];
+
+    /// Sort the components list with the provided callback.
+    ///
+    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
+    /// for implementation details.
+    ///
+    /// You can do the same without this method by calling:
+    ///
+    /// ```no_run
+    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// components.sort_by(|component1, component2| {
+    ///     component2.label().partial_cmp(component2.label()).unwrap()
+    /// });
+    /// ```
+    ///
+    /// ⚠️ If you use [`ComponentsExt::refresh_list`], you will need to call this method to sort the
+    /// components again.
+    fn sort_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Component, &Component) -> std::cmp::Ordering,
+    {
+        self.components_mut().sort_unstable_by(compare);
+    }
+
+    /// Refreshes the listed components' information.
+    ///
+    /// ⚠️ If you didn't call [`ComponentsExt::refresh_list`] beforehand, this method will do nothing as
+    /// the component list will be empty.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// // We get the component list.
+    /// components.refresh_list();
+    /// // We wait some time...?
+    /// components.refresh();
+    /// ```
+    fn refresh(&mut self) {
+        for component in self.components_mut() {
+            component.refresh();
+        }
+    }
+
+    /// The component list will be emptied then completely recomputed.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// ```
+    fn refresh_list(&mut self);
 }
 
 /// Getting information for a user.

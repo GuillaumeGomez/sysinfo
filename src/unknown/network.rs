@@ -3,12 +3,20 @@
 use crate::common::MacAddr;
 use crate::{NetworkExt, Networks, NetworksExt, NetworksIter};
 
+use std::collections::HashMap;
+
 impl NetworksExt for Networks {
+    fn new() -> Self {
+        Self {
+            interfaces: HashMap::new(),
+        }
+    }
+
     fn iter(&self) -> NetworksIter {
         NetworksIter::new(self.interfaces.iter())
     }
 
-    fn refresh_networks_list(&mut self) {}
+    fn refresh_list(&mut self) {}
 
     fn refresh(&mut self) {}
 }

@@ -1,12 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    CpuRefreshKind, Disks, LoadAvg, Networks, Pid, ProcessExt, ProcessRefreshKind, RefreshKind,
-    SystemExt, User,
+    CpuRefreshKind, LoadAvg, Pid, ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
 use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
-use crate::sys::component::{self, Component};
 use crate::sys::cpu::*;
 use crate::sys::process::{get_start_time, update_memory, Process};
 use crate::sys::tools::*;
@@ -50,10 +48,7 @@ pub struct System {
     swap_total: u64,
     swap_used: u64,
     cpus: CpusWrapper,
-    components: Vec<Component>,
-    disks: Disks,
     query: Option<Query>,
-    networks: Networks,
     boot_time: u64,
     users: Vec<User>,
 }
@@ -102,10 +97,7 @@ impl SystemExt for System {
             swap_total: 0,
             swap_used: 0,
             cpus: CpusWrapper::new(),
-            components: Vec::new(),
-            disks: Disks::new(),
             query: None,
-            networks: Networks::new(),
             boot_time: unsafe { boot_time() },
             users: Vec::new(),
         };
@@ -192,10 +184,6 @@ impl SystemExt for System {
                 self.swap_used = swap_used as _;
             }
         }
-    }
-
-    fn refresh_components_list(&mut self) {
-        self.components = component::get_components();
     }
 
     #[allow(clippy::map_entry)]
@@ -406,32 +394,8 @@ impl SystemExt for System {
         self.swap_used
     }
 
-    fn components(&self) -> &[Component] {
-        &self.components
-    }
-
-    fn components_mut(&mut self) -> &mut [Component] {
-        &mut self.components
-    }
-
-    fn disks(&self) -> &Disks {
-        &self.disks
-    }
-
-    fn disks_mut(&mut self) -> &mut Disks {
-        &mut self.disks
-    }
-
     fn users(&self) -> &[User] {
         &self.users
-    }
-
-    fn networks(&self) -> &Networks {
-        &self.networks
-    }
-
-    fn networks_mut(&mut self) -> &mut Networks {
-        &mut self.networks
     }
 
     fn uptime(&self) -> u64 {

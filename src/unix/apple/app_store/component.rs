@@ -2,7 +2,7 @@
 
 use crate::{ComponentExt, ComponentsExt};
 
-#[doc = include_str!("../../md_doc/component.md")]
+#[doc = include_str!("../../../../md_doc/component.md")]
 pub struct Component {}
 
 impl ComponentExt for Component {
@@ -25,7 +25,7 @@ impl ComponentExt for Component {
     fn refresh(&mut self) {}
 }
 
-#[doc = include_str!("../../md_doc/components.md")]
+#[doc = include_str!("../../../../md_doc/components.md")]
 pub struct Components {
     components: Vec<Component>,
 }

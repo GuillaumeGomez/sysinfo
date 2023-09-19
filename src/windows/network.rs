@@ -20,12 +20,18 @@ macro_rules! old_and_new {
 }
 
 impl NetworksExt for Networks {
+    fn new() -> Self {
+        Self {
+            interfaces: HashMap::new(),
+        }
+    }
+
     #[allow(clippy::needless_lifetimes)]
     fn iter<'a>(&'a self) -> NetworksIter<'a> {
         NetworksIter::new(self.interfaces.iter())
     }
 
-    fn refresh_networks_list(&mut self) {
+    fn refresh_list(&mut self) {
         let mut table: PMIB_IF_TABLE2 = std::ptr::null_mut();
 
         unsafe {

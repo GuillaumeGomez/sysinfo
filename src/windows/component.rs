@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::ComponentExt;
+use crate::{ComponentExt, ComponentsExt};
 
 use std::ptr::null_mut;
 
@@ -92,10 +92,31 @@ impl ComponentExt for Component {
     }
 }
 
-pub(crate) fn get_components() -> Vec<Component> {
-    match Component::new() {
-        Some(c) => vec![c],
-        None => Vec::new(),
+#[doc = include_str!("../../md_doc/components.md")]
+pub struct Components {
+    components: Vec<Component>,
+}
+
+impl ComponentsExt for Components {
+    fn new() -> Self {
+        Self {
+            components: Vec::new(),
+        }
+    }
+
+    fn components(&self) -> &[Component] {
+        &self.components
+    }
+
+    fn components_mut(&mut self) -> &mut [Component] {
+        &mut self.components
+    }
+
+    fn refresh_list(&mut self) {
+        self.components = match Component::new() {
+            Some(c) => vec![c],
+            None => Vec::new(),
+        };
     }
 }
 

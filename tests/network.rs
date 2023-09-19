@@ -4,12 +4,14 @@
 
 #[test]
 fn test_networks() {
-    use sysinfo::{NetworksExt, SystemExt};
+    use sysinfo::{Networks, NetworksExt, SystemExt};
 
     if sysinfo::System::IS_SUPPORTED {
-        let s = sysinfo::System::new();
-        assert_eq!(s.networks().iter().count(), 0);
-        let s = sysinfo::System::new_all();
-        assert!(s.networks().iter().count() > 0);
+        let mut n = Networks::new();
+        assert_eq!(n.iter().count(), 0);
+        n.refresh();
+        assert_eq!(n.iter().count(), 0);
+        n.refresh_list();
+        assert!(n.iter().count() > 0);
     }
 }

@@ -34,7 +34,10 @@ You have an example into the `examples` folder. You can run it with `cargo run -
 Otherwise, here is a little code sample:
 
 ```rust
-use sysinfo::{NetworkExt, NetworksExt, ProcessExt, System, SystemExt};
+use sysinfo::{
+    Components, ComponentsExt, Disks, DisksExt, NetworkExt, Networks,
+    NetworksExt, ProcessExt, System, SystemExt,
+};
 
 // Please note that we use "new_all" to ensure that all list of
 // components, network interfaces, disks and users are already
@@ -43,24 +46,6 @@ let mut sys = System::new_all();
 
 // First we update all information of our `System` struct.
 sys.refresh_all();
-
-// We display all disks' information:
-println!("=> disks:");
-for disk in sys.disks().iter() {
-    println!("{:?}", disk);
-}
-
-// Network interfaces name, data received and data transmitted:
-println!("=> networks:");
-for (interface_name, data) in sys.networks() {
-    println!("{}: {}/{} B", interface_name, data.received(), data.transmitted());
-}
-
-// Components temperature:
-println!("=> components:");
-for component in sys.components() {
-    println!("{:?}", component);
-}
 
 println!("=> system:");
 // RAM and swap information:
@@ -80,7 +65,34 @@ println!("NB CPUs: {}", sys.cpus().len());
 
 // Display processes ID, name na disk usage:
 for (pid, process) in sys.processes() {
-    println!("[{}] {} {:?}", pid, process.name(), process.disk_usage());
+    println!("[{pid}] {} {:?}", process.name(), process.disk_usage());
+}
+
+// We display all disks' information:
+println!("=> disks:");
+let mut disks = Disks::new();
+// We refresh the disk list.
+disks.refresh_list();
+for disk in disks.iter() {
+    println!("{disk:?}");
+}
+
+// Network interfaces name, data received and data transmitted:
+let mut networks = Networks::new();
+// We refresh the network interface list.
+networks.refresh_list();
+println!("=> networks:");
+for (interface_name, data) in &networks {
+    println!("{interface_name}: {}/{} B", data.received(), data.transmitted());
+}
+
+// Components temperature:
+let mut components = Components::new();
+// We refresh the component list.
+components.refresh_list();
+println!("=> components:");
+for component in components.iter() {
+    println!("{component:?}");
 }
 ```
 
@@ -189,7 +201,7 @@ To build the C example, just run:
 > make
 > ./simple
 # If needed:
-> LD_LIBRARY_PATH=target/release/ ./simple
+> LD_LIBRARY_PATH=target/debug/ ./simple
 ```
 
 ### Benchmarks

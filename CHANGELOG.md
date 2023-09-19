@@ -1,3 +1,11 @@
+# 0.29.10
+
+ * Linux: Correctly handle max memory value for cgroups.
+
+# 0.29.9
+
+ * Linux: Fix memory usage retrieval for cgroups.
+
 # 0.29.8
 
  * Linux: Fix overflow bug.

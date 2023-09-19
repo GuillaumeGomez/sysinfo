@@ -1,6 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, GroupExt, NetworkData, NetworksExt, User, UserExt};
+use crate::{
+    Component, Components, ComponentsExt, Disk, GroupExt, NetworkData, NetworksExt, User, UserExt,
+};
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -345,7 +347,7 @@ impl CpuRefreshKind {
     impl_get_set!(CpuRefreshKind, frequency, with_frequency, without_frequency);
 }
 
-/// Used to determine what you want to refresh specifically on the [`System`] type.
+/// Used to determine what you want to refresh specifically on the [`System`][crate::System] type.
 ///
 /// ⚠️ Just like all other refresh types, ruling out a refresh doesn't assure you that
 /// the information won't be retrieved if the information is accessible without needing
@@ -354,27 +356,19 @@ impl CpuRefreshKind {
 /// ```
 /// use sysinfo::{RefreshKind, System, SystemExt};
 ///
-/// // We want everything except disks.
-/// let mut system = System::new_with_specifics(RefreshKind::everything().without_disks_list());
+/// // We want everything except memory.
+/// let mut system = System::new_with_specifics(RefreshKind::everything().without_memory());
 ///
-/// assert_eq!(system.disks().len(), 0);
+/// assert_eq!(system.total_memory(), 0);
 /// # if System::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
 /// assert!(system.processes().len() > 0);
 /// # }
 /// ```
-///
-/// [`System`]: crate::System
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RefreshKind {
-    networks: bool,
-    networks_list: bool,
     processes: Option<ProcessRefreshKind>,
-    disks_list: bool,
-    disks: bool,
     memory: bool,
     cpu: Option<CpuRefreshKind>,
-    components: bool,
-    components_list: bool,
     users_list: bool,
 }
 
@@ -386,15 +380,9 @@ impl RefreshKind {
     ///
     /// let r = RefreshKind::new();
     ///
-    /// assert_eq!(r.networks(), false);
-    /// assert_eq!(r.networks_list(), false);
     /// assert_eq!(r.processes().is_some(), false);
-    /// assert_eq!(r.disks_list(), false);
-    /// assert_eq!(r.disks(), false);
     /// assert_eq!(r.memory(), false);
     /// assert_eq!(r.cpu().is_some(), false);
-    /// assert_eq!(r.components(), false);
-    /// assert_eq!(r.components_list(), false);
     /// assert_eq!(r.users_list(), false);
     /// ```
     pub fn new() -> Self {
@@ -408,28 +396,16 @@ impl RefreshKind {
     ///
     /// let r = RefreshKind::everything();
     ///
-    /// assert_eq!(r.networks(), true);
-    /// assert_eq!(r.networks_list(), true);
     /// assert_eq!(r.processes().is_some(), true);
-    /// assert_eq!(r.disks_list(), true);
-    /// assert_eq!(r.disks(), true);
     /// assert_eq!(r.memory(), true);
     /// assert_eq!(r.cpu().is_some(), true);
-    /// assert_eq!(r.components(), true);
-    /// assert_eq!(r.components_list(), true);
     /// assert_eq!(r.users_list(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
-            networks: true,
-            networks_list: true,
             processes: Some(ProcessRefreshKind::everything()),
-            disks: true,
-            disks_list: true,
             memory: true,
             cpu: Some(CpuRefreshKind::everything()),
-            components: true,
-            components_list: true,
             users_list: true,
         }
     }
@@ -441,47 +417,27 @@ impl RefreshKind {
         without_processes,
         ProcessRefreshKind
     );
-    impl_get_set!(RefreshKind, networks, with_networks, without_networks);
-    impl_get_set!(
-        RefreshKind,
-        networks_list,
-        with_networks_list,
-        without_networks_list
-    );
-    impl_get_set!(RefreshKind, disks, with_disks, without_disks);
-    impl_get_set!(RefreshKind, disks_list, with_disks_list, without_disks_list);
     impl_get_set!(RefreshKind, memory, with_memory, without_memory);
     impl_get_set!(RefreshKind, cpu, with_cpu, without_cpu, CpuRefreshKind);
-    impl_get_set!(RefreshKind, components, with_components, without_components);
-    impl_get_set!(
-        RefreshKind,
-        components_list,
-        with_components_list,
-        without_components_list
-    );
     impl_get_set!(RefreshKind, users_list, with_users_list, without_users_list);
 }
 
-/// Networks interfaces.
+/// Network interfaces.
+///
+/// Don't forget to also take a look at the [`NetworksExt`] trait to see the list of available
+/// methods.
 ///
 /// ```no_run
-/// use sysinfo::{NetworksExt, System, SystemExt};
+/// use sysinfo::{Networks, NetworksExt};
 ///
-/// let s = System::new_all();
-/// for network in s.networks().iter() {
+/// let mut networks = Networks::new();
+/// networks.refresh_list();
+/// for network in networks.iter() {
 ///     println!("{:?}", network);
 /// }
 /// ```
 pub struct Networks {
     pub(crate) interfaces: HashMap<String, NetworkData>,
-}
-
-impl Networks {
-    pub(crate) fn new() -> Networks {
-        Networks {
-            interfaces: HashMap::new(),
-        }
-    }
 }
 
 impl<'a> IntoIterator for &'a Networks {
@@ -498,10 +454,10 @@ impl<'a> IntoIterator for &'a Networks {
 /// It is returned by [`Networks::iter`][crate::Networks#method.iter].
 ///
 /// ```no_run
-/// use sysinfo::{System, SystemExt, NetworksExt};
+/// use sysinfo::{Networks, NetworksExt};
 ///
-/// let system = System::new_all();
-/// let networks_iter = system.networks().iter();
+/// let networks = Networks::new();
+/// let networks_iter = networks.iter();
 /// ```
 pub struct NetworksIter<'a> {
     inner: std::collections::hash_map::Iter<'a, String, NetworkData>,
@@ -521,26 +477,19 @@ impl<'a> Iterator for NetworksIter<'a> {
     }
 }
 
-/// Disks interfaces.
+/// Disk interfaces.
 ///
 /// ```no_run
-/// use sysinfo::{DiskExt, System, SystemExt};
+/// use sysinfo::{Disks, DisksExt};
 ///
-/// let s = System::new_all();
-/// for disk in s.disks().iter() {
-///     println!("{:?}", disk);
+/// let mut disks = Disks::new();
+/// disks.refresh_list();
+/// for disk in disks.disks() {
+///     println!("{disk:?}");
 /// }
 /// ```
 pub struct Disks {
     pub(crate) disks: Vec<Disk>,
-}
-
-impl Disks {
-    pub(crate) fn new() -> Self {
-        Self {
-            disks: Vec::with_capacity(2),
-        }
-    }
 }
 
 impl std::ops::Deref for Disks {
@@ -562,10 +511,11 @@ impl std::ops::DerefMut for Disks {
 /// This type is returned by [`DiskExt::kind`](`crate::DiskExt::kind`).
 ///
 /// ```no_run
-/// use sysinfo::{System, SystemExt, DiskExt};
+/// use sysinfo::{DiskExt, Disks, DisksExt};
 ///
-/// let system = System::new_all();
-/// for disk in system.disks().iter() {
+/// let mut disks = Disks::new();
+/// disks.refresh_list();
+/// for disk in disks.disks() {
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```
@@ -577,6 +527,20 @@ pub enum DiskKind {
     SSD,
     /// Unknown type.
     Unknown(isize),
+}
+
+impl std::ops::Deref for Components {
+    type Target = [Component];
+
+    fn deref(&self) -> &Self::Target {
+        self.components()
+    }
+}
+
+impl std::ops::DerefMut for Components {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.components_mut()
+    }
 }
 
 /// An enum representing signals on UNIX-like systems.

@@ -83,6 +83,12 @@ impl DiskExt for Disk {
 }
 
 impl DisksExt for Disks {
+    fn new() -> Self {
+        Self {
+            disks: Vec::with_capacity(2),
+        }
+    }
+
     fn refresh_list(&mut self) {
         unsafe {
             self.disks = get_disks();

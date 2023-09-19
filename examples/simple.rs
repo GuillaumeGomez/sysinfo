@@ -8,7 +8,8 @@ use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::Signal::*;
 use sysinfo::{
-    CpuExt, NetworkExt, NetworksExt, Pid, ProcessExt, Signal, System, SystemExt, UserExt,
+    Components, ComponentsExt, CpuExt, Disks, DisksExt, NetworkExt, Networks, NetworksExt, Pid,
+    ProcessExt, Signal, System, SystemExt, UserExt,
 };
 
 const signals: &[Signal] = &[
@@ -61,15 +62,19 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
-        "refresh_disks      : reloads only disks information"
+        "refresh_components : reloads components information"
     );
     writeln!(
         &mut io::stdout(),
-        "refresh_users      : reloads only users information"
+        "refresh_disks      : reloads disks information"
     );
     writeln!(
         &mut io::stdout(),
-        "refresh_networks   : reloads only networks information"
+        "refresh_users      : reloads users information"
+    );
+    writeln!(
+        &mut io::stdout(),
+        "refresh_networks   : reloads networks information"
     );
     writeln!(
         &mut io::stdout(),
@@ -141,12 +146,18 @@ fn print_help() {
     writeln!(&mut io::stdout(), "quit               : Exit the program");
 }
 
-fn interpret_input(input: &str, sys: &mut System) -> bool {
+fn interpret_input(
+    input: &str,
+    sys: &mut System,
+    networks: &mut Networks,
+    disks: &mut Disks,
+    components: &mut Components,
+) -> bool {
     match input.trim() {
         "help" => print_help(),
         "refresh_disks" => {
             writeln!(&mut io::stdout(), "Refreshing disk list...");
-            sys.refresh_disks_list();
+            disks.refresh_list();
             writeln!(&mut io::stdout(), "Done.");
         }
         "refresh_users" => {
@@ -156,7 +167,12 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
         }
         "refresh_networks" => {
             writeln!(&mut io::stdout(), "Refreshing network list...");
-            sys.refresh_networks_list();
+            networks.refresh_list();
+            writeln!(&mut io::stdout(), "Done.");
+        }
+        "refresh_components" => {
+            writeln!(&mut io::stdout(), "Refreshing component list...");
+            components.refresh_list();
             writeln!(&mut io::stdout(), "Done.");
         }
         "signals" => {
@@ -271,12 +287,12 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "temperature" => {
-            for component in sys.components() {
+            for component in components.iter() {
                 writeln!(&mut io::stdout(), "{component:?}");
             }
         }
         "network" => {
-            for (interface_name, data) in sys.networks().iter() {
+            for (interface_name, data) in networks.iter() {
                 writeln!(
                     &mut io::stdout(),
                     "{}:\n  ether {}\n  input data  (new / total): {} / {} B\n  output data (new / total): {} / {} B",
@@ -336,7 +352,7 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
             }
         }
         "disks" => {
-            for disk in sys.disks().iter() {
+            for disk in disks.disks() {
                 writeln!(&mut io::stdout(), "{disk:?}");
             }
         }
@@ -431,8 +447,14 @@ fn interpret_input(input: &str, sys: &mut System) -> bool {
 }
 
 fn main() {
-    println!("Getting processes' information...");
-    let mut t = System::new_all();
+    println!("Getting system information...");
+    let mut system = System::new_all();
+    let mut networks = Networks::new();
+    let mut disks = Disks::new();
+    let mut components = Components::new();
+    networks.refresh_list();
+    disks.refresh_list();
+    components.refresh_list();
     println!("Done.");
     let t_stin = io::stdin();
     let mut stin = t_stin.lock();
@@ -454,6 +476,12 @@ fn main() {
         if (&input as &str).ends_with('\n') {
             input.pop();
         }
-        done = interpret_input(input.as_ref(), &mut t);
+        done = interpret_input(
+            input.as_ref(),
+            &mut system,
+            &mut networks,
+            &mut disks,
+            &mut components,
+        );
     }
 }
