@@ -11,6 +11,7 @@ use libc::{c_int, c_void, kill, size_t};
 
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
+use super::system::{TimeBaseInfo, NANOS_PER_SECOND};
 use crate::sys::process::ThreadStatus;
 use crate::sys::system::Wrap;
 
@@ -32,6 +33,7 @@ pub struct Process {
     run_time: u64,
     pub(crate) updated: bool,
     cpu_usage: f32,
+    accum_cpu_usage: u64,
     user_id: Option<Uid>,
     effective_user_id: Option<Uid>,
     group_id: Option<Gid>,
@@ -62,6 +64,7 @@ impl Process {
             memory: 0,
             virtual_memory: 0,
             cpu_usage: 0.,
+            accum_cpu_usage: 0,
             old_utime: 0,
             old_stime: 0,
             updated: true,
@@ -93,6 +96,7 @@ impl Process {
             memory: 0,
             virtual_memory: 0,
             cpu_usage: 0.,
+            accum_cpu_usage: 0,
             old_utime: 0,
             old_stime: 0,
             updated: true,
@@ -182,7 +186,8 @@ impl ProcessExt for Process {
     }
 
     fn total_accumulated_cpu_usage(&self) -> f32 {
-        self.old_utime.saturating_add(self.old_stime) as f32
+        let timebase = TimeBaseInfo::get();
+        (self.accum_cpu_usage as f64 * timebase.timebase_to_ns / NANOS_PER_SECOND) as f32
     }
 
     fn disk_usage(&self) -> DiskUsage {
@@ -618,6 +623,9 @@ pub(crate) fn update_process(
             if refresh_kind.cpu() {
                 compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
             }
+            p.accum_cpu_usage = task_info
+                .pti_total_user
+                .saturating_add(task_info.pti_total_system);
 
             p.memory = task_info.pti_resident_size;
             p.virtual_memory = task_info.pti_virtual_size;

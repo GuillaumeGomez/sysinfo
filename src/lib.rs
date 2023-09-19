@@ -291,7 +291,9 @@ mod test {
         if System::IS_SUPPORTED {
             let mut s = System::new();
 
+            s.refresh_cpu();
             s.refresh_processes();
+            s.refresh_processes(); // Needed on some OS to fully populate the accumulated CPU usage
             let first_time = Instant::now();
             let all_procs: HashMap<_, _> = s
                 .processes()
@@ -317,9 +319,10 @@ mod test {
                     let delta = proc.total_accumulated_cpu_usage() - prev;
                     assert!(
                         delta >= 0.0 && delta <= max_delta,
-                        "CPU time delta is out of range delta={} max_delta={}",
+                        "CPU time delta is out of range delta={} max_delta={} pid={}",
                         delta,
                         max_delta,
+                        pid,
                     );
                 }
             });
