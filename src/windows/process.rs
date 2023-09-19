@@ -229,12 +229,9 @@ impl CPUsageCalculationValues {
     fn total_accumulated_cpu_usage(&self) -> f32 {
         self.old_process_user_cpu
             .saturating_add(self.old_process_sys_cpu) as f32
-            / self
-                .old_system_user_cpu
-                .saturating_add(self.old_system_sys_cpu) as f32
-            * self.nb_cpus as f32
     }
 }
+
 static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| unsafe {
     let mut version_info: RTL_OSVERSIONINFOEXW = MaybeUninit::zeroed().assume_init();
 
