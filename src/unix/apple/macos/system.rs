@@ -10,7 +10,6 @@ use libc::{
     processor_cpu_load_info_t, sysconf, vm_page_size, PROCESSOR_CPU_LOAD_INFO, _SC_CLK_TCK,
 };
 use std::ptr::null_mut;
-use std::sync::OnceLock;
 
 pub(crate) const NANOS_PER_SECOND: f64 = 1_000_000_000.;
 
@@ -56,18 +55,21 @@ impl Drop for ProcessorCpuLoadInfo {
     }
 }
 
-#[derive(Clone, Copy)]
-pub(crate) struct TimeBaseInfo {
-    pub timebase_to_ns: f64,
-    pub clock_per_sec: f64,
+pub(crate) struct SystemTimeInfo {
+    timebase_to_ns: f64,
+    pub timebase_to_sec: f64,
+    clock_per_sec: f64,
+    old_cpu_info: ProcessorCpuLoadInfo,
 }
 
-impl TimeBaseInfo {
+unsafe impl Send for SystemTimeInfo {}
+unsafe impl Sync for SystemTimeInfo {}
+
+impl SystemTimeInfo {
     #[allow(deprecated)] // Everything related to mach_timebase_info_data_t
-    pub(crate) fn get() -> Self {
-        static INFO: OnceLock<TimeBaseInfo> = OnceLock::new();
-        *INFO.get_or_init(|| {
-            let clock_ticks_per_sec = unsafe { sysconf(_SC_CLK_TCK) };
+    pub fn new(port: mach_port_t) -> Option<Self> {
+        unsafe {
+            let clock_ticks_per_sec = sysconf(_SC_CLK_TCK);
 
             // FIXME: Maybe check errno here? Problem is that if errno is not 0 before this call,
             //        we will get an error which isn't related...
@@ -80,46 +82,29 @@ impl TimeBaseInfo {
             // }
 
             let mut info = mach_timebase_info_data_t { numer: 0, denom: 0 };
-            if unsafe { mach_timebase_info(&mut info) } != libc::KERN_SUCCESS {
+            if mach_timebase_info(&mut info) != libc::KERN_SUCCESS {
                 sysinfo_debug!("mach_timebase_info failed, using default value of 1");
                 info.numer = 1;
                 info.denom = 1;
             }
-            Self {
-                timebase_to_ns: info.numer as f64 / info.denom as f64,
+
+            let old_cpu_info = match ProcessorCpuLoadInfo::new(port) {
+                Some(cpu_info) => cpu_info,
+                None => {
+                    sysinfo_debug!("host_processor_info failed, using old CPU tick measure system");
+                    return None;
+                }
+            };
+
+            sysinfo_debug!("");
+            let timebase_to_ns = info.numer as f64 / info.denom as f64;
+            Some(Self {
+                timebase_to_ns,
+                timebase_to_sec: timebase_to_ns / NANOS_PER_SECOND,
                 clock_per_sec: NANOS_PER_SECOND / clock_ticks_per_sec as f64,
-            }
-        })
-    }
-}
-
-pub(crate) struct SystemTimeInfo {
-    pub(crate) timebase_to_ns: f64,
-    clock_per_sec: f64,
-    old_cpu_info: ProcessorCpuLoadInfo,
-}
-
-unsafe impl Send for SystemTimeInfo {}
-unsafe impl Sync for SystemTimeInfo {}
-
-impl SystemTimeInfo {
-    pub fn new(port: mach_port_t) -> Option<Self> {
-        let time_base = TimeBaseInfo::get();
-
-        let old_cpu_info = match ProcessorCpuLoadInfo::new(port) {
-            Some(cpu_info) => cpu_info,
-            None => {
-                sysinfo_debug!("host_processor_info failed, using old CPU tick measure system");
-                return None;
-            }
-        };
-
-        sysinfo_debug!("");
-        Some(Self {
-            timebase_to_ns: time_base.timebase_to_ns,
-            clock_per_sec: time_base.clock_per_sec,
-            old_cpu_info,
-        })
+                old_cpu_info,
+            })
+        }
     }
 
     pub fn get_time_interval(&mut self, port: mach_port_t) -> f64 {

@@ -11,7 +11,6 @@ use libc::{c_int, c_void, kill, size_t};
 
 use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
-use super::system::{TimeBaseInfo, NANOS_PER_SECOND};
 use crate::sys::process::ThreadStatus;
 use crate::sys::system::Wrap;
 
@@ -33,7 +32,7 @@ pub struct Process {
     run_time: u64,
     pub(crate) updated: bool,
     cpu_usage: f32,
-    accum_cpu_usage: u64,
+    accum_cpu_usage: f32,
     user_id: Option<Uid>,
     effective_user_id: Option<Uid>,
     group_id: Option<Gid>,
@@ -64,7 +63,7 @@ impl Process {
             memory: 0,
             virtual_memory: 0,
             cpu_usage: 0.,
-            accum_cpu_usage: 0,
+            accum_cpu_usage: 0.,
             old_utime: 0,
             old_stime: 0,
             updated: true,
@@ -96,7 +95,7 @@ impl Process {
             memory: 0,
             virtual_memory: 0,
             cpu_usage: 0.,
-            accum_cpu_usage: 0,
+            accum_cpu_usage: 0.,
             old_utime: 0,
             old_stime: 0,
             updated: true,
@@ -186,8 +185,7 @@ impl ProcessExt for Process {
     }
 
     fn total_accumulated_cpu_usage(&self) -> f32 {
-        let timebase = TimeBaseInfo::get();
-        (self.accum_cpu_usage as f64 * timebase.timebase_to_ns / NANOS_PER_SECOND) as f32
+        self.accum_cpu_usage
     }
 
     fn disk_usage(&self) -> DiskUsage {
@@ -575,6 +573,7 @@ pub(crate) fn update_process(
     now: u64,
     refresh_kind: ProcessRefreshKind,
     check_if_alive: bool,
+    timebase_to_seconds: f64,
 ) -> Result<Option<Process>, ()> {
     unsafe {
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
@@ -623,9 +622,10 @@ pub(crate) fn update_process(
             if refresh_kind.cpu() {
                 compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
             }
-            p.accum_cpu_usage = task_info
+            p.accum_cpu_usage = (task_info
                 .pti_total_user
-                .saturating_add(task_info.pti_total_system);
+                .saturating_add(task_info.pti_total_system) as f64
+                * timebase_to_seconds) as f32;
 
             p.memory = task_info.pti_resident_size;
             p.virtual_memory = task_info.pti_virtual_size;

@@ -237,6 +237,10 @@ impl SystemExt for System {
             let arg_max = get_arg_max();
             let port = self.port;
             let time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
+            let timebase_to_sec = self
+                .clock_info
+                .as_ref()
+                .map_or(1.0, |ci| ci.timebase_to_sec);
             let entries: Vec<Process> = {
                 let wrap = &Wrap(UnsafeCell::new(&mut self.process_list));
 
@@ -253,6 +257,7 @@ impl SystemExt for System {
                             now,
                             refresh_kind,
                             false,
+                            timebase_to_sec,
                         ) {
                             Ok(x) => x,
                             _ => None,
@@ -293,6 +298,9 @@ impl SystemExt for System {
                 now,
                 refresh_kind,
                 true,
+                self.clock_info
+                    .as_ref()
+                    .map_or(1.0, |ci| ci.timebase_to_sec),
             )
         } {
             Ok(Some(p)) => {
