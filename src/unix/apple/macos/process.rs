@@ -565,6 +565,7 @@ unsafe fn create_new_process(
     Ok(Some(p))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn update_process(
     wrap: &Wrap,
     pid: Pid,
