@@ -58,6 +58,8 @@ use winapi::um::winnt::{
     RTL_OSVERSIONINFOEXW, TOKEN_QUERY, TOKEN_USER, ULARGE_INTEGER,
 };
 
+const FILETIMES_PER_SECOND: f32 = 10_000_000.0; // 100 nanosecond units
+
 impl fmt::Display for ProcessStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(match *self {
@@ -207,6 +209,7 @@ pub struct Process {
     written_bytes: u64,
 }
 
+#[derive(Debug)]
 struct CPUsageCalculationValues {
     old_process_sys_cpu: u64,
     old_process_user_cpu: u64,
@@ -229,6 +232,7 @@ impl CPUsageCalculationValues {
     fn total_accumulated_cpu_usage(&self) -> f32 {
         self.old_process_user_cpu
             .saturating_add(self.old_process_sys_cpu) as f32
+            / FILETIMES_PER_SECOND
     }
 }
 

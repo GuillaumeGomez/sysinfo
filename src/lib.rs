@@ -263,6 +263,7 @@ mod test {
         if System::IS_SUPPORTED {
             let mut s = System::new();
 
+            // Grab the intial accumulated CPU usages
             s.refresh_cpu();
             s.refresh_processes();
             s.refresh_processes(); // Needed on some OS to fully populate the accumulated CPU usage
@@ -272,17 +273,22 @@ mod test {
                 .iter()
                 .map(|(pid, proc)| (*pid, proc.total_accumulated_cpu_usage()))
                 .collect();
+
             // All accumulated CPU usages will be non-negative.
             all_procs.values().for_each(|&usage| assert!(usage >= 0.0));
+            // At least one will be positive.
+            assert!(all_procs.values().any(|&usage| usage > 0.0));
 
             // Wait a bit to update CPU usage values
             std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
             s.refresh_processes();
             let duration = Instant::now().duration_since(first_time).as_secs_f32();
+
             // They will still all be non-negative.
             s.processes()
                 .values()
                 .for_each(|proc| assert!(proc.total_accumulated_cpu_usage() >= 0.0));
+
             // They will all have either remained the same or
             // increased no more than a valid amount.
             let max_delta = s.cpus().len() as f32 * duration;
@@ -298,6 +304,14 @@ mod test {
                     );
                 }
             });
+
+            // At least one of them will have accumulated some CPU time.
+            #[cfg(not(windows))] // Windows CPU timers appear to have insufficient resolution
+            assert!(s.processes().iter().any(|(pid, proc)| {
+                all_procs
+                    .get(pid)
+                    .map_or(false, |&prev| proc.total_accumulated_cpu_usage() > prev)
+            }));
         }
     }
 
