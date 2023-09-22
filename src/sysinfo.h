@@ -13,7 +13,7 @@ typedef void* CNetworks;
 typedef void* CDisks;
 
 #ifdef WIN32
-typedef uint32_t PID;
+typedef size_t PID;
 #else
 typedef pid_t PID;
 #endif
