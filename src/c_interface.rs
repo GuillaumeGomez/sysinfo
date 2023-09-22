@@ -14,7 +14,7 @@ pub type PID = usize;
 
 /// other platforms, use libc::pid_t
 #[cfg(not(target_os = "windows"))]
-pub type PID =  libc::pid_t;
+pub type PID = libc::pid_t;
 
 /// Equivalent of [`System`][crate::System] struct.
 pub type CSystem = *mut c_void;
@@ -535,8 +535,11 @@ pub extern "C" fn sysinfo_cpu_vendor_id(system: CSystem) -> RString {
     unsafe {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
         system.refresh_cpu();
-
-        let c_string = if let Some(c) = system.cpus().first().and_then(|cpu| CString::new(cpu.vendor_id()).ok()) {
+        let c_string = if let Some(c) = system
+            .cpus()
+            .first()
+            .and_then(|cpu| CString::new(cpu.vendor_id()).ok())
+        {
             c.into_raw() as RString
         } else {
             std::ptr::null()
@@ -553,15 +556,17 @@ pub extern "C" fn sysinfo_cpu_brand(system: CSystem) -> RString {
     unsafe {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
         system.refresh_cpu();
-
-        let cpu = system.cpus().first().unwrap();
-        if let Ok(c) = CString::new(cpu.brand()) {
-            Box::into_raw(system);
-            return c.into_raw() as _;
-        }
-
+        let c_string = if let Some(c) = system
+            .cpus()
+            .first()
+            .and_then(|cpu| CString::new(cpu.brand()).ok())
+        {
+            c.into_raw() as RString
+        } else {
+            std::ptr::null()
+        };
         Box::into_raw(system);
-        std::ptr::null()
+        c_string
     }
 }
 
@@ -571,12 +576,13 @@ pub extern "C" fn sysinfo_cpu_physical_cores(system: CSystem) -> u32 {
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        if let Some(c) = system.physical_core_count() {
-            Box::into_raw(system);
-            return c as u32;
-        }
+        let count = if let Some(c) = system.physical_core_count() {
+            c
+        } else {
+            0
+        };
         Box::into_raw(system);
-        0
+        count as u32
     }
 }
 
@@ -587,11 +593,13 @@ pub extern "C" fn sysinfo_cpu_frequency(system: CSystem) -> u64 {
     unsafe {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
         system.refresh_cpu();
-        let cpu = system.cpus().first().unwrap();
-        let ret = cpu.frequency() as u64;
+        let freq = if let Some(f) = system.cpus().first().map(|cpu| cpu.frequency()) {
+            f
+        } else {
+            0
+        };
         Box::into_raw(system);
-
-        ret
+        freq
     }
 }
 
@@ -601,15 +609,13 @@ pub extern "C" fn sysinfo_system_name(system: CSystem) -> RString {
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        if let Some(p) = system.name() {
-            if let Ok(c) = CString::new(p) {
-                Box::into_raw(system);
-                return c.into_raw() as _;
-            }
-        }
-
+        let c_string = if let Some(c) = system.name().and_then(|p| CString::new(p).ok()) {
+            c.into_raw() as _
+        } else {
+            std::ptr::null()
+        };
         Box::into_raw(system);
-        std::ptr::null()
+        c_string
     }
 }
 
@@ -619,15 +625,13 @@ pub extern "C" fn sysinfo_system_version(system: CSystem) -> RString {
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        if let Some(p) = system.os_version() {
-            if let Ok(c) = CString::new(p) {
-                Box::into_raw(system);
-                return c.into_raw() as _;
-            }
-        }
-
+        let c_string = if let Some(c) = system.os_version().and_then(|c| CString::new(c).ok()) {
+            c.into_raw() as _
+        } else {
+            std::ptr::null()
+        };
         Box::into_raw(system);
-        std::ptr::null()
+        c_string
     }
 }
 
@@ -637,16 +641,14 @@ pub extern "C" fn sysinfo_system_kernel_version(system: CSystem) -> RString {
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        
-        if let Some(p) = system.kernel_version() {
-            if let Ok(c) = CString::new(p) {
-                Box::into_raw(system);
-                return c.into_raw() as _;
-            }
-        }
+        let c_string = if let Some(c) = system.kernel_version().and_then(|c| CString::new(c).ok()) {
+            c.into_raw() as _
+        } else {
+            std::ptr::null()
+        };
 
         Box::into_raw(system);
-        std::ptr::null()
+        c_string
     }
 }
 
@@ -656,14 +658,13 @@ pub extern "C" fn sysinfo_system_host_name(system: CSystem) -> RString {
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        if let Some(p) = system.host_name() {
-            if let Ok(c) = CString::new(p) {
-                Box::into_raw(system);
-                return c.into_raw() as _;
-            }
-        }
+        let c_string = if let Some(c) = system.host_name().and_then(|c| CString::new(c).ok()) {
+            c.into_raw() as _
+        } else {
+            std::ptr::null()
+        };
         Box::into_raw(system);
-        std::ptr::null()
+        c_string
     }
 }
 
@@ -673,14 +674,13 @@ pub extern "C" fn sysinfo_system_long_version(system: CSystem) -> RString {
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        if let Some(p) = system.long_os_version() {
-            if let Ok(c) = CString::new(p) {
-                Box::into_raw(system);
-                return c.into_raw() as _;
-            }
-        }
-
+        let c_string = if let Some(c) = system.long_os_version().and_then(|c| CString::new(c).ok())
+        {
+            return c.into_raw() as _;
+        } else {
+            std::ptr::null()
+        };
         Box::into_raw(system);
-        std::ptr::null()
+        c_string
     }
 }
