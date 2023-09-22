@@ -536,13 +536,13 @@ pub extern "C" fn sysinfo_cpu_vendor_id(system: CSystem) -> RString {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
         system.refresh_cpu();
 
-        let cpu = system.cpus().first().unwrap();
-        if let Ok(c) = CString::new(cpu.vendor_id()) {
-            Box::into_raw(system);
-            return c.into_raw() as _;
-        }
+        let c_string = if let Some(c) = system.cpus().first().and_then(|cpu| CString::new(cpu.vendor_id()).ok()) {
+            c.into_raw() as RString
+        } else {
+            std::ptr::null()
+        };
         Box::into_raw(system);
-        std::ptr::null()
+        c_string
     }
 }
 
