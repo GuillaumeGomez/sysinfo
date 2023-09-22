@@ -63,6 +63,18 @@ int main() {
     sysinfo_refresh_all(system);
     sysinfo_networks_refresh_list(networks);
 
+    printf("os name:              %s\n", sysinfo_system_name(system));
+    printf("os version:           %s\n", sysinfo_system_version(system));
+    printf("kernel version:       %s\n", sysinfo_system_kernel_version(system));
+    printf("long os version:      %s\n", sysinfo_system_long_version(system));
+    printf("host name:            %s\n", sysinfo_system_host_name(system));
+
+    printf("cpu vendor id:        %s\n", sysinfo_cpu_vendor_id(system));
+    printf("cpu brand:            %s\n", sysinfo_cpu_brand(system));
+    printf("cpu frequency:        %ld\n", sysinfo_cpu_frequency(system));
+    printf("cpu cores:            %d\n", sysinfo_cpu_physical_cores(system));
+
+
     printf("total memory:         %ld\n", sysinfo_total_memory(system));
     printf("free memory:          %ld\n", sysinfo_free_memory(system));
     printf("used memory:          %ld\n", sysinfo_used_memory(system));

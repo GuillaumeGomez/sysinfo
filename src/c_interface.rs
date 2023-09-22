@@ -4,9 +4,17 @@ use crate::{
     CpuExt, Disks, DisksExt, NetworkExt, Networks, NetworksExt, Pid, Process, ProcessExt, System,
     SystemExt,
 };
-use libc::{self, c_char, c_float, c_uint, c_void, pid_t, size_t};
+use libc::{self, c_char, c_float, c_uint, c_void, size_t};
 use std::borrow::BorrowMut;
 use std::ffi::CString;
+
+/// on windows, libc has not include pid_t.
+#[cfg(target_os = "windows")]
+pub type PID = usize;
+
+/// other platforms, use libc::pid_t
+#[cfg(not(target_os = "windows"))]
+pub type PID =  libc::pid_t;
 
 /// Equivalent of [`System`][crate::System] struct.
 pub type CSystem = *mut c_void;
@@ -15,7 +23,7 @@ pub type CProcess = *const c_void;
 /// C string returned from `CString::into_raw`.
 pub type RString = *const c_char;
 /// Callback used by [`processes`][crate::System#method.processes].
-pub type ProcessLoop = extern "C" fn(pid: pid_t, process: CProcess, data: *mut c_void) -> bool;
+pub type ProcessLoop = extern "C" fn(pid: PID, process: CProcess, data: *mut c_void) -> bool;
 /// Equivalent of [`Networks`][crate::Networks] struct.
 pub type CNetworks = *mut c_void;
 /// Equivalent of [`Disks`][crate::Disks] struct.
@@ -110,7 +118,7 @@ pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
 /// Equivalent of [`System::refresh_process()`][crate::System#method.refresh_process].
 #[cfg(target_os = "linux")]
 #[no_mangle]
-pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: pid_t) {
+pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: PID) {
     assert!(!system.is_null());
     unsafe {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
@@ -381,7 +389,7 @@ pub extern "C" fn sysinfo_processes(
 /// While having this method returned process, you should *never* call any
 /// refresh method!
 #[no_mangle]
-pub extern "C" fn sysinfo_process_by_pid(system: CSystem, pid: pid_t) -> CProcess {
+pub extern "C" fn sysinfo_process_by_pid(system: CSystem, pid: PID) -> CProcess {
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
@@ -425,7 +433,7 @@ pub extern "C" fn sysinfo_process_tasks(
 
 /// Equivalent of [`Process::pid()`][crate::Process#method.pid].
 #[no_mangle]
-pub extern "C" fn sysinfo_process_pid(process: CProcess) -> pid_t {
+pub extern "C" fn sysinfo_process_pid(process: CProcess) -> PID {
     assert!(!process.is_null());
     let process = process as *const Process;
     unsafe { (*process).pid().0 }
@@ -435,7 +443,7 @@ pub extern "C" fn sysinfo_process_pid(process: CProcess) -> pid_t {
 ///
 /// In case there is no known parent, it returns `0`.
 #[no_mangle]
-pub extern "C" fn sysinfo_process_parent_pid(process: CProcess) -> pid_t {
+pub extern "C" fn sysinfo_process_parent_pid(process: CProcess) -> PID {
     assert!(!process.is_null());
     let process = process as *const Process;
     unsafe { (*process).parent().unwrap_or(Pid(0)).0 }
@@ -517,5 +525,162 @@ pub extern "C" fn sysinfo_rstring_free(s: RString) {
         unsafe {
             let _ = CString::from_raw(s as usize as *mut _);
         }
+    }
+}
+
+/// Equivalent of [`cpu::vendor_id()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_cpu_vendor_id(system: CSystem) -> RString {
+    assert!(!system.is_null());
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        system.refresh_cpu();
+
+        let cpu = system.cpus().first().unwrap();
+        if let Ok(c) = CString::new(cpu.vendor_id()) {
+            Box::into_raw(system);
+            return c.into_raw() as _;
+        }
+        Box::into_raw(system);
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`cpu::brand()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_cpu_brand(system: CSystem) -> RString {
+    assert!(!system.is_null());
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        system.refresh_cpu();
+
+        let cpu = system.cpus().first().unwrap();
+        if let Ok(c) = CString::new(cpu.brand()) {
+            Box::into_raw(system);
+            return c.into_raw() as _;
+        }
+
+        Box::into_raw(system);
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`system::physical_core_count()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_cpu_physical_cores(system: CSystem) -> u32 {
+    assert!(!system.is_null());
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        if let Some(c) = system.physical_core_count() {
+            Box::into_raw(system);
+            return c as u32;
+        }
+        Box::into_raw(system);
+        0
+    }
+}
+
+/// Equivalent of [`cpu::frequency()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_cpu_frequency(system: CSystem) -> u64 {
+    assert!(!system.is_null());
+    unsafe {
+        let mut system: Box<System> = Box::from_raw(system as *mut System);
+        system.refresh_cpu();
+        let cpu = system.cpus().first().unwrap();
+        let ret = cpu.frequency() as u64;
+        Box::into_raw(system);
+
+        ret
+    }
+}
+
+/// Equivalent of [`System::name()`][crate::System#method.name].
+#[no_mangle]
+pub extern "C" fn sysinfo_system_name(system: CSystem) -> RString {
+    assert!(!system.is_null());
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        if let Some(p) = system.name() {
+            if let Ok(c) = CString::new(p) {
+                Box::into_raw(system);
+                return c.into_raw() as _;
+            }
+        }
+
+        Box::into_raw(system);
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`System::version()`][crate::System#method.version].
+#[no_mangle]
+pub extern "C" fn sysinfo_system_version(system: CSystem) -> RString {
+    assert!(!system.is_null());
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        if let Some(p) = system.os_version() {
+            if let Ok(c) = CString::new(p) {
+                Box::into_raw(system);
+                return c.into_raw() as _;
+            }
+        }
+
+        Box::into_raw(system);
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`System::kernel_version()`][crate::System#method.kernel_version].
+#[no_mangle]
+pub extern "C" fn sysinfo_system_kernel_version(system: CSystem) -> RString {
+    assert!(!system.is_null());
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        
+        if let Some(p) = system.kernel_version() {
+            if let Ok(c) = CString::new(p) {
+                Box::into_raw(system);
+                return c.into_raw() as _;
+            }
+        }
+
+        Box::into_raw(system);
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`System::host_name()`][crate::System#method.host_name].
+#[no_mangle]
+pub extern "C" fn sysinfo_system_host_name(system: CSystem) -> RString {
+    assert!(!system.is_null());
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        if let Some(p) = system.host_name() {
+            if let Ok(c) = CString::new(p) {
+                Box::into_raw(system);
+                return c.into_raw() as _;
+            }
+        }
+        Box::into_raw(system);
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`System::long_os_version()`][crate::System#method.long_os_version].
+#[no_mangle]
+pub extern "C" fn sysinfo_system_long_version(system: CSystem) -> RString {
+    assert!(!system.is_null());
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        if let Some(p) = system.long_os_version() {
+            if let Ok(c) = CString::new(p) {
+                Box::into_raw(system);
+                return c.into_raw() as _;
+            }
+        }
+
+        Box::into_raw(system);
+        std::ptr::null()
     }
 }
