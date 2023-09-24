@@ -74,7 +74,6 @@ impl CpusWrapper {
                 self.cpus
                     .push(Cpu::new(format!("cpu {pos}"), vendor_id.clone(), frequency));
             }
-            self.global_cpu.vendor_id = vendor_id;
             self.got_cpu_frequency = refresh_kind.frequency();
         } else if refresh_kind.frequency() && !self.got_cpu_frequency {
             for (pos, proc_) in self.cpus.iter_mut().enumerate() {
@@ -86,9 +85,6 @@ impl CpusWrapper {
         }
         if refresh_kind.cpu_usage() {
             self.get_cpu_usage();
-        }
-        if refresh_kind.frequency() {
-            self.global_cpu.frequency = self.cpus.get(0).map(|cpu| cpu.frequency).unwrap_or(0);
         }
     }
 

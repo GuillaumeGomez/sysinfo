@@ -269,10 +269,7 @@ impl CpusWrapper {
 
     fn init_if_needed(&mut self, refresh_kind: CpuRefreshKind) {
         if self.cpus.is_empty() {
-            let (cpus, vendor_id, brand) = super::tools::init_cpus(refresh_kind);
-            self.cpus = cpus;
-            self.global.vendor_id = vendor_id;
-            self.global.brand = brand;
+            self.cpus = super::tools::init_cpus(refresh_kind);
             self.got_cpu_frequency = refresh_kind.frequency();
         }
     }

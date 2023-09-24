@@ -323,11 +323,6 @@ pub(crate) fn init_cpus(
         }
         (percentage, cpus.len())
     });
-
-    // We didn't set them above to avoid cloning them unnecessarily.
-    global_cpu.brand = brand;
-    global_cpu.vendor_id = vendor_id;
-    global_cpu.frequency = frequency;
 }
 
 fn get_sysctl_str(s: &[u8]) -> String {

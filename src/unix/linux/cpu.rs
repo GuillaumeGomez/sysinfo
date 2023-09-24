@@ -192,14 +192,9 @@ impl CpusWrapper {
             }
 
             // `get_cpu_frequency` is very slow, so better run it in parallel.
-            self.global_cpu.frequency = iter_mut(&mut self.cpus)
+            iter_mut(&mut self.cpus)
                 .enumerate()
-                .map(|(pos, proc_)| {
-                    proc_.frequency = get_cpu_frequency(pos);
-                    proc_.frequency
-                })
-                .max()
-                .unwrap_or(0);
+                .for_each(|(pos, proc_)| proc_.frequency = get_cpu_frequency(pos));
 
             self.got_cpu_frequency = true;
         }

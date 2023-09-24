@@ -17,7 +17,7 @@ impl KeyHandler {
     }
 }
 
-pub(crate) fn init_cpus(refresh_kind: CpuRefreshKind) -> (Vec<Cpu>, String, String) {
+pub(crate) fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
     unsafe {
         let mut sys_info: SYSTEM_INFO = zeroed();
         GetSystemInfo(&mut sys_info);
@@ -37,7 +37,7 @@ pub(crate) fn init_cpus(refresh_kind: CpuRefreshKind) -> (Vec<Cpu>, String, Stri
                 *frequency,
             ));
         }
-        (ret, vendor_id, brand)
+        ret
     }
 }
 
