@@ -30,3 +30,17 @@ fn test_physical_core_numbers() {
         assert!(count.unwrap() > 0);
     }
 }
+
+#[test]
+fn test_global_cpu_info_not_set() {
+    use sysinfo::{CpuExt, SystemExt};
+
+    let mut s = sysinfo::System::new();
+    assert_eq!(s.global_cpu_info().vendor_id(), "");
+    assert_eq!(s.global_cpu_info().brand(), "");
+    assert_eq!(s.global_cpu_info().frequency(), 0);
+    s.refresh_cpu();
+    assert_eq!(s.global_cpu_info().vendor_id(), "");
+    assert_eq!(s.global_cpu_info().brand(), "");
+    assert_eq!(s.global_cpu_info().frequency(), 0);
+}

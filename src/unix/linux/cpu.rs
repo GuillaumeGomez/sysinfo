@@ -2,7 +2,7 @@
 
 #![allow(clippy::too_many_arguments)]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::time::Instant;
@@ -72,10 +72,10 @@ impl CpusWrapper {
             .unwrap_or(true);
 
         let first = self.cpus.is_empty();
-        let (vendor_id, brand) = if first {
+        let mut vendors_brands = if first {
             get_vendor_id_and_brand()
         } else {
-            (String::new(), String::new())
+            HashMap::new()
         };
 
         // If the last CPU usage update is too close (less than `MINIMUM_CPU_UPDATE_INTERVAL`),
@@ -127,6 +127,10 @@ impl CpusWrapper {
 
                         let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
                         if first {
+                            let (vendor_id, brand) = match vendors_brands.remove(&i) {
+                                Some((vendor_id, brand)) => (vendor_id, brand),
+                                None => (String::new(), String::new()),
+                            };
                             self.cpus.push(Cpu::new_with_values(
                                 to_str!(parts.next().unwrap_or(&[])),
                                 parts.next().map(to_u64).unwrap_or(0),
@@ -140,8 +144,8 @@ impl CpusWrapper {
                                 parts.next().map(to_u64).unwrap_or(0),
                                 parts.next().map(to_u64).unwrap_or(0),
                                 0,
-                                vendor_id.clone(),
-                                brand.clone(),
+                                vendor_id,
+                                brand,
                             ));
                         } else {
                             parts.next(); // we don't want the name again
@@ -188,21 +192,11 @@ impl CpusWrapper {
             }
 
             // `get_cpu_frequency` is very slow, so better run it in parallel.
-            self.global_cpu.frequency = iter_mut(&mut self.cpus)
+            iter_mut(&mut self.cpus)
                 .enumerate()
-                .map(|(pos, proc_)| {
-                    proc_.frequency = get_cpu_frequency(pos);
-                    proc_.frequency
-                })
-                .max()
-                .unwrap_or(0);
+                .for_each(|(pos, proc_)| proc_.frequency = get_cpu_frequency(pos));
 
             self.got_cpu_frequency = true;
-        }
-
-        if first {
-            self.global_cpu.vendor_id = vendor_id;
-            self.global_cpu.brand = brand;
         }
     }
 
@@ -715,13 +709,13 @@ fn get_arm_part(implementer: u32, part: u32) -> Option<&'static str> {
 }
 
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
-pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
+pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
     let mut s = String::new();
     if File::open("/proc/cpuinfo")
         .and_then(|mut f| f.read_to_string(&mut s))
         .is_err()
     {
-        return (String::new(), String::new());
+        return HashMap::new();
     }
 
     fn get_value(s: &str) -> String {
@@ -740,40 +734,92 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
             .unwrap_or_default()
     }
 
-    let mut vendor_id = None;
-    let mut brand = None;
-    let mut implementer = None;
-    let mut part = None;
+    #[inline]
+    fn is_new_processor(line: &str) -> bool {
+        line.starts_with("processor\t")
+            || line.starts_with("processor ")
+            || line.starts_with("processor:")
+    }
 
-    for it in s.split('\n') {
-        if it.starts_with("vendor_id\t") {
-            vendor_id = Some(get_value(it));
-        } else if it.starts_with("model name\t") {
-            brand = Some(get_value(it));
-        } else if it.starts_with("CPU implementer\t") {
-            implementer = Some(get_hex_value(it));
-        } else if it.starts_with("CPU part\t") {
-            part = Some(get_hex_value(it));
-        } else {
-            continue;
+    #[derive(Default)]
+    struct CpuInfo {
+        index: usize,
+        vendor_id: Option<String>,
+        brand: Option<String>,
+        implementer: Option<u32>,
+        part: Option<u32>,
+    }
+
+    impl CpuInfo {
+        fn has_all_info(&self) -> bool {
+            (self.brand.is_some() && self.vendor_id.is_some())
+                || (self.implementer.is_some() && self.part.is_some())
         }
-        if (brand.is_some() && vendor_id.is_some()) || (implementer.is_some() && part.is_some()) {
-            break;
+
+        fn convert(mut self) -> (usize, String, String) {
+            let (vendor_id, brand) = if let (Some(implementer), Some(part)) =
+                (self.implementer.take(), self.part.take())
+            {
+                let vendor_id = get_arm_implementer(implementer).map(String::from);
+                // It's possible to "model name" even with an ARM CPU, so just in case we can't retrieve
+                // the brand from "CPU part", we will then use the value from "model name".
+                //
+                // Example from raspberry pi 3B+:
+                //
+                // ```
+                // model name      : ARMv7 Processor rev 4 (v7l)
+                // CPU implementer : 0x41
+                // CPU part        : 0xd03
+                // ```
+                let brand = get_arm_part(implementer, part)
+                    .map(String::from)
+                    .or_else(|| self.brand.take());
+                (vendor_id, brand)
+            } else {
+                (self.vendor_id.take(), self.brand.take())
+            };
+            (
+                self.index,
+                vendor_id.unwrap_or_default(),
+                brand.unwrap_or_default(),
+            )
         }
     }
-    if let (Some(implementer), Some(part)) = (implementer, part) {
-        vendor_id = get_arm_implementer(implementer).map(String::from);
-        // It's possible to "model name" even with an ARM CPU, so just in case we can't retrieve
-        // the brand from "CPU part", we will then use the value from "model name".
-        //
-        // Example from raspberry pi 3B+:
-        //
-        // ```
-        // model name      : ARMv7 Processor rev 4 (v7l)
-        // CPU implementer : 0x41
-        // CPU part        : 0xd03
-        // ```
-        brand = get_arm_part(implementer, part).map(String::from).or(brand);
+
+    let mut cpus: HashMap<usize, (String, String)> = HashMap::new();
+    let mut lines = s.split('\n');
+    while let Some(line) = lines.next() {
+        if is_new_processor(line) {
+            let index = match line.split(':').nth(1).and_then(|i| i.parse::<usize>().ok()) {
+                Some(index) => index,
+                None => {
+                    sysinfo_debug!("Couldn't get processor ID from {line:?}, ignoring this core");
+                    continue;
+                }
+            };
+
+            let mut info = CpuInfo {
+                index,
+                ..Default::default()
+            };
+
+            #[allow(clippy::while_let_on_iterator)]
+            while let Some(line) = lines.next() {
+                if line.starts_with("vendor_id\t") {
+                    info.vendor_id = Some(get_value(line));
+                } else if line.starts_with("model name\t") {
+                    info.brand = Some(get_value(line));
+                } else if line.starts_with("CPU implementer\t") {
+                    info.implementer = Some(get_hex_value(line));
+                } else if line.starts_with("CPU part\t") {
+                    info.part = Some(get_hex_value(line));
+                } else if info.has_all_info() || is_new_processor(line) {
+                    break;
+                }
+            }
+            let (index, vendor_id, brand) = info.convert();
+            cpus.insert(index, (vendor_id, brand));
+        }
     }
-    (vendor_id.unwrap_or_default(), brand.unwrap_or_default())
+    cpus
 }
