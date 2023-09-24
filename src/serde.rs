@@ -13,6 +13,7 @@ impl Serialize for crate::Disk {
     where
         S: Serializer,
     {
+        // `7` corresponds to the (maximum) number of fields.
         let mut state = serializer.serialize_struct("Disk", 7)?;
 
         state.serialize_field("DiskKind", &self.kind())?;
@@ -34,6 +35,7 @@ impl Serialize for crate::Process {
     where
         S: Serializer,
     {
+        // `18` corresponds to the (maximum) number of fields.
         let mut state = serializer.serialize_struct("Process", 18)?;
 
         state.serialize_field("name", &self.name())?;
@@ -73,6 +75,7 @@ impl Serialize for crate::Cpu {
     where
         S: Serializer,
     {
+        // `5` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("Cpu", 5)?;
 
         state.serialize_field("cpu_usage", &self.cpu_usage())?;
@@ -90,6 +93,7 @@ impl serde::Serialize for crate::System {
     where
         S: serde::Serializer,
     {
+        // `23` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("System", 23)?;
 
         state.serialize_field("IS_SUPPORTED", &<Self as SystemExt>::IS_SUPPORTED)?;
@@ -203,7 +207,8 @@ impl Serialize for crate::LoadAvg {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("LoadAvg", 1)?;
+        // `3` corresponds to the number of fields.
+        let mut state = serializer.serialize_struct("LoadAvg", 3)?;
 
         state.serialize_field("one", &self.one)?;
         state.serialize_field("five", &self.five)?;
@@ -226,6 +231,7 @@ impl Serialize for crate::NetworkData {
     where
         S: Serializer,
     {
+        // `13` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("NetworkData", 13)?;
 
         state.serialize_field("received", &self.received())?;
@@ -257,6 +263,7 @@ impl Serialize for crate::Component {
     where
         S: Serializer,
     {
+        // `4` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("Component", 4)?;
 
         state.serialize_field("temperature", &self.temperature())?;
@@ -273,6 +280,7 @@ impl Serialize for crate::User {
     where
         S: Serializer,
     {
+        // `4` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("User", 4)?;
 
         state.serialize_field("id", &self.id().to_string())?;
@@ -292,6 +300,7 @@ impl Serialize for crate::Group {
     where
         S: Serializer,
     {
+        // `2` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("Group", 2)?;
 
         state.serialize_field("id", &self.id().to_string())?;
@@ -354,6 +363,7 @@ impl Serialize for DiskUsage {
     where
         S: Serializer,
     {
+        // `4` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("DiskUsage", 4)?;
 
         state.serialize_field("total_written_bytes", &self.total_written_bytes)?;
