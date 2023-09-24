@@ -66,6 +66,10 @@ fn print_help() {
     );
     writeln!(
         &mut io::stdout(),
+        "refresh_cpu        : reloads CPU information"
+    );
+    writeln!(
+        &mut io::stdout(),
         "refresh_disks      : reloads disks information"
     );
     writeln!(
@@ -175,6 +179,11 @@ fn interpret_input(
             components.refresh_list();
             writeln!(&mut io::stdout(), "Done.");
         }
+        "refresh_cpu" => {
+            writeln!(&mut io::stdout(), "Refreshing CPUs...");
+            sys.refresh_cpu();
+            writeln!(&mut io::stdout(), "Done.");
+        }
         "signals" => {
             let mut nb = 1i32;
 
@@ -198,8 +207,8 @@ fn interpret_input(
                 "total CPU usage: {}%",
                 sys.global_cpu_info().cpu_usage()
             );
-            for proc_ in sys.cpus() {
-                writeln!(&mut io::stdout(), "{proc_:?}");
+            for cpu in sys.cpus() {
+                writeln!(&mut io::stdout(), "{cpu:?}");
             }
         }
         "memory" => {
@@ -242,11 +251,14 @@ fn interpret_input(
             }
         }
         "frequency" => {
-            writeln!(
-                &mut io::stdout(),
-                "{} MHz",
-                sys.global_cpu_info().frequency()
-            );
+            for cpu in sys.cpus() {
+                writeln!(
+                    &mut io::stdout(),
+                    "[{}] {} MHz",
+                    cpu.name(),
+                    cpu.frequency(),
+                );
+            }
         }
         "vendor_id" => {
             writeln!(
