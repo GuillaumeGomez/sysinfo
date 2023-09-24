@@ -737,8 +737,6 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
     #[inline]
     fn is_new_processor(line: &str) -> bool {
         line.starts_with("processor\t")
-            || line.starts_with("processor ")
-            || line.starts_with("processor:")
     }
 
     #[derive(Default)]
@@ -790,7 +788,11 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
     let mut lines = s.split('\n');
     while let Some(line) = lines.next() {
         if is_new_processor(line) {
-            let index = match line.split(':').nth(1).and_then(|i| i.parse::<usize>().ok()) {
+            let index = match line
+                .split(':')
+                .nth(1)
+                .and_then(|i| i.trim().parse::<usize>().ok())
+            {
                 Some(index) => index,
                 None => {
                     sysinfo_debug!("Couldn't get processor ID from {line:?}, ignoring this core");
