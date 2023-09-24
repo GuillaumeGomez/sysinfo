@@ -22,6 +22,10 @@ impl Iterator for InterfaceAddressIterator {
                 self.ifap = (*ifap).ifa_next;
 
                 if let Some(addr) = parse_interface_address(ifap) {
+                    let ifa_name = (*ifap).ifa_name;
+                    if ifa_name.is_null() {
+                        continue;
+                    }
                     // libc::IFNAMSIZ + 6
                     // This size refers to ./apple/network.rs:75
                     let mut name = vec![0u8; libc::IFNAMSIZ + 6];
