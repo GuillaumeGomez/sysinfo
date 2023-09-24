@@ -28,14 +28,14 @@ pub struct User {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,
     pub(crate) name: String,
-    c_user_name: Vec<WCHAR>,
+    c_user_name: Option<Vec<WCHAR>>,
     is_local: bool,
 }
 
 impl User {
     fn new(uid: Uid, name: String, c_name: LPWSTR, is_local: bool) -> Self {
         unsafe {
-            let c_user_name = if is_local {
+            let c_user_name = if is_local && !c_name.is_null() {
                 let mut i = 0;
                 loop {
                     let c = *c_name.offset(i);
@@ -45,10 +45,10 @@ impl User {
                     }
                     i += 1;
                 }
-                Vec::from(std::slice::from_raw_parts(c_name, i as _))
+                Some(Vec::from(std::slice::from_raw_parts(c_name, i as _)))
             } else {
                 // There is no local groups for a non-local user.
-                Vec::new()
+                None
             };
 
             Self {
@@ -77,10 +77,11 @@ impl UserExt for User {
 
     fn groups(&self) -> Vec<Group> {
         if self.is_local {
-            unsafe { get_groups_for_user(self.c_user_name.as_ptr() as _) }
-        } else {
-            Vec::new()
+            if let Some(c_user_name) = &self.c_user_name {
+                unsafe { return get_groups_for_user(c_user_name.as_ptr() as _) };
+            }
         }
+        Vec::new()
     }
 }
 
