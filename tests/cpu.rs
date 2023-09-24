@@ -6,17 +6,26 @@
 fn test_cpu() {
     use sysinfo::{CpuExt, SystemExt};
 
-    if sysinfo::System::IS_SUPPORTED {
-        let mut s = sysinfo::System::new();
-        assert!(s.cpus().is_empty());
-        s.refresh_cpu();
-        assert!(!s.cpus().is_empty());
+    let mut s = sysinfo::System::new();
+    assert!(s.cpus().is_empty());
 
-        let s = sysinfo::System::new_all();
-        assert!(!s.cpus().is_empty());
-
-        assert!(!s.cpus()[0].brand().chars().any(|c| c == '\0'));
+    if !sysinfo::System::IS_SUPPORTED {
+        return;
     }
+
+    s.refresh_cpu();
+    assert!(!s.cpus().is_empty());
+
+    let s = sysinfo::System::new_all();
+    assert!(!s.cpus().is_empty());
+
+    assert!(!s.cpus()[0].brand().chars().any(|c| c == '\0'));
+
+    if !cfg!(target_os = "freebsd") {
+        // This information is currently not retrieved on freebsd...
+        assert!(s.cpus().iter().any(|c| !c.brand().is_empty()));
+    }
+    assert!(s.cpus().iter().any(|c| !c.vendor_id().is_empty()));
 }
 
 #[test]
