@@ -24,8 +24,11 @@ pub(crate) fn get_now() -> u64 {
 }
 
 pub(crate) unsafe fn to_str(p: LPWSTR) -> String {
-    let mut i = 0;
+    if p.is_null() {
+        return String::new();
+    }
 
+    let mut i = 0;
     loop {
         let c = *p.offset(i);
         if c == 0 {
