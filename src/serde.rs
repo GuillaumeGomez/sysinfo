@@ -73,7 +73,7 @@ impl Serialize for crate::Cpu {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("Cpu", 1)?;
+        let mut state = serializer.serialize_struct("Cpu", 5)?;
 
         state.serialize_field("cpu_usage", &self.cpu_usage())?;
         state.serialize_field("name", &self.name())?;
@@ -90,7 +90,7 @@ impl serde::Serialize for crate::System {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("System", 27)?;
+        let mut state = serializer.serialize_struct("System", 23)?;
 
         state.serialize_field("IS_SUPPORTED", &<Self as SystemExt>::IS_SUPPORTED)?;
         state.serialize_field("SUPPORTED_SIGNALS", <Self as SystemExt>::SUPPORTED_SIGNALS)?;
@@ -226,7 +226,7 @@ impl Serialize for crate::NetworkData {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("NetworkData", 1)?;
+        let mut state = serializer.serialize_struct("NetworkData", 13)?;
 
         state.serialize_field("received", &self.received())?;
         state.serialize_field("total_received", &self.total_received())?;
@@ -273,7 +273,7 @@ impl Serialize for crate::User {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("User", 1)?;
+        let mut state = serializer.serialize_struct("User", 4)?;
 
         state.serialize_field("id", &self.id().to_string())?;
 
@@ -292,7 +292,7 @@ impl Serialize for crate::Group {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("Group", 1)?;
+        let mut state = serializer.serialize_struct("Group", 2)?;
 
         state.serialize_field("id", &self.id().to_string())?;
         state.serialize_field("name", &self.name())?;
