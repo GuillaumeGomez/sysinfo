@@ -5,7 +5,6 @@ use crate::{
     User,
 };
 
-use crate::sys::utils;
 use libc::{c_char, endpwent, getpwent, setpwent, strlen};
 use std::collections::HashMap;
 
@@ -46,7 +45,7 @@ where
                 // This is not a "real" or "local" user.
                 continue;
             }
-            if let Some(name) = utils::cstr_to_rust((*pw).pw_name) {
+            if let Some(name) = crate::unix::utils::cstr_to_rust((*pw).pw_name) {
                 if users.contains_key(&name) {
                     continue;
                 }

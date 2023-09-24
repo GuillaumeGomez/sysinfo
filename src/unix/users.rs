@@ -74,18 +74,7 @@ pub(crate) unsafe fn get_group_name(
         break;
     }
     let g = g.assume_init();
-    let mut group_name = Vec::new();
-    let c_group_name = g.gr_name;
-    let mut x = 0;
-    loop {
-        let c = *c_group_name.offset(x);
-        if c == 0 {
-            break;
-        }
-        group_name.push(c as u8);
-        x += 1;
-    }
-    String::from_utf8(group_name).ok()
+    super::utils::cstr_to_rust(g.gr_name)
 }
 
 pub(crate) unsafe fn get_user_groups(

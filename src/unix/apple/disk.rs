@@ -316,7 +316,7 @@ pub(super) unsafe fn get_str_value(dict: CFDictionaryRef, key: DictKey) -> Optio
                 None
             }
         } else {
-            utils::cstr_to_rust_with_size(v_ptr, Some(len_bytes))
+            crate::unix::utils::cstr_to_rust_with_size(v_ptr, Some(len_bytes))
         }
     })
 }
