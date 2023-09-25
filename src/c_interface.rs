@@ -533,8 +533,7 @@ pub extern "C" fn sysinfo_rstring_free(s: RString) {
 pub extern "C" fn sysinfo_cpu_vendor_id(system: CSystem) -> RString {
     assert!(!system.is_null());
     unsafe {
-        let mut system: Box<System> = Box::from_raw(system as *mut System);
-        system.refresh_cpu();
+        let system: Box<System> = Box::from_raw(system as *mut System);
         let c_string = if let Some(c) = system
             .cpus()
             .first()
@@ -554,8 +553,7 @@ pub extern "C" fn sysinfo_cpu_vendor_id(system: CSystem) -> RString {
 pub extern "C" fn sysinfo_cpu_brand(system: CSystem) -> RString {
     assert!(!system.is_null());
     unsafe {
-        let mut system: Box<System> = Box::from_raw(system as *mut System);
-        system.refresh_cpu();
+        let system: Box<System> = Box::from_raw(system as *mut System);
         let c_string = if let Some(c) = system
             .cpus()
             .first()
