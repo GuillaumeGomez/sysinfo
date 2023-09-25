@@ -2,23 +2,19 @@
 
 use crate::{ComponentExt, ComponentsExt};
 
-use std::ptr::null_mut;
-
-use winapi::shared::rpcdce::{
-    RPC_C_AUTHN_LEVEL_CALL, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE,
+use windows::core::w;
+use windows::Win32::Foundation::{SysAllocString, SysFreeString};
+use windows::Win32::Security::PSECURITY_DESCRIPTOR;
+use windows::Win32::System::Com::{
+    CoCreateInstance, CoInitializeEx, CoInitializeSecurity, CoSetProxyBlanket, CoUninitialize,
+    CLSCTX_INPROC_SERVER, EOAC_NONE, RPC_C_AUTHN_LEVEL_CALL, RPC_C_AUTHN_LEVEL_DEFAULT,
     RPC_C_IMP_LEVEL_IMPERSONATE,
 };
-use winapi::shared::winerror::{FAILED, SUCCEEDED, S_FALSE, S_OK};
-use winapi::shared::wtypesbase::CLSCTX_INPROC_SERVER;
-use winapi::um::combaseapi::{
-    CoCreateInstance, CoInitializeEx, CoInitializeSecurity, CoSetProxyBlanket, CoUninitialize,
-};
-use winapi::um::oaidl::VARIANT;
-use winapi::um::objidl::EOAC_NONE;
-use winapi::um::oleauto::{SysAllocString, SysFreeString, VariantClear};
-use winapi::um::wbemcli::{
-    CLSID_WbemLocator, IEnumWbemClassObject, IID_IWbemLocator, IWbemClassObject, IWbemLocator,
-    IWbemServices, WBEM_FLAG_FORWARD_ONLY, WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY,
+use windows::Win32::System::Rpc::{RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE};
+use windows::Win32::System::Variant::{VariantClear, VARIANT};
+use windows::Win32::System::Wmi::{
+    IEnumWbemClassObject, IWbemLocator, IWbemServices, WbemLocator, WBEM_FLAG_FORWARD_ONLY,
+    WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY, WBEM_INFINITE,
 };
 
 #[doc = include_str!("../../md_doc/component.md")]
@@ -120,53 +116,16 @@ impl ComponentsExt for Components {
     }
 }
 
-struct Instance(*mut IWbemLocator);
-
-impl Drop for Instance {
-    fn drop(&mut self) {
-        if !self.0.is_null() {
-            unsafe {
-                (*self.0).Release();
-            }
-        }
-    }
-}
-
-struct ServerConnection(*mut IWbemServices);
-
-impl Drop for ServerConnection {
-    fn drop(&mut self) {
-        if !self.0.is_null() {
-            unsafe {
-                (*self.0).Release();
-            }
-        }
-    }
-}
-
-struct Enumerator(*mut IEnumWbemClassObject);
-
-impl Drop for Enumerator {
-    fn drop(&mut self) {
-        if !self.0.is_null() {
-            unsafe {
-                (*self.0).Release();
-            }
-        }
-    }
-}
-
 macro_rules! bstr {
-    ($($x:expr),*) => {{
-        let x: &[u16] = &[$($x as u16),*, 0];
-        SysAllocString(x.as_ptr())
-    }}
+    ($x:literal) => {{
+        SysAllocString(w!($x))
+    }};
 }
 
 struct Connection {
-    instance: Option<Instance>,
-    server_connection: Option<ServerConnection>,
-    enumerator: Option<Enumerator>,
+    instance: Option<IWbemLocator>,
+    server_connection: Option<IWbemServices>,
+    enumerator: Option<IEnumWbemClassObject>,
     initialized: bool,
 }
 
@@ -177,157 +136,111 @@ unsafe impl Sync for Connection {}
 impl Connection {
     #[allow(clippy::unnecessary_wraps)]
     fn new() -> Option<Connection> {
-        unsafe {
-            let val = CoInitializeEx(null_mut(), 0);
-            Some(Connection {
-                instance: None,
-                server_connection: None,
-                enumerator: None,
-                initialized: val == S_OK || val == S_FALSE,
-            })
-        }
+        let val = unsafe { CoInitializeEx(None, Default::default()) };
+        Some(Connection {
+            instance: None,
+            server_connection: None,
+            enumerator: None,
+            initialized: val.is_ok(),
+        })
     }
 
     fn initialize_security(self) -> Option<Connection> {
         unsafe {
-            if FAILED(CoInitializeSecurity(
-                null_mut(),
+            CoInitializeSecurity(
+                PSECURITY_DESCRIPTOR::default(),
                 -1,
-                null_mut(),
-                null_mut(),
+                None,
+                None,
                 RPC_C_AUTHN_LEVEL_DEFAULT,
                 RPC_C_IMP_LEVEL_IMPERSONATE,
-                null_mut(),
+                None,
                 EOAC_NONE,
-                null_mut(),
-            )) {
-                None
-            } else {
-                Some(self)
-            }
+                None,
+            )
         }
+        .map_or(None, |_| Some(self))
     }
 
     fn create_instance(mut self) -> Option<Connection> {
-        let mut p_loc = null_mut();
-
-        unsafe {
-            if FAILED(CoCreateInstance(
-                &CLSID_WbemLocator as *const _,
-                null_mut(),
-                CLSCTX_INPROC_SERVER,
-                &IID_IWbemLocator as *const _,
-                &mut p_loc as *mut _ as *mut _,
-            )) {
-                None
-            } else {
-                self.instance = Some(Instance(p_loc));
-                Some(self)
-            }
-        }
+        let instance =
+            unsafe { CoCreateInstance(&WbemLocator, None, CLSCTX_INPROC_SERVER) }.ok()?;
+        self.instance = Some(instance);
+        Some(self)
     }
 
     fn connect_server(mut self) -> Option<Connection> {
-        let mut p_svc = null_mut();
-
-        if let Some(ref instance) = self.instance {
-            unsafe {
-                // "root\WMI"
-                let s = bstr!('r', 'o', 'o', 't', '\\', 'W', 'M', 'I');
-                let res = (*instance.0).ConnectServer(
-                    s,
-                    null_mut(),
-                    null_mut(),
-                    null_mut(),
-                    0,
-                    null_mut(),
-                    null_mut(),
-                    &mut p_svc as *mut _,
-                );
-                SysFreeString(s);
-                if FAILED(res) {
-                    return None;
-                }
-            }
-        } else {
-            return None;
+        let instance = self.instance.as_ref()?;
+        let svc = unsafe {
+            let s = bstr!("root\\WMI");
+            let res = instance.ConnectServer(
+                &s,
+                &Default::default(),
+                &Default::default(),
+                &Default::default(),
+                0,
+                &Default::default(),
+                None,
+            );
+            SysFreeString(&s);
+            res
         }
-        self.server_connection = Some(ServerConnection(p_svc));
+        .ok()?;
+
+        self.server_connection = Some(svc);
         Some(self)
     }
 
     fn set_proxy_blanket(self) -> Option<Connection> {
-        if let Some(ref server_connection) = self.server_connection {
-            unsafe {
-                if FAILED(CoSetProxyBlanket(
-                    server_connection.0 as *mut _,
-                    RPC_C_AUTHN_WINNT,
-                    RPC_C_AUTHZ_NONE,
-                    null_mut(),
-                    RPC_C_AUTHN_LEVEL_CALL,
-                    RPC_C_IMP_LEVEL_IMPERSONATE,
-                    null_mut(),
-                    EOAC_NONE,
-                )) {
-                    return None;
-                }
-            }
-        } else {
-            return None;
+        unsafe {
+            CoSetProxyBlanket(
+                self.server_connection.as_ref()?,
+                RPC_C_AUTHN_WINNT,
+                RPC_C_AUTHZ_NONE,
+                None,
+                RPC_C_AUTHN_LEVEL_CALL,
+                RPC_C_IMP_LEVEL_IMPERSONATE,
+                None,
+                EOAC_NONE,
+            )
         }
+        .ok()?;
+
         Some(self)
     }
 
     fn exec_query(mut self) -> Option<Connection> {
-        let mut p_enumerator = null_mut();
+        let server_connection = self.server_connection.as_ref()?;
 
-        if let Some(ref server_connection) = self.server_connection {
-            unsafe {
-                // "WQL"
-                let s = bstr!('W', 'Q', 'L'); // query kind
-                                              // "SELECT * FROM MSAcpi_ThermalZoneTemperature"
-                let query = bstr!(
-                    'S', 'E', 'L', 'E', 'C', 'T', ' ', '*', ' ', 'F', 'R', 'O', 'M', ' ', 'M', 'S',
-                    'A', 'c', 'p', 'i', '_', 'T', 'h', 'e', 'r', 'm', 'a', 'l', 'Z', 'o', 'n', 'e',
-                    'T', 'e', 'm', 'p', 'e', 'r', 'a', 't', 'u', 'r', 'e'
-                );
-                let hres = (*server_connection.0).ExecQuery(
-                    s,
-                    query,
-                    (WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY) as _,
-                    null_mut(),
-                    &mut p_enumerator as *mut _,
-                );
-                SysFreeString(s);
-                SysFreeString(query);
-                if FAILED(hres) {
-                    return None;
-                }
-            }
-        } else {
-            return None;
+        let enumerator = unsafe {
+            let s = bstr!("WQL"); // query kind
+            let query = bstr!("SELECT * FROM MSAcpi_ThermalZoneTemperature");
+            let hres = server_connection.ExecQuery(
+                &s,
+                &query,
+                WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+                None,
+            );
+            SysFreeString(&s);
+            SysFreeString(&query);
+            hres
         }
-        self.enumerator = Some(Enumerator(p_enumerator));
+        .ok()?;
+
+        self.enumerator = Some(enumerator);
         Some(self)
     }
 
     fn temperature(&mut self, get_critical: bool) -> Option<(f32, Option<f32>)> {
-        use winapi::um::wbemcli::WBEM_INFINITE;
+        let enumerator = self.enumerator.take()?;
 
-        let p_enum = match self.enumerator.take() {
-            Some(x) => x,
-            None => {
-                return None;
-            }
-        };
-        let mut p_obj: *mut IWbemClassObject = null_mut();
         let mut nb_returned = 0;
+        let mut obj = [None; 1];
 
         unsafe {
-            (*p_enum.0).Next(
-                WBEM_INFINITE as _, // Time out
-                1,                  // One object
-                &mut p_obj as *mut _,
+            let _r = enumerator.Next(
+                WBEM_INFINITE, // Time out
+                obj.as_mut_slice(),
                 &mut nb_returned,
             );
 
@@ -335,46 +248,44 @@ impl Connection {
                 return None; // not enough rights I suppose...
             }
 
-            (*p_obj).BeginEnumeration(WBEM_FLAG_NONSYSTEM_ONLY as _);
-
-            let mut p_val = std::mem::MaybeUninit::<VARIANT>::uninit();
-            // "CurrentTemperature"
-            let temp = bstr!(
-                'C', 'u', 'r', 'r', 'e', 'n', 't', 'T', 'e', 'm', 'p', 'e', 'r', 'a', 't', 'u',
-                'r', 'e'
-            );
-            let res = (*p_obj).Get(temp, 0, p_val.as_mut_ptr(), null_mut(), null_mut());
-            let mut p_val = p_val.assume_init();
-
-            SysFreeString(temp);
-            VariantClear(&mut p_val as *mut _ as *mut _);
-
-            let temp = if SUCCEEDED(res) {
-                // temperature is given in tenth of degrees Kelvin
-                (p_val.n1.decVal().Lo64 / 10) as f32 - 273.15
-            } else {
-                (*p_obj).Release();
-                return None;
+            let class_obj = match &mut obj {
+                [Some(co)] => co,
+                _ => return None,
             };
+
+            let _r = class_obj.BeginEnumeration(WBEM_FLAG_NONSYSTEM_ONLY.0);
+
+            let mut variant = std::mem::MaybeUninit::<VARIANT>::uninit();
+            // `Get` only initializes the variant if it succeeds, early returning is not a problem
+            //
+            // <https://learn.microsoft.com/en-us/windows/win32/api/wbemcli/nf-wbemcli-iwbemclassobject-get>
+            class_obj
+                .Get(
+                    w!("CurrentTemperature"),
+                    0,
+                    variant.as_mut_ptr(),
+                    None,
+                    None,
+                )
+                .ok()?;
+
+            let mut variant = variant.assume_init();
+
+            // temperature is given in tenth of degrees Kelvin
+            let temp = (variant.Anonymous.decVal.Anonymous2.Lo64 / 10) as f32 - 273.15;
+            let _r = VariantClear(&mut variant);
 
             let mut critical = None;
             if get_critical {
-                // "CriticalPoint"
-                let crit = bstr!(
-                    'C', 'r', 'i', 't', 'i', 'c', 'a', 'l', 'T', 'r', 'i', 'p', 'P', 'o', 'i', 'n',
-                    't'
-                );
-                let res = (*p_obj).Get(crit, 0, &mut p_val, null_mut(), null_mut());
+                class_obj
+                    .Get(w!("CriticalTripPoint"), 0, &mut variant, None, None)
+                    .ok()?;
 
-                SysFreeString(crit);
-                VariantClear(&mut p_val as *mut _ as *mut _);
-
-                if SUCCEEDED(res) {
-                    // temperature is given in tenth of degrees Kelvin
-                    critical = Some((p_val.n1.decVal().Lo64 / 10) as f32 - 273.15);
-                }
+                // temperature is given in tenth of degrees Kelvin
+                critical = Some((variant.Anonymous.decVal.Anonymous2.Lo64 / 10) as f32 - 273.15);
+                let _r = VariantClear(&mut variant);
             }
-            (*p_obj).Release();
+
             Some((temp, critical))
         }
     }
@@ -387,9 +298,7 @@ impl Drop for Connection {
         self.server_connection.take();
         self.instance.take();
         if self.initialized {
-            unsafe {
-                CoUninitialize();
-            }
+            unsafe { CoUninitialize() };
         }
     }
 }

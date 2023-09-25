@@ -2,17 +2,11 @@
 
 use std::{fmt::Display, str::FromStr};
 
-use winapi::{
-    shared::{
-        sddl::{ConvertSidToStringSidW, ConvertStringSidToSidW},
-        winerror::ERROR_INSUFFICIENT_BUFFER,
-    },
-    um::{
-        errhandlingapi::GetLastError,
-        securitybaseapi::{CopySid, GetLengthSid, IsValidSid},
-        winbase::{LocalFree, LookupAccountSidW},
-        winnt::{SidTypeUnknown, LPWSTR, PSID},
-    },
+use windows::core::{PCWSTR, PWSTR};
+use windows::Win32::Foundation::{LocalFree, ERROR_INSUFFICIENT_BUFFER, HLOCAL, PSID};
+use windows::Win32::Security::Authorization::{ConvertSidToStringSidW, ConvertStringSidToSidW};
+use windows::Win32::Security::{
+    CopySid, GetLengthSid, IsValidSid, LookupAccountSidW, SidTypeUnknown,
 };
 
 use crate::sys::utils::to_str;
@@ -26,11 +20,11 @@ pub struct Sid {
 impl Sid {
     /// Creates an `Sid` by making a copy of the given raw SID.
     pub(crate) unsafe fn from_psid(psid: PSID) -> Option<Self> {
-        if psid.is_null() {
+        if psid.is_invalid() {
             return None;
         }
 
-        if IsValidSid(psid) == 0 {
+        if !IsValidSid(psid).as_bool() {
             return None;
         }
 
@@ -38,8 +32,8 @@ impl Sid {
 
         let mut sid = vec![0; length as usize];
 
-        if CopySid(length, sid.as_mut_ptr() as *mut _, psid) == 0 {
-            sysinfo_debug!("CopySid failed: {:?}", GetLastError());
+        if CopySid(length, PSID(sid.as_mut_ptr().cast()), psid).is_err() {
+            sysinfo_debug!("CopySid failed: {:?}", std::io::Error::last_os_error());
             return None;
         }
 
@@ -68,19 +62,18 @@ impl Sid {
             let mut domain_len = 0;
             let mut name_use = SidTypeUnknown;
 
-            if LookupAccountSidW(
-                std::ptr::null_mut(),
-                self.sid.as_ptr() as *mut _,
-                std::ptr::null_mut(),
+            let sid = PSID((self.sid.as_ptr() as *mut u8).cast());
+            if let Err(err) = LookupAccountSidW(
+                PCWSTR::null(),
+                sid,
+                PWSTR::null(),
                 &mut name_len,
-                std::ptr::null_mut(),
+                PWSTR::null(),
                 &mut domain_len,
                 &mut name_use,
-            ) == 0
-            {
-                let error = GetLastError();
-                if error != ERROR_INSUFFICIENT_BUFFER {
-                    sysinfo_debug!("LookupAccountSidW failed: {:?}", error);
+            ) {
+                if err.code() != ERROR_INSUFFICIENT_BUFFER.to_hresult() {
+                    sysinfo_debug!("LookupAccountSidW failed: {:?}", err);
                     return None;
                 }
             }
@@ -92,20 +85,24 @@ impl Sid {
             domain_len = 0;
 
             if LookupAccountSidW(
-                std::ptr::null_mut(),
-                self.sid.as_ptr() as *mut _,
-                name.as_mut_ptr(),
+                PCWSTR::null(),
+                sid,
+                PWSTR::from_raw(name.as_mut_ptr()),
                 &mut name_len,
-                std::ptr::null_mut(),
+                PWSTR::null(),
                 &mut domain_len,
                 &mut name_use,
-            ) == 0
+            )
+            .is_err()
             {
-                sysinfo_debug!("LookupAccountSidW failed: {:?}", GetLastError());
+                sysinfo_debug!(
+                    "LookupAccountSidW failed: {:?}",
+                    std::io::Error::last_os_error()
+                );
                 return None;
             }
 
-            Some(to_str(name.as_mut_ptr()))
+            Some(to_str(PWSTR::from_raw(name.as_mut_ptr())))
         }
     }
 }
@@ -113,17 +110,18 @@ impl Sid {
 impl Display for Sid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         unsafe fn convert_sid_to_string_sid(sid: PSID) -> Option<String> {
-            let mut string_sid: LPWSTR = std::ptr::null_mut();
-            if ConvertSidToStringSidW(sid, &mut string_sid) == 0 {
-                sysinfo_debug!("ConvertSidToStringSidW failed: {:?}", GetLastError());
+            let mut string_sid = PWSTR::null();
+            if let Err(_err) = ConvertSidToStringSidW(sid, &mut string_sid) {
+                sysinfo_debug!("ConvertSidToStringSidW failed: {:?}", _err);
                 return None;
             }
             let result = to_str(string_sid);
-            LocalFree(string_sid as *mut _);
+            let _err = LocalFree(HLOCAL(string_sid.0 as _));
             Some(result)
         }
 
-        let string_sid = unsafe { convert_sid_to_string_sid(self.sid.as_ptr() as *mut _) };
+        let string_sid =
+            unsafe { convert_sid_to_string_sid(PSID((self.sid.as_ptr() as *mut u8).cast())) };
         let string_sid = string_sid.ok_or(std::fmt::Error)?;
 
         write!(f, "{string_sid}")
@@ -138,15 +136,14 @@ impl FromStr for Sid {
             let mut string_sid: Vec<u16> = s.encode_utf16().collect();
             string_sid.push(0);
 
-            let mut psid: PSID = std::ptr::null_mut();
-            if ConvertStringSidToSidW(string_sid.as_ptr(), &mut psid) == 0 {
-                return Err(format!(
-                    "ConvertStringSidToSidW failed: {:?}",
-                    GetLastError()
-                ));
+            let mut psid = PSID::default();
+            if let Err(err) =
+                ConvertStringSidToSidW(PCWSTR::from_raw(string_sid.as_ptr()), &mut psid)
+            {
+                return Err(format!("ConvertStringSidToSidW failed: {:?}", err));
             }
             let sid = Self::from_psid(psid);
-            LocalFree(psid as *mut _);
+            let _err = LocalFree(HLOCAL(psid.0 as _));
 
             // Unwrapping because ConvertStringSidToSidW should've performed
             // all the necessary validations. If it returned an invalid SID,

@@ -3,9 +3,7 @@
 use crate::sys::cpu::{self, Cpu, Query};
 use crate::CpuRefreshKind;
 
-use std::mem::zeroed;
-
-use winapi::um::sysinfoapi::{GetSystemInfo, SYSTEM_INFO};
+use windows::Win32::System::SystemInformation::{GetSystemInfo, SYSTEM_INFO};
 
 pub(crate) struct KeyHandler {
     pub unique_id: String,
@@ -19,7 +17,7 @@ impl KeyHandler {
 
 pub(crate) fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
     unsafe {
-        let mut sys_info: SYSTEM_INFO = zeroed();
+        let mut sys_info = SYSTEM_INFO::default();
         GetSystemInfo(&mut sys_info);
         let (vendor_id, brand) = cpu::get_vendor_id_and_brand(&sys_info);
         let nb_cpus = sys_info.dwNumberOfProcessors as usize;

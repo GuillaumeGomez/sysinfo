@@ -6,11 +6,10 @@ use crate::{NetworkExt, Networks, NetworksExt, NetworksIter};
 
 use std::collections::{hash_map, HashMap};
 
-use winapi::shared::ifdef::{MediaConnectStateDisconnected, NET_LUID};
-use winapi::shared::netioapi::{
-    FreeMibTable, GetIfEntry2, GetIfTable2, MIB_IF_ROW2, PMIB_IF_TABLE2,
+use windows::Win32::NetworkManagement::IpHelper::{
+    FreeMibTable, GetIfEntry2, GetIfTable2, MIB_IF_ROW2, MIB_IF_TABLE2,
 };
-use winapi::shared::winerror::NO_ERROR;
+use windows::Win32::NetworkManagement::Ndis::{MediaConnectStateDisconnected, NET_LUID_LH};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $new_val:expr) => {{
@@ -32,10 +31,10 @@ impl NetworksExt for Networks {
     }
 
     fn refresh_list(&mut self) {
-        let mut table: PMIB_IF_TABLE2 = std::ptr::null_mut();
+        let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
 
         unsafe {
-            if GetIfTable2(&mut table) != NO_ERROR {
+            if GetIfTable2(&mut table).is_err() {
                 return;
             }
 
@@ -59,16 +58,16 @@ impl NetworksExt for Networks {
                     continue;
                 }
                 let id = vec![
-                    ptr.InterfaceGuid.Data2,
-                    ptr.InterfaceGuid.Data3,
-                    ptr.InterfaceGuid.Data4[0] as _,
-                    ptr.InterfaceGuid.Data4[1] as _,
-                    ptr.InterfaceGuid.Data4[2] as _,
-                    ptr.InterfaceGuid.Data4[3] as _,
-                    ptr.InterfaceGuid.Data4[4] as _,
-                    ptr.InterfaceGuid.Data4[5] as _,
-                    ptr.InterfaceGuid.Data4[6] as _,
-                    ptr.InterfaceGuid.Data4[7] as _,
+                    ptr.InterfaceGuid.data2,
+                    ptr.InterfaceGuid.data3,
+                    ptr.InterfaceGuid.data4[0] as _,
+                    ptr.InterfaceGuid.data4[1] as _,
+                    ptr.InterfaceGuid.data4[2] as _,
+                    ptr.InterfaceGuid.data4[3] as _,
+                    ptr.InterfaceGuid.data4[4] as _,
+                    ptr.InterfaceGuid.data4[5] as _,
+                    ptr.InterfaceGuid.data4[6] as _,
+                    ptr.InterfaceGuid.data4[7] as _,
                 ];
                 let entry = groups.entry(id.clone()).or_insert(0);
                 *entry += 1;
@@ -138,7 +137,7 @@ impl NetworksExt for Networks {
                     }
                 }
             }
-            FreeMibTable(table as _);
+            let _err = FreeMibTable(table as _);
         }
         // Remove interfaces which are gone.
         self.interfaces.retain(|_, d| d.updated);
@@ -154,7 +153,7 @@ impl NetworksExt for Networks {
             for (_, interface) in self.interfaces.iter_mut() {
                 entry.InterfaceLuid = interface.id;
                 entry.InterfaceIndex = 0; // to prevent the function to pick this one as index
-                if GetIfEntry2(&mut entry) != NO_ERROR {
+                if GetIfEntry2(&mut entry).is_err() {
                     continue;
                 }
                 old_and_new!(interface, current_out, old_out, entry.OutOctets);
@@ -180,7 +179,7 @@ impl NetworksExt for Networks {
 
 #[doc = include_str!("../../md_doc/network_data.md")]
 pub struct NetworkData {
-    id: NET_LUID,
+    id: NET_LUID_LH,
     current_out: u64,
     old_out: u64,
     current_in: u64,

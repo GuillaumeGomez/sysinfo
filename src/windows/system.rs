@@ -3,7 +3,6 @@
 use crate::{
     CpuRefreshKind, LoadAvg, Pid, ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt, User,
 };
-use winapi::um::winreg::HKEY_LOCAL_MACHINE;
 
 use crate::sys::cpu::*;
 use crate::sys::process::{get_start_time, update_memory, Process};
@@ -19,20 +18,17 @@ use std::mem::{size_of, zeroed};
 use std::ptr;
 use std::time::{Duration, SystemTime};
 
-use ntapi::ntexapi::{
-    NtQuerySystemInformation, SystemProcessInformation, SYSTEM_PROCESS_INFORMATION,
-};
-use winapi::ctypes::wchar_t;
-use winapi::shared::minwindef::{FALSE, TRUE};
-use winapi::shared::ntstatus::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
-use winapi::um::minwinbase::STILL_ACTIVE;
-use winapi::um::processthreadsapi::GetExitCodeProcess;
-use winapi::um::psapi::{GetPerformanceInfo, PERFORMANCE_INFORMATION};
-use winapi::um::sysinfoapi::{
+use ntapi::ntexapi::SYSTEM_PROCESS_INFORMATION;
+use windows::core::PWSTR;
+use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SystemProcessInformation};
+use windows::Win32::Foundation::{HANDLE, STATUS_INFO_LENGTH_MISMATCH, STILL_ACTIVE};
+use windows::Win32::System::ProcessStatus::{K32GetPerformanceInfo, PERFORMANCE_INFORMATION};
+use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
+use windows::Win32::System::SystemInformation::{
     ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetTickCount64, GlobalMemoryStatusEx,
     MEMORYSTATUSEX,
 };
-use winapi::um::winnt::HANDLE;
+use windows::Win32::System::Threading::GetExitCodeProcess;
 
 declare_signals! {
     (),
@@ -163,12 +159,12 @@ impl SystemExt for System {
         unsafe {
             let mut mem_info: MEMORYSTATUSEX = zeroed();
             mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
-            GlobalMemoryStatusEx(&mut mem_info);
+            let _err = GlobalMemoryStatusEx(&mut mem_info);
             self.mem_total = mem_info.ullTotalPhys as _;
             self.mem_available = mem_info.ullAvailPhys as _;
             let mut perf_info: PERFORMANCE_INFORMATION = zeroed();
-            if GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as u32)
-                == TRUE
+            if K32GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as u32)
+                .as_bool()
             {
                 let swap_total = perf_info.PageSize.saturating_mul(
                     perf_info
@@ -228,24 +224,26 @@ impl SystemExt for System {
                     &mut cb_needed,
                 );
 
-                if ntstatus == STATUS_SUCCESS {
-                    break;
-                } else if ntstatus == STATUS_INFO_LENGTH_MISMATCH {
-                    // GetNewBufferSize
-                    if cb_needed == 0 {
-                        buffer_size *= 2;
+                match ntstatus {
+                    Ok(()) => break,
+                    Err(err) if err.code() == STATUS_INFO_LENGTH_MISMATCH.to_hresult() => {
+                        // GetNewBufferSize
+                        if cb_needed == 0 {
+                            buffer_size *= 2;
+                            continue;
+                        }
+                        // allocating a few more kilo bytes just in case there are some new process
+                        // kicked in since new call to NtQuerySystemInformation
+                        buffer_size = (cb_needed + (1024 * 10)) as usize;
                         continue;
                     }
-                    // allocating a few more kilo bytes just in case there are some new process
-                    // kicked in since new call to NtQuerySystemInformation
-                    buffer_size = (cb_needed + (1024 * 10)) as usize;
-                    continue;
-                } else {
-                    sysinfo_debug!(
-                        "Couldn't get process infos: NtQuerySystemInformation returned {}",
-                        ntstatus
-                    );
-                    return;
+                    Err(_err) => {
+                        sysinfo_debug!(
+                            "Couldn't get process infos: NtQuerySystemInformation returned {}",
+                            _err,
+                        );
+                        return;
+                    }
                 }
             }
         }
@@ -477,10 +475,8 @@ impl Default for System {
 
 pub(crate) fn is_proc_running(handle: HANDLE) -> bool {
     let mut exit_code = 0;
-    unsafe {
-        let ret = GetExitCodeProcess(handle, &mut exit_code);
-        !(ret == FALSE || exit_code != STILL_ACTIVE)
-    }
+    unsafe { GetExitCodeProcess(handle, &mut exit_code) }.is_ok()
+        && exit_code == STILL_ACTIVE.0 as u32
 }
 
 /// If it returns `None`, it means that the PID owner changed and that the `Process` must be
@@ -538,9 +534,9 @@ fn get_dns_hostname() -> Option<String> {
     // setting the `lpBuffer` to null will return the buffer size
     // https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getcomputernameexw
     unsafe {
-        GetComputerNameExW(
+        let _err = GetComputerNameExW(
             ComputerNamePhysicalDnsHostname,
-            std::ptr::null_mut(),
+            PWSTR::null(),
             &mut buffer_size,
         );
 
@@ -550,9 +546,10 @@ fn get_dns_hostname() -> Option<String> {
         // https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/ne-sysinfoapi-computer_name_format
         if GetComputerNameExW(
             ComputerNamePhysicalDnsHostname,
-            buffer.as_mut_ptr() as *mut wchar_t,
+            PWSTR::from_raw(buffer.as_mut_ptr()),
             &mut buffer_size,
-        ) == TRUE
+        )
+        .is_ok()
         {
             if let Some(pos) = buffer.iter().position(|c| *c == 0) {
                 buffer.resize(pos, 0);

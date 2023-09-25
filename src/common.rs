@@ -1020,7 +1020,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
             }
         } else if #[cfg(windows)] {
             fn inner() -> Result<Pid, &'static str> {
-                use winapi::um::processthreadsapi::GetCurrentProcessId;
+                use windows::Win32::System::Threading::GetCurrentProcessId;
 
                 unsafe { Ok(Pid(GetCurrentProcessId() as _)) }
             }

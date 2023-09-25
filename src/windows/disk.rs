@@ -2,24 +2,22 @@
 
 use crate::{DiskExt, DiskKind, Disks, DisksExt};
 
-use std::ffi::{OsStr, OsString};
+use std::ffi::{c_void, OsStr, OsString};
 use std::mem::size_of;
 use std::path::Path;
 
-use winapi::ctypes::c_void;
-use winapi::shared::minwindef::{DWORD, MAX_PATH};
-use winapi::um::fileapi::{
+use windows::core::PCWSTR;
+use windows::Win32::Foundation::{CloseHandle, HANDLE, MAX_PATH};
+use windows::Win32::Storage::FileSystem::{
     CreateFileW, GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDrives, GetVolumeInformationW,
-    OPEN_EXISTING,
+    FILE_ACCESS_RIGHTS, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
-use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
-use winapi::um::ioapiset::DeviceIoControl;
-use winapi::um::winbase::{DRIVE_FIXED, DRIVE_REMOVABLE};
-use winapi::um::winioctl::{
-    PropertyStandardQuery, StorageDeviceSeekPenaltyProperty, IOCTL_STORAGE_QUERY_PROPERTY,
-    STORAGE_PROPERTY_QUERY,
+use windows::Win32::System::Ioctl::{
+    PropertyStandardQuery, StorageDeviceSeekPenaltyProperty, DEVICE_SEEK_PENALTY_DESCRIPTOR,
+    IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
 };
-use winapi::um::winnt::{BOOLEAN, FILE_SHARE_READ, FILE_SHARE_WRITE, HANDLE, ULARGE_INTEGER};
+use windows::Win32::System::WindowsProgramming::{DRIVE_FIXED, DRIVE_REMOVABLE};
+use windows::Win32::System::IO::DeviceIoControl;
 
 #[doc = include_str!("../../md_doc/disk.md")]
 pub struct Disk {
@@ -65,15 +63,10 @@ impl DiskExt for Disk {
     fn refresh(&mut self) -> bool {
         if self.total_space != 0 {
             unsafe {
-                let mut tmp: ULARGE_INTEGER = std::mem::zeroed();
-                if GetDiskFreeSpaceExW(
-                    self.mount_point.as_ptr(),
-                    std::ptr::null_mut(),
-                    std::ptr::null_mut(),
-                    &mut tmp,
-                ) != 0
-                {
-                    self.available_space = *tmp.QuadPart();
+                let mut tmp = 0;
+                let lpdirectoryname = PCWSTR::from_raw(self.mount_point.as_ptr());
+                if GetDiskFreeSpaceExW(lpdirectoryname, None, None, Some(&mut tmp)).is_ok() {
+                    self.available_space = tmp;
                     return true;
                 }
             }
@@ -107,62 +100,47 @@ impl DisksExt for Disks {
 struct HandleWrapper(HANDLE);
 
 impl HandleWrapper {
-    unsafe fn new(drive_name: &[u16], open_rights: DWORD) -> Option<Self> {
+    unsafe fn new(drive_name: &[u16], open_rights: FILE_ACCESS_RIGHTS) -> Option<Self> {
+        let lpfilename = PCWSTR::from_raw(drive_name.as_ptr());
         let handle = CreateFileW(
-            drive_name.as_ptr(),
-            open_rights,
+            lpfilename,
+            open_rights.0,
             FILE_SHARE_READ | FILE_SHARE_WRITE,
-            std::ptr::null_mut(),
+            None,
             OPEN_EXISTING,
-            0,
-            std::ptr::null_mut(),
-        );
-        if handle == INVALID_HANDLE_VALUE {
-            CloseHandle(handle);
-            None
-        } else {
-            Some(Self(handle))
-        }
+            Default::default(),
+            HANDLE::default(),
+        )
+        .ok()?;
+        Some(Self(handle))
     }
 }
 
 impl Drop for HandleWrapper {
     fn drop(&mut self) {
-        unsafe {
-            CloseHandle(self.0);
-        }
+        let _err = unsafe { CloseHandle(self.0) };
     }
 }
 
 unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {
-    let mut total_size: ULARGE_INTEGER = std::mem::zeroed();
-    let mut available_space: ULARGE_INTEGER = std::mem::zeroed();
+    let mut total_size = 0;
+    let mut available_space = 0;
+    let lpdirectoryname = PCWSTR::from_raw(mount_point.as_ptr());
     if GetDiskFreeSpaceExW(
-        mount_point.as_ptr(),
-        std::ptr::null_mut(),
-        &mut total_size,
-        &mut available_space,
-    ) != 0
+        lpdirectoryname,
+        None,
+        Some(&mut total_size),
+        Some(&mut available_space),
+    )
+    .is_ok()
     {
-        Some((
-            *total_size.QuadPart() as _,
-            *available_space.QuadPart() as _,
-        ))
+        Some((total_size, available_space))
     } else {
         None
     }
 }
 
-// FIXME: To be removed once <https://github.com/retep998/winapi-rs/pull/1028> has been merged.
-#[allow(non_snake_case)]
-#[repr(C)]
-struct DEVICE_SEEK_PENALTY_DESCRIPTOR {
-    Version: DWORD,
-    Size: DWORD,
-    IncursSeekPenalty: BOOLEAN,
-}
-
-unsafe fn get_disks() -> Vec<Disk> {
+pub(crate) unsafe fn get_disks() -> Vec<Disk> {
     let drives = GetLogicalDrives();
     if drives == 0 {
         return Vec::new();
@@ -171,33 +149,33 @@ unsafe fn get_disks() -> Vec<Disk> {
     #[cfg(feature = "multithread")]
     use rayon::iter::ParallelIterator;
 
-    crate::utils::into_iter(0..DWORD::BITS)
+    crate::utils::into_iter(0..u32::BITS)
         .filter_map(|x| {
             if (drives >> x) & 1 == 0 {
                 return None;
             }
             let mount_point = [b'A' as u16 + x as u16, b':' as u16, b'\\' as u16, 0];
 
-            let drive_type = GetDriveTypeW(mount_point.as_ptr());
+            let raw_mount_point = PCWSTR::from_raw(mount_point.as_ptr());
+            let drive_type = GetDriveTypeW(raw_mount_point);
 
             let is_removable = drive_type == DRIVE_REMOVABLE;
 
             if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
                 return None;
             }
-            let mut name = [0u16; MAX_PATH + 1];
+            let mut name = [0u16; MAX_PATH as usize + 1];
             let mut file_system = [0u16; 32];
-            if GetVolumeInformationW(
-                mount_point.as_ptr(),
-                name.as_mut_ptr(),
-                name.len() as DWORD,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-                file_system.as_mut_ptr(),
-                file_system.len() as DWORD,
-            ) == 0
-            {
+            let volume_info_res = GetVolumeInformationW(
+                raw_mount_point,
+                Some(&mut name),
+                None,
+                None,
+                None,
+                Some(&mut file_system),
+            )
+            .is_ok();
+            if !volume_info_res {
                 return None;
             }
             let mut pos = 0;
@@ -228,12 +206,12 @@ unsafe fn get_disks() -> Vec<Disk> {
                 b':' as u16,
                 0,
             ];
-            let handle = HandleWrapper::new(&drive_name, 0)?;
+            let handle = HandleWrapper::new(&drive_name, Default::default())?;
             let (total_space, available_space) = get_drive_size(&mount_point)?;
             if total_space == 0 {
                 return None;
             }
-            let mut spq_trim = STORAGE_PROPERTY_QUERY {
+            let spq_trim = STORAGE_PROPERTY_QUERY {
                 PropertyId: StorageDeviceSeekPenaltyProperty,
                 QueryType: PropertyStandardQuery,
                 AdditionalParameters: [0],
@@ -241,25 +219,27 @@ unsafe fn get_disks() -> Vec<Disk> {
             let mut result: DEVICE_SEEK_PENALTY_DESCRIPTOR = std::mem::zeroed();
 
             let mut dw_size = 0;
-            let type_ = if DeviceIoControl(
+            let device_io_control = DeviceIoControl(
                 handle.0,
                 IOCTL_STORAGE_QUERY_PROPERTY,
-                &mut spq_trim as *mut STORAGE_PROPERTY_QUERY as *mut c_void,
-                size_of::<STORAGE_PROPERTY_QUERY>() as DWORD,
-                &mut result as *mut DEVICE_SEEK_PENALTY_DESCRIPTOR as *mut c_void,
-                size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as DWORD,
-                &mut dw_size,
-                std::ptr::null_mut(),
-            ) == 0
-                || dw_size != size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as DWORD
+                Some(&spq_trim as *const STORAGE_PROPERTY_QUERY as *const c_void),
+                size_of::<STORAGE_PROPERTY_QUERY>() as u32,
+                Some(&mut result as *mut DEVICE_SEEK_PENALTY_DESCRIPTOR as *mut c_void),
+                size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as u32,
+                Some(&mut dw_size),
+                None,
+            )
+            .is_ok();
+            let type_ = if !device_io_control
+                || dw_size != size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as u32
             {
                 DiskKind::Unknown(-1)
             } else {
-                let is_ssd = result.IncursSeekPenalty == 0;
-                if is_ssd {
-                    DiskKind::SSD
-                } else {
+                let is_hdd = result.IncursSeekPenalty.as_bool();
+                if is_hdd {
                     DiskKind::HDD
+                } else {
+                    DiskKind::SSD
                 }
             };
             Some(Disk {

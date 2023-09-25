@@ -1,33 +1,22 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::ffi::OsString;
-use std::os::windows::prelude::OsStringExt;
 use std::ptr::null_mut;
 
-use winapi::shared::winerror::{ERROR_BUFFER_OVERFLOW, ERROR_SUCCESS};
-use winapi::shared::ws2def::AF_UNSPEC;
-use winapi::um::iphlpapi::GetAdaptersAddresses;
-use winapi::um::iptypes::{
-    GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_DNS_SERVER, GAA_FLAG_SKIP_MULTICAST, PIP_ADAPTER_ADDRESSES,
+use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, ERROR_SUCCESS};
+use windows::Win32::NetworkManagement::IpHelper::{
+    GetAdaptersAddresses, GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_DNS_SERVER, GAA_FLAG_SKIP_MULTICAST,
+    IP_ADAPTER_ADDRESSES_LH,
 };
+use windows::Win32::Networking::WinSock::AF_UNSPEC;
 
 use crate::common::MacAddr;
-
-// Need a function to convert u16 pointer into String
-// https://stackoverflow.com/a/48587463/8706476
-unsafe fn u16_ptr_to_string(ptr: *const u16) -> OsString {
-    let len = (0..).take_while(|&i| *ptr.offset(i) != 0).count();
-    let slice = std::slice::from_raw_parts(ptr, len);
-
-    OsString::from_wide(slice)
-}
 
 /// this iterator yields an interface name and address
 pub(crate) struct InterfaceAddressIterator {
     /// The first item in the linked list
-    buf: PIP_ADAPTER_ADDRESSES,
+    buf: *mut IP_ADAPTER_ADDRESSES_LH,
     /// The current adapter
-    adapter: PIP_ADAPTER_ADDRESSES,
+    adapter: *mut IP_ADAPTER_ADDRESSES_LH,
 }
 
 impl InterfaceAddressIterator {
@@ -38,7 +27,7 @@ impl InterfaceAddressIterator {
         }
     }
     unsafe fn realloc(mut self, size: libc::size_t) -> Result<Self, String> {
-        let new_buf = libc::realloc(self.buf as _, size) as PIP_ADAPTER_ADDRESSES;
+        let new_buf = libc::realloc(self.buf as _, size) as *mut IP_ADAPTER_ADDRESSES_LH;
         if new_buf.is_null() {
             // insufficient memory available
             // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/malloc?view=msvc-170#return-value
@@ -63,7 +52,7 @@ impl Iterator for InterfaceAddressIterator {
             let adapter = self.adapter;
             // Move to the next adapter
             self.adapter = (*adapter).Next;
-            if let Ok(interface_name) = u16_ptr_to_string((*adapter).FriendlyName).into_string() {
+            if let Ok(interface_name) = (*adapter).FriendlyName.to_string() {
                 // take the first 6 bytes and return the MAC address instead
                 let [mac @ .., _, _] = (*adapter).PhysicalAddress;
                 Some((interface_name, MacAddr(mac)))
@@ -88,7 +77,7 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
         // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#remarks
         // A 15k buffer is recommended
         let mut size: u32 = 15 * 1024;
-        let mut ret = ERROR_SUCCESS;
+        let mut ret = ERROR_SUCCESS.0;
         let mut iterator = InterfaceAddressIterator::new();
 
         // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#examples
@@ -96,15 +85,15 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
         for _ in 0..3 {
             iterator = iterator.realloc(size as _)?;
             ret = GetAdaptersAddresses(
-                AF_UNSPEC as u32,
+                AF_UNSPEC.0.into(),
                 GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER,
-                null_mut(),
-                iterator.buf,
+                None,
+                Some(iterator.buf),
                 &mut size,
             );
-            if ret == ERROR_SUCCESS {
+            if ret == ERROR_SUCCESS.0 {
                 return Ok(iterator);
-            } else if ret != ERROR_BUFFER_OVERFLOW {
+            } else if ret != ERROR_BUFFER_OVERFLOW.0 {
                 break;
             }
             // if the given memory size is too small to hold the adapter information,
