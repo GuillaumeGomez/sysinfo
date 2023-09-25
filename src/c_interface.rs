@@ -586,7 +586,11 @@ pub extern "C" fn sysinfo_cpu_frequency(system: CSystem) -> u64 {
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        let freq = system.cpus().first().map(|cpu| cpu.frequency()).unwrap_or(0);
+        let freq = system
+            .cpus()
+            .first()
+            .map(|cpu| cpu.frequency())
+            .unwrap_or(0);
         Box::into_raw(system);
         freq
     }
@@ -665,7 +669,7 @@ pub extern "C" fn sysinfo_system_long_version(system: CSystem) -> RString {
         let system: Box<System> = Box::from_raw(system as *mut System);
         let c_string = if let Some(c) = system.long_os_version().and_then(|c| CString::new(c).ok())
         {
-            return c.into_raw() as _;
+            c.into_raw() as _
         } else {
             std::ptr::null()
         };
