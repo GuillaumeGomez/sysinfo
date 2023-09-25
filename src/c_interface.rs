@@ -576,11 +576,7 @@ pub extern "C" fn sysinfo_cpu_physical_cores(system: CSystem) -> u32 {
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        let count = if let Some(c) = system.physical_core_count() {
-            c
-        } else {
-            0
-        };
+        let count = system.physical_core_count().unwrap_or(0);
         Box::into_raw(system);
         count as u32
     }
@@ -591,13 +587,8 @@ pub extern "C" fn sysinfo_cpu_physical_cores(system: CSystem) -> u32 {
 pub extern "C" fn sysinfo_cpu_frequency(system: CSystem) -> u64 {
     assert!(!system.is_null());
     unsafe {
-        let mut system: Box<System> = Box::from_raw(system as *mut System);
-        system.refresh_cpu();
-        let freq = if let Some(f) = system.cpus().first().map(|cpu| cpu.frequency()) {
-            f
-        } else {
-            0
-        };
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        let freq = system.cpus().first().map(|cpu| cpu.frequency()).unwrap_or(0);
         Box::into_raw(system);
         freq
     }
