@@ -18,7 +18,7 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "unknown-ci")] {
         // This is used in CI to check that the build for unknown targets is compiling fine.
         mod unknown;
-        use unknown as sys;
+        use crate::unknown as sys;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 0;
@@ -28,9 +28,9 @@ cfg_if::cfg_if! {
         target_os = "freebsd"))]
     {
         mod unix;
-        use unix::sys as sys;
-        use unix::{network_helper, users};
         mod network;
+        use crate::unix::sys as sys;
+        use crate::unix::{network_helper, users};
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -44,26 +44,26 @@ cfg_if::cfg_if! {
         pub(crate) const MIN_USERS: usize = 1;
     } else {
         mod unknown;
-        use unknown as sys;
+        use crate::unknown as sys;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 0;
     }
 }
 
-pub use common::{
+pub use crate::common::{
     get_current_pid, CpuRefreshKind, DiskKind, DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr,
     Networks, NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal,
     Uid,
 };
-pub use sys::{Component, Components, Cpu, Disk, NetworkData, Process, System, User};
-pub use traits::{
+pub use crate::sys::{Component, Components, Cpu, Disk, NetworkData, Process, System, User};
+pub use crate::traits::{
     ComponentExt, ComponentsExt, CpuExt, DiskExt, DisksExt, GroupExt, NetworkExt, NetworksExt,
     ProcessExt, SystemExt, UserExt,
 };
 
 #[cfg(feature = "c-interface")]
-pub use c_interface::*;
+pub use crate::c_interface::*;
 
 #[cfg(feature = "c-interface")]
 mod c_interface;
