@@ -954,6 +954,11 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// To have up-to-date information, you need to call [`SystemExt::refresh_cpu`] or
     /// [`SystemExt::refresh_specifics`] with `cpu` enabled.
     ///
+    /// **⚠️ Important ⚠️**
+    ///
+    /// Information like [`CpuExt::brand`], [`CpuExt::vendor_id`] or [`CpuExt::frequency`]
+    /// are not set on the "global" CPU.
+    ///
     /// ```no_run
     /// use sysinfo::{CpuRefreshKind, CpuExt, RefreshKind, System, SystemExt};
     ///
