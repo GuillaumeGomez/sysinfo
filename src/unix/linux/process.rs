@@ -89,10 +89,11 @@ pub struct Process {
     old_written_bytes: u64,
     read_bytes: u64,
     written_bytes: u64,
+    clock_cycle: u64,
 }
 
 impl Process {
-    pub(crate) fn new(pid: Pid) -> Process {
+    pub(crate) fn new(pid: Pid, info: &SystemInfo) -> Process {
         Process {
             name: String::with_capacity(20),
             pid,
@@ -128,6 +129,7 @@ impl Process {
             old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
+            clock_cycle: info.clock_cycle,
         }
     }
 }
@@ -192,6 +194,13 @@ impl ProcessExt for Process {
 
     fn cpu_usage(&self) -> f32 {
         self.cpu_usage
+    }
+
+    fn total_accumulated_cpu_usage(&self) -> f32 {
+        // The external values for CPU times are in "ticks", which are
+        // scaled by "HZ", which is pegged externally at 100
+        // ticks/second.
+        self.utime.saturating_add(self.stime) as f32 / self.clock_cycle as f32
     }
 
     fn disk_usage(&self) -> DiskUsage {
@@ -369,7 +378,7 @@ fn retrieve_all_new_process_info(
     refresh_kind: ProcessRefreshKind,
     uptime: u64,
 ) -> Process {
-    let mut p = Process::new(pid);
+    let mut p = Process::new(pid, info);
     let mut tmp = PathHandler::new(path);
     let name = parts[1];
 

@@ -215,7 +215,8 @@ impl SystemExt for System {
     const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
 
     fn new_with_specifics(refreshes: RefreshKind) -> System {
-        let process_list = Process::new(Pid(0));
+        let info = SystemInfo::new();
+        let process_list = Process::new(Pid(0), &info);
         let mut s = System {
             process_list,
             mem_total: 0,
@@ -229,7 +230,7 @@ impl SystemExt for System {
             swap_free: 0,
             cpus: CpusWrapper::new(),
             users: Vec::new(),
-            info: SystemInfo::new(),
+            info,
         };
         s.refresh_specifics(refreshes);
         s

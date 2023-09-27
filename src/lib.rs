@@ -175,6 +175,9 @@ mod doctest {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
+    use std::time::Instant;
+
     use crate::*;
 
     #[cfg(feature = "unknown-ci")]
@@ -253,6 +256,63 @@ mod test {
             .processes()
             .iter()
             .any(|(_, proc_)| proc_.cpu_usage() > 0.0));
+    }
+
+    #[test]
+    fn check_processes_total_accumulated_cpu_usage() {
+        if System::IS_SUPPORTED {
+            let mut s = System::new();
+
+            // Grab the intial accumulated CPU usages
+            s.refresh_cpu();
+            s.refresh_processes();
+            s.refresh_processes(); // Needed on some OS to fully populate the accumulated CPU usage
+            let first_time = Instant::now();
+            let all_procs: HashMap<_, _> = s
+                .processes()
+                .iter()
+                .map(|(pid, proc)| (*pid, proc.total_accumulated_cpu_usage()))
+                .collect();
+
+            // All accumulated CPU usages will be non-negative.
+            all_procs.values().for_each(|&usage| assert!(usage >= 0.0));
+            // At least one will be positive.
+            assert!(all_procs.values().any(|&usage| usage > 0.0));
+
+            // Wait a bit to update CPU usage values
+            std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
+            s.refresh_processes();
+            let duration = Instant::now().duration_since(first_time).as_secs_f32();
+
+            // They will still all be non-negative.
+            s.processes()
+                .values()
+                .for_each(|proc| assert!(proc.total_accumulated_cpu_usage() >= 0.0));
+
+            // They will all have either remained the same or
+            // increased no more than a valid amount.
+            let max_delta = s.cpus().len() as f32 * duration;
+            s.processes().iter().for_each(|(pid, proc)| {
+                if let Some(prev) = all_procs.get(pid) {
+                    let delta = proc.total_accumulated_cpu_usage() - prev;
+                    assert!(
+                        delta >= 0.0 && delta <= max_delta,
+                        "CPU time delta is out of range delta={} max_delta={} pid={}",
+                        delta,
+                        max_delta,
+                        pid,
+                    );
+                }
+            });
+
+            // At least one of them will have accumulated some CPU time.
+            #[cfg(not(windows))] // Windows CPU timers appear to have insufficient resolution
+            assert!(s.processes().iter().any(|(pid, proc)| {
+                all_procs
+                    .get(pid)
+                    .map_or(false, |&prev| proc.total_accumulated_cpu_usage() > prev)
+            }));
+        }
     }
 
     #[test]

@@ -55,6 +55,8 @@ use windows::Win32::System::Threading::{
 };
 use windows::Win32::UI::Shell::CommandLineToArgvW;
 
+const FILETIMES_PER_SECOND: f32 = 10_000_000.0; // 100 nanosecond units
+
 impl fmt::Display for ProcessStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(match *self {
@@ -211,11 +213,13 @@ pub struct Process {
     written_bytes: u64,
 }
 
+#[derive(Debug)]
 struct CPUsageCalculationValues {
     old_process_sys_cpu: u64,
     old_process_user_cpu: u64,
     old_system_sys_cpu: u64,
     old_system_user_cpu: u64,
+    nb_cpus: u64,
 }
 
 impl CPUsageCalculationValues {
@@ -225,9 +229,17 @@ impl CPUsageCalculationValues {
             old_process_user_cpu: 0,
             old_system_sys_cpu: 0,
             old_system_user_cpu: 0,
+            nb_cpus: 0,
         }
     }
+
+    fn total_accumulated_cpu_usage(&self) -> f32 {
+        self.old_process_user_cpu
+            .saturating_add(self.old_process_sys_cpu) as f32
+            / FILETIMES_PER_SECOND
+    }
 }
+
 static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| unsafe {
     let mut version_info: OSVERSIONINFOEXW = MaybeUninit::zeroed().assume_init();
 
@@ -571,6 +583,10 @@ impl ProcessExt for Process {
 
     fn cpu_usage(&self) -> f32 {
         self.cpu_usage
+    }
+
+    fn total_accumulated_cpu_usage(&self) -> f32 {
+        self.cpu_calc_values.total_accumulated_cpu_usage()
     }
 
     fn disk_usage(&self) -> DiskUsage {
@@ -1067,6 +1083,7 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
         p.cpu_calc_values.old_process_sys_cpu = sys;
         p.cpu_calc_values.old_system_user_cpu = global_user_time;
         p.cpu_calc_values.old_system_sys_cpu = global_kernel_time;
+        p.cpu_calc_values.nb_cpus = nb_cpus;
 
         let denominator = delta_global_user_time.saturating_add(delta_global_kernel_time) as f32;
 

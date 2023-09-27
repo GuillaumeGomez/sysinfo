@@ -11,6 +11,8 @@ use libc::{
 };
 use std::ptr::null_mut;
 
+pub(crate) const NANOS_PER_SECOND: f64 = 1_000_000_000.;
+
 struct ProcessorCpuLoadInfo {
     cpu_load: processor_cpu_load_info_t,
     cpu_count: natural_t,
@@ -55,6 +57,7 @@ impl Drop for ProcessorCpuLoadInfo {
 
 pub(crate) struct SystemTimeInfo {
     timebase_to_ns: f64,
+    pub timebase_to_sec: f64,
     clock_per_sec: f64,
     old_cpu_info: ProcessorCpuLoadInfo,
 }
@@ -93,11 +96,12 @@ impl SystemTimeInfo {
                 }
             };
 
-            let nano_per_seconds = 1_000_000_000.;
             sysinfo_debug!("");
+            let timebase_to_ns = info.numer as f64 / info.denom as f64;
             Some(Self {
-                timebase_to_ns: info.numer as f64 / info.denom as f64,
-                clock_per_sec: nano_per_seconds / clock_ticks_per_sec as f64,
+                timebase_to_ns,
+                timebase_to_sec: timebase_to_ns / NANOS_PER_SECOND,
+                clock_per_sec: NANOS_PER_SECOND / clock_ticks_per_sec as f64,
                 old_cpu_info,
             })
         }
