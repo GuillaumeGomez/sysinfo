@@ -3,7 +3,7 @@
 use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_all_data, to_u64};
-use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User};
+use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt};
 
 use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cmp::min;
@@ -156,7 +156,6 @@ pub struct System {
     mem_slab_reclaimable: u64,
     swap_total: u64,
     swap_free: u64,
-    users: Vec<User>,
     info: SystemInfo,
     cpus: CpusWrapper,
 }
@@ -228,7 +227,6 @@ impl SystemExt for System {
             swap_total: 0,
             swap_free: 0,
             cpus: CpusWrapper::new(),
-            users: Vec::new(),
             info: SystemInfo::new(),
         };
         s.refresh_specifics(refreshes);
@@ -362,10 +360,6 @@ impl SystemExt for System {
         true
     }
 
-    fn refresh_users_list(&mut self) {
-        self.users = crate::users::get_users_list();
-    }
-
     // COMMON PART
     //
     // Need to be moved into a "common" file to avoid duplication.
@@ -451,10 +445,6 @@ impl SystemExt for System {
             five: loads[1],
             fifteen: loads[2],
         }
-    }
-
-    fn users(&self) -> &[User] {
-        &self.users
     }
 
     #[cfg(not(target_os = "android"))]

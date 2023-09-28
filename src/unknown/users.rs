@@ -22,3 +22,5 @@ impl UserExt for User {
         Vec::new()
     }
 }
+
+pub(crate) fn get_users(_: &mut Vec<User>) {}

@@ -2,7 +2,7 @@
 
 use crate::{
     sys::{Cpu, Process},
-    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt,
 };
 
 use std::collections::HashMap;
@@ -40,8 +40,6 @@ impl SystemExt for System {
     fn refresh_process_specifics(&mut self, _pid: Pid, _refresh_kind: ProcessRefreshKind) -> bool {
         false
     }
-
-    fn refresh_users_list(&mut self) {}
 
     // COMMON PART
     //
@@ -109,10 +107,6 @@ impl SystemExt for System {
             five: 0.,
             fifteen: 0.,
         }
-    }
-
-    fn users(&self) -> &[User] {
-        &[]
     }
 
     fn name(&self) -> Option<String> {

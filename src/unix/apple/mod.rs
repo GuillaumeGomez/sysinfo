@@ -30,4 +30,5 @@ pub use self::disk::Disk;
 pub use self::network::NetworkData;
 pub use self::process::Process;
 pub use self::system::System;
-pub use crate::users::User;
+pub(crate) use crate::unix::users::get_users;
+pub use crate::unix::users::User;

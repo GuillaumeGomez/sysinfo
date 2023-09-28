@@ -1,13 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{
-    CpuRefreshKind, LoadAvg, Pid, ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt, User,
-};
+use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt};
 
 use crate::sys::cpu::*;
 use crate::sys::process::{get_start_time, update_memory, Process};
 use crate::sys::tools::*;
-use crate::sys::users::get_users;
 use crate::sys::utils::{get_now, get_reg_string_value, get_reg_value_u32};
 
 use crate::utils::into_iter;
@@ -46,7 +43,6 @@ pub struct System {
     cpus: CpusWrapper,
     query: Option<Query>,
     boot_time: u64,
-    users: Vec<User>,
 }
 
 static WINDOWS_ELEVEN_BUILD_NUMBER: u32 = 22000;
@@ -95,7 +91,6 @@ impl SystemExt for System {
             cpus: CpusWrapper::new(),
             query: None,
             boot_time: unsafe { boot_time() },
-            users: Vec::new(),
         };
         s.refresh_specifics(refreshes);
         s
@@ -339,10 +334,6 @@ impl SystemExt for System {
         });
     }
 
-    fn refresh_users_list(&mut self) {
-        self.users = unsafe { get_users() };
-    }
-
     fn processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
@@ -390,10 +381,6 @@ impl SystemExt for System {
 
     fn used_swap(&self) -> u64 {
         self.swap_used
-    }
-
-    fn users(&self) -> &[User] {
-        &self.users
     }
 
     fn uptime(&self) -> u64 {

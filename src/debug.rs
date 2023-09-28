@@ -3,6 +3,7 @@
 use crate::{
     Component, ComponentExt, Components, Cpu, CpuExt, Disk, DiskExt, Disks, NetworkData,
     NetworkExt, Networks, NetworksExt, Process, ProcessExt, System, SystemExt, User, UserExt,
+    Users,
 };
 
 use std::fmt;
@@ -148,6 +149,19 @@ impl fmt::Debug for Disks {
         write!(
             f,
             "Disks {{ {} }}",
+            self.iter()
+                .map(|x| format!("{x:?}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+impl fmt::Debug for Users {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Users {{ {} }}",
             self.iter()
                 .map(|x| format!("{x:?}"))
                 .collect::<Vec<_>>()

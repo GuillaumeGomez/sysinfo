@@ -133,6 +133,15 @@ pub trait DiskExt: Debug {
 }
 
 /// Contains all the methods of the [`Process`][crate::Process] struct.
+///
+/// ```no_run
+/// use sysinfo::{Pid, ProcessExt, System, SystemExt};
+///
+/// let s = System::new_all();
+/// if let Some(process) = s.process(Pid::from(1337)) {
+///     println!("{}", process.name());
+/// }
+/// ```
 pub trait ProcessExt: Debug {
     /// Sends [`Signal::Kill`] to the process (which is the only signal supported on all supported
     /// platforms by this crate).
@@ -399,7 +408,7 @@ pub trait ProcessExt: Debug {
 
     /// Returns the ID of the owner user of this process or `None` if this information couldn't
     /// be retrieved. If you want to get the [`User`] from it, take a look at
-    /// [`SystemExt::get_user_by_id`].
+    /// [`UsersExt::get_user_by_id`].
     ///
     /// ```no_run
     /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
@@ -414,7 +423,7 @@ pub trait ProcessExt: Debug {
 
     /// Returns the user ID of the effective owner of this process or `None` if this information
     /// couldn't be retrieved. If you want to get the [`User`] from it, take a look at
-    /// [`SystemExt::get_user_by_id`].
+    /// [`UsersExt::get_user_by_id`].
     ///
     /// If you run something with `sudo`, the real user ID of the launched process will be the ID of
     /// the user you are logged in as but effective user ID will be `0` (i-e root).
@@ -497,6 +506,23 @@ pub trait ProcessExt: Debug {
 }
 
 /// Contains all the methods of the [`Cpu`][crate::Cpu] struct.
+///
+/// ```no_run
+/// use sysinfo::{CpuExt, System, SystemExt, RefreshKind, CpuRefreshKind};
+///
+/// let mut s = System::new_with_specifics(
+///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+/// );
+///
+/// // Wait a bit because CPU usage is based on diff.
+/// std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
+/// // Refresh CPUs again.
+/// s.refresh_cpu();
+///
+/// for cpu in s.cpus() {
+///     println!("{}%", cpu.cpu_usage());
+/// }
+/// ```
 pub trait CpuExt: Debug {
     /// Returns this CPU's usage.
     ///
@@ -506,9 +532,15 @@ pub trait CpuExt: Debug {
     /// ```no_run
     /// use sysinfo::{CpuExt, System, SystemExt, RefreshKind, CpuRefreshKind};
     ///
-    /// let s = System::new_with_specifics(
+    /// let mut s = System::new_with_specifics(
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
     /// );
+    ///
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPUs again.
+    /// s.refresh_cpu();
+    ///
     /// for cpu in s.cpus() {
     ///     println!("{}%", cpu.cpu_usage());
     /// }
@@ -573,6 +605,16 @@ pub trait CpuExt: Debug {
 }
 
 /// Contains all the methods of the [`System`][crate::System] type.
+///
+/// ```
+/// use sysinfo::{System, SystemExt};
+///
+/// if System::IS_SUPPORTED {
+///     println!("System: {:?}", System::new_all());
+/// } else {
+///     println!("This OS isn't supported (yet?).");
+/// }
+/// ```
 pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// Returns `true` if this OS is supported. Please refer to the
     /// [crate-level documentation](index.html) to get the list of supported OSes.
@@ -681,9 +723,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
         }
         if let Some(kind) = refreshes.processes() {
             self.refresh_processes_specifics(kind);
-        }
-        if refreshes.users_list() {
-            self.refresh_users_list();
         }
     }
 
@@ -852,16 +891,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// s.refresh_process_specifics(Pid::from(1337), ProcessRefreshKind::new());
     /// ```
     fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool;
-
-    /// Refreshes users list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_users_list();
-    /// ```
-    fn refresh_users_list(&mut self);
 
     /// Returns the process list.
     ///
@@ -1082,18 +1111,6 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// ```
     fn used_swap(&self) -> u64;
 
-    /// Returns the users list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, SystemExt, UserExt};
-    ///
-    /// let mut s = System::new_all();
-    /// for user in s.users() {
-    ///     println!("{} is in {} groups", user.name(), user.groups().len());
-    /// }
-    /// ```
-    fn users(&self) -> &[User];
-
     /// Returns system uptime (in seconds).
     ///
     /// ```no_run
@@ -1206,38 +1223,19 @@ pub trait SystemExt: Sized + Debug + Default + Send + Sync {
     /// println!("Hostname: {:?}", s.host_name());
     /// ```
     fn host_name(&self) -> Option<String>;
-
-    /// Returns the [`User`] matching the given `user_id`.
-    ///
-    /// **Important**: The user list must be filled before using this method, otherwise it will
-    /// always return `None` (through the `refresh_*` methods).
-    ///
-    /// It is a shorthand for:
-    ///
-    /// ```ignore
-    /// let s = System::new_all();
-    /// s.users().find(|user| user.id() == user_id);
-    /// ```
-    ///
-    /// Full example:
-    ///
-    /// ```no_run
-    /// use sysinfo::{Pid, ProcessExt, System, SystemExt};
-    ///
-    /// let mut s = System::new_all();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     if let Some(user_id) = process.user_id() {
-    ///         eprintln!("User for process 1337: {:?}", s.get_user_by_id(user_id));
-    ///     }
-    /// }
-    /// ```
-    fn get_user_by_id(&self, user_id: &Uid) -> Option<&User> {
-        self.users().iter().find(|user| user.id() == user_id)
-    }
 }
 
 /// Getting volume of received and transmitted data.
+///
+/// ```no_run
+/// use sysinfo::{Networks, NetworkExt, NetworksExt};
+///
+/// let mut networks = Networks::new();
+/// networks.refresh_list();
+/// for (interface_name, network) in &networks {
+///     println!("[{interface_name}] {network:?}");
+/// }
+/// ```
 pub trait NetworkExt: Debug {
     /// Returns the number of received bytes since the last refresh.
     ///
@@ -1410,8 +1408,18 @@ pub trait NetworkExt: Debug {
 }
 
 /// Interacting with network interfaces.
+///
+/// ```no_run
+/// use sysinfo::{Networks, NetworksExt};
+///
+/// let mut networks = Networks::new();
+/// networks.refresh_list();
+/// for (interface_name, network) in &networks {
+///     println!("[{interface_name}]: {network:?}");
+/// }
+/// ```
 pub trait NetworksExt: Debug {
-    /// Creates a new `Networks` type.
+    /// Creates a new [`Networks`][crate::Networks] type.
     ///
     /// ```no_run
     /// use sysinfo::{Networks, NetworksExt};
@@ -1454,6 +1462,12 @@ pub trait NetworksExt: Debug {
     /// Refreshes the network interfaces' content. If you didn't run [`NetworksExt::refresh_list`]
     /// before, calling this method won't do anything as no interfaces are present.
     ///
+    /// ⚠️ If a user is added or removed, this method won't take it into account. Use
+    /// [`NetworksExt::refresh_list`] instead.
+    ///
+    /// ⚠️ If you didn't call [`NetworksExt::refresh_list`] beforehand, this method will do nothing
+    /// as the network list will be empty.
+    ///
     /// ```no_run
     /// use sysinfo::{Networks, NetworksExt, System, SystemExt};
     ///
@@ -1467,6 +1481,16 @@ pub trait NetworksExt: Debug {
 }
 
 /// Interacting with disks.
+///
+/// ```no_run
+/// use sysinfo::{Disks, DisksExt};
+///
+/// let mut disks = Disks::new();
+/// disks.refresh_list();
+/// for disk in disks.disks() {
+///     eprintln!("{disk:?}");
+/// }
+/// ```
 pub trait DisksExt: Debug {
     /// Creates a new [`Disks`][crate::Disks] type.
     ///
@@ -1536,6 +1560,9 @@ pub trait DisksExt: Debug {
 
     /// Refreshes the listed disks' information.
     ///
+    /// ⚠️ If a disk is added or removed, this method won't take it into account. Use
+    /// [`DisksExt::refresh_list`] instead.
+    ///
     /// ⚠️ If you didn't call [`DisksExt::refresh_list`] beforehand, this method will do nothing as
     /// the disk list will be empty.
     ///
@@ -1576,8 +1603,22 @@ pub trait DisksExt: Debug {
 }
 
 /// Getting a component temperature information.
+///
+/// ```no_run
+/// use sysinfo::{ComponentExt, Components, ComponentsExt};
+///
+/// let mut components = Components::new();
+/// components.refresh_list();
+/// for component in components.iter() {
+///     println!("{}°C", component.temperature());
+/// }
+/// ```
 pub trait ComponentExt: Debug {
     /// Returns the temperature of the component (in celsius degree).
+    ///
+    /// ## Linux
+    ///
+    /// Returns `f32::NAN` if it failed to retrieve it.
     ///
     /// ```no_run
     /// use sysinfo::{ComponentExt, Components, ComponentsExt};
@@ -1588,10 +1629,6 @@ pub trait ComponentExt: Debug {
     ///     println!("{}°C", component.temperature());
     /// }
     /// ```
-    ///
-    /// ## Linux
-    ///
-    /// Returns `f32::NAN` if it failed to retrieve it.
     fn temperature(&self) -> f32;
 
     /// Returns the maximum temperature of the component (in celsius degree).
@@ -1673,6 +1710,16 @@ pub trait ComponentExt: Debug {
 }
 
 /// Interacting with components.
+///
+/// ```no_run
+/// use sysinfo::{Components, ComponentsExt};
+///
+/// let mut components = Components::new();
+/// components.refresh_list();
+/// for component in components.iter() {
+///     eprintln!("{component:?}");
+/// }
+/// ```
 pub trait ComponentsExt: Debug {
     /// Creates a new [`Components`][crate::Components] type.
     ///
@@ -1742,14 +1789,16 @@ pub trait ComponentsExt: Debug {
 
     /// Refreshes the listed components' information.
     ///
-    /// ⚠️ If you didn't call [`ComponentsExt::refresh_list`] beforehand, this method will do nothing as
-    /// the component list will be empty.
+    /// ⚠️ If a component is added or removed, this method won't take it into account. Use
+    /// [`ComponentsExt::refresh_list`] instead.
+    ///
+    /// ⚠️ If you didn't call [`ComponentsExt::refresh_list`] beforehand, this method will do
+    /// nothing as the component list will be empty.
     ///
     /// ```no_run
     /// use sysinfo::{Components, ComponentsExt};
     ///
     /// let mut components = Components::new();
-    /// components.refresh_list();
     /// // We get the component list.
     /// components.refresh_list();
     /// // We wait some time...?
@@ -1774,13 +1823,14 @@ pub trait ComponentsExt: Debug {
 
 /// Getting information for a user.
 ///
-/// It is returned from [`SystemExt::users`].
+/// It is returned from [`UsersExt::users`].
 ///
 /// ```no_run
-/// use sysinfo::{System, SystemExt, UserExt};
+/// use sysinfo::{Users, UsersExt, UserExt};
 ///
-/// let mut s = System::new_all();
-/// for user in s.users() {
+/// let mut users = Users::new();
+/// users.refresh_list();
+/// for user in users.users() {
 ///     println!("{} is in {} groups", user.name(), user.groups().len());
 /// }
 /// ```
@@ -1788,10 +1838,11 @@ pub trait UserExt: Debug + PartialEq + Eq + PartialOrd + Ord {
     /// Returns the ID of the user.
     ///
     /// ```no_run
-    /// use sysinfo::{System, SystemExt, UserExt};
+    /// use sysinfo::{Users, UsersExt, UserExt};
     ///
-    /// let mut s = System::new_all();
-    /// for user in s.users() {
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
     ///     println!("{:?}", *user.id());
     /// }
     /// ```
@@ -1807,10 +1858,11 @@ pub trait UserExt: Debug + PartialEq + Eq + PartialOrd + Ord {
     /// group ID.
     ///
     /// ```no_run
-    /// use sysinfo::{System, SystemExt, UserExt};
+    /// use sysinfo::{Users, UsersExt, UserExt};
     ///
-    /// let mut s = System::new_all();
-    /// for user in s.users() {
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
     ///     println!("{}", *user.group_id());
     /// }
     /// ```
@@ -1819,10 +1871,11 @@ pub trait UserExt: Debug + PartialEq + Eq + PartialOrd + Ord {
     /// Returns the name of the user.
     ///
     /// ```no_run
-    /// use sysinfo::{System, SystemExt, UserExt};
+    /// use sysinfo::{Users, UsersExt, UserExt};
     ///
-    /// let mut s = System::new_all();
-    /// for user in s.users() {
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
     ///     println!("{}", user.name());
     /// }
     /// ```
@@ -1833,25 +1886,149 @@ pub trait UserExt: Debug + PartialEq + Eq + PartialOrd + Ord {
     /// ⚠️ This is computed every time this method is called.
     ///
     /// ```no_run
-    /// use sysinfo::{System, SystemExt, UserExt};
+    /// use sysinfo::{Users, UsersExt, UserExt};
     ///
-    /// let mut s = System::new_all();
-    /// for user in s.users() {
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
     ///     println!("{} is in {:?}", user.name(), user.groups());
     /// }
     /// ```
     fn groups(&self) -> Vec<Group>;
 }
 
-/// Getting information for a user group.
-///
-/// It is returned from [`SystemExt::users`].
+/// Interacting with users.
 ///
 /// ```no_run
-/// use sysinfo::{GroupExt, System, SystemExt, UserExt};
+/// use sysinfo::{Users, UsersExt};
 ///
-/// let mut s = System::new_all();
-/// for user in s.users() {
+/// let mut users = Users::new();
+/// users.refresh_list();
+/// for user in users.users() {
+///     eprintln!("{user:?}");
+/// }
+/// ```
+pub trait UsersExt: Debug {
+    /// Creates a new [`Components`][crate::Components] type.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
+    ///     eprintln!("{user:?}");
+    /// }
+    /// ```
+    fn new() -> Self;
+
+    /// Returns the users list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
+    ///     eprintln!("{user:?}");
+    /// }
+    /// ```
+    fn users(&self) -> &[User];
+
+    /// Returns the users list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{UserExt, Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// users.users_mut().sort_by(|user1, user2| {
+    ///     user1.name().partial_cmp(user2.name()).unwrap()
+    /// });
+    /// ```
+    fn users_mut(&mut self) -> &mut [User];
+
+    /// Sort the users list with the provided callback.
+    ///
+    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
+    /// for implementation details.
+    ///
+    /// You can do the same without this method by calling:
+    ///
+    /// ```no_run
+    /// use sysinfo::{UserExt, Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// users.sort_by(|user1, user2| {
+    ///     user1.name().partial_cmp(user2.name()).unwrap()
+    /// });
+    /// ```
+    ///
+    /// ⚠️ If you use [`UsersExt::refresh_list`], you will need to call this method to sort the
+    /// users again.
+    fn sort_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&User, &User) -> std::cmp::Ordering,
+    {
+        self.users_mut().sort_unstable_by(compare);
+    }
+
+    /// The user list will be emptied then completely recomputed.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// ```
+    fn refresh_list(&mut self);
+
+    /// Returns the [`User`] matching the given `user_id`.
+    ///
+    /// **Important**: The user list must be filled before using this method, otherwise it will
+    /// always return `None` (through the `refresh_*` methods).
+    ///
+    /// It is a shorthand for:
+    ///
+    /// ```ignore
+    /// # use sysinfo::{UserExt, Users, UsersExt};
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// users.users().find(|user| user.id() == user_id);
+    /// ```
+    ///
+    /// Full example:
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, ProcessExt, System, SystemExt, Users, UsersExt};
+    ///
+    /// let mut s = System::new_all();
+    /// let mut users = Users::new();
+    ///
+    /// users.refresh_list();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     if let Some(user_id) = process.user_id() {
+    ///         eprintln!("User for process 1337: {:?}", users.get_user_by_id(user_id));
+    ///     }
+    /// }
+    /// ```
+    fn get_user_by_id(&self, user_id: &Uid) -> Option<&User> {
+        self.users().iter().find(|user| user.id() == user_id)
+    }
+}
+
+/// Getting information for a user group.
+///
+/// It is returned from [`UserExt::groups`].
+///
+/// ```no_run
+/// use sysinfo::{GroupExt, UserExt, Users, UsersExt};
+///
+/// let mut users = Users::new();
+///
+/// for user in users.users() {
 ///     println!(
 ///         "user: (ID: {:?}, group ID: {:?}, name: {:?})",
 ///         user.id(),
@@ -1869,10 +2046,11 @@ pub trait GroupExt: Debug + PartialEq + Eq + PartialOrd + Ord {
     /// ⚠️ This information is not set on Windows.
     ///
     /// ```no_run
-    /// use sysinfo::{GroupExt, System, SystemExt, UserExt};
+    /// use sysinfo::{GroupExt, UserExt, Users, UsersExt};
     ///
-    /// let mut s = System::new_all();
-    /// for user in s.users() {
+    /// let mut users = Users::new();
+    ///
+    /// for user in users.users() {
     ///     for group in user.groups() {
     ///         println!("{:?}", group.id());
     ///     }
@@ -1883,10 +2061,11 @@ pub trait GroupExt: Debug + PartialEq + Eq + PartialOrd + Ord {
     /// Returns the name of the group.
     ///
     /// ```no_run
-    /// use sysinfo::{GroupExt, System, SystemExt, UserExt};
+    /// use sysinfo::{GroupExt, UserExt, Users, UsersExt};
     ///
-    /// let mut s = System::new_all();
-    /// for user in s.users() {
+    /// let mut users = Users::new();
+    ///
+    /// for user in users.users() {
     ///     for group in user.groups() {
     ///         println!("{}", group.name());
     ///     }

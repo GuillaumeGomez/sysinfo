@@ -2,7 +2,7 @@
 
 use crate::{
     sys::{Cpu, Process},
-    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User,
+    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt,
 };
 
 use std::cell::UnsafeCell;
@@ -64,7 +64,6 @@ pub struct System {
     mem_used: u64,
     swap_total: u64,
     swap_used: u64,
-    users: Vec<User>,
     boot_time: u64,
     system_info: SystemInfo,
     cpus: CpusWrapper,
@@ -85,7 +84,6 @@ impl SystemExt for System {
             mem_used: 0,
             swap_total: 0,
             swap_used: 0,
-            users: Vec::new(),
             boot_time: boot_time(),
             system_info,
             cpus: CpusWrapper::new(),
@@ -168,10 +166,6 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_users_list(&mut self) {
-        self.users = crate::users::get_users_list();
-    }
-
     // COMMON PART
     //
     // Need to be moved into a "common" file to avoid duplication.
@@ -247,10 +241,6 @@ impl SystemExt for System {
                 fifteen: loads[2],
             }
         }
-    }
-
-    fn users(&self) -> &[User] {
-        &self.users
     }
 
     fn name(&self) -> Option<String> {
@@ -552,8 +542,8 @@ impl SystemInfo {
                 return nb_pages.saturating_mul(self.page_size as _);
             }
 
-            // This is a fallback. It includes all the available memory, not just the one available for
-            // the users.
+            // This is a fallback. It includes all the available memory, not just the one available
+            // for the users.
             let mut total_memory: u64 = 0;
             get_sys_value(&self.hw_physical_memory, &mut total_memory);
             total_memory

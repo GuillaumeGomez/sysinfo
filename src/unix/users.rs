@@ -6,8 +6,6 @@ use crate::{
 };
 
 use libc::{getgrgid_r, getgrouplist};
-use std::fs::File;
-use std::io::Read;
 
 #[doc = include_str!("../../md_doc/user.md")]
 pub struct User {
@@ -100,7 +98,7 @@ pub(crate) unsafe fn get_user_groups(
         return groups
             .iter()
             .filter_map(|group_id| {
-                let name = crate::users::get_group_name(*group_id as _, &mut buffer)?;
+                let name = get_group_name(*group_id as _, &mut buffer)?;
                 Some(Group {
                     name,
                     id: Gid(*group_id as _),
@@ -111,29 +109,34 @@ pub(crate) unsafe fn get_user_groups(
 }
 
 // Not used by mac.
-#[allow(unused)]
-pub(crate) fn get_users_list() -> Vec<User> {
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+pub(crate) fn get_users(users: &mut Vec<User>) {
+    use std::fs::File;
+    use std::io::Read;
+
     #[inline]
     fn parse_id(id: &str) -> Option<u32> {
         id.parse::<u32>().ok()
     }
 
+    users.clear();
+
     let mut s = String::new();
 
     let _ = File::open("/etc/passwd").and_then(|mut f| f.read_to_string(&mut s));
-    s.lines()
-        .filter_map(|line| {
-            let mut parts = line.split(':');
-            if let Some(username) = parts.next() {
-                let mut parts = parts.skip(1);
-                // Skip the user if the uid cannot be parsed correctly
-                if let Some(uid) = parts.next().and_then(parse_id) {
-                    if let Some(group_id) = parts.next().and_then(parse_id) {
-                        return Some(User::new(Uid(uid), Gid(group_id), username.to_owned()));
-                    }
+    for line in s.lines() {
+        let mut parts = line.split(':');
+        if let Some(username) = parts.next() {
+            let mut parts = parts.skip(1);
+            // Skip the user if the uid cannot be parsed correctly
+            if let Some(uid) = parts.next().and_then(parse_id) {
+                if let Some(group_id) = parts.next().and_then(parse_id) {
+                    users.push(User::new(Uid(uid), Gid(group_id), username.to_owned()));
                 }
             }
-            None
-        })
-        .collect()
+        }
+    }
 }
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub(crate) use crate::unix::apple::users::get_users;
