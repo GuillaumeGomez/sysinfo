@@ -3,7 +3,7 @@
 extern crate test;
 
 use sysinfo::get_current_pid;
-use sysinfo::{ComponentsExt, DiskExt, DisksExt, NetworksExt, SystemExt};
+use sysinfo::{ComponentsExt, DiskExt, DisksExt, NetworksExt, SystemExt, UsersExt};
 
 #[bench]
 fn bench_new(b: &mut test::Bencher) {
@@ -160,9 +160,9 @@ fn bench_refresh_components_list(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_refresh_users_list(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new_all();
+    let mut users = sysinfo::Users::new();
 
     b.iter(move || {
-        s.refresh_users_list();
+        users.refresh_list();
     });
 }

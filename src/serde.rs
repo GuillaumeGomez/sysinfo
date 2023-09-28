@@ -94,7 +94,7 @@ impl serde::Serialize for crate::System {
         S: serde::Serializer,
     {
         // `23` corresponds to the number of fields.
-        let mut state = serializer.serialize_struct("System", 23)?;
+        let mut state = serializer.serialize_struct("System", 22)?;
 
         state.serialize_field("IS_SUPPORTED", &<Self as SystemExt>::IS_SUPPORTED)?;
         state.serialize_field("SUPPORTED_SIGNALS", <Self as SystemExt>::SUPPORTED_SIGNALS)?;
@@ -114,8 +114,6 @@ impl serde::Serialize for crate::System {
         state.serialize_field("total_swap", &self.total_swap())?;
         state.serialize_field("free_swap", &self.free_swap())?;
         state.serialize_field("used_swap", &self.used_swap())?;
-
-        state.serialize_field("users", &self.users())?;
 
         state.serialize_field("uptime", &self.uptime())?;
         state.serialize_field("boot_time", &self.boot_time())?;
@@ -150,6 +148,15 @@ impl Serialize for crate::Disks {
 }
 
 impl Serialize for crate::Components {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.iter())
+    }
+}
+
+impl Serialize for crate::Users {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

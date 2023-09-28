@@ -154,114 +154,114 @@ unsafe fn get_groups_for_user(username: PCWSTR) -> Vec<Group> {
     groups
 }
 
-pub unsafe fn get_users() -> Vec<User> {
-    let mut users = Vec::new();
+pub(crate) fn get_users(users: &mut Vec<User>) {
+    users.clear();
 
     let mut resume_handle: u32 = 0;
-    loop {
-        let mut buffer: NetApiBuffer<USER_INFO_0> = Default::default();
-        let mut nb_read = 0;
-        let mut total = 0;
-        let status = NetUserEnum(
-            PCWSTR::null(),
-            0,
-            FILTER_NORMAL_ACCOUNT,
-            buffer.inner_mut_as_bytes(),
-            MAX_PREFERRED_LENGTH,
-            &mut nb_read,
-            &mut total,
-            Some(&mut resume_handle),
-        );
-        if status == NERR_Success || status == ERROR_MORE_DATA.0 {
-            let entries = std::slice::from_raw_parts(buffer.0, nb_read as _);
-            for entry in entries {
-                if entry.usri0_name.is_null() {
-                    continue;
-                }
+    unsafe {
+        loop {
+            let mut buffer: NetApiBuffer<USER_INFO_0> = Default::default();
+            let mut nb_read = 0;
+            let mut total = 0;
+            let status = NetUserEnum(
+                PCWSTR::null(),
+                0,
+                FILTER_NORMAL_ACCOUNT,
+                buffer.inner_mut_as_bytes(),
+                MAX_PREFERRED_LENGTH,
+                &mut nb_read,
+                &mut total,
+                Some(&mut resume_handle),
+            );
+            if status == NERR_Success || status == ERROR_MORE_DATA.0 {
+                let entries = std::slice::from_raw_parts(buffer.0, nb_read as _);
+                for entry in entries {
+                    if entry.usri0_name.is_null() {
+                        continue;
+                    }
 
-                let mut user: NetApiBuffer<USER_INFO_23> = Default::default();
-                if NetUserGetInfo(
-                    PCWSTR::null(),
-                    PCWSTR::from_raw(entry.usri0_name.as_ptr()),
-                    23,
-                    user.inner_mut_as_bytes(),
-                ) == NERR_Success
-                {
-                    if let Some(sid) = Sid::from_psid((*user.0).usri23_user_sid) {
-                        // Get the account name from the SID (because it's usually
-                        // a better name), but fall back to the name we were given
-                        // if this fails.
-                        let name = sid
-                            .account_name()
-                            .unwrap_or_else(|| to_str(entry.usri0_name));
-                        users.push(User::new(
-                            Uid(sid),
-                            name,
-                            PCWSTR(entry.usri0_name.0 as *const _),
-                            true,
-                        ))
+                    let mut user: NetApiBuffer<USER_INFO_23> = Default::default();
+                    if NetUserGetInfo(
+                        PCWSTR::null(),
+                        PCWSTR::from_raw(entry.usri0_name.as_ptr()),
+                        23,
+                        user.inner_mut_as_bytes(),
+                    ) == NERR_Success
+                    {
+                        if let Some(sid) = Sid::from_psid((*user.0).usri23_user_sid) {
+                            // Get the account name from the SID (because it's usually
+                            // a better name), but fall back to the name we were given
+                            // if this fails.
+                            let name = sid
+                                .account_name()
+                                .unwrap_or_else(|| to_str(entry.usri0_name));
+                            users.push(User::new(
+                                Uid(sid),
+                                name,
+                                PCWSTR(entry.usri0_name.0 as *const _),
+                                true,
+                            ))
+                        }
                     }
                 }
+            } else {
+                sysinfo_debug!(
+                    "NetUserEnum error: {}",
+                    if status == windows::Win32::Foundation::ERROR_ACCESS_DENIED.0 {
+                        "access denied"
+                    } else if status == windows::Win32::Foundation::ERROR_INVALID_LEVEL.0 {
+                        "invalid level"
+                    } else {
+                        "unknown error"
+                    }
+                );
             }
+            if status != ERROR_MORE_DATA.0 {
+                break;
+            }
+        }
+
+        // First part done. Second part now!
+        let mut nb_sessions = 0;
+        let mut uids: LsaBuffer<LUID> = Default::default();
+        if LsaEnumerateLogonSessions(&mut nb_sessions, uids.inner_mut()).is_err() {
+            sysinfo_debug!("LsaEnumerateLogonSessions failed");
         } else {
-            sysinfo_debug!(
-                "NetUserEnum error: {}",
-                if status == windows::Win32::Foundation::ERROR_ACCESS_DENIED.0 {
-                    "access denied"
-                } else if status == windows::Win32::Foundation::ERROR_INVALID_LEVEL.0 {
-                    "invalid level"
-                } else {
-                    "unknown error"
+            let entries = std::slice::from_raw_parts_mut(uids.0, nb_sessions as _);
+            for entry in entries {
+                let mut data: LsaBuffer<SECURITY_LOGON_SESSION_DATA> = Default::default();
+                if LsaGetLogonSessionData(entry, data.inner_mut()).is_ok() && !data.0.is_null() {
+                    let data = *data.0;
+                    if data.LogonType == SECURITY_LOGON_TYPE::Network.0 as u32 {
+                        continue;
+                    }
+
+                    let sid = match Sid::from_psid(data.Sid) {
+                        Some(sid) => sid,
+                        None => continue,
+                    };
+
+                    if users.iter().any(|u| u.uid.0 == sid) {
+                        continue;
+                    }
+
+                    // Get the account name from the SID (because it's usually
+                    // a better name), but fall back to the name we were given
+                    // if this fails.
+                    let name = sid.account_name().unwrap_or_else(|| {
+                        String::from_utf16(std::slice::from_raw_parts(
+                            data.UserName.Buffer.as_ptr(),
+                            data.UserName.Length as usize / std::mem::size_of::<u16>(),
+                        ))
+                        .unwrap_or_else(|_err| {
+                            sysinfo_debug!("Failed to convert from UTF-16 string: {}", _err);
+                            String::new()
+                        })
+                    });
+
+                    users.push(User::new(Uid(sid), name, PCWSTR::null(), false));
                 }
-            );
-        }
-        if status != ERROR_MORE_DATA.0 {
-            break;
-        }
-    }
-
-    // First part done. Second part now!
-    let mut nb_sessions = 0;
-    let mut uids: LsaBuffer<LUID> = Default::default();
-    if LsaEnumerateLogonSessions(&mut nb_sessions, uids.inner_mut()).is_err() {
-        sysinfo_debug!("LsaEnumerateLogonSessions failed");
-    } else {
-        let entries = std::slice::from_raw_parts_mut(uids.0, nb_sessions as _);
-        for entry in entries {
-            let mut data: LsaBuffer<SECURITY_LOGON_SESSION_DATA> = Default::default();
-            if LsaGetLogonSessionData(entry, data.inner_mut()).is_ok() && !data.0.is_null() {
-                let data = *data.0;
-                if data.LogonType == SECURITY_LOGON_TYPE::Network.0 as u32 {
-                    continue;
-                }
-
-                let sid = match Sid::from_psid(data.Sid) {
-                    Some(sid) => sid,
-                    None => continue,
-                };
-
-                if users.iter().any(|u| u.uid.0 == sid) {
-                    continue;
-                }
-
-                // Get the account name from the SID (because it's usually
-                // a better name), but fall back to the name we were given
-                // if this fails.
-                let name = sid.account_name().unwrap_or_else(|| {
-                    String::from_utf16(std::slice::from_raw_parts(
-                        data.UserName.Buffer.as_ptr(),
-                        data.UserName.Length as usize / std::mem::size_of::<u16>(),
-                    ))
-                    .unwrap_or_else(|_err| {
-                        sysinfo_debug!("Failed to convert from UTF-16 string: {}", _err);
-                        String::new()
-                    })
-                });
-
-                users.push(User::new(Uid(sid), name, PCWSTR::null(), false));
             }
         }
     }
-
-    users
 }

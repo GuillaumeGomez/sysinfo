@@ -30,7 +30,7 @@ cfg_if::cfg_if! {
         mod unix;
         mod network;
         use crate::unix::sys as sys;
-        use crate::unix::{network_helper, users};
+        use crate::unix::network_helper;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -54,12 +54,12 @@ cfg_if::cfg_if! {
 pub use crate::common::{
     get_current_pid, CpuRefreshKind, DiskKind, DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr,
     Networks, NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal,
-    Uid,
+    Uid, Users,
 };
 pub use crate::sys::{Component, Components, Cpu, Disk, NetworkData, Process, System, User};
 pub use crate::traits::{
     ComponentExt, ComponentsExt, CpuExt, DiskExt, DisksExt, GroupExt, NetworkExt, NetworksExt,
-    ProcessExt, SystemExt, UserExt,
+    ProcessExt, SystemExt, UserExt, UsersExt,
 };
 
 #[cfg(feature = "c-interface")]
@@ -275,32 +275,24 @@ mod test {
 
     #[test]
     fn check_users() {
-        let mut s = System::new();
-        assert!(s.users().is_empty());
-        s.refresh_users_list();
-        assert!(s.users().len() >= MIN_USERS);
-
-        let mut s = System::new();
-        assert!(s.users().is_empty());
-        s.refresh_all();
-        assert!(s.users().is_empty());
-
-        let s = System::new_all();
-        assert!(s.users().len() >= MIN_USERS);
+        let mut users = Users::new();
+        assert!(users.users().is_empty());
+        users.refresh_list();
+        assert!(users.users().len() >= MIN_USERS);
     }
 
     #[test]
     fn check_uid_gid() {
-        let mut s = System::new();
-        assert!(s.users().is_empty());
-        s.refresh_users_list();
-        let users = s.users();
-        assert!(users.len() >= MIN_USERS);
+        let mut users = Users::new();
+        assert!(users.users().is_empty());
+        users.refresh_list();
+        let user_list = users.users();
+        assert!(user_list.len() >= MIN_USERS);
 
         if System::IS_SUPPORTED {
             #[cfg(not(target_os = "windows"))]
             {
-                let user = users
+                let user = user_list
                     .iter()
                     .find(|u| u.name() == "root")
                     .expect("no root user");
@@ -310,16 +302,18 @@ mod test {
                     assert!(**user.id() > 0);
                     assert!(*user.group_id() > 0);
                 }
-                assert!(users.iter().filter(|u| **u.id() > 0).count() > 0);
+                assert!(user_list.iter().filter(|u| **u.id() > 0).count() > 0);
             }
 
             // And now check that our `get_user_by_id` method works.
-            s.refresh_processes();
+            let s = System::new_with_specifics(
+                RefreshKind::new().with_processes(ProcessRefreshKind::new().with_user()),
+            );
             assert!(s
                 .processes()
                 .iter()
                 .filter_map(|(_, p)| p.user_id())
-                .any(|uid| s.get_user_by_id(uid).is_some()));
+                .any(|uid| users.get_user_by_id(uid).is_some()));
         }
     }
 
@@ -329,16 +323,20 @@ mod test {
         // If `getent` doesn't find them, we can assume it's a dark secret from the linux land.
         if System::IS_SUPPORTED && cfg!(not(target_os = "linux")) {
             let s = System::new_with_specifics(
-                RefreshKind::new()
-                    .with_processes(ProcessRefreshKind::new().with_user())
-                    .with_users_list(),
+                RefreshKind::new().with_processes(ProcessRefreshKind::new().with_user()),
             );
+            let mut users = Users::new();
+            users.refresh_list();
 
             // For every process where we can get a user ID, we should also be able
             // to find that user ID in the global user list
             for process in s.processes().values() {
                 if let Some(uid) = process.user_id() {
-                    assert!(s.get_user_by_id(uid).is_some(), "No UID {:?} found", uid);
+                    assert!(
+                        users.get_user_by_id(uid).is_some(),
+                        "No UID {:?} found",
+                        uid
+                    );
                 }
             }
         }

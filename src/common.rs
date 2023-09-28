@@ -2,6 +2,7 @@
 
 use crate::{
     Component, Components, ComponentsExt, Disk, GroupExt, NetworkData, NetworksExt, User, UserExt,
+    UsersExt,
 };
 
 use std::cmp::Ordering;
@@ -369,7 +370,6 @@ pub struct RefreshKind {
     processes: Option<ProcessRefreshKind>,
     memory: bool,
     cpu: Option<CpuRefreshKind>,
-    users_list: bool,
 }
 
 impl RefreshKind {
@@ -383,7 +383,6 @@ impl RefreshKind {
     /// assert_eq!(r.processes().is_some(), false);
     /// assert_eq!(r.memory(), false);
     /// assert_eq!(r.cpu().is_some(), false);
-    /// assert_eq!(r.users_list(), false);
     /// ```
     pub fn new() -> Self {
         Self::default()
@@ -399,14 +398,12 @@ impl RefreshKind {
     /// assert_eq!(r.processes().is_some(), true);
     /// assert_eq!(r.memory(), true);
     /// assert_eq!(r.cpu().is_some(), true);
-    /// assert_eq!(r.users_list(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
             processes: Some(ProcessRefreshKind::everything()),
             memory: true,
             cpu: Some(CpuRefreshKind::everything()),
-            users_list: true,
         }
     }
 
@@ -419,7 +416,6 @@ impl RefreshKind {
     );
     impl_get_set!(RefreshKind, memory, with_memory, without_memory);
     impl_get_set!(RefreshKind, cpu, with_cpu, without_cpu, CpuRefreshKind);
-    impl_get_set!(RefreshKind, users_list, with_users_list, without_users_list);
 }
 
 /// Network interfaces.
@@ -540,6 +536,52 @@ impl std::ops::Deref for Components {
 impl std::ops::DerefMut for Components {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.components_mut()
+    }
+}
+
+/// User interfaces.
+///
+/// ```no_run
+/// use sysinfo::{Users, UsersExt, UserExt};
+///
+/// let mut users = Users::new();
+/// for user in users.users() {
+///     println!("{} is in {} groups", user.name(), user.groups().len());
+/// }
+/// ```
+pub struct Users {
+    users: Vec<User>,
+}
+
+impl UsersExt for Users {
+    fn new() -> Self {
+        Self { users: Vec::new() }
+    }
+
+    fn users(&self) -> &[User] {
+        &self.users
+    }
+
+    fn users_mut(&mut self) -> &mut [User] {
+        &mut self.users
+    }
+
+    fn refresh_list(&mut self) {
+        crate::sys::get_users(&mut self.users);
+    }
+}
+
+impl std::ops::Deref for Users {
+    type Target = [User];
+
+    fn deref(&self) -> &Self::Target {
+        self.users()
+    }
+}
+
+impl std::ops::DerefMut for Users {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.users_mut()
     }
 }
 
@@ -802,11 +844,11 @@ impl Ord for User {
 /// It is returned by [`User::groups`].
 ///
 /// ```no_run
-/// use sysinfo::{GroupExt, System, SystemExt, UserExt};
+/// use sysinfo::{GroupExt, UserExt, Users, UsersExt};
 ///
-/// let s = System::new_all();
+/// let mut users = Users::new();
 ///
-/// for user in s.users() {
+/// for user in users.users() {
 ///     println!(
 ///         "user: (ID: {:?}, group ID: {:?}, name: {:?})",
 ///         user.id(),

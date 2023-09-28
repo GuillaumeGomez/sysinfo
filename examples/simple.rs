@@ -9,7 +9,7 @@ use std::str::FromStr;
 use sysinfo::Signal::*;
 use sysinfo::{
     Components, ComponentsExt, CpuExt, Disks, DisksExt, NetworkExt, Networks, NetworksExt, Pid,
-    ProcessExt, Signal, System, SystemExt, UserExt,
+    ProcessExt, Signal, System, SystemExt, UserExt, Users, UsersExt,
 };
 
 const signals: &[Signal] = &[
@@ -156,6 +156,7 @@ fn interpret_input(
     networks: &mut Networks,
     disks: &mut Disks,
     components: &mut Components,
+    users: &mut Users,
 ) -> bool {
     match input.trim() {
         "help" => print_help(),
@@ -166,7 +167,7 @@ fn interpret_input(
         }
         "refresh_users" => {
             writeln!(&mut io::stdout(), "Refreshing user list...");
-            sys.refresh_users_list();
+            users.refresh_list();
             writeln!(&mut io::stdout(), "Done.");
         }
         "refresh_networks" => {
@@ -369,7 +370,7 @@ fn interpret_input(
             }
         }
         "users" => {
-            for user in sys.users() {
+            for user in users.users() {
                 writeln!(
                     &mut io::stdout(),
                     "{:?} => {:?}",
@@ -464,9 +465,13 @@ fn main() {
     let mut networks = Networks::new();
     let mut disks = Disks::new();
     let mut components = Components::new();
+    let mut users = Users::new();
+
     networks.refresh_list();
     disks.refresh_list();
     components.refresh_list();
+    users.refresh_list();
+
     println!("Done.");
     let t_stin = io::stdin();
     let mut stin = t_stin.lock();
@@ -494,6 +499,7 @@ fn main() {
             &mut networks,
             &mut disks,
             &mut components,
+            &mut users,
         );
     }
 }

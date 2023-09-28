@@ -4,7 +4,7 @@ use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
-use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt, User};
+use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt};
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::ProcessExt;
@@ -79,7 +79,6 @@ pub struct System {
     swap_free: u64,
     page_size_b: u64,
     port: mach_port_t,
-    users: Vec<User>,
     boot_time: u64,
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
@@ -143,7 +142,6 @@ impl SystemExt for System {
                 swap_free: 0,
                 page_size_b: sysconf(_SC_PAGESIZE) as _,
                 port,
-                users: Vec::new(),
                 boot_time: boot_time(),
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
                 clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
@@ -304,10 +302,6 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_users_list(&mut self) {
-        self.users = crate::sys::users::get_users_list();
-    }
-
     // COMMON PART
     //
     // Need to be moved into a "common" file to avoid duplication.
@@ -380,10 +374,6 @@ impl SystemExt for System {
                 fifteen: loads[2],
             }
         }
-    }
-
-    fn users(&self) -> &[User] {
-        &self.users
     }
 
     fn boot_time(&self) -> u64 {

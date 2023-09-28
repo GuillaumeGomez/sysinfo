@@ -1,10 +1,13 @@
 Type containing user information.
 
-It is returned by [`SystemExt::users`][crate::SystemExt::users].
+It is returned by [`Users`][crate::Users].
 
 ```no_run
-use sysinfo::{System, SystemExt};
+use sysinfo::{Users, UsersExt};
 
-let s = System::new_all();
-println!("users: {:?}", s.users());
+let mut users = Users::new();
+users.refresh_list();
+for user in users.users() {
+    println!("{:?}", user);
+}
 ```

@@ -23,11 +23,14 @@ fn endswith(s1: *const c_char, s2: &[u8]) -> bool {
     }
 }
 
-fn users_list<F>(filter: F) -> Vec<User>
-where
-    F: Fn(*const c_char, u32) -> bool,
-{
-    let mut users = HashMap::with_capacity(10);
+pub(crate) fn get_users(users: &mut Vec<User>) {
+    fn filter(shell: *const c_char, uid: u32) -> bool {
+        !endswith(shell, b"/false") && !endswith(shell, b"/uucico") && uid < 65536
+    }
+
+    users.clear();
+
+    let mut users_map = HashMap::with_capacity(10);
 
     unsafe {
         setpwent();
@@ -46,27 +49,20 @@ where
                 continue;
             }
             if let Some(name) = crate::unix::utils::cstr_to_rust((*pw).pw_name) {
-                if users.contains_key(&name) {
+                if users_map.contains_key(&name) {
                     continue;
                 }
 
                 let uid = (*pw).pw_uid;
                 let gid = (*pw).pw_gid;
-                users.insert(name, (Uid(uid), Gid(gid)));
+                users_map.insert(name, (Uid(uid), Gid(gid)));
             }
         }
         endpwent();
     }
-    users
-        .into_iter()
-        .map(|(name, (uid, gid))| User::new(uid, gid, name))
-        .collect()
-}
-
-pub(crate) fn get_users_list() -> Vec<User> {
-    users_list(|shell, uid| {
-        !endswith(shell, b"/false") && !endswith(shell, b"/uucico") && uid < 65536
-    })
+    for (name, (uid, gid)) in users_map {
+        users.push(User::new(uid, gid, name));
+    }
 }
 
 // This was the OSX-based solution. It provides enough information, but what a mess!
