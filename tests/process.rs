@@ -659,3 +659,23 @@ fn test_process_creds() {
         true
     }));
 }
+
+// Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/1084>
+#[test]
+fn test_process_memory_refresh() {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+
+    // Ensure the process memory is available on the first refresh.
+    let mut s = sysinfo::System::new();
+
+    // Refresh our own process
+    let pid = Pid::from_u32(std::process::id());
+    s.refresh_process_specifics(pid, sysinfo::ProcessRefreshKind::new());
+
+    let proc = s.process(pid).unwrap();
+    // Check that the memory values re not empty.
+    assert!(proc.memory() > 0);
+    assert!(proc.virtual_memory() > 0);
+}
