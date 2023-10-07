@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskExt, DiskKind, Disks, DisksExt};
+use crate::{DiskExt, DiskKind};
 
 use std::{ffi::OsStr, path::Path};
 
@@ -41,20 +41,22 @@ impl DiskExt for Disk {
     }
 }
 
-impl DisksExt for Disks {
-    fn new() -> Self {
-        Self { disks: Vec::new() }
+pub(crate) struct DisksInner;
+
+impl DisksInner {
+    pub(crate) fn new() -> Self {
+        Self
     }
 
-    fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list(&mut self) {
         // Does nothing.
     }
 
-    fn disks(&self) -> &[Disk] {
-        &self.disks
+    pub(crate) fn disks(&self) -> &[Disk] {
+        &[]
     }
 
-    fn disks_mut(&mut self) -> &mut [Disk] {
-        &mut self.disks
+    pub(crate) fn disks_mut(&mut self) -> &mut [Disk] {
+        &mut []
     }
 }

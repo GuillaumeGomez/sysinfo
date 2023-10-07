@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Component, Components, ComponentsExt, Disk, GroupExt, NetworkData, NetworksExt, User, UserExt,
-    UsersExt,
+    Component, Components, ComponentsExt, Disk, DiskExt, GroupExt, NetworkData, NetworksExt, User,
+    UserExt, UsersExt,
 };
 
 use std::cmp::Ordering;
@@ -473,10 +473,10 @@ impl<'a> Iterator for NetworksIter<'a> {
     }
 }
 
-/// Disk interfaces.
+/// Disks interface.
 ///
 /// ```no_run
-/// use sysinfo::{Disks, DisksExt};
+/// use sysinfo::Disks;
 ///
 /// let mut disks = Disks::new();
 /// disks.refresh_list();
@@ -485,20 +485,147 @@ impl<'a> Iterator for NetworksIter<'a> {
 /// }
 /// ```
 pub struct Disks {
-    pub(crate) disks: Vec<Disk>,
+    pub(crate) inner: crate::DisksInner,
+}
+
+impl Default for Disks {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Disks {
+    /// Creates a new [`Disks`][crate::Disks] type.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     eprintln!("{disk:?}");
+    /// }
+    /// ```
+    pub fn new() -> Self {
+        Self {
+            inner: crate::DisksInner::new(),
+        }
+    }
+
+    /// Returns the disks list.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     eprintln!("{disk:?}");
+    /// }
+    /// ```
+    pub fn disks(&self) -> &[Disk] {
+        self.inner.disks()
+    }
+
+    /// Returns the disks list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{DiskExt, Disks};
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks_mut() {
+    ///     disk.refresh();
+    ///     eprintln!("{disk:?}");
+    /// }
+    /// ```
+    pub fn disks_mut(&mut self) -> &mut [Disk] {
+        self.inner.disks_mut()
+    }
+
+    /// Sort the disk list with the provided callback.
+    ///
+    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
+    /// for implementation details.
+    ///
+    /// You can do the same without this method by calling:
+    ///
+    /// ```no_run
+    /// use sysinfo::{DiskExt, Disks};
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// disks.sort_by(|disk1, disk2| {
+    ///     disk1.name().partial_cmp(disk2.name()).unwrap()
+    /// });
+    /// ```
+    ///
+    /// ⚠️ If you use [`Disks::refresh_list`], you will need to call this method to sort the
+    /// disks again.
+    pub fn sort_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
+    {
+        self.disks_mut().sort_unstable_by(compare);
+    }
+
+    /// Refreshes the listed disks' information.
+    ///
+    /// ⚠️ If a disk is added or removed, this method won't take it into account. Use
+    /// [`Disks::refresh_list`] instead.
+    ///
+    /// ⚠️ If you didn't call [`Disks::refresh_list`] beforehand, this method will do nothing as
+    /// the disk list will be empty.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// // We get the disk list.
+    /// disks.refresh_list();
+    /// // We wait some time...?
+    /// disks.refresh();
+    /// ```
+    pub fn refresh(&mut self) {
+        for disk in self.disks_mut() {
+            disk.refresh();
+        }
+    }
+
+    /// The disk list will be emptied then completely recomputed.
+    ///
+    /// ## Linux
+    ///
+    /// ⚠️ On Linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
+    /// systems are ignored and the information of a mounted NFS **cannot** be obtained
+    /// via [`Disks::refresh_list`]. This is due to the fact that I/O function
+    /// `statvfs` used by [`Disks::refresh_list`] is blocking and
+    /// [may hang](https://github.com/GuillaumeGomez/sysinfo/pull/876) in some cases,
+    /// requiring to call `systemctl stop` to terminate the NFS service from the remote
+    /// server in some cases.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// ```
+    pub fn refresh_list(&mut self) {
+        self.inner.refresh_list();
+    }
 }
 
 impl std::ops::Deref for Disks {
     type Target = [Disk];
 
     fn deref(&self) -> &Self::Target {
-        &self.disks
+        self.disks()
     }
 }
 
 impl std::ops::DerefMut for Disks {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.disks
+        self.disks_mut()
     }
 }
 
@@ -507,7 +634,7 @@ impl std::ops::DerefMut for Disks {
 /// This type is returned by [`DiskExt::kind`](`crate::DiskExt::kind`).
 ///
 /// ```no_run
-/// use sysinfo::{DiskExt, Disks, DisksExt};
+/// use sysinfo::{DiskExt, Disks};
 ///
 /// let mut disks = Disks::new();
 /// disks.refresh_list();

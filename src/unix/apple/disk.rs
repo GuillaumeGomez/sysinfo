@@ -4,7 +4,7 @@ use crate::sys::{
     ffi,
     utils::{self, CFReleaser},
 };
-use crate::{DiskExt, DiskKind, Disks, DisksExt};
+use crate::{DiskExt, DiskKind};
 
 use core_foundation_sys::array::CFArrayCreate;
 use core_foundation_sys::base::kCFAllocatorDefault;
@@ -81,24 +81,24 @@ impl DiskExt for Disk {
     }
 }
 
-impl DisksExt for Disks {
-    fn new() -> Self {
+impl crate::DisksInner {
+    pub(crate) fn new() -> Self {
         Self {
             disks: Vec::with_capacity(2),
         }
     }
 
-    fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list(&mut self) {
         unsafe {
             get_disks(&mut self.disks);
         }
     }
 
-    fn disks(&self) -> &[Disk] {
+    pub(crate) fn disks(&self) -> &[Disk] {
         &self.disks
     }
 
-    fn disks_mut(&mut self) -> &mut [Disk] {
+    pub(crate) fn disks_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
     }
 }

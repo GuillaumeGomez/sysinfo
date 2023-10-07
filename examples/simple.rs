@@ -8,8 +8,8 @@ use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::Signal::*;
 use sysinfo::{
-    Components, ComponentsExt, CpuExt, Disks, DisksExt, NetworkExt, Networks, NetworksExt, Pid,
-    ProcessExt, Signal, System, SystemExt, UserExt, Users, UsersExt,
+    Components, ComponentsExt, CpuExt, Disks, NetworkExt, Networks, NetworksExt, Pid, ProcessExt,
+    Signal, System, SystemExt, UserExt, Users, UsersExt,
 };
 
 const signals: &[Signal] = &[

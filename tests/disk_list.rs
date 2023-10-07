@@ -2,7 +2,7 @@
 
 #[test]
 fn test_disks() {
-    use sysinfo::{DisksExt, SystemExt};
+    use sysinfo::SystemExt;
 
     if sysinfo::System::IS_SUPPORTED {
         let s = sysinfo::System::new_all();
