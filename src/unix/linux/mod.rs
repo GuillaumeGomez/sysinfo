@@ -16,3 +16,4 @@ pub use self::process::Process;
 pub use self::system::System;
 pub(crate) use crate::unix::users::get_users;
 pub use crate::unix::users::User;
+pub(crate) use crate::unix::DisksInner;

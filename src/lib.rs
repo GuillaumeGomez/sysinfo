@@ -56,10 +56,11 @@ pub use crate::common::{
     Networks, NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal,
     Uid, Users,
 };
+pub(crate) use crate::sys::DisksInner;
 pub use crate::sys::{Component, Components, Cpu, Disk, NetworkData, Process, System, User};
 pub use crate::traits::{
-    ComponentExt, ComponentsExt, CpuExt, DiskExt, DisksExt, GroupExt, NetworkExt, NetworksExt,
-    ProcessExt, SystemExt, UserExt, UsersExt,
+    ComponentExt, ComponentsExt, CpuExt, DiskExt, GroupExt, NetworkExt, NetworksExt, ProcessExt,
+    SystemExt, UserExt, UsersExt,
 };
 
 #[cfg(feature = "c-interface")]

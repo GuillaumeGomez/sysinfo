@@ -1,8 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    CpuExt, Disks, DisksExt, NetworkExt, Networks, NetworksExt, Pid, Process, ProcessExt, System,
-    SystemExt,
+    CpuExt, Disks, NetworkExt, Networks, NetworksExt, Pid, Process, ProcessExt, System, SystemExt,
 };
 use libc::{self, c_char, c_float, c_uint, c_void, size_t};
 use std::borrow::BorrowMut;

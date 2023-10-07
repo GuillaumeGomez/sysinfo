@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskExt, DiskKind, Disks, DisksExt};
+use crate::{DiskExt, DiskKind};
 
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
@@ -55,22 +55,22 @@ impl DiskExt for Disk {
     }
 }
 
-impl DisksExt for Disks {
-    fn new() -> Self {
+impl crate::DisksInner {
+    pub(crate) fn new() -> Self {
         Self {
             disks: Vec::with_capacity(2),
         }
     }
 
-    fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list(&mut self) {
         unsafe { get_all_disks(&mut self.disks) }
     }
 
-    fn disks(&self) -> &[Disk] {
+    pub(crate) fn disks(&self) -> &[Disk] {
         &self.disks
     }
 
-    fn disks_mut(&mut self) -> &mut [Disk] {
+    pub(crate) fn disks_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
     }
 }
