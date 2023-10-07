@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskExt, DiskKind};
+use crate::{Disk, DiskKind};
 
 use std::ffi::{c_void, OsStr, OsString};
 use std::mem::size_of;
@@ -19,8 +19,7 @@ use windows::Win32::System::Ioctl::{
 use windows::Win32::System::WindowsProgramming::{DRIVE_FIXED, DRIVE_REMOVABLE};
 use windows::Win32::System::IO::DeviceIoControl;
 
-#[doc = include_str!("../../md_doc/disk.md")]
-pub struct Disk {
+pub(crate) struct DiskInner {
     type_: DiskKind,
     name: OsString,
     file_system: Vec<u8>,
@@ -31,36 +30,36 @@ pub struct Disk {
     is_removable: bool,
 }
 
-impl DiskExt for Disk {
-    fn kind(&self) -> DiskKind {
+impl DiskInner {
+    pub(crate) fn kind(&self) -> DiskKind {
         self.type_
     }
 
-    fn name(&self) -> &OsStr {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.name
     }
 
-    fn file_system(&self) -> &[u8] {
+    pub(crate) fn file_system(&self) -> &[u8] {
         &self.file_system
     }
 
-    fn mount_point(&self) -> &Path {
+    pub(crate) fn mount_point(&self) -> &Path {
         Path::new(&self.s_mount_point)
     }
 
-    fn total_space(&self) -> u64 {
+    pub(crate) fn total_space(&self) -> u64 {
         self.total_space
     }
 
-    fn available_space(&self) -> u64 {
+    pub(crate) fn available_space(&self) -> u64 {
         self.available_space
     }
 
-    fn is_removable(&self) -> bool {
+    pub(crate) fn is_removable(&self) -> bool {
         self.is_removable
     }
 
-    fn refresh(&mut self) -> bool {
+    pub(crate) fn refresh(&mut self) -> bool {
         if self.total_space != 0 {
             unsafe {
                 let mut tmp = 0;
@@ -247,14 +246,16 @@ pub(crate) unsafe fn get_disks() -> Vec<Disk> {
                 }
             };
             Some(Disk {
-                type_,
-                name: name.to_owned(),
-                file_system: file_system.to_vec(),
-                mount_point: mount_point.to_vec(),
-                s_mount_point: String::from_utf16_lossy(&mount_point[..mount_point.len() - 1]),
-                total_space,
-                available_space,
-                is_removable,
+                inner: DiskInner {
+                    type_,
+                    name: name.to_owned(),
+                    file_system: file_system.to_vec(),
+                    mount_point: mount_point.to_vec(),
+                    s_mount_point: String::from_utf16_lossy(&mount_point[..mount_point.len() - 1]),
+                    total_space,
+                    available_space,
+                    is_removable,
+                },
             })
         })
         .collect::<Vec<_>>()

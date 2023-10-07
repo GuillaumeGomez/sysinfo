@@ -2,7 +2,7 @@
 
 use crate::common::PidExt;
 use crate::{
-    ComponentExt, CpuExt, DiskExt, DiskKind, DiskUsage, GroupExt, MacAddr, NetworkExt, NetworksExt,
+    ComponentExt, CpuExt, DiskKind, DiskUsage, GroupExt, MacAddr, NetworkExt, NetworksExt,
     ProcessExt, ProcessStatus, Signal, SystemExt, UserExt,
 };
 use serde::{ser::SerializeStruct, Serialize, Serializer};

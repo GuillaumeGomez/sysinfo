@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::{get_all_data, to_cpath};
-use crate::{DiskExt, DiskKind};
+use crate::{Disk, DiskKind};
 
 use libc::statvfs;
 use std::ffi::{OsStr, OsString};
@@ -16,9 +16,7 @@ macro_rules! cast {
     };
 }
 
-#[doc = include_str!("../../../md_doc/disk.md")]
-#[derive(PartialEq, Eq)]
-pub struct Disk {
+pub(crate) struct DiskInner {
     type_: DiskKind,
     device_name: OsString,
     file_system: Vec<u8>,
@@ -28,36 +26,36 @@ pub struct Disk {
     is_removable: bool,
 }
 
-impl DiskExt for Disk {
-    fn kind(&self) -> DiskKind {
+impl DiskInner {
+    pub(crate) fn kind(&self) -> DiskKind {
         self.type_
     }
 
-    fn name(&self) -> &OsStr {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.device_name
     }
 
-    fn file_system(&self) -> &[u8] {
+    pub(crate) fn file_system(&self) -> &[u8] {
         &self.file_system
     }
 
-    fn mount_point(&self) -> &Path {
+    pub(crate) fn mount_point(&self) -> &Path {
         &self.mount_point
     }
 
-    fn total_space(&self) -> u64 {
+    pub(crate) fn total_space(&self) -> u64 {
         self.total_space
     }
 
-    fn available_space(&self) -> u64 {
+    pub(crate) fn available_space(&self) -> u64 {
         self.available_space
     }
 
-    fn is_removable(&self) -> bool {
+    pub(crate) fn is_removable(&self) -> bool {
         self.is_removable
     }
 
-    fn refresh(&mut self) -> bool {
+    pub(crate) fn refresh(&mut self) -> bool {
         unsafe {
             let mut stat: statvfs = mem::zeroed();
             let mount_point_cpath = to_cpath(&self.mount_point);
@@ -122,13 +120,15 @@ fn new_disk(
             .iter()
             .any(|e| e.as_os_str() == device_name);
         Some(Disk {
-            type_,
-            device_name: device_name.to_owned(),
-            file_system: file_system.to_owned(),
-            mount_point,
-            total_space: cast!(total),
-            available_space: cast!(available),
-            is_removable,
+            inner: DiskInner {
+                type_,
+                device_name: device_name.to_owned(),
+                file_system: file_system.to_owned(),
+                mount_point,
+                total_space: cast!(total),
+                available_space: cast!(available),
+                is_removable,
+            },
         })
     }
 }

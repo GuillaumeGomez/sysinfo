@@ -52,15 +52,15 @@ cfg_if::cfg_if! {
 }
 
 pub use crate::common::{
-    get_current_pid, CpuRefreshKind, DiskKind, DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr,
-    Networks, NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal,
-    Uid, Users,
+    get_current_pid, CpuRefreshKind, Disk, DiskKind, DiskUsage, Disks, Gid, Group, LoadAvg,
+    MacAddr, Networks, NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind,
+    Signal, Uid, Users,
 };
-pub(crate) use crate::sys::DisksInner;
-pub use crate::sys::{Component, Components, Cpu, Disk, NetworkData, Process, System, User};
+pub use crate::sys::{Component, Components, Cpu, NetworkData, Process, System, User};
+pub(crate) use crate::sys::{DiskInner, DisksInner};
 pub use crate::traits::{
-    ComponentExt, ComponentsExt, CpuExt, DiskExt, GroupExt, NetworkExt, NetworksExt, ProcessExt,
-    SystemExt, UserExt, UsersExt,
+    ComponentExt, ComponentsExt, CpuExt, GroupExt, NetworkExt, NetworksExt, ProcessExt, SystemExt,
+    UserExt, UsersExt,
 };
 
 #[cfg(feature = "c-interface")]

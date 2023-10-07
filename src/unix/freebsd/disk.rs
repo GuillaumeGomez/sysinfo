@@ -1,14 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskExt, DiskKind};
+use crate::{Disk, DiskKind};
 
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
 use super::utils::c_buf_to_str;
 
-#[doc = include_str!("../../../md_doc/disk.md")]
-pub struct Disk {
+pub(crate) struct DiskInner {
     name: OsString,
     c_mount_point: Vec<libc::c_char>,
     mount_point: PathBuf,
@@ -18,36 +17,36 @@ pub struct Disk {
     is_removable: bool,
 }
 
-impl DiskExt for Disk {
-    fn kind(&self) -> DiskKind {
+impl DiskInner {
+    pub(crate) fn kind(&self) -> DiskKind {
         DiskKind::Unknown(-1)
     }
 
-    fn name(&self) -> &OsStr {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.name
     }
 
-    fn file_system(&self) -> &[u8] {
+    pub(crate) fn file_system(&self) -> &[u8] {
         &self.file_system
     }
 
-    fn mount_point(&self) -> &Path {
+    pub(crate) fn mount_point(&self) -> &Path {
         &self.mount_point
     }
 
-    fn total_space(&self) -> u64 {
+    pub(crate) fn total_space(&self) -> u64 {
         self.total_space
     }
 
-    fn available_space(&self) -> u64 {
+    pub(crate) fn available_space(&self) -> u64 {
         self.available_space
     }
 
-    fn is_removable(&self) -> bool {
+    pub(crate) fn is_removable(&self) -> bool {
         self.is_removable
     }
 
-    fn refresh(&mut self) -> bool {
+    pub(crate) fn refresh(&mut self) -> bool {
         unsafe {
             let mut vfs: libc::statvfs = std::mem::zeroed();
             refresh_disk(self, &mut vfs)
@@ -78,7 +77,7 @@ impl crate::DisksInner {
 // FIXME: if you want to get disk I/O usage:
 // statfs.[f_syncwrites, f_asyncwrites, f_syncreads, f_asyncreads]
 
-unsafe fn refresh_disk(disk: &mut Disk, vfs: &mut libc::statvfs) -> bool {
+unsafe fn refresh_disk(disk: &mut DiskInner, vfs: &mut libc::statvfs) -> bool {
     if libc::statvfs(disk.c_mount_point.as_ptr() as *const _, vfs) < 0 {
         return false;
     }
@@ -151,13 +150,15 @@ pub unsafe fn get_all_disks(container: &mut Vec<Disk>) {
         let f_frsize: u64 = vfs.f_frsize as _;
 
         container.push(Disk {
-            name,
-            c_mount_point: fs_info.f_mntonname.to_vec(),
-            mount_point: PathBuf::from(mount_point),
-            total_space: vfs.f_blocks.saturating_mul(f_frsize),
-            available_space: vfs.f_favail.saturating_mul(f_frsize),
-            file_system: fs_type.to_vec(),
-            is_removable,
+            inner: DiskInner {
+                name,
+                c_mount_point: fs_info.f_mntonname.to_vec(),
+                mount_point: PathBuf::from(mount_point),
+                total_space: vfs.f_blocks.saturating_mul(f_frsize),
+                available_space: vfs.f_favail.saturating_mul(f_frsize),
+                file_system: fs_type.to_vec(),
+                is_removable,
+            },
         });
     }
 }
