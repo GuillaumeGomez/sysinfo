@@ -1,14 +1,16 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Component, Components, ComponentsExt, Disk, DiskExt, GroupExt, NetworkData, NetworksExt, User,
-    UserExt, UsersExt,
+    Component, Components, ComponentsExt, GroupExt, NetworkData, NetworksExt, User, UserExt,
+    UsersExt,
 };
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::convert::{From, TryFrom};
+use std::ffi::OsStr;
 use std::fmt;
+use std::path::Path;
 use std::str::FromStr;
 
 /// Trait to have a common conversions for the [`Pid`][crate::Pid] type.
@@ -473,6 +475,143 @@ impl<'a> Iterator for NetworksIter<'a> {
     }
 }
 
+/// Struct containing a disk information.
+///
+/// ```no_run
+/// use sysinfo::Disks;
+///
+/// let mut disks = Disks::new();
+/// disks.refresh_list();
+/// for disk in disks.disks() {
+///     println!("{:?}: {:?}", disk.name(), disk.kind());
+/// }
+/// ```
+pub struct Disk {
+    pub(crate) inner: crate::DiskInner,
+}
+
+impl Disk {
+    /// Returns the kind of disk.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {:?}", disk.name(), disk.kind());
+    /// }
+    /// ```
+    pub fn kind(&self) -> DiskKind {
+        self.inner.kind()
+    }
+
+    /// Returns the disk name.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("{:?}", disk.name());
+    /// }
+    /// ```
+    pub fn name(&self) -> &OsStr {
+        self.inner.name()
+    }
+
+    /// Returns the file system used on this disk (so for example: `EXT4`, `NTFS`, etc...).
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {:?}", disk.name(), disk.file_system());
+    /// }
+    /// ```
+    pub fn file_system(&self) -> &[u8] {
+        self.inner.file_system()
+    }
+
+    /// Returns the mount point of the disk (`/` for example).
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {:?}", disk.name(), disk.mount_point());
+    /// }
+    /// ```
+    pub fn mount_point(&self) -> &Path {
+        self.inner.mount_point()
+    }
+
+    /// Returns the total disk size, in bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {}B", disk.name(), disk.total_space());
+    /// }
+    /// ```
+    pub fn total_space(&self) -> u64 {
+        self.inner.total_space()
+    }
+
+    /// Returns the available disk size, in bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {}B", disk.name(), disk.available_space());
+    /// }
+    /// ```
+    pub fn available_space(&self) -> u64 {
+        self.inner.available_space()
+    }
+
+    /// Returns `true` if the disk is removable.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks() {
+    ///     println!("[{:?}] {}", disk.name(), disk.is_removable());
+    /// }
+    /// ```
+    pub fn is_removable(&self) -> bool {
+        self.inner.is_removable()
+    }
+
+    /// Updates the disk' information.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list();
+    /// for disk in disks.disks_mut() {
+    ///     disk.refresh();
+    /// }
+    /// ```
+    pub fn refresh(&mut self) -> bool {
+        self.inner.refresh()
+    }
+}
+
 /// Disks interface.
 ///
 /// ```no_run
@@ -485,7 +624,7 @@ impl<'a> Iterator for NetworksIter<'a> {
 /// }
 /// ```
 pub struct Disks {
-    pub(crate) inner: crate::DisksInner,
+    inner: crate::DisksInner,
 }
 
 impl Default for Disks {
@@ -530,7 +669,7 @@ impl Disks {
     /// Returns the disks list.
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, Disks};
+    /// use sysinfo::Disks;
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
@@ -551,7 +690,7 @@ impl Disks {
     /// You can do the same without this method by calling:
     ///
     /// ```no_run
-    /// use sysinfo::{DiskExt, Disks};
+    /// use sysinfo::Disks;
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
@@ -631,10 +770,10 @@ impl std::ops::DerefMut for Disks {
 
 /// Enum containing the different supported kinds of disks.
 ///
-/// This type is returned by [`DiskExt::kind`](`crate::DiskExt::kind`).
+/// This type is returned by [`Disk::kind`](`crate::Disk::kind`).
 ///
 /// ```no_run
-/// use sysinfo::{DiskExt, Disks};
+/// use sysinfo::Disks;
 ///
 /// let mut disks = Disks::new();
 /// disks.refresh_list();

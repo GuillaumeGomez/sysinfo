@@ -1,9 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Component, ComponentExt, Components, Cpu, CpuExt, Disk, DiskExt, Disks, NetworkData,
-    NetworkExt, Networks, NetworksExt, Process, ProcessExt, System, SystemExt, User, UserExt,
-    Users,
+    Component, ComponentExt, Components, Cpu, CpuExt, Disk, Disks, NetworkData, NetworkExt,
+    Networks, NetworksExt, Process, ProcessExt, System, SystemExt, User, UserExt, Users,
 };
 
 use std::fmt;

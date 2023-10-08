@@ -5,132 +5,14 @@ use crate::{
     sys::{Component, Cpu, Process},
 };
 use crate::{
-    CpuRefreshKind, DiskKind, DiskUsage, Group, LoadAvg, NetworksIter, Pid, ProcessRefreshKind,
+    CpuRefreshKind, DiskUsage, Group, LoadAvg, NetworksIter, Pid, ProcessRefreshKind,
     ProcessStatus, RefreshKind, Signal, User,
 };
 
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::Path;
 use std::time::Duration;
-
-/// Contains all the methods of the [`Disk`][crate::Disk] struct.
-///
-/// ```no_run
-/// use sysinfo::{DiskExt, Disks};
-///
-/// let mut disks = Disks::new();
-/// disks.refresh_list();
-/// for disk in disks.disks() {
-///     println!("{:?}: {:?}", disk.name(), disk.kind());
-/// }
-/// ```
-pub trait DiskExt: Debug {
-    /// Returns the kind of disk.
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, Disks};
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// for disk in disks.disks() {
-    ///     println!("[{:?}] {:?}", disk.name(), disk.kind());
-    /// }
-    /// ```
-    fn kind(&self) -> DiskKind;
-
-    /// Returns the disk name.
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, Disks};
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// for disk in disks.disks() {
-    ///     println!("{:?}", disk.name());
-    /// }
-    /// ```
-    fn name(&self) -> &OsStr;
-
-    /// Returns the file system used on this disk (so for example: `EXT4`, `NTFS`, etc...).
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, Disks};
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// for disk in disks.disks() {
-    ///     println!("[{:?}] {:?}", disk.name(), disk.file_system());
-    /// }
-    /// ```
-    fn file_system(&self) -> &[u8];
-
-    /// Returns the mount point of the disk (`/` for example).
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, Disks};
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// for disk in disks.disks() {
-    ///     println!("[{:?}] {:?}", disk.name(), disk.mount_point());
-    /// }
-    /// ```
-    fn mount_point(&self) -> &Path;
-
-    /// Returns the total disk size, in bytes.
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, Disks};
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// for disk in disks.disks() {
-    ///     println!("[{:?}] {}B", disk.name(), disk.total_space());
-    /// }
-    /// ```
-    fn total_space(&self) -> u64;
-
-    /// Returns the available disk size, in bytes.
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, Disks};
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// for disk in disks.disks() {
-    ///     println!("[{:?}] {}B", disk.name(), disk.available_space());
-    /// }
-    /// ```
-    fn available_space(&self) -> u64;
-
-    /// Returns `true` if the disk is removable.
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, Disks};
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// for disk in disks.disks() {
-    ///     println!("[{:?}] {}", disk.name(), disk.is_removable());
-    /// }
-    /// ```
-    fn is_removable(&self) -> bool;
-
-    /// Updates the disk' information.
-    ///
-    /// ```no_run
-    /// use sysinfo::{DiskExt, Disks};
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// for disk in disks.disks_mut() {
-    ///     disk.refresh();
-    /// }
-    /// ```
-    fn refresh(&mut self) -> bool;
-}
 
 /// Contains all the methods of the [`Process`][crate::Process] struct.
 ///

@@ -1,42 +1,41 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskExt, DiskKind};
+use crate::{Disk, DiskKind};
 
 use std::{ffi::OsStr, path::Path};
 
-#[doc = include_str!("../../md_doc/disk.md")]
-pub struct Disk {}
+pub(crate) struct DiskInner;
 
-impl DiskExt for Disk {
-    fn kind(&self) -> DiskKind {
+impl DiskInner {
+    pub(crate) fn kind(&self) -> DiskKind {
         unreachable!()
     }
 
-    fn name(&self) -> &OsStr {
+    pub(crate) fn name(&self) -> &OsStr {
         unreachable!()
     }
 
-    fn file_system(&self) -> &[u8] {
+    pub(crate) fn file_system(&self) -> &[u8] {
         &[]
     }
 
-    fn mount_point(&self) -> &Path {
+    pub(crate) fn mount_point(&self) -> &Path {
         Path::new("")
     }
 
-    fn total_space(&self) -> u64 {
+    pub(crate) fn total_space(&self) -> u64 {
         0
     }
 
-    fn available_space(&self) -> u64 {
+    pub(crate) fn available_space(&self) -> u64 {
         0
     }
 
-    fn is_removable(&self) -> bool {
+    pub(crate) fn is_removable(&self) -> bool {
         false
     }
 
-    fn refresh(&mut self) -> bool {
+    pub(crate) fn refresh(&mut self) -> bool {
         true
     }
 }

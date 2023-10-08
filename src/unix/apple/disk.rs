@@ -4,7 +4,7 @@ use crate::sys::{
     ffi,
     utils::{self, CFReleaser},
 };
-use crate::{DiskExt, DiskKind};
+use crate::{Disk, DiskKind};
 
 use core_foundation_sys::array::CFArrayCreate;
 use core_foundation_sys::base::kCFAllocatorDefault;
@@ -19,8 +19,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::ptr;
 
-#[doc = include_str!("../../../md_doc/disk.md")]
-pub struct Disk {
+pub(crate) struct DiskInner {
     pub(crate) type_: DiskKind,
     pub(crate) name: OsString,
     pub(crate) file_system: Vec<u8>,
@@ -31,36 +30,36 @@ pub struct Disk {
     pub(crate) is_removable: bool,
 }
 
-impl DiskExt for Disk {
-    fn kind(&self) -> DiskKind {
+impl DiskInner {
+    pub(crate) fn kind(&self) -> DiskKind {
         self.type_
     }
 
-    fn name(&self) -> &OsStr {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.name
     }
 
-    fn file_system(&self) -> &[u8] {
+    pub(crate) fn file_system(&self) -> &[u8] {
         &self.file_system
     }
 
-    fn mount_point(&self) -> &Path {
+    pub(crate) fn mount_point(&self) -> &Path {
         &self.mount_point
     }
 
-    fn total_space(&self) -> u64 {
+    pub(crate) fn total_space(&self) -> u64 {
         self.total_space
     }
 
-    fn available_space(&self) -> u64 {
+    pub(crate) fn available_space(&self) -> u64 {
         self.available_space
     }
 
-    fn is_removable(&self) -> bool {
+    pub(crate) fn is_removable(&self) -> bool {
         self.is_removable
     }
 
-    fn refresh(&mut self) -> bool {
+    pub(crate) fn refresh(&mut self) -> bool {
         unsafe {
             if let Some(requested_properties) = build_requested_properties(&[
                 ffi::kCFURLVolumeAvailableCapacityKey,
@@ -406,13 +405,15 @@ unsafe fn new_disk(
         .collect();
 
     Some(Disk {
-        type_,
-        name,
-        file_system,
-        mount_point,
-        volume_url,
-        total_space,
-        available_space,
-        is_removable,
+        inner: DiskInner {
+            type_,
+            name,
+            file_system,
+            mount_point,
+            volume_url,
+            total_space,
+            available_space,
+            is_removable,
+        },
     })
 }
