@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Component, Components, ComponentsExt, GroupExt, NetworkData, NetworksExt, User, UserExt,
-    UsersExt,
+    Component, Components, ComponentsExt, Cpu, GroupExt, NetworkData, NetworksExt, Process,
+    ProcessExt, SystemInner, User, UserExt, UsersExt,
 };
 
 use std::cmp::Ordering;
@@ -12,6 +12,671 @@ use std::ffi::OsStr;
 use std::fmt;
 use std::path::Path;
 use std::str::FromStr;
+
+/// Structs containing system's information such as processes, memory and CPU.
+///
+/// ```
+/// use sysinfo::System;
+///
+/// if sysinfo::IS_SUPPORTED {
+///     println!("System: {:?}", System::new_all());
+/// } else {
+///     println!("This OS isn't supported (yet?).");
+/// }
+/// ```
+pub struct System {
+    pub(crate) inner: SystemInner,
+}
+
+impl Default for System {
+    fn default() -> System {
+        System::new()
+    }
+}
+
+impl System {
+    /// Creates a new [`System`] instance with nothing loaded.
+    ///
+    /// Use the [`refresh_all`] method to update its internal information (or any of the `refresh_`
+    /// method).
+    ///
+    /// [`System`]: crate::System
+    /// [`refresh_all`]: #method.refresh_all
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// ```
+    pub fn new() -> Self {
+        Self::new_with_specifics(RefreshKind::new())
+    }
+
+    /// Creates a new [`System`] instance with everything loaded.
+    ///
+    /// It is an equivalent of [`System::new_with_specifics`]`(`[`RefreshKind::everything`]`())`.
+    ///
+    /// [`System`]: crate::System
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    /// ```
+    pub fn new_all() -> Self {
+        Self::new_with_specifics(RefreshKind::everything())
+    }
+
+    /// Creates a new [`System`] instance and refresh the data corresponding to the
+    /// given [`RefreshKind`].
+    ///
+    /// [`System`]: crate::System
+    ///
+    /// ```
+    /// use sysinfo::{ProcessRefreshKind, RefreshKind, System};
+    ///
+    /// // We want to only refresh processes.
+    /// let mut system = System::new_with_specifics(
+    ///      RefreshKind::new().with_processes(ProcessRefreshKind::everything()),
+    /// );
+    ///
+    /// # if sysinfo::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
+    /// assert!(!system.processes().is_empty());
+    /// # }
+    /// ```
+    pub fn new_with_specifics(refreshes: RefreshKind) -> Self {
+        let mut s = Self {
+            inner: SystemInner::new(),
+        };
+        s.refresh_specifics(refreshes);
+        s
+    }
+
+    /// Refreshes according to the given [`RefreshKind`]. It calls the corresponding
+    /// "refresh_" methods.
+    ///
+    /// ```
+    /// use sysinfo::{ProcessRefreshKind, RefreshKind, System};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// // Let's just update processes:
+    /// s.refresh_specifics(
+    ///     RefreshKind::new().with_processes(ProcessRefreshKind::everything()),
+    /// );
+    /// ```
+    pub fn refresh_specifics(&mut self, refreshes: RefreshKind) {
+        if refreshes.memory() {
+            self.refresh_memory();
+        }
+        if let Some(kind) = refreshes.cpu() {
+            self.refresh_cpu_specifics(kind);
+        }
+        if let Some(kind) = refreshes.processes() {
+            self.refresh_processes_specifics(kind);
+        }
+    }
+
+    /// Refreshes all system and processes information.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_all();
+    /// ```
+    pub fn refresh_all(&mut self) {
+        self.refresh_system();
+        self.refresh_processes();
+    }
+
+    /// Refreshes system information (RAM, swap, CPU usage and components' temperature).
+    ///
+    /// If you want some more specific refreshes, you might be interested into looking at
+    /// [`refresh_memory`] and [`refresh_cpu`].
+    ///
+    /// [`refresh_memory`]: System::refresh_memory
+    /// [`refresh_cpu`]: System::refresh_memory
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_system();
+    /// ```
+    pub fn refresh_system(&mut self) {
+        self.refresh_memory();
+        self.refresh_cpu_usage();
+    }
+
+    /// Refreshes RAM and SWAP usage.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_memory();
+    /// ```
+    pub fn refresh_memory(&mut self) {
+        self.inner.refresh_memory()
+    }
+
+    /// Refreshes CPUs usage.
+    ///
+    /// ⚠️ Please note that the result will very likely be inaccurate at the first call.
+    /// You need to call this method at least twice (with a bit of time between each call, like
+    /// 200 ms, take a look at [`MINIMUM_CPU_UPDATE_INTERVAL`] for more information)
+    /// to get accurate value as it uses previous results to compute the next value.
+    ///
+    /// Calling this method is the same as calling
+    /// `refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())`.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_cpu_usage();
+    /// ```
+    ///
+    /// [`MINIMUM_CPU_UPDATE_INTERVAL`]: crate::MINIMUM_CPU_UPDATE_INTERVAL
+    pub fn refresh_cpu_usage(&mut self) {
+        self.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())
+    }
+
+    /// Refreshes CPUs frequency information.
+    ///
+    /// Calling this method is the same as calling
+    /// `refresh_cpu_specifics(CpuRefreshKind::new().with_frequency())`.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_cpu_frequency();
+    /// ```
+    pub fn refresh_cpu_frequency(&mut self) {
+        self.refresh_cpu_specifics(CpuRefreshKind::new().with_frequency())
+    }
+
+    /// Refreshes all information related to CPUs information.
+    ///
+    /// ⚠️ Please note that the result will very likely be inaccurate at the first call.
+    /// You need to call this method at least twice (with a bit of time between each call, like
+    /// 200 ms, take a look at [`MINIMUM_CPU_UPDATE_INTERVAL`] for more information)
+    /// to get accurate value as it uses previous results to compute the next value.
+    ///
+    /// Calling this method is the same as calling
+    /// `refresh_cpu_specifics(CpuRefreshKind::everything())`.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_cpu();
+    /// ```
+    ///
+    /// [`MINIMUM_CPU_UPDATE_INTERVAL`]: crate::MINIMUM_CPU_UPDATE_INTERVAL
+    pub fn refresh_cpu(&mut self) {
+        self.refresh_cpu_specifics(CpuRefreshKind::everything())
+    }
+
+    /// Refreshes CPUs specific information.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, CpuRefreshKind};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_cpu_specifics(CpuRefreshKind::everything());
+    /// ```
+    pub fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
+        self.inner.refresh_cpu_specifics(refresh_kind)
+    }
+
+    /// Gets all processes and updates their information.
+    ///
+    /// It does the same as `system.refresh_processes_specifics(ProcessRefreshKind::everything())`.
+    ///
+    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
+    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_processes();
+    /// ```
+    pub fn refresh_processes(&mut self) {
+        self.refresh_processes_specifics(ProcessRefreshKind::everything());
+    }
+
+    /// Gets all processes and updates the specified information.
+    ///
+    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
+    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessRefreshKind, System};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_processes_specifics(ProcessRefreshKind::new());
+    /// ```
+    pub fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
+        self.inner.refresh_processes_specifics(refresh_kind)
+    }
+
+    /// Refreshes *only* the process corresponding to `pid`. Returns `false` if the process doesn't
+    /// exist (it will **NOT** be removed from the processes if it doesn't exist anymore). If it
+    /// isn't listed yet, it'll be added.
+    ///
+    /// It is the same as calling
+    /// `sys.refresh_process_specifics(pid, ProcessRefreshKind::everything())`.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_process(Pid::from(1337));
+    /// ```
+    pub fn refresh_process(&mut self, pid: Pid) -> bool {
+        self.refresh_process_specifics(pid, ProcessRefreshKind::everything())
+    }
+
+    /// Refreshes *only* the process corresponding to `pid`. Returns `false` if the process doesn't
+    /// exist (it will **NOT** be removed from the processes if it doesn't exist anymore). If it
+    /// isn't listed yet, it'll be added.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, ProcessRefreshKind, System};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_process_specifics(Pid::from(1337), ProcessRefreshKind::new());
+    /// ```
+    pub fn refresh_process_specifics(
+        &mut self,
+        pid: Pid,
+        refresh_kind: ProcessRefreshKind,
+    ) -> bool {
+        self.inner.refresh_process_specifics(pid, refresh_kind)
+    }
+
+    /// Returns the process list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessExt, System};
+    ///
+    /// let s = System::new_all();
+    /// for (pid, process) in s.processes() {
+    ///     println!("{} {}", pid, process.name());
+    /// }
+    /// ```
+    pub fn processes(&self) -> &HashMap<Pid, Process> {
+        self.inner.processes()
+    }
+
+    /// Returns the process corresponding to the given `pid` or `None` if no such process exists.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, ProcessExt, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{}", process.name());
+    /// }
+    /// ```
+    pub fn process(&self, pid: Pid) -> Option<&Process> {
+        self.inner.process(pid)
+    }
+
+    /// Returns an iterator of process containing the given `name`.
+    ///
+    /// If you want only the processes with exactly the given `name`, take a look at
+    /// [`System::processes_by_exact_name`].
+    ///
+    /// **⚠️ Important ⚠️**
+    ///
+    /// On **Linux**, there are two things to know about processes' name:
+    ///  1. It is limited to 15 characters.
+    ///  2. It is not always the exe name.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessExt, System};
+    ///
+    /// let s = System::new_all();
+    /// for process in s.processes_by_name("htop") {
+    ///     println!("{} {}", process.pid(), process.name());
+    /// }
+    /// ```
+    // FIXME: replace the returned type with `impl Iterator<Item = &Process>` when it's supported!
+    pub fn processes_by_name<'a: 'b, 'b>(
+        &'a self,
+        name: &'b str,
+    ) -> Box<dyn Iterator<Item = &'a Process> + 'b> {
+        Box::new(
+            self.processes()
+                .values()
+                .filter(move |val: &&Process| val.name().contains(name)),
+        )
+    }
+
+    /// Returns an iterator of processes with exactly the given `name`.
+    ///
+    /// If you instead want the processes containing `name`, take a look at
+    /// [`System::processes_by_name`].
+    ///
+    /// **⚠️ Important ⚠️**
+    ///
+    /// On **Linux**, there are two things to know about processes' name:
+    ///  1. It is limited to 15 characters.
+    ///  2. It is not always the exe name.
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessExt, System};
+    ///
+    /// let s = System::new_all();
+    /// for process in s.processes_by_exact_name("htop") {
+    ///     println!("{} {}", process.pid(), process.name());
+    /// }
+    /// ```
+    // FIXME: replace the returned type with `impl Iterator<Item = &Process>` when it's supported!
+    pub fn processes_by_exact_name<'a: 'b, 'b>(
+        &'a self,
+        name: &'b str,
+    ) -> Box<dyn Iterator<Item = &'a Process> + 'b> {
+        Box::new(
+            self.processes()
+                .values()
+                .filter(move |val: &&Process| val.name() == name),
+        )
+    }
+
+    /// Returns "global" CPUs information (aka the addition of all the CPUs).
+    ///
+    /// To have up-to-date information, you need to call [`System::refresh_cpu`] or
+    /// [`System::refresh_specifics`] with `cpu` enabled.
+    ///
+    /// **⚠️ Important ⚠️**
+    ///
+    /// Information like [`CpuExt::brand`], [`CpuExt::vendor_id`] or [`CpuExt::frequency`]
+    /// are not set on the "global" CPU.
+    ///
+    /// ```no_run
+    /// use sysinfo::{CpuRefreshKind, CpuExt, RefreshKind, System};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// println!("{}%", s.global_cpu_info().cpu_usage());
+    /// ```
+    ///
+    /// [`CpuExt::brand`]: crate::CpuExt::brand
+    /// [`CpuExt::vendor_id`]: crate::CpuExt::vendor_id
+    /// [`CpuExt::frequency`]: crate::CpuExt::frequency
+    pub fn global_cpu_info(&self) -> &Cpu {
+        self.inner.global_cpu_info()
+    }
+
+    /// Returns the list of the CPUs.
+    ///
+    /// By default, the list of CPUs is empty until you call [`System::refresh_cpu`] or
+    /// [`System::refresh_specifics`] with `cpu` enabled.
+    ///
+    /// ```no_run
+    /// use sysinfo::{CpuRefreshKind, CpuExt, RefreshKind, System};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}%", cpu.cpu_usage());
+    /// }
+    /// ```
+    pub fn cpus(&self) -> &[Cpu] {
+        self.inner.cpus()
+    }
+
+    /// Returns the number of physical cores on the CPU or `None` if it couldn't get it.
+    ///
+    /// In case there are multiple CPUs, it will combine the physical core count of all the CPUs.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::{CpuExt, System};
+    ///
+    /// let s = System::new();
+    /// println!("{:?}", s.physical_core_count());
+    /// ```
+    pub fn physical_core_count(&self) -> Option<usize> {
+        self.inner.physical_core_count()
+    }
+
+    /// Returns the RAM size in bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    /// println!("{} bytes", s.total_memory());
+    /// ```
+    pub fn total_memory(&self) -> u64 {
+        self.inner.total_memory()
+    }
+
+    /// Returns the amount of free RAM in bytes.
+    ///
+    /// Generally, "free" memory refers to unallocated memory whereas "available" memory refers to
+    /// memory that is available for (re)use.
+    ///
+    /// Side note: Windows doesn't report "free" memory so this method returns the same value
+    /// as [`available_memory`](System::available_memory).
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    /// println!("{} bytes", s.free_memory());
+    /// ```
+    pub fn free_memory(&self) -> u64 {
+        self.inner.free_memory()
+    }
+
+    /// Returns the amount of available RAM in bytes.
+    ///
+    /// Generally, "free" memory refers to unallocated memory whereas "available" memory refers to
+    /// memory that is available for (re)use.
+    ///
+    /// ⚠️ Windows and FreeBSD don't report "available" memory so [`System::free_memory`]
+    /// returns the same value as this method.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    /// println!("{} bytes", s.available_memory());
+    /// ```
+    pub fn available_memory(&self) -> u64 {
+        self.inner.available_memory()
+    }
+
+    /// Returns the amount of used RAM in bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    /// println!("{} bytes", s.used_memory());
+    /// ```
+    pub fn used_memory(&self) -> u64 {
+        self.inner.used_memory()
+    }
+
+    /// Returns the SWAP size in bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    /// println!("{} bytes", s.total_swap());
+    /// ```
+    pub fn total_swap(&self) -> u64 {
+        self.inner.total_swap()
+    }
+
+    /// Returns the amount of free SWAP in bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    /// println!("{} bytes", s.free_swap());
+    /// ```
+    pub fn free_swap(&self) -> u64 {
+        self.inner.free_swap()
+    }
+
+    /// Returns the amount of used SWAP in bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    /// println!("{} bytes", s.used_swap());
+    /// ```
+    pub fn used_swap(&self) -> u64 {
+        self.inner.used_swap()
+    }
+
+    /// Returns system uptime (in seconds).
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    /// println!("System running since {} seconds", s.uptime());
+    /// ```
+    pub fn uptime(&self) -> u64 {
+        self.inner.uptime()
+    }
+
+    /// Returns the time (in seconds) when the system booted since UNIX epoch.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// println!("System booted at {} seconds", s.boot_time());
+    /// ```
+    pub fn boot_time(&self) -> u64 {
+        self.inner.boot_time()
+    }
+
+    /// Returns the system load average value.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    /// let load_avg = s.load_average();
+    /// println!(
+    ///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
+    ///     load_avg.one,
+    ///     load_avg.five,
+    ///     load_avg.fifteen,
+    /// );
+    /// ```
+    pub fn load_average(&self) -> LoadAvg {
+        self.inner.load_average()
+    }
+
+    /// Returns the system name.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// println!("OS: {:?}", s.name());
+    /// ```
+    pub fn name(&self) -> Option<String> {
+        self.inner.name()
+    }
+
+    /// Returns the system's kernel version.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// println!("kernel version: {:?}", s.kernel_version());
+    /// ```
+    pub fn kernel_version(&self) -> Option<String> {
+        self.inner.kernel_version()
+    }
+
+    /// Returns the system version (e.g. for MacOS this will return 11.1 rather than the kernel version).
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// println!("OS version: {:?}", s.os_version());
+    /// ```
+    pub fn os_version(&self) -> Option<String> {
+        self.inner.os_version()
+    }
+
+    /// Returns the system long os version (e.g "MacOS 11.2 BigSur").
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// println!("Long OS Version: {:?}", s.long_os_version());
+    /// ```
+    pub fn long_os_version(&self) -> Option<String> {
+        self.inner.long_os_version()
+    }
+
+    /// Returns the distribution id as defined by os-release,
+    /// or [`std::env::consts::OS`].
+    ///
+    /// See also
+    /// - <https://www.freedesktop.org/software/systemd/man/os-release.html#ID=>
+    /// - <https://doc.rust-lang.org/std/env/consts/constant.OS.html>
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// println!("Distribution ID: {:?}", s.distribution_id());
+    /// ```
+    pub fn distribution_id(&self) -> String {
+        self.inner.distribution_id()
+    }
+
+    /// Returns the system hostname based off DNS
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// println!("Hostname: {:?}", s.host_name());
+    /// ```
+    pub fn host_name(&self) -> Option<String> {
+        self.inner.host_name()
+    }
+}
 
 /// Trait to have a common conversions for the [`Pid`][crate::Pid] type.
 ///
@@ -219,7 +884,7 @@ assert_eq!(r.", stringify!($name), "().is_some(), false);
 /// extra computation.
 ///
 /// ```
-/// use sysinfo::{ProcessExt, ProcessRefreshKind, System, SystemExt};
+/// use sysinfo::{ProcessExt, ProcessRefreshKind, System};
 ///
 /// let mut system = System::new();
 ///
@@ -297,7 +962,7 @@ on Windows as other platforms get this information alongside the Process informa
 /// extra computation.
 ///
 /// ```
-/// use sysinfo::{CpuExt, CpuRefreshKind, System, SystemExt};
+/// use sysinfo::{CpuExt, CpuRefreshKind, System};
 ///
 /// let mut system = System::new();
 ///
@@ -357,13 +1022,13 @@ impl CpuRefreshKind {
 /// extra computation.
 ///
 /// ```
-/// use sysinfo::{RefreshKind, System, SystemExt};
+/// use sysinfo::{RefreshKind, System};
 ///
 /// // We want everything except memory.
 /// let mut system = System::new_with_specifics(RefreshKind::everything().without_memory());
 ///
 /// assert_eq!(system.total_memory(), 0);
-/// # if System::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
+/// # if sysinfo::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
 /// assert!(system.processes().len() > 0);
 /// # }
 /// ```
@@ -857,7 +1522,7 @@ impl std::ops::DerefMut for Users {
 /// the different OSes.
 ///
 /// If you want the list of the supported signals on the current system, use
-/// [`SystemExt::SUPPORTED_SIGNALS`][crate::SystemExt::SUPPORTED_SIGNALS].
+/// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 pub enum Signal {
     /// Hangup detected on controlling terminal or death of controlling process.
@@ -970,10 +1635,10 @@ impl std::fmt::Display for Signal {
 
 /// A struct representing system load average value.
 ///
-/// It is returned by [`SystemExt::load_average`][crate::SystemExt::load_average].
+/// It is returned by [`System::load_average`][crate::System::load_average].
 ///
 /// ```no_run
-/// use sysinfo::{System, SystemExt};
+/// use sysinfo::System;
 ///
 /// let s = System::new_all();
 /// let load_avg = s.load_average();
@@ -1147,7 +1812,7 @@ impl GroupExt for Group {
 /// It is returned by [`ProcessExt::disk_usage`][crate::ProcessExt::disk_usage].
 ///
 /// ```no_run
-/// use sysinfo::{ProcessExt, System, SystemExt};
+/// use sysinfo::{ProcessExt, System};
 ///
 /// let s = System::new_all();
 /// for (pid, process) in s.processes() {

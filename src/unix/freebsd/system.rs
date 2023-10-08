@@ -2,7 +2,7 @@
 
 use crate::{
     sys::{Cpu, Process},
-    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt,
+    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind,
 };
 
 use std::cell::UnsafeCell;
@@ -11,7 +11,6 @@ use std::ffi::CStr;
 use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
-use std::time::Duration;
 
 use crate::sys::cpu::{physical_core_count, CpusWrapper};
 use crate::sys::utils::{
@@ -21,43 +20,7 @@ use crate::sys::utils::{
 
 use libc::c_int;
 
-declare_signals! {
-    c_int,
-    Signal::Hangup => libc::SIGHUP,
-    Signal::Interrupt => libc::SIGINT,
-    Signal::Quit => libc::SIGQUIT,
-    Signal::Illegal => libc::SIGILL,
-    Signal::Trap => libc::SIGTRAP,
-    Signal::Abort => libc::SIGABRT,
-    Signal::IOT => libc::SIGIOT,
-    Signal::Bus => libc::SIGBUS,
-    Signal::FloatingPointException => libc::SIGFPE,
-    Signal::Kill => libc::SIGKILL,
-    Signal::User1 => libc::SIGUSR1,
-    Signal::Segv => libc::SIGSEGV,
-    Signal::User2 => libc::SIGUSR2,
-    Signal::Pipe => libc::SIGPIPE,
-    Signal::Alarm => libc::SIGALRM,
-    Signal::Term => libc::SIGTERM,
-    Signal::Child => libc::SIGCHLD,
-    Signal::Continue => libc::SIGCONT,
-    Signal::Stop => libc::SIGSTOP,
-    Signal::TSTP => libc::SIGTSTP,
-    Signal::TTIN => libc::SIGTTIN,
-    Signal::TTOU => libc::SIGTTOU,
-    Signal::Urgent => libc::SIGURG,
-    Signal::XCPU => libc::SIGXCPU,
-    Signal::XFSZ => libc::SIGXFSZ,
-    Signal::VirtualAlarm => libc::SIGVTALRM,
-    Signal::Profiling => libc::SIGPROF,
-    Signal::Winch => libc::SIGWINCH,
-    Signal::IO => libc::SIGIO,
-    Signal::Sys => libc::SIGSYS,
-    _ => None,
-}
-
-#[doc = include_str!("../../../md_doc/system.md")]
-pub struct System {
+pub(crate) struct SystemInner {
     process_list: HashMap<Pid, Process>,
     mem_total: u64,
     mem_free: u64,
@@ -69,15 +32,9 @@ pub struct System {
     cpus: CpusWrapper,
 }
 
-impl SystemExt for System {
-    const IS_SUPPORTED: bool = true;
-    const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
-    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(100);
-
-    fn new_with_specifics(refreshes: RefreshKind) -> System {
-        let system_info = SystemInfo::new();
-
-        let mut s = System {
+impl SystemInner {
+    pub(crate) fn new() -> Self {
+        Self {
             process_list: HashMap::with_capacity(200),
             mem_total: 0,
             mem_free: 0,
@@ -85,14 +42,12 @@ impl SystemExt for System {
             swap_total: 0,
             swap_used: 0,
             boot_time: boot_time(),
-            system_info,
+            system_info: SystemInfo::new(),
             cpus: CpusWrapper::new(),
-        };
-        s.refresh_specifics(refreshes);
-        s
+        }
     }
 
-    fn refresh_memory(&mut self) {
+    pub(crate) fn refresh_memory(&mut self) {
         if self.mem_total == 0 {
             self.mem_total = self.system_info.get_total_memory();
         }
@@ -103,15 +58,19 @@ impl SystemExt for System {
         self.swap_used = swap_used;
     }
 
-    fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
+    pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         self.cpus.refresh(refresh_kind)
     }
 
-    fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
+    pub(crate) fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
         unsafe { self.refresh_procs(refresh_kind) }
     }
 
-    fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
+    pub(crate) fn refresh_process_specifics(
+        &mut self,
+        pid: Pid,
+        refresh_kind: ProcessRefreshKind,
+    ) -> bool {
         unsafe {
             let kd = self.system_info.kd.as_ptr();
             let mut count = 0;
@@ -170,68 +129,68 @@ impl SystemExt for System {
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    fn processes(&self) -> &HashMap<Pid, Process> {
+    pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
 
-    fn process(&self, pid: Pid) -> Option<&Process> {
+    pub(crate) fn process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.get(&pid)
     }
 
-    fn global_cpu_info(&self) -> &Cpu {
+    pub(crate) fn global_cpu_info(&self) -> &Cpu {
         &self.cpus.global_cpu
     }
 
-    fn cpus(&self) -> &[Cpu] {
+    pub(crate) fn cpus(&self) -> &[Cpu] {
         &self.cpus.cpus
     }
 
-    fn physical_core_count(&self) -> Option<usize> {
+    pub(crate) fn physical_core_count(&self) -> Option<usize> {
         physical_core_count()
     }
 
-    fn total_memory(&self) -> u64 {
+    pub(crate) fn total_memory(&self) -> u64 {
         self.mem_total
     }
 
-    fn free_memory(&self) -> u64 {
+    pub(crate) fn free_memory(&self) -> u64 {
         self.mem_free
     }
 
-    fn available_memory(&self) -> u64 {
+    pub(crate) fn available_memory(&self) -> u64 {
         self.mem_free
     }
 
-    fn used_memory(&self) -> u64 {
+    pub(crate) fn used_memory(&self) -> u64 {
         self.mem_used
     }
 
-    fn total_swap(&self) -> u64 {
+    pub(crate) fn total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    fn free_swap(&self) -> u64 {
+    pub(crate) fn free_swap(&self) -> u64 {
         self.swap_total - self.swap_used
     }
 
     // TODO: need to be checked
-    fn used_swap(&self) -> u64 {
+    pub(crate) fn used_swap(&self) -> u64 {
         self.swap_used
     }
 
-    fn uptime(&self) -> u64 {
+    pub(crate) fn uptime(&self) -> u64 {
         unsafe {
-            let csec = libc::time(::std::ptr::null_mut());
+            let csec = libc::time(std::ptr::null_mut());
 
             libc::difftime(csec, self.boot_time as _) as u64
         }
     }
 
-    fn boot_time(&self) -> u64 {
+    pub(crate) fn boot_time(&self) -> u64 {
         self.boot_time
     }
 
-    fn load_average(&self) -> LoadAvg {
+    pub(crate) fn load_average(&self) -> LoadAvg {
         let mut loads = vec![0f64; 3];
         unsafe {
             libc::getloadavg(loads.as_mut_ptr(), 3);
@@ -243,38 +202,32 @@ impl SystemExt for System {
         }
     }
 
-    fn name(&self) -> Option<String> {
+    pub(crate) fn name(&self) -> Option<String> {
         self.system_info.get_os_name()
     }
 
-    fn long_os_version(&self) -> Option<String> {
+    pub(crate) fn long_os_version(&self) -> Option<String> {
         self.system_info.get_os_release_long()
     }
 
-    fn host_name(&self) -> Option<String> {
+    pub(crate) fn host_name(&self) -> Option<String> {
         self.system_info.get_hostname()
     }
 
-    fn kernel_version(&self) -> Option<String> {
+    pub(crate) fn kernel_version(&self) -> Option<String> {
         self.system_info.get_kernel_version()
     }
 
-    fn os_version(&self) -> Option<String> {
+    pub(crate) fn os_version(&self) -> Option<String> {
         self.system_info.get_os_release()
     }
 
-    fn distribution_id(&self) -> String {
+    pub(crate) fn distribution_id(&self) -> String {
         std::env::consts::OS.to_owned()
     }
 }
 
-impl Default for System {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl System {
+impl SystemInner {
     unsafe fn refresh_procs(&mut self, refresh_kind: ProcessRefreshKind) {
         let kd = self.system_info.kd.as_ptr();
         let procs = {

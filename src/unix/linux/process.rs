@@ -134,7 +134,7 @@ impl Process {
 
 impl ProcessExt for Process {
     fn kill_with(&self, signal: Signal) -> Option<bool> {
-        let c_signal = super::system::convert_signal(signal)?;
+        let c_signal = crate::sys::convert_signal(signal)?;
         unsafe { Some(kill(self.pid.0, c_signal) == 0) }
     }
 

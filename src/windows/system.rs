@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt};
+use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessExt, ProcessRefreshKind};
 
 use crate::sys::cpu::*;
 use crate::sys::process::{get_start_time, update_memory, Process};
@@ -13,7 +13,7 @@ use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem::{size_of, zeroed};
 use std::ptr;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use ntapi::ntexapi::SYSTEM_PROCESS_INFORMATION;
 use windows::core::PWSTR;
@@ -27,27 +27,9 @@ use windows::Win32::System::SystemInformation::{
 };
 use windows::Win32::System::Threading::GetExitCodeProcess;
 
-declare_signals! {
-    (),
-    Signal::Kill => (),
-    _ => None,
-}
+const WINDOWS_ELEVEN_BUILD_NUMBER: u32 = 22000;
 
-#[doc = include_str!("../../md_doc/system.md")]
-pub struct System {
-    process_list: HashMap<Pid, Process>,
-    mem_total: u64,
-    mem_available: u64,
-    swap_total: u64,
-    swap_used: u64,
-    cpus: CpusWrapper,
-    query: Option<Query>,
-    boot_time: u64,
-}
-
-static WINDOWS_ELEVEN_BUILD_NUMBER: u32 = 22000;
-
-impl System {
+impl SystemInner {
     fn is_windows_eleven(&self) -> bool {
         WINDOWS_ELEVEN_BUILD_NUMBER
             <= self
@@ -75,14 +57,20 @@ unsafe fn boot_time() -> u64 {
     }
 }
 
-impl SystemExt for System {
-    const IS_SUPPORTED: bool = true;
-    const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
-    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
+pub(crate) struct SystemInner {
+    process_list: HashMap<Pid, Process>,
+    mem_total: u64,
+    mem_available: u64,
+    swap_total: u64,
+    swap_used: u64,
+    cpus: CpusWrapper,
+    query: Option<Query>,
+    boot_time: u64,
+}
 
-    #[allow(non_snake_case)]
-    fn new_with_specifics(refreshes: RefreshKind) -> System {
-        let mut s = System {
+impl SystemInner {
+    pub(crate) fn new() -> Self {
+        Self {
             process_list: HashMap::with_capacity(500),
             mem_total: 0,
             mem_available: 0,
@@ -91,12 +79,10 @@ impl SystemExt for System {
             cpus: CpusWrapper::new(),
             query: None,
             boot_time: unsafe { boot_time() },
-        };
-        s.refresh_specifics(refreshes);
-        s
+        }
     }
 
-    fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
+    pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         if self.query.is_none() {
             self.query = Query::new();
             if let Some(ref mut query) = self.query {
@@ -150,7 +136,7 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_memory(&mut self) {
+    pub(crate) fn refresh_memory(&mut self) {
         unsafe {
             let mut mem_info: MEMORYSTATUSEX = zeroed();
             mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
@@ -178,7 +164,11 @@ impl SystemExt for System {
     }
 
     #[allow(clippy::map_entry)]
-    fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
+    pub(crate) fn refresh_process_specifics(
+        &mut self,
+        pid: Pid,
+        refresh_kind: ProcessRefreshKind,
+    ) -> bool {
         let now = get_now();
         let nb_cpus = self.cpus.len() as u64;
 
@@ -199,7 +189,7 @@ impl SystemExt for System {
     }
 
     #[allow(clippy::cast_ptr_alignment)]
-    fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
+    pub(crate) fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
         // Windows 10 notebook requires at least 512KiB of memory to make it in one go
         let mut buffer_size = 512 * 1024;
         let mut process_information: Vec<u8> = Vec::with_capacity(buffer_size);
@@ -334,72 +324,72 @@ impl SystemExt for System {
         });
     }
 
-    fn processes(&self) -> &HashMap<Pid, Process> {
+    pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
 
-    fn process(&self, pid: Pid) -> Option<&Process> {
+    pub(crate) fn process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.get(&pid)
     }
 
-    fn global_cpu_info(&self) -> &Cpu {
+    pub(crate) fn global_cpu_info(&self) -> &Cpu {
         self.cpus.global_cpu()
     }
 
-    fn cpus(&self) -> &[Cpu] {
+    pub(crate) fn cpus(&self) -> &[Cpu] {
         self.cpus.cpus()
     }
 
-    fn physical_core_count(&self) -> Option<usize> {
+    pub(crate) fn physical_core_count(&self) -> Option<usize> {
         get_physical_core_count()
     }
 
-    fn total_memory(&self) -> u64 {
+    pub(crate) fn total_memory(&self) -> u64 {
         self.mem_total
     }
 
-    fn free_memory(&self) -> u64 {
+    pub(crate) fn free_memory(&self) -> u64 {
         // MEMORYSTATUSEX doesn't report free memory
         self.mem_available
     }
 
-    fn available_memory(&self) -> u64 {
+    pub(crate) fn available_memory(&self) -> u64 {
         self.mem_available
     }
 
-    fn used_memory(&self) -> u64 {
+    pub(crate) fn used_memory(&self) -> u64 {
         self.mem_total - self.mem_available
     }
 
-    fn total_swap(&self) -> u64 {
+    pub(crate) fn total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    fn free_swap(&self) -> u64 {
+    pub(crate) fn free_swap(&self) -> u64 {
         self.swap_total - self.swap_used
     }
 
-    fn used_swap(&self) -> u64 {
+    pub(crate) fn used_swap(&self) -> u64 {
         self.swap_used
     }
 
-    fn uptime(&self) -> u64 {
+    pub(crate) fn uptime(&self) -> u64 {
         unsafe { GetTickCount64() / 1_000 }
     }
 
-    fn boot_time(&self) -> u64 {
+    pub(crate) fn boot_time(&self) -> u64 {
         self.boot_time
     }
 
-    fn load_average(&self) -> LoadAvg {
+    pub(crate) fn load_average(&self) -> LoadAvg {
         get_load_average()
     }
 
-    fn name(&self) -> Option<String> {
+    pub(crate) fn name(&self) -> Option<String> {
         Some("Windows".to_owned())
     }
 
-    fn long_os_version(&self) -> Option<String> {
+    pub(crate) fn long_os_version(&self) -> Option<String> {
         if self.is_windows_eleven() {
             return get_reg_string_value(
                 HKEY_LOCAL_MACHINE,
@@ -415,11 +405,11 @@ impl SystemExt for System {
         )
     }
 
-    fn host_name(&self) -> Option<String> {
+    pub(crate) fn host_name(&self) -> Option<String> {
         get_dns_hostname()
     }
 
-    fn kernel_version(&self) -> Option<String> {
+    pub(crate) fn kernel_version(&self) -> Option<String> {
         get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
@@ -427,7 +417,7 @@ impl SystemExt for System {
         )
     }
 
-    fn os_version(&self) -> Option<String> {
+    pub(crate) fn os_version(&self) -> Option<String> {
         let build_number = get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
@@ -449,14 +439,8 @@ impl SystemExt for System {
         Some(format!("{major} ({build_number})"))
     }
 
-    fn distribution_id(&self) -> String {
+    pub(crate) fn distribution_id(&self) -> String {
         std::env::consts::OS.to_owned()
-    }
-}
-
-impl Default for System {
-    fn default() -> System {
-        System::new()
     }
 }
 

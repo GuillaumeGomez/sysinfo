@@ -1,7 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::SystemExt;
-
 #[allow(deprecated)]
 use libc::{mach_timebase_info, mach_timebase_info_data_t};
 
@@ -127,8 +125,7 @@ impl SystemTimeInfo {
             // Now we convert the ticks to nanoseconds (if the interval is less than
             // `MINIMUM_CPU_UPDATE_INTERVAL`, we replace it with it instead):
             let base_interval = total as f64 / cpu_count as f64 * self.clock_per_sec;
-            let smallest =
-                crate::System::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() * 1_000_000_000.0;
+            let smallest = crate::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() * 1_000_000_000.0;
             if base_interval < smallest {
                 smallest
             } else {
@@ -146,7 +143,7 @@ mod test {
     /// Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/956>.
     #[test]
     fn test_getting_time_interval() {
-        if !crate::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        if !crate::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
             return;
         }
 
@@ -154,12 +151,12 @@ mod test {
         let mut info = SystemTimeInfo::new(port).unwrap();
         info.get_time_interval(port);
 
-        std::thread::sleep(crate::System::MINIMUM_CPU_UPDATE_INTERVAL.saturating_mul(5));
+        std::thread::sleep(crate::MINIMUM_CPU_UPDATE_INTERVAL.saturating_mul(5));
 
         let val = info.get_time_interval(port);
         assert_ne!(
             val,
-            crate::System::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() * 1_000_000_000.0
+            crate::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() * 1_000_000_000.0
         );
     }
 }

@@ -7,10 +7,10 @@ fn check_supported_signals_decl<'a>(lines: &mut impl Iterator<Item = &'a str>, p
     for line in lines {
         let trimmed = line.trim();
         if trimmed.starts_with("const SUPPORTED_SIGNALS: &'static [Signal]") {
-            if trimmed != "const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();" {
+            if trimmed != "const SUPPORTED_SIGNALS: &[Signal] = supported_signals();" {
                 show_error(
                     p,
-                    "SystemExt::SUPPORTED_SIGNALS should be declared using `supported_signals()`",
+                    "SUPPORTED_SIGNALS should be declared using `supported_signals()`",
                 );
                 return 1;
             }
@@ -31,7 +31,7 @@ fn check_kill_decl<'a>(lines: &mut impl Iterator<Item = &'a str>, p: &Path) -> u
         } else if trimmed.starts_with("fn kill_with(") {
             if let Some(line) = lines.next() {
                 let trimmed = line.trim();
-                if trimmed.ends_with("::system::convert_signal(signal)?;") || trimmed == "None" {
+                if trimmed.ends_with("crate::sys::convert_signal(signal)?;") || trimmed == "None" {
                     continue;
                 } else {
                     show_error(p, "`ProcessExt::kill_with` should use `convert_signal`");

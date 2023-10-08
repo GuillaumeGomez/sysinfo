@@ -1,4 +1,4 @@
-use sysinfo::{System, SystemExt};
+use sysinfo::System;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

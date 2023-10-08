@@ -4,7 +4,7 @@ use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
-use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt};
+use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind};
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::ProcessExt;
@@ -12,7 +12,6 @@ use crate::ProcessExt;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::mem;
-use std::time::Duration;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::time::SystemTime;
 
@@ -24,52 +23,7 @@ use libc::{
     _SC_PAGESIZE,
 };
 
-#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-declare_signals! {
-    c_int,
-    Signal::Hangup => libc::SIGHUP,
-    Signal::Interrupt => libc::SIGINT,
-    Signal::Quit => libc::SIGQUIT,
-    Signal::Illegal => libc::SIGILL,
-    Signal::Trap => libc::SIGTRAP,
-    Signal::Abort => libc::SIGABRT,
-    Signal::IOT => libc::SIGIOT,
-    Signal::Bus => libc::SIGBUS,
-    Signal::FloatingPointException => libc::SIGFPE,
-    Signal::Kill => libc::SIGKILL,
-    Signal::User1 => libc::SIGUSR1,
-    Signal::Segv => libc::SIGSEGV,
-    Signal::User2 => libc::SIGUSR2,
-    Signal::Pipe => libc::SIGPIPE,
-    Signal::Alarm => libc::SIGALRM,
-    Signal::Term => libc::SIGTERM,
-    Signal::Child => libc::SIGCHLD,
-    Signal::Continue => libc::SIGCONT,
-    Signal::Stop => libc::SIGSTOP,
-    Signal::TSTP => libc::SIGTSTP,
-    Signal::TTIN => libc::SIGTTIN,
-    Signal::TTOU => libc::SIGTTOU,
-    Signal::Urgent => libc::SIGURG,
-    Signal::XCPU => libc::SIGXCPU,
-    Signal::XFSZ => libc::SIGXFSZ,
-    Signal::VirtualAlarm => libc::SIGVTALRM,
-    Signal::Profiling => libc::SIGPROF,
-    Signal::Winch => libc::SIGWINCH,
-    Signal::IO => libc::SIGIO,
-    // SIGPOLL doesn't exist on apple targets but since it's an equivalent of SIGIO on unix,
-    // we simply use the SIGIO constant.
-    Signal::Poll => libc::SIGIO,
-    Signal::Sys => libc::SIGSYS,
-    _ => None,
-}
-#[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-declare_signals! {
-    c_int,
-    _ => None,
-}
-
-#[doc = include_str!("../../../md_doc/system.md")]
-pub struct System {
+pub(crate) struct SystemInner {
     process_list: HashMap<Pid, Process>,
     mem_total: u64,
     mem_free: u64,
@@ -123,16 +77,12 @@ fn get_now() -> u64 {
         .unwrap_or(0)
 }
 
-impl SystemExt for System {
-    const IS_SUPPORTED: bool = true;
-    const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
-    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
-
-    fn new_with_specifics(refreshes: RefreshKind) -> System {
+impl SystemInner {
+    pub(crate) fn new() -> Self {
         unsafe {
             let port = libc::mach_host_self();
 
-            let mut s = System {
+            Self {
                 process_list: HashMap::with_capacity(200),
                 mem_total: 0,
                 mem_free: 0,
@@ -146,13 +96,11 @@ impl SystemExt for System {
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
                 clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
                 cpus: CpusWrapper::new(),
-            };
-            s.refresh_specifics(refreshes);
-            s
+            }
         }
     }
 
-    fn refresh_memory(&mut self) {
+    pub(crate) fn refresh_memory(&mut self) {
         let mut mib = [0, 0];
 
         unsafe {
@@ -213,15 +161,15 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
+    pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         self.cpus.refresh(refresh_kind, self.port);
     }
 
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    fn refresh_processes_specifics(&mut self, _refresh_kind: ProcessRefreshKind) {}
+    pub(crate) fn refresh_processes_specifics(&mut self, _refresh_kind: ProcessRefreshKind) {}
 
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-    fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
+    pub(crate) fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
         use crate::utils::into_iter;
 
         unsafe {
@@ -267,12 +215,20 @@ impl SystemExt for System {
     }
 
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    fn refresh_process_specifics(&mut self, _pid: Pid, _refresh_kind: ProcessRefreshKind) -> bool {
+    pub(crate) fn refresh_process_specifics(
+        &mut self,
+        _pid: Pid,
+        _refresh_kind: ProcessRefreshKind,
+    ) -> bool {
         false
     }
 
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-    fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
+    pub(crate) fn refresh_process_specifics(
+        &mut self,
+        pid: Pid,
+        refresh_kind: ProcessRefreshKind,
+    ) -> bool {
         let mut time_interval = None;
         let arg_max = get_arg_max();
         let now = get_now();
@@ -306,56 +262,56 @@ impl SystemExt for System {
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    fn processes(&self) -> &HashMap<Pid, Process> {
+    pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
     }
 
-    fn process(&self, pid: Pid) -> Option<&Process> {
+    pub(crate) fn process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.get(&pid)
     }
 
-    fn global_cpu_info(&self) -> &Cpu {
+    pub(crate) fn global_cpu_info(&self) -> &Cpu {
         &self.cpus.global_cpu
     }
 
-    fn cpus(&self) -> &[Cpu] {
+    pub(crate) fn cpus(&self) -> &[Cpu] {
         &self.cpus.cpus
     }
 
-    fn physical_core_count(&self) -> Option<usize> {
+    pub(crate) fn physical_core_count(&self) -> Option<usize> {
         physical_core_count()
     }
 
-    fn total_memory(&self) -> u64 {
+    pub(crate) fn total_memory(&self) -> u64 {
         self.mem_total
     }
 
-    fn free_memory(&self) -> u64 {
+    pub(crate) fn free_memory(&self) -> u64 {
         self.mem_free
     }
 
-    fn available_memory(&self) -> u64 {
+    pub(crate) fn available_memory(&self) -> u64 {
         self.mem_available
     }
 
-    fn used_memory(&self) -> u64 {
+    pub(crate) fn used_memory(&self) -> u64 {
         self.mem_used
     }
 
-    fn total_swap(&self) -> u64 {
+    pub(crate) fn total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    fn free_swap(&self) -> u64 {
+    pub(crate) fn free_swap(&self) -> u64 {
         self.swap_free
     }
 
     // TODO: need to be checked
-    fn used_swap(&self) -> u64 {
+    pub(crate) fn used_swap(&self) -> u64 {
         self.swap_total - self.swap_free
     }
 
-    fn uptime(&self) -> u64 {
+    pub(crate) fn uptime(&self) -> u64 {
         unsafe {
             let csec = libc::time(::std::ptr::null_mut());
 
@@ -363,7 +319,7 @@ impl SystemExt for System {
         }
     }
 
-    fn load_average(&self) -> LoadAvg {
+    pub(crate) fn load_average(&self) -> LoadAvg {
         let mut loads = vec![0f64; 3];
 
         unsafe {
@@ -376,15 +332,15 @@ impl SystemExt for System {
         }
     }
 
-    fn boot_time(&self) -> u64 {
+    pub(crate) fn boot_time(&self) -> u64 {
         self.boot_time
     }
 
-    fn name(&self) -> Option<String> {
+    pub(crate) fn name(&self) -> Option<String> {
         get_system_info(libc::KERN_OSTYPE, Some("Darwin"))
     }
 
-    fn long_os_version(&self) -> Option<String> {
+    pub(crate) fn long_os_version(&self) -> Option<String> {
         #[cfg(target_os = "macos")]
         let friendly_name = match self.os_version().unwrap_or_default() {
             f_n if f_n.starts_with("10.16")
@@ -426,15 +382,15 @@ impl SystemExt for System {
         long_name
     }
 
-    fn host_name(&self) -> Option<String> {
+    pub(crate) fn host_name(&self) -> Option<String> {
         get_system_info(libc::KERN_HOSTNAME, None)
     }
 
-    fn kernel_version(&self) -> Option<String> {
+    pub(crate) fn kernel_version(&self) -> Option<String> {
         get_system_info(libc::KERN_OSRELEASE, None)
     }
 
-    fn os_version(&self) -> Option<String> {
+    pub(crate) fn os_version(&self) -> Option<String> {
         unsafe {
             // get the size for the buffer first
             let mut size = 0;
@@ -466,14 +422,8 @@ impl SystemExt for System {
         }
     }
 
-    fn distribution_id(&self) -> String {
+    pub(crate) fn distribution_id(&self) -> String {
         std::env::consts::OS.to_owned()
-    }
-}
-
-impl Default for System {
-    fn default() -> System {
-        System::new()
     }
 }
 

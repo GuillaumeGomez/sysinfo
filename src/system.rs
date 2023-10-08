@@ -5,14 +5,14 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{ProcessExt, System, SystemExt};
+    use crate::{ProcessExt, System};
 
     #[test]
     fn test_refresh_system() {
         let mut sys = System::new();
         sys.refresh_system();
         // We don't want to test on unsupported systems.
-        if System::IS_SUPPORTED {
+        if crate::IS_SUPPORTED {
             assert!(sys.total_memory() != 0);
             assert!(sys.free_memory() != 0);
         }
@@ -27,7 +27,7 @@ mod tests {
         // We don't want to test on unsupported systems.
 
         #[cfg(not(feature = "apple-sandbox"))]
-        if System::IS_SUPPORTED {
+        if crate::IS_SUPPORTED {
             assert!(
                 sys.refresh_process(crate::get_current_pid().expect("failed to get current pid")),
                 "process not listed",
@@ -46,7 +46,7 @@ mod tests {
         let current_pid = match crate::get_current_pid() {
             Ok(pid) => pid,
             _ => {
-                if !System::IS_SUPPORTED {
+                if !crate::IS_SUPPORTED {
                     return;
                 }
                 panic!("get_current_pid should work!");
@@ -56,7 +56,7 @@ mod tests {
             assert!(p.memory() > 0);
         } else {
             #[cfg(not(feature = "apple-sandbox"))]
-            assert!(!System::IS_SUPPORTED);
+            assert!(!crate::IS_SUPPORTED);
         }
     }
 
@@ -78,7 +78,7 @@ mod tests {
         let current_pid = match crate::get_current_pid() {
             Ok(pid) => pid,
             _ => {
-                if !System::IS_SUPPORTED {
+                if !crate::IS_SUPPORTED {
                     return;
                 }
                 panic!("get_current_pid should work!");
@@ -91,7 +91,7 @@ mod tests {
                      // doesn't implement the Sync trait.
         } else {
             #[cfg(not(feature = "apple-sandbox"))]
-            assert!(!System::IS_SUPPORTED);
+            assert!(!crate::IS_SUPPORTED);
         }
     }
 
@@ -108,7 +108,7 @@ mod tests {
     fn check_uptime() {
         let sys = System::new();
         let uptime = sys.uptime();
-        if System::IS_SUPPORTED {
+        if crate::IS_SUPPORTED {
             std::thread::sleep(std::time::Duration::from_millis(1000));
             let new_uptime = sys.uptime();
             assert!(uptime < new_uptime);
@@ -120,12 +120,12 @@ mod tests {
     #[test]
     #[ignore] // This test MUST be run on its own to prevent wrong CPU usage measurements.
     fn test_consecutive_cpu_usage_update() {
-        use crate::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
+        use crate::{PidExt, ProcessExt, ProcessRefreshKind, System};
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
         use std::time::Duration;
 
-        if !System::IS_SUPPORTED {
+        if !crate::IS_SUPPORTED {
             return;
         }
 
@@ -158,9 +158,7 @@ mod tests {
         assert_eq!(pids.len(), 3);
 
         for it in 0..3 {
-            std::thread::sleep(
-                crate::System::MINIMUM_CPU_UPDATE_INTERVAL + Duration::from_millis(1),
-            );
+            std::thread::sleep(crate::MINIMUM_CPU_UPDATE_INTERVAL + Duration::from_millis(1));
             for pid in &pids {
                 sys.refresh_process_specifics(*pid, ProcessRefreshKind::new().with_cpu());
             }

@@ -1,13 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use sysinfo::{Pid, PidExt, ProcessExt, SystemExt};
+use sysinfo::{Pid, PidExt, ProcessExt};
 
 #[test]
 fn test_process() {
     let mut s = sysinfo::System::new();
     assert_eq!(s.processes().len(), 0);
     s.refresh_processes();
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     assert!(!s.processes().is_empty());
@@ -19,7 +19,7 @@ fn test_process() {
 
 #[test]
 fn test_cwd() {
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     let mut p = if cfg!(target_os = "windows") {
@@ -57,7 +57,7 @@ fn test_cwd() {
 
 #[test]
 fn test_cmd() {
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     let mut p = if cfg!(target_os = "windows") {
@@ -97,7 +97,7 @@ fn test_cmd() {
 
 #[test]
 fn test_environ() {
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     let mut p = if cfg!(target_os = "windows") {
@@ -145,7 +145,7 @@ fn test_environ() {
 // More information in <https://github.com/GuillaumeGomez/sysinfo/issues/886>.
 #[test]
 fn test_big_environ() {
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     const SIZE: usize = 30_000;
@@ -197,7 +197,7 @@ fn test_process_refresh() {
     let mut s = sysinfo::System::new();
     assert_eq!(s.processes().len(), 0);
 
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     s.refresh_process(sysinfo::get_current_pid().expect("failed to get current pid"));
@@ -211,9 +211,9 @@ fn test_process_disk_usage() {
     use std::fs;
     use std::fs::File;
     use std::io::prelude::*;
-    use sysinfo::{get_current_pid, ProcessExt, SystemExt};
+    use sysinfo::{get_current_pid, ProcessExt};
 
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     if std::env::var("FREEBSD_CI").is_ok() {
@@ -271,7 +271,7 @@ fn cpu_usage_is_not_nan() {
     let mut system = sysinfo::System::new();
     system.refresh_processes();
 
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
 
@@ -299,7 +299,7 @@ fn cpu_usage_is_not_nan() {
 fn test_process_times() {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     let mut p = if cfg!(target_os = "windows") {
@@ -347,7 +347,7 @@ fn test_process_times() {
 // Checks that `session_id` is working.
 #[test]
 fn test_process_session_id() {
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     let mut s = sysinfo::System::new();
@@ -358,7 +358,7 @@ fn test_process_session_id() {
 // Checks that `refresh_processes` is removing dead processes.
 #[test]
 fn test_refresh_processes() {
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     let mut p = if cfg!(target_os = "windows") {
@@ -406,7 +406,7 @@ fn test_refresh_processes() {
     not(feature = "unknown-ci")
 ))]
 fn test_refresh_tasks() {
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     let task_name = "task_1_second";
@@ -446,7 +446,7 @@ fn test_refresh_tasks() {
 // Checks that `refresh_process` is NOT removing dead processes.
 #[test]
 fn test_refresh_process() {
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     let mut p = if cfg!(target_os = "windows") {
@@ -489,7 +489,7 @@ fn test_refresh_process() {
 
 #[test]
 fn test_wait_child() {
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
     let p = if cfg!(target_os = "windows") {
@@ -527,7 +527,7 @@ fn test_wait_child() {
 
 #[test]
 fn test_wait_non_child() {
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
 
@@ -572,7 +572,7 @@ fn test_wait_non_child() {
 
 #[test]
 fn test_process_iterator_lifetimes() {
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
 
@@ -599,14 +599,14 @@ fn test_process_iterator_lifetimes() {
 // Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/918>.
 #[test]
 fn test_process_cpu_usage() {
-    use sysinfo::{ProcessExt, System, SystemExt};
+    use sysinfo::{ProcessExt, System};
 
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
 
     let mut sys = System::new_all();
-    std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
+    std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     sys.refresh_all();
 
     let max_usage = sys.cpus().len() as f32 * 100.;
@@ -618,9 +618,9 @@ fn test_process_cpu_usage() {
 
 #[test]
 fn test_process_creds() {
-    use sysinfo::{ProcessExt, System, SystemExt};
+    use sysinfo::{ProcessExt, System};
 
-    if !sysinfo::System::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
 

@@ -3,7 +3,7 @@
 use crate::common::PidExt;
 use crate::{
     ComponentExt, CpuExt, DiskKind, DiskUsage, GroupExt, MacAddr, NetworkExt, NetworksExt,
-    ProcessExt, ProcessStatus, Signal, SystemExt, UserExt,
+    ProcessExt, ProcessStatus, Signal, UserExt,
 };
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::ops::Deref;
@@ -93,15 +93,8 @@ impl serde::Serialize for crate::System {
     where
         S: serde::Serializer,
     {
-        // `23` corresponds to the number of fields.
-        let mut state = serializer.serialize_struct("System", 22)?;
-
-        state.serialize_field("IS_SUPPORTED", &<Self as SystemExt>::IS_SUPPORTED)?;
-        state.serialize_field("SUPPORTED_SIGNALS", <Self as SystemExt>::SUPPORTED_SIGNALS)?;
-        state.serialize_field(
-            "MINIMUM_CPU_UPDATE_INTERVAL",
-            &<Self as SystemExt>::MINIMUM_CPU_UPDATE_INTERVAL,
-        )?;
+        // `19` corresponds to the number of fields.
+        let mut state = serializer.serialize_struct("System", 19)?;
 
         state.serialize_field("global_cpu_info", &self.global_cpu_info())?;
         state.serialize_field("cpus", &self.cpus())?;

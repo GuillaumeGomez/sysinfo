@@ -9,7 +9,7 @@ use std::str::FromStr;
 use sysinfo::Signal::*;
 use sysinfo::{
     Components, ComponentsExt, CpuExt, Disks, NetworkExt, Networks, NetworksExt, Pid, ProcessExt,
-    Signal, System, SystemExt, UserExt, Users, UsersExt,
+    Signal, System, UserExt, Users, UsersExt,
 };
 
 const signals: &[Signal] = &[

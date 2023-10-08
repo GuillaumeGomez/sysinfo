@@ -2,7 +2,7 @@
 
 use crate::{
     Component, ComponentExt, Components, Cpu, CpuExt, Disk, Disks, NetworkData, NetworkExt,
-    Networks, NetworksExt, Process, ProcessExt, System, SystemExt, User, UserExt, Users,
+    Networks, NetworksExt, Process, ProcessExt, System, User, UserExt, Users,
 };
 
 use std::fmt;
