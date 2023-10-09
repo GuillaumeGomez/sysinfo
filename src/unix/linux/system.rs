@@ -3,9 +3,9 @@
 use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_all_data, to_u64};
-use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind, RefreshKind, SystemExt};
+use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind};
 
-use libc::{self, c_char, c_int, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
+use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cmp::min;
 use std::collections::HashMap;
 use std::fs::File;
@@ -13,7 +13,6 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 // This whole thing is to prevent having too many files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
@@ -108,44 +107,7 @@ impl SystemInfo {
     }
 }
 
-declare_signals! {
-    c_int,
-    Signal::Hangup => libc::SIGHUP,
-    Signal::Interrupt => libc::SIGINT,
-    Signal::Quit => libc::SIGQUIT,
-    Signal::Illegal => libc::SIGILL,
-    Signal::Trap => libc::SIGTRAP,
-    Signal::Abort => libc::SIGABRT,
-    Signal::IOT => libc::SIGIOT,
-    Signal::Bus => libc::SIGBUS,
-    Signal::FloatingPointException => libc::SIGFPE,
-    Signal::Kill => libc::SIGKILL,
-    Signal::User1 => libc::SIGUSR1,
-    Signal::Segv => libc::SIGSEGV,
-    Signal::User2 => libc::SIGUSR2,
-    Signal::Pipe => libc::SIGPIPE,
-    Signal::Alarm => libc::SIGALRM,
-    Signal::Term => libc::SIGTERM,
-    Signal::Child => libc::SIGCHLD,
-    Signal::Continue => libc::SIGCONT,
-    Signal::Stop => libc::SIGSTOP,
-    Signal::TSTP => libc::SIGTSTP,
-    Signal::TTIN => libc::SIGTTIN,
-    Signal::TTOU => libc::SIGTTOU,
-    Signal::Urgent => libc::SIGURG,
-    Signal::XCPU => libc::SIGXCPU,
-    Signal::XFSZ => libc::SIGXFSZ,
-    Signal::VirtualAlarm => libc::SIGVTALRM,
-    Signal::Profiling => libc::SIGPROF,
-    Signal::Winch => libc::SIGWINCH,
-    Signal::IO => libc::SIGIO,
-    Signal::Poll => libc::SIGPOLL,
-    Signal::Power => libc::SIGPWR,
-    Signal::Sys => libc::SIGSYS,
-}
-
-#[doc = include_str!("../../../md_doc/system.md")]
-pub struct System {
+pub(crate) struct SystemInner {
     process_list: Process,
     mem_total: u64,
     mem_free: u64,
@@ -160,7 +122,7 @@ pub struct System {
     cpus: CpusWrapper,
 }
 
-impl System {
+impl SystemInner {
     /// It is sometime possible that a CPU usage computation is bigger than
     /// `"number of CPUs" * 100`.
     ///
@@ -208,15 +170,10 @@ impl System {
     }
 }
 
-impl SystemExt for System {
-    const IS_SUPPORTED: bool = true;
-    const SUPPORTED_SIGNALS: &'static [Signal] = supported_signals();
-    const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
-
-    fn new_with_specifics(refreshes: RefreshKind) -> System {
-        let process_list = Process::new(Pid(0));
-        let mut s = System {
-            process_list,
+impl SystemInner {
+    pub(crate) fn new() -> Self {
+        Self {
+            process_list: Process::new(Pid(0)),
             mem_total: 0,
             mem_free: 0,
             mem_available: 0,
@@ -228,12 +185,10 @@ impl SystemExt for System {
             swap_free: 0,
             cpus: CpusWrapper::new(),
             info: SystemInfo::new(),
-        };
-        s.refresh_specifics(refreshes);
-        s
+        }
     }
 
-    fn refresh_memory(&mut self) {
+    pub(crate) fn refresh_memory(&mut self) {
         let mut mem_available_found = false;
         read_table("/proc/meminfo", ':', |key, value_kib| {
             let field = match key {
@@ -301,11 +256,11 @@ impl SystemExt for System {
         }
     }
 
-    fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
+    pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         self.refresh_cpus(false, refresh_kind);
     }
 
-    fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
+    pub(crate) fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
         let uptime = self.uptime();
         refresh_procs(
             &mut self.process_list,
@@ -319,7 +274,11 @@ impl SystemExt for System {
         self.cpus.set_need_cpus_update();
     }
 
-    fn refresh_process_specifics(&mut self, pid: Pid, refresh_kind: ProcessRefreshKind) -> bool {
+    pub(crate) fn refresh_process_specifics(
+        &mut self,
+        pid: Pid,
+        refresh_kind: ProcessRefreshKind,
+    ) -> bool {
         let uptime = self.uptime();
         match _get_process_data(
             &Path::new("/proc/").join(pid.to_string()),
@@ -364,56 +323,56 @@ impl SystemExt for System {
     //
     // Need to be moved into a "common" file to avoid duplication.
 
-    fn processes(&self) -> &HashMap<Pid, Process> {
+    pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list.tasks
     }
 
-    fn process(&self, pid: Pid) -> Option<&Process> {
+    pub(crate) fn process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.tasks.get(&pid)
     }
 
-    fn global_cpu_info(&self) -> &Cpu {
+    pub(crate) fn global_cpu_info(&self) -> &Cpu {
         &self.cpus.global_cpu
     }
 
-    fn cpus(&self) -> &[Cpu] {
+    pub(crate) fn cpus(&self) -> &[Cpu] {
         &self.cpus.cpus
     }
 
-    fn physical_core_count(&self) -> Option<usize> {
+    pub(crate) fn physical_core_count(&self) -> Option<usize> {
         get_physical_core_count()
     }
 
-    fn total_memory(&self) -> u64 {
+    pub(crate) fn total_memory(&self) -> u64 {
         self.mem_total
     }
 
-    fn free_memory(&self) -> u64 {
+    pub(crate) fn free_memory(&self) -> u64 {
         self.mem_free
     }
 
-    fn available_memory(&self) -> u64 {
+    pub(crate) fn available_memory(&self) -> u64 {
         self.mem_available
     }
 
-    fn used_memory(&self) -> u64 {
+    pub(crate) fn used_memory(&self) -> u64 {
         self.mem_total - self.mem_available
     }
 
-    fn total_swap(&self) -> u64 {
+    pub(crate) fn total_swap(&self) -> u64 {
         self.swap_total
     }
 
-    fn free_swap(&self) -> u64 {
+    pub(crate) fn free_swap(&self) -> u64 {
         self.swap_free
     }
 
     // need to be checked
-    fn used_swap(&self) -> u64 {
+    pub(crate) fn used_swap(&self) -> u64 {
         self.swap_total - self.swap_free
     }
 
-    fn uptime(&self) -> u64 {
+    pub(crate) fn uptime(&self) -> u64 {
         let content = get_all_data("/proc/uptime", 50).unwrap_or_default();
         content
             .split('.')
@@ -422,11 +381,11 @@ impl SystemExt for System {
             .unwrap_or_default()
     }
 
-    fn boot_time(&self) -> u64 {
+    pub(crate) fn boot_time(&self) -> u64 {
         self.info.boot_time
     }
 
-    fn load_average(&self) -> LoadAvg {
+    pub(crate) fn load_average(&self) -> LoadAvg {
         let mut s = String::new();
         if File::open("/proc/loadavg")
             .and_then(|mut f| f.read_to_string(&mut s))
@@ -448,7 +407,7 @@ impl SystemExt for System {
     }
 
     #[cfg(not(target_os = "android"))]
-    fn name(&self) -> Option<String> {
+    pub(crate) fn name(&self) -> Option<String> {
         get_system_info_linux(
             InfoType::Name,
             Path::new("/etc/os-release"),
@@ -457,11 +416,11 @@ impl SystemExt for System {
     }
 
     #[cfg(target_os = "android")]
-    fn name(&self) -> Option<String> {
+    pub(crate) fn name(&self) -> Option<String> {
         get_system_info_android(InfoType::Name)
     }
 
-    fn long_os_version(&self) -> Option<String> {
+    pub(crate) fn long_os_version(&self) -> Option<String> {
         #[cfg(target_os = "android")]
         let system_name = "Android";
 
@@ -476,7 +435,7 @@ impl SystemExt for System {
         ))
     }
 
-    fn host_name(&self) -> Option<String> {
+    pub(crate) fn host_name(&self) -> Option<String> {
         unsafe {
             let hostname_max = sysconf(_SC_HOST_NAME_MAX);
             let mut buffer = vec![0_u8; hostname_max as usize];
@@ -493,7 +452,7 @@ impl SystemExt for System {
         }
     }
 
-    fn kernel_version(&self) -> Option<String> {
+    pub(crate) fn kernel_version(&self) -> Option<String> {
         let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
 
         unsafe {
@@ -515,7 +474,7 @@ impl SystemExt for System {
     }
 
     #[cfg(not(target_os = "android"))]
-    fn os_version(&self) -> Option<String> {
+    pub(crate) fn os_version(&self) -> Option<String> {
         get_system_info_linux(
             InfoType::OsVersion,
             Path::new("/etc/os-release"),
@@ -524,12 +483,12 @@ impl SystemExt for System {
     }
 
     #[cfg(target_os = "android")]
-    fn os_version(&self) -> Option<String> {
+    pub(crate) fn os_version(&self) -> Option<String> {
         get_system_info_android(InfoType::OsVersion)
     }
 
     #[cfg(not(target_os = "android"))]
-    fn distribution_id(&self) -> String {
+    pub(crate) fn distribution_id(&self) -> String {
         get_system_info_linux(
             InfoType::DistributionID,
             Path::new("/etc/os-release"),
@@ -539,7 +498,7 @@ impl SystemExt for System {
     }
 
     #[cfg(target_os = "android")]
-    fn distribution_id(&self) -> String {
+    pub(crate) fn distribution_id(&self) -> String {
         // Currently get_system_info_android doesn't support InfoType::DistributionID and always
         // returns None. This call is done anyway for consistency with non-Android implementation
         // and to suppress dead-code warning for DistributionID on Android.
@@ -570,12 +529,6 @@ where
                 Some((key, value0_u64))
             })
             .for_each(|(k, v)| f(k, v));
-    }
-}
-
-impl Default for System {
-    fn default() -> System {
-        System::new()
     }
 }
 

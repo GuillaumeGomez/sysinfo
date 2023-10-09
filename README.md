@@ -16,7 +16,7 @@ It currently supports the following OSes (alphabetically sorted):
 
 You can still use `sysinfo` on non-supported OSes, it'll simply do nothing and always return
 empty values. You can check in your program directly if an OS is supported by checking the
-[`SystemExt::IS_SUPPORTED`] constant.
+[`IS_SUPPORTED`] constant.
 
 The minimum-supported version of `rustc` is **1.63**.
 
@@ -36,7 +36,7 @@ Otherwise, here is a little code sample:
 ```rust
 use sysinfo::{
     Components, ComponentsExt, Disks, NetworkExt, Networks,
-    NetworksExt, ProcessExt, System, SystemExt,
+    NetworksExt, ProcessExt, System,
 };
 
 // Please note that we use "new_all" to ensure that all list of
@@ -100,7 +100,7 @@ Please remember that to have some up-to-date information, you need to call the e
 `refresh` method. For example, for the CPU usage:
 
 ```rust,no_run
-use sysinfo::{CpuExt, System, SystemExt};
+use sysinfo::{CpuExt, System};
 
 let mut sys = System::new();
 
@@ -111,7 +111,7 @@ loop {
     }
     // Sleeping to let time for the system to run for long
     // enough to have useful information.
-    std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
+    std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
 }
 ```
 

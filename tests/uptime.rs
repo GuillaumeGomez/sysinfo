@@ -2,9 +2,7 @@
 
 #[test]
 fn test_uptime() {
-    use sysinfo::SystemExt;
-
-    if sysinfo::System::IS_SUPPORTED {
+    if sysinfo::IS_SUPPORTED {
         let mut s = sysinfo::System::new();
         s.refresh_all();
         assert!(s.uptime() != 0);

@@ -2,7 +2,7 @@
 With the `serde` feature enabled, you can then serialize `sysinfo` types. Let's see an example with `serde_json`:
 
 ```
-use sysinfo::{System, SystemExt};
+use sysinfo::System;
 
 let mut sys = System::new_all();
 // First we update all information of our `System` struct.

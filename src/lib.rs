@@ -54,13 +54,17 @@ cfg_if::cfg_if! {
 pub use crate::common::{
     get_current_pid, CpuRefreshKind, Disk, DiskKind, DiskUsage, Disks, Gid, Group, LoadAvg,
     MacAddr, Networks, NetworksIter, Pid, PidExt, ProcessRefreshKind, ProcessStatus, RefreshKind,
-    Signal, Uid, Users,
+    Signal, System, Uid, Users,
 };
-pub use crate::sys::{Component, Components, Cpu, NetworkData, Process, System, User};
-pub(crate) use crate::sys::{DiskInner, DisksInner};
+
+pub use crate::sys::{
+    Component, Components, Cpu, NetworkData, Process, User, IS_SUPPORTED,
+    MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS,
+};
+pub(crate) use crate::sys::{DiskInner, DisksInner, SystemInner};
 pub use crate::traits::{
-    ComponentExt, ComponentsExt, CpuExt, GroupExt, NetworkExt, NetworksExt, ProcessExt, SystemExt,
-    UserExt, UsersExt,
+    ComponentExt, ComponentsExt, CpuExt, GroupExt, NetworkExt, NetworksExt, ProcessExt, UserExt,
+    UsersExt,
 };
 
 #[cfg(feature = "c-interface")]
@@ -90,7 +94,7 @@ mod utils;
 /// Returns `true` if the new value has been set.
 ///
 /// ```no_run
-/// use sysinfo::{System, SystemExt, set_open_files_limit};
+/// use sysinfo::{System, set_open_files_limit};
 ///
 /// // We call the function before any call to the processes update.
 /// if !set_open_files_limit(10) {
@@ -136,7 +140,7 @@ mod doctest {
     /// First we check that the "basic" code works:
     ///
     /// ```no_run
-    /// use sysinfo::{Process, System, SystemExt};
+    /// use sysinfo::{Process, System};
     ///
     /// let mut s = System::new_all();
     /// let p: &Process = s.processes().values().next().unwrap();
@@ -145,7 +149,7 @@ mod doctest {
     /// And now we check if it fails when we try to clone it:
     ///
     /// ```compile_fail
-    /// use sysinfo::{Process, System, SystemExt};
+    /// use sysinfo::{Process, System};
     ///
     /// let mut s = System::new_all();
     /// let p: &Process = s.processes().values().next().unwrap();
@@ -158,7 +162,7 @@ mod doctest {
     /// First we check that the "basic" code works:
     ///
     /// ```no_run
-    /// use sysinfo::{Process, System, SystemExt};
+    /// use sysinfo::{Process, System};
     ///
     /// let s = System::new();
     /// ```
@@ -166,7 +170,7 @@ mod doctest {
     /// And now we check if it fails when we try to clone it:
     ///
     /// ```compile_fail
-    /// use sysinfo::{Process, System, SystemExt};
+    /// use sysinfo::{Process, System};
     ///
     /// let s = System::new();
     /// let s = s.clone();
@@ -181,7 +185,19 @@ mod test {
     #[cfg(feature = "unknown-ci")]
     #[test]
     fn check_unknown_ci_feature() {
-        assert!(!System::IS_SUPPORTED);
+        assert!(!IS_SUPPORTED);
+    }
+
+    // If this test doesn't compile, it means the current OS doesn't implement them correctly.
+    #[test]
+    fn check_macro_types() {
+        fn check_is_supported(_: bool) {}
+        fn check_supported_signals(_: &'static [Signal]) {}
+        fn check_minimum_cpu_update_interval(_: std::time::Duration) {}
+
+        check_is_supported(IS_SUPPORTED);
+        check_supported_signals(SUPPORTED_SIGNALS);
+        check_minimum_cpu_update_interval(MINIMUM_CPU_UPDATE_INTERVAL);
     }
 
     #[test]
@@ -189,7 +205,7 @@ mod test {
         let mut s = System::new();
         s.refresh_all();
 
-        if System::IS_SUPPORTED {
+        if IS_SUPPORTED {
             // No process should have 0 as memory usage.
             #[cfg(not(feature = "apple-sandbox"))]
             assert!(!s.processes().iter().all(|(_, proc_)| proc_.memory() == 0));
@@ -197,6 +213,13 @@ mod test {
             // There should be no process, but if there is one, its memory usage should be 0.
             assert!(s.processes().iter().all(|(_, proc_)| proc_.memory() == 0));
         }
+    }
+
+    #[test]
+    fn check_system_implemented_traits() {
+        fn check<T: Sized + std::fmt::Debug + Default + Send + Sync>(_: T) {}
+
+        check(System::new());
     }
 
     #[test]
@@ -212,7 +235,7 @@ mod test {
         assert_eq!(s.used_swap(), 0);
 
         s.refresh_memory();
-        if System::IS_SUPPORTED {
+        if IS_SUPPORTED {
             assert!(s.total_memory() > 0);
             assert!(s.used_memory() > 0);
             if s.total_swap() > 0 {
@@ -230,7 +253,7 @@ mod test {
     #[cfg(target_os = "linux")]
     #[test]
     fn check_processes_cpu_usage() {
-        if !System::IS_SUPPORTED {
+        if !IS_SUPPORTED {
             return;
         }
         let mut s = System::new();
@@ -243,7 +266,7 @@ mod test {
             .all(|(_, proc_)| proc_.cpu_usage() == 0.0));
 
         // Wait a bit to update CPU usage values
-        std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
+        std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL);
         s.refresh_processes();
         assert!(s
             .processes()
@@ -258,14 +281,14 @@ mod test {
 
     #[test]
     fn check_cpu_usage() {
-        if !System::IS_SUPPORTED {
+        if !IS_SUPPORTED {
             return;
         }
         let mut s = System::new();
         for _ in 0..10 {
             s.refresh_cpu_usage();
             // Wait a bit to update CPU usage values
-            std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL);
+            std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL);
             if s.cpus().iter().any(|c| c.cpu_usage() > 0.0) {
                 // All good!
                 return;
@@ -290,7 +313,7 @@ mod test {
         let user_list = users.users();
         assert!(user_list.len() >= MIN_USERS);
 
-        if System::IS_SUPPORTED {
+        if IS_SUPPORTED {
             #[cfg(not(target_os = "windows"))]
             {
                 let user = user_list
@@ -322,7 +345,7 @@ mod test {
     fn check_all_process_uids_resolvable() {
         // On linux, some user IDs don't have an associated user (no idea why though).
         // If `getent` doesn't find them, we can assume it's a dark secret from the linux land.
-        if System::IS_SUPPORTED && cfg!(not(target_os = "linux")) {
+        if IS_SUPPORTED && cfg!(not(target_os = "linux")) {
             let s = System::new_with_specifics(
                 RefreshKind::new().with_processes(ProcessRefreshKind::new().with_user()),
             );
@@ -348,7 +371,7 @@ mod test {
         let s = System::new();
 
         // We don't want to test on unsupported systems.
-        if System::IS_SUPPORTED {
+        if IS_SUPPORTED {
             assert!(!s.name().expect("Failed to get system name").is_empty());
 
             assert!(!s
@@ -370,7 +393,7 @@ mod test {
     #[test]
     fn check_host_name() {
         // We don't want to test on unsupported systems.
-        if System::IS_SUPPORTED {
+        if IS_SUPPORTED {
             let s = System::new();
             assert!(s.host_name().is_some());
         }
@@ -379,7 +402,7 @@ mod test {
     #[test]
     fn check_refresh_process_return_value() {
         // We don't want to test on unsupported systems.
-        if System::IS_SUPPORTED {
+        if IS_SUPPORTED {
             let _pid = get_current_pid().expect("Failed to get current PID");
 
             #[cfg(not(feature = "apple-sandbox"))]
@@ -396,9 +419,9 @@ mod test {
     #[test]
     fn ensure_is_supported_is_set_correctly() {
         if MIN_USERS > 0 {
-            assert!(System::IS_SUPPORTED);
+            assert!(IS_SUPPORTED);
         } else {
-            assert!(!System::IS_SUPPORTED);
+            assert!(!IS_SUPPORTED);
         }
     }
 
@@ -408,7 +431,7 @@ mod test {
 
         // This information isn't retrieved by default.
         assert!(s.cpus().is_empty());
-        if System::IS_SUPPORTED {
+        if IS_SUPPORTED {
             // The physical cores count is recomputed every time the function is called, so the
             // information must be relevant even with nothing initialized.
             let physical_cores_count = s
@@ -434,14 +457,14 @@ mod test {
 
     #[test]
     fn check_nb_supported_signals() {
-        if System::IS_SUPPORTED {
+        if IS_SUPPORTED {
             assert!(
-                !System::SUPPORTED_SIGNALS.is_empty(),
+                !SUPPORTED_SIGNALS.is_empty(),
                 "SUPPORTED_SIGNALS shoudn't be empty on supported systems!"
             );
         } else {
             assert!(
-                System::SUPPORTED_SIGNALS.is_empty(),
+                SUPPORTED_SIGNALS.is_empty(),
                 "SUPPORTED_SIGNALS should be empty on not support systems!"
             );
         }
@@ -450,7 +473,7 @@ mod test {
     // Ensure that the CPUs frequency isn't retrieved until we ask for it.
     #[test]
     fn check_cpu_frequency() {
-        if !System::IS_SUPPORTED {
+        if !IS_SUPPORTED {
             return;
         }
         let mut s = System::new();
@@ -475,7 +498,7 @@ mod test {
     // so this test ensures that it doesn't happen.
     #[test]
     fn check_refresh_process_update() {
-        if !System::IS_SUPPORTED {
+        if !IS_SUPPORTED {
             return;
         }
         let mut s = System::new_all();
@@ -493,7 +516,7 @@ mod test {
     // We ensure that the `Process` cmd information is retrieved as expected.
     #[test]
     fn check_cmd_line() {
-        if !System::IS_SUPPORTED {
+        if !IS_SUPPORTED {
             return;
         }
         let mut sys = System::new();

@@ -4,9 +4,9 @@
 
 #[test]
 fn test_networks() {
-    use sysinfo::{Networks, NetworksExt, SystemExt};
+    use sysinfo::{Networks, NetworksExt};
 
-    if sysinfo::System::IS_SUPPORTED {
+    if sysinfo::IS_SUPPORTED {
         let mut n = Networks::new();
         assert_eq!(n.iter().count(), 0);
         n.refresh();

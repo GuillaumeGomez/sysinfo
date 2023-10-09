@@ -4,12 +4,12 @@
 
 #[test]
 fn test_cpu() {
-    use sysinfo::{CpuExt, SystemExt};
+    use sysinfo::CpuExt;
 
     let mut s = sysinfo::System::new();
     assert!(s.cpus().is_empty());
 
-    if !sysinfo::System::IS_SUPPORTED {
+    if !sysinfo::IS_SUPPORTED {
         return;
     }
 
@@ -30,9 +30,7 @@ fn test_cpu() {
 
 #[test]
 fn test_physical_core_numbers() {
-    use sysinfo::SystemExt;
-
-    if sysinfo::System::IS_SUPPORTED {
+    if sysinfo::IS_SUPPORTED {
         let s = sysinfo::System::new();
         let count = s.physical_core_count();
         assert_ne!(count, None);
@@ -42,7 +40,7 @@ fn test_physical_core_numbers() {
 
 #[test]
 fn test_global_cpu_info_not_set() {
-    use sysinfo::{CpuExt, SystemExt};
+    use sysinfo::CpuExt;
 
     let mut s = sysinfo::System::new();
     assert_eq!(s.global_cpu_info().vendor_id(), "");

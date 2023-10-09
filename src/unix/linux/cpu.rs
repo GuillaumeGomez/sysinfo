@@ -8,7 +8,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::time::Instant;
 
 use crate::sys::utils::to_u64;
-use crate::{CpuExt, CpuRefreshKind, SystemExt};
+use crate::{CpuExt, CpuRefreshKind};
 
 macro_rules! to_str {
     ($e:expr) => {
@@ -68,7 +68,7 @@ impl CpusWrapper {
     pub(crate) fn refresh(&mut self, only_update_global_cpu: bool, refresh_kind: CpuRefreshKind) {
         let need_cpu_usage_update = self
             .last_update
-            .map(|last_update| last_update.elapsed() > crate::System::MINIMUM_CPU_UPDATE_INTERVAL)
+            .map(|last_update| last_update.elapsed() > crate::MINIMUM_CPU_UPDATE_INTERVAL)
             .unwrap_or(true);
 
         let first = self.cpus.is_empty();
