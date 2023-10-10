@@ -2,9 +2,7 @@
 
 use crate::sys::system::is_proc_running;
 use crate::windows::Sid;
-use crate::{
-    DiskUsage, Gid, Pid, PidExt, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid,
-};
+use crate::{DiskUsage, Gid, Pid, PidExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 use std::ffi::OsString;
 use std::fmt;
@@ -185,8 +183,7 @@ impl Drop for HandleWrapper {
 unsafe impl Send for HandleWrapper {}
 unsafe impl Sync for HandleWrapper {}
 
-#[doc = include_str!("../../md_doc/process.md")]
-pub struct Process {
+pub(crate) struct ProcessInner {
     name: String,
     cmd: Vec<String>,
     exe: PathBuf,
@@ -337,12 +334,12 @@ unsafe fn get_exe(process_handler: &HandleWrapper) -> PathBuf {
     PathBuf::from(null_terminated_wchar_to_string(&exe_buf))
 }
 
-impl Process {
+impl ProcessInner {
     pub(crate) fn new_from_pid(
         pid: Pid,
         now: u64,
         refresh_kind: ProcessRefreshKind,
-    ) -> Option<Process> {
+    ) -> Option<Self> {
         unsafe {
             let process_handler = get_process_handler(pid)?;
             let mut info: MaybeUninit<PROCESS_BASIC_INFORMATION> = MaybeUninit::uninit();
@@ -377,7 +374,7 @@ impl Process {
                 None
             };
             let user_id = get_process_user_id(&process_handler, refresh_kind);
-            Some(Process {
+            Some(Self {
                 handle: Some(Arc::new(process_handler)),
                 name,
                 pid,
@@ -412,7 +409,7 @@ impl Process {
         name: String,
         now: u64,
         refresh_kind: ProcessRefreshKind,
-    ) -> Process {
+    ) -> Self {
         if let Some(handle) = get_process_handler(pid) {
             unsafe {
                 let exe = get_exe(&handle);
@@ -427,7 +424,7 @@ impl Process {
                 };
                 let (start_time, run_time) = get_start_and_run_time(*handle, now);
                 let user_id = get_process_user_id(&handle, refresh_kind);
-                Process {
+                Self {
                     handle: Some(Arc::new(handle)),
                     name,
                     pid,
@@ -453,7 +450,7 @@ impl Process {
                 }
             }
         } else {
-            Process {
+            Self {
                 handle: None,
                 name,
                 pid,
@@ -503,10 +500,8 @@ impl Process {
     pub(crate) fn get_start_time(&self) -> Option<u64> {
         self.handle.as_ref().map(|handle| get_start_time(***handle))
     }
-}
 
-impl ProcessExt for Process {
-    fn kill_with(&self, signal: Signal) -> Option<bool> {
+    pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
         crate::sys::convert_signal(signal)?;
         let mut kill = process::Command::new("taskkill.exe");
         kill.arg("/PID").arg(self.pid.to_string()).arg("/F");
@@ -517,63 +512,63 @@ impl ProcessExt for Process {
         }
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[String] {
         &self.cmd
     }
 
-    fn exe(&self) -> &Path {
+    pub(crate) fn exe(&self) -> &Path {
         self.exe.as_path()
     }
 
-    fn pid(&self) -> Pid {
+    pub(crate) fn pid(&self) -> Pid {
         self.pid
     }
 
-    fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[String] {
         &self.environ
     }
 
-    fn cwd(&self) -> &Path {
+    pub(crate) fn cwd(&self) -> &Path {
         self.cwd.as_path()
     }
 
-    fn root(&self) -> &Path {
+    pub(crate) fn root(&self) -> &Path {
         self.root.as_path()
     }
 
-    fn memory(&self) -> u64 {
+    pub(crate) fn memory(&self) -> u64 {
         self.memory
     }
 
-    fn virtual_memory(&self) -> u64 {
+    pub(crate) fn virtual_memory(&self) -> u64 {
         self.virtual_memory
     }
 
-    fn parent(&self) -> Option<Pid> {
+    pub(crate) fn parent(&self) -> Option<Pid> {
         self.parent
     }
 
-    fn status(&self) -> ProcessStatus {
+    pub(crate) fn status(&self) -> ProcessStatus {
         self.status
     }
 
-    fn start_time(&self) -> u64 {
+    pub(crate) fn start_time(&self) -> u64 {
         self.start_time
     }
 
-    fn run_time(&self) -> u64 {
+    pub(crate) fn run_time(&self) -> u64 {
         self.run_time
     }
 
-    fn cpu_usage(&self) -> f32 {
+    pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    fn disk_usage(&self) -> DiskUsage {
+    pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
             total_written_bytes: self.written_bytes,
@@ -582,23 +577,23 @@ impl ProcessExt for Process {
         }
     }
 
-    fn user_id(&self) -> Option<&Uid> {
+    pub(crate) fn user_id(&self) -> Option<&Uid> {
         self.user_id.as_ref()
     }
 
-    fn effective_user_id(&self) -> Option<&Uid> {
+    pub(crate) fn effective_user_id(&self) -> Option<&Uid> {
         None
     }
 
-    fn group_id(&self) -> Option<Gid> {
+    pub(crate) fn group_id(&self) -> Option<Gid> {
         None
     }
 
-    fn effective_group_id(&self) -> Option<Gid> {
+    pub(crate) fn effective_group_id(&self) -> Option<Gid> {
         None
     }
 
-    fn wait(&self) {
+    pub(crate) fn wait(&self) {
         if let Some(handle) = self.get_handle() {
             while is_proc_running(handle) {
                 if get_start_time(handle) != self.start_time() {
@@ -613,7 +608,7 @@ impl ProcessExt for Process {
         }
     }
 
-    fn session_id(&self) -> Option<Pid> {
+    pub(crate) fn session_id(&self) -> Option<Pid> {
         unsafe {
             let mut out = 0;
             if ProcessIdToSessionId(self.pid.as_u32(), &mut out).is_ok() {
@@ -1031,7 +1026,7 @@ fn check_sub(a: u64, b: u64) -> u64 {
 
 /// Before changing this function, you must consider the following:
 /// <https://github.com/GuillaumeGomez/sysinfo/issues/459>
-pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
+pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
     unsafe {
         let mut ftime: FILETIME = zeroed();
         let mut fsys: FILETIME = zeroed();
@@ -1081,7 +1076,7 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, nb_cpus: u64) {
     }
 }
 
-pub(crate) fn update_disk_usage(p: &mut Process) {
+pub(crate) fn update_disk_usage(p: &mut ProcessInner) {
     let mut counters = MaybeUninit::<IO_COUNTERS>::uninit();
 
     if let Some(handle) = p.get_handle() {
@@ -1099,7 +1094,7 @@ pub(crate) fn update_disk_usage(p: &mut Process) {
     }
 }
 
-pub(crate) fn update_memory(p: &mut Process) {
+pub(crate) fn update_memory(p: &mut ProcessInner) {
     if let Some(handle) = p.get_handle() {
         unsafe {
             let mut pmc: PROCESS_MEMORY_COUNTERS_EX = zeroed();

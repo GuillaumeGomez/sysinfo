@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{ProcessExt, System};
+    use crate::System;
 
     #[test]
     fn test_refresh_system() {
@@ -120,7 +120,7 @@ mod tests {
     #[test]
     #[ignore] // This test MUST be run on its own to prevent wrong CPU usage measurements.
     fn test_consecutive_cpu_usage_update() {
-        use crate::{PidExt, ProcessExt, ProcessRefreshKind, System};
+        use crate::{PidExt, ProcessRefreshKind, System};
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
         use std::time::Duration;

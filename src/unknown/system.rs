@@ -1,9 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{
-    sys::{Cpu, Process},
-    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind,
-};
+use crate::{sys::Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessRefreshKind};
 
 use std::collections::HashMap;
 

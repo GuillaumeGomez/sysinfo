@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-pub use crate::sys::inner::process::*;
+pub(crate) use crate::sys::inner::process::*;
 use crate::ProcessStatus;
 
 #[doc(hidden)]

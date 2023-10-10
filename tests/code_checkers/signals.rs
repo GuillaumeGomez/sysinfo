@@ -26,7 +26,7 @@ fn check_kill_decl<'a>(lines: &mut impl Iterator<Item = &'a str>, p: &Path) -> u
     while let Some(line) = lines.next() {
         let trimmed = line.trim();
         if trimmed.starts_with("fn kill(") {
-            show_error(p, "`ProcessExt::kill` should not be reimplemented!");
+            show_error(p, "`Process::kill` should not be reimplemented!");
             errors += 1;
         } else if trimmed.starts_with("fn kill_with(") {
             if let Some(line) = lines.next() {
@@ -34,7 +34,7 @@ fn check_kill_decl<'a>(lines: &mut impl Iterator<Item = &'a str>, p: &Path) -> u
                 if trimmed.ends_with("crate::sys::convert_signal(signal)?;") || trimmed == "None" {
                     continue;
                 } else {
-                    show_error(p, "`ProcessExt::kill_with` should use `convert_signal`");
+                    show_error(p, "`Process::kill_with` should use `convert_signal`");
                     errors += 1;
                 }
             }
@@ -52,10 +52,10 @@ pub fn check_signals(content: &str, p: &Path) -> TestResult {
 
     while let Some(line) = lines.next() {
         let trimmed = line.trim();
-        if trimmed.starts_with("impl SystemExt for System {") {
+        if trimmed.starts_with("impl SystemInner {") {
             res.nb_tests += 1;
             res.nb_errors += check_supported_signals_decl(&mut lines, p);
-        } else if trimmed.starts_with("impl ProcessExt for Process {") {
+        } else if trimmed.starts_with("impl ProcessInner {") {
             res.nb_tests += 1;
             res.nb_errors += check_kill_decl(&mut lines, p);
         }

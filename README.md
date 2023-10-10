@@ -36,7 +36,7 @@ Otherwise, here is a little code sample:
 ```rust
 use sysinfo::{
     Components, ComponentsExt, Disks, NetworkExt, Networks,
-    NetworksExt, ProcessExt, System,
+    NetworksExt, System,
 };
 
 // Please note that we use "new_all" to ensure that all list of

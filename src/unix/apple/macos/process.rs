@@ -9,13 +9,12 @@ use std::borrow::Borrow;
 
 use libc::{c_int, c_void, kill, size_t};
 
-use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
+use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 use crate::sys::process::ThreadStatus;
 use crate::sys::system::Wrap;
 
-#[doc = include_str!("../../../../md_doc/process.md")]
-pub struct Process {
+pub(crate) struct ProcessInner {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
     pub(crate) exe: PathBuf,
@@ -48,9 +47,9 @@ pub struct Process {
     pub(crate) written_bytes: u64,
 }
 
-impl Process {
-    pub(crate) fn new_empty(pid: Pid, exe: PathBuf, name: String, cwd: PathBuf) -> Process {
-        Process {
+impl ProcessInner {
+    pub(crate) fn new_empty(pid: Pid, exe: PathBuf, name: String, cwd: PathBuf) -> Self {
+        Self {
             name,
             pid,
             parent: None,
@@ -80,8 +79,8 @@ impl Process {
         }
     }
 
-    pub(crate) fn new(pid: Pid, parent: Option<Pid>, start_time: u64, run_time: u64) -> Process {
-        Process {
+    pub(crate) fn new(pid: Pid, parent: Option<Pid>, start_time: u64, run_time: u64) -> Self {
+        Self {
             name: String::new(),
             pid,
             parent,
@@ -110,55 +109,53 @@ impl Process {
             written_bytes: 0,
         }
     }
-}
 
-impl ProcessExt for Process {
-    fn kill_with(&self, signal: Signal) -> Option<bool> {
+    pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
         let c_signal = crate::sys::convert_signal(signal)?;
         unsafe { Some(kill(self.pid.0, c_signal) == 0) }
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[String] {
         &self.cmd
     }
 
-    fn exe(&self) -> &Path {
+    pub(crate) fn exe(&self) -> &Path {
         self.exe.as_path()
     }
 
-    fn pid(&self) -> Pid {
+    pub(crate) fn pid(&self) -> Pid {
         self.pid
     }
 
-    fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[String] {
         &self.environ
     }
 
-    fn cwd(&self) -> &Path {
+    pub(crate) fn cwd(&self) -> &Path {
         self.cwd.as_path()
     }
 
-    fn root(&self) -> &Path {
+    pub(crate) fn root(&self) -> &Path {
         self.root.as_path()
     }
 
-    fn memory(&self) -> u64 {
+    pub(crate) fn memory(&self) -> u64 {
         self.memory
     }
 
-    fn virtual_memory(&self) -> u64 {
+    pub(crate) fn virtual_memory(&self) -> u64 {
         self.virtual_memory
     }
 
-    fn parent(&self) -> Option<Pid> {
+    pub(crate) fn parent(&self) -> Option<Pid> {
         self.parent
     }
 
-    fn status(&self) -> ProcessStatus {
+    pub(crate) fn status(&self) -> ProcessStatus {
         // If the status is `Run`, then it's very likely wrong so we instead
         // return a `ProcessStatus` converted from the `ThreadStatus`.
         if self.process_status == ProcessStatus::Run {
@@ -169,19 +166,19 @@ impl ProcessExt for Process {
         self.process_status
     }
 
-    fn start_time(&self) -> u64 {
+    pub(crate) fn start_time(&self) -> u64 {
         self.start_time
     }
 
-    fn run_time(&self) -> u64 {
+    pub(crate) fn run_time(&self) -> u64 {
         self.run_time
     }
 
-    fn cpu_usage(&self) -> f32 {
+    pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    fn disk_usage(&self) -> DiskUsage {
+    pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             read_bytes: self.read_bytes.saturating_sub(self.old_read_bytes),
             total_read_bytes: self.read_bytes,
@@ -190,23 +187,23 @@ impl ProcessExt for Process {
         }
     }
 
-    fn user_id(&self) -> Option<&Uid> {
+    pub(crate) fn user_id(&self) -> Option<&Uid> {
         self.user_id.as_ref()
     }
 
-    fn effective_user_id(&self) -> Option<&Uid> {
+    pub(crate) fn effective_user_id(&self) -> Option<&Uid> {
         self.effective_user_id.as_ref()
     }
 
-    fn group_id(&self) -> Option<Gid> {
+    pub(crate) fn group_id(&self) -> Option<Gid> {
         self.group_id
     }
 
-    fn effective_group_id(&self) -> Option<Gid> {
+    pub(crate) fn effective_group_id(&self) -> Option<Gid> {
         self.effective_group_id
     }
 
-    fn wait(&self) {
+    pub(crate) fn wait(&self) {
         let mut status = 0;
         // attempt waiting
         unsafe {
@@ -220,7 +217,7 @@ impl ProcessExt for Process {
         }
     }
 
-    fn session_id(&self) -> Option<Pid> {
+    pub(crate) fn session_id(&self) -> Option<Pid> {
         unsafe {
             let session_id = libc::getsid(self.pid.0);
             if session_id < 0 {
@@ -234,7 +231,7 @@ impl ProcessExt for Process {
 
 #[allow(deprecated)] // Because of libc::mach_absolute_time.
 pub(crate) fn compute_cpu_usage(
-    p: &mut Process,
+    p: &mut ProcessInner,
     task_info: libc::proc_taskinfo,
     system_time: u64,
     user_time: u64,
@@ -394,7 +391,9 @@ unsafe fn create_new_process(
                         .and_then(|x| x.to_str())
                         .unwrap_or("")
                         .to_owned();
-                    return Ok(Some(Process::new_empty(pid, exe, name, cwd)));
+                    return Ok(Some(Process {
+                        inner: ProcessInner::new_empty(pid, exe, name, cwd),
+                    }));
                 }
                 _ => {}
             }
@@ -529,7 +528,7 @@ unsafe fn create_new_process(
         } else {
             get_environ(ptr, cp, size, PathBuf::new(), do_get_env_path)
         };
-        let mut p = Process::new(pid, parent, start_time, run_time);
+        let mut p = ProcessInner::new(pid, parent, start_time, run_time);
 
         p.exe = exe;
         p.name = name;
@@ -539,7 +538,7 @@ unsafe fn create_new_process(
         p.root = root;
         p
     } else {
-        Process::new(pid, parent, start_time, run_time)
+        ProcessInner::new(pid, parent, start_time, run_time)
     };
 
     let task_info = get_task_info(pid);
@@ -555,7 +554,7 @@ unsafe fn create_new_process(
     if refresh_kind.disk_usage() {
         update_proc_disk_activity(&mut p);
     }
-    Ok(Some(p))
+    Ok(Some(Process { inner: p }))
 }
 
 pub(crate) fn update_process(
@@ -569,6 +568,7 @@ pub(crate) fn update_process(
 ) -> Result<Option<Process>, ()> {
     unsafe {
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
+            let p = &mut p.inner;
             if p.memory == 0 {
                 // We don't have access to this process' information.
                 return if check_if_pid_is_alive(pid, check_if_alive) {
@@ -627,7 +627,7 @@ pub(crate) fn update_process(
     }
 }
 
-fn update_proc_disk_activity(p: &mut Process) {
+fn update_proc_disk_activity(p: &mut ProcessInner) {
     p.old_read_bytes = p.read_bytes;
     p.old_written_bytes = p.written_bytes;
 

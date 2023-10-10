@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use sysinfo::{Pid, PidExt, ProcessExt};
+use sysinfo::{Pid, PidExt};
 
 #[test]
 fn test_process() {
@@ -211,7 +211,7 @@ fn test_process_disk_usage() {
     use std::fs;
     use std::fs::File;
     use std::io::prelude::*;
-    use sysinfo::{get_current_pid, ProcessExt};
+    use sysinfo::get_current_pid;
 
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
@@ -426,7 +426,7 @@ fn test_refresh_tasks() {
     assert!(s
         .process(pid)
         .unwrap()
-        .tasks
+        .tasks()
         .values()
         .any(|t| t.name() == task_name));
 
@@ -438,7 +438,7 @@ fn test_refresh_tasks() {
     assert!(!s
         .process(pid)
         .unwrap()
-        .tasks
+        .tasks()
         .values()
         .any(|t| t.name() == task_name));
 }
@@ -599,7 +599,7 @@ fn test_process_iterator_lifetimes() {
 // Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/918>.
 #[test]
 fn test_process_cpu_usage() {
-    use sysinfo::{ProcessExt, System};
+    use sysinfo::System;
 
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
@@ -618,7 +618,7 @@ fn test_process_cpu_usage() {
 
 #[test]
 fn test_process_creds() {
-    use sysinfo::{ProcessExt, System};
+    use sysinfo::System;
 
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
