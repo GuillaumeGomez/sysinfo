@@ -15,7 +15,7 @@ use crate::sys::utils::{
     get_all_data, get_all_data_from_file, realpath, FileCounter, PathHandler, PathPush,
 };
 use crate::utils::into_iter;
-use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
+use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 #[doc(hidden)]
 impl From<char> for ProcessStatus {
@@ -56,8 +56,7 @@ impl fmt::Display for ProcessStatus {
     }
 }
 
-#[doc = include_str!("../../../md_doc/process.md")]
-pub struct Process {
+pub(crate) struct ProcessInner {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
     pub(crate) exe: PathBuf,
@@ -82,8 +81,7 @@ pub struct Process {
     group_id: Option<Gid>,
     effective_group_id: Option<Gid>,
     pub(crate) status: ProcessStatus,
-    /// Tasks run by this process.
-    pub tasks: HashMap<Pid, Process>,
+    pub(crate) tasks: HashMap<Pid, Process>,
     pub(crate) stat_file: Option<FileCounter>,
     old_read_bytes: u64,
     old_written_bytes: u64,
@@ -91,9 +89,9 @@ pub struct Process {
     written_bytes: u64,
 }
 
-impl Process {
-    pub(crate) fn new(pid: Pid) -> Process {
-        Process {
+impl ProcessInner {
+    pub(crate) fn new(pid: Pid) -> Self {
+        Self {
             name: String::with_capacity(20),
             pid,
             parent: None,
@@ -130,71 +128,69 @@ impl Process {
             written_bytes: 0,
         }
     }
-}
 
-impl ProcessExt for Process {
-    fn kill_with(&self, signal: Signal) -> Option<bool> {
+    pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
         let c_signal = crate::sys::convert_signal(signal)?;
         unsafe { Some(kill(self.pid.0, c_signal) == 0) }
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[String] {
         &self.cmd
     }
 
-    fn exe(&self) -> &Path {
+    pub(crate) fn exe(&self) -> &Path {
         self.exe.as_path()
     }
 
-    fn pid(&self) -> Pid {
+    pub(crate) fn pid(&self) -> Pid {
         self.pid
     }
 
-    fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[String] {
         &self.environ
     }
 
-    fn cwd(&self) -> &Path {
+    pub(crate) fn cwd(&self) -> &Path {
         self.cwd.as_path()
     }
 
-    fn root(&self) -> &Path {
+    pub(crate) fn root(&self) -> &Path {
         self.root.as_path()
     }
 
-    fn memory(&self) -> u64 {
+    pub(crate) fn memory(&self) -> u64 {
         self.memory
     }
 
-    fn virtual_memory(&self) -> u64 {
+    pub(crate) fn virtual_memory(&self) -> u64 {
         self.virtual_memory
     }
 
-    fn parent(&self) -> Option<Pid> {
+    pub(crate) fn parent(&self) -> Option<Pid> {
         self.parent
     }
 
-    fn status(&self) -> ProcessStatus {
+    pub(crate) fn status(&self) -> ProcessStatus {
         self.status
     }
 
-    fn start_time(&self) -> u64 {
+    pub(crate) fn start_time(&self) -> u64 {
         self.start_time
     }
 
-    fn run_time(&self) -> u64 {
+    pub(crate) fn run_time(&self) -> u64 {
         self.run_time
     }
 
-    fn cpu_usage(&self) -> f32 {
+    pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    fn disk_usage(&self) -> DiskUsage {
+    pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
             total_written_bytes: self.written_bytes,
@@ -203,23 +199,23 @@ impl ProcessExt for Process {
         }
     }
 
-    fn user_id(&self) -> Option<&Uid> {
+    pub(crate) fn user_id(&self) -> Option<&Uid> {
         self.user_id.as_ref()
     }
 
-    fn effective_user_id(&self) -> Option<&Uid> {
+    pub(crate) fn effective_user_id(&self) -> Option<&Uid> {
         self.effective_user_id.as_ref()
     }
 
-    fn group_id(&self) -> Option<Gid> {
+    pub(crate) fn group_id(&self) -> Option<Gid> {
         self.group_id
     }
 
-    fn effective_group_id(&self) -> Option<Gid> {
+    pub(crate) fn effective_group_id(&self) -> Option<Gid> {
         self.effective_group_id
     }
 
-    fn wait(&self) {
+    pub(crate) fn wait(&self) {
         let mut status = 0;
         // attempt waiting
         unsafe {
@@ -233,7 +229,7 @@ impl ProcessExt for Process {
         }
     }
 
-    fn session_id(&self) -> Option<Pid> {
+    pub(crate) fn session_id(&self) -> Option<Pid> {
         unsafe {
             let session_id = libc::getsid(self.pid.0);
             if session_id < 0 {
@@ -245,7 +241,7 @@ impl ProcessExt for Process {
     }
 }
 
-pub(crate) fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32) {
+pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, total_time: f32, max_value: f32) {
     // First time updating the values without reference, wait for a second cycle to update cpu_usage
     if p.old_utime == 0 && p.old_stime == 0 {
         return;
@@ -262,18 +258,18 @@ pub(crate) fn compute_cpu_usage(p: &mut Process, total_time: f32, max_value: f32
         .min(max_value);
 
     for task in p.tasks.values_mut() {
-        compute_cpu_usage(task, total_time, max_value);
+        compute_cpu_usage(&mut task.inner, total_time, max_value);
     }
 }
 
-pub(crate) fn unset_updated(p: &mut Process) {
+pub(crate) fn unset_updated(p: &mut ProcessInner) {
     p.updated = false;
     for task in p.tasks.values_mut() {
-        unset_updated(task);
+        unset_updated(&mut task.inner);
     }
 }
 
-pub(crate) fn set_time(p: &mut Process, utime: u64, stime: u64) {
+pub(crate) fn set_time(p: &mut ProcessInner, utime: u64, stime: u64) {
     p.old_utime = p.utime;
     p.old_stime = p.stime;
     p.utime = utime;
@@ -281,7 +277,7 @@ pub(crate) fn set_time(p: &mut Process, utime: u64, stime: u64) {
     p.updated = true;
 }
 
-pub(crate) fn update_process_disk_activity(p: &mut Process, path: &Path) {
+pub(crate) fn update_process_disk_activity(p: &mut ProcessInner, path: &Path) {
     let data = match get_all_data(path.join("io"), 16_384) {
         Ok(d) => d,
         Err(_) => return,
@@ -341,7 +337,7 @@ fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<St
 }
 
 #[inline(always)]
-fn get_status(p: &mut Process, part: &str) {
+fn get_status(p: &mut ProcessInner, part: &str) {
     p.status = part
         .chars()
         .next()
@@ -349,7 +345,7 @@ fn get_status(p: &mut Process, part: &str) {
         .unwrap_or_else(|| ProcessStatus::Unknown(0));
 }
 
-fn refresh_user_group_ids<P: PathPush>(p: &mut Process, path: &mut P) {
+fn refresh_user_group_ids<P: PathPush>(p: &mut ProcessInner, path: &mut P) {
     if let Some(((user_id, effective_user_id), (group_id, effective_group_id))) =
         get_uid_and_gid(path.join("status"))
     {
@@ -362,14 +358,14 @@ fn refresh_user_group_ids<P: PathPush>(p: &mut Process, path: &mut P) {
 
 fn retrieve_all_new_process_info(
     pid: Pid,
-    proc_list: &Process,
+    proc_list: &ProcessInner,
     parts: &[&str],
     path: &Path,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
     uptime: u64,
 ) -> Process {
-    let mut p = Process::new(pid);
+    let mut p = ProcessInner::new(pid);
     let mut tmp = PathHandler::new(path);
     let name = parts[1];
 
@@ -424,12 +420,12 @@ fn retrieve_all_new_process_info(
     if refresh_kind.disk_usage() {
         update_process_disk_activity(&mut p, path);
     }
-    p
+    Process { inner: p }
 }
 
 pub(crate) fn _get_process_data(
     path: &Path,
-    proc_list: &mut Process,
+    proc_list: &mut ProcessInner,
     pid: Pid,
     uptime: u64,
     info: &SystemInfo,
@@ -450,6 +446,7 @@ pub(crate) fn _get_process_data(
 
     let data;
     let parts = if let Some(ref mut entry) = proc_list.tasks.get_mut(&pid) {
+        let entry = &mut entry.inner;
         data = if let Some(mut f) = entry.stat_file.take() {
             match get_all_data_from_file(&mut f, 1024) {
                 Ok(data) => {
@@ -500,7 +497,7 @@ pub(crate) fn _get_process_data(
 
         let mut p =
             retrieve_all_new_process_info(pid, proc_list, &parts, path, info, refresh_kind, uptime);
-        p.stat_file = stat_file;
+        p.inner.stat_file = stat_file;
         return Ok((Some(p), pid));
     };
 
@@ -519,7 +516,7 @@ pub(crate) fn _get_process_data(
 #[allow(clippy::too_many_arguments)]
 fn update_time_and_memory(
     path: &Path,
-    entry: &mut Process,
+    entry: &mut ProcessInner,
     parts: &[&str],
     parent_memory: u64,
     parent_virtual_memory: u64,
@@ -559,7 +556,7 @@ fn update_time_and_memory(
 }
 
 pub(crate) fn refresh_procs(
-    proc_list: &mut Process,
+    proc_list: &mut ProcessInner,
     path: &Path,
     pid: Pid,
     uptime: u64,

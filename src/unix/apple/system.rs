@@ -1,13 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::cpu::*;
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
-use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind};
-
-#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-use crate::ProcessExt;
+use crate::{CpuRefreshKind, LoadAvg, Pid, Process, ProcessRefreshKind};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -210,7 +208,7 @@ impl SystemInner {
                 self.process_list.insert(entry.pid(), entry);
             });
             self.process_list
-                .retain(|_, proc_| std::mem::replace(&mut proc_.updated, false));
+                .retain(|_, proc_| std::mem::replace(&mut proc_.inner.updated, false));
         }
     }
 

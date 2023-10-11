@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Component, Components, ComponentsExt, Cpu, GroupExt, NetworkData, NetworksExt, Process,
-    ProcessExt, SystemInner, User, UserExt, UsersExt,
+    Component, Components, ComponentsExt, Cpu, GroupExt, NetworkData, NetworksExt, ProcessInner,
+    SystemInner, User, UserExt, UsersExt,
 };
 
 use std::cmp::Ordering;
@@ -302,7 +302,7 @@ impl System {
     /// Returns the process list.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System};
+    /// use sysinfo::System;
     ///
     /// let s = System::new_all();
     /// for (pid, process) in s.processes() {
@@ -316,7 +316,7 @@ impl System {
     /// Returns the process corresponding to the given `pid` or `None` if no such process exists.
     ///
     /// ```no_run
-    /// use sysinfo::{Pid, ProcessExt, System};
+    /// use sysinfo::{Pid, System};
     ///
     /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
@@ -339,7 +339,7 @@ impl System {
     ///  2. It is not always the exe name.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System};
+    /// use sysinfo::System;
     ///
     /// let s = System::new_all();
     /// for process in s.processes_by_name("htop") {
@@ -370,7 +370,7 @@ impl System {
     ///  2. It is not always the exe name.
     ///
     /// ```no_run
-    /// use sysinfo::{ProcessExt, System};
+    /// use sysinfo::System;
     ///
     /// let s = System::new_all();
     /// for process in s.processes_by_exact_name("htop") {
@@ -678,6 +678,455 @@ impl System {
     }
 }
 
+/// Struct containing information of a process.
+///
+/// ## iOS
+///
+/// This information cannot be retrieved on iOS due to sandboxing.
+///
+/// ## Apple app store
+///
+/// If you are building a macOS Apple app store, it won't be able
+/// to retrieve this information.
+///
+/// ```no_run
+/// use sysinfo::{Pid, System};
+///
+/// let s = System::new_all();
+/// if let Some(process) = s.process(Pid::from(1337)) {
+///     println!("{}", process.name());
+/// }
+/// ```
+pub struct Process {
+    pub(crate) inner: ProcessInner,
+}
+
+impl Process {
+    /// Sends [`Signal::Kill`] to the process (which is the only signal supported on all supported
+    /// platforms by this crate).
+    ///
+    /// If you want to send another signal, take a look at [`Process::kill_with`].
+    ///
+    /// To get the list of the supported signals on this system, use
+    /// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     process.kill();
+    /// }
+    /// ```
+    pub fn kill(&self) -> bool {
+        self.kill_with(Signal::Kill).unwrap_or(false)
+    }
+
+    /// Sends the given `signal` to the process. If the signal doesn't exist on this platform,
+    /// it'll do nothing and will return `None`. Otherwise it'll return if the signal was sent
+    /// successfully.
+    ///
+    /// If you just want to kill the process, use [`Process::kill`] directly.
+    ///
+    /// To get the list of the supported signals on this system, use
+    /// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, Signal, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     if process.kill_with(Signal::Kill).is_none() {
+    ///         eprintln!("This signal isn't supported on this platform");
+    ///     }
+    /// }
+    /// ```
+    pub fn kill_with(&self, signal: Signal) -> Option<bool> {
+        self.inner.kill_with(signal)
+    }
+
+    /// Returns the name of the process.
+    ///
+    /// **⚠️ Important ⚠️**
+    ///
+    /// On **Linux**, there are two things to know about processes' name:
+    ///  1. It is limited to 15 characters.
+    ///  2. It is not always the exe name.
+    ///
+    /// If you are looking for a specific process, unless you know what you are
+    /// doing, in most cases it's better to use [`Process::exe`] instead (which
+    /// can be empty sometimes!).
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{}", process.name());
+    /// }
+    /// ```
+    pub fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    /// Returns the command line.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{:?}", process.cmd());
+    /// }
+    /// ```
+    pub fn cmd(&self) -> &[String] {
+        self.inner.cmd()
+    }
+
+    /// Returns the path to the process.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{}", process.exe().display());
+    /// }
+    /// ```
+    ///
+    /// ### Implementation notes
+    ///
+    /// On Linux, this method will return an empty path if there
+    /// was an error trying to read `/proc/<pid>/exe`. This can
+    /// happen, for example, if the permission levels or UID namespaces
+    /// between the caller and target processes are different.
+    ///
+    /// It is also the case that `cmd[0]` is _not_ usually a correct
+    /// replacement for this.
+    /// A process [may change its `cmd[0]` value](https://man7.org/linux/man-pages/man5/proc.5.html)
+    /// freely, making this an untrustworthy source of information.
+    pub fn exe(&self) -> &Path {
+        self.inner.exe()
+    }
+
+    /// Returns the PID of the process.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{}", process.pid());
+    /// }
+    /// ```
+    pub fn pid(&self) -> Pid {
+        self.inner.pid()
+    }
+
+    /// Returns the environment variables of the process.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{:?}", process.environ());
+    /// }
+    /// ```
+    pub fn environ(&self) -> &[String] {
+        self.inner.environ()
+    }
+
+    /// Returns the current working directory.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{}", process.cwd().display());
+    /// }
+    /// ```
+    pub fn cwd(&self) -> &Path {
+        self.inner.cwd()
+    }
+
+    /// Returns the path of the root directory.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{}", process.root().display());
+    /// }
+    /// ```
+    pub fn root(&self) -> &Path {
+        self.inner.root()
+    }
+
+    /// Returns the memory usage (in bytes).
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{} bytes", process.memory());
+    /// }
+    /// ```
+    pub fn memory(&self) -> u64 {
+        self.inner.memory()
+    }
+
+    /// Returns the virtual memory usage (in bytes).
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{} bytes", process.virtual_memory());
+    /// }
+    /// ```
+    pub fn virtual_memory(&self) -> u64 {
+        self.inner.virtual_memory()
+    }
+
+    /// Returns the parent PID.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{:?}", process.parent());
+    /// }
+    /// ```
+    pub fn parent(&self) -> Option<Pid> {
+        self.inner.parent()
+    }
+
+    /// Returns the status of the process.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{:?}", process.status());
+    /// }
+    /// ```
+    pub fn status(&self) -> ProcessStatus {
+        self.inner.status()
+    }
+
+    /// Returns the time where the process was started (in seconds) from epoch.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("Started at {} seconds", process.start_time());
+    /// }
+    /// ```
+    pub fn start_time(&self) -> u64 {
+        self.inner.start_time()
+    }
+
+    /// Returns for how much time the process has been running (in seconds).
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("Running since {} seconds", process.run_time());
+    /// }
+    /// ```
+    pub fn run_time(&self) -> u64 {
+        self.inner.run_time()
+    }
+
+    /// Returns the total CPU usage (in %). Notice that it might be bigger than
+    /// 100 if run on a multi-core machine.
+    ///
+    /// If you want a value between 0% and 100%, divide the returned value by
+    /// the number of CPUs.
+    ///
+    /// ⚠️ To start to have accurate CPU usage, a process needs to be refreshed
+    /// **twice** because CPU usage computation is based on time diff (process
+    /// time on a given time period divided by total system time on the same
+    /// time period).
+    ///
+    /// ⚠️ If you want accurate CPU usage number, better leave a bit of time
+    /// between two calls of this method (take a look at
+    /// [`MINIMUM_CPU_UPDATE_INTERVAL`][crate::MINIMUM_CPU_UPDATE_INTERVAL] for
+    /// more information).
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{}%", process.cpu_usage());
+    /// }
+    /// ```
+    pub fn cpu_usage(&self) -> f32 {
+        self.inner.cpu_usage()
+    }
+
+    /// Returns number of bytes read and written to disk.
+    ///
+    /// ⚠️ On Windows and FreeBSD, this method actually returns **ALL** I/O
+    /// read and written bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     let disk_usage = process.disk_usage();
+    ///     println!("read bytes   : new/total => {}/{}",
+    ///         disk_usage.read_bytes,
+    ///         disk_usage.total_read_bytes,
+    ///     );
+    ///     println!("written bytes: new/total => {}/{}",
+    ///         disk_usage.written_bytes,
+    ///         disk_usage.total_written_bytes,
+    ///     );
+    /// }
+    /// ```
+    pub fn disk_usage(&self) -> DiskUsage {
+        self.inner.disk_usage()
+    }
+
+    /// Returns the ID of the owner user of this process or `None` if this
+    /// information couldn't be retrieved. If you want to get the [`User`] from
+    /// it, take a look at [`UsersExt::get_user_by_id`].
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     eprintln!("User id for process 1337: {:?}", process.user_id());
+    /// }
+    /// ```
+    pub fn user_id(&self) -> Option<&Uid> {
+        self.inner.user_id()
+    }
+
+    /// Returns the user ID of the effective owner of this process or `None` if
+    /// this information couldn't be retrieved. If you want to get the [`User`]
+    /// from it, take a look at [`UsersExt::get_user_by_id`].
+    ///
+    /// If you run something with `sudo`, the real user ID of the launched
+    /// process will be the ID of the user you are logged in as but effective
+    /// user ID will be `0` (i-e root).
+    ///
+    /// ⚠️ It always returns `None` on Windows.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     eprintln!("User id for process 1337: {:?}", process.effective_user_id());
+    /// }
+    /// ```
+    pub fn effective_user_id(&self) -> Option<&Uid> {
+        self.inner.effective_user_id()
+    }
+
+    /// Returns the process group ID of the process.
+    ///
+    /// ⚠️ It always returns `None` on Windows.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     eprintln!("Group ID for process 1337: {:?}", process.group_id());
+    /// }
+    /// ```
+    pub fn group_id(&self) -> Option<Gid> {
+        self.inner.group_id()
+    }
+
+    /// Returns the effective group ID of the process.
+    ///
+    /// If you run something with `sudo`, the real group ID of the launched
+    /// process will be the primary group ID you are logged in as but effective
+    /// group ID will be `0` (i-e root).
+    ///
+    /// ⚠️ It always returns `None` on Windows.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     eprintln!("User id for process 1337: {:?}", process.effective_group_id());
+    /// }
+    /// ```
+    pub fn effective_group_id(&self) -> Option<Gid> {
+        self.inner.effective_group_id()
+    }
+
+    /// Wait for process termination.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     eprintln!("Waiting for pid 1337");
+    ///     process.wait();
+    ///     eprintln!("Pid 1337 exited");
+    /// }
+    /// ```
+    pub fn wait(&self) {
+        self.inner.wait()
+    }
+
+    /// Returns the session ID for the current process or `None` if it couldn't
+    /// be retrieved.
+    ///
+    /// ⚠️ This information is computed every time this method is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     eprintln!("Session ID for process 1337: {:?}", process.session_id());
+    /// }
+    /// ```
+    pub fn session_id(&self) -> Option<Pid> {
+        self.inner.session_id()
+    }
+
+    /// Tasks run by this process.
+    ///
+    /// ⚠️ This method is only available on Linux.
+    #[cfg(all(
+        any(target_os = "linux", target_os = "android"),
+        not(feature = "unknown-ci")
+    ))]
+    pub fn tasks(&self) -> &HashMap<Pid, Process> {
+        &self.inner.tasks
+    }
+}
+
 /// Trait to have a common conversions for the [`Pid`][crate::Pid] type.
 ///
 /// ```
@@ -884,7 +1333,7 @@ assert_eq!(r.", stringify!($name), "().is_some(), false);
 /// extra computation.
 ///
 /// ```
-/// use sysinfo::{ProcessExt, ProcessRefreshKind, System};
+/// use sysinfo::{ProcessRefreshKind, System};
 ///
 /// let mut system = System::new();
 ///
@@ -1809,10 +2258,10 @@ impl GroupExt for Group {
 
 /// Type containing read and written bytes.
 ///
-/// It is returned by [`ProcessExt::disk_usage`][crate::ProcessExt::disk_usage].
+/// It is returned by [`Process::disk_usage`][crate::Process::disk_usage].
 ///
 /// ```no_run
-/// use sysinfo::{ProcessExt, System};
+/// use sysinfo::System;
 ///
 /// let s = System::new_all();
 /// for (pid, process) in s.processes() {

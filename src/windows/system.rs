@@ -1,11 +1,12 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessExt, ProcessRefreshKind};
+use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind};
 
 use crate::sys::cpu::*;
-use crate::sys::process::{get_start_time, update_memory, Process};
+use crate::sys::process::{get_start_time, update_memory};
 use crate::sys::tools::*;
 use crate::sys::utils::{get_now, get_reg_string_value, get_reg_value_u32};
+use crate::{Process, ProcessInner};
 
 use crate::utils::into_iter;
 
@@ -178,10 +179,10 @@ impl SystemInner {
             }
             // We need to re-make the process because the PID owner changed.
         }
-        if let Some(mut p) = Process::new_from_pid(pid, now, refresh_kind) {
+        if let Some(mut p) = ProcessInner::new_from_pid(pid, now, refresh_kind) {
             p.update(refresh_kind, nb_cpus, now);
             p.updated = false;
-            self.process_list.insert(pid, p);
+            self.process_list.insert(pid, Process { inner: p });
             true
         } else {
             false
@@ -283,6 +284,7 @@ impl SystemInner {
                 let pi = unsafe { ptr::read_unaligned(pi.0) };
                 let pid = Pid(pi.UniqueProcessId as _);
                 if let Some(proc_) = unsafe { (*process_list.0.get()).get_mut(&pid) } {
+                    let proc_ = &mut proc_.inner;
                     if proc_
                         .get_start_time()
                         .map(|start| start == proc_.start_time())
@@ -297,7 +299,7 @@ impl SystemInner {
                     sysinfo_debug!("owner changed for PID {}", proc_.pid());
                 }
                 let name = get_process_name(&pi, pid);
-                let mut p = Process::new_full(
+                let mut p = ProcessInner::new_full(
                     pid,
                     if pi.InheritedFromUniqueProcessId as usize != 0 {
                         Some(Pid(pi.InheritedFromUniqueProcessId as _))
@@ -311,15 +313,15 @@ impl SystemInner {
                     refresh_kind,
                 );
                 p.update(refresh_kind, nb_cpus, now);
-                Some(p)
+                Some(Process { inner: p })
             })
             .collect::<Vec<_>>();
         for p in processes.into_iter() {
             self.process_list.insert(p.pid(), p);
         }
         self.process_list.retain(|_, v| {
-            let x = v.updated;
-            v.updated = false;
+            let x = v.inner.updated;
+            v.inner.updated = false;
             x
         });
     }
@@ -458,6 +460,7 @@ fn refresh_existing_process(
     now: u64,
     refresh_kind: ProcessRefreshKind,
 ) -> Option<bool> {
+    let proc_ = &mut proc_.inner;
     if let Some(handle) = proc_.get_handle() {
         if get_start_time(handle) != proc_.start_time() {
             sysinfo_debug!("owner changed for PID {}", proc_.pid());

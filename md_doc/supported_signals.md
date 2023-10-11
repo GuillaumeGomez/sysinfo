@@ -1,5 +1,5 @@
 Returns the list of the supported signals on this system (used by
-[`ProcessExt::kill_with`][crate::ProcessExt::kill_with]).
+[`Process::kill_with`][crate::Process::kill_with]).
 
 ```
 use sysinfo::{System, SUPPORTED_SIGNALS};

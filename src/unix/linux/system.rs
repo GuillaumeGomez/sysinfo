@@ -1,9 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::cpu::*;
-use crate::sys::process::*;
+use crate::sys::process::{_get_process_data, compute_cpu_usage, refresh_procs, unset_updated};
 use crate::sys::utils::{get_all_data, to_u64};
-use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind};
+use crate::{CpuRefreshKind, LoadAvg, Pid, Process, ProcessInner, ProcessRefreshKind};
 
 use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cmp::min;
@@ -153,7 +153,8 @@ impl SystemInner {
             (0., false, 0.)
         };
 
-        self.process_list.tasks.retain(|_, proc_| {
+        self.process_list.inner.tasks.retain(|_, proc_| {
+            let proc_ = &mut proc_.inner;
             if !proc_.updated {
                 return false;
             }
@@ -173,7 +174,9 @@ impl SystemInner {
 impl SystemInner {
     pub(crate) fn new() -> Self {
         Self {
-            process_list: Process::new(Pid(0)),
+            process_list: Process {
+                inner: ProcessInner::new(Pid(0)),
+            },
             mem_total: 0,
             mem_free: 0,
             mem_available: 0,
@@ -263,7 +266,7 @@ impl SystemInner {
     pub(crate) fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
         let uptime = self.uptime();
         refresh_procs(
-            &mut self.process_list,
+            &mut self.process_list.inner,
             Path::new("/proc"),
             Pid(0),
             uptime,
@@ -282,14 +285,14 @@ impl SystemInner {
         let uptime = self.uptime();
         match _get_process_data(
             &Path::new("/proc/").join(pid.to_string()),
-            &mut self.process_list,
+            &mut self.process_list.inner,
             Pid(0),
             uptime,
             &self.info,
             refresh_kind,
         ) {
             Ok((Some(p), pid)) => {
-                self.process_list.tasks.insert(pid, p);
+                self.process_list.inner.tasks.insert(pid, p);
             }
             Ok(_) => {}
             Err(_e) => {
@@ -309,12 +312,13 @@ impl SystemInner {
             let total_time = total_time / self.cpus.len() as f32;
 
             let max_cpu_usage = self.get_max_process_cpu_usage();
-            if let Some(p) = self.process_list.tasks.get_mut(&pid) {
+            if let Some(p) = self.process_list.inner.tasks.get_mut(&pid) {
+                let p = &mut p.inner;
                 compute_cpu_usage(p, total_time, max_cpu_usage);
                 unset_updated(p);
             }
-        } else if let Some(p) = self.process_list.tasks.get_mut(&pid) {
-            unset_updated(p);
+        } else if let Some(p) = self.process_list.inner.tasks.get_mut(&pid) {
+            unset_updated(&mut p.inner);
         }
         true
     }
@@ -324,11 +328,11 @@ impl SystemInner {
     // Need to be moved into a "common" file to avoid duplication.
 
     pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
-        &self.process_list.tasks
+        &self.process_list.inner.tasks
     }
 
     pub(crate) fn process(&self, pid: Pid) -> Option<&Process> {
-        self.process_list.tasks.get(&pid)
+        self.process_list.inner.tasks.get(&pid)
     }
 
     pub(crate) fn global_cpu_info(&self) -> &Cpu {

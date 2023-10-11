@@ -1,9 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{
-    sys::{Cpu, Process},
-    CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind,
-};
+use crate::{sys::Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessInner, ProcessRefreshKind};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -266,7 +263,7 @@ impl SystemInner {
 
         // We remove all processes that don't exist anymore.
         self.process_list
-            .retain(|_, v| std::mem::replace(&mut v.updated, false));
+            .retain(|_, v| std::mem::replace(&mut v.inner.updated, false));
 
         for (kproc, proc_) in procs {
             self.add_missing_proc_info(kd, kproc, proc_);
@@ -279,28 +276,31 @@ impl SystemInner {
         kproc: &libc::kinfo_proc,
         mut proc_: Process,
     ) {
-        proc_.cmd = from_cstr_array(libc::kvm_getargv(kd, kproc, 0) as _);
-        self.system_info.get_proc_missing_info(kproc, &mut proc_);
-        if !proc_.cmd.is_empty() {
-            // First, we try to retrieve the name from the command line.
-            let p = Path::new(&proc_.cmd[0]);
-            if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
-                proc_.name = name.to_owned();
-            }
-            if proc_.root.as_os_str().is_empty() {
-                if let Some(parent) = p.parent() {
-                    proc_.root = parent.to_path_buf();
+        {
+            let proc_inner = &mut proc_.inner;
+            proc_inner.cmd = from_cstr_array(libc::kvm_getargv(kd, kproc, 0) as _);
+            self.system_info.get_proc_missing_info(kproc, proc_inner);
+            if !proc_inner.cmd.is_empty() {
+                // First, we try to retrieve the name from the command line.
+                let p = Path::new(&proc_inner.cmd[0]);
+                if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
+                    proc_inner.name = name.to_owned();
+                }
+                if proc_inner.root.as_os_str().is_empty() {
+                    if let Some(parent) = p.parent() {
+                        proc_inner.root = parent.to_path_buf();
+                    }
                 }
             }
+            if proc_inner.name.is_empty() {
+                // The name can be cut short because the `ki_comm` field size is limited,
+                // which is why we prefer to get the name from the command line as much as
+                // possible.
+                proc_inner.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_default();
+            }
+            proc_inner.environ = from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _);
         }
-        if proc_.name.is_empty() {
-            // The name can be cut short because the `ki_comm` field size is limited,
-            // which is why we prefer to get the name from the command line as much as
-            // possible.
-            proc_.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_default();
-        }
-        proc_.environ = from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _);
-        self.process_list.insert(proc_.pid, proc_);
+        self.process_list.insert(proc_.inner.pid, proc_);
     }
 }
 
@@ -543,7 +543,7 @@ impl SystemInfo {
     }
 
     #[allow(clippy::collapsible_if)] // I keep as is for readability reasons.
-    unsafe fn get_proc_missing_info(&mut self, kproc: &libc::kinfo_proc, proc_: &mut Process) {
+    unsafe fn get_proc_missing_info(&mut self, kproc: &libc::kinfo_proc, proc_: &mut ProcessInner) {
         if self.procstat.is_null() {
             self.procstat = libc::procstat_open_sysctl();
         }

@@ -3,7 +3,7 @@
 use crate::common::PidExt;
 use crate::{
     ComponentExt, CpuExt, DiskKind, DiskUsage, GroupExt, MacAddr, NetworkExt, NetworksExt,
-    ProcessExt, ProcessStatus, Signal, UserExt,
+    ProcessStatus, Signal, UserExt,
 };
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::ops::Deref;

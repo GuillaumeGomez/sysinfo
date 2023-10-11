@@ -28,7 +28,7 @@ pub use self::component::{Component, Components};
 pub use self::cpu::Cpu;
 pub(crate) use self::disk::DiskInner;
 pub use self::network::NetworkData;
-pub use self::process::Process;
+pub(crate) use self::process::ProcessInner;
 pub(crate) use self::system::SystemInner;
 pub(crate) use crate::unix::users::get_users;
 pub use crate::unix::users::User;

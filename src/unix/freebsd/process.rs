@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
+use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -40,8 +40,7 @@ impl fmt::Display for ProcessStatus {
     }
 }
 
-#[doc = include_str!("../../../md_doc/process.md")]
-pub struct Process {
+pub(crate) struct ProcessInner {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
     pub(crate) exe: PathBuf,
@@ -67,69 +66,69 @@ pub struct Process {
     old_written_bytes: u64,
 }
 
-impl ProcessExt for Process {
-    fn kill_with(&self, signal: Signal) -> Option<bool> {
+impl ProcessInner {
+    pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
         let c_signal = crate::sys::convert_signal(signal)?;
         unsafe { Some(libc::kill(self.pid.0, c_signal) == 0) }
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[String] {
         &self.cmd
     }
 
-    fn exe(&self) -> &Path {
+    pub(crate) fn exe(&self) -> &Path {
         self.exe.as_path()
     }
 
-    fn pid(&self) -> Pid {
+    pub(crate) fn pid(&self) -> Pid {
         self.pid
     }
 
-    fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[String] {
         &self.environ
     }
 
-    fn cwd(&self) -> &Path {
+    pub(crate) fn cwd(&self) -> &Path {
         self.cwd.as_path()
     }
 
-    fn root(&self) -> &Path {
+    pub(crate) fn root(&self) -> &Path {
         self.root.as_path()
     }
 
-    fn memory(&self) -> u64 {
+    pub(crate) fn memory(&self) -> u64 {
         self.memory
     }
 
-    fn virtual_memory(&self) -> u64 {
+    pub(crate) fn virtual_memory(&self) -> u64 {
         self.virtual_memory
     }
 
-    fn parent(&self) -> Option<Pid> {
+    pub(crate) fn parent(&self) -> Option<Pid> {
         self.parent
     }
 
-    fn status(&self) -> ProcessStatus {
+    pub(crate) fn status(&self) -> ProcessStatus {
         self.status
     }
 
-    fn start_time(&self) -> u64 {
+    pub(crate) fn start_time(&self) -> u64 {
         self.start_time
     }
 
-    fn run_time(&self) -> u64 {
+    pub(crate) fn run_time(&self) -> u64 {
         self.run_time
     }
 
-    fn cpu_usage(&self) -> f32 {
+    pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    fn disk_usage(&self) -> DiskUsage {
+    pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
             total_written_bytes: self.written_bytes,
@@ -138,23 +137,23 @@ impl ProcessExt for Process {
         }
     }
 
-    fn user_id(&self) -> Option<&Uid> {
+    pub(crate) fn user_id(&self) -> Option<&Uid> {
         Some(&self.user_id)
     }
 
-    fn effective_user_id(&self) -> Option<&Uid> {
+    pub(crate) fn effective_user_id(&self) -> Option<&Uid> {
         Some(&self.effective_user_id)
     }
 
-    fn group_id(&self) -> Option<Gid> {
+    pub(crate) fn group_id(&self) -> Option<Gid> {
         Some(self.group_id)
     }
 
-    fn effective_group_id(&self) -> Option<Gid> {
+    pub(crate) fn effective_group_id(&self) -> Option<Gid> {
         Some(self.effective_group_id)
     }
 
-    fn wait(&self) {
+    pub(crate) fn wait(&self) {
         let mut status = 0;
         // attempt waiting
         unsafe {
@@ -168,7 +167,7 @@ impl ProcessExt for Process {
         }
     }
 
-    fn session_id(&self) -> Option<Pid> {
+    pub(crate) fn session_id(&self) -> Option<Pid> {
         unsafe {
             let session_id = libc::getsid(self.pid.0);
             if session_id < 0 {
@@ -216,6 +215,7 @@ pub(crate) unsafe fn get_process_data(
     let start_time = kproc.ki_start.tv_sec as u64;
 
     if let Some(proc_) = (*wrap.0.get()).get_mut(&Pid(kproc.ki_pid)) {
+        let proc_ = &mut proc_.inner;
         proc_.updated = true;
         // If the `start_time` we just got is different from the one stored, it means it's not the
         // same process.
@@ -266,33 +266,35 @@ pub(crate) unsafe fn get_process_data(
     // .unwrap_or_else(PathBuf::new);
 
     Ok(Some(Process {
-        pid: Pid(kproc.ki_pid),
-        parent,
-        user_id: Uid(kproc.ki_ruid),
-        effective_user_id: Uid(kproc.ki_uid),
-        group_id: Gid(kproc.ki_rgid),
-        effective_group_id: Gid(kproc.ki_svgid),
-        start_time,
-        run_time: now.saturating_sub(start_time),
-        cpu_usage,
-        virtual_memory,
-        memory,
-        // procstat_getfiles
-        cwd: PathBuf::new(),
-        exe: exe.into(),
-        // kvm_getargv isn't thread-safe so we get it in the main thread.
-        name: String::new(),
-        // kvm_getargv isn't thread-safe so we get it in the main thread.
-        cmd: Vec::new(),
-        // kvm_getargv isn't thread-safe so we get it in the main thread.
-        root: PathBuf::new(),
-        // kvm_getenvv isn't thread-safe so we get it in the main thread.
-        environ: Vec::new(),
-        status,
-        read_bytes: kproc.ki_rusage.ru_inblock as _,
-        old_read_bytes: 0,
-        written_bytes: kproc.ki_rusage.ru_oublock as _,
-        old_written_bytes: 0,
-        updated: false,
+        inner: ProcessInner {
+            pid: Pid(kproc.ki_pid),
+            parent,
+            user_id: Uid(kproc.ki_ruid),
+            effective_user_id: Uid(kproc.ki_uid),
+            group_id: Gid(kproc.ki_rgid),
+            effective_group_id: Gid(kproc.ki_svgid),
+            start_time,
+            run_time: now.saturating_sub(start_time),
+            cpu_usage,
+            virtual_memory,
+            memory,
+            // procstat_getfiles
+            cwd: PathBuf::new(),
+            exe: exe.into(),
+            // kvm_getargv isn't thread-safe so we get it in the main thread.
+            name: String::new(),
+            // kvm_getargv isn't thread-safe so we get it in the main thread.
+            cmd: Vec::new(),
+            // kvm_getargv isn't thread-safe so we get it in the main thread.
+            root: PathBuf::new(),
+            // kvm_getenvv isn't thread-safe so we get it in the main thread.
+            environ: Vec::new(),
+            status,
+            read_bytes: kproc.ki_rusage.ru_inblock as _,
+            old_read_bytes: 0,
+            written_bytes: kproc.ki_rusage.ru_oublock as _,
+            old_written_bytes: 0,
+            updated: false,
+        },
     }))
 }

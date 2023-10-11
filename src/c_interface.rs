@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{CpuExt, Disks, NetworkExt, Networks, NetworksExt, Pid, Process, ProcessExt, System};
+use crate::{CpuExt, Disks, NetworkExt, Networks, NetworksExt, Pid, Process, System};
 use libc::{self, c_char, c_float, c_uint, c_void, size_t};
 use std::borrow::BorrowMut;
 use std::ffi::CString;
@@ -416,12 +416,12 @@ pub extern "C" fn sysinfo_process_tasks(
     if let Some(fn_pointer) = fn_pointer {
         unsafe {
             let process = process as *const Process;
-            for (pid, process) in (*process).tasks.iter() {
+            for (pid, process) in (*process).tasks().iter() {
                 if !fn_pointer(pid.0, process as *const Process as CProcess, data) {
                     break;
                 }
             }
-            (*process).tasks.len() as size_t
+            (*process).tasks().len() as size_t
         }
     } else {
         0

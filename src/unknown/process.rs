@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskUsage, Gid, Pid, ProcessExt, ProcessStatus, Signal, Uid};
+use crate::{DiskUsage, Gid, Pid, ProcessStatus, Signal, Uid};
 
 use std::fmt;
 use std::path::Path;
@@ -11,96 +11,95 @@ impl fmt::Display for ProcessStatus {
     }
 }
 
-#[doc = include_str!("../../md_doc/process.md")]
-pub struct Process {
+pub(crate) struct ProcessInner {
     pid: Pid,
     parent: Option<Pid>,
 }
 
-impl ProcessExt for Process {
-    fn kill_with(&self, _signal: Signal) -> Option<bool> {
+impl ProcessInner {
+    pub(crate) fn kill_with(&self, _signal: Signal) -> Option<bool> {
         None
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         ""
     }
 
-    fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[String] {
         &[]
     }
 
-    fn exe(&self) -> &Path {
+    pub(crate) fn exe(&self) -> &Path {
         Path::new("")
     }
 
-    fn pid(&self) -> Pid {
+    pub(crate) fn pid(&self) -> Pid {
         self.pid
     }
 
-    fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[String] {
         &[]
     }
 
-    fn cwd(&self) -> &Path {
+    pub(crate) fn cwd(&self) -> &Path {
         Path::new("")
     }
 
-    fn root(&self) -> &Path {
+    pub(crate) fn root(&self) -> &Path {
         Path::new("")
     }
 
-    fn memory(&self) -> u64 {
+    pub(crate) fn memory(&self) -> u64 {
         0
     }
 
-    fn virtual_memory(&self) -> u64 {
+    pub(crate) fn virtual_memory(&self) -> u64 {
         0
     }
 
-    fn parent(&self) -> Option<Pid> {
+    pub(crate) fn parent(&self) -> Option<Pid> {
         self.parent
     }
 
-    fn status(&self) -> ProcessStatus {
+    pub(crate) fn status(&self) -> ProcessStatus {
         ProcessStatus::Unknown(0)
     }
 
-    fn start_time(&self) -> u64 {
+    pub(crate) fn start_time(&self) -> u64 {
         0
     }
 
-    fn run_time(&self) -> u64 {
+    pub(crate) fn run_time(&self) -> u64 {
         0
     }
 
-    fn cpu_usage(&self) -> f32 {
+    pub(crate) fn cpu_usage(&self) -> f32 {
         0.0
     }
 
-    fn disk_usage(&self) -> DiskUsage {
+    pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage::default()
     }
 
-    fn user_id(&self) -> Option<&Uid> {
+    pub(crate) fn user_id(&self) -> Option<&Uid> {
         None
     }
 
-    fn effective_user_id(&self) -> Option<&Uid> {
+    pub(crate) fn effective_user_id(&self) -> Option<&Uid> {
         None
     }
 
-    fn group_id(&self) -> Option<Gid> {
+    pub(crate) fn group_id(&self) -> Option<Gid> {
         None
     }
 
-    fn effective_group_id(&self) -> Option<Gid> {
+    pub(crate) fn effective_group_id(&self) -> Option<Gid> {
         None
     }
 
-    fn wait(&self) {}
+    pub(crate) fn wait(&self) {}
 
-    fn session_id(&self) -> Option<Pid> {
+    pub(crate) fn session_id(&self) -> Option<Pid> {
         None
     }
 }
