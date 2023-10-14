@@ -6,7 +6,7 @@ use std::mem::MaybeUninit;
 use super::utils;
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkExt, Networks, NetworksExt, NetworksIter};
+use crate::{NetworkExt, NetworksIter};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $data:expr) => {{
@@ -15,18 +15,22 @@ macro_rules! old_and_new {
     }};
 }
 
-impl NetworksExt for Networks {
-    fn new() -> Self {
+pub(crate) struct NetworksInner {
+    pub(crate) interfaces: HashMap<String, NetworkData>,
+}
+
+impl NetworksInner {
+    pub(crate) fn new() -> Self {
         Self {
             interfaces: HashMap::new(),
         }
     }
 
-    fn iter(&self) -> NetworksIter {
+    pub(crate) fn iter(&self) -> NetworksIter {
         NetworksIter::new(self.interfaces.iter())
     }
 
-    fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list(&mut self) {
         unsafe {
             self.refresh_interfaces(true);
         }
@@ -35,14 +39,12 @@ impl NetworksExt for Networks {
         refresh_networks_addresses(&mut self.interfaces);
     }
 
-    fn refresh(&mut self) {
+    pub(crate) fn refresh(&mut self) {
         unsafe {
             self.refresh_interfaces(false);
         }
     }
-}
 
-impl Networks {
     unsafe fn refresh_interfaces(&mut self, refresh_all: bool) {
         let mut nb_interfaces: libc::c_int = 0;
         if !utils::get_sys_value(

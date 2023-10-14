@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{ComponentExt, ComponentsExt};
+use crate::{Component, ComponentsExt};
 
 use windows::core::w;
 use windows::Win32::Foundation::{SysAllocString, SysFreeString};
@@ -17,8 +17,7 @@ use windows::Win32::System::Wmi::{
     WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY, WBEM_INFINITE,
 };
 
-#[doc = include_str!("../../md_doc/component.md")]
-pub struct Component {
+pub(crate) struct ComponentInner {
     temperature: f32,
     max: f32,
     critical: Option<f32>,
@@ -26,9 +25,9 @@ pub struct Component {
     connection: Option<Connection>,
 }
 
-impl Component {
-    /// Creates a new `Component` with the given information.
-    fn new() -> Option<Component> {
+impl ComponentInner {
+    /// Creates a new `ComponentInner` with the given information.
+    fn new() -> Option<Self> {
         let mut c = Connection::new()
             .and_then(|x| x.initialize_security())
             .and_then(|x| x.create_instance())
@@ -37,7 +36,7 @@ impl Component {
             .and_then(|x| x.exec_query())?;
 
         c.temperature(true)
-            .map(|(temperature, critical)| Component {
+            .map(|(temperature, critical)| ComponentInner {
                 temperature,
                 label: "Computer".to_owned(),
                 max: temperature,
@@ -45,26 +44,24 @@ impl Component {
                 connection: Some(c),
             })
     }
-}
 
-impl ComponentExt for Component {
-    fn temperature(&self) -> f32 {
+    pub(crate) fn temperature(&self) -> f32 {
         self.temperature
     }
 
-    fn max(&self) -> f32 {
+    pub(crate) fn max(&self) -> f32 {
         self.max
     }
 
-    fn critical(&self) -> Option<f32> {
+    pub(crate) fn critical(&self) -> Option<f32> {
         self.critical
     }
 
-    fn label(&self) -> &str {
+    pub(crate) fn label(&self) -> &str {
         &self.label
     }
 
-    fn refresh(&mut self) {
+    pub(crate) fn refresh(&mut self) {
         if self.connection.is_none() {
             self.connection = Connection::new()
                 .and_then(|x| x.initialize_security())
@@ -109,8 +106,8 @@ impl ComponentsExt for Components {
     }
 
     fn refresh_list(&mut self) {
-        self.components = match Component::new() {
-            Some(c) => vec![c],
+        self.components = match ComponentInner::new() {
+            Some(c) => vec![Component { inner: c }],
             None => Vec::new(),
         };
     }

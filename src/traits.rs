@@ -1,10 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{
-    common::{Gid, MacAddr, Uid},
-    sys::Component,
-};
-use crate::{Group, NetworksIter, User};
+use crate::common::{Gid, MacAddr, Uid};
+use crate::{Component, Group, User};
 
 use std::fmt::Debug;
 
@@ -110,7 +107,7 @@ pub trait CpuExt: Debug {
 /// Getting volume of received and transmitted data.
 ///
 /// ```no_run
-/// use sysinfo::{Networks, NetworkExt, NetworksExt};
+/// use sysinfo::{Networks, NetworkExt};
 ///
 /// let mut networks = Networks::new();
 /// networks.refresh_list();
@@ -122,7 +119,7 @@ pub trait NetworkExt: Debug {
     /// Returns the number of received bytes since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -135,7 +132,7 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of received bytes.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -148,7 +145,7 @@ pub trait NetworkExt: Debug {
     /// Returns the number of transmitted bytes since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -161,7 +158,7 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of transmitted bytes.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -174,7 +171,7 @@ pub trait NetworkExt: Debug {
     /// Returns the number of incoming packets since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -187,7 +184,7 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of incoming packets.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -200,7 +197,7 @@ pub trait NetworkExt: Debug {
     /// Returns the number of outcoming packets since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -213,7 +210,7 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of outcoming packets.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -226,7 +223,7 @@ pub trait NetworkExt: Debug {
     /// Returns the number of incoming errors since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -239,7 +236,7 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of incoming errors.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -252,7 +249,7 @@ pub trait NetworkExt: Debug {
     /// Returns the number of outcoming errors since the last refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -265,7 +262,7 @@ pub trait NetworkExt: Debug {
     /// Returns the total number of outcoming errors.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -278,7 +275,7 @@ pub trait NetworkExt: Debug {
     /// Returns the MAC address associated to current interface.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt};
+    /// use sysinfo::{Networks, NetworkExt};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -287,186 +284,6 @@ pub trait NetworkExt: Debug {
     /// }
     /// ```
     fn mac_address(&self) -> MacAddr;
-}
-
-/// Interacting with network interfaces.
-///
-/// ```no_run
-/// use sysinfo::{Networks, NetworksExt};
-///
-/// let mut networks = Networks::new();
-/// networks.refresh_list();
-/// for (interface_name, network) in &networks {
-///     println!("[{interface_name}]: {network:?}");
-/// }
-/// ```
-pub trait NetworksExt: Debug {
-    /// Creates a new [`Networks`][crate::Networks] type.
-    ///
-    /// ```no_run
-    /// use sysinfo::{Networks, NetworksExt};
-    ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("[{interface_name}]: {network:?}");
-    /// }
-    /// ```
-    fn new() -> Self;
-
-    /// Returns an iterator over the network interfaces.
-    ///
-    /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, NetworksExt, System};
-    ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
-    /// for (interface_name, data) in &networks {
-    ///     println!(
-    ///         "[{interface_name}] in: {}, out: {}",
-    ///         data.received(),
-    ///         data.transmitted(),
-    ///     );
-    /// }
-    /// ```
-    fn iter(&self) -> NetworksIter;
-
-    /// Refreshes the network interfaces list.
-    ///
-    /// ```no_run
-    /// use sysinfo::{Networks, NetworksExt, System};
-    ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
-    /// ```
-    fn refresh_list(&mut self);
-
-    /// Refreshes the network interfaces' content. If you didn't run [`NetworksExt::refresh_list`]
-    /// before, calling this method won't do anything as no interfaces are present.
-    ///
-    /// ⚠️ If a user is added or removed, this method won't take it into account. Use
-    /// [`NetworksExt::refresh_list`] instead.
-    ///
-    /// ⚠️ If you didn't call [`NetworksExt::refresh_list`] beforehand, this method will do nothing
-    /// as the network list will be empty.
-    ///
-    /// ```no_run
-    /// use sysinfo::{Networks, NetworksExt, System};
-    ///
-    /// let mut networks = Networks::new();
-    /// // Refreshes the network interfaces list.
-    /// networks.refresh_list();
-    /// // Wait some time...? Then refresh the data of each network.
-    /// networks.refresh();
-    /// ```
-    fn refresh(&mut self);
-}
-
-/// Getting a component temperature information.
-///
-/// ```no_run
-/// use sysinfo::{ComponentExt, Components, ComponentsExt};
-///
-/// let mut components = Components::new();
-/// components.refresh_list();
-/// for component in components.iter() {
-///     println!("{}°C", component.temperature());
-/// }
-/// ```
-pub trait ComponentExt: Debug {
-    /// Returns the temperature of the component (in celsius degree).
-    ///
-    /// ## Linux
-    ///
-    /// Returns `f32::NAN` if it failed to retrieve it.
-    ///
-    /// ```no_run
-    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// for component in components.iter() {
-    ///     println!("{}°C", component.temperature());
-    /// }
-    /// ```
-    fn temperature(&self) -> f32;
-
-    /// Returns the maximum temperature of the component (in celsius degree).
-    ///
-    /// Note: if `temperature` is higher than the current `max`,
-    /// `max` value will be updated on refresh.
-    ///
-    /// ```no_run
-    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// for component in components.iter() {
-    ///     println!("{}°C", component.max());
-    /// }
-    /// ```
-    ///
-    /// ## Linux
-    ///
-    /// May be computed by `sysinfo` from kernel.
-    /// Returns `f32::NAN` if it failed to retrieve it.
-    fn max(&self) -> f32;
-
-    /// Returns the highest temperature before the component halts (in celsius degree).
-    ///
-    /// ```no_run
-    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// for component in components.iter() {
-    ///     println!("{:?}°C", component.critical());
-    /// }
-    /// ```
-    ///
-    /// ## Linux
-    ///
-    /// Critical threshold defined by chip or kernel.
-    fn critical(&self) -> Option<f32>;
-
-    /// Returns the label of the component.
-    ///
-    /// ```no_run
-    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// for component in components.iter() {
-    ///     println!("{}", component.label());
-    /// }
-    /// ```
-    ///
-    /// ## Linux
-    ///
-    /// Since components information is retrieved thanks to `hwmon`,
-    /// the labels are generated as follows.
-    /// Note: it may change and it was inspired by `sensors` own formatting.
-    ///
-    /// | name | label | device_model | id_sensor | Computed label by `sysinfo` |
-    /// |---------|--------|------------|----------|----------------------|
-    /// | ✓    | ✓    | ✓  | ✓ | `"{name} {label} {device_model} temp{id}"` |
-    /// | ✓    | ✓    | ✗  | ✓ | `"{name} {label} {id}"` |
-    /// | ✓    | ✗    | ✓  | ✓ | `"{name} {device_model}"` |
-    /// | ✓    | ✗    | ✗  | ✓ | `"{name} temp{id}"` |
-    fn label(&self) -> &str;
-
-    /// Refreshes component.
-    ///
-    /// ```no_run
-    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// for component in components.iter_mut() {
-    ///     component.refresh();
-    /// }
-    /// ```
-    fn refresh(&mut self);
 }
 
 /// Interacting with components.
@@ -510,7 +327,7 @@ pub trait ComponentsExt: Debug {
     /// Returns the components list.
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
+    /// use sysinfo::{Components, ComponentsExt};
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
@@ -529,7 +346,7 @@ pub trait ComponentsExt: Debug {
     /// You can do the same without this method by calling:
     ///
     /// ```no_run
-    /// use sysinfo::{ComponentExt, Components, ComponentsExt};
+    /// use sysinfo::{Components, ComponentsExt};
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();

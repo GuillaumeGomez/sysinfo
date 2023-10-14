@@ -16,7 +16,7 @@ use crate::sys::inner::ffi::{
     HID_DEVICE_PROPERTY_PRODUCT,
 };
 use crate::sys::utils::CFReleaser;
-use crate::{ComponentExt, ComponentsExt};
+use crate::{Component, ComponentsExt};
 
 #[doc = include_str!("../../../../../md_doc/components.md")]
 pub struct Components {
@@ -106,17 +106,16 @@ impl ComponentsExt for Components {
                     CFStringGetCStringPtr(name.inner() as *const _, kCFStringEncodingUTF8);
                 let name_str = CStr::from_ptr(name_ptr).to_string_lossy().to_string();
 
-                let mut component = Component::new(name_str, None, None, service);
+                let mut component = ComponentInner::new(name_str, None, None, service);
                 component.refresh();
 
-                self.components.push(component);
+                self.components.push(Component { inner: component });
             }
         }
     }
 }
 
-#[doc = include_str!("../../../../../md_doc/component.md")]
-pub struct Component {
+pub(crate) struct ComponentInner {
     service: CFReleaser<__IOHIDServiceClient>,
     temperature: f32,
     label: String,
@@ -124,7 +123,7 @@ pub struct Component {
     critical: Option<f32>,
 }
 
-impl Component {
+impl ComponentInner {
     pub(crate) fn new(
         label: String,
         max: Option<f32>,
@@ -139,26 +138,24 @@ impl Component {
             temperature: 0.,
         }
     }
-}
 
-impl ComponentExt for Component {
-    fn temperature(&self) -> f32 {
+    pub(crate) fn temperature(&self) -> f32 {
         self.temperature
     }
 
-    fn max(&self) -> f32 {
+    pub(crate) fn max(&self) -> f32 {
         self.max
     }
 
-    fn critical(&self) -> Option<f32> {
+    pub(crate) fn critical(&self) -> Option<f32> {
         self.critical
     }
 
-    fn label(&self) -> &str {
+    pub(crate) fn label(&self) -> &str {
         &self.label
     }
 
-    fn refresh(&mut self) {
+    pub(crate) fn refresh(&mut self) {
         unsafe {
             let event = match CFReleaser::new(IOHIDServiceClientCopyEvent(
                 self.service.inner() as *const _,

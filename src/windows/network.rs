@@ -2,7 +2,7 @@
 
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkExt, Networks, NetworksExt, NetworksIter};
+use crate::{NetworkExt, NetworksIter};
 
 use std::collections::{hash_map, HashMap};
 
@@ -18,19 +18,23 @@ macro_rules! old_and_new {
     }};
 }
 
-impl NetworksExt for Networks {
-    fn new() -> Self {
+pub(crate) struct NetworksInner {
+    pub(crate) interfaces: HashMap<String, NetworkData>,
+}
+
+impl NetworksInner {
+    pub(crate) fn new() -> Self {
         Self {
             interfaces: HashMap::new(),
         }
     }
 
     #[allow(clippy::needless_lifetimes)]
-    fn iter<'a>(&'a self) -> NetworksIter<'a> {
+    pub(crate) fn iter<'a>(&'a self) -> NetworksIter<'a> {
         NetworksIter::new(self.interfaces.iter())
     }
 
-    fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list(&mut self) {
         let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
 
         unsafe {
@@ -145,7 +149,7 @@ impl NetworksExt for Networks {
         refresh_networks_addresses(&mut self.interfaces);
     }
 
-    fn refresh(&mut self) {
+    pub(crate) fn refresh(&mut self) {
         let entry = std::mem::MaybeUninit::<MIB_IF_ROW2>::zeroed();
 
         unsafe {

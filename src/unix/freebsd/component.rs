@@ -1,34 +1,33 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use super::utils::get_sys_value_by_name;
-use crate::{ComponentExt, ComponentsExt};
+use crate::{Component, ComponentsExt};
 
-#[doc = include_str!("../../../md_doc/component.md")]
-pub struct Component {
+pub(crate) struct ComponentInner {
     id: Vec<u8>,
     label: String,
     temperature: f32,
     max: f32,
 }
 
-impl ComponentExt for Component {
-    fn temperature(&self) -> f32 {
+impl ComponentInner {
+    pub(crate) fn temperature(&self) -> f32 {
         self.temperature
     }
 
-    fn max(&self) -> f32 {
+    pub(crate) fn max(&self) -> f32 {
         self.max
     }
 
-    fn critical(&self) -> Option<f32> {
+    pub(crate) fn critical(&self) -> Option<f32> {
         None
     }
 
-    fn label(&self) -> &str {
+    pub(crate) fn label(&self) -> &str {
         &self.label
     }
 
-    fn refresh(&mut self) {
+    pub(crate) fn refresh(&mut self) {
         unsafe {
             if let Some(temperature) = refresh_component(&self.id) {
                 self.temperature = temperature;
@@ -80,10 +79,12 @@ impl ComponentsExt for Components {
                 let id = format!("dev.cpu.{core}.temperature\0").as_bytes().to_vec();
                 if let Some(temperature) = refresh_component(&id) {
                     self.components.push(Component {
-                        id,
-                        label: format!("CPU {}", core + 1),
-                        temperature,
-                        max: temperature,
+                        inner: ComponentInner {
+                            id,
+                            label: format!("CPU {}", core + 1),
+                            temperature,
+                            max: temperature,
+                        },
                     });
                 }
             }

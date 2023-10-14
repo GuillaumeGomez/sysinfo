@@ -4,9 +4,9 @@ use std::io::Read;
 use std::path::Path;
 use std::{fs::File, u8};
 
-use crate::common::{MacAddr, Networks};
+use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkExt, NetworksExt, NetworksIter};
+use crate::{NetworkExt, NetworksIter};
 use std::collections::{hash_map, HashMap};
 
 macro_rules! old_and_new {
@@ -107,18 +107,22 @@ fn refresh_networks_list_from_sysfs(
     }
 }
 
-impl NetworksExt for Networks {
-    fn new() -> Self {
+pub(crate) struct NetworksInner {
+    pub(crate) interfaces: HashMap<String, NetworkData>,
+}
+
+impl NetworksInner {
+    pub(crate) fn new() -> Self {
         Self {
             interfaces: HashMap::new(),
         }
     }
 
-    fn iter(&self) -> NetworksIter {
+    pub(crate) fn iter(&self) -> NetworksIter {
         NetworksIter::new(self.interfaces.iter())
     }
 
-    fn refresh(&mut self) {
+    pub(crate) fn refresh(&mut self) {
         let mut v = vec![0; 30];
 
         for (interface_name, data) in self.interfaces.iter_mut() {
@@ -126,7 +130,7 @@ impl NetworksExt for Networks {
         }
     }
 
-    fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list(&mut self) {
         refresh_networks_list_from_sysfs(&mut self.interfaces, Path::new("/sys/class/net/"));
         refresh_networks_addresses(&mut self.interfaces);
     }

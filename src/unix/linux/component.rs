@@ -4,16 +4,15 @@
 //
 // Values in /sys/class/hwmonN are `c_long` or `c_ulong`
 // transposed to rust we only read `u32` or `i32` values.
-use crate::{ComponentExt, ComponentsExt};
+use crate::{Component, ComponentsExt};
 
 use std::collections::HashMap;
 use std::fs::{read_dir, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-#[doc = include_str!("../../../md_doc/component.md")]
 #[derive(Default)]
-pub struct Component {
+pub(crate) struct ComponentInner {
     /// Optional associated device of a `Component`.
     device_model: Option<String>,
     /// The chip name.
@@ -175,7 +174,7 @@ impl From<u8> for TermalSensorType {
 
 /// Check given `item` dispatch to read the right `file` with the right parsing and store data in
 /// given `component`. `id` is provided for `label` creation.
-fn fill_component(component: &mut Component, item: &str, folder: &Path, file: &str) {
+fn fill_component(component: &mut ComponentInner, item: &str, folder: &Path, file: &str) {
     let hwmon_file = folder.join(file);
     match item {
         "type" => {
@@ -209,7 +208,7 @@ fn fill_component(component: &mut Component, item: &str, folder: &Path, file: &s
     }
 }
 
-impl Component {
+impl ComponentInner {
     /// Read out `hwmon` info (hardware monitor) from `folder`
     /// to get values' path to be used on refresh as well as files containing `max`,
     /// `critical value` and `label`. Then we store everything into `components`.
@@ -249,7 +248,10 @@ impl Component {
             let (id, item) = filename.split_once('_')?;
             let id = id.get(4..)?.parse::<u32>().ok()?;
 
-            let component = matchings.entry(id).or_default();
+            let component = matchings.entry(id).or_insert_with(|| Component {
+                inner: ComponentInner::default(),
+            });
+            let component = &mut component.inner;
             let name = get_file_line(&folder.join("name"), 16);
             component.name = name.unwrap_or_default();
             let device_model = get_file_line(&folder.join("device/model"), 16);
@@ -263,11 +265,11 @@ impl Component {
                 // Problem: a lot of sensors don't have a label or a device model! ¯\_(ツ)_/¯
                 // So let's pretend we have a unique label!
                 // See the table in `Component::label` documentation for the table detail.
-                c.label = c.format_label("temp", id);
+                c.inner.label = c.inner.format_label("temp", id);
                 c
             })
             // Remove components without `tempN_input` file termal. `Component` doesn't support this kind of sensors yet
-            .filter(|c| c.input_file.is_some());
+            .filter(|c| c.inner.input_file.is_some());
 
         components.extend(compo);
         Some(())
@@ -276,7 +278,7 @@ impl Component {
     /// Compute a label out of available information.
     /// See the table in `Component::label`'s documentation.
     fn format_label(&self, class: &str, id: u32) -> String {
-        let Component {
+        let ComponentInner {
             device_model,
             name,
             label,
@@ -292,26 +294,24 @@ impl Component {
             (false, None) => format!("{name} {class}{id}"),
         }
     }
-}
 
-impl ComponentExt for Component {
-    fn temperature(&self) -> f32 {
+    pub(crate) fn temperature(&self) -> f32 {
         self.temperature.unwrap_or(f32::NAN)
     }
 
-    fn max(&self) -> f32 {
+    pub(crate) fn max(&self) -> f32 {
         self.max.unwrap_or(f32::NAN)
     }
 
-    fn critical(&self) -> Option<f32> {
+    pub(crate) fn critical(&self) -> Option<f32> {
         self.threshold_critical
     }
 
-    fn label(&self) -> &str {
+    pub(crate) fn label(&self) -> &str {
         &self.label
     }
 
-    fn refresh(&mut self) {
+    pub(crate) fn refresh(&mut self) {
         let current = self
             .input_file
             .as_ref()
@@ -365,7 +365,7 @@ impl ComponentsExt for Components {
                 {
                     continue;
                 }
-                Component::from_hwmon(&mut self.components, &entry);
+                ComponentInner::from_hwmon(&mut self.components, &entry);
             }
         }
     }

@@ -1,24 +1,28 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::common::MacAddr;
-use crate::{NetworkExt, Networks, NetworksExt, NetworksIter};
+use crate::{NetworkExt, NetworksIter};
 
 use std::collections::HashMap;
 
-impl NetworksExt for Networks {
-    fn new() -> Self {
+pub(crate) struct NetworksInner {
+    pub(crate) interfaces: HashMap<String, NetworkData>,
+}
+
+impl NetworksInner {
+    pub(crate) fn new() -> Self {
         Self {
             interfaces: HashMap::new(),
         }
     }
 
-    fn iter(&self) -> NetworksIter {
+    pub(crate) fn iter(&self) -> NetworksIter {
         NetworksIter::new(self.interfaces.iter())
     }
 
-    fn refresh_list(&mut self) {}
+    pub(crate) fn refresh_list(&mut self) {}
 
-    fn refresh(&mut self) {}
+    pub(crate) fn refresh(&mut self) {}
 }
 
 #[doc = include_str!("../../md_doc/network_data.md")]
