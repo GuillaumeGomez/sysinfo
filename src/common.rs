@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    ComponentInner, Components, ComponentsExt, CpuInner, GroupExt, NetworkDataInner, NetworksInner,
+    ComponentInner, Components, ComponentsExt, CpuInner, NetworkDataInner, NetworksInner,
     ProcessInner, SystemInner, User, UserExt, UsersExt,
 };
 
@@ -2511,7 +2511,7 @@ impl Ord for User {
 /// It is returned by [`User::groups`].
 ///
 /// ```no_run
-/// use sysinfo::{GroupExt, UserExt, Users, UsersExt};
+/// use sysinfo::{UserExt, Users, UsersExt};
 ///
 /// let mut users = Users::new();
 ///
@@ -2533,12 +2533,40 @@ pub struct Group {
     pub(crate) name: String,
 }
 
-impl GroupExt for Group {
-    fn id(&self) -> &Gid {
+impl Group {
+    /// Returns the ID of the group.
+    ///
+    /// ⚠️ This information is not set on Windows.
+    ///
+    /// ```no_run
+    /// use sysinfo::{UserExt, Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    ///
+    /// for user in users.users() {
+    ///     for group in user.groups() {
+    ///         println!("{:?}", group.id());
+    ///     }
+    /// }
+    /// ```
+    pub fn id(&self) -> &Gid {
         &self.id
     }
 
-    fn name(&self) -> &str {
+    /// Returns the name of the group.
+    ///
+    /// ```no_run
+    /// use sysinfo::{UserExt, Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    ///
+    /// for user in users.users() {
+    ///     for group in user.groups() {
+    ///         println!("{}", group.name());
+    ///     }
+    /// }
+    /// ```
+    pub fn name(&self) -> &str {
         &self.name
     }
 }

@@ -64,7 +64,7 @@ pub(crate) use crate::sys::{
 pub use crate::sys::{
     Components, User, IS_SUPPORTED, MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS,
 };
-pub use crate::traits::{ComponentsExt, GroupExt, UserExt, UsersExt};
+pub use crate::traits::{ComponentsExt, UserExt, UsersExt};
 
 #[cfg(feature = "c-interface")]
 pub use crate::c_interface::*;
