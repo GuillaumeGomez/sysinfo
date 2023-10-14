@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{sys::Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessInner, ProcessRefreshKind};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessInner, ProcessRefreshKind};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;

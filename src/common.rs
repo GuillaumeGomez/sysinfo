@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    ComponentInner, Components, ComponentsExt, Cpu, GroupExt, NetworkData, NetworksInner,
-    ProcessInner, SystemInner, User, UserExt, UsersExt,
+    ComponentInner, ComponentsInner, CpuInner, NetworkDataInner, NetworksInner, ProcessInner,
+    SystemInner, User, UserExt, UsersExt,
 };
 
 use std::cmp::Ordering;
@@ -396,11 +396,11 @@ impl System {
     ///
     /// **⚠️ Important ⚠️**
     ///
-    /// Information like [`CpuExt::brand`], [`CpuExt::vendor_id`] or [`CpuExt::frequency`]
+    /// Information like [`Cpu::brand`], [`Cpu::vendor_id`] or [`Cpu::frequency`]
     /// are not set on the "global" CPU.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuRefreshKind, CpuExt, RefreshKind, System};
+    /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
     ///
     /// let s = System::new_with_specifics(
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
@@ -408,9 +408,9 @@ impl System {
     /// println!("{}%", s.global_cpu_info().cpu_usage());
     /// ```
     ///
-    /// [`CpuExt::brand`]: crate::CpuExt::brand
-    /// [`CpuExt::vendor_id`]: crate::CpuExt::vendor_id
-    /// [`CpuExt::frequency`]: crate::CpuExt::frequency
+    /// [`Cpu::brand`]: crate::Cpu::brand
+    /// [`Cpu::vendor_id`]: crate::Cpu::vendor_id
+    /// [`Cpu::frequency`]: crate::Cpu::frequency
     pub fn global_cpu_info(&self) -> &Cpu {
         self.inner.global_cpu_info()
     }
@@ -421,7 +421,7 @@ impl System {
     /// [`System::refresh_specifics`] with `cpu` enabled.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuRefreshKind, CpuExt, RefreshKind, System};
+    /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
     ///
     /// let s = System::new_with_specifics(
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
@@ -441,7 +441,7 @@ impl System {
     /// **Important**: this information is computed every time this function is called.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuExt, System};
+    /// use sysinfo::System;
     ///
     /// let s = System::new();
     /// println!("{:?}", s.physical_core_count());
@@ -1411,7 +1411,7 @@ on Windows as other platforms get this information alongside the Process informa
 /// extra computation.
 ///
 /// ```
-/// use sysinfo::{CpuExt, CpuRefreshKind, System};
+/// use sysinfo::{CpuRefreshKind, System};
 ///
 /// let mut system = System::new();
 ///
@@ -1585,7 +1585,7 @@ impl Networks {
     /// Returns an iterator over the network interfaces.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, System};
+    /// use sysinfo::{Networks, System};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -1661,6 +1661,218 @@ impl<'a> Iterator for NetworksIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next()
+    }
+}
+
+/// Getting volume of received and transmitted data.
+///
+/// ```no_run
+/// use sysinfo::Networks;
+///
+/// let mut networks = Networks::new();
+/// networks.refresh_list();
+/// for (interface_name, network) in &networks {
+///     println!("[{interface_name}] {network:?}");
+/// }
+/// ```
+pub struct NetworkData {
+    pub(crate) inner: NetworkDataInner,
+}
+
+impl NetworkData {
+    /// Returns the number of received bytes since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {} B", network.received());
+    /// }
+    /// ```
+    pub fn received(&self) -> u64 {
+        self.inner.received()
+    }
+
+    /// Returns the total number of received bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {} B", network.total_received());
+    /// }
+    /// ```
+    pub fn total_received(&self) -> u64 {
+        self.inner.total_received()
+    }
+
+    /// Returns the number of transmitted bytes since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {} B", network.transmitted());
+    /// }
+    /// ```
+    pub fn transmitted(&self) -> u64 {
+        self.inner.transmitted()
+    }
+
+    /// Returns the total number of transmitted bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {} B", network.total_transmitted());
+    /// }
+    /// ```
+    pub fn total_transmitted(&self) -> u64 {
+        self.inner.total_transmitted()
+    }
+
+    /// Returns the number of incoming packets since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {}", network.packets_received());
+    /// }
+    /// ```
+    pub fn packets_received(&self) -> u64 {
+        self.inner.packets_received()
+    }
+
+    /// Returns the total number of incoming packets.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {}", network.total_packets_received());
+    /// }
+    /// ```
+    pub fn total_packets_received(&self) -> u64 {
+        self.inner.total_packets_received()
+    }
+
+    /// Returns the number of outcoming packets since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {}", network.packets_transmitted());
+    /// }
+    /// ```
+    pub fn packets_transmitted(&self) -> u64 {
+        self.inner.packets_transmitted()
+    }
+
+    /// Returns the total number of outcoming packets.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {}", network.total_packets_transmitted());
+    /// }
+    /// ```
+    pub fn total_packets_transmitted(&self) -> u64 {
+        self.inner.total_packets_transmitted()
+    }
+
+    /// Returns the number of incoming errors since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {}", network.errors_on_received());
+    /// }
+    /// ```
+    pub fn errors_on_received(&self) -> u64 {
+        self.inner.errors_on_received()
+    }
+
+    /// Returns the total number of incoming errors.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {}", network.total_errors_on_received());
+    /// }
+    /// ```
+    pub fn total_errors_on_received(&self) -> u64 {
+        self.inner.total_errors_on_received()
+    }
+
+    /// Returns the number of outcoming errors since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {}", network.errors_on_transmitted());
+    /// }
+    /// ```
+    pub fn errors_on_transmitted(&self) -> u64 {
+        self.inner.errors_on_transmitted()
+    }
+
+    /// Returns the total number of outcoming errors.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {}", network.total_errors_on_transmitted());
+    /// }
+    /// ```
+    pub fn total_errors_on_transmitted(&self) -> u64 {
+        self.inner.total_errors_on_transmitted()
+    }
+
+    /// Returns the MAC address associated to current interface.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("MAC address: {}", network.mac_address());
+    /// }
+    /// ```
+    pub fn mac_address(&self) -> MacAddr {
+        self.inner.mac_address()
     }
 }
 
@@ -2299,7 +2511,7 @@ impl Ord for User {
 /// It is returned by [`User::groups`].
 ///
 /// ```no_run
-/// use sysinfo::{GroupExt, UserExt, Users, UsersExt};
+/// use sysinfo::{UserExt, Users, UsersExt};
 ///
 /// let mut users = Users::new();
 ///
@@ -2321,12 +2533,40 @@ pub struct Group {
     pub(crate) name: String,
 }
 
-impl GroupExt for Group {
-    fn id(&self) -> &Gid {
+impl Group {
+    /// Returns the ID of the group.
+    ///
+    /// ⚠️ This information is not set on Windows.
+    ///
+    /// ```no_run
+    /// use sysinfo::{UserExt, Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    ///
+    /// for user in users.users() {
+    ///     for group in user.groups() {
+    ///         println!("{:?}", group.id());
+    ///     }
+    /// }
+    /// ```
+    pub fn id(&self) -> &Gid {
         &self.id
     }
 
-    fn name(&self) -> &str {
+    /// Returns the name of the group.
+    ///
+    /// ```no_run
+    /// use sysinfo::{UserExt, Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    ///
+    /// for user in users.users() {
+    ///     for group in user.groups() {
+    ///         println!("{}", group.name());
+    ///     }
+    /// }
+    /// ```
+    pub fn name(&self) -> &str {
         &self.name
     }
 }
@@ -2532,7 +2772,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 
 /// MAC address for network interface.
 ///
-/// It is returned by [`NetworkExt::mac_address`][crate::NetworkExt::mac_address].
+/// It is returned by [`NetworkData::mac_address`][crate::NetworkData::mac_address].
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct MacAddr(pub [u8; 6]);
 
@@ -2557,10 +2797,142 @@ impl fmt::Display for MacAddr {
     }
 }
 
+/// Interacting with components.
+///
+/// ```no_run
+/// use sysinfo::Components;
+///
+/// let mut components = Components::new();
+/// components.refresh_list();
+/// for component in components.iter() {
+///     eprintln!("{component:?}");
+/// }
+/// ```
+pub struct Components {
+    pub(crate) inner: ComponentsInner,
+}
+
+impl Default for Components {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Components {
+    /// Creates a new [`Components`][crate::Components] type.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    pub fn new() -> Self {
+        Self {
+            inner: ComponentsInner::new(),
+        }
+    }
+
+    /// Returns the components list.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.components() {
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    pub fn components(&self) -> &[Component] {
+        self.inner.components()
+    }
+
+    /// Returns the components list.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.components_mut() {
+    ///     component.refresh();
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    pub fn components_mut(&mut self) -> &mut [Component] {
+        self.inner.components_mut()
+    }
+
+    /// Sort the components list with the provided callback.
+    ///
+    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
+    /// for implementation details.
+    ///
+    /// You can do the same without this method by calling:
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// components.sort_by(|component1, component2| {
+    ///     component2.label().partial_cmp(component2.label()).unwrap()
+    /// });
+    /// ```
+    ///
+    /// ⚠️ If you use [`Components::refresh_list`], you will need to call this method to sort the
+    /// components again.
+    pub fn sort_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Component, &Component) -> std::cmp::Ordering,
+    {
+        self.components_mut().sort_unstable_by(compare);
+    }
+
+    /// Refreshes the listed components' information.
+    ///
+    /// ⚠️ If a component is added or removed, this method won't take it into account. Use
+    /// [`Components::refresh_list`] instead.
+    ///
+    /// ⚠️ If you didn't call [`Components::refresh_list`] beforehand, this method will do
+    /// nothing as the component list will be empty.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// // We get the component list.
+    /// components.refresh_list();
+    /// // We wait some time...?
+    /// components.refresh();
+    /// ```
+    pub fn refresh(&mut self) {
+        for component in self.components_mut() {
+            component.refresh();
+        }
+    }
+
+    /// The component list will be emptied then completely recomputed.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// ```
+    pub fn refresh_list(&mut self) {
+        self.inner.refresh_list()
+    }
+}
+
 /// Getting a component temperature information.
 ///
 /// ```no_run
-/// use sysinfo::{Components, ComponentsExt};
+/// use sysinfo::Components;
 ///
 /// let mut components = Components::new();
 /// components.refresh_list();
@@ -2580,7 +2952,7 @@ impl Component {
     /// Returns `f32::NAN` if it failed to retrieve it.
     ///
     /// ```no_run
-    /// use sysinfo::{Components, ComponentsExt};
+    /// use sysinfo::Components;
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
@@ -2598,7 +2970,7 @@ impl Component {
     /// `max` value will be updated on refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{Components, ComponentsExt};
+    /// use sysinfo::Components;
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
@@ -2618,7 +2990,7 @@ impl Component {
     /// Returns the highest temperature before the component halts (in celsius degree).
     ///
     /// ```no_run
-    /// use sysinfo::{Components, ComponentsExt};
+    /// use sysinfo::Components;
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
@@ -2637,7 +3009,7 @@ impl Component {
     /// Returns the label of the component.
     ///
     /// ```no_run
-    /// use sysinfo::{Components, ComponentsExt};
+    /// use sysinfo::Components;
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
@@ -2665,7 +3037,7 @@ impl Component {
     /// Refreshes component.
     ///
     /// ```no_run
-    /// use sysinfo::{Components, ComponentsExt};
+    /// use sysinfo::Components;
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
@@ -2675,6 +3047,119 @@ impl Component {
     /// ```
     pub fn refresh(&mut self) {
         self.inner.refresh()
+    }
+}
+
+/// Contains all the methods of the [`Cpu`][crate::Cpu] struct.
+///
+/// ```no_run
+/// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+///
+/// let mut s = System::new_with_specifics(
+///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+/// );
+///
+/// // Wait a bit because CPU usage is based on diff.
+/// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+/// // Refresh CPUs again.
+/// s.refresh_cpu();
+///
+/// for cpu in s.cpus() {
+///     println!("{}%", cpu.cpu_usage());
+/// }
+/// ```
+pub struct Cpu {
+    pub(crate) inner: CpuInner,
+}
+
+impl Cpu {
+    /// Returns this CPU's usage.
+    ///
+    /// Note: You'll need to refresh it at least twice (diff between the first and the second is
+    /// how CPU usage is computed) at first if you want to have a non-zero value.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let mut s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    ///
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPUs again.
+    /// s.refresh_cpu();
+    ///
+    /// for cpu in s.cpus() {
+    ///     println!("{}%", cpu.cpu_usage());
+    /// }
+    /// ```
+    pub fn cpu_usage(&self) -> f32 {
+        self.inner.cpu_usage()
+    }
+
+    /// Returns this CPU's name.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.name());
+    /// }
+    /// ```
+    pub fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    /// Returns the CPU's vendor id.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.vendor_id());
+    /// }
+    /// ```
+    pub fn vendor_id(&self) -> &str {
+        self.inner.vendor_id()
+    }
+
+    /// Returns the CPU's brand.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.brand());
+    /// }
+    /// ```
+    pub fn brand(&self) -> &str {
+        self.inner.brand()
+    }
+
+    /// Returns the CPU's frequency.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.frequency());
+    /// }
+    /// ```
+    pub fn frequency(&self) -> u64 {
+        self.inner.frequency()
     }
 }
 

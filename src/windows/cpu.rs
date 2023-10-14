@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::tools::KeyHandler;
-use crate::{CpuExt, CpuRefreshKind, LoadAvg};
+use crate::{Cpu, CpuRefreshKind, LoadAvg};
 
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -24,8 +24,8 @@ use windows::Win32::System::Power::{
 };
 use windows::Win32::System::SystemInformation;
 use windows::Win32::System::SystemInformation::{
-    GetLogicalProcessorInformationEx, RelationAll, RelationProcessorCore, SYSTEM_INFO,
-    SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
+    GetLogicalProcessorInformationEx, GetSystemInfo, RelationAll, RelationProcessorCore,
+    SYSTEM_INFO, SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
 };
 use windows::Win32::System::Threading::{
     CreateEventA, RegisterWaitForSingleObject, INFINITE, WT_EXECUTEDEFAULT,
@@ -252,7 +252,14 @@ pub(crate) struct CpusWrapper {
 impl CpusWrapper {
     pub fn new() -> Self {
         Self {
-            global: Cpu::new_with_values("Total CPU".to_owned(), String::new(), String::new(), 0),
+            global: Cpu {
+                inner: CpuInner::new_with_values(
+                    "Total CPU".to_owned(),
+                    String::new(),
+                    String::new(),
+                    0,
+                ),
+            },
             cpus: Vec::new(),
             got_cpu_frequency: false,
         }
@@ -272,7 +279,7 @@ impl CpusWrapper {
 
     fn init_if_needed(&mut self, refresh_kind: CpuRefreshKind) {
         if self.cpus.is_empty() {
-            self.cpus = super::tools::init_cpus(refresh_kind);
+            self.cpus = init_cpus(refresh_kind);
             self.got_cpu_frequency = refresh_kind.frequency();
         }
     }
@@ -294,16 +301,16 @@ impl CpusWrapper {
         let frequencies = get_frequencies(self.cpus.len());
 
         for (cpu, frequency) in self.cpus.iter_mut().zip(frequencies) {
-            cpu.set_frequency(frequency);
+            cpu.inner.set_frequency(frequency);
         }
         self.global
+            .inner
             .set_frequency(self.cpus.get(0).map(|cpu| cpu.frequency()).unwrap_or(0));
         self.got_cpu_frequency = true;
     }
 }
 
-#[doc = include_str!("../../md_doc/cpu.md")]
-pub struct Cpu {
+pub(crate) struct CpuInner {
     name: String,
     cpu_usage: f32,
     key_used: Option<KeyHandler>,
@@ -312,36 +319,34 @@ pub struct Cpu {
     frequency: u64,
 }
 
-impl CpuExt for Cpu {
-    fn cpu_usage(&self) -> f32 {
+impl CpuInner {
+    pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    fn frequency(&self) -> u64 {
+    pub(crate) fn frequency(&self) -> u64 {
         self.frequency
     }
 
-    fn vendor_id(&self) -> &str {
+    pub(crate) fn vendor_id(&self) -> &str {
         &self.vendor_id
     }
 
-    fn brand(&self) -> &str {
+    pub(crate) fn brand(&self) -> &str {
         &self.brand
     }
-}
 
-impl Cpu {
     pub(crate) fn new_with_values(
         name: String,
         vendor_id: String,
         brand: String,
         frequency: u64,
-    ) -> Cpu {
-        Cpu {
+    ) -> Self {
+        Self {
             name,
             cpu_usage: 0f32,
             key_used: None,
@@ -461,7 +466,7 @@ pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
 }
 
 pub(crate) fn get_key_used(p: &mut Cpu) -> &mut Option<KeyHandler> {
-    &mut p.key_used
+    &mut p.inner.key_used
 }
 
 // From https://stackoverflow.com/a/43813138:
@@ -552,5 +557,31 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
             }
         }
         Some(count)
+    }
+}
+
+fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
+    unsafe {
+        let mut sys_info = SYSTEM_INFO::default();
+        GetSystemInfo(&mut sys_info);
+        let (vendor_id, brand) = get_vendor_id_and_brand(&sys_info);
+        let nb_cpus = sys_info.dwNumberOfProcessors as usize;
+        let frequencies = if refresh_kind.frequency() {
+            get_frequencies(nb_cpus)
+        } else {
+            vec![0; nb_cpus]
+        };
+        let mut ret = Vec::with_capacity(nb_cpus + 1);
+        for (nb, frequency) in frequencies.iter().enumerate() {
+            ret.push(Cpu {
+                inner: CpuInner::new_with_values(
+                    format!("CPU {}", nb + 1),
+                    vendor_id.clone(),
+                    brand.clone(),
+                    *frequency,
+                ),
+            });
+        }
+        ret
     }
 }

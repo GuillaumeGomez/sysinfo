@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Component, ComponentsExt};
+use crate::Component;
 
 pub(crate) struct ComponentInner;
 
@@ -24,27 +24,26 @@ impl ComponentInner {
     pub(crate) fn refresh(&mut self) {}
 }
 
-#[doc = include_str!("../../../../md_doc/components.md")]
-pub struct Components {
+pub(crate) struct ComponentsInner {
     components: Vec<Component>,
 }
 
-impl ComponentsExt for Components {
-    fn new() -> Self {
+impl ComponentsInner {
+    pub(crate) fn new() -> Self {
         Self {
             components: Vec::new(),
         }
     }
 
-    fn components(&self) -> &[Component] {
+    pub(crate) fn components(&self) -> &[Component] {
         &self.components
     }
 
-    fn components_mut(&mut self) -> &mut [Component] {
+    pub(crate) fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
     }
 
-    fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list(&mut self) {
         // Doesn't do anything.
     }
 }

@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use super::utils::get_sys_value_by_name;
-use crate::{Component, ComponentsExt};
+use crate::Component;
 
 pub(crate) struct ComponentInner {
     id: Vec<u8>,
@@ -49,14 +49,13 @@ unsafe fn refresh_component(id: &[u8]) -> Option<f32> {
     }
 }
 
-#[doc = include_str!("../../../md_doc/components.md")]
-pub struct Components {
+pub(crate) struct ComponentsInner {
     nb_cpus: usize,
     components: Vec<Component>,
 }
 
-impl ComponentsExt for Components {
-    fn new() -> Self {
+impl ComponentsInner {
+    pub(crate) fn new() -> Self {
         let nb_cpus = unsafe { super::cpu::get_nb_cpus() };
         Self {
             nb_cpus,
@@ -64,15 +63,15 @@ impl ComponentsExt for Components {
         }
     }
 
-    fn components(&self) -> &[Component] {
+    pub(crate) fn components(&self) -> &[Component] {
         &self.components
     }
 
-    fn components_mut(&mut self) -> &mut [Component] {
+    pub(crate) fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
     }
 
-    fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list(&mut self) {
         self.components.clear();
         for core in 0..self.nb_cpus {
             unsafe {

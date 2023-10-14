@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
-use crate::{CpuExt, CpuRefreshKind};
+use crate::{Cpu, CpuRefreshKind};
 
 use libc::{c_char, c_void, host_processor_info, mach_port_t, mach_task_self};
 use std::mem;
@@ -17,13 +17,15 @@ pub(crate) struct CpusWrapper {
 impl CpusWrapper {
     pub(crate) fn new() -> Self {
         Self {
-            global_cpu: Cpu::new(
-                "0".to_owned(),
-                Arc::new(CpuData::new(std::ptr::null_mut(), 0)),
-                0,
-                String::new(),
-                String::new(),
-            ),
+            global_cpu: Cpu {
+                inner: CpuInner::new(
+                    "0".to_owned(),
+                    Arc::new(CpuData::new(std::ptr::null_mut(), 0)),
+                    0,
+                    String::new(),
+                    String::new(),
+                ),
+            },
             cpus: Vec::new(),
             got_cpu_frequency: false,
         }
@@ -39,7 +41,7 @@ impl CpusWrapper {
         if refresh_kind.frequency() && !self.got_cpu_frequency {
             let frequency = unsafe { get_cpu_frequency() };
             for proc_ in cpus.iter_mut() {
-                proc_.set_frequency(frequency);
+                proc_.inner.set_frequency(frequency);
             }
             self.got_cpu_frequency = true;
         }
@@ -49,8 +51,8 @@ impl CpusWrapper {
                 let mut offset = 0;
                 for proc_ in cpus.iter_mut() {
                     let cpu_usage = compute_usage_of_cpu(proc_, cpu_info, offset);
-                    proc_.update(cpu_usage, Arc::clone(&proc_data));
-                    percentage += proc_.cpu_usage();
+                    proc_.inner.update(cpu_usage, Arc::clone(&proc_data));
+                    percentage += proc_.inner.cpu_usage();
 
                     offset += libc::CPU_STATE_MAX as isize;
                 }
@@ -103,8 +105,7 @@ impl Drop for CpuData {
     }
 }
 
-#[doc = include_str!("../../../md_doc/cpu.md")]
-pub struct Cpu {
+pub(crate) struct CpuInner {
     name: String,
     cpu_usage: f32,
     cpu_data: Arc<CpuData>,
@@ -113,15 +114,15 @@ pub struct Cpu {
     brand: String,
 }
 
-impl Cpu {
+impl CpuInner {
     pub(crate) fn new(
         name: String,
         cpu_data: Arc<CpuData>,
         frequency: u64,
         vendor_id: String,
         brand: String,
-    ) -> Cpu {
-        Cpu {
+    ) -> Self {
+        Self {
             name,
             cpu_usage: 0f32,
             cpu_data,
@@ -147,27 +148,24 @@ impl Cpu {
     pub(crate) fn set_frequency(&mut self, frequency: u64) {
         self.frequency = frequency;
     }
-}
 
-impl CpuExt for Cpu {
-    fn cpu_usage(&self) -> f32 {
+    pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    /// Returns the CPU frequency in MHz.
-    fn frequency(&self) -> u64 {
+    pub(crate) fn frequency(&self) -> u64 {
         self.frequency
     }
 
-    fn vendor_id(&self) -> &str {
+    pub(crate) fn vendor_id(&self) -> &str {
         &self.vendor_id
     }
 
-    fn brand(&self) -> &str {
+    pub(crate) fn brand(&self) -> &str {
         &self.brand
     }
 }
@@ -229,7 +227,7 @@ fn get_idle(cpu_info: *mut i32, offset: isize) -> i32 {
 }
 
 pub(crate) fn compute_usage_of_cpu(proc_: &Cpu, cpu_info: *mut i32, offset: isize) -> f32 {
-    let old_cpu_info = proc_.data().cpu_info.0;
+    let old_cpu_info = proc_.inner.data().cpu_info.0;
     let in_use;
     let total;
 
@@ -270,7 +268,7 @@ pub(crate) fn update_cpu_usage<F: FnOnce(Arc<CpuData>, *mut i32) -> (f32, usize)
                 f(Arc::new(CpuData::new(cpu_info, num_cpu_info)), cpu_info);
             total_cpu_usage = total_percentage / len as f32;
         }
-        global_cpu.set_cpu_usage(total_cpu_usage);
+        global_cpu.inner.set_cpu_usage(total_cpu_usage);
     }
 }
 
@@ -287,7 +285,7 @@ pub(crate) fn init_cpus(
     let frequency = if refresh_kind.frequency() {
         unsafe { get_cpu_frequency() }
     } else {
-        global_cpu.frequency
+        global_cpu.frequency()
     };
 
     unsafe {
@@ -305,19 +303,21 @@ pub(crate) fn init_cpus(
         let mut percentage = 0f32;
         let mut offset = 0;
         for i in 0..num_cpu {
-            let mut p = Cpu::new(
-                format!("{}", i + 1),
-                Arc::clone(&proc_data),
-                frequency,
-                vendor_id.clone(),
-                brand.clone(),
-            );
+            let mut cpu = Cpu {
+                inner: CpuInner::new(
+                    format!("{}", i + 1),
+                    Arc::clone(&proc_data),
+                    frequency,
+                    vendor_id.clone(),
+                    brand.clone(),
+                ),
+            };
             if refresh_kind.cpu_usage() {
-                let cpu_usage = compute_usage_of_cpu(&p, cpu_info, offset);
-                p.set_cpu_usage(cpu_usage);
-                percentage += p.cpu_usage();
+                let cpu_usage = compute_usage_of_cpu(&cpu, cpu_info, offset);
+                cpu.inner.set_cpu_usage(cpu_usage);
+                percentage += cpu.cpu_usage();
             }
-            cpus.push(p);
+            cpus.push(cpu);
 
             offset += libc::CPU_STATE_MAX as isize;
         }

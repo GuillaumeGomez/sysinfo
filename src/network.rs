@@ -11,7 +11,7 @@ pub(crate) fn refresh_networks_addresses(interfaces: &mut HashMap<String, Networ
         Ok(ifa_iterator) => {
             for (name, ifa) in ifa_iterator {
                 if let Some(interface) = interfaces.get_mut(&name) {
-                    interface.mac_addr = ifa;
+                    interface.inner.mac_addr = ifa;
                 }
             }
         }

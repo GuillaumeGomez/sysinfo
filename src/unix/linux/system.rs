@@ -1,9 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::cpu::*;
+use crate::sys::cpu::{get_physical_core_count, CpusWrapper};
 use crate::sys::process::{_get_process_data, compute_cpu_usage, refresh_procs, unset_updated};
 use crate::sys::utils::{get_all_data, to_u64};
-use crate::{CpuRefreshKind, LoadAvg, Pid, Process, ProcessInner, ProcessRefreshKind};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessInner, ProcessRefreshKind};
 
 use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cmp::min;

@@ -24,12 +24,10 @@ pub mod system;
 pub mod users;
 mod utils;
 
-pub(crate) use self::component::ComponentInner;
-pub use self::component::Components;
-pub use self::cpu::Cpu;
+pub(crate) use self::component::{ComponentInner, ComponentsInner};
+pub(crate) use self::cpu::CpuInner;
 pub(crate) use self::disk::DiskInner;
-pub use self::network::NetworkData;
-pub(crate) use self::network::NetworksInner;
+pub(crate) use self::network::{NetworkDataInner, NetworksInner};
 pub(crate) use self::process::ProcessInner;
 pub(crate) use self::system::SystemInner;
 pub(crate) use crate::unix::users::get_users;

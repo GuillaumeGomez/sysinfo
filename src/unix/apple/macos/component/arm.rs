@@ -16,31 +16,30 @@ use crate::sys::inner::ffi::{
     HID_DEVICE_PROPERTY_PRODUCT,
 };
 use crate::sys::utils::CFReleaser;
-use crate::{Component, ComponentsExt};
+use crate::Component;
 
-#[doc = include_str!("../../../../../md_doc/components.md")]
-pub struct Components {
+pub(crate) struct ComponentsInner {
     components: Vec<Component>,
     client: Option<CFReleaser<__IOHIDEventSystemClient>>,
 }
 
-impl ComponentsExt for Components {
-    fn new() -> Self {
+impl ComponentsInner {
+    pub(crate) fn new() -> Self {
         Self {
             components: vec![],
             client: None,
         }
     }
 
-    fn components(&self) -> &[Component] {
+    pub(crate) fn components(&self) -> &[Component] {
         &self.components
     }
 
-    fn components_mut(&mut self) -> &mut [Component] {
+    pub(crate) fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
     }
 
-    fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list(&mut self) {
         self.components.clear();
 
         unsafe {

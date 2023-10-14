@@ -6,7 +6,7 @@ use std::{fs::File, u8};
 
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkExt, NetworksIter};
+use crate::{NetworkData, NetworksIter};
 use std::collections::{hash_map, HashMap};
 
 macro_rules! old_and_new {
@@ -47,7 +47,7 @@ fn refresh_networks_list_from_sysfs(
         let mut data = vec![0; 30];
 
         for stats in interfaces.values_mut() {
-            stats.updated = false;
+            stats.inner.updated = false;
         }
 
         for entry in dir.flatten() {
@@ -67,6 +67,8 @@ fn refresh_networks_list_from_sysfs(
             match interfaces.entry(entry) {
                 hash_map::Entry::Occupied(mut e) => {
                     let interface = e.get_mut();
+                    let interface = &mut interface.inner;
+
                     old_and_new!(interface, rx_bytes, old_rx_bytes);
                     old_and_new!(interface, tx_bytes, old_tx_bytes);
                     old_and_new!(interface, rx_packets, old_rx_packets);
@@ -79,31 +81,33 @@ fn refresh_networks_list_from_sysfs(
                 }
                 hash_map::Entry::Vacant(e) => {
                     e.insert(NetworkData {
-                        rx_bytes,
-                        old_rx_bytes: rx_bytes,
-                        tx_bytes,
-                        old_tx_bytes: tx_bytes,
-                        rx_packets,
-                        old_rx_packets: rx_packets,
-                        tx_packets,
-                        old_tx_packets: tx_packets,
-                        rx_errors,
-                        old_rx_errors: rx_errors,
-                        tx_errors,
-                        old_tx_errors: tx_errors,
-                        mac_addr: MacAddr::UNSPECIFIED,
-                        // rx_compressed,
-                        // old_rx_compressed: rx_compressed,
-                        // tx_compressed,
-                        // old_tx_compressed: tx_compressed,
-                        updated: true,
+                        inner: NetworkDataInner {
+                            rx_bytes,
+                            old_rx_bytes: rx_bytes,
+                            tx_bytes,
+                            old_tx_bytes: tx_bytes,
+                            rx_packets,
+                            old_rx_packets: rx_packets,
+                            tx_packets,
+                            old_tx_packets: tx_packets,
+                            rx_errors,
+                            old_rx_errors: rx_errors,
+                            tx_errors,
+                            old_tx_errors: tx_errors,
+                            mac_addr: MacAddr::UNSPECIFIED,
+                            // rx_compressed,
+                            // old_rx_compressed: rx_compressed,
+                            // tx_compressed,
+                            // old_tx_compressed: tx_compressed,
+                            updated: true,
+                        },
                     });
                 }
             };
         }
 
         // Remove interfaces which are gone.
-        interfaces.retain(|_, d| d.updated);
+        interfaces.retain(|_, d| d.inner.updated);
     }
 }
 
@@ -126,7 +130,7 @@ impl NetworksInner {
         let mut v = vec![0; 30];
 
         for (interface_name, data) in self.interfaces.iter_mut() {
-            data.update(interface_name, &mut v);
+            data.inner.update(interface_name, &mut v);
         }
     }
 
@@ -136,8 +140,7 @@ impl NetworksInner {
     }
 }
 
-#[doc = include_str!("../../../md_doc/network_data.md")]
-pub struct NetworkData {
+pub(crate) struct NetworkDataInner {
     /// Total number of bytes received over interface.
     rx_bytes: u64,
     old_rx_bytes: u64,
@@ -174,7 +177,7 @@ pub struct NetworkData {
     updated: bool,
 }
 
-impl NetworkData {
+impl NetworkDataInner {
     fn update(&mut self, path: &str, data: &mut Vec<u8>) {
         let path = &Path::new("/sys/class/net/").join(path).join("statistics");
         old_and_new!(self, rx_bytes, old_rx_bytes, read(path, "rx_bytes", data));
@@ -216,58 +219,56 @@ impl NetworkData {
         //     read(path, "tx_compressed", data)
         // );
     }
-}
 
-impl NetworkExt for NetworkData {
-    fn received(&self) -> u64 {
+    pub(crate) fn received(&self) -> u64 {
         self.rx_bytes.saturating_sub(self.old_rx_bytes)
     }
 
-    fn total_received(&self) -> u64 {
+    pub(crate) fn total_received(&self) -> u64 {
         self.rx_bytes
     }
 
-    fn transmitted(&self) -> u64 {
+    pub(crate) fn transmitted(&self) -> u64 {
         self.tx_bytes.saturating_sub(self.old_tx_bytes)
     }
 
-    fn total_transmitted(&self) -> u64 {
+    pub(crate) fn total_transmitted(&self) -> u64 {
         self.tx_bytes
     }
 
-    fn packets_received(&self) -> u64 {
+    pub(crate) fn packets_received(&self) -> u64 {
         self.rx_packets.saturating_sub(self.old_rx_packets)
     }
 
-    fn total_packets_received(&self) -> u64 {
+    pub(crate) fn total_packets_received(&self) -> u64 {
         self.rx_packets
     }
 
-    fn packets_transmitted(&self) -> u64 {
+    pub(crate) fn packets_transmitted(&self) -> u64 {
         self.tx_packets.saturating_sub(self.old_tx_packets)
     }
 
-    fn total_packets_transmitted(&self) -> u64 {
+    pub(crate) fn total_packets_transmitted(&self) -> u64 {
         self.tx_packets
     }
 
-    fn errors_on_received(&self) -> u64 {
+    pub(crate) fn errors_on_received(&self) -> u64 {
         self.rx_errors.saturating_sub(self.old_rx_errors)
     }
 
-    fn total_errors_on_received(&self) -> u64 {
+    pub(crate) fn total_errors_on_received(&self) -> u64 {
         self.rx_errors
     }
 
-    fn errors_on_transmitted(&self) -> u64 {
+    pub(crate) fn errors_on_transmitted(&self) -> u64 {
         self.tx_errors.saturating_sub(self.old_tx_errors)
     }
 
-    fn total_errors_on_transmitted(&self) -> u64 {
+    pub(crate) fn total_errors_on_transmitted(&self) -> u64 {
         self.tx_errors
     }
 
-    fn mac_address(&self) -> MacAddr {
+    pub(crate) fn mac_address(&self) -> MacAddr {
         self.mac_addr
     }
 }

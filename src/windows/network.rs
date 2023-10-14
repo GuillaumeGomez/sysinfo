@@ -2,7 +2,7 @@
 
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkExt, NetworksIter};
+use crate::{NetworkData, NetworksIter};
 
 use std::collections::{hash_map, HashMap};
 
@@ -43,7 +43,7 @@ impl NetworksInner {
             }
 
             for (_, data) in self.interfaces.iter_mut() {
-                data.updated = false;
+                data.inner.updated = false;
             }
 
             // In here, this is tricky: we have to filter out the software interfaces to only keep
@@ -99,6 +99,7 @@ impl NetworksInner {
                 match self.interfaces.entry(interface_name) {
                     hash_map::Entry::Occupied(mut e) => {
                         let interface = e.get_mut();
+                        let interface = &mut interface.inner;
                         old_and_new!(interface, current_out, old_out, ptr.OutOctets);
                         old_and_new!(interface, current_in, old_in, ptr.InOctets);
                         old_and_new!(
@@ -122,21 +123,23 @@ impl NetworksInner {
                         let packets_out = ptr.OutUcastPkts.saturating_add(ptr.OutNUcastPkts);
 
                         e.insert(NetworkData {
-                            id: ptr.InterfaceLuid,
-                            current_out: ptr.OutOctets,
-                            old_out: ptr.OutOctets,
-                            current_in: ptr.InOctets,
-                            old_in: ptr.InOctets,
-                            packets_in,
-                            old_packets_in: packets_in,
-                            packets_out,
-                            old_packets_out: packets_out,
-                            errors_in: ptr.InErrors,
-                            old_errors_in: ptr.InErrors,
-                            errors_out: ptr.OutErrors,
-                            old_errors_out: ptr.OutErrors,
-                            mac_addr: MacAddr::UNSPECIFIED,
-                            updated: true,
+                            inner: NetworkDataInner {
+                                id: ptr.InterfaceLuid,
+                                current_out: ptr.OutOctets,
+                                old_out: ptr.OutOctets,
+                                current_in: ptr.InOctets,
+                                old_in: ptr.InOctets,
+                                packets_in,
+                                old_packets_in: packets_in,
+                                packets_out,
+                                old_packets_out: packets_out,
+                                errors_in: ptr.InErrors,
+                                old_errors_in: ptr.InErrors,
+                                errors_out: ptr.OutErrors,
+                                old_errors_out: ptr.OutErrors,
+                                mac_addr: MacAddr::UNSPECIFIED,
+                                updated: true,
+                            },
                         });
                     }
                 }
@@ -144,7 +147,7 @@ impl NetworksInner {
             let _err = FreeMibTable(table as _);
         }
         // Remove interfaces which are gone.
-        self.interfaces.retain(|_, d| d.updated);
+        self.interfaces.retain(|_, d| d.inner.updated);
         // Refresh all interfaces' addresses.
         refresh_networks_addresses(&mut self.interfaces);
     }
@@ -155,6 +158,7 @@ impl NetworksInner {
         unsafe {
             let mut entry = entry.assume_init();
             for (_, interface) in self.interfaces.iter_mut() {
+                let interface = &mut interface.inner;
                 entry.InterfaceLuid = interface.id;
                 entry.InterfaceIndex = 0; // to prevent the function to pick this one as index
                 if GetIfEntry2(&mut entry).is_err() {
@@ -181,8 +185,7 @@ impl NetworksInner {
     }
 }
 
-#[doc = include_str!("../../md_doc/network_data.md")]
-pub struct NetworkData {
+pub(crate) struct NetworkDataInner {
     id: NET_LUID_LH,
     current_out: u64,
     old_out: u64,
@@ -200,56 +203,56 @@ pub struct NetworkData {
     pub(crate) mac_addr: MacAddr,
 }
 
-impl NetworkExt for NetworkData {
-    fn received(&self) -> u64 {
+impl NetworkDataInner {
+    pub(crate) fn received(&self) -> u64 {
         self.current_in.saturating_sub(self.old_in)
     }
 
-    fn total_received(&self) -> u64 {
+    pub(crate) fn total_received(&self) -> u64 {
         self.current_in
     }
 
-    fn transmitted(&self) -> u64 {
+    pub(crate) fn transmitted(&self) -> u64 {
         self.current_out.saturating_sub(self.old_out)
     }
 
-    fn total_transmitted(&self) -> u64 {
+    pub(crate) fn total_transmitted(&self) -> u64 {
         self.current_out
     }
 
-    fn packets_received(&self) -> u64 {
+    pub(crate) fn packets_received(&self) -> u64 {
         self.packets_in.saturating_sub(self.old_packets_in)
     }
 
-    fn total_packets_received(&self) -> u64 {
+    pub(crate) fn total_packets_received(&self) -> u64 {
         self.packets_in
     }
 
-    fn packets_transmitted(&self) -> u64 {
+    pub(crate) fn packets_transmitted(&self) -> u64 {
         self.packets_out.saturating_sub(self.old_packets_out)
     }
 
-    fn total_packets_transmitted(&self) -> u64 {
+    pub(crate) fn total_packets_transmitted(&self) -> u64 {
         self.packets_out
     }
 
-    fn errors_on_received(&self) -> u64 {
+    pub(crate) fn errors_on_received(&self) -> u64 {
         self.errors_in.saturating_sub(self.old_errors_in)
     }
 
-    fn total_errors_on_received(&self) -> u64 {
+    pub(crate) fn total_errors_on_received(&self) -> u64 {
         self.errors_in
     }
 
-    fn errors_on_transmitted(&self) -> u64 {
+    pub(crate) fn errors_on_transmitted(&self) -> u64 {
         self.errors_out.saturating_sub(self.old_errors_out)
     }
 
-    fn total_errors_on_transmitted(&self) -> u64 {
+    pub(crate) fn total_errors_on_transmitted(&self) -> u64 {
         self.errors_out
     }
 
-    fn mac_address(&self) -> MacAddr {
+    pub(crate) fn mac_address(&self) -> MacAddr {
         self.mac_addr
     }
 }

@@ -4,8 +4,6 @@
 
 #[test]
 fn test_cpu() {
-    use sysinfo::CpuExt;
-
     let mut s = sysinfo::System::new();
     assert!(s.cpus().is_empty());
 
@@ -40,8 +38,6 @@ fn test_physical_core_numbers() {
 
 #[test]
 fn test_global_cpu_info_not_set() {
-    use sysinfo::CpuExt;
-
     let mut s = sysinfo::System::new();
     assert_eq!(s.global_cpu_info().vendor_id(), "");
     assert_eq!(s.global_cpu_info().brand(), "");

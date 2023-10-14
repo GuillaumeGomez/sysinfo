@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind};
 
 use crate::sys::cpu::*;
 use crate::sys::process::get_start_time;
@@ -116,6 +116,7 @@ impl SystemInner {
             if let Some(total_idle_time) = total_idle_time {
                 self.cpus
                     .global_cpu_mut()
+                    .inner
                     .set_cpu_usage(100.0 - total_idle_time);
             }
             for p in self.cpus.iter_mut(refresh_kind) {
@@ -128,7 +129,7 @@ impl SystemInner {
                     );
                 }
                 if let Some(idle_time) = idle_time {
-                    p.set_cpu_usage(100.0 - idle_time);
+                    p.inner.set_cpu_usage(100.0 - idle_time);
                 }
             }
             if refresh_kind.frequency() {

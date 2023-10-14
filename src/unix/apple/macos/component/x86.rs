@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::{ffi, macos::utils::IOReleaser};
-use crate::{Component, ComponentsExt};
+use crate::Component;
 
 use libc::{c_char, c_int, c_void};
 
@@ -45,29 +45,28 @@ impl ComponentFFI {
 }
 
 // Used to get CPU information, not supported on iOS, or inside the default macOS sandbox.
-#[doc = include_str!("../../../../../md_doc/components.md")]
-pub struct Components {
+pub(crate) struct ComponentsInner {
     components: Vec<Component>,
     connection: Option<IoService>,
 }
 
-impl ComponentsExt for Components {
-    fn new() -> Self {
+impl ComponentsInner {
+    pub(crate) fn new() -> Self {
         Self {
             components: Vec::with_capacity(2),
             connection: IoService::new_connection(),
         }
     }
 
-    fn components(&self) -> &[Component] {
+    pub(crate) fn components(&self) -> &[Component] {
         &self.components
     }
 
-    fn components_mut(&mut self) -> &mut [Component] {
+    pub(crate) fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
     }
 
-    fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list(&mut self) {
         if let Some(ref connection) = self.connection {
             let connection = connection.inner();
             self.components.clear();

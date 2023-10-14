@@ -8,7 +8,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::time::Instant;
 
 use crate::sys::utils::to_u64;
-use crate::{CpuExt, CpuRefreshKind};
+use crate::{Cpu, CpuRefreshKind};
 
 macro_rules! to_str {
     ($e:expr) => {
@@ -32,22 +32,24 @@ pub(crate) struct CpusWrapper {
 impl CpusWrapper {
     pub(crate) fn new() -> Self {
         Self {
-            global_cpu: Cpu::new_with_values(
-                "",
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                String::new(),
-                String::new(),
-            ),
+            global_cpu: Cpu {
+                inner: CpuInner::new_with_values(
+                    "",
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    String::new(),
+                    String::new(),
+                ),
+            },
             cpus: Vec::with_capacity(4),
             need_cpus_update: true,
             got_cpu_frequency: false,
@@ -102,11 +104,12 @@ impl CpusWrapper {
                     }
                     let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
                     if first {
-                        self.global_cpu.name = to_str!(parts.next().unwrap_or(&[])).to_owned();
+                        self.global_cpu.inner.name =
+                            to_str!(parts.next().unwrap_or(&[])).to_owned();
                     } else {
                         parts.next();
                     }
-                    self.global_cpu.set(
+                    self.global_cpu.inner.set(
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),
@@ -131,25 +134,27 @@ impl CpusWrapper {
                                 Some((vendor_id, brand)) => (vendor_id, brand),
                                 None => (String::new(), String::new()),
                             };
-                            self.cpus.push(Cpu::new_with_values(
-                                to_str!(parts.next().unwrap_or(&[])),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                0,
-                                vendor_id,
-                                brand,
-                            ));
+                            self.cpus.push(Cpu {
+                                inner: CpuInner::new_with_values(
+                                    to_str!(parts.next().unwrap_or(&[])),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    0,
+                                    vendor_id,
+                                    brand,
+                                ),
+                            });
                         } else {
                             parts.next(); // we don't want the name again
-                            self.cpus[i].set(
+                            self.cpus[i].inner.set(
                                 parts.next().map(to_u64).unwrap_or(0),
                                 parts.next().map(to_u64).unwrap_or(0),
                                 parts.next().map(to_u64).unwrap_or(0),
@@ -194,14 +199,17 @@ impl CpusWrapper {
             // `get_cpu_frequency` is very slow, so better run it in parallel.
             iter_mut(&mut self.cpus)
                 .enumerate()
-                .for_each(|(pos, proc_)| proc_.frequency = get_cpu_frequency(pos));
+                .for_each(|(pos, proc_)| proc_.inner.frequency = get_cpu_frequency(pos));
 
             self.got_cpu_frequency = true;
         }
     }
 
     pub(crate) fn get_global_raw_times(&self) -> (u64, u64) {
-        (self.global_cpu.total_time, self.global_cpu.old_total_time)
+        (
+            self.global_cpu.inner.total_time,
+            self.global_cpu.inner.old_total_time,
+        )
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -299,8 +307,7 @@ impl CpuValues {
     }
 }
 
-#[doc = include_str!("../../../md_doc/cpu.md")]
-pub struct Cpu {
+pub(crate) struct CpuInner {
     old_values: CpuValues,
     new_values: CpuValues,
     pub(crate) name: String,
@@ -312,7 +319,7 @@ pub struct Cpu {
     pub(crate) brand: String,
 }
 
-impl Cpu {
+impl CpuInner {
     pub(crate) fn new_with_values(
         name: &str,
         user: u64,
@@ -328,12 +335,12 @@ impl Cpu {
         frequency: u64,
         vendor_id: String,
         brand: String,
-    ) -> Cpu {
+    ) -> Self {
         let mut new_values = CpuValues::new();
         new_values.set(
             user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
         );
-        Cpu {
+        Self {
             name: name.to_owned(),
             old_values: CpuValues::new(),
             new_values,
@@ -381,27 +388,25 @@ impl Cpu {
             self.cpu_usage = 100.; // to prevent the percentage to go above 100%
         }
     }
-}
 
-impl CpuExt for Cpu {
-    fn cpu_usage(&self) -> f32 {
+    pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
     /// Returns the CPU frequency in MHz.
-    fn frequency(&self) -> u64 {
+    pub(crate) fn frequency(&self) -> u64 {
         self.frequency
     }
 
-    fn vendor_id(&self) -> &str {
+    pub(crate) fn vendor_id(&self) -> &str {
         &self.vendor_id
     }
 
-    fn brand(&self) -> &str {
+    pub(crate) fn brand(&self) -> &str {
         &self.brand
     }
 }

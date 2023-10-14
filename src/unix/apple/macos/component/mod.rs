@@ -4,10 +4,10 @@
 pub(crate) mod x86;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-pub use self::x86::*;
+pub(crate) use self::x86::*;
 
 #[cfg(target_arch = "aarch64")]
 pub(crate) mod arm;
 
 #[cfg(target_arch = "aarch64")]
-pub use self::arm::*;
+pub(crate) use self::arm::*;

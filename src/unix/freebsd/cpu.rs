@@ -3,7 +3,7 @@
 use crate::sys::utils::{
     get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name, init_mib, VecSwitcher,
 };
-use crate::{CpuExt, CpuRefreshKind};
+use crate::{Cpu, CpuRefreshKind};
 
 use libc::{c_int, c_ulong};
 
@@ -46,7 +46,9 @@ impl CpusWrapper {
             init_mib(b"kern.cp_time\0", &mut mib_cp_time);
             init_mib(b"kern.cp_times\0", &mut mib_cp_times);
             Self {
-                global_cpu: Cpu::new(String::new(), String::new(), 0),
+                global_cpu: Cpu {
+                    inner: CpuInner::new(String::new(), String::new(), 0),
+                },
                 cpus: Vec::with_capacity(nb_cpus),
                 got_cpu_frequency: false,
                 mib_cp_time,
@@ -71,14 +73,15 @@ impl CpusWrapper {
                         frequency = get_frequency_for_cpu(pos);
                     }
                 }
-                self.cpus
-                    .push(Cpu::new(format!("cpu {pos}"), vendor_id.clone(), frequency));
+                self.cpus.push(Cpu {
+                    inner: CpuInner::new(format!("cpu {pos}"), vendor_id.clone(), frequency),
+                });
             }
             self.got_cpu_frequency = refresh_kind.frequency();
         } else if refresh_kind.frequency() && !self.got_cpu_frequency {
             for (pos, proc_) in self.cpus.iter_mut().enumerate() {
                 unsafe {
-                    proc_.frequency = get_frequency_for_cpu(pos);
+                    proc_.inner.frequency = get_frequency_for_cpu(pos);
                 }
             }
             self.got_cpu_frequency = true;
@@ -111,9 +114,9 @@ impl CpusWrapper {
 
             let total_diff = total_new.saturating_sub(total_old);
             if total_diff < 1 {
-                proc_.cpu_usage = 0.;
+                proc_.inner.cpu_usage = 0.;
             } else {
-                proc_.cpu_usage = cp_diff as f32 / total_diff as f32 * 100.;
+                proc_.inner.cpu_usage = cp_diff as f32 / total_diff as f32 * 100.;
             }
         }
 
@@ -132,43 +135,40 @@ impl CpusWrapper {
     }
 }
 
-#[doc = include_str!("../../../md_doc/cpu.md")]
-pub struct Cpu {
+pub(crate) struct CpuInner {
     pub(crate) cpu_usage: f32,
     name: String,
     pub(crate) vendor_id: String,
     pub(crate) frequency: u64,
 }
 
-impl Cpu {
-    pub(crate) fn new(name: String, vendor_id: String, frequency: u64) -> Cpu {
-        Cpu {
+impl CpuInner {
+    pub(crate) fn new(name: String, vendor_id: String, frequency: u64) -> Self {
+        Self {
             cpu_usage: 0.,
             name,
             vendor_id,
             frequency,
         }
     }
-}
 
-impl CpuExt for Cpu {
-    fn cpu_usage(&self) -> f32 {
+    pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    fn frequency(&self) -> u64 {
+    pub(crate) fn frequency(&self) -> u64 {
         self.frequency
     }
 
-    fn vendor_id(&self) -> &str {
+    pub(crate) fn vendor_id(&self) -> &str {
         &self.vendor_id
     }
 
-    fn brand(&self) -> &str {
+    pub(crate) fn brand(&self) -> &str {
         ""
     }
 }

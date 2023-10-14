@@ -5,7 +5,7 @@ use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
-use crate::{CpuRefreshKind, LoadAvg, Pid, Process, ProcessRefreshKind};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessRefreshKind};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
