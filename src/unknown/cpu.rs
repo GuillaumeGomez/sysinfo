@@ -1,34 +1,29 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::CpuExt;
+pub(crate) struct CpuInner;
 
-#[doc = include_str!("../../md_doc/cpu.md")]
-pub struct Cpu {}
-
-impl Cpu {
-    pub(crate) fn new() -> Cpu {
-        Cpu {}
+impl CpuInner {
+    pub(crate) fn new() -> Self {
+        Self
     }
-}
 
-impl CpuExt for Cpu {
-    fn cpu_usage(&self) -> f32 {
+    pub(crate) fn cpu_usage(&self) -> f32 {
         0.0
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         ""
     }
 
-    fn frequency(&self) -> u64 {
+    pub(crate) fn frequency(&self) -> u64 {
         0
     }
 
-    fn vendor_id(&self) -> &str {
+    pub(crate) fn vendor_id(&self) -> &str {
         ""
     }
 
-    fn brand(&self) -> &str {
+    pub(crate) fn brand(&self) -> &str {
         ""
     }
 }

@@ -14,7 +14,7 @@ mod utils;
 
 pub(crate) use self::component::ComponentInner;
 pub use self::component::Components;
-pub use self::cpu::Cpu;
+pub(crate) use self::cpu::CpuInner;
 pub(crate) use self::disk::{DiskInner, DisksInner};
 pub(crate) use self::network::{NetworkDataInner, NetworksInner};
 pub(crate) use self::process::ProcessInner;

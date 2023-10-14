@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{sys::Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessRefreshKind};
+use crate::{Cpu, CpuInner, CpuRefreshKind, LoadAvg, Pid, Process, ProcessRefreshKind};
 
 use std::collections::HashMap;
 
@@ -13,7 +13,9 @@ impl SystemInner {
     pub(crate) fn new() -> Self {
         Self {
             processes_list: Default::default(),
-            global_cpu: Cpu::new(),
+            global_cpu: Cpu {
+                inner: CpuInner::new(),
+            },
         }
     }
 

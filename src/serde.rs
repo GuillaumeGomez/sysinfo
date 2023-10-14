@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::common::PidExt;
-use crate::{CpuExt, DiskKind, DiskUsage, GroupExt, MacAddr, ProcessStatus, Signal, UserExt};
+use crate::{DiskKind, DiskUsage, GroupExt, MacAddr, ProcessStatus, Signal, UserExt};
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::ops::Deref;
 

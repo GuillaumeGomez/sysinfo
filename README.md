@@ -99,7 +99,7 @@ Please remember that to have some up-to-date information, you need to call the e
 `refresh` method. For example, for the CPU usage:
 
 ```rust,no_run
-use sysinfo::{CpuExt, System};
+use sysinfo::System;
 
 let mut sys = System::new();
 

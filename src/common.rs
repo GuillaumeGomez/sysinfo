@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    ComponentInner, Components, ComponentsExt, Cpu, GroupExt, NetworkDataInner, NetworksInner,
+    ComponentInner, Components, ComponentsExt, CpuInner, GroupExt, NetworkDataInner, NetworksInner,
     ProcessInner, SystemInner, User, UserExt, UsersExt,
 };
 
@@ -396,11 +396,11 @@ impl System {
     ///
     /// **⚠️ Important ⚠️**
     ///
-    /// Information like [`CpuExt::brand`], [`CpuExt::vendor_id`] or [`CpuExt::frequency`]
+    /// Information like [`Cpu::brand`], [`Cpu::vendor_id`] or [`Cpu::frequency`]
     /// are not set on the "global" CPU.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuRefreshKind, CpuExt, RefreshKind, System};
+    /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
     ///
     /// let s = System::new_with_specifics(
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
@@ -408,9 +408,9 @@ impl System {
     /// println!("{}%", s.global_cpu_info().cpu_usage());
     /// ```
     ///
-    /// [`CpuExt::brand`]: crate::CpuExt::brand
-    /// [`CpuExt::vendor_id`]: crate::CpuExt::vendor_id
-    /// [`CpuExt::frequency`]: crate::CpuExt::frequency
+    /// [`Cpu::brand`]: crate::Cpu::brand
+    /// [`Cpu::vendor_id`]: crate::Cpu::vendor_id
+    /// [`Cpu::frequency`]: crate::Cpu::frequency
     pub fn global_cpu_info(&self) -> &Cpu {
         self.inner.global_cpu_info()
     }
@@ -421,7 +421,7 @@ impl System {
     /// [`System::refresh_specifics`] with `cpu` enabled.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuRefreshKind, CpuExt, RefreshKind, System};
+    /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
     ///
     /// let s = System::new_with_specifics(
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
@@ -441,7 +441,7 @@ impl System {
     /// **Important**: this information is computed every time this function is called.
     ///
     /// ```no_run
-    /// use sysinfo::{CpuExt, System};
+    /// use sysinfo::System;
     ///
     /// let s = System::new();
     /// println!("{:?}", s.physical_core_count());
@@ -1411,7 +1411,7 @@ on Windows as other platforms get this information alongside the Process informa
 /// extra computation.
 ///
 /// ```
-/// use sysinfo::{CpuExt, CpuRefreshKind, System};
+/// use sysinfo::{CpuRefreshKind, System};
 ///
 /// let mut system = System::new();
 ///
@@ -2887,6 +2887,119 @@ impl Component {
     /// ```
     pub fn refresh(&mut self) {
         self.inner.refresh()
+    }
+}
+
+/// Contains all the methods of the [`Cpu`][crate::Cpu] struct.
+///
+/// ```no_run
+/// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+///
+/// let mut s = System::new_with_specifics(
+///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+/// );
+///
+/// // Wait a bit because CPU usage is based on diff.
+/// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+/// // Refresh CPUs again.
+/// s.refresh_cpu();
+///
+/// for cpu in s.cpus() {
+///     println!("{}%", cpu.cpu_usage());
+/// }
+/// ```
+pub struct Cpu {
+    pub(crate) inner: CpuInner,
+}
+
+impl Cpu {
+    /// Returns this CPU's usage.
+    ///
+    /// Note: You'll need to refresh it at least twice (diff between the first and the second is
+    /// how CPU usage is computed) at first if you want to have a non-zero value.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let mut s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    ///
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPUs again.
+    /// s.refresh_cpu();
+    ///
+    /// for cpu in s.cpus() {
+    ///     println!("{}%", cpu.cpu_usage());
+    /// }
+    /// ```
+    pub fn cpu_usage(&self) -> f32 {
+        self.inner.cpu_usage()
+    }
+
+    /// Returns this CPU's name.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.name());
+    /// }
+    /// ```
+    pub fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    /// Returns the CPU's vendor id.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.vendor_id());
+    /// }
+    /// ```
+    pub fn vendor_id(&self) -> &str {
+        self.inner.vendor_id()
+    }
+
+    /// Returns the CPU's brand.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.brand());
+    /// }
+    /// ```
+    pub fn brand(&self) -> &str {
+        self.inner.brand()
+    }
+
+    /// Returns the CPU's frequency.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.frequency());
+    /// }
+    /// ```
+    pub fn frequency(&self) -> u64 {
+        self.inner.frequency()
     }
 }
 
