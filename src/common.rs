@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    ComponentInner, Components, ComponentsExt, CpuInner, NetworkDataInner, NetworksInner,
-    ProcessInner, SystemInner, User, UserExt, UsersExt,
+    ComponentInner, ComponentsInner, CpuInner, NetworkDataInner, NetworksInner, ProcessInner,
+    SystemInner, User, UserExt, UsersExt,
 };
 
 use std::cmp::Ordering;
@@ -2797,10 +2797,142 @@ impl fmt::Display for MacAddr {
     }
 }
 
+/// Interacting with components.
+///
+/// ```no_run
+/// use sysinfo::Components;
+///
+/// let mut components = Components::new();
+/// components.refresh_list();
+/// for component in components.iter() {
+///     eprintln!("{component:?}");
+/// }
+/// ```
+pub struct Components {
+    pub(crate) inner: ComponentsInner,
+}
+
+impl Default for Components {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Components {
+    /// Creates a new [`Components`][crate::Components] type.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    pub fn new() -> Self {
+        Self {
+            inner: ComponentsInner::new(),
+        }
+    }
+
+    /// Returns the components list.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.components() {
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    pub fn components(&self) -> &[Component] {
+        self.inner.components()
+    }
+
+    /// Returns the components list.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.components_mut() {
+    ///     component.refresh();
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    pub fn components_mut(&mut self) -> &mut [Component] {
+        self.inner.components_mut()
+    }
+
+    /// Sort the components list with the provided callback.
+    ///
+    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
+    /// for implementation details.
+    ///
+    /// You can do the same without this method by calling:
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// components.sort_by(|component1, component2| {
+    ///     component2.label().partial_cmp(component2.label()).unwrap()
+    /// });
+    /// ```
+    ///
+    /// ⚠️ If you use [`Components::refresh_list`], you will need to call this method to sort the
+    /// components again.
+    pub fn sort_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Component, &Component) -> std::cmp::Ordering,
+    {
+        self.components_mut().sort_unstable_by(compare);
+    }
+
+    /// Refreshes the listed components' information.
+    ///
+    /// ⚠️ If a component is added or removed, this method won't take it into account. Use
+    /// [`Components::refresh_list`] instead.
+    ///
+    /// ⚠️ If you didn't call [`Components::refresh_list`] beforehand, this method will do
+    /// nothing as the component list will be empty.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// // We get the component list.
+    /// components.refresh_list();
+    /// // We wait some time...?
+    /// components.refresh();
+    /// ```
+    pub fn refresh(&mut self) {
+        for component in self.components_mut() {
+            component.refresh();
+        }
+    }
+
+    /// The component list will be emptied then completely recomputed.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// ```
+    pub fn refresh_list(&mut self) {
+        self.inner.refresh_list()
+    }
+}
+
 /// Getting a component temperature information.
 ///
 /// ```no_run
-/// use sysinfo::{Components, ComponentsExt};
+/// use sysinfo::Components;
 ///
 /// let mut components = Components::new();
 /// components.refresh_list();
@@ -2820,7 +2952,7 @@ impl Component {
     /// Returns `f32::NAN` if it failed to retrieve it.
     ///
     /// ```no_run
-    /// use sysinfo::{Components, ComponentsExt};
+    /// use sysinfo::Components;
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
@@ -2838,7 +2970,7 @@ impl Component {
     /// `max` value will be updated on refresh.
     ///
     /// ```no_run
-    /// use sysinfo::{Components, ComponentsExt};
+    /// use sysinfo::Components;
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
@@ -2858,7 +2990,7 @@ impl Component {
     /// Returns the highest temperature before the component halts (in celsius degree).
     ///
     /// ```no_run
-    /// use sysinfo::{Components, ComponentsExt};
+    /// use sysinfo::Components;
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
@@ -2877,7 +3009,7 @@ impl Component {
     /// Returns the label of the component.
     ///
     /// ```no_run
-    /// use sysinfo::{Components, ComponentsExt};
+    /// use sysinfo::Components;
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
@@ -2905,7 +3037,7 @@ impl Component {
     /// Refreshes component.
     ///
     /// ```no_run
-    /// use sysinfo::{Components, ComponentsExt};
+    /// use sysinfo::Components;
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();

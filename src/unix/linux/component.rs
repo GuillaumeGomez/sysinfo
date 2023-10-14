@@ -4,7 +4,7 @@
 //
 // Values in /sys/class/hwmonN are `c_long` or `c_ulong`
 // transposed to rust we only read `u32` or `i32` values.
-use crate::{Component, ComponentsExt};
+use crate::Component;
 
 use std::collections::HashMap;
 use std::fs::{read_dir, File};
@@ -331,27 +331,26 @@ impl ComponentInner {
     }
 }
 
-#[doc = include_str!("../../../md_doc/components.md")]
-pub struct Components {
+pub(crate) struct ComponentsInner {
     components: Vec<Component>,
 }
 
-impl ComponentsExt for Components {
-    fn new() -> Self {
+impl ComponentsInner {
+    pub(crate) fn new() -> Self {
         Self {
             components: Vec::with_capacity(4),
         }
     }
 
-    fn components(&self) -> &[Component] {
+    pub(crate) fn components(&self) -> &[Component] {
         &self.components
     }
 
-    fn components_mut(&mut self) -> &mut [Component] {
+    pub(crate) fn components_mut(&mut self) -> &mut [Component] {
         &mut self.components
     }
 
-    fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list(&mut self) {
         self.components.clear();
         if let Ok(dir) = read_dir(Path::new("/sys/class/hwmon/")) {
             for entry in dir.flatten() {

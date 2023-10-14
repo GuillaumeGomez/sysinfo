@@ -8,8 +8,7 @@ pub mod process;
 pub mod system;
 mod utils;
 
-pub(crate) use self::component::ComponentInner;
-pub use self::component::Components;
+pub(crate) use self::component::{ComponentInner, ComponentsInner};
 pub(crate) use self::cpu::CpuInner;
 pub(crate) use self::disk::DiskInner;
 pub(crate) use self::network::{NetworkDataInner, NetworksInner};
