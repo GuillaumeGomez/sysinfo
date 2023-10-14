@@ -7,7 +7,7 @@ use std::ptr::null_mut;
 
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkExt, NetworksIter};
+use crate::{NetworkData, NetworksIter};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $new_val:expr) => {{
@@ -34,10 +34,10 @@ impl NetworksInner {
 
     pub(crate) fn refresh_list(&mut self) {
         for (_, data) in self.interfaces.iter_mut() {
-            data.updated = false;
+            data.inner.updated = false;
         }
         self.update_networks(true);
-        self.interfaces.retain(|_, data| data.updated);
+        self.interfaces.retain(|_, data| data.inner.updated);
         refresh_networks_addresses(&mut self.interfaces);
     }
 
@@ -102,6 +102,8 @@ impl NetworksInner {
                     match self.interfaces.entry(name) {
                         hash_map::Entry::Occupied(mut e) => {
                             let interface = e.get_mut();
+                            let interface = &mut interface.inner;
+
                             old_and_new!(
                                 interface,
                                 current_out,
@@ -152,20 +154,22 @@ impl NetworksInner {
                             let errors_out = (*if2m).ifm_data.ifi_oerrors;
 
                             e.insert(NetworkData {
-                                current_in,
-                                old_in: current_in,
-                                current_out,
-                                old_out: current_out,
-                                packets_in,
-                                old_packets_in: packets_in,
-                                packets_out,
-                                old_packets_out: packets_out,
-                                errors_in,
-                                old_errors_in: errors_in,
-                                errors_out,
-                                old_errors_out: errors_out,
-                                updated: true,
-                                mac_addr: MacAddr::UNSPECIFIED,
+                                inner: NetworkDataInner {
+                                    current_in,
+                                    old_in: current_in,
+                                    current_out,
+                                    old_out: current_out,
+                                    packets_in,
+                                    old_packets_in: packets_in,
+                                    packets_out,
+                                    old_packets_out: packets_out,
+                                    errors_in,
+                                    old_errors_in: errors_in,
+                                    errors_out,
+                                    old_errors_out: errors_out,
+                                    updated: true,
+                                    mac_addr: MacAddr::UNSPECIFIED,
+                                },
                             });
                         }
                     }
@@ -175,9 +179,8 @@ impl NetworksInner {
     }
 }
 
-#[doc = include_str!("../../../md_doc/network_data.md")]
 #[derive(PartialEq, Eq)]
-pub struct NetworkData {
+pub(crate) struct NetworkDataInner {
     current_in: u64,
     old_in: u64,
     current_out: u64,
@@ -195,56 +198,56 @@ pub struct NetworkData {
     pub(crate) mac_addr: MacAddr,
 }
 
-impl NetworkExt for NetworkData {
-    fn received(&self) -> u64 {
+impl NetworkDataInner {
+    pub(crate) fn received(&self) -> u64 {
         self.current_in.saturating_sub(self.old_in)
     }
 
-    fn total_received(&self) -> u64 {
+    pub(crate) fn total_received(&self) -> u64 {
         self.current_in
     }
 
-    fn transmitted(&self) -> u64 {
+    pub(crate) fn transmitted(&self) -> u64 {
         self.current_out.saturating_sub(self.old_out)
     }
 
-    fn total_transmitted(&self) -> u64 {
+    pub(crate) fn total_transmitted(&self) -> u64 {
         self.current_out
     }
 
-    fn packets_received(&self) -> u64 {
+    pub(crate) fn packets_received(&self) -> u64 {
         self.packets_in.saturating_sub(self.old_packets_in)
     }
 
-    fn total_packets_received(&self) -> u64 {
+    pub(crate) fn total_packets_received(&self) -> u64 {
         self.packets_in
     }
 
-    fn packets_transmitted(&self) -> u64 {
+    pub(crate) fn packets_transmitted(&self) -> u64 {
         self.packets_out.saturating_sub(self.old_packets_out)
     }
 
-    fn total_packets_transmitted(&self) -> u64 {
+    pub(crate) fn total_packets_transmitted(&self) -> u64 {
         self.packets_out
     }
 
-    fn errors_on_received(&self) -> u64 {
+    pub(crate) fn errors_on_received(&self) -> u64 {
         self.errors_in.saturating_sub(self.old_errors_in)
     }
 
-    fn total_errors_on_received(&self) -> u64 {
+    pub(crate) fn total_errors_on_received(&self) -> u64 {
         self.errors_in
     }
 
-    fn errors_on_transmitted(&self) -> u64 {
+    pub(crate) fn errors_on_transmitted(&self) -> u64 {
         self.errors_out.saturating_sub(self.old_errors_out)
     }
 
-    fn total_errors_on_transmitted(&self) -> u64 {
+    pub(crate) fn total_errors_on_transmitted(&self) -> u64 {
         self.errors_out
     }
 
-    fn mac_address(&self) -> MacAddr {
+    pub(crate) fn mac_address(&self) -> MacAddr {
         self.mac_addr
     }
 }

@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    ComponentInner, Components, ComponentsExt, Cpu, GroupExt, NetworkData, NetworksInner,
+    ComponentInner, Components, ComponentsExt, Cpu, GroupExt, NetworkDataInner, NetworksInner,
     ProcessInner, SystemInner, User, UserExt, UsersExt,
 };
 
@@ -1585,7 +1585,7 @@ impl Networks {
     /// Returns an iterator over the network interfaces.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, NetworkExt, System};
+    /// use sysinfo::{Networks, System};
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -1661,6 +1661,218 @@ impl<'a> Iterator for NetworksIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next()
+    }
+}
+
+/// Getting volume of received and transmitted data.
+///
+/// ```no_run
+/// use sysinfo::Networks;
+///
+/// let mut networks = Networks::new();
+/// networks.refresh_list();
+/// for (interface_name, network) in &networks {
+///     println!("[{interface_name}] {network:?}");
+/// }
+/// ```
+pub struct NetworkData {
+    pub(crate) inner: NetworkDataInner,
+}
+
+impl NetworkData {
+    /// Returns the number of received bytes since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {} B", network.received());
+    /// }
+    /// ```
+    pub fn received(&self) -> u64 {
+        self.inner.received()
+    }
+
+    /// Returns the total number of received bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {} B", network.total_received());
+    /// }
+    /// ```
+    pub fn total_received(&self) -> u64 {
+        self.inner.total_received()
+    }
+
+    /// Returns the number of transmitted bytes since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {} B", network.transmitted());
+    /// }
+    /// ```
+    pub fn transmitted(&self) -> u64 {
+        self.inner.transmitted()
+    }
+
+    /// Returns the total number of transmitted bytes.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {} B", network.total_transmitted());
+    /// }
+    /// ```
+    pub fn total_transmitted(&self) -> u64 {
+        self.inner.total_transmitted()
+    }
+
+    /// Returns the number of incoming packets since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {}", network.packets_received());
+    /// }
+    /// ```
+    pub fn packets_received(&self) -> u64 {
+        self.inner.packets_received()
+    }
+
+    /// Returns the total number of incoming packets.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {}", network.total_packets_received());
+    /// }
+    /// ```
+    pub fn total_packets_received(&self) -> u64 {
+        self.inner.total_packets_received()
+    }
+
+    /// Returns the number of outcoming packets since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {}", network.packets_transmitted());
+    /// }
+    /// ```
+    pub fn packets_transmitted(&self) -> u64 {
+        self.inner.packets_transmitted()
+    }
+
+    /// Returns the total number of outcoming packets.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {}", network.total_packets_transmitted());
+    /// }
+    /// ```
+    pub fn total_packets_transmitted(&self) -> u64 {
+        self.inner.total_packets_transmitted()
+    }
+
+    /// Returns the number of incoming errors since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {}", network.errors_on_received());
+    /// }
+    /// ```
+    pub fn errors_on_received(&self) -> u64 {
+        self.inner.errors_on_received()
+    }
+
+    /// Returns the total number of incoming errors.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("in: {}", network.total_errors_on_received());
+    /// }
+    /// ```
+    pub fn total_errors_on_received(&self) -> u64 {
+        self.inner.total_errors_on_received()
+    }
+
+    /// Returns the number of outcoming errors since the last refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {}", network.errors_on_transmitted());
+    /// }
+    /// ```
+    pub fn errors_on_transmitted(&self) -> u64 {
+        self.inner.errors_on_transmitted()
+    }
+
+    /// Returns the total number of outcoming errors.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("out: {}", network.total_errors_on_transmitted());
+    /// }
+    /// ```
+    pub fn total_errors_on_transmitted(&self) -> u64 {
+        self.inner.total_errors_on_transmitted()
+    }
+
+    /// Returns the MAC address associated to current interface.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("MAC address: {}", network.mac_address());
+    /// }
+    /// ```
+    pub fn mac_address(&self) -> MacAddr {
+        self.inner.mac_address()
     }
 }
 
@@ -2532,7 +2744,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 
 /// MAC address for network interface.
 ///
-/// It is returned by [`NetworkExt::mac_address`][crate::NetworkExt::mac_address].
+/// It is returned by [`NetworkData::mac_address`][crate::NetworkData::mac_address].
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct MacAddr(pub [u8; 6]);
 

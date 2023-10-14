@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::common::MacAddr;
-use crate::{NetworkExt, NetworksIter};
+use crate::{NetworkData, NetworksIter};
 
 use std::collections::HashMap;
 
@@ -25,59 +25,58 @@ impl NetworksInner {
     pub(crate) fn refresh(&mut self) {}
 }
 
-#[doc = include_str!("../../md_doc/network_data.md")]
-pub struct NetworkData;
+pub(crate) struct NetworkDataInner;
 
-impl NetworkExt for NetworkData {
-    fn received(&self) -> u64 {
+impl NetworkDataInner {
+    pub(crate) fn received(&self) -> u64 {
         0
     }
 
-    fn total_received(&self) -> u64 {
+    pub(crate) fn total_received(&self) -> u64 {
         0
     }
 
-    fn transmitted(&self) -> u64 {
+    pub(crate) fn transmitted(&self) -> u64 {
         0
     }
 
-    fn total_transmitted(&self) -> u64 {
+    pub(crate) fn total_transmitted(&self) -> u64 {
         0
     }
 
-    fn packets_received(&self) -> u64 {
+    pub(crate) fn packets_received(&self) -> u64 {
         0
     }
 
-    fn total_packets_received(&self) -> u64 {
+    pub(crate) fn total_packets_received(&self) -> u64 {
         0
     }
 
-    fn packets_transmitted(&self) -> u64 {
+    pub(crate) fn packets_transmitted(&self) -> u64 {
         0
     }
 
-    fn total_packets_transmitted(&self) -> u64 {
+    pub(crate) fn total_packets_transmitted(&self) -> u64 {
         0
     }
 
-    fn errors_on_received(&self) -> u64 {
+    pub(crate) fn errors_on_received(&self) -> u64 {
         0
     }
 
-    fn total_errors_on_received(&self) -> u64 {
+    pub(crate) fn total_errors_on_received(&self) -> u64 {
         0
     }
 
-    fn errors_on_transmitted(&self) -> u64 {
+    pub(crate) fn errors_on_transmitted(&self) -> u64 {
         0
     }
 
-    fn total_errors_on_transmitted(&self) -> u64 {
+    pub(crate) fn total_errors_on_transmitted(&self) -> u64 {
         0
     }
 
-    fn mac_address(&self) -> MacAddr {
+    pub(crate) fn mac_address(&self) -> MacAddr {
         MacAddr::UNSPECIFIED
     }
 }

@@ -6,7 +6,7 @@ use std::mem::MaybeUninit;
 use super::utils;
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkExt, NetworksIter};
+use crate::{NetworkData, NetworksIter};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $data:expr) => {{
@@ -35,7 +35,7 @@ impl NetworksInner {
             self.refresh_interfaces(true);
         }
         // Remove interfaces which are gone.
-        self.interfaces.retain(|_, n| n.updated);
+        self.interfaces.retain(|_, n| n.inner.updated);
         refresh_networks_addresses(&mut self.interfaces);
     }
 
@@ -62,7 +62,7 @@ impl NetworksInner {
         if refresh_all {
             // We don't need to update this value if we're not updating all interfaces.
             for interface in self.interfaces.values_mut() {
-                interface.updated = false;
+                interface.inner.updated = false;
             }
         }
         let mut data: libc::ifmibdata = MaybeUninit::zeroed().assume_init();
@@ -84,6 +84,7 @@ impl NetworksInner {
                 match self.interfaces.entry(name) {
                     hash_map::Entry::Occupied(mut e) => {
                         let interface = e.get_mut();
+                        let interface = &mut interface.inner;
 
                         old_and_new!(interface, ifi_ibytes, old_ifi_ibytes, data);
                         old_and_new!(interface, ifi_obytes, old_ifi_obytes, data);
@@ -99,20 +100,22 @@ impl NetworksInner {
                             continue;
                         }
                         e.insert(NetworkData {
-                            ifi_ibytes: data.ifi_ibytes,
-                            old_ifi_ibytes: 0,
-                            ifi_obytes: data.ifi_obytes,
-                            old_ifi_obytes: 0,
-                            ifi_ipackets: data.ifi_ipackets,
-                            old_ifi_ipackets: 0,
-                            ifi_opackets: data.ifi_opackets,
-                            old_ifi_opackets: 0,
-                            ifi_ierrors: data.ifi_ierrors,
-                            old_ifi_ierrors: 0,
-                            ifi_oerrors: data.ifi_oerrors,
-                            old_ifi_oerrors: 0,
-                            updated: true,
-                            mac_addr: MacAddr::UNSPECIFIED,
+                            inner: NetworkDataInner {
+                                ifi_ibytes: data.ifi_ibytes,
+                                old_ifi_ibytes: 0,
+                                ifi_obytes: data.ifi_obytes,
+                                old_ifi_obytes: 0,
+                                ifi_ipackets: data.ifi_ipackets,
+                                old_ifi_ipackets: 0,
+                                ifi_opackets: data.ifi_opackets,
+                                old_ifi_opackets: 0,
+                                ifi_ierrors: data.ifi_ierrors,
+                                old_ifi_ierrors: 0,
+                                ifi_oerrors: data.ifi_oerrors,
+                                old_ifi_oerrors: 0,
+                                updated: true,
+                                mac_addr: MacAddr::UNSPECIFIED,
+                            },
                         });
                     }
                 }
@@ -121,8 +124,7 @@ impl NetworksInner {
     }
 }
 
-#[doc = include_str!("../../../md_doc/network_data.md")]
-pub struct NetworkData {
+pub(crate) struct NetworkDataInner {
     /// Total number of bytes received over interface.
     ifi_ibytes: u64,
     old_ifi_ibytes: u64,
@@ -149,56 +151,56 @@ pub struct NetworkData {
     pub(crate) mac_addr: MacAddr,
 }
 
-impl NetworkExt for NetworkData {
-    fn received(&self) -> u64 {
+impl NetworkDataInner {
+    pub(crate) fn received(&self) -> u64 {
         self.ifi_ibytes.saturating_sub(self.old_ifi_ibytes)
     }
 
-    fn total_received(&self) -> u64 {
+    pub(crate) fn total_received(&self) -> u64 {
         self.ifi_ibytes
     }
 
-    fn transmitted(&self) -> u64 {
+    pub(crate) fn transmitted(&self) -> u64 {
         self.ifi_obytes.saturating_sub(self.old_ifi_obytes)
     }
 
-    fn total_transmitted(&self) -> u64 {
+    pub(crate) fn total_transmitted(&self) -> u64 {
         self.ifi_obytes
     }
 
-    fn packets_received(&self) -> u64 {
+    pub(crate) fn packets_received(&self) -> u64 {
         self.ifi_ipackets.saturating_sub(self.old_ifi_ipackets)
     }
 
-    fn total_packets_received(&self) -> u64 {
+    pub(crate) fn total_packets_received(&self) -> u64 {
         self.ifi_ipackets
     }
 
-    fn packets_transmitted(&self) -> u64 {
+    pub(crate) fn packets_transmitted(&self) -> u64 {
         self.ifi_opackets.saturating_sub(self.old_ifi_opackets)
     }
 
-    fn total_packets_transmitted(&self) -> u64 {
+    pub(crate) fn total_packets_transmitted(&self) -> u64 {
         self.ifi_opackets
     }
 
-    fn errors_on_received(&self) -> u64 {
+    pub(crate) fn errors_on_received(&self) -> u64 {
         self.ifi_ierrors.saturating_sub(self.old_ifi_ierrors)
     }
 
-    fn total_errors_on_received(&self) -> u64 {
+    pub(crate) fn total_errors_on_received(&self) -> u64 {
         self.ifi_ierrors
     }
 
-    fn errors_on_transmitted(&self) -> u64 {
+    pub(crate) fn errors_on_transmitted(&self) -> u64 {
         self.ifi_oerrors.saturating_sub(self.old_ifi_oerrors)
     }
 
-    fn total_errors_on_transmitted(&self) -> u64 {
+    pub(crate) fn total_errors_on_transmitted(&self) -> u64 {
         self.ifi_oerrors
     }
 
-    fn mac_address(&self) -> MacAddr {
+    pub(crate) fn mac_address(&self) -> MacAddr {
         self.mac_addr
     }
 }
