@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Component, Components, ComponentsExt, Cpu, GroupExt, NetworkData, NetworksExt, ProcessInner,
-    SystemInner, User, UserExt, UsersExt,
+    ComponentInner, Components, ComponentsExt, Cpu, GroupExt, NetworkData, NetworksInner,
+    ProcessInner, SystemInner, User, UserExt, UsersExt,
 };
 
 use std::cmp::Ordering;
@@ -1534,22 +1534,19 @@ impl RefreshKind {
     impl_get_set!(RefreshKind, cpu, with_cpu, without_cpu, CpuRefreshKind);
 }
 
-/// Network interfaces.
-///
-/// Don't forget to also take a look at the [`NetworksExt`] trait to see the list of available
-/// methods.
+/// Interacting with network interfaces.
 ///
 /// ```no_run
-/// use sysinfo::{Networks, NetworksExt};
+/// use sysinfo::Networks;
 ///
 /// let mut networks = Networks::new();
 /// networks.refresh_list();
-/// for network in networks.iter() {
-///     println!("{:?}", network);
+/// for (interface_name, network) in &networks {
+///     println!("[{interface_name}]: {network:?}");
 /// }
 /// ```
 pub struct Networks {
-    pub(crate) interfaces: HashMap<String, NetworkData>,
+    pub(crate) inner: NetworksInner,
 }
 
 impl<'a> IntoIterator for &'a Networks {
@@ -1561,12 +1558,90 @@ impl<'a> IntoIterator for &'a Networks {
     }
 }
 
+impl Default for Networks {
+    fn default() -> Self {
+        Networks::new()
+    }
+}
+
+impl Networks {
+    /// Creates a new [`Networks`][crate::Networks] type.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("[{interface_name}]: {network:?}");
+    /// }
+    /// ```
+    pub fn new() -> Self {
+        Self {
+            inner: NetworksInner::new(),
+        }
+    }
+
+    /// Returns an iterator over the network interfaces.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Networks, NetworkExt, System};
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// for (interface_name, data) in &networks {
+    ///     println!(
+    ///         "[{interface_name}] in: {}, out: {}",
+    ///         data.received(),
+    ///         data.transmitted(),
+    ///     );
+    /// }
+    /// ```
+    pub fn iter(&self) -> NetworksIter {
+        self.inner.iter()
+    }
+
+    /// Refreshes the network interfaces list.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Networks, System};
+    ///
+    /// let mut networks = Networks::new();
+    /// networks.refresh_list();
+    /// ```
+    pub fn refresh_list(&mut self) {
+        self.inner.refresh_list()
+    }
+
+    /// Refreshes the network interfaces' content. If you didn't run [`Networks::refresh_list`]
+    /// before, calling this method won't do anything as no interfaces are present.
+    ///
+    /// ⚠️ If a user is added or removed, this method won't take it into account. Use
+    /// [`Networks::refresh_list`] instead.
+    ///
+    /// ⚠️ If you didn't call [`Networks::refresh_list`] beforehand, this method will do nothing
+    /// as the network list will be empty.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Networks, System};
+    ///
+    /// let mut networks = Networks::new();
+    /// // Refreshes the network interfaces list.
+    /// networks.refresh_list();
+    /// // Wait some time...? Then refresh the data of each network.
+    /// networks.refresh();
+    /// ```
+    pub fn refresh(&mut self) {
+        self.inner.refresh()
+    }
+}
+
 /// Iterator over network interfaces.
 ///
 /// It is returned by [`Networks::iter`][crate::Networks#method.iter].
 ///
 /// ```no_run
-/// use sysinfo::{Networks, NetworksExt};
+/// use sysinfo::Networks;
 ///
 /// let networks = Networks::new();
 /// let networks_iter = networks.iter();
@@ -2479,6 +2554,127 @@ impl fmt::Display for MacAddr {
             "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
             data[0], data[1], data[2], data[3], data[4], data[5],
         )
+    }
+}
+
+/// Getting a component temperature information.
+///
+/// ```no_run
+/// use sysinfo::{Components, ComponentsExt};
+///
+/// let mut components = Components::new();
+/// components.refresh_list();
+/// for component in components.iter() {
+///     println!("{}°C", component.temperature());
+/// }
+/// ```
+pub struct Component {
+    pub(crate) inner: ComponentInner,
+}
+
+impl Component {
+    /// Returns the temperature of the component (in celsius degree).
+    ///
+    /// ## Linux
+    ///
+    /// Returns `f32::NAN` if it failed to retrieve it.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
+    ///     println!("{}°C", component.temperature());
+    /// }
+    /// ```
+    pub fn temperature(&self) -> f32 {
+        self.inner.temperature()
+    }
+
+    /// Returns the maximum temperature of the component (in celsius degree).
+    ///
+    /// Note: if `temperature` is higher than the current `max`,
+    /// `max` value will be updated on refresh.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
+    ///     println!("{}°C", component.max());
+    /// }
+    /// ```
+    ///
+    /// ## Linux
+    ///
+    /// May be computed by `sysinfo` from kernel.
+    /// Returns `f32::NAN` if it failed to retrieve it.
+    pub fn max(&self) -> f32 {
+        self.inner.max()
+    }
+
+    /// Returns the highest temperature before the component halts (in celsius degree).
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
+    ///     println!("{:?}°C", component.critical());
+    /// }
+    /// ```
+    ///
+    /// ## Linux
+    ///
+    /// Critical threshold defined by chip or kernel.
+    pub fn critical(&self) -> Option<f32> {
+        self.inner.critical()
+    }
+
+    /// Returns the label of the component.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter() {
+    ///     println!("{}", component.label());
+    /// }
+    /// ```
+    ///
+    /// ## Linux
+    ///
+    /// Since components information is retrieved thanks to `hwmon`,
+    /// the labels are generated as follows.
+    /// Note: it may change and it was inspired by `sensors` own formatting.
+    ///
+    /// | name | label | device_model | id_sensor | Computed label by `sysinfo` |
+    /// |---------|--------|------------|----------|----------------------|
+    /// | ✓    | ✓    | ✓  | ✓ | `"{name} {label} {device_model} temp{id}"` |
+    /// | ✓    | ✓    | ✗  | ✓ | `"{name} {label} {id}"` |
+    /// | ✓    | ✗    | ✓  | ✓ | `"{name} {device_model}"` |
+    /// | ✓    | ✗    | ✗  | ✓ | `"{name} temp{id}"` |
+    pub fn label(&self) -> &str {
+        self.inner.label()
+    }
+
+    /// Refreshes component.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Components, ComponentsExt};
+    ///
+    /// let mut components = Components::new();
+    /// components.refresh_list();
+    /// for component in components.iter_mut() {
+    ///     component.refresh();
+    /// }
+    /// ```
+    pub fn refresh(&mut self) {
+        self.inner.refresh()
     }
 }
 

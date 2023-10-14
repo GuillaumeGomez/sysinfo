@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::{ffi, macos::utils::IOReleaser};
-use crate::{ComponentExt, ComponentsExt};
+use crate::{Component, ComponentsExt};
 
 use libc::{c_char, c_int, c_void};
 
@@ -22,7 +22,7 @@ pub(crate) struct ComponentFFI {
     input_structure: ffi::KeyData_t,
     val: ffi::Val_t,
     /// It is the `System::connection`. We need it to not require an extra argument
-    /// in `ComponentExt::refresh`.
+    /// in `ComponentInner::refresh`.
     connection: ffi::io_connect_t,
 }
 
@@ -77,17 +77,16 @@ impl ComponentsExt for Components {
 
             for (id, v) in COMPONENTS_TEMPERATURE_IDS.iter() {
                 if let Some(c) =
-                    Component::new((*id).to_owned(), None, critical_temp, v, connection)
+                    ComponentInner::new((*id).to_owned(), None, critical_temp, v, connection)
                 {
-                    self.components.push(c);
+                    self.components.push(Component { inner: c });
                 }
             }
         }
     }
 }
 
-#[doc = include_str!("../../../../../md_doc/component.md")]
-pub struct Component {
+pub(crate) struct ComponentInner {
     temperature: f32,
     max: f32,
     critical: Option<f32>,
@@ -95,17 +94,17 @@ pub struct Component {
     ffi_part: ComponentFFI,
 }
 
-impl Component {
-    /// Creates a new `Component` with the given information.
+impl ComponentInner {
+    /// Creates a new `ComponentInner` with the given information.
     pub(crate) fn new(
         label: String,
         max: Option<f32>,
         critical: Option<f32>,
         key: &[i8],
         connection: ffi::io_connect_t,
-    ) -> Option<Component> {
+    ) -> Option<Self> {
         let ffi_part = ComponentFFI::new(key, connection)?;
-        ffi_part.temperature().map(|temperature| Component {
+        ffi_part.temperature().map(|temperature| Self {
             temperature,
             label,
             max: max.unwrap_or(temperature),
@@ -113,26 +112,24 @@ impl Component {
             ffi_part,
         })
     }
-}
 
-impl ComponentExt for Component {
-    fn temperature(&self) -> f32 {
+    pub(crate) fn temperature(&self) -> f32 {
         self.temperature
     }
 
-    fn max(&self) -> f32 {
+    pub(crate) fn max(&self) -> f32 {
         self.max
     }
 
-    fn critical(&self) -> Option<f32> {
+    pub(crate) fn critical(&self) -> Option<f32> {
         self.critical
     }
 
-    fn label(&self) -> &str {
+    pub(crate) fn label(&self) -> &str {
         &self.label
     }
 
-    fn refresh(&mut self) {
+    pub(crate) fn refresh(&mut self) {
         if let Some(temp) = self.ffi_part.temperature() {
             self.temperature = temp;
             if self.temperature > self.max {

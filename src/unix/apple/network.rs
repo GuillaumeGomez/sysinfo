@@ -7,7 +7,7 @@ use std::ptr::null_mut;
 
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkExt, Networks, NetworksExt, NetworksIter};
+use crate::{NetworkExt, NetworksIter};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $new_val:expr) => {{
@@ -16,7 +16,35 @@ macro_rules! old_and_new {
     }};
 }
 
-impl Networks {
+pub(crate) struct NetworksInner {
+    pub(crate) interfaces: HashMap<String, NetworkData>,
+}
+
+impl NetworksInner {
+    pub(crate) fn new() -> Self {
+        Self {
+            interfaces: HashMap::new(),
+        }
+    }
+
+    #[allow(clippy::needless_lifetimes)]
+    pub(crate) fn iter<'a>(&'a self) -> NetworksIter<'a> {
+        NetworksIter::new(self.interfaces.iter())
+    }
+
+    pub(crate) fn refresh_list(&mut self) {
+        for (_, data) in self.interfaces.iter_mut() {
+            data.updated = false;
+        }
+        self.update_networks(true);
+        self.interfaces.retain(|_, data| data.updated);
+        refresh_networks_addresses(&mut self.interfaces);
+    }
+
+    pub(crate) fn refresh(&mut self) {
+        self.update_networks(false);
+    }
+
     #[allow(unknown_lints)]
     #[allow(clippy::cast_ptr_alignment)]
     #[allow(clippy::uninit_vec)]
@@ -144,32 +172,6 @@ impl Networks {
                 }
             }
         }
-    }
-}
-
-impl NetworksExt for Networks {
-    fn new() -> Self {
-        Self {
-            interfaces: HashMap::new(),
-        }
-    }
-
-    #[allow(clippy::needless_lifetimes)]
-    fn iter<'a>(&'a self) -> NetworksIter<'a> {
-        NetworksIter::new(self.interfaces.iter())
-    }
-
-    fn refresh_list(&mut self) {
-        for (_, data) in self.interfaces.iter_mut() {
-            data.updated = false;
-        }
-        self.update_networks(true);
-        self.interfaces.retain(|_, data| data.updated);
-        refresh_networks_addresses(&mut self.interfaces);
-    }
-
-    fn refresh(&mut self) {
-        self.update_networks(false);
     }
 }
 

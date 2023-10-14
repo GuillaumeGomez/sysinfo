@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{CpuExt, Disks, NetworkExt, Networks, NetworksExt, Pid, Process, System};
+use crate::{CpuExt, Disks, NetworkExt, Networks, Pid, Process, System};
 use libc::{self, c_char, c_float, c_uint, c_void, size_t};
 use std::borrow::BorrowMut;
 use std::ffi::CString;

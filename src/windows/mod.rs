@@ -12,10 +12,12 @@ mod tools;
 mod users;
 mod utils;
 
-pub use self::component::{Component, Components};
+pub(crate) use self::component::ComponentInner;
+pub use self::component::Components;
 pub use self::cpu::Cpu;
 pub(crate) use self::disk::{DiskInner, DisksInner};
 pub use self::network::NetworkData;
+pub(crate) use self::network::NetworksInner;
 pub(crate) use self::process::ProcessInner;
 pub use self::sid::Sid;
 pub(crate) use self::system::SystemInner;

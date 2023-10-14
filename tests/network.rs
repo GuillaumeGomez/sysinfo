@@ -4,7 +4,7 @@
 
 #[test]
 fn test_networks() {
-    use sysinfo::{Networks, NetworksExt};
+    use sysinfo::Networks;
 
     if sysinfo::IS_SUPPORTED {
         let mut n = Networks::new();

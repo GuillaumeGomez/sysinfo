@@ -1,28 +1,27 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{ComponentExt, ComponentsExt};
+use crate::{Component, ComponentsExt};
 
-#[doc = include_str!("../../../../md_doc/component.md")]
-pub struct Component {}
+pub(crate) struct ComponentInner;
 
-impl ComponentExt for Component {
-    fn temperature(&self) -> f32 {
+impl ComponentInner {
+    pub(crate) fn temperature(&self) -> f32 {
         0.0
     }
 
-    fn max(&self) -> f32 {
+    pub(crate) fn max(&self) -> f32 {
         0.0
     }
 
-    fn critical(&self) -> Option<f32> {
+    pub(crate) fn critical(&self) -> Option<f32> {
         None
     }
 
-    fn label(&self) -> &str {
+    pub(crate) fn label(&self) -> &str {
         ""
     }
 
-    fn refresh(&mut self) {}
+    pub(crate) fn refresh(&mut self) {}
 }
 
 #[doc = include_str!("../../../../md_doc/components.md")]
