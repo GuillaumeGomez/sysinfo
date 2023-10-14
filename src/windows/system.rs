@@ -3,7 +3,7 @@
 use crate::{CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind};
 
 use crate::sys::cpu::*;
-use crate::sys::process::{get_start_time, update_memory};
+use crate::sys::process::get_start_time;
 use crate::sys::tools::*;
 use crate::sys::utils::{get_now, get_reg_string_value, get_reg_value_u32};
 use crate::{Process, ProcessInner};
@@ -473,7 +473,6 @@ fn refresh_existing_process(
     } else {
         return Some(false);
     }
-    update_memory(proc_);
     proc_.update(refresh_kind, nb_cpus, now);
     proc_.updated = false;
     Some(true)

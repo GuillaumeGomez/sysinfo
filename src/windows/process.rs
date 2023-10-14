@@ -489,6 +489,7 @@ impl ProcessInner {
         if refresh_kind.disk_usage() {
             update_disk_usage(self);
         }
+        update_memory(self);
         self.run_time = now.saturating_sub(self.start_time());
         self.updated = true;
     }
