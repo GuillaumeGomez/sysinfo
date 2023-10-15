@@ -1,6 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::ffi::CStr;
 use std::mem::{self, MaybeUninit};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -13,6 +12,7 @@ use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Sig
 
 use crate::sys::process::ThreadStatus;
 use crate::sys::system::Wrap;
+use crate::unix::utils::cstr_to_rust_with_size;
 
 pub(crate) struct ProcessInner {
     pub(crate) name: String,
@@ -48,7 +48,13 @@ pub(crate) struct ProcessInner {
 }
 
 impl ProcessInner {
-    pub(crate) fn new_empty(pid: Pid, exe: PathBuf, name: String, cwd: PathBuf) -> Self {
+    pub(crate) fn new_empty(
+        pid: Pid,
+        exe: PathBuf,
+        name: String,
+        cwd: PathBuf,
+        root: PathBuf,
+    ) -> Self {
         Self {
             name,
             pid,
@@ -57,7 +63,7 @@ impl ProcessInner {
             environ: Vec::new(),
             exe,
             cwd,
-            root: PathBuf::new(),
+            root,
             memory: 0,
             virtual_memory: 0,
             cpu_usage: 0.,
@@ -79,7 +85,14 @@ impl ProcessInner {
         }
     }
 
-    pub(crate) fn new(pid: Pid, parent: Option<Pid>, start_time: u64, run_time: u64) -> Self {
+    pub(crate) fn new(
+        pid: Pid,
+        parent: Option<Pid>,
+        start_time: u64,
+        run_time: u64,
+        cwd: PathBuf,
+        root: PathBuf,
+    ) -> Self {
         Self {
             name: String::new(),
             pid,
@@ -87,8 +100,8 @@ impl ProcessInner {
             cmd: Vec::new(),
             environ: Vec::new(),
             exe: PathBuf::new(),
-            cwd: PathBuf::new(),
-            root: PathBuf::new(),
+            cwd,
+            root,
             memory: 0,
             virtual_memory: 0,
             cpu_usage: 0.,
@@ -319,17 +332,6 @@ fn check_if_pid_is_alive(pid: Pid, check_if_alive: bool) -> bool {
     }
 }
 
-#[inline]
-fn do_not_get_env_path(_: &str, _: &mut PathBuf, _: &mut bool) {}
-
-#[inline]
-fn do_get_env_path(env: &str, root: &mut PathBuf, check: &mut bool) {
-    if *check && env.starts_with("PATH=") {
-        *check = false;
-        *root = Path::new(&env[5..]).to_path_buf();
-    }
-}
-
 unsafe fn get_bsd_info(pid: Pid) -> Option<libc::proc_bsdinfo> {
     let mut info = mem::zeroed::<libc::proc_bsdinfo>();
 
@@ -347,6 +349,18 @@ unsafe fn get_bsd_info(pid: Pid) -> Option<libc::proc_bsdinfo> {
     }
 }
 
+unsafe fn convert_node_path_info(node: &libc::vnode_info_path) -> PathBuf {
+    if node.vip_vi.vi_stat.vst_dev == 0 {
+        return PathBuf::new();
+    }
+    cstr_to_rust_with_size(
+        node.vip_path.as_ptr() as _,
+        Some(node.vip_path.len() * node.vip_path[0].len()),
+    )
+    .map(PathBuf::from)
+    .unwrap_or_default()
+}
+
 unsafe fn create_new_process(
     pid: Pid,
     mut size: size_t,
@@ -362,15 +376,13 @@ unsafe fn create_new_process(
         &mut vnodepathinfo as *mut _ as *mut _,
         mem::size_of::<libc::proc_vnodepathinfo>() as _,
     );
-    let cwd = if result > 0 {
-        let buffer = vnodepathinfo.pvi_cdir.vip_path;
-        let buffer = CStr::from_ptr(buffer.as_ptr() as _);
-        buffer
-            .to_str()
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::new())
+    let (cwd, root) = if result > 0 {
+        (
+            convert_node_path_info(&vnodepathinfo.pvi_cdir),
+            convert_node_path_info(&vnodepathinfo.pvi_rdir),
+        )
     } else {
-        PathBuf::new()
+        (PathBuf::new(), PathBuf::new())
     };
 
     let info = match info {
@@ -392,7 +404,7 @@ unsafe fn create_new_process(
                         .unwrap_or("")
                         .to_owned();
                     return Ok(Some(Process {
-                        inner: ProcessInner::new_empty(pid, exe, name, cwd),
+                        inner: ProcessInner::new_empty(pid, exe, name, cwd, root),
                     }));
                 }
                 _ => {}
@@ -488,57 +500,33 @@ unsafe fn create_new_process(
         }
 
         #[inline]
-        unsafe fn get_environ<F: Fn(&str, &mut PathBuf, &mut bool)>(
-            ptr: *mut u8,
-            mut cp: *mut u8,
-            size: size_t,
-            mut root: PathBuf,
-            callback: F,
-        ) -> (Vec<String>, PathBuf) {
+        unsafe fn get_environ(ptr: *mut u8, mut cp: *mut u8, size: size_t) -> Vec<String> {
             let mut environ = Vec::with_capacity(10);
             let mut start = cp;
-            let mut check = true;
             while cp < ptr.add(size) {
                 if *cp == 0 {
                     if cp == start {
                         break;
                     }
                     let e = get_unchecked_str(cp, start);
-                    callback(&e, &mut root, &mut check);
                     environ.push(e);
                     start = cp.offset(1);
                 }
                 cp = cp.offset(1);
             }
-            (environ, root)
+            environ
         }
 
-        let (environ, root) = if exe.is_absolute() {
-            if let Some(parent_path) = exe.parent() {
-                get_environ(
-                    ptr,
-                    cp,
-                    size,
-                    parent_path.to_path_buf(),
-                    do_not_get_env_path,
-                )
-            } else {
-                get_environ(ptr, cp, size, PathBuf::new(), do_get_env_path)
-            }
-        } else {
-            get_environ(ptr, cp, size, PathBuf::new(), do_get_env_path)
-        };
-        let mut p = ProcessInner::new(pid, parent, start_time, run_time);
+        let environ = get_environ(ptr, cp, size);
+        let mut p = ProcessInner::new(pid, parent, start_time, run_time, cwd, root);
 
         p.exe = exe;
         p.name = name;
-        p.cwd = cwd;
         p.cmd = parse_command_line(&cmd);
         p.environ = environ;
-        p.root = root;
         p
     } else {
-        ProcessInner::new(pid, parent, start_time, run_time)
+        ProcessInner::new(pid, parent, start_time, run_time, cwd, root)
     };
 
     let task_info = get_task_info(pid);
@@ -698,20 +686,4 @@ fn parse_command_line<T: Deref<Target = str> + Borrow<str>>(cmd: &[T]) -> Vec<St
         x += 1;
     }
     command
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_get_path() {
-        let mut path = PathBuf::new();
-        let mut check = true;
-
-        do_get_env_path("PATH=tadam", &mut path, &mut check);
-
-        assert!(!check);
-        assert_eq!(path, PathBuf::from("tadam"));
-    }
 }

@@ -10,9 +10,9 @@ pub(crate) fn cstr_to_rust_with_size(c: *const c_char, size: Option<usize>) -> O
     if c.is_null() {
         return None;
     }
-    let mut s = match size {
-        Some(len) => Vec::with_capacity(len),
-        None => Vec::new(),
+    let (mut s, max) = match size {
+        Some(len) => (Vec::with_capacity(len), len as isize),
+        None => (Vec::new(), isize::MAX),
     };
     let mut i = 0;
     unsafe {
@@ -23,6 +23,9 @@ pub(crate) fn cstr_to_rust_with_size(c: *const c_char, size: Option<usize>) -> O
             }
             s.push(value);
             i += 1;
+            if i >= max {
+                break;
+            }
         }
         String::from_utf8(s).ok()
     }
