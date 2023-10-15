@@ -20,7 +20,7 @@ pub(crate) use self::process::ProcessInner;
 pub use self::sid::Sid;
 pub(crate) use self::system::SystemInner;
 pub(crate) use self::users::get_users;
-pub use self::users::User;
+pub(crate) use self::users::UserInner;
 
 use std::time::Duration;
 

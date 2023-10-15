@@ -2,7 +2,7 @@
 
 use crate::{
     common::{Gid, Uid},
-    User,
+    User, UserInner,
 };
 
 use libc::{c_char, endpwent, getpwent, setpwent, strlen};
@@ -61,7 +61,9 @@ pub(crate) fn get_users(users: &mut Vec<User>) {
         endpwent();
     }
     for (name, (uid, gid)) in users_map {
-        users.push(User::new(uid, gid, name));
+        users.push(User {
+            inner: UserInner::new(uid, gid, name),
+        });
     }
 }
 
