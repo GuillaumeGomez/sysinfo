@@ -4,7 +4,7 @@ use crate::sys::utils::to_str;
 use crate::{
     common::{Gid, Uid},
     windows::sid::Sid,
-    Group, UserExt,
+    Group, User,
 };
 
 use std::ptr::null_mut;
@@ -20,8 +20,7 @@ use windows::Win32::Security::Authentication::Identity::{
     SECURITY_LOGON_SESSION_DATA, SECURITY_LOGON_TYPE,
 };
 
-#[doc = include_str!("../../md_doc/user.md")]
-pub struct User {
+pub(crate) struct UserInner {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,
     pub(crate) name: String,
@@ -29,7 +28,7 @@ pub struct User {
     is_local: bool,
 }
 
-impl User {
+impl UserInner {
     fn new(uid: Uid, name: String, c_name: PCWSTR, is_local: bool) -> Self {
         let c_user_name = if c_name.is_null() {
             None
@@ -44,22 +43,20 @@ impl User {
             is_local,
         }
     }
-}
 
-impl UserExt for User {
-    fn id(&self) -> &Uid {
+    pub(crate) fn id(&self) -> &Uid {
         &self.uid
     }
 
-    fn group_id(&self) -> Gid {
+    pub(crate) fn group_id(&self) -> Gid {
         self.gid
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    fn groups(&self) -> Vec<Group> {
+    pub(crate) fn groups(&self) -> Vec<Group> {
         if let (Some(c_user_name), true) = (&self.c_user_name, self.is_local) {
             unsafe { get_groups_for_user(PCWSTR(c_user_name.as_ptr())) }
         } else {
@@ -195,12 +192,14 @@ pub(crate) fn get_users(users: &mut Vec<User>) {
                             let name = sid
                                 .account_name()
                                 .unwrap_or_else(|| to_str(entry.usri0_name));
-                            users.push(User::new(
-                                Uid(sid),
-                                name,
-                                PCWSTR(entry.usri0_name.0 as *const _),
-                                true,
-                            ))
+                            users.push(User {
+                                inner: UserInner::new(
+                                    Uid(sid),
+                                    name,
+                                    PCWSTR(entry.usri0_name.0 as *const _),
+                                    true,
+                                ),
+                            });
                         }
                     }
                 }
@@ -241,7 +240,7 @@ pub(crate) fn get_users(users: &mut Vec<User>) {
                         None => continue,
                     };
 
-                    if users.iter().any(|u| u.uid.0 == sid) {
+                    if users.iter().any(|u| u.inner.uid.0 == sid) {
                         continue;
                     }
 
@@ -259,7 +258,9 @@ pub(crate) fn get_users(users: &mut Vec<User>) {
                         })
                     });
 
-                    users.push(User::new(Uid(sid), name, PCWSTR::null(), false));
+                    users.push(User {
+                        inner: UserInner::new(Uid(sid), name, PCWSTR::null(), false),
+                    });
                 }
             }
         }

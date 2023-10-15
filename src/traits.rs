@@ -1,85 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::common::{Gid, Uid};
-use crate::{Group, User};
+use crate::common::Uid;
+use crate::User;
 
 use std::fmt::Debug;
-
-/// Getting information for a user.
-///
-/// It is returned from [`UsersExt::users`].
-///
-/// ```no_run
-/// use sysinfo::{Users, UsersExt, UserExt};
-///
-/// let mut users = Users::new();
-/// users.refresh_list();
-/// for user in users.users() {
-///     println!("{} is in {} groups", user.name(), user.groups().len());
-/// }
-/// ```
-pub trait UserExt: Debug + PartialEq + Eq + PartialOrd + Ord {
-    /// Returns the ID of the user.
-    ///
-    /// ```no_run
-    /// use sysinfo::{Users, UsersExt, UserExt};
-    ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
-    /// for user in users.users() {
-    ///     println!("{:?}", *user.id());
-    /// }
-    /// ```
-    fn id(&self) -> &Uid;
-
-    /// Returns the group ID of the user.
-    ///
-    /// ⚠️ This information is not set on Windows.  Windows doesn't have a `username` specific
-    /// group assigned to the user. They do however have unique
-    /// [Security Identifiers](https://docs.microsoft.com/en-us/windows/win32/secauthz/security-identifiers)
-    /// made up of various [Components](https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-components).
-    /// Pieces of the SID may be a candidate for this field, but it doesn't map well to a single
-    /// group ID.
-    ///
-    /// ```no_run
-    /// use sysinfo::{Users, UsersExt, UserExt};
-    ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
-    /// for user in users.users() {
-    ///     println!("{}", *user.group_id());
-    /// }
-    /// ```
-    fn group_id(&self) -> Gid;
-
-    /// Returns the name of the user.
-    ///
-    /// ```no_run
-    /// use sysinfo::{Users, UsersExt, UserExt};
-    ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
-    /// for user in users.users() {
-    ///     println!("{}", user.name());
-    /// }
-    /// ```
-    fn name(&self) -> &str;
-
-    /// Returns the groups of the user.
-    ///
-    /// ⚠️ This is computed every time this method is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::{Users, UsersExt, UserExt};
-    ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
-    /// for user in users.users() {
-    ///     println!("{} is in {:?}", user.name(), user.groups());
-    /// }
-    /// ```
-    fn groups(&self) -> Vec<Group>;
-}
 
 /// Interacting with users.
 ///
@@ -122,7 +46,7 @@ pub trait UsersExt: Debug {
     /// Returns the users list.
     ///
     /// ```no_run
-    /// use sysinfo::{UserExt, Users, UsersExt};
+    /// use sysinfo::{Users, UsersExt};
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
@@ -140,7 +64,7 @@ pub trait UsersExt: Debug {
     /// You can do the same without this method by calling:
     ///
     /// ```no_run
-    /// use sysinfo::{UserExt, Users, UsersExt};
+    /// use sysinfo::{Users, UsersExt};
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
@@ -176,7 +100,7 @@ pub trait UsersExt: Debug {
     /// It is a shorthand for:
     ///
     /// ```ignore
-    /// # use sysinfo::{UserExt, Users, UsersExt};
+    /// # use sysinfo::{Users, UsersExt};
     /// let mut users = Users::new();
     /// users.refresh_list();
     /// users.users().find(|user| user.id() == user_id);

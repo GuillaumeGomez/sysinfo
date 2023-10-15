@@ -30,8 +30,7 @@ pub(crate) use self::disk::DiskInner;
 pub(crate) use self::network::{NetworkDataInner, NetworksInner};
 pub(crate) use self::process::ProcessInner;
 pub(crate) use self::system::SystemInner;
-pub(crate) use crate::unix::users::get_users;
-pub use crate::unix::users::User;
+pub(crate) use crate::unix::users::{get_users, UserInner};
 pub(crate) use crate::unix::DisksInner;
 
 use std::time::Duration;

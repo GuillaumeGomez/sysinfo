@@ -2,20 +2,22 @@
 
 use crate::{
     common::{Gid, Uid},
-    Group, UserExt,
+    Group,
 };
+
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+use crate::User;
 
 use libc::{getgrgid_r, getgrouplist};
 
-#[doc = include_str!("../../md_doc/user.md")]
-pub struct User {
+pub(crate) struct UserInner {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,
     pub(crate) name: String,
     c_user: Vec<u8>,
 }
 
-impl User {
+impl UserInner {
     pub(crate) fn new(uid: Uid, gid: Gid, name: String) -> Self {
         let mut c_user = name.as_bytes().to_vec();
         c_user.push(0);
@@ -26,22 +28,20 @@ impl User {
             c_user,
         }
     }
-}
 
-impl UserExt for User {
-    fn id(&self) -> &Uid {
+    pub(crate) fn id(&self) -> &Uid {
         &self.uid
     }
 
-    fn group_id(&self) -> Gid {
+    pub(crate) fn group_id(&self) -> Gid {
         self.gid
     }
 
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    fn groups(&self) -> Vec<Group> {
+    pub(crate) fn groups(&self) -> Vec<Group> {
         unsafe { get_user_groups(self.c_user.as_ptr() as *const _, self.gid.0 as _) }
     }
 }
@@ -131,7 +131,9 @@ pub(crate) fn get_users(users: &mut Vec<User>) {
             // Skip the user if the uid cannot be parsed correctly
             if let Some(uid) = parts.next().and_then(parse_id) {
                 if let Some(group_id) = parts.next().and_then(parse_id) {
-                    users.push(User::new(Uid(uid), Gid(group_id), username.to_owned()));
+                    users.push(User {
+                        inner: UserInner::new(Uid(uid), Gid(group_id), username.to_owned()),
+                    });
                 }
             }
         }

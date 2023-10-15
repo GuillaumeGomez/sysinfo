@@ -2,7 +2,7 @@
 
 use crate::{
     ComponentInner, ComponentsInner, CpuInner, NetworkDataInner, NetworksInner, ProcessInner,
-    SystemInner, User, UserExt, UsersExt,
+    SystemInner, UserInner, UsersExt,
 };
 
 use std::cmp::Ordering;
@@ -2209,7 +2209,7 @@ impl std::ops::DerefMut for Components {
 /// User interfaces.
 ///
 /// ```no_run
-/// use sysinfo::{Users, UsersExt, UserExt};
+/// use sysinfo::{Users, UsersExt};
 ///
 /// let mut users = Users::new();
 /// for user in users.users() {
@@ -2484,6 +2484,23 @@ cfg_if::cfg_if! {
     }
 }
 
+/// Type containing user information.
+///
+/// It is returned by [`Users`][crate::Users].
+///
+/// ```no_run
+/// use sysinfo::{Users, UsersExt};
+///
+/// let mut users = Users::new();
+/// users.refresh_list();
+/// for user in users.users() {
+///     println!("{:?}", user);
+/// }
+/// ```
+pub struct User {
+    pub(crate) inner: UserInner,
+}
+
 impl PartialEq for User {
     fn eq(&self, other: &Self) -> bool {
         self.id() == other.id()
@@ -2506,12 +2523,83 @@ impl Ord for User {
     }
 }
 
+impl User {
+    /// Returns the ID of the user.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
+    ///     println!("{:?}", *user.id());
+    /// }
+    /// ```
+    pub fn id(&self) -> &Uid {
+        self.inner.id()
+    }
+
+    /// Returns the group ID of the user.
+    ///
+    /// ⚠️ This information is not set on Windows.  Windows doesn't have a `username` specific
+    /// group assigned to the user. They do however have unique
+    /// [Security Identifiers](https://docs.microsoft.com/en-us/windows/win32/secauthz/security-identifiers)
+    /// made up of various [Components](https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-components).
+    /// Pieces of the SID may be a candidate for this field, but it doesn't map well to a single
+    /// group ID.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
+    ///     println!("{}", *user.group_id());
+    /// }
+    /// ```
+    pub fn group_id(&self) -> Gid {
+        self.inner.group_id()
+    }
+
+    /// Returns the name of the user.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
+    ///     println!("{}", user.name());
+    /// }
+    /// ```
+    pub fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    /// Returns the groups of the user.
+    ///
+    /// ⚠️ This is computed every time this method is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Users, UsersExt};
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
+    ///     println!("{} is in {:?}", user.name(), user.groups());
+    /// }
+    /// ```
+    pub fn groups(&self) -> Vec<Group> {
+        self.inner.groups()
+    }
+}
+
 /// Type containing group information.
 ///
 /// It is returned by [`User::groups`].
 ///
 /// ```no_run
-/// use sysinfo::{UserExt, Users, UsersExt};
+/// use sysinfo::{Users, UsersExt};
 ///
 /// let mut users = Users::new();
 ///
@@ -2539,7 +2627,7 @@ impl Group {
     /// ⚠️ This information is not set on Windows.
     ///
     /// ```no_run
-    /// use sysinfo::{UserExt, Users, UsersExt};
+    /// use sysinfo::{Users, UsersExt};
     ///
     /// let mut users = Users::new();
     ///
@@ -2556,7 +2644,7 @@ impl Group {
     /// Returns the name of the group.
     ///
     /// ```no_run
-    /// use sysinfo::{UserExt, Users, UsersExt};
+    /// use sysinfo::{Users, UsersExt};
     ///
     /// let mut users = Users::new();
     ///

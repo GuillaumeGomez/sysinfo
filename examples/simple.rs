@@ -7,7 +7,7 @@
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::Signal::*;
-use sysinfo::{Components, Disks, Networks, Pid, Signal, System, UserExt, Users, UsersExt};
+use sysinfo::{Components, Disks, Networks, Pid, Signal, System, Users, UsersExt};
 
 const signals: &[Signal] = &[
     Hangup,
