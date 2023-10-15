@@ -1127,34 +1127,6 @@ impl Process {
     }
 }
 
-/// Trait to have a common conversions for the [`Pid`][crate::Pid] type.
-///
-/// ```
-/// use sysinfo::{Pid, PidExt};
-///
-/// let p = Pid::from_u32(0);
-/// let value: u32 = p.as_u32();
-/// ```
-pub trait PidExt: Copy + From<usize> + FromStr + fmt::Display {
-    /// Allows to convert [`Pid`][crate::Pid] into [`u32`].
-    ///
-    /// ```
-    /// use sysinfo::{Pid, PidExt};
-    ///
-    /// let p = Pid::from_u32(0);
-    /// let value: u32 = p.as_u32();
-    /// ```
-    fn as_u32(self) -> u32;
-    /// Allows to convert a [`u32`] into [`Pid`][crate::Pid].
-    ///
-    /// ```
-    /// use sysinfo::{Pid, PidExt};
-    ///
-    /// let p = Pid::from_u32(0);
-    /// ```
-    fn from_u32(v: u32) -> Self;
-}
-
 macro_rules! pid_decl {
     ($typ:ty) => {
         #[doc = include_str!("../md_doc/pid.md")]
@@ -1172,14 +1144,6 @@ macro_rules! pid_decl {
                 v.0 as _
             }
         }
-        impl PidExt for Pid {
-            fn as_u32(self) -> u32 {
-                self.0 as _
-            }
-            fn from_u32(v: u32) -> Self {
-                Self(v as _)
-            }
-        }
         impl FromStr for Pid {
             type Err = <$typ as FromStr>::Err;
             fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -1189,6 +1153,29 @@ macro_rules! pid_decl {
         impl fmt::Display for Pid {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(f, "{}", self.0)
+            }
+        }
+        impl Pid {
+            /// Allows to convert [`Pid`][crate::Pid] into [`u32`].
+            ///
+            /// ```
+            /// use sysinfo::Pid;
+            ///
+            /// let pid = Pid::from_u32(0);
+            /// let value: u32 = pid.as_u32();
+            /// ```
+            pub fn as_u32(self) -> u32 {
+                self.0 as _
+            }
+            /// Allows to convert a [`u32`] into [`Pid`][crate::Pid].
+            ///
+            /// ```
+            /// use sysinfo::Pid;
+            ///
+            /// let pid = Pid::from_u32(0);
+            /// ```
+            pub fn from_u32(v: u32) -> Self {
+                Self(v as _)
             }
         }
     };

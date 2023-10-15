@@ -53,7 +53,7 @@ cfg_if::cfg_if! {
 
 pub use crate::common::{
     get_current_pid, Component, Components, Cpu, CpuRefreshKind, Disk, DiskKind, DiskUsage, Disks,
-    Gid, Group, LoadAvg, MacAddr, NetworkData, Networks, NetworksIter, Pid, PidExt, Process,
+    Gid, Group, LoadAvg, MacAddr, NetworkData, Networks, NetworksIter, Pid, Process,
     ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, Uid, User, Users,
 };
 

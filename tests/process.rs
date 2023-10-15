@@ -1,10 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use sysinfo::{Pid, PidExt};
+use sysinfo::{Pid, System};
 
 #[test]
 fn test_process() {
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     assert_eq!(s.processes().len(), 0);
     s.refresh_processes();
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
@@ -40,7 +40,7 @@ fn test_cwd() {
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     s.refresh_processes();
     p.kill().expect("Unable to kill process.");
 
@@ -76,7 +76,7 @@ fn test_cmd() {
             .unwrap()
     };
     std::thread::sleep(std::time::Duration::from_millis(500));
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     assert!(s.processes().is_empty());
     s.refresh_processes();
     p.kill().expect("Unable to kill process.");
@@ -122,7 +122,7 @@ fn test_environ() {
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     s.refresh_processes();
     p.kill().expect("Unable to kill process.");
 
@@ -173,7 +173,7 @@ fn test_big_environ() {
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     s.refresh_processes();
     p.kill().expect("Unable to kill process.");
 
@@ -194,7 +194,7 @@ fn test_big_environ() {
 
 #[test]
 fn test_process_refresh() {
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     assert_eq!(s.processes().len(), 0);
 
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
@@ -222,7 +222,7 @@ fn test_process_disk_usage() {
         return;
     }
 
-    fn inner() -> sysinfo::System {
+    fn inner() -> System {
         {
             let mut file = File::create("test.txt").expect("failed to create file");
             file.write_all(b"This is a test file\nwith test data.\n")
@@ -231,7 +231,7 @@ fn test_process_disk_usage() {
         fs::remove_file("test.txt").expect("failed to remove file");
         // Waiting a bit just in case...
         std::thread::sleep(std::time::Duration::from_millis(250));
-        let mut system = sysinfo::System::new();
+        let mut system = System::new();
         assert!(system.processes().is_empty());
         system.refresh_processes();
         assert!(!system.processes().is_empty());
@@ -268,7 +268,7 @@ fn test_process_disk_usage() {
 
 #[test]
 fn cpu_usage_is_not_nan() {
-    let mut system = sysinfo::System::new();
+    let mut system = System::new();
     system.refresh_processes();
 
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
@@ -320,7 +320,7 @@ fn test_process_times() {
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     s.refresh_processes();
     p.kill().expect("Unable to kill process.");
 
@@ -350,7 +350,7 @@ fn test_process_session_id() {
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     s.refresh_processes();
     assert!(s.processes().values().any(|p| p.session_id().is_some()));
 }
@@ -381,7 +381,7 @@ fn test_refresh_processes() {
     std::thread::sleep(std::time::Duration::from_secs(1));
 
     // Checks that the process is listed as it should.
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     s.refresh_processes();
     assert!(s.process(pid).is_some());
 
@@ -420,7 +420,7 @@ fn test_refresh_tasks() {
     let pid = Pid::from_u32(std::process::id() as _);
 
     // Checks that the task is listed as it should.
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     s.refresh_processes();
 
     assert!(s
@@ -469,7 +469,7 @@ fn test_refresh_process() {
     std::thread::sleep(std::time::Duration::from_secs(1));
 
     // Checks that the process is listed as it should.
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     s.refresh_process(pid);
     assert!(s.process(pid).is_some());
 
@@ -511,7 +511,7 @@ fn test_wait_child() {
     let before = std::time::Instant::now();
     let pid = Pid::from_u32(p.id() as _);
 
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     s.refresh_process(pid);
     let process = s.process(pid).unwrap();
 
@@ -547,7 +547,7 @@ fn test_wait_non_child() {
     };
     let pid = Pid::from_u32(p.id());
 
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
     s.refresh_process(pid);
     let process = s.process(pid).expect("Process not found!");
 
@@ -576,7 +576,7 @@ fn test_process_iterator_lifetimes() {
         return;
     }
 
-    let s = sysinfo::System::new_with_specifics(
+    let s = System::new_with_specifics(
         sysinfo::RefreshKind::new().with_processes(sysinfo::ProcessRefreshKind::new()),
     );
 
@@ -599,8 +599,6 @@ fn test_process_iterator_lifetimes() {
 // Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/918>.
 #[test]
 fn test_process_cpu_usage() {
-    use sysinfo::System;
-
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
@@ -618,8 +616,6 @@ fn test_process_cpu_usage() {
 
 #[test]
 fn test_process_creds() {
-    use sysinfo::System;
-
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
@@ -668,7 +664,7 @@ fn test_process_memory_refresh() {
     }
 
     // Ensure the process memory is available on the first refresh.
-    let mut s = sysinfo::System::new();
+    let mut s = System::new();
 
     // Refresh our own process
     let pid = Pid::from_u32(std::process::id());

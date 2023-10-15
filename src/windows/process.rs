@@ -2,7 +2,7 @@
 
 use crate::sys::system::is_proc_running;
 use crate::windows::Sid;
-use crate::{DiskUsage, Gid, Pid, PidExt, ProcessRefreshKind, ProcessStatus, Signal, Uid};
+use crate::{DiskUsage, Gid, Pid, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 use std::ffi::OsString;
 use std::fmt;

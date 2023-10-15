@@ -3,7 +3,7 @@ Process ID.
 Can be used as an integer type by simple casting. For example:
 
 ```
-use sysinfo::{PidExt, Pid};
+use sysinfo::Pid;
 
 // 0's type will be different depending on the platform!
 let p = Pid::from(0);
