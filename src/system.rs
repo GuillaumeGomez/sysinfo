@@ -120,7 +120,7 @@ mod tests {
     #[test]
     #[ignore] // This test MUST be run on its own to prevent wrong CPU usage measurements.
     fn test_consecutive_cpu_usage_update() {
-        use crate::{PidExt, ProcessRefreshKind, System};
+        use crate::{Pid, ProcessRefreshKind, System};
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
         use std::time::Duration;
@@ -154,7 +154,7 @@ mod tests {
             .take(2)
             .collect::<Vec<_>>();
         let pid = std::process::id();
-        pids.push(PidExt::from_u32(pid));
+        pids.push(Pid::from_u32(pid));
         assert_eq!(pids.len(), 3);
 
         for it in 0..3 {
