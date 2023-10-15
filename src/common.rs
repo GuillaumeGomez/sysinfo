@@ -2,7 +2,7 @@
 
 use crate::{
     ComponentInner, ComponentsInner, CpuInner, NetworkDataInner, NetworksInner, ProcessInner,
-    SystemInner, UserInner, UsersExt,
+    SystemInner, UserInner,
 };
 
 use std::cmp::Ordering;
@@ -1004,7 +1004,7 @@ impl Process {
 
     /// Returns the ID of the owner user of this process or `None` if this
     /// information couldn't be retrieved. If you want to get the [`User`] from
-    /// it, take a look at [`UsersExt::get_user_by_id`].
+    /// it, take a look at [`Users::get_user_by_id`].
     ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
@@ -1021,7 +1021,7 @@ impl Process {
 
     /// Returns the user ID of the effective owner of this process or `None` if
     /// this information couldn't be retrieved. If you want to get the [`User`]
-    /// from it, take a look at [`UsersExt::get_user_by_id`].
+    /// from it, take a look at [`Users::get_user_by_id`].
     ///
     /// If you run something with `sudo`, the real user ID of the launched
     /// process will be the ID of the user you are logged in as but effective
@@ -2206,10 +2206,10 @@ impl std::ops::DerefMut for Components {
     }
 }
 
-/// User interfaces.
+/// Interacting with users.
 ///
 /// ```no_run
-/// use sysinfo::{Users, UsersExt};
+/// use sysinfo::Users;
 ///
 /// let mut users = Users::new();
 /// for user in users.users() {
@@ -2220,21 +2220,9 @@ pub struct Users {
     users: Vec<User>,
 }
 
-impl UsersExt for Users {
-    fn new() -> Self {
-        Self { users: Vec::new() }
-    }
-
-    fn users(&self) -> &[User] {
-        &self.users
-    }
-
-    fn users_mut(&mut self) -> &mut [User] {
-        &mut self.users
-    }
-
-    fn refresh_list(&mut self) {
-        crate::sys::get_users(&mut self.users);
+impl Default for Users {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -2249,6 +2237,125 @@ impl std::ops::Deref for Users {
 impl std::ops::DerefMut for Users {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.users_mut()
+    }
+}
+
+impl Users {
+    /// Creates a new [`Components`][crate::Components] type.
+    ///
+    /// ```no_run
+    /// use sysinfo::Users;
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
+    ///     eprintln!("{user:?}");
+    /// }
+    /// ```
+    pub fn new() -> Self {
+        Self { users: Vec::new() }
+    }
+
+    /// Returns the users list.
+    ///
+    /// ```no_run
+    /// use sysinfo::Users;
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// for user in users.users() {
+    ///     eprintln!("{user:?}");
+    /// }
+    /// ```
+    pub fn users(&self) -> &[User] {
+        &self.users
+    }
+
+    /// Returns the users list.
+    ///
+    /// ```no_run
+    /// use sysinfo::Users;
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// users.users_mut().sort_by(|user1, user2| {
+    ///     user1.name().partial_cmp(user2.name()).unwrap()
+    /// });
+    /// ```
+    pub fn users_mut(&mut self) -> &mut [User] {
+        &mut self.users
+    }
+
+    /// Sort the users list with the provided callback.
+    ///
+    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
+    /// for implementation details.
+    ///
+    /// You can do the same without this method by calling:
+    ///
+    /// ```no_run
+    /// use sysinfo::Users;
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// users.sort_by(|user1, user2| {
+    ///     user1.name().partial_cmp(user2.name()).unwrap()
+    /// });
+    /// ```
+    ///
+    /// ⚠️ If you use [`Users::refresh_list`], you will need to call this method to sort the
+    /// users again.
+    pub fn sort_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&User, &User) -> std::cmp::Ordering,
+    {
+        self.users.sort_unstable_by(compare);
+    }
+
+    /// The user list will be emptied then completely recomputed.
+    ///
+    /// ```no_run
+    /// use sysinfo::Users;
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// ```
+    pub fn refresh_list(&mut self) {
+        crate::sys::get_users(&mut self.users);
+    }
+
+    /// Returns the [`User`] matching the given `user_id`.
+    ///
+    /// **Important**: The user list must be filled before using this method, otherwise it will
+    /// always return `None` (through the `refresh_*` methods).
+    ///
+    /// It is a shorthand for:
+    ///
+    /// ```ignore
+    /// # use sysinfo::Users;
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// users.users().find(|user| user.id() == user_id);
+    /// ```
+    ///
+    /// Full example:
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System, Users};
+    ///
+    /// let mut s = System::new_all();
+    /// let mut users = Users::new();
+    ///
+    /// users.refresh_list();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     if let Some(user_id) = process.user_id() {
+    ///         eprintln!("User for process 1337: {:?}", users.get_user_by_id(user_id));
+    ///     }
+    /// }
+    /// ```
+    pub fn get_user_by_id(&self, user_id: &Uid) -> Option<&User> {
+        self.users.iter().find(|user| user.id() == user_id)
     }
 }
 
@@ -2489,7 +2596,7 @@ cfg_if::cfg_if! {
 /// It is returned by [`Users`][crate::Users].
 ///
 /// ```no_run
-/// use sysinfo::{Users, UsersExt};
+/// use sysinfo::Users;
 ///
 /// let mut users = Users::new();
 /// users.refresh_list();
@@ -2527,7 +2634,7 @@ impl User {
     /// Returns the ID of the user.
     ///
     /// ```no_run
-    /// use sysinfo::{Users, UsersExt};
+    /// use sysinfo::Users;
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
@@ -2549,7 +2656,7 @@ impl User {
     /// group ID.
     ///
     /// ```no_run
-    /// use sysinfo::{Users, UsersExt};
+    /// use sysinfo::Users;
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
@@ -2564,7 +2671,7 @@ impl User {
     /// Returns the name of the user.
     ///
     /// ```no_run
-    /// use sysinfo::{Users, UsersExt};
+    /// use sysinfo::Users;
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
@@ -2581,7 +2688,7 @@ impl User {
     /// ⚠️ This is computed every time this method is called.
     ///
     /// ```no_run
-    /// use sysinfo::{Users, UsersExt};
+    /// use sysinfo::Users;
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
@@ -2599,7 +2706,7 @@ impl User {
 /// It is returned by [`User::groups`].
 ///
 /// ```no_run
-/// use sysinfo::{Users, UsersExt};
+/// use sysinfo::Users;
 ///
 /// let mut users = Users::new();
 ///
@@ -2627,7 +2734,7 @@ impl Group {
     /// ⚠️ This information is not set on Windows.
     ///
     /// ```no_run
-    /// use sysinfo::{Users, UsersExt};
+    /// use sysinfo::Users;
     ///
     /// let mut users = Users::new();
     ///
@@ -2644,7 +2751,7 @@ impl Group {
     /// Returns the name of the group.
     ///
     /// ```no_run
-    /// use sysinfo::{Users, UsersExt};
+    /// use sysinfo::Users;
     ///
     /// let mut users = Users::new();
     ///

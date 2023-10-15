@@ -3,7 +3,6 @@
 extern crate test;
 
 use sysinfo::get_current_pid;
-use sysinfo::UsersExt;
 
 #[bench]
 fn bench_new(b: &mut test::Bencher) {

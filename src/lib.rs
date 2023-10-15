@@ -62,7 +62,6 @@ pub(crate) use crate::sys::{
     NetworksInner, ProcessInner, SystemInner, UserInner,
 };
 pub use crate::sys::{IS_SUPPORTED, MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
-pub use crate::traits::UsersExt;
 
 #[cfg(feature = "c-interface")]
 pub use crate::c_interface::*;
@@ -74,7 +73,6 @@ mod debug;
 #[cfg(feature = "serde")]
 mod serde;
 mod system;
-mod traits;
 mod utils;
 
 /// This function is only used on Linux targets, on the other platforms it does nothing and returns
