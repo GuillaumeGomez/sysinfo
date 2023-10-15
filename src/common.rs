@@ -572,6 +572,8 @@ impl System {
 
     /// Returns the system load average value.
     ///
+    /// ⚠️ This is currently not working on **Windows**.
+    ///
     /// ```no_run
     /// use sysinfo::System;
     ///
