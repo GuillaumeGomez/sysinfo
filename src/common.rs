@@ -2021,6 +2021,24 @@ impl Default for Disks {
     }
 }
 
+impl<'a> IntoIterator for &'a Disks {
+    type Item = &'a Disk;
+    type IntoIter = std::slice::Iter<'a, Disk>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.disks().iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Disks {
+    type Item = &'a mut Disk;
+    type IntoIter = std::slice::IterMut<'a, Disk>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.disks_mut().iter_mut()
+    }
+}
+
 impl Disks {
     /// Creates a new [`Disks`][crate::Disks] type.
     ///
@@ -2179,20 +2197,6 @@ pub enum DiskKind {
     Unknown(isize),
 }
 
-impl std::ops::Deref for Components {
-    type Target = [Component];
-
-    fn deref(&self) -> &Self::Target {
-        self.components()
-    }
-}
-
-impl std::ops::DerefMut for Components {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.components_mut()
-    }
-}
-
 /// Interacting with users.
 ///
 /// ```no_run
@@ -2224,6 +2228,24 @@ impl std::ops::Deref for Users {
 impl std::ops::DerefMut for Users {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.users_mut()
+    }
+}
+
+impl<'a> IntoIterator for &'a Users {
+    type Item = &'a User;
+    type IntoIter = std::slice::Iter<'a, User>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.users().iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Users {
+    type Item = &'a mut User;
+    type IntoIter = std::slice::IterMut<'a, User>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.users_mut().iter_mut()
     }
 }
 
@@ -2986,7 +3008,7 @@ impl fmt::Display for MacAddr {
 ///
 /// let mut components = Components::new();
 /// components.refresh_list();
-/// for component in components.iter() {
+/// for component in &components {
 ///     eprintln!("{component:?}");
 /// }
 /// ```
@@ -3000,6 +3022,38 @@ impl Default for Components {
     }
 }
 
+impl std::ops::Deref for Components {
+    type Target = [Component];
+
+    fn deref(&self) -> &Self::Target {
+        self.components()
+    }
+}
+
+impl std::ops::DerefMut for Components {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.components_mut()
+    }
+}
+
+impl<'a> IntoIterator for &'a Components {
+    type Item = &'a Component;
+    type IntoIter = std::slice::Iter<'a, Component>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.components().iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Components {
+    type Item = &'a mut Component;
+    type IntoIter = std::slice::IterMut<'a, Component>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.components_mut().iter_mut()
+    }
+}
+
 impl Components {
     /// Creates a new [`Components`][crate::Components] type.
     ///
@@ -3008,7 +3062,7 @@ impl Components {
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
-    /// for component in components.iter() {
+    /// for component in &components {
     ///     eprintln!("{component:?}");
     /// }
     /// ```
@@ -3118,7 +3172,7 @@ impl Components {
 ///
 /// let mut components = Components::new();
 /// components.refresh_list();
-/// for component in components.iter() {
+/// for component in &components {
 ///     println!("{}°C", component.temperature());
 /// }
 /// ```
@@ -3138,7 +3192,7 @@ impl Component {
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
-    /// for component in components.iter() {
+    /// for component in &components {
     ///     println!("{}°C", component.temperature());
     /// }
     /// ```
@@ -3156,7 +3210,7 @@ impl Component {
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
-    /// for component in components.iter() {
+    /// for component in &components {
     ///     println!("{}°C", component.max());
     /// }
     /// ```
@@ -3176,7 +3230,7 @@ impl Component {
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
-    /// for component in components.iter() {
+    /// for component in &components {
     ///     println!("{:?}°C", component.critical());
     /// }
     /// ```
@@ -3195,7 +3249,7 @@ impl Component {
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
-    /// for component in components.iter() {
+    /// for component in &components {
     ///     println!("{}", component.label());
     /// }
     /// ```
