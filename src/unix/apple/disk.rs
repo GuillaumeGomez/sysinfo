@@ -89,20 +89,20 @@ impl crate::DisksInner {
 
     pub(crate) fn refresh_list(&mut self) {
         unsafe {
-            get_disks(&mut self.disks);
+            get_list(&mut self.disks);
         }
     }
 
-    pub(crate) fn disks(&self) -> &[Disk] {
+    pub(crate) fn list(&self) -> &[Disk] {
         &self.disks
     }
 
-    pub(crate) fn disks_mut(&mut self) -> &mut [Disk] {
+    pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
     }
 }
 
-unsafe fn get_disks(container: &mut Vec<Disk>) {
+unsafe fn get_list(container: &mut Vec<Disk>) {
     container.clear();
 
     let raw_disks = {

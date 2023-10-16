@@ -62,14 +62,14 @@ impl crate::DisksInner {
     }
 
     pub(crate) fn refresh_list(&mut self) {
-        unsafe { get_all_disks(&mut self.disks) }
+        unsafe { get_all_list(&mut self.disks) }
     }
 
-    pub(crate) fn disks(&self) -> &[Disk] {
+    pub(crate) fn list(&self) -> &[Disk] {
         &self.disks
     }
 
-    pub(crate) fn disks_mut(&mut self) -> &mut [Disk] {
+    pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
     }
 }
@@ -88,7 +88,7 @@ unsafe fn refresh_disk(disk: &mut DiskInner, vfs: &mut libc::statvfs) -> bool {
     true
 }
 
-pub unsafe fn get_all_disks(container: &mut Vec<Disk>) {
+pub unsafe fn get_all_list(container: &mut Vec<Disk>) {
     container.clear();
 
     let mut fs_infos: *mut libc::statfs = std::ptr::null_mut();

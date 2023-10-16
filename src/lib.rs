@@ -293,19 +293,19 @@ mod test {
     }
 
     #[test]
-    fn check_users() {
+    fn check_list() {
         let mut users = Users::new();
-        assert!(users.users().is_empty());
+        assert!(users.list().is_empty());
         users.refresh_list();
-        assert!(users.users().len() >= MIN_USERS);
+        assert!(users.list().len() >= MIN_USERS);
     }
 
     #[test]
     fn check_uid_gid() {
         let mut users = Users::new();
-        assert!(users.users().is_empty());
+        assert!(users.list().is_empty());
         users.refresh_list();
-        let user_list = users.users();
+        let user_list = users.list();
         assert!(user_list.len() >= MIN_USERS);
 
         if IS_SUPPORTED {

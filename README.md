@@ -72,7 +72,7 @@ println!("=> disks:");
 let mut disks = Disks::new();
 // We refresh the disk list.
 disks.refresh_list();
-for disk in disks.iter() {
+for disk in &disks {
     println!("{disk:?}");
 }
 
@@ -90,7 +90,7 @@ let mut components = Components::new();
 // We refresh the component list.
 components.refresh_list();
 println!("=> components:");
-for component in components.iter() {
+for component in &components {
     println!("{component:?}");
 }
 ```

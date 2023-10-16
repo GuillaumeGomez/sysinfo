@@ -87,15 +87,15 @@ impl DisksInner {
 
     pub(crate) fn refresh_list(&mut self) {
         unsafe {
-            self.disks = get_disks();
+            self.disks = get_list();
         }
     }
 
-    pub(crate) fn disks(&self) -> &[Disk] {
+    pub(crate) fn list(&self) -> &[Disk] {
         &self.disks
     }
 
-    pub(crate) fn disks_mut(&mut self) -> &mut [Disk] {
+    pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
     }
 }
@@ -143,7 +143,7 @@ unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {
     }
 }
 
-pub(crate) unsafe fn get_disks() -> Vec<Disk> {
+pub(crate) unsafe fn get_list() -> Vec<Disk> {
     let drives = GetLogicalDrives();
     if drives == 0 {
         return Vec::new();

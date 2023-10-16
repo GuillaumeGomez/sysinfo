@@ -51,11 +51,11 @@ impl DisksInner {
         // Does nothing.
     }
 
-    pub(crate) fn disks(&self) -> &[Disk] {
+    pub(crate) fn list(&self) -> &[Disk] {
         &[]
     }
 
-    pub(crate) fn disks_mut(&mut self) -> &mut [Disk] {
+    pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
         &mut []
     }
 }

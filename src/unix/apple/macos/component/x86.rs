@@ -58,11 +58,11 @@ impl ComponentsInner {
         }
     }
 
-    pub(crate) fn components(&self) -> &[Component] {
+    pub(crate) fn list(&self) -> &[Component] {
         &self.components
     }
 
-    pub(crate) fn components_mut(&mut self) -> &mut [Component] {
+    pub(crate) fn list_mut(&mut self) -> &mut [Component] {
         &mut self.components
     }
 

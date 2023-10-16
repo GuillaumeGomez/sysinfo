@@ -78,17 +78,17 @@ impl crate::DisksInner {
     }
 
     pub(crate) fn refresh_list(&mut self) {
-        get_all_disks(
+        get_all_list(
             &mut self.disks,
             &get_all_data("/proc/mounts", 16_385).unwrap_or_default(),
         )
     }
 
-    pub(crate) fn disks(&self) -> &[Disk] {
+    pub(crate) fn list(&self) -> &[Disk] {
         &self.disks
     }
 
-    pub(crate) fn disks_mut(&mut self) -> &mut [Disk] {
+    pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
     }
 }
@@ -204,7 +204,7 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
     }
 }
 
-fn get_all_disks(container: &mut Vec<Disk>, content: &str) {
+fn get_all_list(container: &mut Vec<Disk>, content: &str) {
     container.clear();
     // The goal of this array is to list all removable devices (the ones whose name starts with
     // "usb-").
@@ -283,7 +283,7 @@ fn get_all_disks(container: &mut Vec<Disk>, content: &str) {
 }
 
 // #[test]
-// fn check_all_disks() {
+// fn check_all_list() {
 //     let disks = get_all_disks_inner(
 //         r#"tmpfs /proc tmpfs rw,seclabel,relatime 0 0
 // proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
