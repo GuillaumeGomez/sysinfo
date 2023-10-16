@@ -2090,32 +2090,6 @@ impl Disks {
         self.inner.disks_mut()
     }
 
-    /// Sort the disk list with the provided callback.
-    ///
-    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
-    /// for implementation details.
-    ///
-    /// You can do the same without this method by calling:
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// disks.sort_by(|disk1, disk2| {
-    ///     disk1.name().partial_cmp(disk2.name()).unwrap()
-    /// });
-    /// ```
-    ///
-    /// ⚠️ If you use [`Disks::refresh_list`], you will need to call this method to sort the
-    /// disks again.
-    pub fn sort_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
-    {
-        self.disks_mut().sort_unstable_by(compare);
-    }
-
     /// Refreshes the listed disks' information.
     ///
     /// ⚠️ If a disk is added or removed, this method won't take it into account. Use
@@ -2295,32 +2269,6 @@ impl Users {
     /// ```
     pub fn users_mut(&mut self) -> &mut [User] {
         &mut self.users
-    }
-
-    /// Sort the users list with the provided callback.
-    ///
-    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
-    /// for implementation details.
-    ///
-    /// You can do the same without this method by calling:
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
-    /// users.sort_by(|user1, user2| {
-    ///     user1.name().partial_cmp(user2.name()).unwrap()
-    /// });
-    /// ```
-    ///
-    /// ⚠️ If you use [`Users::refresh_list`], you will need to call this method to sort the
-    /// users again.
-    pub fn sort_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&User, &User) -> std::cmp::Ordering,
-    {
-        self.users.sort_unstable_by(compare);
     }
 
     /// The user list will be emptied then completely recomputed.
@@ -3103,32 +3051,6 @@ impl Components {
     /// ```
     pub fn components_mut(&mut self) -> &mut [Component] {
         self.inner.components_mut()
-    }
-
-    /// Sort the components list with the provided callback.
-    ///
-    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
-    /// for implementation details.
-    ///
-    /// You can do the same without this method by calling:
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// components.sort_by(|component1, component2| {
-    ///     component2.label().partial_cmp(component2.label()).unwrap()
-    /// });
-    /// ```
-    ///
-    /// ⚠️ If you use [`Components::refresh_list`], you will need to call this method to sort the
-    /// components again.
-    pub fn sort_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&Component, &Component) -> std::cmp::Ordering,
-    {
-        self.components_mut().sort_unstable_by(compare);
     }
 
     /// Refreshes the listed components' information.
