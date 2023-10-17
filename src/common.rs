@@ -1872,7 +1872,7 @@ impl NetworkData {
 ///
 /// let mut disks = Disks::new();
 /// disks.refresh_list();
-/// for disk in disks.disks() {
+/// for disk in disks.list() {
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```
@@ -1888,7 +1888,7 @@ impl Disk {
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
-    /// for disk in disks.disks() {
+    /// for disk in disks.list() {
     ///     println!("[{:?}] {:?}", disk.name(), disk.kind());
     /// }
     /// ```
@@ -1903,7 +1903,7 @@ impl Disk {
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
-    /// for disk in disks.disks() {
+    /// for disk in disks.list() {
     ///     println!("{:?}", disk.name());
     /// }
     /// ```
@@ -1918,7 +1918,7 @@ impl Disk {
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
-    /// for disk in disks.disks() {
+    /// for disk in disks.list() {
     ///     println!("[{:?}] {:?}", disk.name(), disk.file_system());
     /// }
     /// ```
@@ -1933,7 +1933,7 @@ impl Disk {
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
-    /// for disk in disks.disks() {
+    /// for disk in disks.list() {
     ///     println!("[{:?}] {:?}", disk.name(), disk.mount_point());
     /// }
     /// ```
@@ -1948,7 +1948,7 @@ impl Disk {
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
-    /// for disk in disks.disks() {
+    /// for disk in disks.list() {
     ///     println!("[{:?}] {}B", disk.name(), disk.total_space());
     /// }
     /// ```
@@ -1963,7 +1963,7 @@ impl Disk {
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
-    /// for disk in disks.disks() {
+    /// for disk in disks.list() {
     ///     println!("[{:?}] {}B", disk.name(), disk.available_space());
     /// }
     /// ```
@@ -1978,7 +1978,7 @@ impl Disk {
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
-    /// for disk in disks.disks() {
+    /// for disk in disks.list() {
     ///     println!("[{:?}] {}", disk.name(), disk.is_removable());
     /// }
     /// ```
@@ -1993,7 +1993,7 @@ impl Disk {
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
-    /// for disk in disks.disks_mut() {
+    /// for disk in disks.list_mut() {
     ///     disk.refresh();
     /// }
     /// ```
@@ -2009,7 +2009,7 @@ impl Disk {
 ///
 /// let mut disks = Disks::new();
 /// disks.refresh_list();
-/// for disk in disks.disks() {
+/// for disk in disks.list() {
 ///     println!("{disk:?}");
 /// }
 /// ```
@@ -2028,7 +2028,7 @@ impl<'a> IntoIterator for &'a Disks {
     type IntoIter = std::slice::Iter<'a, Disk>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.disks().iter()
+        self.list().iter()
     }
 }
 
@@ -2037,7 +2037,7 @@ impl<'a> IntoIterator for &'a mut Disks {
     type IntoIter = std::slice::IterMut<'a, Disk>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.disks_mut().iter_mut()
+        self.list_mut().iter_mut()
     }
 }
 
@@ -2049,7 +2049,7 @@ impl Disks {
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
-    /// for disk in disks.disks() {
+    /// for disk in disks.list() {
     ///     eprintln!("{disk:?}");
     /// }
     /// ```
@@ -2066,12 +2066,12 @@ impl Disks {
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
-    /// for disk in disks.disks() {
+    /// for disk in disks.list() {
     ///     eprintln!("{disk:?}");
     /// }
     /// ```
-    pub fn disks(&self) -> &[Disk] {
-        self.inner.disks()
+    pub fn list(&self) -> &[Disk] {
+        self.inner.list()
     }
 
     /// Returns the disks list.
@@ -2081,39 +2081,13 @@ impl Disks {
     ///
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
-    /// for disk in disks.disks_mut() {
+    /// for disk in disks.list_mut() {
     ///     disk.refresh();
     ///     eprintln!("{disk:?}");
     /// }
     /// ```
-    pub fn disks_mut(&mut self) -> &mut [Disk] {
-        self.inner.disks_mut()
-    }
-
-    /// Sort the disk list with the provided callback.
-    ///
-    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
-    /// for implementation details.
-    ///
-    /// You can do the same without this method by calling:
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// disks.sort_by(|disk1, disk2| {
-    ///     disk1.name().partial_cmp(disk2.name()).unwrap()
-    /// });
-    /// ```
-    ///
-    /// ⚠️ If you use [`Disks::refresh_list`], you will need to call this method to sort the
-    /// disks again.
-    pub fn sort_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&Disk, &Disk) -> std::cmp::Ordering,
-    {
-        self.disks_mut().sort_unstable_by(compare);
+    pub fn list_mut(&mut self) -> &mut [Disk] {
+        self.inner.list_mut()
     }
 
     /// Refreshes the listed disks' information.
@@ -2134,7 +2108,7 @@ impl Disks {
     /// disks.refresh();
     /// ```
     pub fn refresh(&mut self) {
-        for disk in self.disks_mut() {
+        for disk in self.list_mut() {
             disk.refresh();
         }
     }
@@ -2166,13 +2140,13 @@ impl std::ops::Deref for Disks {
     type Target = [Disk];
 
     fn deref(&self) -> &Self::Target {
-        self.disks()
+        self.list()
     }
 }
 
 impl std::ops::DerefMut for Disks {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.disks_mut()
+        self.list_mut()
     }
 }
 
@@ -2185,7 +2159,7 @@ impl std::ops::DerefMut for Disks {
 ///
 /// let mut disks = Disks::new();
 /// disks.refresh_list();
-/// for disk in disks.disks() {
+/// for disk in disks.list() {
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```
@@ -2205,7 +2179,7 @@ pub enum DiskKind {
 /// use sysinfo::Users;
 ///
 /// let mut users = Users::new();
-/// for user in users.users() {
+/// for user in users.list() {
 ///     println!("{} is in {} groups", user.name(), user.groups().len());
 /// }
 /// ```
@@ -2223,13 +2197,13 @@ impl std::ops::Deref for Users {
     type Target = [User];
 
     fn deref(&self) -> &Self::Target {
-        self.users()
+        self.list()
     }
 }
 
 impl std::ops::DerefMut for Users {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.users_mut()
+        self.list_mut()
     }
 }
 
@@ -2238,7 +2212,7 @@ impl<'a> IntoIterator for &'a Users {
     type IntoIter = std::slice::Iter<'a, User>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.users().iter()
+        self.list().iter()
     }
 }
 
@@ -2247,7 +2221,7 @@ impl<'a> IntoIterator for &'a mut Users {
     type IntoIter = std::slice::IterMut<'a, User>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.users_mut().iter_mut()
+        self.list_mut().iter_mut()
     }
 }
 
@@ -2259,7 +2233,7 @@ impl Users {
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
-    /// for user in users.users() {
+    /// for user in users.list() {
     ///     eprintln!("{user:?}");
     /// }
     /// ```
@@ -2274,11 +2248,11 @@ impl Users {
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
-    /// for user in users.users() {
+    /// for user in users.list() {
     ///     eprintln!("{user:?}");
     /// }
     /// ```
-    pub fn users(&self) -> &[User] {
+    pub fn list(&self) -> &[User] {
         &self.users
     }
 
@@ -2289,38 +2263,12 @@ impl Users {
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
-    /// users.users_mut().sort_by(|user1, user2| {
+    /// users.list_mut().sort_by(|user1, user2| {
     ///     user1.name().partial_cmp(user2.name()).unwrap()
     /// });
     /// ```
-    pub fn users_mut(&mut self) -> &mut [User] {
+    pub fn list_mut(&mut self) -> &mut [User] {
         &mut self.users
-    }
-
-    /// Sort the users list with the provided callback.
-    ///
-    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
-    /// for implementation details.
-    ///
-    /// You can do the same without this method by calling:
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
-    /// users.sort_by(|user1, user2| {
-    ///     user1.name().partial_cmp(user2.name()).unwrap()
-    /// });
-    /// ```
-    ///
-    /// ⚠️ If you use [`Users::refresh_list`], you will need to call this method to sort the
-    /// users again.
-    pub fn sort_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&User, &User) -> std::cmp::Ordering,
-    {
-        self.users.sort_unstable_by(compare);
     }
 
     /// The user list will be emptied then completely recomputed.
@@ -2346,7 +2294,7 @@ impl Users {
     /// # use sysinfo::Users;
     /// let mut users = Users::new();
     /// users.refresh_list();
-    /// users.users().find(|user| user.id() == user_id);
+    /// users.list().find(|user| user.id() == user_id);
     /// ```
     ///
     /// Full example:
@@ -2611,7 +2559,7 @@ cfg_if::cfg_if! {
 ///
 /// let mut users = Users::new();
 /// users.refresh_list();
-/// for user in users.users() {
+/// for user in users.list() {
 ///     println!("{:?}", user);
 /// }
 /// ```
@@ -2649,7 +2597,7 @@ impl User {
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
-    /// for user in users.users() {
+    /// for user in users.list() {
     ///     println!("{:?}", *user.id());
     /// }
     /// ```
@@ -2671,7 +2619,7 @@ impl User {
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
-    /// for user in users.users() {
+    /// for user in users.list() {
     ///     println!("{}", *user.group_id());
     /// }
     /// ```
@@ -2686,7 +2634,7 @@ impl User {
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
-    /// for user in users.users() {
+    /// for user in users.list() {
     ///     println!("{}", user.name());
     /// }
     /// ```
@@ -2703,7 +2651,7 @@ impl User {
     ///
     /// let mut users = Users::new();
     /// users.refresh_list();
-    /// for user in users.users() {
+    /// for user in users.list() {
     ///     println!("{} is in {:?}", user.name(), user.groups());
     /// }
     /// ```
@@ -2721,7 +2669,7 @@ impl User {
 ///
 /// let mut users = Users::new();
 ///
-/// for user in users.users() {
+/// for user in users.list() {
 ///     println!(
 ///         "user: (ID: {:?}, group ID: {:?}, name: {:?})",
 ///         user.id(),
@@ -2749,7 +2697,7 @@ impl Group {
     ///
     /// let mut users = Users::new();
     ///
-    /// for user in users.users() {
+    /// for user in users.list() {
     ///     for group in user.groups() {
     ///         println!("{:?}", group.id());
     ///     }
@@ -2766,7 +2714,7 @@ impl Group {
     ///
     /// let mut users = Users::new();
     ///
-    /// for user in users.users() {
+    /// for user in users.list() {
     ///     for group in user.groups() {
     ///         println!("{}", group.name());
     ///     }
@@ -3028,13 +2976,13 @@ impl std::ops::Deref for Components {
     type Target = [Component];
 
     fn deref(&self) -> &Self::Target {
-        self.components()
+        self.list()
     }
 }
 
 impl std::ops::DerefMut for Components {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.components_mut()
+        self.list_mut()
     }
 }
 
@@ -3043,7 +2991,7 @@ impl<'a> IntoIterator for &'a Components {
     type IntoIter = std::slice::Iter<'a, Component>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.components().iter()
+        self.list().iter()
     }
 }
 
@@ -3052,7 +3000,7 @@ impl<'a> IntoIterator for &'a mut Components {
     type IntoIter = std::slice::IterMut<'a, Component>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.components_mut().iter_mut()
+        self.list_mut().iter_mut()
     }
 }
 
@@ -3081,12 +3029,12 @@ impl Components {
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
-    /// for component in components.components() {
+    /// for component in components.list() {
     ///     eprintln!("{component:?}");
     /// }
     /// ```
-    pub fn components(&self) -> &[Component] {
-        self.inner.components()
+    pub fn list(&self) -> &[Component] {
+        self.inner.list()
     }
 
     /// Returns the components list.
@@ -3096,39 +3044,13 @@ impl Components {
     ///
     /// let mut components = Components::new();
     /// components.refresh_list();
-    /// for component in components.components_mut() {
+    /// for component in components.list_mut() {
     ///     component.refresh();
     ///     eprintln!("{component:?}");
     /// }
     /// ```
-    pub fn components_mut(&mut self) -> &mut [Component] {
-        self.inner.components_mut()
-    }
-
-    /// Sort the components list with the provided callback.
-    ///
-    /// Internally, it is using the [`slice::sort_unstable_by`] function, so please refer to it
-    /// for implementation details.
-    ///
-    /// You can do the same without this method by calling:
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// components.sort_by(|component1, component2| {
-    ///     component2.label().partial_cmp(component2.label()).unwrap()
-    /// });
-    /// ```
-    ///
-    /// ⚠️ If you use [`Components::refresh_list`], you will need to call this method to sort the
-    /// components again.
-    pub fn sort_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&Component, &Component) -> std::cmp::Ordering,
-    {
-        self.components_mut().sort_unstable_by(compare);
+    pub fn list_mut(&mut self) -> &mut [Component] {
+        self.inner.list_mut()
     }
 
     /// Refreshes the listed components' information.
@@ -3149,7 +3071,7 @@ impl Components {
     /// components.refresh();
     /// ```
     pub fn refresh(&mut self) {
-        for component in self.components_mut() {
+        for component in self.list_mut() {
             component.refresh();
         }
     }

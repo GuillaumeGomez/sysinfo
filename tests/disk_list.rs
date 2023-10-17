@@ -8,7 +8,7 @@ fn test_disks() {
         if s.physical_core_count().unwrap_or_default() > 0 {
             let mut disks = sysinfo::Disks::new();
             disks.refresh_list();
-            assert!(!disks.disks().is_empty());
+            assert!(!disks.list().is_empty());
         }
     }
 }

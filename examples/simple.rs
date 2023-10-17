@@ -362,12 +362,12 @@ fn interpret_input(
             }
         }
         "disks" => {
-            for disk in disks.disks() {
+            for disk in disks {
                 writeln!(&mut io::stdout(), "{disk:?}");
             }
         }
         "users" => {
-            for user in users.users() {
+            for user in users {
                 writeln!(
                     &mut io::stdout(),
                     "{:?} => {:?}",
