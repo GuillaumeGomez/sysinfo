@@ -8,12 +8,14 @@ use std::os::windows::ffi::OsStringExt;
 use std::path::Path;
 
 use windows::core::PCWSTR;
-use windows::Win32::Foundation::{CloseHandle, GetLastError, HANDLE,
-    ERROR_MORE_DATA, ERROR_NO_MORE_FILES, MAX_PATH};
+use windows::Win32::Foundation::{
+    CloseHandle, GetLastError, ERROR_MORE_DATA, ERROR_NO_MORE_FILES, HANDLE, MAX_PATH,
+};
 use windows::Win32::Storage::FileSystem::{
-    CreateFileW, GetDiskFreeSpaceExW, GetDriveTypeW, GetVolumeInformationW,
-    FILE_ACCESS_RIGHTS, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
-    GetVolumePathNamesForVolumeNameW, FindVolumeClose, FindNextVolumeW, FindFirstVolumeW};
+    CreateFileW, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDiskFreeSpaceExW,
+    GetDriveTypeW, GetVolumeInformationW, GetVolumePathNamesForVolumeNameW, FILE_ACCESS_RIGHTS,
+    FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+};
 use windows::Win32::System::Ioctl::{
     PropertyStandardQuery, StorageDeviceSeekPenaltyProperty, DEVICE_SEEK_PENALTY_DESCRIPTOR,
     IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
@@ -53,8 +55,9 @@ pub(crate) fn get_volume_guid_paths() -> Vec<Vec<u16>> {
             match FindNextVolumeW(handle, &mut buf[..]) {
                 Ok(_) => (),
                 Err(_) => {
-                    let find_next_err = GetLastError()
-                        .expect_err("GetLastError should return an error after FindNextVolumeW returned zero.");
+                    let find_next_err = GetLastError().expect_err(
+                        "GetLastError should return an error after FindNextVolumeW returned zero.",
+                    );
                     if find_next_err.code() != ERROR_NO_MORE_FILES.to_hresult() {
                         sysinfo_debug!("Error: FindNextVolumeW = {}", find_next_err);
                     }
@@ -76,7 +79,9 @@ pub(crate) fn get_volume_guid_paths() -> Vec<Vec<u16>> {
 ///
 /// # Safety
 /// `volume_name` must contain a zero-terminated wide string.
-pub(crate) unsafe fn get_volume_path_names_for_volume_name(volume_guid_path: &[u16]) -> Vec<Vec<u16>> {
+pub(crate) unsafe fn get_volume_path_names_for_volume_name(
+    volume_guid_path: &[u16],
+) -> Vec<Vec<u16>> {
     let volume_guid_path = PCWSTR::from_raw(volume_guid_path.as_ptr());
 
     // Initial buffer size is just a guess. There is no direct connection between MAX_PATH
@@ -241,7 +246,6 @@ unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {
 }
 
 pub(crate) unsafe fn get_list() -> Vec<Disk> {
-
     #[cfg(feature = "multithread")]
     use rayon::iter::ParallelIterator;
 
@@ -277,7 +281,11 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             }
 
             // The device path is the volume name without the trailing backslash.
-            let device_path = volume_name[..(volume_name.len()-2)].iter().copied().chain([0]).collect::<Vec<_>>();
+            let device_path = volume_name[..(volume_name.len() - 2)]
+                .iter()
+                .copied()
+                .chain([0])
+                .collect::<Vec<_>>();
             let handle = match HandleWrapper::new(&device_path[..], Default::default()) {
                 Some(h) => h,
                 None => {
@@ -328,22 +336,26 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
 
             let name_len = name.iter().position(|&x| x == 0).unwrap_or(name.len());
             let name = OsString::from_wide(&name[..name_len]);
-            let file_system = file_system.iter()
+            let file_system = file_system
+                .iter()
                 .take_while(|c| **c != 0)
                 .map(|c| *c as u8)
                 .collect::<Vec<_>>();
-            mount_paths.into_iter().map(move |mount_path| Disk {
-                inner: DiskInner {
-                    type_,
-                    name: name.clone(),
-                    file_system: file_system.clone(),
-                    s_mount_point: OsString::from_wide(&mount_path[..mount_path.len()-1]),
-                    mount_point: mount_path,
-                    total_space,
-                    available_space,
-                    is_removable,
-                },
-            }).collect::<Vec<_>>()
+            mount_paths
+                .into_iter()
+                .map(move |mount_path| Disk {
+                    inner: DiskInner {
+                        type_,
+                        name: name.clone(),
+                        file_system: file_system.clone(),
+                        s_mount_point: OsString::from_wide(&mount_path[..mount_path.len() - 1]),
+                        mount_point: mount_path,
+                        total_space,
+                        available_space,
+                        is_removable,
+                    },
+                })
+                .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>()
 }
