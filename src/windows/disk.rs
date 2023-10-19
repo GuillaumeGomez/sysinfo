@@ -108,7 +108,7 @@ pub(crate) unsafe fn get_volume_path_names_for_volume_name(volume_guid_path: &[u
     // An additional zero terminates the list.
     let mut path_names = Vec::new();
     let mut buf = &path_names_buf[..];
-    while buf.len() > 0 && buf[0] != 0 {
+    while !buf.is_empty() && buf[0] != 0 {
         let path = from_zero_terminated(buf);
         buf = &buf[path.len()..];
         path_names.push(path);
@@ -272,7 +272,7 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             }
 
             let mount_paths = get_volume_path_names_for_volume_name(&volume_name[..]);
-            if mount_paths.len() == 0 {
+            if !mount_paths.is_empty() {
                 return vec![];
             }
 
