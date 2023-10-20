@@ -15,8 +15,8 @@ impl DiskInner {
         unreachable!()
     }
 
-    pub(crate) fn file_system(&self) -> &[u8] {
-        &[]
+    pub(crate) fn file_system(&self) -> &OsStr {
+        Default::default()
     }
 
     pub(crate) fn mount_point(&self) -> &Path {

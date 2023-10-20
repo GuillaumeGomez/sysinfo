@@ -3,6 +3,7 @@
 use crate::{Disk, DiskKind};
 
 use std::ffi::{OsStr, OsString};
+use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 
 use super::utils::c_buf_to_str;
@@ -13,7 +14,7 @@ pub(crate) struct DiskInner {
     mount_point: PathBuf,
     total_space: u64,
     available_space: u64,
-    file_system: Vec<u8>,
+    file_system: OsString,
     is_removable: bool,
 }
 
@@ -26,7 +27,7 @@ impl DiskInner {
         &self.name
     }
 
-    pub(crate) fn file_system(&self) -> &[u8] {
+    pub(crate) fn file_system(&self) -> &OsStr {
         &self.file_system
     }
 
@@ -106,14 +107,18 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>) {
             // If we have missing information, no need to look any further...
             continue;
         }
-        let fs_type: &[libc::c_char] =
-            if let Some(pos) = fs_info.f_fstypename.iter().position(|x| *x == 0) {
-                &fs_info.f_fstypename[..pos]
-            } else {
-                &fs_info.f_fstypename
-            };
-        let fs_type: &[u8] = std::slice::from_raw_parts(fs_type.as_ptr() as _, fs_type.len());
-        match fs_type {
+        let fs_type: Vec<u8> = {
+            let len = fs_info
+                .f_fstypename
+                .iter()
+                .position(|x| *x == 0)
+                .unwrap_or(fs_info.f_fstypename.len());
+            fs_info.f_fstypename[..len]
+                .iter()
+                .map(|c| *c as u8)
+                .collect()
+        };
+        match &fs_type[..] {
             b"autofs" | b"devfs" | b"linprocfs" | b"procfs" | b"fdesckfs" | b"tmpfs"
             | b"linsysfs" => {
                 sysinfo_debug!(
@@ -145,7 +150,7 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>) {
 
         // USB keys and CDs are removable.
         let is_removable =
-            [b"USB", b"usb"].iter().any(|b| b == &fs_type) || fs_type.starts_with(b"/dev/cd");
+            [b"USB", b"usb"].iter().any(|b| *b == &fs_type[..]) || fs_type.starts_with(b"/dev/cd");
 
         let f_frsize: u64 = vfs.f_frsize as _;
 
@@ -156,7 +161,7 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>) {
                 mount_point: PathBuf::from(mount_point),
                 total_space: vfs.f_blocks.saturating_mul(f_frsize),
                 available_space: vfs.f_favail.saturating_mul(f_frsize),
-                file_system: fs_type.to_vec(),
+                file_system: OsString::from_vec(fs_type),
                 is_removable,
             },
         });

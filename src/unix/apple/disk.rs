@@ -15,14 +15,14 @@ use core_foundation_sys::string::{self as cfs, CFStringRef};
 use libc::c_void;
 
 use std::ffi::{CStr, OsStr, OsString};
-use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use std::ptr;
 
 pub(crate) struct DiskInner {
     pub(crate) type_: DiskKind,
     pub(crate) name: OsString,
-    pub(crate) file_system: Vec<u8>,
+    pub(crate) file_system: OsString,
     pub(crate) mount_point: PathBuf,
     volume_url: RetainedCFURL,
     pub(crate) total_space: u64,
@@ -39,7 +39,7 @@ impl DiskInner {
         &self.name
     }
 
-    pub(crate) fn file_system(&self) -> &[u8] {
+    pub(crate) fn file_system(&self) -> &OsStr {
         &self.file_system
     }
 
@@ -400,9 +400,19 @@ unsafe fn new_disk(
 
     let available_space = get_available_volume_space(disk_props);
 
-    let file_system = IntoIterator::into_iter(c_disk.f_fstypename)
-        .filter_map(|b| if b != 0 { Some(b as u8) } else { None })
-        .collect();
+    let file_system = {
+        let len = c_disk
+            .f_fstypename
+            .iter()
+            .position(|&b| b == 0)
+            .unwrap_or(c_disk.f_fstypename.len());
+        OsString::from_vec(
+            c_disk.f_fstypename[..len]
+                .iter()
+                .map(|c| *c as u8)
+                .collect(),
+        )
+    };
 
     Some(Disk {
         inner: DiskInner {
