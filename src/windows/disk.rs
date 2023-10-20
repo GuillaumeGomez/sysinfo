@@ -7,11 +7,8 @@ use std::mem::size_of;
 use std::os::windows::ffi::OsStringExt;
 use std::path::Path;
 
-use windows::core::PCWSTR;
-use windows::Win32::Foundation::{
-    CloseHandle, GetLastError, ERROR_MORE_DATA, ERROR_NO_MORE_FILES, ERROR_UNRECOGNIZED_VOLUME,
-    HANDLE, MAX_PATH,
-};
+use windows::core::{Error, HRESULT, PCWSTR};
+use windows::Win32::Foundation::{CloseHandle, HANDLE, MAX_PATH};
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDiskFreeSpaceExW,
     GetDriveTypeW, GetVolumeInformationW, GetVolumePathNamesForVolumeNameW, FILE_ACCESS_RIGHTS,
@@ -36,6 +33,9 @@ fn from_zero_terminated(buf: &[u16]) -> Vec<u16> {
 // https://learn.microsoft.com/en-us/windows/win32/fileio/displaying-volume-paths
 const VOLUME_NAME_SIZE: usize = MAX_PATH as usize + 1;
 
+const ERROR_NO_MORE_FILES: HRESULT = windows::Win32::Foundation::ERROR_NO_MORE_FILES.to_hresult();
+const ERROR_MORE_DATA: HRESULT = windows::Win32::Foundation::ERROR_MORE_DATA.to_hresult();
+
 /// Returns a list of zero-terminated wide strings containing volume GUID paths.
 /// Volume GUID paths have the form `\\?\{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}\`.
 ///
@@ -44,31 +44,22 @@ pub(crate) fn get_volume_guid_paths() -> Vec<Vec<u16>> {
     let mut volume_names = Vec::new();
     unsafe {
         let mut buf = Box::new([0u16; VOLUME_NAME_SIZE]);
-        let handle = match FindFirstVolumeW(&mut buf[..]) {
-            Ok(handle) => handle,
-            Err(_) => {
-                sysinfo_debug!("Error: FindFirstVolumeW() = {:?}", GetLastError());
-                return Vec::new();
-            }
+        let Ok(handle) = FindFirstVolumeW(&mut buf[..]) else {
+            sysinfo_debug!("Error: FindFirstVolumeW() = {:?}", Error::from_win32().code());
+            return Vec::new();
         };
         volume_names.push(from_zero_terminated(&buf[..]));
         loop {
-            match FindNextVolumeW(handle, &mut buf[..]) {
-                Ok(_) => (),
-                Err(_) => {
-                    let find_next_err = GetLastError().expect_err(
-                        "GetLastError should return an error after FindNextVolumeW returned zero.",
-                    );
-                    if find_next_err.code() != ERROR_NO_MORE_FILES.to_hresult() {
-                        sysinfo_debug!("Error: FindNextVolumeW = {}", find_next_err);
-                    }
-                    break;
+            if FindNextVolumeW(handle, &mut buf[..]).is_err() {
+                if Error::from_win32().code() != ERROR_NO_MORE_FILES {
+                    sysinfo_debug!("Error: FindNextVolumeW = {}", Error::from_win32().code());
                 }
+                break;
             }
             volume_names.push(from_zero_terminated(&buf[..]));
         }
         if FindVolumeClose(handle).is_err() {
-            sysinfo_debug!("Error: FindVolumeClose = {:?}", GetLastError());
+            sysinfo_debug!("Error: FindVolumeClose = {:?}", Error::from_win32().code());
         };
     }
     volume_names
@@ -95,18 +86,10 @@ pub(crate) unsafe fn get_volume_path_names_for_volume_name(
             Some(path_names_buf.as_mut_slice()),
             &mut path_names_output_size,
         );
-        let code = volume_path_names
-            .map_err(|_| match GetLastError() {
-                Ok(_) => {
-                    sysinfo_debug!("GetLastError should return an error after GetVolumePathNamesForVolumeNameW returned zero.");
-                    // We return an error in any case that is not `ERROR_MORE_DATA` to stop the loop.
-                    ERROR_UNRECOGNIZED_VOLUME.to_hresult()
-                }
-                Err(e) => e.code(),
-            });
+        let code = volume_path_names.map_err(|_| Error::from_win32().code());
         match code {
             Ok(()) => break,
-            Err(e) if e == ERROR_MORE_DATA.to_hresult() => {
+            Err(ERROR_MORE_DATA) => {
                 // We need a bigger buffer. path_names_output_size contains the required buffer size.
                 path_names_buf = vec![0u16; path_names_output_size as usize];
                 continue;
@@ -280,7 +263,7 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             )
             .is_ok();
             if !volume_info_res {
-                sysinfo_debug!("Error: GetVolumeInformationW = {:?}", GetLastError());
+                sysinfo_debug!("Error: GetVolumeInformationW = {:?}", Error::from_win32().code());
                 return Vec::new();
             }
 
@@ -295,17 +278,11 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
                 .copied()
                 .chain([0])
                 .collect::<Vec<_>>();
-            let handle = match HandleWrapper::new(&device_path[..], Default::default()) {
-                Some(h) => h,
-                None => {
-                    return Vec::new();
-                }
+            let Some(handle) = HandleWrapper::new(&device_path[..], Default::default()) else {
+                return Vec::new();
             };
-            let (total_space, available_space) = match get_drive_size(&mount_paths[0][..]) {
-                Some(space) => space,
-                None => {
-                    return Vec::new();
-                }
+            let Some((total_space, available_space)) = get_drive_size(&mount_paths[0][..]) else {
+                return Vec::new();
             };
             if total_space == 0 {
                 sysinfo_debug!("total_space == 0");
