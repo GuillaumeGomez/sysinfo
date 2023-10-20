@@ -39,10 +39,7 @@ impl fmt::Debug for Disk {
             fmt,
             "Disk({:?})[FS: {:?}][Type: {:?}][removable: {}] mounted on {:?}: {}/{} B",
             self.name(),
-            self.file_system()
-                .iter()
-                .map(|c| *c as char)
-                .collect::<Vec<_>>(),
+            self.file_system(),
             self.kind(),
             if self.is_removable() { "yes" } else { "no" },
             self.mount_point(),

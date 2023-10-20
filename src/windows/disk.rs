@@ -133,7 +133,7 @@ pub(crate) unsafe fn get_volume_path_names_for_volume_name(
 pub(crate) struct DiskInner {
     type_: DiskKind,
     name: OsString,
-    file_system: Vec<u8>,
+    file_system: OsString,
     mount_point: Vec<u16>,
     s_mount_point: OsString,
     total_space: u64,
@@ -150,7 +150,7 @@ impl DiskInner {
         &self.name
     }
 
-    pub(crate) fn file_system(&self) -> &[u8] {
+    pub(crate) fn file_system(&self) -> &OsStr {
         &self.file_system
     }
 
@@ -343,13 +343,8 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
                 }
             };
 
-            let name_len = name.iter().position(|&x| x == 0).unwrap_or(name.len());
-            let name = OsString::from_wide(&name[..name_len]);
-            let file_system = file_system
-                .iter()
-                .take_while(|c| **c != 0)
-                .map(|c| *c as u8)
-                .collect::<Vec<_>>();
+            let name = os_string_from_zero_terminated(&name);
+            let file_system = os_string_from_zero_terminated(&file_system);
             mount_paths
                 .into_iter()
                 .map(move |mount_path| Disk {
@@ -367,4 +362,9 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>()
+}
+
+fn os_string_from_zero_terminated(name: &[u16]) -> OsString {
+    let len = name.iter().position(|&x| x == 0).unwrap_or(name.len());
+    OsString::from_wide(&name[..len])
 }

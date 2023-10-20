@@ -19,7 +19,7 @@ macro_rules! cast {
 pub(crate) struct DiskInner {
     type_: DiskKind,
     device_name: OsString,
-    file_system: Vec<u8>,
+    file_system: OsString,
     mount_point: PathBuf,
     total_space: u64,
     available_space: u64,
@@ -35,7 +35,7 @@ impl DiskInner {
         &self.device_name
     }
 
-    pub(crate) fn file_system(&self) -> &[u8] {
+    pub(crate) fn file_system(&self) -> &OsStr {
         &self.file_system
     }
 
@@ -96,7 +96,7 @@ impl crate::DisksInner {
 fn new_disk(
     device_name: &OsStr,
     mount_point: &Path,
-    file_system: &[u8],
+    file_system: &OsStr,
     removable_entries: &[PathBuf],
 ) -> Option<Disk> {
     let mount_point_cpath = to_cpath(mount_point);
@@ -273,7 +273,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
             new_disk(
                 fs_spec.as_ref(),
                 Path::new(&fs_file),
-                fs_vfstype.as_bytes(),
+                fs_vfstype.as_ref(),
                 &removable_entries,
             )
         })
