@@ -9,7 +9,8 @@ use std::path::Path;
 
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{
-    CloseHandle, GetLastError, ERROR_MORE_DATA, ERROR_NO_MORE_FILES, HANDLE, MAX_PATH,
+    CloseHandle, GetLastError, ERROR_MORE_DATA, ERROR_NO_MORE_FILES, ERROR_UNRECOGNIZED_VOLUME,
+    HANDLE, MAX_PATH,
 };
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDiskFreeSpaceExW,
@@ -66,7 +67,7 @@ pub(crate) fn get_volume_guid_paths() -> Vec<Vec<u16>> {
             }
             volume_names.push(from_zero_terminated(&buf[..]));
         }
-        if FindVolumeClose(handle) != Ok(()) {
+        if FindVolumeClose(handle).is_err() {
             sysinfo_debug!("Error: FindVolumeClose = {:?}", GetLastError());
         };
     }
@@ -89,19 +90,27 @@ pub(crate) unsafe fn get_volume_path_names_for_volume_name(
     let mut path_names_buf = vec![0u16; MAX_PATH as usize];
     let mut path_names_output_size = 0u32;
     for _ in 0..10 {
-        match GetVolumePathNamesForVolumeNameW(
+        let volume_path_names = GetVolumePathNamesForVolumeNameW(
             volume_guid_path,
             Some(path_names_buf.as_mut_slice()),
-            &mut path_names_output_size)
-            .map_err(|_| GetLastError()
-                .expect_err("GetLastError should return an error after GetVolumePathNamesForVolumeNameW returned zero.")
-                .code()) {
+            &mut path_names_output_size,
+        );
+        let code = volume_path_names
+            .map_err(|_| match GetLastError() {
+                Ok(_) => {
+                    sysinfo_debug!("GetLastError should return an error after GetVolumePathNamesForVolumeNameW returned zero.");
+                    // We return an error in any case that is not `ERROR_MORE_DATA` to stop the
+                    ERROR_UNRECOGNIZED_VOLUME.to_hresult()
+                }
+                Err(e) => e.code(),
+            });
+        match code {
             Ok(()) => break,
             Err(e) if e == ERROR_MORE_DATA.to_hresult() => {
                 // We need a bigger buffer. path_names_output_size contains the required buffer size.
                 path_names_buf = vec![0u16; path_names_output_size as usize];
                 continue;
-            },
+            }
             Err(_e) => {
                 sysinfo_debug!("Error: GetVolumePathNamesForVolumeNameW() = {}", _e);
                 return Vec::new();
@@ -257,7 +266,7 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             let is_removable = drive_type == DRIVE_REMOVABLE;
 
             if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
-                return vec![];
+                return Vec::new();
             }
             let mut name = [0u16; MAX_PATH as usize + 1];
             let mut file_system = [0u16; 32];
@@ -272,12 +281,12 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             .is_ok();
             if !volume_info_res {
                 sysinfo_debug!("Error: GetVolumeInformationW = {:?}", GetLastError());
-                return vec![];
+                return Vec::new();
             }
 
             let mount_paths = get_volume_path_names_for_volume_name(&volume_name[..]);
             if mount_paths.is_empty() {
-                return vec![];
+                return Vec::new();
             }
 
             // The device path is the volume name without the trailing backslash.
@@ -289,18 +298,18 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             let handle = match HandleWrapper::new(&device_path[..], Default::default()) {
                 Some(h) => h,
                 None => {
-                    return vec![];
+                    return Vec::new();
                 }
             };
             let (total_space, available_space) = match get_drive_size(&mount_paths[0][..]) {
                 Some(space) => space,
                 None => {
-                    return vec![];
+                    return Vec::new();
                 }
             };
             if total_space == 0 {
                 sysinfo_debug!("total_space == 0");
-                return vec![];
+                return Vec::new();
             }
             let spq_trim = STORAGE_PROPERTY_QUERY {
                 PropertyId: StorageDeviceSeekPenaltyProperty,
