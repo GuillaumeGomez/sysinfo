@@ -276,7 +276,7 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             }
 
             let mount_paths = get_volume_path_names_for_volume_name(&volume_name[..]);
-            if !mount_paths.is_empty() {
+            if mount_paths.is_empty() {
                 return vec![];
             }
 
