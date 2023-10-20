@@ -99,7 +99,7 @@ pub(crate) unsafe fn get_volume_path_names_for_volume_name(
             .map_err(|_| match GetLastError() {
                 Ok(_) => {
                     sysinfo_debug!("GetLastError should return an error after GetVolumePathNamesForVolumeNameW returned zero.");
-                    // We return an error in any case that is not `ERROR_MORE_DATA`.
+                    // We return an error in any case that is not `ERROR_MORE_DATA` to stop the loop.
                     ERROR_UNRECOGNIZED_VOLUME.to_hresult()
                 }
                 Err(e) => e.code(),
