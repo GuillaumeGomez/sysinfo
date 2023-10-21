@@ -263,7 +263,10 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             )
             .is_ok();
             if !volume_info_res {
-                sysinfo_debug!("Error: GetVolumeInformationW = {:?}", Error::from_win32().code());
+                sysinfo_debug!(
+                    "Error: GetVolumeInformationW = {:?}",
+                    Error::from_win32().code()
+                );
                 return Vec::new();
             }
 
