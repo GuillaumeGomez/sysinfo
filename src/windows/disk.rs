@@ -45,7 +45,10 @@ pub(crate) fn get_volume_guid_paths() -> Vec<Vec<u16>> {
     unsafe {
         let mut buf = Box::new([0u16; VOLUME_NAME_SIZE]);
         let Ok(handle) = FindFirstVolumeW(&mut buf[..]) else {
-            sysinfo_debug!("Error: FindFirstVolumeW() = {:?}", Error::from_win32().code());
+            sysinfo_debug!(
+                "Error: FindFirstVolumeW() = {:?}",
+                Error::from_win32().code()
+            );
             return Vec::new();
         };
         volume_names.push(from_zero_terminated(&buf[..]));
