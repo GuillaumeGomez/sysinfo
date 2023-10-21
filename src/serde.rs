@@ -1,8 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{DiskKind, DiskUsage, MacAddr, ProcessStatus, Signal};
 use serde::{ser::SerializeStruct, Serialize, Serializer};
-use std::ops::Deref;
 
 impl Serialize for crate::Disk {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -26,13 +24,40 @@ impl Serialize for crate::Disk {
     }
 }
 
+impl Serialize for crate::Gid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_newtype_struct("Gid", &self.to_string())
+    }
+}
+
+impl Serialize for crate::Uid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_newtype_struct("Uid", &self.to_string())
+    }
+}
+
+impl Serialize for crate::Pid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_newtype_struct("Pid", &self.to_string())
+    }
+}
+
 impl Serialize for crate::Process {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        // `18` corresponds to the (maximum) number of fields.
-        let mut state = serializer.serialize_struct("Process", 18)?;
+        // `19` corresponds to the (maximum) number of fields.
+        let mut state = serializer.serialize_struct("Process", 19)?;
 
         state.serialize_field("name", &self.name())?;
         state.serialize_field("cmd", &self.cmd())?;
@@ -43,24 +68,15 @@ impl Serialize for crate::Process {
         state.serialize_field("root", &self.root())?;
         state.serialize_field("memory", &self.memory())?;
         state.serialize_field("virtual_memory", &self.virtual_memory())?;
-        if let Some(pid) = self.parent() {
-            state.serialize_field("parent", &pid.as_u32())?;
-        }
+        state.serialize_field("parent", &self.parent())?;
         state.serialize_field("status", &self.status())?;
         state.serialize_field("start_time", &self.start_time())?;
         state.serialize_field("run_time", &self.run_time())?;
         state.serialize_field("cpu_usage", &self.cpu_usage())?;
         state.serialize_field("disk_usage", &self.disk_usage())?;
-        if let Some(uid) = self.user_id() {
-            state.serialize_field("user_id", &uid.to_string())?;
-        }
-        if let Some(gid) = self.group_id() {
-            let gid = *gid.deref();
-            state.serialize_field("group_id", &gid)?;
-        }
-        if let Some(pid) = self.session_id() {
-            state.serialize_field("session_id", &pid.as_u32())?;
-        }
+        state.serialize_field("user_id", &self.user_id())?;
+        state.serialize_field("group_id", &self.group_id())?;
+        state.serialize_field("session_id", &self.session_id())?;
 
         state.end()
     }
@@ -154,44 +170,44 @@ impl Serialize for crate::Users {
     }
 }
 
-impl Serialize for Signal {
+impl Serialize for crate::Signal {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let (index, variant) = match *self {
-            Signal::Hangup => (0, "Hangup"),
-            Signal::Interrupt => (1, "Interrupt"),
-            Signal::Quit => (2, "Quit"),
-            Signal::Illegal => (3, "Illegal"),
-            Signal::Trap => (4, "Trap"),
-            Signal::Abort => (5, "Abort"),
-            Signal::IOT => (6, "IOT"),
-            Signal::Bus => (7, "Bus"),
-            Signal::FloatingPointException => (8, "FloatingPointException"),
-            Signal::Kill => (9, "Kill"),
-            Signal::User1 => (10, "User1"),
-            Signal::Segv => (11, "Segv"),
-            Signal::User2 => (12, "User2"),
-            Signal::Pipe => (13, "Pipe"),
-            Signal::Alarm => (14, "Alarm"),
-            Signal::Term => (15, "Term"),
-            Signal::Child => (16, "Child"),
-            Signal::Continue => (17, "Continue"),
-            Signal::Stop => (18, "Stop"),
-            Signal::TSTP => (19, "TSTP"),
-            Signal::TTIN => (20, "TTIN"),
-            Signal::TTOU => (21, "TTOU"),
-            Signal::Urgent => (22, "Urgent"),
-            Signal::XCPU => (23, "XCPU"),
-            Signal::XFSZ => (24, "XFSZ"),
-            Signal::VirtualAlarm => (25, "VirtualAlarm"),
-            Signal::Profiling => (26, "Profiling"),
-            Signal::Winch => (27, "Winch"),
-            Signal::IO => (28, "IO"),
-            Signal::Poll => (29, "Poll"),
-            Signal::Power => (30, "Power"),
-            Signal::Sys => (31, "Sys"),
+            Self::Hangup => (0, "Hangup"),
+            Self::Interrupt => (1, "Interrupt"),
+            Self::Quit => (2, "Quit"),
+            Self::Illegal => (3, "Illegal"),
+            Self::Trap => (4, "Trap"),
+            Self::Abort => (5, "Abort"),
+            Self::IOT => (6, "IOT"),
+            Self::Bus => (7, "Bus"),
+            Self::FloatingPointException => (8, "FloatingPointException"),
+            Self::Kill => (9, "Kill"),
+            Self::User1 => (10, "User1"),
+            Self::Segv => (11, "Segv"),
+            Self::User2 => (12, "User2"),
+            Self::Pipe => (13, "Pipe"),
+            Self::Alarm => (14, "Alarm"),
+            Self::Term => (15, "Term"),
+            Self::Child => (16, "Child"),
+            Self::Continue => (17, "Continue"),
+            Self::Stop => (18, "Stop"),
+            Self::TSTP => (19, "TSTP"),
+            Self::TTIN => (20, "TTIN"),
+            Self::TTOU => (21, "TTOU"),
+            Self::Urgent => (22, "Urgent"),
+            Self::XCPU => (23, "XCPU"),
+            Self::XFSZ => (24, "XFSZ"),
+            Self::VirtualAlarm => (25, "VirtualAlarm"),
+            Self::Profiling => (26, "Profiling"),
+            Self::Winch => (27, "Winch"),
+            Self::IO => (28, "IO"),
+            Self::Poll => (29, "Poll"),
+            Self::Power => (30, "Power"),
+            Self::Sys => (31, "Sys"),
         };
 
         serializer.serialize_unit_variant("Signal", index, variant)
@@ -212,15 +228,6 @@ impl Serialize for crate::LoadAvg {
         state.end()
     }
 }
-
-// impl Serialize for crate::NetworkData {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         let mut state = serializer.serialize_struct("NetworkData", 1)?;
-//     }
-// }
 
 impl Serialize for crate::NetworkData {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -279,11 +286,8 @@ impl Serialize for crate::User {
         // `4` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("User", 4)?;
 
-        state.serialize_field("id", &self.id().to_string())?;
-
-        let gid = *self.group_id().deref();
-        state.serialize_field("group_id", &gid)?;
-
+        state.serialize_field("id", &self.id())?;
+        state.serialize_field("group_id", &self.group_id())?;
         state.serialize_field("name", &self.name())?;
         state.serialize_field("groups", &self.groups())?;
 
@@ -299,22 +303,22 @@ impl Serialize for crate::Group {
         // `2` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("Group", 2)?;
 
-        state.serialize_field("id", &self.id().to_string())?;
+        state.serialize_field("id", &self.id())?;
         state.serialize_field("name", &self.name())?;
 
         state.end()
     }
 }
 
-impl Serialize for DiskKind {
+impl Serialize for crate::DiskKind {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let (index, variant, maybe_value) = match *self {
-            DiskKind::HDD => (0, "HDD", None),
-            DiskKind::SSD => (1, "SSD", None),
-            DiskKind::Unknown(ref s) => (2, "Unknown", Some(s)),
+            Self::HDD => (0, "HDD", None),
+            Self::SSD => (1, "SSD", None),
+            Self::Unknown(ref s) => (2, "Unknown", Some(s)),
         };
 
         if let Some(ref value) = maybe_value {
@@ -325,25 +329,25 @@ impl Serialize for DiskKind {
     }
 }
 
-impl Serialize for ProcessStatus {
+impl Serialize for crate::ProcessStatus {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let (index, variant, maybe_value) = match *self {
-            ProcessStatus::Idle => (0, "Idle", None),
-            ProcessStatus::Run => (1, "Run", None),
-            ProcessStatus::Sleep => (2, "Sleep", None),
-            ProcessStatus::Stop => (3, "Stop", None),
-            ProcessStatus::Zombie => (4, "Zombie", None),
-            ProcessStatus::Tracing => (5, "Tracing", None),
-            ProcessStatus::Dead => (6, "Dead", None),
-            ProcessStatus::Wakekill => (7, "Wakekill", None),
-            ProcessStatus::Waking => (8, "Waking", None),
-            ProcessStatus::Parked => (9, "Parked", None),
-            ProcessStatus::LockBlocked => (10, "LockBlocked", None),
-            ProcessStatus::UninterruptibleDiskSleep => (11, "UninterruptibleDiskSleep", None),
-            ProcessStatus::Unknown(n) => (12, "Unknown", Some(n)),
+            Self::Idle => (0, "Idle", None),
+            Self::Run => (1, "Run", None),
+            Self::Sleep => (2, "Sleep", None),
+            Self::Stop => (3, "Stop", None),
+            Self::Zombie => (4, "Zombie", None),
+            Self::Tracing => (5, "Tracing", None),
+            Self::Dead => (6, "Dead", None),
+            Self::Wakekill => (7, "Wakekill", None),
+            Self::Waking => (8, "Waking", None),
+            Self::Parked => (9, "Parked", None),
+            Self::LockBlocked => (10, "LockBlocked", None),
+            Self::UninterruptibleDiskSleep => (11, "UninterruptibleDiskSleep", None),
+            Self::Unknown(n) => (12, "Unknown", Some(n)),
         };
 
         if let Some(ref value) = maybe_value {
@@ -354,7 +358,7 @@ impl Serialize for ProcessStatus {
     }
 }
 
-impl Serialize for DiskUsage {
+impl Serialize for crate::DiskUsage {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -371,7 +375,7 @@ impl Serialize for DiskUsage {
     }
 }
 
-impl Serialize for MacAddr {
+impl Serialize for crate::MacAddr {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
