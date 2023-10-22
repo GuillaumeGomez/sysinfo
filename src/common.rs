@@ -1922,7 +1922,7 @@ impl Disk {
     ///     println!("[{:?}] {:?}", disk.name(), disk.file_system());
     /// }
     /// ```
-    pub fn file_system(&self) -> &[u8] {
+    pub fn file_system(&self) -> &OsStr {
         self.inner.file_system()
     }
 
