@@ -2173,6 +2173,16 @@ pub enum DiskKind {
     Unknown(isize),
 }
 
+impl fmt::Display for DiskKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(match *self {
+            DiskKind::HDD => "HDD",
+            DiskKind::SSD => "SSD",
+            _ => "Unknown",
+        })
+    }
+}
+
 /// Interacting with users.
 ///
 /// ```no_run
