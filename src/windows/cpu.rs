@@ -305,7 +305,7 @@ impl CpusWrapper {
         }
         self.global
             .inner
-            .set_frequency(self.cpus.get(0).map(|cpu| cpu.frequency()).unwrap_or(0));
+            .set_frequency(self.cpus.first().map(|cpu| cpu.frequency()).unwrap_or(0));
         self.got_cpu_frequency = true;
     }
 }
