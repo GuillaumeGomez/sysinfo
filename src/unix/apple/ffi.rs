@@ -6,6 +6,7 @@ use core_foundation_sys::{
 };
 
 // Reexport items defined in either macos or ios ffi module.
+#[cfg(not(target_os = "ios"))]
 pub use crate::sys::inner::ffi::*;
 
 #[link(name = "CoreFoundation", kind = "framework")]
