@@ -224,7 +224,7 @@ impl ComponentInner {
     ///   see below for special cases
     /// - Optional: `label`
     /// - Optional: `/device/model`
-    /// - Optional: hightest historic value in `tempN_hightest`.
+    /// - Optional: highest historic value in `tempN_highest`.
     /// - Optional: max threshold value defined in `tempN_max`
     /// - Optional: critical threshold value defined in `tempN_crit`
     ///

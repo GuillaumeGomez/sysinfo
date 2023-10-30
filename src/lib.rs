@@ -455,7 +455,7 @@ mod test {
         if IS_SUPPORTED {
             assert!(
                 !SUPPORTED_SIGNALS.is_empty(),
-                "SUPPORTED_SIGNALS shoudn't be empty on supported systems!"
+                "SUPPORTED_SIGNALS shouldn't be empty on supported systems!"
             );
         } else {
             assert!(

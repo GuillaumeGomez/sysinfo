@@ -149,7 +149,7 @@
 # 0.26.6
 
  * Add `Process::wait`.
- * Add "Good pratice" entry into the crate level documentation and in the README.
+ * Add "Good practice" entry into the crate level documentation and in the README.
  * Linux: More precise used memory computation.
 
 # 0.26.5
@@ -224,7 +224,7 @@
 
 # 0.24.4
 
- * Windows: Fix `System::refresh_process` when required higher priviledges.
+ * Windows: Fix `System::refresh_process` when required higher privileges.
 
 # 0.24.3
 
@@ -521,7 +521,7 @@
 
 # 0.16.0
 
- * Windows: show removeable drives on Windows.
+ * Windows: show removable drives on Windows.
  * Switched to Rust 2018 edition.
  * Split `SystemExt::get_version` into `SystemExt::get_kernel_version` and `SystemExt::get_os_version`.
  * Windows: added support for `get_kernel_version` and `get_os_version`.
