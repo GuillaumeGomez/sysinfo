@@ -159,6 +159,10 @@ impl SystemInner {
         }
     }
 
+    pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
+        None
+    }
+
     pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         self.cpus.refresh(refresh_kind, self.port);
     }
