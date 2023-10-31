@@ -458,6 +458,9 @@ impl System {
     /// let s = System::new_all();
     /// println!("{} bytes", s.total_memory());
     /// ```
+    ///
+    /// On Linux, if you want to see this information with the limit of your cgroup, take a look
+    /// at [`cgroup_limits`](System::cgroup_limits).
     pub fn total_memory(&self) -> u64 {
         self.inner.total_memory()
     }
@@ -544,6 +547,26 @@ impl System {
     /// ```
     pub fn used_swap(&self) -> u64 {
         self.inner.used_swap()
+    }
+
+    /// Retrieves the limits for the current cgroup (if any), otherwise it returns `None`.
+    ///
+    /// This information is computed every time the method is called.
+    ///
+    /// ⚠️ You need to have run [`refresh_memory`](System::refresh_memory) at least once before
+    /// calling this method.
+    ///
+    /// ⚠️ This method is only implemented for Linux. It always returns `None` for all other
+    /// systems.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    /// println!("limits: {:?}", s.cgroup_limits());
+    /// ```
+    pub fn cgroup_limits(&self) -> Option<CGroupLimits> {
+        self.inner.cgroup_limits()
     }
 
     /// Returns system uptime (in seconds).
@@ -2443,6 +2466,17 @@ impl std::fmt::Display for Signal {
         };
         f.write_str(s)
     }
+}
+
+/// Contains memory limits for the current process.
+#[derive(Default, Debug, Clone)]
+pub struct CGroupLimits {
+    /// Total memory (in bytes) for the current cgroup.
+    pub total_memory: u64,
+    /// Free memory (in bytes) for the current cgroup.
+    pub free_memory: u64,
+    /// Free swap (in bytes) for the current cgroup.
+    pub free_swap: u64,
 }
 
 /// A struct representing system load average value.

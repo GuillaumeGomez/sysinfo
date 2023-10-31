@@ -224,43 +224,10 @@ impl SystemInner {
                 .saturating_add(self.mem_slab_reclaimable)
                 .saturating_sub(self.mem_shmem);
         }
-
-        self.refresh_cgroup();
     }
 
-    fn refresh_cgroup(&mut self) {
-        if let (Some(mem_cur), Some(mem_max)) = (
-            read_u64("/sys/fs/cgroup/memory.current"),
-            read_u64("/sys/fs/cgroup/memory.max"),
-        ) {
-            // cgroups v2
-            self.mem_total = min(mem_max, self.mem_total);
-            self.mem_free = self.mem_total.saturating_sub(mem_cur);
-            self.mem_available = self.mem_free;
-
-            if let Some(swap_cur) = read_u64("/sys/fs/cgroup/memory.swap.current") {
-                self.swap_free = self.swap_total.saturating_sub(swap_cur);
-            }
-
-            read_table("/sys/fs/cgroup/memory.stat", ' ', |key, value| {
-                let field = match key {
-                    "slab_reclaimable" => &mut self.mem_slab_reclaimable,
-                    "file" => &mut self.mem_page_cache,
-                    "shmem" => &mut self.mem_shmem,
-                    _ => return,
-                };
-                *field = value;
-                self.mem_free = self.mem_free.saturating_sub(value);
-            });
-        } else if let (Some(mem_cur), Some(mem_max)) = (
-            // cgroups v1
-            read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
-            read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
-        ) {
-            self.mem_total = min(mem_max, self.mem_total);
-            self.mem_free = self.mem_total.saturating_sub(mem_cur);
-            self.mem_available = self.mem_free;
-        }
+    pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
+        crate::CGroupLimits::new(self)
     }
 
     pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
@@ -537,6 +504,57 @@ where
                 Some((key, value0_u64))
             })
             .for_each(|(k, v)| f(k, v));
+    }
+}
+
+impl crate::CGroupLimits {
+    fn new(sys: &SystemInner) -> Option<Self> {
+        assert!(
+            sys.mem_total != 0,
+            "You need to call System::refresh_memory before trying to get cgroup limits!",
+        );
+        if let (Some(mem_cur), Some(mem_max)) = (
+            read_u64("/sys/fs/cgroup/memory.current"),
+            read_u64("/sys/fs/cgroup/memory.max"),
+        ) {
+            // cgroups v2
+
+            let mut limits = Self {
+                total_memory: sys.mem_total,
+                free_memory: sys.mem_free,
+                free_swap: sys.swap_free,
+            };
+
+            limits.total_memory = min(mem_max, sys.mem_total);
+            limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
+
+            if let Some(swap_cur) = read_u64("/sys/fs/cgroup/memory.swap.current") {
+                limits.free_swap = sys.swap_total.saturating_sub(swap_cur);
+            }
+
+            read_table("/sys/fs/cgroup/memory.stat", ' ', |_key, value| {
+                limits.free_memory = limits.free_memory.saturating_sub(value);
+            });
+
+            Some(limits)
+        } else if let (Some(mem_cur), Some(mem_max)) = (
+            // cgroups v1
+            read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
+            read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
+        ) {
+            let mut limits = Self {
+                total_memory: sys.mem_total,
+                free_memory: sys.mem_free,
+                free_swap: sys.swap_free,
+            };
+
+            limits.total_memory = min(mem_max, sys.mem_total);
+            limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
+
+            Some(limits)
+        } else {
+            None
+        }
     }
 }
 

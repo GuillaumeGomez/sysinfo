@@ -21,6 +21,10 @@ impl SystemInner {
 
     pub(crate) fn refresh_memory(&mut self) {}
 
+    pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
+        None
+    }
+
     pub(crate) fn refresh_cpu_specifics(&mut self, _refresh_kind: CpuRefreshKind) {}
 
     pub(crate) fn refresh_processes_specifics(&mut self, _refresh_kind: ProcessRefreshKind) {}

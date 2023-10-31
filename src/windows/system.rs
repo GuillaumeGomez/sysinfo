@@ -165,6 +165,10 @@ impl SystemInner {
         }
     }
 
+    pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
+        None
+    }
+
     #[allow(clippy::map_entry)]
     pub(crate) fn refresh_process_specifics(
         &mut self,
