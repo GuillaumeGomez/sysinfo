@@ -341,6 +341,7 @@ impl SystemInner {
     pub(crate) fn long_os_version(&self) -> Option<String> {
         #[cfg(target_os = "macos")]
         let friendly_name = match self.os_version().unwrap_or_default() {
+            f_n if f_n.starts_with("14.0") => "Sonoma",
             f_n if f_n.starts_with("10.16")
                 | f_n.starts_with("11.0")
                 | f_n.starts_with("11.1")
