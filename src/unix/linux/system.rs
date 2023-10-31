@@ -225,6 +225,10 @@ impl SystemInner {
                 .saturating_sub(self.mem_shmem);
         }
 
+        self.refresh_cgroup();
+    }
+
+    fn refresh_cgroup(&mut self) {
         if let (Some(mem_cur), Some(mem_max)) = (
             read_u64("/sys/fs/cgroup/memory.current"),
             read_u64("/sys/fs/cgroup/memory.max"),
