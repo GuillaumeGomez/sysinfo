@@ -1,13 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::collections::{hash_map, HashMap};
 use std::io::Read;
 use std::path::Path;
 use std::{fs::File, u8};
 
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkData, NetworksIter};
-use std::collections::{hash_map, HashMap};
+use crate::NetworkData;
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident) => {{
@@ -122,8 +122,8 @@ impl NetworksInner {
         }
     }
 
-    pub(crate) fn iter(&self) -> NetworksIter {
-        NetworksIter::new(self.interfaces.iter())
+    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+        &self.interfaces
     }
 
     pub(crate) fn refresh(&mut self) {

@@ -1562,7 +1562,7 @@ pub struct Networks {
 
 impl<'a> IntoIterator for &'a Networks {
     type Item = (&'a String, &'a NetworkData);
-    type IntoIter = NetworksIter<'a>;
+    type IntoIter = std::collections::hash_map::Iter<'a, String, NetworkData>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -1576,7 +1576,9 @@ impl Default for Networks {
 }
 
 impl Networks {
-    /// Creates a new [`Networks`][crate::Networks] type.
+    /// Creates a new empty [`Networks`][crate::Networks] type.
+    ///
+    /// If you want it to be filled directly, take a look at [`Networks::new_with_refreshed_list`].
     ///
     /// ```no_run
     /// use sysinfo::Networks;
@@ -1611,22 +1613,18 @@ impl Networks {
         networks
     }
 
-    /// Returns an iterator over the network interfaces.
+    /// Returns the network interfaces map.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
     ///
     /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, data) in &networks {
-    ///     println!(
-    ///         "[{interface_name}] in: {}, out: {}",
-    ///         data.received(),
-    ///         data.transmitted(),
-    ///     );
+    /// for network in networks.list() {
+    ///     eprintln!("{network:?}");
     /// }
     /// ```
-    pub fn iter(&self) -> NetworksIter {
-        self.inner.iter()
+    pub fn list(&self) -> &HashMap<String, NetworkData> {
+        self.inner.list()
     }
 
     /// Refreshes the network interfaces list.
@@ -1662,31 +1660,11 @@ impl Networks {
     }
 }
 
-/// Iterator over network interfaces.
-///
-/// It is returned by [`Networks::iter`][crate::Networks#method.iter].
-///
-/// ```no_run
-/// use sysinfo::Networks;
-///
-/// let networks = Networks::new();
-/// let networks_iter = networks.iter();
-/// ```
-pub struct NetworksIter<'a> {
-    inner: std::collections::hash_map::Iter<'a, String, NetworkData>,
-}
+impl std::ops::Deref for Networks {
+    type Target = HashMap<String, NetworkData>;
 
-impl<'a> NetworksIter<'a> {
-    pub(crate) fn new(v: std::collections::hash_map::Iter<'a, String, NetworkData>) -> Self {
-        NetworksIter { inner: v }
-    }
-}
-
-impl<'a> Iterator for NetworksIter<'a> {
-    type Item = (&'a String, &'a NetworkData);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+    fn deref(&self) -> &Self::Target {
+        self.list()
     }
 }
 
@@ -2057,6 +2035,8 @@ impl<'a> IntoIterator for &'a mut Disks {
 impl Disks {
     /// Creates a new empty [`Disks`][crate::Disks] type.
     ///
+    /// If you want it to be filled directly, take a look at [`Disks::new_with_refreshed_list`].
+    ///
     /// ```no_run
     /// use sysinfo::Disks;
     ///
@@ -2262,6 +2242,8 @@ impl<'a> IntoIterator for &'a mut Users {
 
 impl Users {
     /// Creates a new empty [`Users`][crate::Users] type.
+    ///
+    /// If you want it to be filled directly, take a look at [`Users::new_with_refreshed_list`].
     ///
     /// ```no_run
     /// use sysinfo::Users;
@@ -3058,6 +3040,9 @@ impl<'a> IntoIterator for &'a mut Components {
 
 impl Components {
     /// Creates a new empty [`Components`][crate::Components] type.
+    ///
+    /// If you want it to be filled directly, take a look at
+    /// [`Components::new_with_refreshed_list`].
     ///
     /// ```no_run
     /// use sysinfo::Components;
