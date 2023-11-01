@@ -1576,7 +1576,9 @@ impl Default for Networks {
 }
 
 impl Networks {
-    /// Creates a new [`Networks`][crate::Networks] type.
+    /// Creates a new empty [`Networks`][crate::Networks] type.
+    ///
+    /// If you want it to be filled directly, take a look at [`Networks::new_with_refreshed_list`].
     ///
     /// ```no_run
     /// use sysinfo::Networks;
@@ -2057,6 +2059,8 @@ impl<'a> IntoIterator for &'a mut Disks {
 impl Disks {
     /// Creates a new empty [`Disks`][crate::Disks] type.
     ///
+    /// If you want it to be filled directly, take a look at [`Disks::new_with_refreshed_list`].
+    ///
     /// ```no_run
     /// use sysinfo::Disks;
     ///
@@ -2262,6 +2266,8 @@ impl<'a> IntoIterator for &'a mut Users {
 
 impl Users {
     /// Creates a new empty [`Users`][crate::Users] type.
+    ///
+    /// If you want it to be filled directly, take a look at [`Users::new_with_refreshed_list`].
     ///
     /// ```no_run
     /// use sysinfo::Users;
@@ -3058,6 +3064,9 @@ impl<'a> IntoIterator for &'a mut Components {
 
 impl Components {
     /// Creates a new empty [`Components`][crate::Components] type.
+    ///
+    /// If you want it to be filled directly, take a look at
+    /// [`Components::new_with_refreshed_list`].
     ///
     /// ```no_run
     /// use sysinfo::Components;
