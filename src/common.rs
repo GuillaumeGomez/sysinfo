@@ -1551,8 +1551,7 @@ impl RefreshKind {
 /// ```no_run
 /// use sysinfo::Networks;
 ///
-/// let mut networks = Networks::new();
-/// networks.refresh_list();
+/// let networks = Networks::new_with_refreshed_list();
 /// for (interface_name, network) in &networks {
 ///     println!("[{interface_name}]: {network:?}");
 /// }
@@ -1594,13 +1593,30 @@ impl Networks {
         }
     }
 
+    /// Creates a new [`Networks`][crate::Networks] type with the disk list
+    /// loaded. It is a combination of [`Networks::new`] and
+    /// [`Networks::refresh_list`].
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let networks = Networks::new_with_refreshed_list();
+    /// for network in &networks {
+    ///     eprintln!("{network:?}");
+    /// }
+    /// ```
+    pub fn new_with_refreshed_list() -> Self {
+        let mut networks = Self::new();
+        networks.refresh_list();
+        networks
+    }
+
     /// Returns an iterator over the network interfaces.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, System};
+    /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, data) in &networks {
     ///     println!(
     ///         "[{interface_name}] in: {}, out: {}",
@@ -1616,7 +1632,7 @@ impl Networks {
     /// Refreshes the network interfaces list.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, System};
+    /// use sysinfo::Networks;
     ///
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
@@ -1635,11 +1651,9 @@ impl Networks {
     /// as the network list will be empty.
     ///
     /// ```no_run
-    /// use sysinfo::{Networks, System};
+    /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// // Refreshes the network interfaces list.
-    /// networks.refresh_list();
+    /// let mut networks = Networks::new_with_refreshed_list();
     /// // Wait some time...? Then refresh the data of each network.
     /// networks.refresh();
     /// ```
@@ -1681,8 +1695,7 @@ impl<'a> Iterator for NetworksIter<'a> {
 /// ```no_run
 /// use sysinfo::Networks;
 ///
-/// let mut networks = Networks::new();
-/// networks.refresh_list();
+/// let networks = Networks::new_with_refreshed_list();
 /// for (interface_name, network) in &networks {
 ///     println!("[{interface_name}] {network:?}");
 /// }
@@ -1697,8 +1710,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("in: {} B", network.received());
     /// }
@@ -1712,8 +1724,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("in: {} B", network.total_received());
     /// }
@@ -1727,8 +1738,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("out: {} B", network.transmitted());
     /// }
@@ -1742,8 +1752,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("out: {} B", network.total_transmitted());
     /// }
@@ -1757,8 +1766,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.packets_received());
     /// }
@@ -1772,8 +1780,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.total_packets_received());
     /// }
@@ -1787,8 +1794,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.packets_transmitted());
     /// }
@@ -1802,8 +1808,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.total_packets_transmitted());
     /// }
@@ -1817,8 +1822,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.errors_on_received());
     /// }
@@ -1832,8 +1836,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.total_errors_on_received());
     /// }
@@ -1847,8 +1850,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.errors_on_transmitted());
     /// }
@@ -1862,8 +1864,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.total_errors_on_transmitted());
     /// }
@@ -1877,8 +1878,7 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// let mut networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
     ///     println!("MAC address: {}", network.mac_address());
     /// }
@@ -1893,8 +1893,7 @@ impl NetworkData {
 /// ```no_run
 /// use sysinfo::Disks;
 ///
-/// let mut disks = Disks::new();
-/// disks.refresh_list();
+/// let disks = Disks::new_with_refreshed_list();
 /// for disk in disks.list() {
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
@@ -1909,8 +1908,7 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// let disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list() {
     ///     println!("[{:?}] {:?}", disk.name(), disk.kind());
     /// }
@@ -1924,8 +1922,7 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// let disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list() {
     ///     println!("{:?}", disk.name());
     /// }
@@ -1939,8 +1936,7 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// let disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list() {
     ///     println!("[{:?}] {:?}", disk.name(), disk.file_system());
     /// }
@@ -1954,8 +1950,7 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// let disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list() {
     ///     println!("[{:?}] {:?}", disk.name(), disk.mount_point());
     /// }
@@ -1969,8 +1964,7 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// let disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list() {
     ///     println!("[{:?}] {}B", disk.name(), disk.total_space());
     /// }
@@ -1984,8 +1978,7 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// let disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list() {
     ///     println!("[{:?}] {}B", disk.name(), disk.available_space());
     /// }
@@ -1999,8 +1992,7 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// let disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list() {
     ///     println!("[{:?}] {}", disk.name(), disk.is_removable());
     /// }
@@ -2014,8 +2006,7 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// let mut disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list_mut() {
     ///     disk.refresh();
     /// }
@@ -2030,8 +2021,7 @@ impl Disk {
 /// ```no_run
 /// use sysinfo::Disks;
 ///
-/// let mut disks = Disks::new();
-/// disks.refresh_list();
+/// let disks = Disks::new_with_refreshed_list();
 /// for disk in disks.list() {
 ///     println!("{disk:?}");
 /// }
@@ -2065,7 +2055,7 @@ impl<'a> IntoIterator for &'a mut Disks {
 }
 
 impl Disks {
-    /// Creates a new [`Disks`][crate::Disks] type.
+    /// Creates a new empty [`Disks`][crate::Disks] type.
     ///
     /// ```no_run
     /// use sysinfo::Disks;
@@ -2082,13 +2072,29 @@ impl Disks {
         }
     }
 
+    /// Creates a new [`Disks`][crate::Disks] type with the disk list loaded.
+    /// It is a combination of [`Disks::new`] and [`Disks::refresh_list`].
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let mut disks = Disks::new_with_refreshed_list();
+    /// for disk in disks.list() {
+    ///     eprintln!("{disk:?}");
+    /// }
+    /// ```
+    pub fn new_with_refreshed_list() -> Self {
+        let mut disks = Self::new();
+        disks.refresh_list();
+        disks
+    }
+
     /// Returns the disks list.
     ///
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// let disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list() {
     ///     eprintln!("{disk:?}");
     /// }
@@ -2102,8 +2108,7 @@ impl Disks {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// let mut disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list_mut() {
     ///     disk.refresh();
     ///     eprintln!("{disk:?}");
@@ -2124,9 +2129,7 @@ impl Disks {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// // We get the disk list.
-    /// disks.refresh_list();
+    /// let mut disks = Disks::new_with_refreshed_list();
     /// // We wait some time...?
     /// disks.refresh();
     /// ```
@@ -2180,8 +2183,7 @@ impl std::ops::DerefMut for Disks {
 /// ```no_run
 /// use sysinfo::Disks;
 ///
-/// let mut disks = Disks::new();
-/// disks.refresh_list();
+/// let disks = Disks::new_with_refreshed_list();
 /// for disk in disks.list() {
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
@@ -2259,7 +2261,7 @@ impl<'a> IntoIterator for &'a mut Users {
 }
 
 impl Users {
-    /// Creates a new [`Components`][crate::Components] type.
+    /// Creates a new empty [`Users`][crate::Users] type.
     ///
     /// ```no_run
     /// use sysinfo::Users;
@@ -2274,13 +2276,29 @@ impl Users {
         Self { users: Vec::new() }
     }
 
+    /// Creates a new [`Users`][crate::Users] type with the user list loaded.
+    /// It is a combination of [`Users::new`] and [`Users::refresh_list`].
+    ///
+    /// ```no_run
+    /// use sysinfo::Users;
+    ///
+    /// let mut users = Users::new_with_refreshed_list();
+    /// for user in users.list() {
+    ///     eprintln!("{user:?}");
+    /// }
+    /// ```
+    pub fn new_with_refreshed_list() -> Self {
+        let mut users = Self::new();
+        users.refresh_list();
+        users
+    }
+
     /// Returns the users list.
     ///
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
+    /// let users = Users::new_with_refreshed_list();
     /// for user in users.list() {
     ///     eprintln!("{user:?}");
     /// }
@@ -2294,8 +2312,7 @@ impl Users {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
+    /// let mut users = Users::new_with_refreshed_list();
     /// users.list_mut().sort_by(|user1, user2| {
     ///     user1.name().partial_cmp(user2.name()).unwrap()
     /// });
@@ -2325,8 +2342,7 @@ impl Users {
     ///
     /// ```ignore
     /// # use sysinfo::Users;
-    /// let mut users = Users::new();
-    /// users.refresh_list();
+    /// let users = Users::new_with_refreshed_list();
     /// users.list().find(|user| user.id() == user_id);
     /// ```
     ///
@@ -2336,9 +2352,7 @@ impl Users {
     /// use sysinfo::{Pid, System, Users};
     ///
     /// let mut s = System::new_all();
-    /// let mut users = Users::new();
-    ///
-    /// users.refresh_list();
+    /// let users = Users::new_with_refreshed_list();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     if let Some(user_id) = process.user_id() {
@@ -2601,8 +2615,7 @@ cfg_if::cfg_if! {
 /// ```no_run
 /// use sysinfo::Users;
 ///
-/// let mut users = Users::new();
-/// users.refresh_list();
+/// let users = Users::new_with_refreshed_list();
 /// for user in users.list() {
 ///     println!("{:?}", user);
 /// }
@@ -2639,8 +2652,7 @@ impl User {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
+    /// let users = Users::new_with_refreshed_list();
     /// for user in users.list() {
     ///     println!("{:?}", *user.id());
     /// }
@@ -2661,8 +2673,7 @@ impl User {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
+    /// let users = Users::new_with_refreshed_list();
     /// for user in users.list() {
     ///     println!("{}", *user.group_id());
     /// }
@@ -2676,8 +2687,7 @@ impl User {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
+    /// let users = Users::new_with_refreshed_list();
     /// for user in users.list() {
     ///     println!("{}", user.name());
     /// }
@@ -2693,8 +2703,7 @@ impl User {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
+    /// let users = Users::new_with_refreshed_list();
     /// for user in users.list() {
     ///     println!("{} is in {:?}", user.name(), user.groups());
     /// }
@@ -2711,7 +2720,7 @@ impl User {
 /// ```no_run
 /// use sysinfo::Users;
 ///
-/// let mut users = Users::new();
+/// let mut users = Users::new_with_refreshed_list();
 ///
 /// for user in users.list() {
 ///     println!(
@@ -2739,7 +2748,7 @@ impl Group {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new();
+    /// let mut users = Users::new_with_refreshed_list();
     ///
     /// for user in users.list() {
     ///     for group in user.groups() {
@@ -2756,7 +2765,7 @@ impl Group {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new();
+    /// let mut users = Users::new_with_refreshed_list();
     ///
     /// for user in users.list() {
     ///     for group in user.groups() {
@@ -3000,8 +3009,7 @@ impl fmt::Display for MacAddr {
 /// ```no_run
 /// use sysinfo::Components;
 ///
-/// let mut components = Components::new();
-/// components.refresh_list();
+/// let components = Components::new_with_refreshed_list();
 /// for component in &components {
 ///     eprintln!("{component:?}");
 /// }
@@ -3049,7 +3057,7 @@ impl<'a> IntoIterator for &'a mut Components {
 }
 
 impl Components {
-    /// Creates a new [`Components`][crate::Components] type.
+    /// Creates a new empty [`Components`][crate::Components] type.
     ///
     /// ```no_run
     /// use sysinfo::Components;
@@ -3066,13 +3074,30 @@ impl Components {
         }
     }
 
+    /// Creates a new [`Components`][crate::Components] type with the user list
+    /// loaded. It is a combination of [`Components::new`] and
+    /// [`Components::refresh_list`].
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let mut components = Components::new_with_refreshed_list();
+    /// for component in components.list() {
+    ///     eprintln!("{component:?}");
+    /// }
+    /// ```
+    pub fn new_with_refreshed_list() -> Self {
+        let mut components = Self::new();
+        components.refresh_list();
+        components
+    }
+
     /// Returns the components list.
     ///
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
+    /// let components = Components::new_with_refreshed_list();
     /// for component in components.list() {
     ///     eprintln!("{component:?}");
     /// }
@@ -3086,8 +3111,7 @@ impl Components {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
+    /// let mut components = Components::new_with_refreshed_list();
     /// for component in components.list_mut() {
     ///     component.refresh();
     ///     eprintln!("{component:?}");
@@ -3108,9 +3132,7 @@ impl Components {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let mut components = Components::new();
-    /// // We get the component list.
-    /// components.refresh_list();
+    /// let mut components = Components::new_with_refreshed_list();
     /// // We wait some time...?
     /// components.refresh();
     /// ```
@@ -3138,10 +3160,9 @@ impl Components {
 /// ```no_run
 /// use sysinfo::Components;
 ///
-/// let mut components = Components::new();
-/// components.refresh_list();
+/// let components = Components::new_with_refreshed_list();
 /// for component in &components {
-///     println!("{}°C", component.temperature());
+///     println!("{} {}°C", component.label(), component.temperature());
 /// }
 /// ```
 pub struct Component {
@@ -3158,8 +3179,7 @@ impl Component {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
+    /// let components = Components::new_with_refreshed_list();
     /// for component in &components {
     ///     println!("{}°C", component.temperature());
     /// }
@@ -3173,54 +3193,42 @@ impl Component {
     /// Note: if `temperature` is higher than the current `max`,
     /// `max` value will be updated on refresh.
     ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// for component in &components {
-    ///     println!("{}°C", component.max());
-    /// }
-    /// ```
-    ///
     /// ## Linux
     ///
     /// May be computed by `sysinfo` from kernel.
     /// Returns `f32::NAN` if it failed to retrieve it.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let components = Components::new_with_refreshed_list();
+    /// for component in &components {
+    ///     println!("{}°C", component.max());
+    /// }
+    /// ```
     pub fn max(&self) -> f32 {
         self.inner.max()
     }
 
     /// Returns the highest temperature before the component halts (in celsius degree).
     ///
+    /// ## Linux
+    ///
+    /// Critical threshold defined by chip or kernel.
+    ///
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
+    /// let components = Components::new_with_refreshed_list();
     /// for component in &components {
     ///     println!("{:?}°C", component.critical());
     /// }
     /// ```
-    ///
-    /// ## Linux
-    ///
-    /// Critical threshold defined by chip or kernel.
     pub fn critical(&self) -> Option<f32> {
         self.inner.critical()
     }
 
     /// Returns the label of the component.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// for component in &components {
-    ///     println!("{}", component.label());
-    /// }
-    /// ```
     ///
     /// ## Linux
     ///
@@ -3234,6 +3242,15 @@ impl Component {
     /// | ✓    | ✓    | ✗  | ✓ | `"{name} {label} {id}"` |
     /// | ✓    | ✗    | ✓  | ✓ | `"{name} {device_model}"` |
     /// | ✓    | ✗    | ✗  | ✓ | `"{name} temp{id}"` |
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let components = Components::new_with_refreshed_list();
+    /// for component in &components {
+    ///     println!("{}", component.label());
+    /// }
+    /// ```
     pub fn label(&self) -> &str {
         self.inner.label()
     }
@@ -3243,8 +3260,7 @@ impl Component {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
+    /// let mut components = Components::new_with_refreshed_list();
     /// for component in components.iter_mut() {
     ///     component.refresh();
     /// }
