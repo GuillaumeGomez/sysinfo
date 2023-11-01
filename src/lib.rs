@@ -344,8 +344,7 @@ mod test {
             let s = System::new_with_specifics(
                 RefreshKind::new().with_processes(ProcessRefreshKind::new().with_user()),
             );
-            let mut users = Users::new();
-            users.refresh_list();
+            let users = Users::new_with_refreshed_list();
 
             // For every process where we can get a user ID, we should also be able
             // to find that user ID in the global user list

@@ -70,7 +70,10 @@ impl DiskInner {
                         self.available_space = get_available_volume_space(&disk_props);
                         true
                     }
-                    None => false,
+                    None => {
+                        sysinfo_debug!("Failed to get disk properties");
+                        false
+                    }
                 }
             } else {
                 sysinfo_debug!("failed to create volume key list, skipping refresh");
@@ -177,8 +180,8 @@ unsafe fn get_list(container: &mut Vec<Disk>) {
         // system volumes, etc. Browsable is defined to be visible in the system's UI like Finder,
         // disk utility, system information, etc.
         //
-        // To avoid seemingly duplicating many disks and creating an inaccurate view of the system's resources,
-        // these are skipped entirely.
+        // To avoid seemingly duplicating many disks and creating an inaccurate view of the system's
+        // resources, these are skipped entirely.
         if !browsable {
             continue;
         }
@@ -235,8 +238,8 @@ fn get_disk_properties(
 fn get_available_volume_space(disk_props: &RetainedCFDictionary) -> u64 {
     // We prefer `AvailableCapacityForImportantUsage` over `AvailableCapacity` because
     // it takes more of the system's properties into account, like the trash, system-managed caches,
-    // etc. It generally also returns higher values too, because of the above, so it's a more accurate
-    // representation of what the system _could_ still use.
+    // etc. It generally also returns higher values too, because of the above, so it's a more
+    // accurate representation of what the system _could_ still use.
     unsafe {
         get_int_value(
             disk_props.inner(),
