@@ -1562,7 +1562,7 @@ pub struct Networks {
 
 impl<'a> IntoIterator for &'a Networks {
     type Item = (&'a String, &'a NetworkData);
-    type IntoIter = NetworksIter<'a>;
+    type IntoIter = std::collections::hash_map::Iter<'a, String, NetworkData>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -1613,22 +1613,18 @@ impl Networks {
         networks
     }
 
-    /// Returns an iterator over the network interfaces.
+    /// Returns the network interfaces map.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
     ///
     /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, data) in &networks {
-    ///     println!(
-    ///         "[{interface_name}] in: {}, out: {}",
-    ///         data.received(),
-    ///         data.transmitted(),
-    ///     );
+    /// for network in networks.list() {
+    ///     eprintln!("{network:?}");
     /// }
     /// ```
-    pub fn iter(&self) -> NetworksIter {
-        self.inner.iter()
+    pub fn list(&self) -> &HashMap<String, NetworkData> {
+        self.inner.list()
     }
 
     /// Refreshes the network interfaces list.
@@ -1664,31 +1660,11 @@ impl Networks {
     }
 }
 
-/// Iterator over network interfaces.
-///
-/// It is returned by [`Networks::iter`][crate::Networks#method.iter].
-///
-/// ```no_run
-/// use sysinfo::Networks;
-///
-/// let networks = Networks::new();
-/// let networks_iter = networks.iter();
-/// ```
-pub struct NetworksIter<'a> {
-    inner: std::collections::hash_map::Iter<'a, String, NetworkData>,
-}
+impl std::ops::Deref for Networks {
+    type Target = HashMap<String, NetworkData>;
 
-impl<'a> NetworksIter<'a> {
-    pub(crate) fn new(v: std::collections::hash_map::Iter<'a, String, NetworkData>) -> Self {
-        NetworksIter { inner: v }
-    }
-}
-
-impl<'a> Iterator for NetworksIter<'a> {
-    type Item = (&'a String, &'a NetworkData);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+    fn deref(&self) -> &Self::Target {
+        self.list()
     }
 }
 
