@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::common::CpuArch;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 use crate::{Cpu, CpuRefreshKind};
 
@@ -24,7 +25,7 @@ impl CpusWrapper {
                     0,
                     String::new(),
                     String::new(),
-                    String::new(),
+                    CpuArch::UNKNOWN,
                 ),
             },
             cpus: Vec::new(),
@@ -113,7 +114,7 @@ pub(crate) struct CpuInner {
     frequency: u64,
     vendor_id: String,
     brand: String,
-    arch: String,
+    arch: CpuArch,
 }
 
 impl CpuInner {
@@ -123,7 +124,7 @@ impl CpuInner {
         frequency: u64,
         vendor_id: String,
         brand: String,
-        arch: String,
+        arch: CpuArch,
     ) -> Self {
         Self {
             name,
@@ -173,8 +174,8 @@ impl CpuInner {
         &self.brand
     }
 
-    pub(crate) fn arch(&self) -> &str {
-        &self.arch
+    pub(crate) fn arch(&self) -> CpuArch {
+        self.arch.clone()
     }
 }
 
@@ -381,9 +382,11 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
     (vendor, get_sysctl_str(b"machdep.cpu.brand_string\0"))
 }
 
-pub(crate) unsafe fn get_cpu_arch() -> String {
+pub(crate) unsafe fn get_cpu_arch() -> CpuArch {
+    use std::ffi::CStr;
     let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
-    let mut arch_str: [u8; 32] = [0; 32];
+    let mut arch_str: [u8; 32] = [b'\0'; 32];
+
     if get_sys_value(
         libc::CTL_HW as _,
         libc::HW_MACHINE as _,
@@ -392,15 +395,20 @@ pub(crate) unsafe fn get_cpu_arch() -> String {
         &mut mib,
     ) == true
     {
-        String::from_utf8(arch_str.to_vec()).expect("unknown")
+        CStr::from_bytes_until_nul(&arch_str)
+            .and_then(|res| match res.to_str() {
+                Ok(arch) => Ok(CpuArch::from_string(arch.to_string())),
+                Err(_) => Ok(CpuArch::UNKNOWN),
+            })
+            .unwrap_or_else(|_| CpuArch::UNKNOWN)
     } else {
-        String::from("unknown")
+        CpuArch::UNKNOWN
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{unix::apple::cpu::get_cpu_arch, *};
+    use crate::{common::CpuArch, unix::apple::cpu::get_cpu_arch, *};
     use std::process::Command;
 
     #[test]
@@ -435,7 +443,7 @@ mod test {
     fn test_get_cpu_arch() {
         unsafe {
             let arch = get_cpu_arch();
-            assert!(!arch.is_empty());
+            assert!(!(arch == CpuArch::UNKNOWN));
         }
     }
 }

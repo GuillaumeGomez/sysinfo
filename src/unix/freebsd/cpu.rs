@@ -176,8 +176,8 @@ impl CpuInner {
         ""
     }
 
-    pub(crate) fn arch(&self) -> &str {
-        &self.arch
+    pub(crate) fn arch(&self) -> CpuArch {
+        self.arch.clone()
     }
 }
 
@@ -206,9 +206,11 @@ unsafe fn get_frequency_for_cpu(cpu_nb: usize) -> u64 {
     frequency as _
 }
 
-unsafe fn get_cpu_arch() -> String {
+unsafe fn get_cpu_arch() -> CpuArch {
+    use std::ffi::CStr;
     let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
-    let mut arch_str: [u8; 32] = [0; 32];
+    let mut arch_str: [u8; 32] = [b'\0'; 32];
+
     if get_sys_value(
         libc::CTL_HW as _,
         libc::HW_MACHINE as _,
@@ -217,8 +219,13 @@ unsafe fn get_cpu_arch() -> String {
         &mut mib,
     ) == true
     {
-        String::from_utf8(arch_str.to_vec()).expect("unknown")
+        CStr::from_bytes_until_nul(&arch_str)
+            .and_then(|res| match res.to_str() {
+                Ok(arch) => Ok(CpuArch::from_string(arch.to_string())),
+                Err(_) => Ok(CpuArch::UNKNOWN),
+            })
+            .unwrap_or_else(|_| CpuArch::UNKNOWN)
     } else {
-        String::from("unknown")
+        CpuArch::UNKNOWN
     }
 }

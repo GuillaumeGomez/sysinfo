@@ -3379,8 +3379,61 @@ impl Cpu {
     ///     println!("{}", cpu.arch());
     /// }
     /// ```
-    pub fn arch(&self) -> &str {
+    pub fn arch(&self) -> CpuArch {
         self.inner.arch()
+    }
+}
+
+/// Enumeration of CPU architectures
+#[derive(PartialEq, Clone, Debug)]
+pub enum CpuArch {
+    /// `arm` platform
+    ARM,
+    /// `aarch64` or `arm64` platform
+    ARM64,
+    /// `mips` platform
+    MIPS,
+    /// `mips64` platform
+    MIPS64,
+    /// `powerpc` platform
+    POWERPC,
+    /// `powerpc64` platform
+    POWERPC64,
+    /// `riscv32` platform
+    RISCV32,
+    /// `riscv64` platform
+    RISCV64,
+    /// `wasm` platform
+    WASM,
+    /// `wasm64` platform
+    WASM64,
+    /// `x86` platform
+    X86,
+    /// `x64_64` AMD/Intel platform
+    X86_64,
+    /// Unknown platform
+    UNKNOWN,
+}
+
+impl CpuArch {
+    /// Convert an arch given as a string to CpuArch enum
+    pub fn from_string(arch_str: String) -> Self {
+        match arch_str.trim() {
+            "arm" => Self::ARM,
+            "arm64" => Self::ARM64,
+            "aarch64" => Self::ARM64,
+            "mips" => Self::MIPS,
+            "mips64" => Self::MIPS64,
+            "powerpc" => Self::POWERPC,
+            "powerpc64" => Self::POWERPC64,
+            "riscv32" => Self::RISCV32,
+            "riscv64" => Self::RISCV64,
+            "wasm" => Self::WASM,
+            "wasm64" => Self::WASM64,
+            "x86" => Self::X86,
+            "x86_64" => Self::X86_64,
+            _ => Self::UNKNOWN,
+        }
     }
 }
 

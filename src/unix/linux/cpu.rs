@@ -320,7 +320,7 @@ pub(crate) struct CpuInner {
     pub(crate) frequency: u64,
     pub(crate) vendor_id: String,
     pub(crate) brand: String,
-    pub(crate) arch: String,
+    pub(crate) arch: CpuArch,
 }
 
 impl CpuInner {
@@ -339,7 +339,7 @@ impl CpuInner {
         frequency: u64,
         vendor_id: String,
         brand: String,
-        arch: String,
+        arch: CpuArch,
     ) -> Self {
         let mut new_values = CpuValues::new();
         new_values.set(
@@ -416,8 +416,8 @@ impl CpuInner {
         &self.brand
     }
 
-    pub(crate) fn arch(&self) -> &str {
-        &self.arch
+    pub(crate) fn arch(&self) -> CpuArch {
+        self.arch.clone()
     }
 }
 
@@ -846,8 +846,8 @@ fn get_cpu_arch() -> String {
     if let Err(_e) = File::open("/proc/sys/kernel/arch").and_then(|mut f| f.read_to_string(&mut s))
     {
         sysinfo_debug!("Cannot read `/proc/sys/kernel/arch` file: {:?}", _e);
-        return String::from("unknown");
+        CpuArch::UNKNOWN
     } else {
-        s
+        CpuArch::from_string(s)
     }
 }

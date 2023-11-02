@@ -52,8 +52,8 @@ cfg_if::cfg_if! {
 }
 
 pub use crate::common::{
-    get_current_pid, CGroupLimits, Component, Components, Cpu, CpuRefreshKind, Disk, DiskKind,
-    DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr, NetworkData, Networks, Pid, Process,
+    get_current_pid, CGroupLimits, Component, Components, Cpu, CpuArch, CpuRefreshKind, Disk,
+    DiskKind, DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr, NetworkData, Networks, Pid, Process,
     ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, Uid, User, Users,
 };
 
@@ -175,7 +175,7 @@ mod doctest {
 
 #[cfg(test)]
 mod test {
-    use crate::*;
+    use crate::{common::CpuArch, *};
 
     #[cfg(feature = "unknown-ci")]
     #[test]
@@ -529,6 +529,6 @@ mod test {
         }
         let mut s = System::new();
         s.refresh_cpu_usage();
-        assert!(s.cpus().iter().any(|c| !c.arch().is_empty()));
+        assert!(s.cpus().iter().any(|c| !(c.arch() == CpuArch::UNKNOWN)));
     }
 }
