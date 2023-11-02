@@ -2,7 +2,7 @@
 
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::{NetworkData, NetworksIter};
+use crate::NetworkData;
 
 use std::collections::{hash_map, HashMap};
 
@@ -29,9 +29,8 @@ impl NetworksInner {
         }
     }
 
-    #[allow(clippy::needless_lifetimes)]
-    pub(crate) fn iter<'a>(&'a self) -> NetworksIter<'a> {
-        NetworksIter::new(self.interfaces.iter())
+    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+        &self.interfaces
     }
 
     pub(crate) fn refresh_list(&mut self) {

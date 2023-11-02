@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::common::MacAddr;
-use crate::{NetworkData, NetworksIter};
+use crate::NetworkData;
 
 use std::collections::HashMap;
 
@@ -16,8 +16,8 @@ impl NetworksInner {
         }
     }
 
-    pub(crate) fn iter(&self) -> NetworksIter {
-        NetworksIter::new(self.interfaces.iter())
+    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+        &self.interfaces
     }
 
     pub(crate) fn refresh_list(&mut self) {}
