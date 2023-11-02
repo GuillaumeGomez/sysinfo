@@ -3,6 +3,7 @@
 use crate::sys::tools::KeyHandler;
 use crate::{Cpu, CpuRefreshKind, LoadAvg};
 
+use crate::CpuArch;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::io::Error;
@@ -258,6 +259,7 @@ impl CpusWrapper {
                     String::new(),
                     String::new(),
                     0,
+                    CpuArch::UNKNOWN,
                 ),
             },
             cpus: Vec::new(),
@@ -317,6 +319,7 @@ pub(crate) struct CpuInner {
     vendor_id: String,
     brand: String,
     frequency: u64,
+    arch: CpuArch,
 }
 
 impl CpuInner {
@@ -340,11 +343,16 @@ impl CpuInner {
         &self.brand
     }
 
+    pub(crate) fn arch(&self) -> CpuArch {
+        self.arch
+    }
+
     pub(crate) fn new_with_values(
         name: String,
         vendor_id: String,
         brand: String,
         frequency: u64,
+        arch: CpuArch,
     ) -> Self {
         Self {
             name,
@@ -353,6 +361,7 @@ impl CpuInner {
             vendor_id,
             brand,
             frequency,
+            arch,
         }
     }
 
@@ -572,6 +581,7 @@ fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
             vec![0; nb_cpus]
         };
         let mut ret = Vec::with_capacity(nb_cpus + 1);
+        let arch = get_cpu_arch(&sys_info);
         for (nb, frequency) in frequencies.iter().enumerate() {
             ret.push(Cpu {
                 inner: CpuInner::new_with_values(
@@ -579,9 +589,25 @@ fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
                     vendor_id.clone(),
                     brand.clone(),
                     *frequency,
+                    arch,
                 ),
             });
         }
         ret
+    }
+}
+
+fn get_cpu_arch(info: &SYSTEM_INFO) -> CpuArch {
+    // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
+    unsafe {
+        match info.Anonymous.Anonymous.wProcessorArchitecture {
+            SystemInformation::PROCESSOR_ARCHITECTURE_INTEL => CpuArch::X86,
+            SystemInformation::PROCESSOR_ARCHITECTURE_ARM => CpuArch::ARM,
+            SystemInformation::PROCESSOR_ARCHITECTURE_AMD64 => CpuArch::X86_64,
+            SystemInformation::PROCESSOR_ARCHITECTURE_ARM64 => CpuArch::ARM64,
+            SystemInformation::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => CpuArch::ARM,
+            _ => CpuArch::UNKNOWN,
+        }
+        .to_owned()
     }
 }

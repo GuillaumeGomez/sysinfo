@@ -55,6 +55,10 @@ impl SystemInner {
         self.swap_used = swap_used;
     }
 
+    pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
+        None
+    }
+
     pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         self.cpus.refresh(refresh_kind)
     }

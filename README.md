@@ -69,26 +69,20 @@ for (pid, process) in sys.processes() {
 
 // We display all disks' information:
 println!("=> disks:");
-let mut disks = Disks::new();
-// We refresh the disk list.
-disks.refresh_list();
+let disks = Disks::new_with_refreshed_list();
 for disk in &disks {
     println!("{disk:?}");
 }
 
 // Network interfaces name, data received and data transmitted:
-let mut networks = Networks::new();
-// We refresh the network interface list.
-networks.refresh_list();
+let networks = Networks::new_with_refreshed_list();
 println!("=> networks:");
 for (interface_name, data) in &networks {
     println!("{interface_name}: {}/{} B", data.received(), data.transmitted());
 }
 
 // Components temperature:
-let mut components = Components::new();
-// We refresh the component list.
-components.refresh_list();
+let components = Components::new_with_refreshed_list();
 println!("=> components:");
 for component in &components {
     println!("{component:?}");

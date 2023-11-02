@@ -52,8 +52,8 @@ cfg_if::cfg_if! {
 }
 
 pub use crate::common::{
-    get_current_pid, Component, Components, Cpu, CpuRefreshKind, Disk, DiskKind, DiskUsage, Disks,
-    Gid, Group, LoadAvg, MacAddr, NetworkData, Networks, NetworksIter, Pid, Process,
+    get_current_pid, CGroupLimits, Component, Components, Cpu, CpuArch, CpuRefreshKind, Disk,
+    DiskKind, DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr, NetworkData, Networks, Pid, Process,
     ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, Uid, User, Users,
 };
 
@@ -344,8 +344,7 @@ mod test {
             let s = System::new_with_specifics(
                 RefreshKind::new().with_processes(ProcessRefreshKind::new().with_user()),
             );
-            let mut users = Users::new();
-            users.refresh_list();
+            let users = Users::new_with_refreshed_list();
 
             // For every process where we can get a user ID, we should also be able
             // to find that user ID in the global user list
@@ -521,5 +520,15 @@ mod test {
             .processes()
             .iter()
             .any(|(_, process)| !process.cmd().is_empty()));
+    }
+
+    #[test]
+    fn check_cpu_arch() {
+        if !IS_SUPPORTED {
+            return;
+        }
+        let mut s = System::new();
+        s.refresh_cpu_usage();
+        assert!(s.cpus().iter().any(|c| !(c.arch() == CpuArch::UNKNOWN)));
     }
 }

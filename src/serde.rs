@@ -134,6 +134,22 @@ impl serde::Serialize for crate::System {
     }
 }
 
+impl Serialize for crate::CGroupLimits {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // `3` corresponds to the number of fields.
+        let mut state = serializer.serialize_struct("CGroupLimits", 3)?;
+
+        state.serialize_field("total_memory", &self.total_memory)?;
+        state.serialize_field("free_memory", &self.free_memory)?;
+        state.serialize_field("free_swap", &self.free_swap)?;
+
+        state.end()
+    }
+}
+
 impl Serialize for crate::Networks {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
