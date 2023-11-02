@@ -3331,6 +3331,22 @@ impl Cpu {
     pub fn frequency(&self) -> u64 {
         self.inner.frequency()
     }
+
+    /// Returns the CPU's arch (e.g. x86_64, arm64, ...).
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.arch());
+    /// }
+    /// ```
+    pub fn arch(&self) -> &str {
+        self.inner.arch()
+    }
 }
 
 #[cfg(test)]

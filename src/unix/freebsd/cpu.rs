@@ -67,6 +67,8 @@ impl CpusWrapper {
             // We get the CPU vendor ID in here.
             let vendor_id =
                 get_sys_value_str_by_name(b"hw.model\0").unwrap_or_else(|| "<unknown>".to_owned());
+            let arch = unsafe { get_cpu_arch() };
+
             for pos in 0..self.nb_cpus {
                 if refresh_kind.frequency() {
                     unsafe {
@@ -74,7 +76,7 @@ impl CpusWrapper {
                     }
                 }
                 self.cpus.push(Cpu {
-                    inner: CpuInner::new(format!("cpu {pos}"), vendor_id.clone(), frequency),
+                    inner: CpuInner::new(format!("cpu {pos}"), vendor_id.clone(), frequency, arch),
                 });
             }
             self.got_cpu_frequency = refresh_kind.frequency();
@@ -140,15 +142,17 @@ pub(crate) struct CpuInner {
     name: String,
     pub(crate) vendor_id: String,
     pub(crate) frequency: u64,
+    pub(crate) arch: String,
 }
 
 impl CpuInner {
-    pub(crate) fn new(name: String, vendor_id: String, frequency: u64) -> Self {
+    pub(crate) fn new(name: String, vendor_id: String, frequency: u64, arch: String) -> Self {
         Self {
             cpu_usage: 0.,
             name,
             vendor_id,
             frequency,
+            arch,
         }
     }
 
@@ -170,6 +174,10 @@ impl CpuInner {
 
     pub(crate) fn brand(&self) -> &str {
         ""
+    }
+
+    pub(crate) fn arch(&self) -> &str {
+        &self.arch
     }
 }
 
@@ -196,4 +204,21 @@ unsafe fn get_frequency_for_cpu(cpu_nb: usize) -> u64 {
         frequency = 0;
     }
     frequency as _
+}
+
+unsafe fn get_cpu_arch() -> String {
+    let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
+    let mut arch_str: [u8; 32] = [0; 32];
+    if get_sys_value(
+        libc::CTL_HW as _,
+        libc::HW_MACHINE as _,
+        mem::size_of::<[char; 32]>(),
+        &mut arch_str as *mut [u8; 32] as *mut c_void,
+        &mut mib,
+    ) == true
+    {
+        String::from_utf8(arch_str.to_vec()).expect("unknown")
+    } else {
+        String::from("unknown")
+    }
 }

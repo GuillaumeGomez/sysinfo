@@ -48,6 +48,7 @@ impl CpusWrapper {
                     0,
                     String::new(),
                     String::new(),
+                    String::new(),
                 ),
             },
             cpus: Vec::with_capacity(4),
@@ -79,6 +80,7 @@ impl CpusWrapper {
         } else {
             HashMap::new()
         };
+        let arch = unsafe { get_cpu_arch() };
 
         // If the last CPU usage update is too close (less than `MINIMUM_CPU_UPDATE_INTERVAL`),
         // we don't want to update CPUs times.
@@ -317,6 +319,7 @@ pub(crate) struct CpuInner {
     pub(crate) frequency: u64,
     pub(crate) vendor_id: String,
     pub(crate) brand: String,
+    pub(crate) arch: String,
 }
 
 impl CpuInner {
@@ -335,6 +338,7 @@ impl CpuInner {
         frequency: u64,
         vendor_id: String,
         brand: String,
+        arch: String,
     ) -> Self {
         let mut new_values = CpuValues::new();
         new_values.set(
@@ -350,6 +354,7 @@ impl CpuInner {
             frequency,
             vendor_id,
             brand,
+            arch,
         }
     }
 
@@ -408,6 +413,10 @@ impl CpuInner {
 
     pub(crate) fn brand(&self) -> &str {
         &self.brand
+    }
+
+    pub(crate) fn arch(&self) -> &str {
+        &self.arch
     }
 }
 
@@ -829,4 +838,15 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
         }
     }
     cpus
+}
+
+fn get_cpu_arch() -> String {
+    let mut s = String::new();
+    if let Err(_e) = File::open("/proc/sys/kernel/arch").and_then(|mut f| f.read_to_string(&mut s))
+    {
+        sysinfo_debug!("Cannot read `/proc/sys/kernel/arch` file: {:?}", _e);
+        return String::from("unknown");
+    } else {
+        s
+    }
 }

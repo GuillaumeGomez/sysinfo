@@ -3,7 +3,7 @@
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 use crate::{Cpu, CpuRefreshKind};
 
-use libc::{c_char, c_void, host_processor_info, mach_port_t, mach_task_self};
+use libc::{c_char, c_int, c_void, host_processor_info, mach_port_t, mach_task_self};
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -22,6 +22,7 @@ impl CpusWrapper {
                     "0".to_owned(),
                     Arc::new(CpuData::new(std::ptr::null_mut(), 0)),
                     0,
+                    String::new(),
                     String::new(),
                     String::new(),
                 ),
@@ -112,6 +113,7 @@ pub(crate) struct CpuInner {
     frequency: u64,
     vendor_id: String,
     brand: String,
+    arch: String,
 }
 
 impl CpuInner {
@@ -121,6 +123,7 @@ impl CpuInner {
         frequency: u64,
         vendor_id: String,
         brand: String,
+        arch: String,
     ) -> Self {
         Self {
             name,
@@ -129,6 +132,7 @@ impl CpuInner {
             frequency,
             vendor_id,
             brand,
+            arch,
         }
     }
 
@@ -167,6 +171,10 @@ impl CpuInner {
 
     pub(crate) fn brand(&self) -> &str {
         &self.brand
+    }
+
+    pub(crate) fn arch(&self) -> &str {
+        &self.arch
     }
 }
 
@@ -287,6 +295,7 @@ pub(crate) fn init_cpus(
     } else {
         global_cpu.frequency()
     };
+    let arch = unsafe { get_cpu_arch() };
 
     unsafe {
         if !get_sys_value(
@@ -310,6 +319,7 @@ pub(crate) fn init_cpus(
                     frequency,
                     vendor_id.clone(),
                     brand.clone(),
+                    arch.clone(),
                 ),
             };
             if refresh_kind.cpu_usage() {
@@ -371,9 +381,26 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
     (vendor, get_sysctl_str(b"machdep.cpu.brand_string\0"))
 }
 
+pub(crate) unsafe fn get_cpu_arch() -> String {
+    let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
+    let mut arch_str: [u8; 32] = [0; 32];
+    if get_sys_value(
+        libc::CTL_HW as _,
+        libc::HW_MACHINE as _,
+        mem::size_of::<[char; 32]>(),
+        &mut arch_str as *mut [u8; 32] as *mut c_void,
+        &mut mib,
+    ) == true
+    {
+        String::from_utf8(arch_str.to_vec()).expect("unknown")
+    } else {
+        String::from("unknown")
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::*;
+    use crate::{unix::apple::cpu::get_cpu_arch, *};
     use std::process::Command;
 
     #[test]
@@ -401,6 +428,14 @@ mod test {
         {
             let sysctl_value = line.split(':').nth(1).unwrap();
             assert_eq!(cpus[0].brand(), sysctl_value.trim());
+        }
+    }
+
+    #[test]
+    fn test_get_cpu_arch() {
+        unsafe {
+            let arch = get_cpu_arch();
+            assert!(!arch.is_empty());
         }
     }
 }
