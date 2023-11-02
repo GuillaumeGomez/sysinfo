@@ -892,6 +892,15 @@ impl Process {
 
     /// Returns the memory usage (in bytes).
     ///
+    /// This method returns the [size of the resident set](https://en.wikipedia.org/wiki/Resident_set_size),
+    /// that is, the amount of memory that the process allocated and that is currently mapped in physical RAM.
+    /// It does not include memory that is swapped out, or, in some operating systems,
+    /// that has been allocated but never used.
+    ///
+    /// Thus, it represent exactly the amount of physical RAM that the process is using at the present time,
+    /// but it might not be a good indicator of the total memory that the process will be using
+    /// over its lifetime. For that purpose, you can try and use [`virtual_memory`](Process::virtual_memory).
+    ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
@@ -905,6 +914,18 @@ impl Process {
     }
 
     /// Returns the virtual memory usage (in bytes).
+    ///
+    /// This method returns the [size of virtual memory](https://en.wikipedia.org/wiki/Virtual_memory),
+    /// that is, the amount of memory that the process can access, whether it is currently mapped in physical RAM
+    /// or not. It includes physical RAM, allocated but not used regions, swapped-out regions, and even
+    /// memory associated with [memory-mapped files](https://en.wikipedia.org/wiki/Memory-mapped_file).
+    ///
+    /// Depending on the operating system and type of process, this value might be a good indicator
+    /// of the total memory that the process will be using over its lifetime. However, for example,
+    /// in the current version of MacOS this value is in the order of the hundreds of
+    /// gigabytes for every process, and thus not very informative. Moreover, if a process
+    /// maps into memory a very large file, this value will increase accordingly, even if the
+    /// process is not actively using the memory.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
