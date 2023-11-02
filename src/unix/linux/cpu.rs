@@ -152,7 +152,7 @@ impl CpusWrapper {
                                     0,
                                     vendor_id,
                                     brand,
-                                    arch,
+                                    arch.clone(),
                                 ),
                             });
                         } else {
