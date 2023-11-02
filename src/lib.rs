@@ -521,4 +521,14 @@ mod test {
             .iter()
             .any(|(_, process)| !process.cmd().is_empty()));
     }
+
+    #[test]
+    fn check_cpu_arch() {
+        if !IS_SUPPORTED {
+            return;
+        }
+        let mut s = System::new();
+        s.refresh_cpu_usage();
+        assert!(s.cpus().iter().any(|c| !c.arch().is_empty()));
+    }
 }

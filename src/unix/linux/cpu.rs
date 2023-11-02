@@ -80,7 +80,7 @@ impl CpusWrapper {
         } else {
             HashMap::new()
         };
-        let arch = unsafe { get_cpu_arch() };
+        let arch = get_cpu_arch();
 
         // If the last CPU usage update is too close (less than `MINIMUM_CPU_UPDATE_INTERVAL`),
         // we don't want to update CPUs times.
