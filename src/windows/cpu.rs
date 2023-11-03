@@ -580,7 +580,7 @@ fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
             vec![0; nb_cpus]
         };
         let mut ret = Vec::with_capacity(nb_cpus + 1);
-        let arch = get_cpu_arch();
+        let arch = get_cpu_arch(&sys_info);
         for (nb, frequency) in frequencies.iter().enumerate() {
             ret.push(Cpu {
                 inner: CpuInner::new_with_values(
