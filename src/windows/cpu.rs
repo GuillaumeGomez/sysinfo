@@ -318,6 +318,7 @@ pub(crate) struct CpuInner {
     vendor_id: String,
     brand: String,
     frequency: u64,
+    arch: CpuArch,
 }
 
 impl CpuInner {
@@ -341,11 +342,16 @@ impl CpuInner {
         &self.brand
     }
 
+    pub(crate) fn arch(&self) -> CpuArch {
+        self.arch
+    }
+
     pub(crate) fn new_with_values(
         name: String,
         vendor_id: String,
         brand: String,
         frequency: u64,
+        arch: CpuArch,
     ) -> Self {
         Self {
             name,
@@ -354,6 +360,7 @@ impl CpuInner {
             vendor_id,
             brand,
             frequency,
+            arch,
         }
     }
 
@@ -573,6 +580,7 @@ fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
             vec![0; nb_cpus]
         };
         let mut ret = Vec::with_capacity(nb_cpus + 1);
+        let arch = get_cpu_arch();
         for (nb, frequency) in frequencies.iter().enumerate() {
             ret.push(Cpu {
                 inner: CpuInner::new_with_values(
@@ -580,6 +588,7 @@ fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
                     vendor_id.clone(),
                     brand.clone(),
                     *frequency,
+                    arch,
                 ),
             });
         }
@@ -596,7 +605,7 @@ fn get_cpu_arch(info: &SYSTEM_INFO) -> CpuArch {
             SystemInformation::PROCESSOR_ARCHITECTURE_AMD64 => CpuArch::X86_64,
             SystemInformation::PROCESSOR_ARCHITECTURE_ARM64 => CpuArch::ARM64,
             SystemInformation::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => CpuArch::ARM,
-            _ => CpuArch::Unknown,
+            _ => CpuArch::UNKNOWN,
         }
         .to_owned()
     }
