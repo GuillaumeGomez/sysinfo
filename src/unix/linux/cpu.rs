@@ -49,7 +49,7 @@ impl CpusWrapper {
                     0,
                     String::new(),
                     String::new(),
-                    String::new(),
+                    CpuArch::UNKNOWN,
                 ),
             },
             cpus: Vec::with_capacity(4),
@@ -849,6 +849,6 @@ fn get_cpu_arch() -> CpuArch {
         sysinfo_debug!("Cannot read `/proc/sys/kernel/arch` file: {:?}", _e);
         CpuArch::UNKNOWN
     } else {
-        CpuArch::from(&s)
+        CpuArch::from(s.as_str())
     }
 }
