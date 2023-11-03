@@ -842,13 +842,13 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
     cpus
 }
 
-fn get_cpu_arch() -> String {
+fn get_cpu_arch() -> CpuArch {
     let mut s = String::new();
     if let Err(_e) = File::open("/proc/sys/kernel/arch").and_then(|mut f| f.read_to_string(&mut s))
     {
         sysinfo_debug!("Cannot read `/proc/sys/kernel/arch` file: {:?}", _e);
         CpuArch::UNKNOWN
     } else {
-        CpuArch::from(s)
+        CpuArch::from(&s)
     }
 }
