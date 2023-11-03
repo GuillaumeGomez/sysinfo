@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::common::CpuArch;
 use crate::sys::utils::{
     get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name, init_mib, VecSwitcher,
 };
@@ -146,7 +147,7 @@ pub(crate) struct CpuInner {
 }
 
 impl CpuInner {
-    pub(crate) fn new(name: String, vendor_id: String, frequency: u64, arch: String) -> Self {
+    pub(crate) fn new(name: String, vendor_id: String, frequency: u64, arch: CpuArch) -> Self {
         Self {
             cpu_usage: 0.,
             name,
@@ -177,7 +178,7 @@ impl CpuInner {
     }
 
     pub(crate) fn arch(&self) -> CpuArch {
-        self.arch.clone()
+        self.arch
     }
 }
 
@@ -206,22 +207,21 @@ unsafe fn get_frequency_for_cpu(cpu_nb: usize) -> u64 {
     frequency as _
 }
 
-unsafe fn get_cpu_arch() -> CpuArch {
+pub(crate) unsafe fn get_cpu_arch() -> CpuArch {
     use std::ffi::CStr;
     let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
-    let mut arch_str: [u8; 32] = [b'\0'; 32];
+    let mut arch_str: [u8; 32] = [0; 32];
 
     if get_sys_value(
         libc::CTL_HW as _,
         libc::HW_MACHINE as _,
         mem::size_of::<[char; 32]>(),
-        &mut arch_str as *mut [u8; 32] as *mut c_void,
+        arch_str.as_mut_ptr() as *mut _,
         &mut mib,
-    ) == true
-    {
+    ) {
         CStr::from_bytes_until_nul(&arch_str)
             .and_then(|res| match res.to_str() {
-                Ok(arch) => Ok(CpuArch::from_string(arch.to_string())),
+                Ok(arch) => Ok(CpuArch::from(arch)),
                 Err(_) => Ok(CpuArch::UNKNOWN),
             })
             .unwrap_or_else(|_| CpuArch::UNKNOWN)

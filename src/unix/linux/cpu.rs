@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::time::Instant;
 
+use crate::common::CpuArch;
 use crate::sys::utils::to_u64;
 use crate::{Cpu, CpuRefreshKind};
 
@@ -417,7 +418,7 @@ impl CpuInner {
     }
 
     pub(crate) fn arch(&self) -> CpuArch {
-        self.arch.clone()
+        self.arch
     }
 }
 
@@ -848,6 +849,6 @@ fn get_cpu_arch() -> String {
         sysinfo_debug!("Cannot read `/proc/sys/kernel/arch` file: {:?}", _e);
         CpuArch::UNKNOWN
     } else {
-        CpuArch::from_string(s)
+        CpuArch::from(s)
     }
 }

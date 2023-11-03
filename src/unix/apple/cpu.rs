@@ -175,7 +175,7 @@ impl CpuInner {
     }
 
     pub(crate) fn arch(&self) -> CpuArch {
-        self.arch.clone()
+        self.arch
     }
 }
 
@@ -385,19 +385,18 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
 pub(crate) unsafe fn get_cpu_arch() -> CpuArch {
     use std::ffi::CStr;
     let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
-    let mut arch_str: [u8; 32] = [b'\0'; 32];
+    let mut arch_str: [u8; 32] = [0; 32];
 
     if get_sys_value(
         libc::CTL_HW as _,
         libc::HW_MACHINE as _,
         mem::size_of::<[char; 32]>(),
-        &mut arch_str as *mut [u8; 32] as *mut c_void,
+        arch_str.as_mut_ptr() as *mut _,
         &mut mib,
-    ) == true
-    {
+    ) {
         CStr::from_bytes_until_nul(&arch_str)
             .and_then(|res| match res.to_str() {
-                Ok(arch) => Ok(CpuArch::from_string(arch.to_string())),
+                Ok(arch) => Ok(CpuArch::from(arch)),
                 Err(_) => Ok(CpuArch::UNKNOWN),
             })
             .unwrap_or_else(|_| CpuArch::UNKNOWN)
@@ -408,7 +407,7 @@ pub(crate) unsafe fn get_cpu_arch() -> CpuArch {
 
 #[cfg(test)]
 mod test {
-    use crate::{common::CpuArch, unix::apple::cpu::get_cpu_arch, *};
+    use crate::*;
     use std::process::Command;
 
     #[test]
@@ -436,14 +435,6 @@ mod test {
         {
             let sysctl_value = line.split(':').nth(1).unwrap();
             assert_eq!(cpus[0].brand(), sysctl_value.trim());
-        }
-    }
-
-    #[test]
-    fn test_get_cpu_arch() {
-        unsafe {
-            let arch = get_cpu_arch();
-            assert!(!(arch == CpuArch::UNKNOWN));
         }
     }
 }

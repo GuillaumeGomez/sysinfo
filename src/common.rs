@@ -3406,7 +3406,7 @@ impl Cpu {
 }
 
 /// Enumeration of CPU architectures
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Eq, PartialEq, Clone, Debug, Copy)]
 pub enum CpuArch {
     /// `arm` platform
     ARM,
@@ -3436,9 +3436,9 @@ pub enum CpuArch {
     UNKNOWN,
 }
 
-impl CpuArch {
+impl From<&str> for CpuArch {
     /// Convert an arch given as a string to CpuArch enum
-    pub fn from_string(arch_str: String) -> Self {
+    fn from(arch_str: &str) -> Self {
         match arch_str.trim() {
             "arm" => Self::ARM,
             "arm64" => Self::ARM64,
@@ -3454,6 +3454,26 @@ impl CpuArch {
             "x86" => Self::X86,
             "x86_64" => Self::X86_64,
             _ => Self::UNKNOWN,
+        }
+    }
+}
+
+impl ToString for CpuArch {
+    fn to_string(&self) -> String {
+        match self {
+            Self::ARM => String::from("arm"),
+            Self::ARM64 => String::from("arm64"),
+            Self::MIPS => String::from("mips"),
+            Self::MIPS64 => String::from("mips64"),
+            Self::POWERPC => String::from("powerpc"),
+            Self::POWERPC64 => String::from("powerpc64"),
+            Self::RISCV32 => String::from("riscv32"),
+            Self::RISCV64 => String::from("riscv64"),
+            Self::WASM => String::from("wasm"),
+            Self::WASM64 => String::from("wasm64"),
+            Self::X86 => String::from("x86"),
+            Self::X86_64 => String::from("x86_64"),
+            Self::UNKNOWN => String::from("unknown"),
         }
     }
 }

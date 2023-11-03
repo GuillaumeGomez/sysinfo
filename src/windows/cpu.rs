@@ -3,6 +3,7 @@
 use crate::sys::tools::KeyHandler;
 use crate::{Cpu, CpuRefreshKind, LoadAvg};
 
+use crate::common::CpuArch;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::io::Error;
