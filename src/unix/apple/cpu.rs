@@ -395,9 +395,9 @@ pub(crate) unsafe fn get_cpu_arch() -> CpuArch {
         &mut mib,
     ) {
         CStr::from_bytes_until_nul(&arch_str)
-            .and_then(|res| match res.to_str() {
-                Ok(arch) => Ok(CpuArch::from(arch)),
-                Err(_) => Ok(CpuArch::UNKNOWN),
+            .map(|res| match res.to_str() {
+                Ok(arch) => CpuArch::from(arch),
+                Err(_) => CpuArch::UNKNOWN,
             })
             .unwrap_or_else(|_| CpuArch::UNKNOWN)
     } else {
