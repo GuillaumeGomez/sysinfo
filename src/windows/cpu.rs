@@ -259,6 +259,7 @@ impl CpusWrapper {
                     String::new(),
                     String::new(),
                     0,
+                    CpuArch::UNKNOWN,
                 ),
             },
             cpus: Vec::new(),
