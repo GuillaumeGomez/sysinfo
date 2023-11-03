@@ -320,7 +320,7 @@ pub(crate) fn init_cpus(
                     frequency,
                     vendor_id.clone(),
                     brand.clone(),
-                    arch.clone(),
+                    arch,
                 ),
             };
             if refresh_kind.cpu_usage() {
