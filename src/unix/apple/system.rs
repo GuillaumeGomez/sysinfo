@@ -13,9 +13,6 @@ use std::mem;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::time::SystemTime;
 
-#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-use libc::size_t;
-
 use libc::{
     c_int, c_void, host_statistics64, mach_port_t, sysconf, sysctl, timeval, vm_statistics64,
     _SC_PAGESIZE,
@@ -182,7 +179,6 @@ impl SystemInner {
         }
         if let Some(pids) = get_proc_list() {
             let now = get_now();
-            let arg_max = get_arg_max();
             let port = self.port;
             let time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
             let entries: Vec<Process> = {
@@ -193,15 +189,7 @@ impl SystemInner {
 
                 into_iter(pids)
                     .flat_map(|pid| {
-                        match update_process(
-                            wrap,
-                            pid,
-                            arg_max as size_t,
-                            time_interval,
-                            now,
-                            refresh_kind,
-                            false,
-                        ) {
+                        match update_process(wrap, pid, time_interval, now, refresh_kind, false) {
                             Ok(x) => x,
                             _ => None,
                         }
@@ -232,7 +220,6 @@ impl SystemInner {
         refresh_kind: ProcessRefreshKind,
     ) -> bool {
         let mut time_interval = None;
-        let arg_max = get_arg_max();
         let now = get_now();
 
         if refresh_kind.cpu() {
@@ -241,15 +228,7 @@ impl SystemInner {
         }
         match {
             let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
-            update_process(
-                &wrap,
-                pid,
-                arg_max as size_t,
-                time_interval,
-                now,
-                refresh_kind,
-                true,
-            )
+            update_process(&wrap, pid, time_interval, now, refresh_kind, true)
         } {
             Ok(Some(p)) => {
                 self.process_list.insert(p.pid(), p);
@@ -427,28 +406,6 @@ impl SystemInner {
 
     pub(crate) fn distribution_id(&self) -> String {
         std::env::consts::OS.to_owned()
-    }
-}
-
-#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-fn get_arg_max() -> usize {
-    let mut mib = [libc::CTL_KERN, libc::KERN_ARGMAX];
-    let mut arg_max = 0i32;
-    let mut size = mem::size_of::<c_int>();
-    unsafe {
-        if sysctl(
-            mib.as_mut_ptr(),
-            mib.len() as _,
-            (&mut arg_max) as *mut i32 as *mut c_void,
-            &mut size,
-            std::ptr::null_mut(),
-            0,
-        ) == -1
-        {
-            4096 // We default to this value
-        } else {
-            arg_max as usize
-        }
     }
 }
 

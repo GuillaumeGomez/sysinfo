@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use std::borrow::Borrow;
 
-use libc::{c_int, c_void, kill, size_t};
+use libc::{c_int, c_void, kill};
 
 use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
@@ -363,7 +363,6 @@ unsafe fn convert_node_path_info(node: &libc::vnode_info_path) -> PathBuf {
 
 unsafe fn create_new_process(
     pid: Pid,
-    mut arg_max: size_t,
     now: u64,
     refresh_kind: ProcessRefreshKind,
     info: Option<libc::proc_bsdinfo>,
@@ -417,8 +416,6 @@ unsafe fn create_new_process(
         p => Some(Pid(p)),
     };
 
-    let mut proc_args: Vec<u8> = Vec::with_capacity(arg_max as _);
-    let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
     /*
      * /---------------\ 0x00000000
      * | ::::::::::::: |
@@ -449,6 +446,26 @@ unsafe fn create_new_process(
      * :               :
      * \---------------/ 0xffffffff
      */
+    let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
+    let mut arg_max = 0;
+    // First we retrieve the size we will need for our data (in `arg_max`).
+    if libc::sysctl(
+        mib.as_mut_ptr(),
+        mib.len() as _,
+        std::ptr::null_mut(),
+        &mut arg_max,
+        std::ptr::null_mut(),
+        0,
+    ) == -1
+    {
+        sysinfo_debug!(
+            "couldn't get arguments and environment size for PID {}",
+            pid.0
+        );
+        return Err(()); // not enough rights I assume?
+    }
+
+    let mut proc_args: Vec<u8> = Vec::with_capacity(arg_max as _);
     if libc::sysctl(
         mib.as_mut_ptr(),
         mib.len() as _,
@@ -459,7 +476,7 @@ unsafe fn create_new_process(
     ) == -1
     {
         sysinfo_debug!("couldn't get arguments and environment for PID {}", pid.0);
-        return Err(()); // not enough rights I assume?
+        return Err(()); // What changed since the previous call? Dark magic!
     }
 
     proc_args.set_len(arg_max);
@@ -577,7 +594,6 @@ fn get_environ(mut data: &[u8]) -> Vec<String> {
 pub(crate) fn update_process(
     wrap: &Wrap,
     pid: Pid,
-    size: size_t,
     time_interval: Option<f64>,
     now: u64,
     refresh_kind: ProcessRefreshKind,
@@ -600,7 +616,7 @@ pub(crate) fn update_process(
                     // We don't it to be removed, just replaced.
                     p.updated = true;
                     // The owner of this PID changed.
-                    return create_new_process(pid, size, now, refresh_kind, Some(info));
+                    return create_new_process(pid, now, refresh_kind, Some(info));
                 }
             }
             let task_info = get_task_info(pid);
@@ -640,7 +656,7 @@ pub(crate) fn update_process(
             p.updated = true;
             return Ok(None);
         }
-        create_new_process(pid, size, now, refresh_kind, get_bsd_info(pid))
+        create_new_process(pid, now, refresh_kind, get_bsd_info(pid))
     }
 }
 
