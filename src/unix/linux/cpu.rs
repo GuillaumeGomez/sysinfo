@@ -856,7 +856,7 @@ fn get_cpu_arch() -> CpuArch {
                 .map(|c| *c as u8 as char)
                 .collect::<String>();
 
-            CpuArch.from(release)
+            CpuArch.from(machine)
         } else {
             CpuArch::UNKNOWN
         }
