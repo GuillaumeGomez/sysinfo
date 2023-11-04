@@ -95,98 +95,74 @@ fn test_cmd() {
     }
 }
 
+fn build_test_binary() {
+    std::process::Command::new("rustc")
+        .arg("test_bin/main.rs")
+        .arg("-o")
+        .arg("target/test_binary")
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .unwrap()
+        .wait()
+        .unwrap();
+}
+
 #[test]
 fn test_environ() {
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
-    let mut p = if cfg!(target_os = "windows") {
-        std::process::Command::new("waitfor")
-            .arg("/t")
-            .arg("3")
-            .arg("EnvironSignal")
-            .stdout(std::process::Stdio::null())
-            .env("FOO", "BAR")
-            .env("OTHER", "VALUE")
-            .spawn()
-            .unwrap()
-    } else {
-        std::process::Command::new("sleep")
-            .arg("3")
-            .stdout(std::process::Stdio::null())
-            .env("FOO", "BAR")
-            .env("OTHER", "VALUE")
-            .spawn()
-            .unwrap()
-    };
+    build_test_binary();
+    let mut p = std::process::Command::new("./target/test_binary")
+        .env("FOO", "BAR")
+        .env("OTHER", "VALUE")
+        .spawn()
+        .unwrap();
 
-    let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
+    let pid = Pid::from_u32(p.id() as _);
     let mut s = System::new();
-    s.refresh_processes();
+
+    s.refresh_process_specifics(pid, sysinfo::ProcessRefreshKind::everything());
     p.kill().expect("Unable to kill process.");
 
     let processes = s.processes();
-    let p = processes.get(&pid);
+    let proc_ = processes.get(&pid);
 
-    if let Some(p) = p {
-        assert_eq!(p.pid(), pid);
-        // FIXME: instead of ignoring the test on CI, try to find out what's wrong...
-        if std::env::var("APPLE_CI").is_err() {
-            assert!(p.environ().iter().any(|e| e == "FOO=BAR"));
-            assert!(p.environ().iter().any(|e| e == "OTHER=VALUE"));
-        }
+    if let Some(proc_) = proc_ {
+        assert_eq!(proc_.pid(), pid);
+        assert!(proc_.environ().iter().any(|e| e == "FOO=BAR"));
+        assert!(proc_.environ().iter().any(|e| e == "OTHER=VALUE"));
     } else {
         panic!("Process not found!");
     }
-}
 
-// Test to ensure that a process with a lot of environment variables doesn't get truncated.
-// More information in <https://github.com/GuillaumeGomez/sysinfo/issues/886>.
-#[test]
-fn test_big_environ() {
-    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
-        return;
-    }
+    // Test to ensure that a process with a lot of environment variables doesn't get truncated.
+    // More information in <https://github.com/GuillaumeGomez/sysinfo/issues/886>.
     const SIZE: usize = 30_000;
     let mut big_env = String::with_capacity(SIZE);
     for _ in 0..SIZE {
         big_env.push('a');
     }
-    let mut p = if cfg!(target_os = "windows") {
-        std::process::Command::new("waitfor")
-            .arg("/t")
-            .arg("3")
-            .arg("EnvironSignal")
-            .stdout(std::process::Stdio::null())
-            .env("FOO", &big_env)
-            .spawn()
-            .unwrap()
-    } else {
-        std::process::Command::new("sleep")
-            .arg("3")
-            .stdout(std::process::Stdio::null())
-            .env("FOO", &big_env)
-            .spawn()
-            .unwrap()
-    };
+    let mut p = std::process::Command::new("./target/test_binary")
+        .env("FOO", &big_env)
+        .spawn()
+        .unwrap();
 
-    let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
+    let pid = Pid::from_u32(p.id() as _);
     let mut s = System::new();
+
     s.refresh_processes();
-    p.kill().expect("Unable to kill process.");
 
     let processes = s.processes();
-    let p = processes.get(&pid);
+    let proc_ = processes.get(&pid);
 
-    if let Some(p) = p {
-        assert_eq!(p.pid(), pid);
-        // FIXME: instead of ignoring the test on CI, try to find out what's wrong...
-        if std::env::var("APPLE_CI").is_err() {
-            let env = format!("FOO={big_env}");
-            assert!(p.environ().iter().any(|e| *e == env));
-        }
+    if let Some(proc_) = proc_ {
+        p.kill().expect("Unable to kill process.");
+        assert_eq!(proc_.pid(), pid);
+        let env = format!("FOO={big_env}");
+        assert!(proc_.environ().iter().any(|e| *e == env));
     } else {
         panic!("Process not found!");
     }
