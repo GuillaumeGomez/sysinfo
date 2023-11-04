@@ -48,7 +48,6 @@ impl CpusWrapper {
                     0,
                     String::new(),
                     String::new(),
-                    CpuArch::UNKNOWN,
                 ),
             },
             cpus: Vec::with_capacity(4),
@@ -80,7 +79,6 @@ impl CpusWrapper {
         } else {
             HashMap::new()
         };
-        let arch = get_cpu_arch();
 
         // If the last CPU usage update is too close (less than `MINIMUM_CPU_UPDATE_INTERVAL`),
         // we don't want to update CPUs times.
@@ -152,7 +150,6 @@ impl CpusWrapper {
                                     0,
                                     vendor_id,
                                     brand,
-                                    arch,
                                 ),
                             });
                         } else {
@@ -320,7 +317,6 @@ pub(crate) struct CpuInner {
     pub(crate) frequency: u64,
     pub(crate) vendor_id: String,
     pub(crate) brand: String,
-    pub(crate) arch: CpuArch,
 }
 
 impl CpuInner {
@@ -339,7 +335,6 @@ impl CpuInner {
         frequency: u64,
         vendor_id: String,
         brand: String,
-        arch: CpuArch,
     ) -> Self {
         let mut new_values = CpuValues::new();
         new_values.set(
@@ -355,7 +350,6 @@ impl CpuInner {
             frequency,
             vendor_id,
             brand,
-            arch,
         }
     }
 
@@ -414,10 +408,6 @@ impl CpuInner {
 
     pub(crate) fn brand(&self) -> &str {
         &self.brand
-    }
-
-    pub(crate) fn arch(&self) -> CpuArch {
-        self.arch
     }
 }
 

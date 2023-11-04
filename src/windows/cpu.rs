@@ -258,7 +258,6 @@ impl CpusWrapper {
                     String::new(),
                     String::new(),
                     0,
-                    CpuArch::UNKNOWN,
                 ),
             },
             cpus: Vec::new(),
@@ -318,7 +317,6 @@ pub(crate) struct CpuInner {
     vendor_id: String,
     brand: String,
     frequency: u64,
-    arch: CpuArch,
 }
 
 impl CpuInner {
@@ -347,7 +345,6 @@ impl CpuInner {
         vendor_id: String,
         brand: String,
         frequency: u64,
-        arch: CpuArch,
     ) -> Self {
         Self {
             name,
@@ -356,7 +353,6 @@ impl CpuInner {
             vendor_id,
             brand,
             frequency,
-            arch,
         }
     }
 
@@ -576,7 +572,6 @@ fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
             vec![0; nb_cpus]
         };
         let mut ret = Vec::with_capacity(nb_cpus + 1);
-        let arch = get_cpu_arch(&sys_info);
         for (nb, frequency) in frequencies.iter().enumerate() {
             ret.push(Cpu {
                 inner: CpuInner::new_with_values(
@@ -584,7 +579,6 @@ fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
                     vendor_id.clone(),
                     brand.clone(),
                     *frequency,
-                    arch,
                 ),
             });
         }

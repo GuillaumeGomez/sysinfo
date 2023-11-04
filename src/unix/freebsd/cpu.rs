@@ -75,7 +75,7 @@ impl CpusWrapper {
                     }
                 }
                 self.cpus.push(Cpu {
-                    inner: CpuInner::new(format!("cpu {pos}"), vendor_id.clone(), frequency, arch),
+                    inner: CpuInner::new(format!("cpu {pos}"), vendor_id.clone(), frequency),
                 });
             }
             self.got_cpu_frequency = refresh_kind.frequency();
@@ -144,7 +144,7 @@ pub(crate) struct CpuInner {
 }
 
 impl CpuInner {
-    pub(crate) fn new(name: String, vendor_id: String, frequency: u64, arch: CpuArch) -> Self {
+    pub(crate) fn new(name: String, vendor_id: String, frequency: u64) -> Self {
         Self {
             cpu_usage: 0.,
             name,
