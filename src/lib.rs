@@ -528,6 +528,6 @@ mod test {
             return;
         }
         let s = System::new();
-        assert!(!(s.cpu_arch() == None));
+        assert!(s.cpu_arch().is_some());
     }
 }
