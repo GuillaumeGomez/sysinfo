@@ -3,7 +3,6 @@
 use crate::sys::tools::KeyHandler;
 use crate::{Cpu, CpuRefreshKind, LoadAvg};
 
-use crate::CpuArch;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::io::Error;
@@ -343,10 +342,6 @@ impl CpuInner {
         &self.brand
     }
 
-    pub(crate) fn arch(&self) -> CpuArch {
-        self.arch
-    }
-
     pub(crate) fn new_with_values(
         name: String,
         vendor_id: String,
@@ -594,20 +589,5 @@ fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
             });
         }
         ret
-    }
-}
-
-fn get_cpu_arch(info: &SYSTEM_INFO) -> CpuArch {
-    // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
-    unsafe {
-        match info.Anonymous.Anonymous.wProcessorArchitecture {
-            SystemInformation::PROCESSOR_ARCHITECTURE_INTEL => CpuArch::X86,
-            SystemInformation::PROCESSOR_ARCHITECTURE_ARM => CpuArch::ARM,
-            SystemInformation::PROCESSOR_ARCHITECTURE_AMD64 => CpuArch::X86_64,
-            SystemInformation::PROCESSOR_ARCHITECTURE_ARM64 => CpuArch::ARM64,
-            SystemInformation::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => CpuArch::ARM,
-            _ => CpuArch::UNKNOWN,
-        }
-        .to_owned()
     }
 }

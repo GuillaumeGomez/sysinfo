@@ -128,4 +128,7 @@ impl SystemInner {
     pub(crate) fn host_name(&self) -> Option<String> {
         None
     }
+    pub(crate) fn arch(&self) -> Option<String> {
+        None
+    }
 }

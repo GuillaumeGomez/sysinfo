@@ -7,7 +7,6 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::time::Instant;
 
-use crate::common::CpuArch;
 use crate::sys::utils::to_u64;
 use crate::{Cpu, CpuRefreshKind};
 
@@ -840,25 +839,4 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
         }
     }
     cpus
-}
-
-fn get_cpu_arch() -> CpuArch {
-    let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
-
-    unsafe {
-        if libc::uname(raw.as_mut_ptr()) == 0 {
-            let info = raw.assume_init();
-
-            let machine = info
-                .machine
-                .iter()
-                .filter(|c| **c != 0)
-                .map(|c| *c as u8 as char)
-                .collect::<String>();
-
-            CpuArch::from(machine.as_ref())
-        } else {
-            CpuArch::UNKNOWN
-        }
-    }
 }

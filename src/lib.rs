@@ -527,8 +527,7 @@ mod test {
         if !IS_SUPPORTED {
             return;
         }
-        let mut s = System::new();
-        s.refresh_cpu_usage();
-        assert!(s.cpus().iter().any(|c| !(c.arch() == CpuArch::UNKNOWN)));
+        let s = System::new();
+        assert!(!(s.cpu_arch() == None));
     }
 }

@@ -701,6 +701,18 @@ impl System {
     pub fn host_name(&self) -> Option<String> {
         self.inner.host_name()
     }
+
+    /// Returns the CPU architecture (eg. x86, amd64, aarch64, ...)
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// println!("CPU Archicture: {:?}", s.cpu_arch());
+    /// ```
+    pub fn cpu_arch(&self) -> Option<String> {
+        self.inner.cpu_arch()
+    }
 }
 
 /// Struct containing information of a process.
@@ -3391,22 +3403,6 @@ impl Cpu {
     pub fn frequency(&self) -> u64 {
         self.inner.frequency()
     }
-
-    /// Returns the CPU's arch (e.g. x86_64, arm64, ...).
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
-    ///
-    /// let s = System::new_with_specifics(
-    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
-    /// );
-    /// for cpu in s.cpus() {
-    ///     println!("{:?}", cpu.arch());
-    /// }
-    /// ```
-    pub fn arch(&self) -> CpuArch {
-        self.inner.arch()
-    }
 }
 
 /// Enumeration of CPU architectures
@@ -3421,17 +3417,17 @@ pub enum CpuArch {
     /// `mips64` platform
     MIPS64,
     /// `powerpc` platform
-    POWERPC,
+    PowerPC,
     /// `powerpc64` platform
-    POWERPC64,
+    PowerPC64,
     /// `riscv32` platform
     RISCV32,
     /// `riscv64` platform
     RISCV64,
     /// `wasm` platform
-    WASM,
+    Wasm,
     /// `wasm64` platform
-    WASM64,
+    Wasm64,
     /// `x86` platform
     X86,
     /// `x64_64` AMD/Intel platform
@@ -3449,12 +3445,12 @@ impl From<&str> for CpuArch {
             "aarch64" => Self::ARM64,
             "mips" => Self::MIPS,
             "mips64" => Self::MIPS64,
-            "powerpc" => Self::POWERPC,
-            "powerpc64" => Self::POWERPC64,
+            "powerpc" => Self::PowerPC,
+            "powerpc64" => Self::PowerPC64,
             "riscv32" => Self::RISCV32,
             "riscv64" => Self::RISCV64,
-            "wasm" => Self::WASM,
-            "wasm64" => Self::WASM64,
+            "wasm" => Self::Wasm,
+            "wasm64" => Self::Wasm64,
             "x86" => Self::X86,
             "x86_64" => Self::X86_64,
             _ => Self::UNKNOWN,
@@ -3469,12 +3465,12 @@ impl Display for CpuArch {
             Self::ARM64 => String::from("arm64"),
             Self::MIPS => String::from("mips"),
             Self::MIPS64 => String::from("mips64"),
-            Self::POWERPC => String::from("powerpc"),
-            Self::POWERPC64 => String::from("powerpc64"),
+            Self::PowerPC => String::from("powerpc"),
+            Self::PowerPC64 => String::from("powerpc64"),
             Self::RISCV32 => String::from("riscv32"),
             Self::RISCV64 => String::from("riscv64"),
-            Self::WASM => String::from("wasm"),
-            Self::WASM64 => String::from("wasm64"),
+            Self::Wasm => String::from("wasm"),
+            Self::Wasm64 => String::from("wasm64"),
             Self::X86 => String::from("x86"),
             Self::X86_64 => String::from("x86_64"),
             Self::UNKNOWN => String::from("unknown"),

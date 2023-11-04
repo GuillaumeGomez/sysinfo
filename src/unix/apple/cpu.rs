@@ -1,9 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
-use crate::{Cpu, CpuArch, CpuRefreshKind};
+use crate::{Cpu, CpuRefreshKind};
 
-use libc::{c_char, c_int, c_void, host_processor_info, mach_port_t, mach_task_self};
+use libc::{c_char, c_void, host_processor_info, mach_port_t, mach_task_self};
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -24,7 +24,6 @@ impl CpusWrapper {
                     0,
                     String::new(),
                     String::new(),
-                    CpuArch::UNKNOWN,
                 ),
             },
             cpus: Vec::new(),
@@ -113,7 +112,6 @@ pub(crate) struct CpuInner {
     frequency: u64,
     vendor_id: String,
     brand: String,
-    arch: CpuArch,
 }
 
 impl CpuInner {
@@ -123,7 +121,6 @@ impl CpuInner {
         frequency: u64,
         vendor_id: String,
         brand: String,
-        arch: CpuArch,
     ) -> Self {
         Self {
             name,
@@ -132,7 +129,6 @@ impl CpuInner {
             frequency,
             vendor_id,
             brand,
-            arch,
         }
     }
 
@@ -171,10 +167,6 @@ impl CpuInner {
 
     pub(crate) fn brand(&self) -> &str {
         &self.brand
-    }
-
-    pub(crate) fn arch(&self) -> CpuArch {
-        self.arch
     }
 }
 
@@ -295,7 +287,6 @@ pub(crate) fn init_cpus(
     } else {
         global_cpu.frequency()
     };
-    let arch = unsafe { get_cpu_arch() };
 
     unsafe {
         if !get_sys_value(
@@ -319,7 +310,6 @@ pub(crate) fn init_cpus(
                     frequency,
                     vendor_id.clone(),
                     brand.clone(),
-                    arch,
                 ),
             };
             if refresh_kind.cpu_usage() {
@@ -379,29 +369,6 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
     }
 
     (vendor, get_sysctl_str(b"machdep.cpu.brand_string\0"))
-}
-
-pub(crate) unsafe fn get_cpu_arch() -> CpuArch {
-    use std::ffi::CStr;
-    let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
-    let mut arch_str: [u8; 32] = [0; 32];
-
-    if get_sys_value(
-        libc::CTL_HW as _,
-        libc::HW_MACHINE as _,
-        mem::size_of::<[u8; 32]>(),
-        arch_str.as_mut_ptr() as *mut _,
-        &mut mib,
-    ) {
-        CStr::from_bytes_until_nul(&arch_str)
-            .map(|res| match res.to_str() {
-                Ok(arch) => CpuArch::from(arch),
-                Err(_) => CpuArch::UNKNOWN,
-            })
-            .unwrap_or_else(|_| CpuArch::UNKNOWN)
-    } else {
-        CpuArch::UNKNOWN
-    }
 }
 
 #[cfg(test)]

@@ -35,6 +35,7 @@ pub(crate) struct SystemInner {
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
     cpus: CpusWrapper,
+    arch: Option<String>,
 }
 
 pub(crate) struct Wrap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
@@ -94,6 +95,7 @@ impl SystemInner {
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
                 clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
                 cpus: CpusWrapper::new(),
+                arch: get_cpu_arch(),
             }
         }
     }
@@ -428,6 +430,10 @@ impl SystemInner {
     pub(crate) fn distribution_id(&self) -> String {
         std::env::consts::OS.to_owned()
     }
+
+    pub(crate) fn cpu_arch(&self) -> Option<String> {
+        self.arch.clone()
+    }
 }
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
@@ -493,6 +499,31 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
 
                 String::from_utf8(buf).ok()
             }
+        }
+    }
+}
+
+pub(crate) fn get_cpu_arch() -> Option<String> {
+    use std::ffi::CStr;
+    let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
+    let mut arch_str: [u8; 32] = [0; 32];
+
+    unsafe {
+        if get_sys_value(
+            libc::CTL_HW as _,
+            libc::HW_MACHINE as _,
+            mem::size_of::<[u8; 32]>(),
+            arch_str.as_mut_ptr() as *mut _,
+            &mut mib,
+        ) {
+            CStr::from_bytes_until_nul(&arch_str)
+                .map(|res| match res.to_str() {
+                    Ok(arch) => Some(arch.to_string()),
+                    Err(_) => None,
+                })
+                .unwrap_or_else(|_| None)
+        } else {
+            None
         }
     }
 }

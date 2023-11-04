@@ -67,6 +67,7 @@ pub(crate) struct SystemInner {
     cpus: CpusWrapper,
     query: Option<Query>,
     boot_time: u64,
+    arch: Option<String>,
 }
 
 impl SystemInner {
@@ -80,6 +81,7 @@ impl SystemInner {
             cpus: CpusWrapper::new(),
             query: None,
             boot_time: unsafe { boot_time() },
+            arch: get_cpu_arch(),
         }
     }
 
@@ -449,6 +451,9 @@ impl SystemInner {
     pub(crate) fn distribution_id(&self) -> String {
         std::env::consts::OS.to_owned()
     }
+    pub(crate) fn arch(&self) -> Option<String> {
+        self.arch.clone()
+    }
 }
 
 pub(crate) fn is_proc_running(handle: HANDLE) -> bool {
@@ -539,4 +544,18 @@ fn get_dns_hostname() -> Option<String> {
 
     sysinfo_debug!("Failed to get computer hostname");
     None
+}
+
+fn get_cpu_arch(info: &SYSTEM_INFO) -> Option<String> {
+    // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
+    unsafe {
+        match info.Anonymous.Anonymous.wProcessorArchitecture {
+            SystemInformation::PROCESSOR_ARCHITECTURE_INTEL => Some("x86"),
+            SystemInformation::PROCESSOR_ARCHITECTURE_ARM => Some("arm"),
+            SystemInformation::PROCESSOR_ARCHITECTURE_AMD64 => Some("x86_64"),
+            SystemInformation::PROCESSOR_ARCHITECTURE_ARM64 => Some("arm64"),
+            SystemInformation::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => Some("arm"),
+            _ => None,
+        }
+    }
 }

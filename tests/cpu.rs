@@ -26,7 +26,7 @@ fn test_cpu() {
         assert!(s.cpus().iter().any(|c| !c.brand().is_empty()));
     }
     assert!(s.cpus().iter().any(|c| !c.vendor_id().is_empty()));
-    assert!(s.cpus().iter().any(|c| !(c.arch() == CpuArch::UNKNOWN)));
+    assert!(!(s.cpu_arch() == None));
 }
 
 #[test]
@@ -49,5 +49,4 @@ fn test_global_cpu_info_not_set() {
     assert_eq!(s.global_cpu_info().vendor_id(), "");
     assert_eq!(s.global_cpu_info().brand(), "");
     assert_eq!(s.global_cpu_info().frequency(), 0);
-    assert!(s.global_cpu_info().arch() == sysinfo::CpuArch::UNKNOWN);
 }
