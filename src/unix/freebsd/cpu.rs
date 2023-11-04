@@ -209,12 +209,12 @@ unsafe fn get_frequency_for_cpu(cpu_nb: usize) -> u64 {
 pub(crate) unsafe fn get_cpu_arch() -> CpuArch {
     use std::ffi::CStr;
     let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
-    let mut arch_str: [c_char; 32] = [0; 32];
+    let mut arch_str: [u8; 32] = [0; 32];
 
     if get_sys_value(
         libc::CTL_HW as _,
         libc::HW_MACHINE as _,
-        mem::size_of::<[c_char; 32]>(),
+        mem::size_of::<[u8; 32]>(),
         arch_str.as_mut_ptr() as *mut _,
         &mut mib,
     ) {
