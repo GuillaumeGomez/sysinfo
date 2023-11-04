@@ -550,11 +550,11 @@ fn get_cpu_arch(info: &SYSTEM_INFO) -> Option<String> {
     // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
     unsafe {
         match info.Anonymous.Anonymous.wProcessorArchitecture {
-            SystemInformation::PROCESSOR_ARCHITECTURE_INTEL => Some("x86"),
-            SystemInformation::PROCESSOR_ARCHITECTURE_ARM => Some("arm"),
-            SystemInformation::PROCESSOR_ARCHITECTURE_AMD64 => Some("x86_64"),
-            SystemInformation::PROCESSOR_ARCHITECTURE_ARM64 => Some("arm64"),
-            SystemInformation::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => Some("arm"),
+            SystemInformation::PROCESSOR_ARCHITECTURE_INTEL => Some("x86".to_string()),
+            SystemInformation::PROCESSOR_ARCHITECTURE_ARM => Some("arm".to_string()),
+            SystemInformation::PROCESSOR_ARCHITECTURE_AMD64 => Some("x86_64".to_string()),
+            SystemInformation::PROCESSOR_ARCHITECTURE_ARM64 => Some("arm64".to_string()),
+            SystemInformation::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => Some("arm".to_string()),
             _ => None,
         }
     }
