@@ -363,7 +363,7 @@ unsafe fn convert_node_path_info(node: &libc::vnode_info_path) -> PathBuf {
 
 unsafe fn create_new_process(
     pid: Pid,
-    mut size: size_t,
+    mut arg_max: size_t,
     now: u64,
     refresh_kind: ProcessRefreshKind,
     info: Option<libc::proc_bsdinfo>,
@@ -417,8 +417,7 @@ unsafe fn create_new_process(
         p => Some(Pid(p)),
     };
 
-    let mut proc_args = Vec::with_capacity(size as _);
-    let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
+    let mut proc_args: Vec<u8> = Vec::with_capacity(arg_max as _);
     let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
     /*
      * /---------------\ 0x00000000
@@ -453,71 +452,42 @@ unsafe fn create_new_process(
     if libc::sysctl(
         mib.as_mut_ptr(),
         mib.len() as _,
-        ptr as *mut c_void,
-        &mut size,
+        proc_args.as_mut_slice().as_mut_ptr() as *mut _,
+        &mut arg_max,
         std::ptr::null_mut(),
         0,
     ) == -1
     {
+        sysinfo_debug!("couldn't get arguments and environment for PID {}", pid.0);
         return Err(()); // not enough rights I assume?
     }
+    let mut ptr = proc_args.as_slice().as_ptr();
+    // We copy the number of arguments (`argc`) to `n_args`.
     let mut n_args: c_int = 0;
     libc::memcpy(
-        (&mut n_args) as *mut c_int as *mut c_void,
-        ptr as *const c_void,
+        &mut n_args as *mut _ as *mut _,
+        ptr as *const _,
         mem::size_of::<c_int>(),
     );
 
-    let mut cp = ptr.add(mem::size_of::<c_int>());
-    let mut start = cp;
+    // We skip `argc`.
+    ptr = ptr.add(mem::size_of::<c_int>());
+    let end = ptr.add(arg_max);
 
     let start_time = info.pbi_start_tvsec;
     let run_time = now.saturating_sub(start_time);
 
-    let mut p = if cp < ptr.add(size) {
-        while cp < ptr.add(size) && *cp != 0 {
-            cp = cp.offset(1);
-        }
-        let exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
+    let mut p = if ptr < end {
+        let (exe, ptr) = get_exe(ptr, end);
         let name = exe
             .file_name()
             .and_then(|x| x.to_str())
             .unwrap_or("")
             .to_owned();
-        while cp < ptr.add(size) && *cp == 0 {
-            cp = cp.offset(1);
-        }
-        start = cp;
-        let mut c = 0;
-        let mut cmd = Vec::with_capacity(n_args as usize);
-        while c < n_args && cp < ptr.add(size) {
-            if *cp == 0 {
-                c += 1;
-                cmd.push(get_unchecked_str(cp, start));
-                start = cp.offset(1);
-            }
-            cp = cp.offset(1);
-        }
 
-        #[inline]
-        unsafe fn get_environ(ptr: *mut u8, mut cp: *mut u8, size: size_t) -> Vec<String> {
-            let mut environ = Vec::with_capacity(10);
-            let mut start = cp;
-            while cp < ptr.add(size) {
-                if *cp == 0 {
-                    if cp == start {
-                        break;
-                    }
-                    let e = get_unchecked_str(cp, start);
-                    environ.push(e);
-                    start = cp.offset(1);
-                }
-                cp = cp.offset(1);
-            }
-            environ
-        }
+        let (cmd, ptr) = get_arguments(ptr, end, n_args);
 
-        let environ = get_environ(ptr, cp, size);
+        let environ = get_environ(ptr, end);
         let mut p = ProcessInner::new(pid, parent, start_time, run_time, cwd, root);
 
         p.exe = exe;
@@ -543,6 +513,59 @@ unsafe fn create_new_process(
         update_proc_disk_activity(&mut p);
     }
     Ok(Some(Process { inner: p }))
+}
+
+unsafe fn get_exe(mut cp: *const u8, end: *const u8) -> (PathBuf, *const u8) {
+    let start = cp;
+    while cp < end && *cp != 0 {
+        cp = cp.offset(1);
+    }
+    (
+        Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf(),
+        cp,
+    )
+}
+
+unsafe fn get_arguments(
+    mut cp: *const u8,
+    end: *const u8,
+    n_args: c_int,
+) -> (Vec<String>, *const u8) {
+    while cp < end && *cp == 0 {
+        cp = cp.offset(1);
+    }
+    let mut start = cp;
+    let mut c = 0;
+    let mut cmd = Vec::with_capacity(n_args as usize);
+    while c < n_args && cp < end {
+        if *cp == 0 {
+            c += 1;
+            cmd.push(get_unchecked_str(cp, start));
+            start = cp.offset(1);
+        }
+        cp = cp.offset(1);
+    }
+    (cmd, cp)
+}
+
+unsafe fn get_environ(mut cp: *const u8, end: *const u8) -> Vec<String> {
+    while cp < end && *cp == 0 {
+        cp = cp.offset(1);
+    }
+    let mut environ = Vec::with_capacity(10);
+    let mut start = cp;
+    while cp < end {
+        if *cp == 0 {
+            if cp == start {
+                break;
+            }
+            let e = get_unchecked_str(cp, start);
+            environ.push(e);
+            start = cp.offset(1);
+        }
+        cp = cp.offset(1);
+    }
+    environ
 }
 
 pub(crate) fn update_process(
@@ -660,9 +683,9 @@ pub(crate) fn get_proc_list() -> Option<Vec<Pid>> {
     }
 }
 
-unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
+unsafe fn get_unchecked_str(cp: *const u8, start: *const u8) -> String {
     let len = cp as usize - start as usize;
-    let part = Vec::from_raw_parts(start, len, len);
+    let part = Vec::from_raw_parts(start as *mut _, len, len);
     let tmp = String::from_utf8_unchecked(part.clone());
     mem::forget(part);
     tmp
