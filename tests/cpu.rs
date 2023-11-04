@@ -2,8 +2,6 @@
 
 // This test is used to ensure that the CPUs are not loaded by default.
 
-use sysinfo::CpuArch;
-
 #[test]
 fn test_cpu() {
     let mut s = sysinfo::System::new();
@@ -26,7 +24,7 @@ fn test_cpu() {
         assert!(s.cpus().iter().any(|c| !c.brand().is_empty()));
     }
     assert!(s.cpus().iter().any(|c| !c.vendor_id().is_empty()));
-    assert!(!(s.cpu_arch() == None));
+    assert!(!s.cpu_arch().is_none());
 }
 
 #[test]

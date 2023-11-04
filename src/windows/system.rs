@@ -451,7 +451,7 @@ impl SystemInner {
     pub(crate) fn distribution_id(&self) -> String {
         std::env::consts::OS.to_owned()
     }
-    pub(crate) fn arch(&self) -> Option<String> {
+    pub(crate) fn cpu_arch(&self) -> Option<String> {
         self.arch.clone()
     }
 }
