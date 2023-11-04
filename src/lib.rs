@@ -9,7 +9,6 @@
 #![allow(clippy::non_send_fields_in_send_ty)]
 #![allow(renamed_and_removed_lints)]
 #![allow(clippy::assertions_on_constants)]
-#![allow(unknown_lints)]
 
 #[macro_use]
 mod macros;
@@ -52,8 +51,8 @@ cfg_if::cfg_if! {
 }
 
 pub use crate::common::{
-    get_current_pid, CGroupLimits, Component, Components, Cpu, CpuArch, CpuRefreshKind, Disk,
-    DiskKind, DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr, NetworkData, Networks, Pid, Process,
+    get_current_pid, CGroupLimits, Component, Components, Cpu, CpuRefreshKind, Disk, DiskKind,
+    DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr, NetworkData, Networks, Pid, Process,
     ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, Uid, User, Users,
 };
 
@@ -524,11 +523,7 @@ mod test {
 
     #[test]
     fn check_cpu_arch() {
-        if !IS_SUPPORTED {
-            return;
-        }
-        let mut s = System::new();
-        s.refresh_cpu_usage();
-        assert!(s.cpus().iter().any(|c| !(c.arch() == CpuArch::UNKNOWN)));
+        let s = System::new();
+        assert_eq!(s.cpu_arch().is_some(), IS_SUPPORTED);
     }
 }

@@ -1,7 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::CpuArch;
-
 pub(crate) struct CpuInner;
 
 impl CpuInner {
@@ -27,9 +25,5 @@ impl CpuInner {
 
     pub(crate) fn brand(&self) -> &str {
         ""
-    }
-
-    pub(crate) fn arch(&self) -> CpuArch {
-        CpuArch::UNKNOWN
     }
 }

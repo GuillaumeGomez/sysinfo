@@ -7,7 +7,6 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::time::Instant;
 
-use crate::common::CpuArch;
 use crate::sys::utils::to_u64;
 use crate::{Cpu, CpuRefreshKind};
 
@@ -49,7 +48,6 @@ impl CpusWrapper {
                     0,
                     String::new(),
                     String::new(),
-                    CpuArch::UNKNOWN,
                 ),
             },
             cpus: Vec::with_capacity(4),
@@ -81,7 +79,6 @@ impl CpusWrapper {
         } else {
             HashMap::new()
         };
-        let arch = get_cpu_arch();
 
         // If the last CPU usage update is too close (less than `MINIMUM_CPU_UPDATE_INTERVAL`),
         // we don't want to update CPUs times.
@@ -153,7 +150,6 @@ impl CpusWrapper {
                                     0,
                                     vendor_id,
                                     brand,
-                                    arch,
                                 ),
                             });
                         } else {
@@ -321,7 +317,6 @@ pub(crate) struct CpuInner {
     pub(crate) frequency: u64,
     pub(crate) vendor_id: String,
     pub(crate) brand: String,
-    pub(crate) arch: CpuArch,
 }
 
 impl CpuInner {
@@ -340,7 +335,6 @@ impl CpuInner {
         frequency: u64,
         vendor_id: String,
         brand: String,
-        arch: CpuArch,
     ) -> Self {
         let mut new_values = CpuValues::new();
         new_values.set(
@@ -356,7 +350,6 @@ impl CpuInner {
             frequency,
             vendor_id,
             brand,
-            arch,
         }
     }
 
@@ -415,10 +408,6 @@ impl CpuInner {
 
     pub(crate) fn brand(&self) -> &str {
         &self.brand
-    }
-
-    pub(crate) fn arch(&self) -> CpuArch {
-        self.arch
     }
 }
 
@@ -840,25 +829,4 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
         }
     }
     cpus
-}
-
-fn get_cpu_arch() -> CpuArch {
-    let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
-
-    unsafe {
-        if libc::uname(raw.as_mut_ptr()) == 0 {
-            let info = raw.assume_init();
-
-            let machine = info
-                .machine
-                .iter()
-                .filter(|c| **c != 0)
-                .map(|c| *c as u8 as char)
-                .collect::<String>();
-
-            CpuArch::from(machine.as_ref())
-        } else {
-            CpuArch::UNKNOWN
-        }
-    }
 }

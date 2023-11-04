@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::convert::{From, TryFrom};
 use std::ffi::OsStr;
-use std::fmt::{self, Display};
+use std::fmt;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -700,6 +700,18 @@ impl System {
     /// ```
     pub fn host_name(&self) -> Option<String> {
         self.inner.host_name()
+    }
+
+    /// Returns the CPU architecture (eg. x86, amd64, aarch64, ...)
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// println!("CPU Archicture: {:?}", s.cpu_arch());
+    /// ```
+    pub fn cpu_arch(&self) -> Option<String> {
+        self.inner.cpu_arch()
     }
 }
 
@@ -3391,96 +3403,6 @@ impl Cpu {
     pub fn frequency(&self) -> u64 {
         self.inner.frequency()
     }
-
-    /// Returns the CPU's arch (e.g. x86_64, arm64, ...).
-    ///
-    /// ```no_run
-    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
-    ///
-    /// let s = System::new_with_specifics(
-    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
-    /// );
-    /// for cpu in s.cpus() {
-    ///     println!("{:?}", cpu.arch());
-    /// }
-    /// ```
-    pub fn arch(&self) -> CpuArch {
-        self.inner.arch()
-    }
-}
-
-/// Enumeration of CPU architectures
-#[derive(Eq, PartialEq, Clone, Debug, Copy)]
-pub enum CpuArch {
-    /// `arm` platform
-    ARM,
-    /// `aarch64` or `arm64` platform
-    ARM64,
-    /// `mips` platform
-    MIPS,
-    /// `mips64` platform
-    MIPS64,
-    /// `powerpc` platform
-    POWERPC,
-    /// `powerpc64` platform
-    POWERPC64,
-    /// `riscv32` platform
-    RISCV32,
-    /// `riscv64` platform
-    RISCV64,
-    /// `wasm` platform
-    WASM,
-    /// `wasm64` platform
-    WASM64,
-    /// `x86` platform
-    X86,
-    /// `x64_64` AMD/Intel platform
-    X86_64,
-    /// Unknown platform
-    UNKNOWN,
-}
-
-impl From<&str> for CpuArch {
-    /// Convert an arch given as a string to CpuArch enum
-    fn from(arch_str: &str) -> Self {
-        match arch_str.trim() {
-            "arm" => Self::ARM,
-            "arm64" => Self::ARM64,
-            "aarch64" => Self::ARM64,
-            "mips" => Self::MIPS,
-            "mips64" => Self::MIPS64,
-            "powerpc" => Self::POWERPC,
-            "powerpc64" => Self::POWERPC64,
-            "riscv32" => Self::RISCV32,
-            "riscv64" => Self::RISCV64,
-            "wasm" => Self::WASM,
-            "wasm64" => Self::WASM64,
-            "x86" => Self::X86,
-            "x86_64" => Self::X86_64,
-            _ => Self::UNKNOWN,
-        }
-    }
-}
-
-impl Display for CpuArch {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let arch_str = match self {
-            Self::ARM => String::from("arm"),
-            Self::ARM64 => String::from("arm64"),
-            Self::MIPS => String::from("mips"),
-            Self::MIPS64 => String::from("mips64"),
-            Self::POWERPC => String::from("powerpc"),
-            Self::POWERPC64 => String::from("powerpc64"),
-            Self::RISCV32 => String::from("riscv32"),
-            Self::RISCV64 => String::from("riscv64"),
-            Self::WASM => String::from("wasm"),
-            Self::WASM64 => String::from("wasm64"),
-            Self::X86 => String::from("x86"),
-            Self::X86_64 => String::from("x86_64"),
-            Self::UNKNOWN => String::from("unknown"),
-        };
-        write!(f, "{}", arch_str)
-    }
 }
 
 #[cfg(test)]
@@ -3517,6 +3439,7 @@ mod tests {
 
     // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented
     // on `Uid`, `Gid` and `Pid`.
+    #[allow(clippy::unnecessary_fallible_conversions)]
     #[test]
     fn check_uid_gid_from_impls() {
         use std::convert::TryFrom;
