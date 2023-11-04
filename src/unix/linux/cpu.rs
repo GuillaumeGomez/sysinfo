@@ -843,12 +843,22 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
 }
 
 fn get_cpu_arch() -> CpuArch {
-    let mut s = String::new();
-    if let Err(_e) = File::open("/proc/sys/kernel/arch").and_then(|mut f| f.read_to_string(&mut s))
-    {
-        sysinfo_debug!("Cannot read `/proc/sys/kernel/arch` file: {:?}", _e);
-        CpuArch::UNKNOWN
-    } else {
-        CpuArch::from(s.as_str())
+    let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
+
+    unsafe {
+        if libc::uname(raw.as_mut_ptr()) == 0 {
+            let info = raw.assume_init();
+
+            let machine = info
+                .machine
+                .iter()
+                .filter(|c| **c != 0)
+                .map(|c| *c as u8 as char)
+                .collect::<String>();
+
+            CpuArch.from(release)
+        } else {
+            CpuArch::UNKNOWN
+        }
     }
 }

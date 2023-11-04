@@ -175,7 +175,7 @@ mod doctest {
 
 #[cfg(test)]
 mod test {
-    use crate::{common::CpuArch, *};
+    use crate::*;
 
     #[cfg(feature = "unknown-ci")]
     #[test]

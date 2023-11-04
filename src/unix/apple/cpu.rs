@@ -1,8 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::common::CpuArch;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
-use crate::{Cpu, CpuRefreshKind};
+use crate::{Cpu, CpuArch, CpuRefreshKind};
 
 use libc::{c_char, c_int, c_void, host_processor_info, mach_port_t, mach_task_self};
 use std::mem;
@@ -385,12 +384,12 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
 pub(crate) unsafe fn get_cpu_arch() -> CpuArch {
     use std::ffi::CStr;
     let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
-    let mut arch_str: [u8; 32] = [0; 32];
+    let mut arch_str: [c_char; 32] = [0; 32];
 
     if get_sys_value(
         libc::CTL_HW as _,
         libc::HW_MACHINE as _,
-        mem::size_of::<[char; 32]>(),
+        mem::size_of::<[c_char; 32]>(),
         arch_str.as_mut_ptr() as *mut _,
         &mut mib,
     ) {

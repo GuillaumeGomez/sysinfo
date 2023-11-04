@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::convert::{From, TryFrom};
 use std::ffi::OsStr;
-use std::fmt;
+use std::fmt::{self, Display};
 use std::path::Path;
 use std::str::FromStr;
 
@@ -3401,7 +3401,7 @@ impl Cpu {
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
     /// );
     /// for cpu in s.cpus() {
-    ///     println!("{}", cpu.arch());
+    ///     println!("{:?}", cpu.arch());
     /// }
     /// ```
     pub fn arch(&self) -> CpuArch {
@@ -3462,9 +3462,9 @@ impl From<&str> for CpuArch {
     }
 }
 
-impl ToString for CpuArch {
-    fn to_string(&self) -> String {
-        match self {
+impl Display for CpuArch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let arch_str = match self {
             Self::ARM => String::from("arm"),
             Self::ARM64 => String::from("arm64"),
             Self::MIPS => String::from("mips"),
@@ -3478,7 +3478,8 @@ impl ToString for CpuArch {
             Self::X86 => String::from("x86"),
             Self::X86_64 => String::from("x86_64"),
             Self::UNKNOWN => String::from("unknown"),
-        }
+        };
+        write!(f, "{}", arch_str)
     }
 }
 
