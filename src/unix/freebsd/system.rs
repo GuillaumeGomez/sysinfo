@@ -5,6 +5,7 @@ use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessInner, ProcessRef
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::ffi::CStr;
+use std::mem;
 use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
@@ -15,7 +16,7 @@ use crate::sys::utils::{
     get_system_info, init_mib,
 };
 
-use libc::c_int;
+use libc::{c_int, c_void};
 
 pub(crate) struct SystemInner {
     process_list: HashMap<Pid, Process>,
