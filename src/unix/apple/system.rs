@@ -96,15 +96,13 @@ impl SystemInner {
     }
 
     pub(crate) fn refresh_memory(&mut self) {
-        let mut mib = [0, 0];
+        let mut mib = [libc::CTL_VM as _, libc::VM_SWAPUSAGE as _];
 
         unsafe {
             // get system values
             // get swap info
             let mut xs: libc::xsw_usage = mem::zeroed::<libc::xsw_usage>();
             if get_sys_value(
-                libc::CTL_VM as _,
-                libc::VM_SWAPUSAGE as _,
                 mem::size_of::<libc::xsw_usage>(),
                 &mut xs as *mut _ as *mut c_void,
                 &mut mib,
@@ -112,11 +110,11 @@ impl SystemInner {
                 self.swap_total = xs.xsu_total;
                 self.swap_free = xs.xsu_avail;
             }
+            mib[0] = libc::CTL_HW as _;
+            mib[1] = libc::HW_MEMSIZE as _;
             // get ram info
             if self.mem_total < 1 {
                 get_sys_value(
-                    libc::CTL_HW as _,
-                    libc::HW_MEMSIZE as _,
                     mem::size_of::<u64>(),
                     &mut self.mem_total as *mut u64 as *mut c_void,
                     &mut mib,
