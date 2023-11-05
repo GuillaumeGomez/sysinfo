@@ -606,7 +606,7 @@ pub(crate) fn get_cpu_arch() -> Option<String> {
 
     unsafe {
         let mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
-        if get_sys_value(&mib, arch_str.as_mut_ptr() as *mut _) {
+        if get_sys_value(&mib, &mut arch_str) {
             CStr::from_bytes_until_nul(&arch_str)
                 .map(|res| match res.to_str() {
                     Ok(arch) => Some(arch.to_string()),
