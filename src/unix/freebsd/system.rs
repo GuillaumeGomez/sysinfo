@@ -5,7 +5,6 @@ use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessInner, ProcessRef
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::ffi::CStr;
-use std::mem;
 use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
