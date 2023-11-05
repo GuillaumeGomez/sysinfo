@@ -458,13 +458,11 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
 
 pub(crate) fn get_cpu_arch() -> Option<String> {
     use std::ffi::CStr;
-    let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
     let mut arch_str: [u8; 32] = [0; 32];
 
     unsafe {
+        let mut mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
         if get_sys_value(
-            libc::CTL_HW as _,
-            libc::HW_MACHINE as _,
             mem::size_of::<[u8; 32]>(),
             arch_str.as_mut_ptr() as *mut _,
             &mut mib,
