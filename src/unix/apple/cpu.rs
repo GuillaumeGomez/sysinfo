@@ -279,7 +279,7 @@ pub(crate) fn init_cpus(
     refresh_kind: CpuRefreshKind,
 ) {
     let mut num_cpu = 0;
-    let mut mib = [0, 0];
+    let mut mib = [libc::CTL_HW as _, libc::HW_NCPU as _];
 
     let (vendor_id, brand) = get_vendor_id_and_brand();
     let frequency = if refresh_kind.frequency() {
@@ -290,8 +290,6 @@ pub(crate) fn init_cpus(
 
     unsafe {
         if !get_sys_value(
-            libc::CTL_HW as _,
-            libc::HW_NCPU as _,
             mem::size_of::<u32>(),
             &mut num_cpu as *mut _ as *mut _,
             &mut mib,
