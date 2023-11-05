@@ -523,10 +523,7 @@ mod test {
 
     #[test]
     fn check_cpu_arch() {
-        if !IS_SUPPORTED {
-            return;
-        }
         let s = System::new();
-        assert!(s.cpu_arch().is_some());
+        assert_eq!(s.cpu_arch().is_some(), IS_SUPPORTED);
     }
 }
