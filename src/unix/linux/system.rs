@@ -120,7 +120,6 @@ pub(crate) struct SystemInner {
     swap_free: u64,
     info: SystemInfo,
     cpus: CpusWrapper,
-    arch: Option<String>,
 }
 
 impl SystemInner {
@@ -189,7 +188,6 @@ impl SystemInner {
             swap_free: 0,
             cpus: CpusWrapper::new(),
             info: SystemInfo::new(),
-            arch: get_cpu_arch(),
         }
     }
 
@@ -483,7 +481,7 @@ impl SystemInner {
             .unwrap_or_else(|| std::env::consts::OS.to_owned())
     }
     pub(crate) fn cpu_arch(&self) -> Option<String> {
-        self.arch.clone()
+        get_cpu_arch()
     }
 }
 

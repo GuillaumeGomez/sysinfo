@@ -67,7 +67,6 @@ pub(crate) struct SystemInner {
     cpus: CpusWrapper,
     query: Option<Query>,
     boot_time: u64,
-    arch: Option<String>,
 }
 
 impl SystemInner {
@@ -81,7 +80,6 @@ impl SystemInner {
             cpus: CpusWrapper::new(),
             query: None,
             boot_time: unsafe { boot_time() },
-            arch: get_cpu_arch(),
         }
     }
 
@@ -452,7 +450,7 @@ impl SystemInner {
         std::env::consts::OS.to_owned()
     }
     pub(crate) fn cpu_arch(&self) -> Option<String> {
-        self.arch.clone()
+        get_cpu_arch()
     }
 }
 

@@ -35,7 +35,6 @@ pub(crate) struct SystemInner {
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
     cpus: CpusWrapper,
-    arch: Option<String>,
 }
 
 pub(crate) struct Wrap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
@@ -95,7 +94,6 @@ impl SystemInner {
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
                 clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
                 cpus: CpusWrapper::new(),
-                arch: get_cpu_arch(),
             }
         }
     }
@@ -432,7 +430,7 @@ impl SystemInner {
     }
 
     pub(crate) fn cpu_arch(&self) -> Option<String> {
-        self.arch.clone()
+        get_cpu_arch()
     }
 }
 

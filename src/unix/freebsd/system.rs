@@ -28,7 +28,6 @@ pub(crate) struct SystemInner {
     boot_time: u64,
     system_info: SystemInfo,
     cpus: CpusWrapper,
-    arch: Option<String>,
 }
 
 impl SystemInner {
@@ -43,7 +42,6 @@ impl SystemInner {
             boot_time: boot_time(),
             system_info: SystemInfo::new(),
             cpus: CpusWrapper::new(),
-            arch: get_cpu_arch(),
         }
     }
 
@@ -230,7 +228,7 @@ impl SystemInner {
         std::env::consts::OS.to_owned()
     }
     pub(crate) fn cpu_arch(&self) -> Option<String> {
-        self.arch.clone()
+        get_cpu_arch()
     }
 }
 
