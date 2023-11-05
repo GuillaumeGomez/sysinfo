@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::convert::{From, TryFrom};
 use std::ffi::OsStr;
-use std::fmt::{self, Display};
+use std::fmt::{self};
 use std::path::Path;
 use std::str::FromStr;
 
