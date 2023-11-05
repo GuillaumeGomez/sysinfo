@@ -3427,6 +3427,7 @@ mod tests {
 
     // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented
     // on `Uid`, `Gid` and `Pid`.
+    #[allow(clippy::unnecessary_fallible_conversions)]
     #[test]
     fn check_uid_gid_from_impls() {
         use std::convert::TryFrom;
