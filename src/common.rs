@@ -2051,6 +2051,20 @@ impl Default for Disks {
     }
 }
 
+impl From<Disks> for Vec<Disk> {
+    fn from(disks: Disks) -> Vec<Disk> {
+        disks.inner.into_vec()
+    }
+}
+
+impl From<Vec<Disk>> for Disks {
+    fn from(disks: Vec<Disk>) -> Self {
+        Self {
+            inner: crate::DisksInner::from_vec(disks),
+        }
+    }
+}
+
 impl<'a> IntoIterator for &'a Disks {
     type Item = &'a Disk;
     type IntoIter = std::slice::Iter<'a, Disk>;
@@ -2242,6 +2256,18 @@ pub struct Users {
 impl Default for Users {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl From<Users> for Vec<User> {
+    fn from(users: Users) -> Self {
+        users.users
+    }
+}
+
+impl From<Vec<User>> for Users {
+    fn from(users: Vec<User>) -> Self {
+        Self { users }
     }
 }
 
@@ -3040,6 +3066,20 @@ pub struct Components {
 impl Default for Components {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl From<Components> for Vec<Component> {
+    fn from(components: Components) -> Self {
+        components.inner.into_vec()
+    }
+}
+
+impl From<Vec<Component>> for Components {
+    fn from(components: Vec<Component>) -> Self {
+        Self {
+            inner: ComponentsInner::from_vec(components),
+        }
     }
 }
 

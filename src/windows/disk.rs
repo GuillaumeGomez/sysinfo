@@ -182,6 +182,14 @@ impl DisksInner {
         }
     }
 
+    pub(crate) fn from_vec(disks: Vec<Disk>) -> Self {
+        Self { disks }
+    }
+
+    pub(crate) fn into_vec(self) -> Vec<Disk> {
+        self.disks
+    }
+
     pub(crate) fn refresh_list(&mut self) {
         unsafe {
             self.disks = get_list();
