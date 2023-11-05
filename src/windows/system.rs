@@ -22,9 +22,10 @@ use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SystemPr
 use windows::Win32::Foundation::{HANDLE, STATUS_INFO_LENGTH_MISMATCH, STILL_ACTIVE};
 use windows::Win32::System::ProcessStatus::{K32GetPerformanceInfo, PERFORMANCE_INFORMATION};
 use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
+use windows::Win32::System::SystemInformation;
 use windows::Win32::System::SystemInformation::{
     ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetTickCount64, GlobalMemoryStatusEx,
-    MEMORYSTATUSEX,
+    MEMORYSTATUSEX, SYSTEM_INFO,
 };
 use windows::Win32::System::Threading::GetExitCodeProcess;
 
@@ -544,9 +545,10 @@ fn get_dns_hostname() -> Option<String> {
     None
 }
 
-fn get_cpu_arch(info: &SYSTEM_INFO) -> Option<String> {
+fn get_cpu_arch() -> Option<String> {
     // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
     unsafe {
+        let info = SYSTEM_INFO::default();
         match info.Anonymous.Anonymous.wProcessorArchitecture {
             SystemInformation::PROCESSOR_ARCHITECTURE_INTEL => Some("x86".to_string()),
             SystemInformation::PROCESSOR_ARCHITECTURE_ARM => Some("arm".to_string()),
