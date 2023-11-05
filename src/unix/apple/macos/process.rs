@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use std::borrow::Borrow;
 
-use libc::{c_int, c_void, kill, size_t};
+use libc::{c_int, c_void, kill};
 
 use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
@@ -363,7 +363,6 @@ unsafe fn convert_node_path_info(node: &libc::vnode_info_path) -> PathBuf {
 
 unsafe fn create_new_process(
     pid: Pid,
-    mut size: size_t,
     now: u64,
     refresh_kind: ProcessRefreshKind,
     info: Option<libc::proc_bsdinfo>,
@@ -417,9 +416,6 @@ unsafe fn create_new_process(
         p => Some(Pid(p)),
     };
 
-    let mut proc_args = Vec::with_capacity(size as _);
-    let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
-    let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
     /*
      * /---------------\ 0x00000000
      * | ::::::::::::: |
@@ -450,74 +446,66 @@ unsafe fn create_new_process(
      * :               :
      * \---------------/ 0xffffffff
      */
+    let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
+    let mut arg_max = 0;
+    // First we retrieve the size we will need for our data (in `arg_max`).
     if libc::sysctl(
         mib.as_mut_ptr(),
         mib.len() as _,
-        ptr as *mut c_void,
-        &mut size,
+        std::ptr::null_mut(),
+        &mut arg_max,
         std::ptr::null_mut(),
         0,
     ) == -1
     {
+        sysinfo_debug!(
+            "couldn't get arguments and environment size for PID {}",
+            pid.0
+        );
         return Err(()); // not enough rights I assume?
     }
-    let mut n_args: c_int = 0;
-    libc::memcpy(
-        (&mut n_args) as *mut c_int as *mut c_void,
-        ptr as *const c_void,
-        mem::size_of::<c_int>(),
-    );
 
-    let mut cp = ptr.add(mem::size_of::<c_int>());
-    let mut start = cp;
+    let mut proc_args: Vec<u8> = Vec::with_capacity(arg_max as _);
+    if libc::sysctl(
+        mib.as_mut_ptr(),
+        mib.len() as _,
+        proc_args.as_mut_slice().as_mut_ptr() as *mut _,
+        &mut arg_max,
+        std::ptr::null_mut(),
+        0,
+    ) == -1
+    {
+        sysinfo_debug!("couldn't get arguments and environment for PID {}", pid.0);
+        return Err(()); // What changed since the previous call? Dark magic!
+    }
+
+    proc_args.set_len(arg_max);
 
     let start_time = info.pbi_start_tvsec;
     let run_time = now.saturating_sub(start_time);
 
-    let mut p = if cp < ptr.add(size) {
-        while cp < ptr.add(size) && *cp != 0 {
-            cp = cp.offset(1);
-        }
-        let exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
+    let mut p = if !proc_args.is_empty() {
+        // We copy the number of arguments (`argc`) to `n_args`.
+        let mut n_args: c_int = 0;
+        libc::memcpy(
+            &mut n_args as *mut _ as *mut _,
+            proc_args.as_slice().as_ptr() as *const _,
+            mem::size_of::<c_int>(),
+        );
+
+        // We skip `argc`.
+        let proc_args = &proc_args[mem::size_of::<c_int>()..];
+
+        let (exe, proc_args) = get_exe(proc_args);
         let name = exe
             .file_name()
             .and_then(|x| x.to_str())
             .unwrap_or("")
             .to_owned();
-        while cp < ptr.add(size) && *cp == 0 {
-            cp = cp.offset(1);
-        }
-        start = cp;
-        let mut c = 0;
-        let mut cmd = Vec::with_capacity(n_args as usize);
-        while c < n_args && cp < ptr.add(size) {
-            if *cp == 0 {
-                c += 1;
-                cmd.push(get_unchecked_str(cp, start));
-                start = cp.offset(1);
-            }
-            cp = cp.offset(1);
-        }
 
-        #[inline]
-        unsafe fn get_environ(ptr: *mut u8, mut cp: *mut u8, size: size_t) -> Vec<String> {
-            let mut environ = Vec::with_capacity(10);
-            let mut start = cp;
-            while cp < ptr.add(size) {
-                if *cp == 0 {
-                    if cp == start {
-                        break;
-                    }
-                    let e = get_unchecked_str(cp, start);
-                    environ.push(e);
-                    start = cp.offset(1);
-                }
-                cp = cp.offset(1);
-            }
-            environ
-        }
+        let (cmd, proc_args) = get_arguments(proc_args, n_args);
 
-        let environ = get_environ(ptr, cp, size);
+        let environ = get_environ(proc_args);
         let mut p = ProcessInner::new(pid, parent, start_time, run_time, cwd, root);
 
         p.exe = exe;
@@ -545,10 +533,67 @@ unsafe fn create_new_process(
     Ok(Some(Process { inner: p }))
 }
 
+fn get_exe(data: &[u8]) -> (PathBuf, &[u8]) {
+    let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
+    unsafe {
+        (
+            Path::new(std::str::from_utf8_unchecked(&data[..pos])).to_path_buf(),
+            &data[pos..],
+        )
+    }
+}
+
+fn get_arguments(mut data: &[u8], mut n_args: c_int) -> (Vec<String>, &[u8]) {
+    if n_args < 1 {
+        return (Vec::new(), data);
+    }
+    while data.first() == Some(&0) {
+        data = &data[1..];
+    }
+    let mut cmd = Vec::with_capacity(n_args as _);
+
+    unsafe {
+        while n_args > 0 && !data.is_empty() {
+            let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
+            let arg = std::str::from_utf8_unchecked(&data[..pos]);
+            if !arg.is_empty() {
+                cmd.push(arg.to_string());
+            }
+            data = &data[pos..];
+            while data.first() == Some(&0) {
+                data = &data[1..];
+            }
+            n_args -= 1;
+        }
+        (cmd, data)
+    }
+}
+
+fn get_environ(mut data: &[u8]) -> Vec<String> {
+    while data.first() == Some(&0) {
+        data = &data[1..];
+    }
+    let mut environ = Vec::new();
+    unsafe {
+        while !data.is_empty() {
+            let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
+            let arg = std::str::from_utf8_unchecked(&data[..pos]);
+            if arg.is_empty() {
+                return environ;
+            }
+            environ.push(arg.to_string());
+            data = &data[pos..];
+            while data.first() == Some(&0) {
+                data = &data[1..];
+            }
+        }
+        environ
+    }
+}
+
 pub(crate) fn update_process(
     wrap: &Wrap,
     pid: Pid,
-    size: size_t,
     time_interval: Option<f64>,
     now: u64,
     refresh_kind: ProcessRefreshKind,
@@ -571,7 +616,7 @@ pub(crate) fn update_process(
                     // We don't it to be removed, just replaced.
                     p.updated = true;
                     // The owner of this PID changed.
-                    return create_new_process(pid, size, now, refresh_kind, Some(info));
+                    return create_new_process(pid, now, refresh_kind, Some(info));
                 }
             }
             let task_info = get_task_info(pid);
@@ -611,7 +656,7 @@ pub(crate) fn update_process(
             p.updated = true;
             return Ok(None);
         }
-        create_new_process(pid, size, now, refresh_kind, get_bsd_info(pid))
+        create_new_process(pid, now, refresh_kind, get_bsd_info(pid))
     }
 }
 
@@ -638,7 +683,6 @@ fn update_proc_disk_activity(p: &mut ProcessInner) {
     }
 }
 
-#[allow(unknown_lints)]
 #[allow(clippy::uninit_vec)]
 pub(crate) fn get_proc_list() -> Option<Vec<Pid>> {
     unsafe {
@@ -658,14 +702,6 @@ pub(crate) fn get_proc_list() -> Option<Vec<Pid>> {
             Some(pids)
         }
     }
-}
-
-unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
-    let len = cp as usize - start as usize;
-    let part = Vec::from_raw_parts(start, len, len);
-    let tmp = String::from_utf8_unchecked(part.clone());
-    mem::forget(part);
-    tmp
 }
 
 fn parse_command_line<T: Deref<Target = str> + Borrow<str>>(cmd: &[T]) -> Vec<String> {

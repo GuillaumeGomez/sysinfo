@@ -9,7 +9,6 @@
 #![allow(clippy::non_send_fields_in_send_ty)]
 #![allow(renamed_and_removed_lints)]
 #![allow(clippy::assertions_on_constants)]
-#![allow(unknown_lints)]
 
 #[macro_use]
 mod macros;
