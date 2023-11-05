@@ -40,11 +40,21 @@ impl DiskInner {
     }
 }
 
-pub(crate) struct DisksInner;
+pub(crate) struct DisksInner {
+    pub(crate) disks: Vec<Disk>,
+}
 
 impl DisksInner {
     pub(crate) fn new() -> Self {
-        Self
+        Self { disks: Vec::new() }
+    }
+
+    pub(crate) fn from_vec(disks: Vec<Disk>) -> Self {
+        Self { disks }
+    }
+
+    pub(crate) fn into_vec(self) -> Vec<Disk> {
+        self.disks
     }
 
     pub(crate) fn refresh_list(&mut self) {
@@ -52,10 +62,10 @@ impl DisksInner {
     }
 
     pub(crate) fn list(&self) -> &[Disk] {
-        &[]
+        &self.disks
     }
 
     pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
-        &mut []
+        &mut self.disks
     }
 }
