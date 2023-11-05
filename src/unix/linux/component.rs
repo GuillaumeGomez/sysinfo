@@ -342,6 +342,14 @@ impl ComponentsInner {
         }
     }
 
+    pub(crate) fn from_vec(components: Vec<Component>) -> Self {
+        Self { components }
+    }
+
+    pub(crate) fn into_vec(self) -> Vec<Component> {
+        self.components
+    }
+
     pub(crate) fn list(&self) -> &[Component] {
         &self.components
     }
