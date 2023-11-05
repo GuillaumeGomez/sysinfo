@@ -16,7 +16,7 @@ use crate::sys::utils::{
     get_system_info, init_mib,
 };
 
-use libc::{c_int, c_void};
+use libc::c_int;
 
 pub(crate) struct SystemInner {
     process_list: HashMap<Pid, Process>,
@@ -602,17 +602,11 @@ impl Drop for SystemInfo {
 
 pub(crate) fn get_cpu_arch() -> Option<String> {
     use std::ffi::CStr;
-    let mut mib: [c_int; 2] = [libc::CTL_HW, libc::HW_MACHINE_ARCH];
     let mut arch_str: [u8; 32] = [0; 32];
 
     unsafe {
-        if get_sys_value(
-            libc::CTL_HW as _,
-            libc::HW_MACHINE as _,
-            mem::size_of::<[u8; 32]>(),
-            arch_str.as_mut_ptr() as *mut _,
-            &mut mib,
-        ) {
+        let mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
+        if get_sys_value(&mib, arch_str.as_mut_ptr() as *mut _) {
             CStr::from_bytes_until_nul(&arch_str)
                 .map(|res| match res.to_str() {
                     Ok(arch) => Some(arch.to_string()),
