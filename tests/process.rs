@@ -651,3 +651,79 @@ fn test_process_memory_refresh() {
     assert!(proc.memory() > 0);
     assert!(proc.virtual_memory() > 0);
 }
+
+// This test ensures that only the requested information is retrieved.
+#[test]
+fn test_process_specific_refresh() {
+    use std::path::Path;
+    use sysinfo::{DiskUsage, ProcessRefreshKind};
+
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+
+    fn check_empty(s: &System, pid: Pid) {
+        let p = s.process(pid).unwrap();
+
+        // Name should never be empty.
+        assert!(!p.name().is_empty());
+        if cfg!(target_os = "windows") {
+            assert_eq!(p.user_id(), None);
+        }
+        assert_eq!(p.environ().len(), 0);
+        assert_eq!(p.cmd().len(), 0);
+        assert_eq!(p.exe(), Path::new(""));
+        assert_eq!(p.cwd(), Path::new(""));
+        assert_eq!(p.root(), Path::new(""));
+        assert_eq!(p.memory(), 0);
+        assert_eq!(p.virtual_memory(), 0);
+        // These two won't be checked, too much lazyness in testing them...
+        assert_eq!(p.disk_usage(), DiskUsage::default());
+        assert_eq!(p.cpu_usage(), 0.);
+    }
+
+    let mut s = System::new();
+    let pid = Pid::from_u32(std::process::id());
+
+    macro_rules! update_specific_and_check {
+        (memory) => {
+            s.refresh_process_specifics(pid, ProcessRefreshKind::new());
+            {
+                let p = s.process(pid).unwrap();
+                assert_eq!(p.memory(), 0);
+                assert_eq!(p.virtual_memory(), 0);
+            }
+            s.refresh_process_specifics(pid, ProcessRefreshKind::new().with_memory());
+            {
+                let p = s.process(pid).unwrap();
+                assert_ne!(p.memory(), 0);
+                assert_ne!(p.virtual_memory(), 0);
+            }
+        };
+        ($name:ident, $method:ident, $($extra:tt)+) => {
+            s.refresh_process_specifics(pid, ProcessRefreshKind::new());
+            {
+                let p = s.process(pid).unwrap();
+                assert_eq!(p.$name()$($extra)+);
+            }
+            s.refresh_process_specifics(pid, ProcessRefreshKind::new().$method());
+            {
+                let p = s.process(pid).unwrap();
+                assert_ne!(p.$name()$($extra)+);
+            }
+        }
+    }
+
+    s.refresh_process_specifics(pid, ProcessRefreshKind::new());
+    check_empty(&s, pid);
+
+    s.refresh_process_specifics(pid, ProcessRefreshKind::new());
+    check_empty(&s, pid);
+
+    update_specific_and_check!(memory);
+    update_specific_and_check!(environ, with_environ, .len(), 0);
+    update_specific_and_check!(cmd, with_cmd, .len(), 0);
+    update_specific_and_check!(exe, with_exe, , Path::new(""));
+    update_specific_and_check!(cwd, with_cwd, , Path::new(""));
+    update_specific_and_check!(root, with_root, , Path::new(""));
+}

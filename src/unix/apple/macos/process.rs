@@ -367,47 +367,17 @@ unsafe fn create_new_process(
     refresh_kind: ProcessRefreshKind,
     info: Option<libc::proc_bsdinfo>,
 ) -> Result<Option<Process>, ()> {
-    let mut vnodepathinfo = mem::zeroed::<libc::proc_vnodepathinfo>();
-    let result = libc::proc_pidinfo(
-        pid.0,
-        libc::PROC_PIDVNODEPATHINFO,
-        0,
-        &mut vnodepathinfo as *mut _ as *mut _,
-        mem::size_of::<libc::proc_vnodepathinfo>() as _,
-    );
-    let (cwd, root) = if result > 0 {
-        (
-            convert_node_path_info(&vnodepathinfo.pvi_cdir),
-            convert_node_path_info(&vnodepathinfo.pvi_rdir),
-        )
-    } else {
-        (PathBuf::new(), PathBuf::new())
-    };
+    let (cwd, root) = get_cwd_root(pid, refresh_kind);
 
     let info = match info {
         Some(info) => info,
         None => {
-            let mut buffer: Vec<u8> = Vec::with_capacity(libc::PROC_PIDPATHINFO_MAXSIZE as _);
-            match libc::proc_pidpath(
-                pid.0,
-                buffer.as_mut_ptr() as *mut _,
-                libc::PROC_PIDPATHINFO_MAXSIZE as _,
-            ) {
-                x if x > 0 => {
-                    buffer.set_len(x as _);
-                    let tmp = String::from_utf8_unchecked(buffer);
-                    let exe = PathBuf::from(tmp);
-                    let name = exe
-                        .file_name()
-                        .and_then(|x| x.to_str())
-                        .unwrap_or("")
-                        .to_owned();
-                    return Ok(Some(Process {
-                        inner: ProcessInner::new_empty(pid, exe, name, cwd, root),
-                    }));
-                }
-                _ => {}
+            if let Some((exe, name)) = get_exe_and_name_backup(pid, refresh_kind) {
+                return Ok(Some(Process {
+                    inner: ProcessInner::new_empty(pid, exe, name, cwd, root),
+                }));
             }
+            // If we can't even have the name, no point in keeping it.
             return Err(());
         }
     };
@@ -416,6 +386,108 @@ unsafe fn create_new_process(
         p => Some(Pid(p)),
     };
 
+    let start_time = info.pbi_start_tvsec;
+    let run_time = now.saturating_sub(start_time);
+
+    let mut p = ProcessInner::new(pid, parent, start_time, run_time, cwd, root);
+    match get_process_infos(pid, refresh_kind) {
+        Some((exe, name, cmd, environ)) => {
+            p.exe = exe;
+            p.name = name;
+            p.cmd = cmd;
+            p.environ = environ;
+        }
+        None => {
+            if let Some((exe, name)) = get_exe_and_name_backup(pid, refresh_kind) {
+                p.exe = exe;
+                p.name = name;
+            } else {
+                // If we can't even have the name, no point in keeping it.
+                return Err(());
+            }
+        }
+    }
+
+    if refresh_kind.memory() {
+        let task_info = get_task_info(pid);
+        p.memory = task_info.pti_resident_size;
+        p.virtual_memory = task_info.pti_virtual_size;
+    }
+
+    p.user_id = Some(Uid(info.pbi_ruid));
+    p.effective_user_id = Some(Uid(info.pbi_uid));
+    p.group_id = Some(Gid(info.pbi_rgid));
+    p.effective_group_id = Some(Gid(info.pbi_gid));
+    p.process_status = ProcessStatus::from(info.pbi_status);
+    if refresh_kind.disk_usage() {
+        update_proc_disk_activity(&mut p);
+    }
+    Ok(Some(Process { inner: p }))
+}
+
+/// Less efficient way to retrieve `exe` and `name`.
+fn get_exe_and_name_backup(
+    pid: Pid,
+    refresh_kind: ProcessRefreshKind,
+) -> Option<(PathBuf, String)> {
+    let mut buffer: Vec<u8> = Vec::with_capacity(libc::PROC_PIDPATHINFO_MAXSIZE as _);
+    match libc::proc_pidpath(
+        pid.0,
+        buffer.as_mut_ptr() as *mut _,
+        libc::PROC_PIDPATHINFO_MAXSIZE as _,
+    ) {
+        x if x > 0 => {
+            buffer.set_len(x as _);
+            let tmp = String::from_utf8_unchecked(buffer);
+            let mut exe = PathBuf::from(tmp);
+            let name = exe
+                .file_name()
+                .and_then(|x| x.to_str())
+                .unwrap_or("")
+                .to_owned();
+            if !refresh_kind.exe() {
+                exe = PathBuf::new();
+            }
+            Some((exe, name))
+        }
+        _ => Err(()),
+    }
+}
+
+/// Returns `cwd` and `root`.
+fn get_cwd_root(pid: Pid, refresh_kind: ProcessRefreshKind) -> (PathBuf, PathBuf) {
+    if !refresh_kind.cwd() && !refresh_kind.root() {
+        return (PathBuf::new(), PathBuf::new());
+    }
+    let mut vnodepathinfo = mem::zeroed::<libc::proc_vnodepathinfo>();
+    let result = libc::proc_pidinfo(
+        pid.0,
+        libc::PROC_PIDVNODEPATHINFO,
+        0,
+        &mut vnodepathinfo as *mut _ as *mut _,
+        mem::size_of::<libc::proc_vnodepathinfo>() as _,
+    );
+    if result < 1 {
+        return (PathBuf::new(), PathBuf::new());
+    }
+    let cwd = if refresh_kind.cwd() {
+        convert_node_path_info(&vnodepathinfo.pvi_cdir)
+    } else {
+        PathBuf::new()
+    };
+    let root = if refresh_kind.root() {
+        convert_node_path_info(&vnodepathinfo.pvi_rdir)
+    } else {
+        PathBuf::new()
+    };
+    (cwd, root)
+}
+
+/// Returns (exe, name, cmd, environ)
+fn get_process_infos(
+    pid: Pid,
+    refresh_kind: ProcessRefreshKind,
+) -> Option<(PathBuf, String, Vec<String>, Vec<String>)> {
     /*
      * /---------------\ 0x00000000
      * | ::::::::::::: |
@@ -446,7 +518,7 @@ unsafe fn create_new_process(
      * :               :
      * \---------------/ 0xffffffff
      */
-    let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
+    let mut mib: [libc::c_int; 3] = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
     let mut arg_max = 0;
     // First we retrieve the size we will need for our data (in `arg_max`).
     if libc::sysctl(
@@ -462,7 +534,7 @@ unsafe fn create_new_process(
             "couldn't get arguments and environment size for PID {}",
             pid.0
         );
-        return Err(()); // not enough rights I assume?
+        return None; // not enough rights I assume?
     }
 
     let mut proc_args: Vec<u8> = Vec::with_capacity(arg_max as _);
@@ -476,61 +548,47 @@ unsafe fn create_new_process(
     ) == -1
     {
         sysinfo_debug!("couldn't get arguments and environment for PID {}", pid.0);
-        return Err(()); // What changed since the previous call? Dark magic!
+        return None; // What changed since the previous call? Dark magic!
     }
 
     proc_args.set_len(arg_max);
 
-    let start_time = info.pbi_start_tvsec;
-    let run_time = now.saturating_sub(start_time);
-
-    let mut p = if !proc_args.is_empty() {
-        // We copy the number of arguments (`argc`) to `n_args`.
-        let mut n_args: c_int = 0;
-        libc::memcpy(
-            &mut n_args as *mut _ as *mut _,
-            proc_args.as_slice().as_ptr() as *const _,
-            mem::size_of::<c_int>(),
-        );
-
-        // We skip `argc`.
-        let proc_args = &proc_args[mem::size_of::<c_int>()..];
-
-        let (exe, proc_args) = get_exe(proc_args);
-        let name = exe
-            .file_name()
-            .and_then(|x| x.to_str())
-            .unwrap_or("")
-            .to_owned();
-
-        let (cmd, proc_args) = get_arguments(proc_args, n_args);
-
-        let environ = get_environ(proc_args);
-        let mut p = ProcessInner::new(pid, parent, start_time, run_time, cwd, root);
-
-        p.exe = exe;
-        p.name = name;
-        p.cmd = parse_command_line(&cmd);
-        p.environ = environ;
-        p
-    } else {
-        ProcessInner::new(pid, parent, start_time, run_time, cwd, root)
-    };
-
-    let task_info = get_task_info(pid);
-
-    p.memory = task_info.pti_resident_size;
-    p.virtual_memory = task_info.pti_virtual_size;
-
-    p.user_id = Some(Uid(info.pbi_ruid));
-    p.effective_user_id = Some(Uid(info.pbi_uid));
-    p.group_id = Some(Gid(info.pbi_rgid));
-    p.effective_group_id = Some(Gid(info.pbi_gid));
-    p.process_status = ProcessStatus::from(info.pbi_status);
-    if refresh_kind.disk_usage() {
-        update_proc_disk_activity(&mut p);
+    if proc_args.is_empty() {
+        return None;
     }
-    Ok(Some(Process { inner: p }))
+    // We copy the number of arguments (`argc`) to `n_args`.
+    let mut n_args: c_int = 0;
+    libc::memcpy(
+        &mut n_args as *mut _ as *mut _,
+        proc_args.as_slice().as_ptr() as *const _,
+        mem::size_of::<c_int>(),
+    );
+
+    // We skip `argc`.
+    let proc_args = &proc_args[mem::size_of::<c_int>()..];
+
+    let (mut exe, proc_args) = get_exe(proc_args);
+    let name = exe
+        .file_name()
+        .and_then(|x| x.to_str())
+        .unwrap_or("")
+        .to_owned();
+
+    if !refresh_kind.exe() {
+        exe = PathBuf::new();
+    }
+
+    let (cmd, proc_args) = if refresh_kind.environ() || refresh_kind.cmd() {
+        get_arguments(proc_args, n_args);
+    } else {
+        (Vec::new(), &[])
+    };
+    let environ = if refresh_kind.environ() {
+        get_environ(proc_args)
+    } else {
+        Vec::new()
+    };
+    Some((exe, name, parse_command_line(&cmd), environ))
 }
 
 fn get_exe(data: &[u8]) -> (PathBuf, &[u8]) {
@@ -619,7 +677,6 @@ pub(crate) fn update_process(
                     return create_new_process(pid, now, refresh_kind, Some(info));
                 }
             }
-            let task_info = get_task_info(pid);
             let mut thread_info = mem::zeroed::<libc::proc_threadinfo>();
             let (user_time, system_time, thread_status) = if libc::proc_pidinfo(
                 pid.0,
@@ -644,12 +701,18 @@ pub(crate) fn update_process(
             };
             p.status = thread_status;
 
-            if refresh_kind.cpu() {
-                compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
+            if refresh_kind.cpu() || refresh_kind.memory() {
+                let task_info = get_task_info(pid);
+
+                if refresh_kind.cpu() {
+                    compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
+                }
+                if refresh_kind.memory() {
+                    p.memory = task_info.pti_resident_size;
+                    p.virtual_memory = task_info.pti_virtual_size;
+                }
             }
 
-            p.memory = task_info.pti_resident_size;
-            p.virtual_memory = task_info.pti_virtual_size;
             if refresh_kind.disk_usage() {
                 update_proc_disk_activity(p);
             }

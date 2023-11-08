@@ -323,7 +323,10 @@ unsafe fn get_process_name(pid: Pid) -> Option<String> {
     name
 }
 
-unsafe fn get_exe(process_handler: &HandleWrapper) -> PathBuf {
+unsafe fn get_exe(process_handler: &HandleWrapper, refresh_kind: ProcessRefreshKind) -> PathBuf {
+    if !refresh_kind.exe() {
+        return PathBuf::new();
+    }
     let mut exe_buf = [0u16; MAX_PATH as usize + 1];
     GetModuleFileNameExW(
         **process_handler,
@@ -358,9 +361,14 @@ impl ProcessInner {
 
             let name = get_process_name(pid).unwrap_or_default();
             let exe = get_exe(&process_handler);
-            let mut root = exe.clone();
-            root.pop();
-            let (cmd, environ, cwd) = match get_process_params(&process_handler) {
+            let root = if refresh_kind.root() {
+                let mut root = exe.clone();
+                root.pop();
+                root
+            } else {
+                PathBuf::new();
+            };
+            let (cmd, environ, cwd) = match get_process_params(&process_handler, refresh_kind) {
                 Ok(args) => args,
                 Err(_e) => {
                     sysinfo_debug!("Failed to get process parameters: {}", _e);
@@ -415,7 +423,7 @@ impl ProcessInner {
                 let exe = get_exe(&handle);
                 let mut root = exe.clone();
                 root.pop();
-                let (cmd, environ, cwd) = match get_process_params(&handle) {
+                let (cmd, environ, cwd) = match get_process_params(&handle, refresh_kind) {
                     Ok(args) => args,
                     Err(_e) => {
                         sysinfo_debug!("Failed to get process parameters: {}", _e);
@@ -458,7 +466,7 @@ impl ProcessInner {
                 parent,
                 cmd: Vec::new(),
                 environ: Vec::new(),
-                exe: get_executable_path(pid),
+                exe: get_executable_path(pid, refresh_kind),
                 cwd: PathBuf::new(),
                 root: PathBuf::new(),
                 status: ProcessStatus::Run,
@@ -489,7 +497,9 @@ impl ProcessInner {
         if refresh_kind.disk_usage() {
             update_disk_usage(self);
         }
-        update_memory(self);
+        if refresh_kind.memory() {
+            update_memory(self);
+        }
         self.run_time = now.saturating_sub(self.start_time());
         self.updated = true;
     }
@@ -811,9 +821,13 @@ impl_RtlUserProcessParameters!(RTL_USER_PROCESS_PARAMETERS);
 
 unsafe fn get_process_params(
     handle: &HandleWrapper,
+    refresh_kind: ProcessRefreshKind,
 ) -> Result<(Vec<String>, Vec<String>, PathBuf), &'static str> {
     if !cfg!(target_pointer_width = "64") {
         return Err("Non 64 bit targets are not supported");
+    }
+    if !refresh_kind.cmd() && !refresh_kind.environ() && !refresh_kind.cwd() {
+        return Ok((Vec::new(), Vec::new(), PathBuf::new()));
     }
 
     // First check if target process is running in wow64 compatibility emulator
@@ -878,9 +892,9 @@ unsafe fn get_process_params(
 
         let proc_params = proc_params.assume_init();
         return Ok((
-            get_cmd_line(&proc_params, handle),
-            get_proc_env(&proc_params, handle),
-            get_cwd(&proc_params, handle),
+            get_cmd_line(&proc_params, handle, refresh_kind),
+            get_proc_env(&proc_params, handle, refresh_kind),
+            get_cwd(&proc_params, handle, refresh_kind),
         ));
     }
     // target is a 32 bit process in wow64 mode
@@ -913,13 +927,20 @@ unsafe fn get_process_params(
     }
     let proc_params = proc_params.assume_init();
     Ok((
-        get_cmd_line(&proc_params, handle),
-        get_proc_env(&proc_params, handle),
-        get_cwd(&proc_params, handle),
+        get_cmd_line(&proc_params, handle, refresh_kind),
+        get_proc_env(&proc_params, handle, refresh_kind),
+        get_cwd(&proc_params, handle, refresh_kind),
     ))
 }
 
-fn get_cwd<T: RtlUserProcessParameters>(params: &T, handle: &HandleWrapper) -> PathBuf {
+fn get_cwd<T: RtlUserProcessParameters>(
+    params: &T,
+    handle: &HandleWrapper,
+    refresh_kind: ProcessRefreshKind,
+) -> PathBuf {
+    if !refresh_kind.cwd() {
+        return PathBuf::new();
+    }
     match params.get_cwd(handle) {
         Ok(buffer) => unsafe { PathBuf::from(null_terminated_wchar_to_string(buffer.as_slice())) },
         Err(_e) => {
@@ -965,7 +986,14 @@ fn get_cmd_line_new(handle: &HandleWrapper) -> Vec<String> {
     }
 }
 
-fn get_cmd_line<T: RtlUserProcessParameters>(params: &T, handle: &HandleWrapper) -> Vec<String> {
+fn get_cmd_line<T: RtlUserProcessParameters>(
+    params: &T,
+    handle: &HandleWrapper,
+    refresh_kind: ProcessRefreshKind,
+) -> Vec<String> {
+    if !refresh_kind.cmd() {
+        return Vec::new();
+    }
     if *WINDOWS_8_1_OR_NEWER {
         get_cmd_line_new(handle)
     } else {
@@ -973,7 +1001,14 @@ fn get_cmd_line<T: RtlUserProcessParameters>(params: &T, handle: &HandleWrapper)
     }
 }
 
-fn get_proc_env<T: RtlUserProcessParameters>(params: &T, handle: &HandleWrapper) -> Vec<String> {
+fn get_proc_env<T: RtlUserProcessParameters>(
+    params: &T,
+    handle: &HandleWrapper,
+    refresh_kind: ProcessRefreshKind,
+) -> Vec<String> {
+    if !refresh_kind.environ() {
+        return Vec::new();
+    }
     match params.get_environ(handle) {
         Ok(buffer) => {
             let equals = "=".encode_utf16().next().unwrap();
@@ -1002,7 +1037,10 @@ fn get_proc_env<T: RtlUserProcessParameters>(params: &T, handle: &HandleWrapper)
     }
 }
 
-pub(crate) fn get_executable_path(_pid: Pid) -> PathBuf {
+pub(crate) fn get_executable_path(_pid: Pid, refresh_kind: ProcessRefreshKind) -> PathBuf {
+    if !refresh_kind.exe() {
+        return PathBuf::new();
+    }
     /*let where_req = format!("ProcessId={}", pid);
 
     if let Some(ret) = run_wmi(&["process", "where", &where_req, "get", "ExecutablePath"]) {

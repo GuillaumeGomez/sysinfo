@@ -295,8 +295,10 @@ impl SystemInner {
                         .map(|start| start == proc_.start_time())
                         .unwrap_or(true)
                     {
-                        proc_.memory = pi.WorkingSetSize as _;
-                        proc_.virtual_memory = pi.VirtualSize as _;
+                        if refresh_kind.memory() {
+                            proc_.memory = pi.WorkingSetSize as _;
+                            proc_.virtual_memory = pi.VirtualSize as _;
+                        }
                         proc_.update(refresh_kind, nb_cpus, now);
                         return None;
                     }
@@ -304,6 +306,11 @@ impl SystemInner {
                     sysinfo_debug!("owner changed for PID {}", proc_.pid());
                 }
                 let name = get_process_name(&pi, pid);
+                let (memory, virtual_memory) = if refresh_kind.memory() {
+                    (pi.WorkingSetSize as _, pi.VirtualSize as _)
+                } else {
+                    (0, 0)
+                };
                 let mut p = ProcessInner::new_full(
                     pid,
                     if pi.InheritedFromUniqueProcessId as usize != 0 {
@@ -311,13 +318,13 @@ impl SystemInner {
                     } else {
                         None
                     },
-                    pi.WorkingSetSize as _,
-                    pi.VirtualSize as _,
+                    memory,
+                    virtual_memory,
                     name,
                     now,
                     refresh_kind,
                 );
-                p.update(refresh_kind, nb_cpus, now);
+                p.update(refresh_kind.witout_memory(), nb_cpus, now);
                 Some(Process { inner: p })
             })
             .collect::<Vec<_>>();
