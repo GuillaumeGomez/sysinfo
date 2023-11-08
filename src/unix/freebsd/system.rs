@@ -297,11 +297,15 @@ impl SystemInner {
         kd: *mut libc::kvm_t,
         kproc: &libc::kinfo_proc,
         mut proc_: Process,
+        refresh_kind: ProcessRefreshKind,
     ) {
         {
             let proc_inner = &mut proc_.inner;
-            proc_inner.cmd = from_cstr_array(libc::kvm_getargv(kd, kproc, 0) as _);
-            self.system_info.get_proc_missing_info(kproc, proc_inner);
+            if refresh_kind.cmd() {
+                proc_inner.cmd = from_cstr_array(libc::kvm_getargv(kd, kproc, 0) as _);
+            }
+            self.system_info
+                .get_proc_missing_info(kproc, proc_inner, refresh_kind);
             if !proc_inner.cmd.is_empty() {
                 // First, we try to retrieve the name from the command line.
                 let p = Path::new(&proc_inner.cmd[0]);
@@ -320,7 +324,9 @@ impl SystemInner {
                 // possible.
                 proc_inner.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_default();
             }
-            proc_inner.environ = from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _);
+            if refresh_kind.environ() {
+                proc_inner.environ = from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _);
+            }
         }
         self.process_list.insert(proc_.inner.pid, proc_);
     }
@@ -565,7 +571,22 @@ impl SystemInfo {
     }
 
     #[allow(clippy::collapsible_if)] // I keep as is for readability reasons.
-    unsafe fn get_proc_missing_info(&mut self, kproc: &libc::kinfo_proc, proc_: &mut ProcessInner) {
+    unsafe fn get_proc_missing_info(
+        &mut self,
+        kproc: &libc::kinfo_proc,
+        proc_: &mut ProcessInner,
+        refresh_kind: ProcessRefreshKind,
+    ) {
+        let mut done = 0;
+        if refresh_kind.cwd() {
+            done += 1;
+        }
+        if refresh_kind.root() {
+            done += 1;
+        }
+        if done == 0 {
+            return;
+        }
         if self.procstat.is_null() {
             self.procstat = libc::procstat_open_sysctl();
         }
@@ -577,22 +598,21 @@ impl SystemInfo {
             return;
         }
         let mut entry = (*head).stqh_first;
-        let mut done = 0;
-        while !entry.is_null() && done < 2 {
+        while !entry.is_null() && done > 0 {
             {
                 let tmp = &*entry;
                 if tmp.fs_uflags & libc::PS_FST_UFLAG_CDIR != 0 {
-                    if !tmp.fs_path.is_null() {
+                    if refresh_kind.cwd() && !tmp.fs_path.is_null() {
                         if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
                             proc_.cwd = PathBuf::from(p);
-                            done += 1;
+                            done -= 1;
                         }
                     }
                 } else if tmp.fs_uflags & libc::PS_FST_UFLAG_RDIR != 0 {
-                    if !tmp.fs_path.is_null() {
+                    if refresh_kind.root() && !tmp.fs_path.is_null() {
                         if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
                             proc_.root = PathBuf::from(p);
-                            done += 1;
+                            done -= 1;
                         }
                     }
                 }

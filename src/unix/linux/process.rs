@@ -366,7 +366,7 @@ fn retrieve_all_new_process_info(
     uptime: u64,
 ) -> Process {
     let mut p = ProcessInner::new(pid);
-    let mut tmp = PathHandler::new(path);
+    let mut proc_path = PathHandler::new(path);
     let name = parts[1];
 
     p.parent = if proc_list.pid.0 != 0 {
@@ -386,26 +386,37 @@ fn retrieve_all_new_process_info(
     get_status(&mut p, parts[2]);
 
     if refresh_kind.user() {
-        refresh_user_group_ids(&mut p, &mut tmp);
+        refresh_user_group_ids(&mut p, &mut proc_path);
     }
 
     p.name = name.into();
 
-    match tmp.join("exe").read_link() {
-        Ok(exe_path) => {
-            p.exe = exe_path;
-        }
-        Err(_) => {
-            // Do not use cmd[0] because it is not the same thing.
-            // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
-            p.exe = PathBuf::new()
+    if refresh_kind.exe() {
+        match proc_path.join("exe").read_link() {
+            Ok(exe_path) => {
+                p.exe = exe_path;
+            }
+            Err(_) => {
+                sysinfo_debug!("Failed to retrieve exe for {}", pid.0);
+                // Do not use cmd[0] because it is not the same thing.
+                // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
+                p.exe = PathBuf::new()
+            }
         }
     }
 
-    p.cmd = copy_from_file(tmp.join("cmdline"));
-    p.environ = copy_from_file(tmp.join("environ"));
-    p.cwd = realpath(tmp.join("cwd"));
-    p.root = realpath(tmp.join("root"));
+    if refresh_kind.cmd() {
+        p.cmd = copy_from_file(proc_path.join("cmdline"));
+    }
+    if refresh_kind.environ() {
+        p.environ = copy_from_file(proc_path.join("environ"));
+    }
+    if refresh_kind.cwd() {
+        p.cwd = realpath(proc_path.join("cwd"));
+    }
+    if refresh_kind.root() {
+        p.root = realpath(proc_path.join("root"));
+    }
 
     update_time_and_memory(
         path,
@@ -525,18 +536,20 @@ fn update_time_and_memory(
     refresh_kind: ProcessRefreshKind,
 ) {
     {
-        // rss
-        entry.memory = u64::from_str(parts[23])
-            .unwrap_or(0)
-            .saturating_mul(info.page_size_b);
-        if entry.memory >= parent_memory {
-            entry.memory -= parent_memory;
-        }
-        // vsz correspond to the Virtual memory size in bytes.
-        // see: https://man7.org/linux/man-pages/man5/proc.5.html
-        entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0);
-        if entry.virtual_memory >= parent_virtual_memory {
-            entry.virtual_memory -= parent_virtual_memory;
+        if refresh_kind.memory() {
+            // rss
+            entry.memory = u64::from_str(parts[23])
+                .unwrap_or(0)
+                .saturating_mul(info.page_size_b);
+            if entry.memory >= parent_memory {
+                entry.memory -= parent_memory;
+            }
+            // vsz correspond to the Virtual memory size in bytes.
+            // see: https://man7.org/linux/man-pages/man5/proc.5.html
+            entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0);
+            if entry.virtual_memory >= parent_virtual_memory {
+                entry.virtual_memory -= parent_virtual_memory;
+            }
         }
         set_time(
             entry,
