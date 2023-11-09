@@ -1455,14 +1455,7 @@ impl ProcessRefreshKind {
         with_disk_usage,
         without_disk_usage
     );
-    impl_get_set!(
-        ProcessRefreshKind,
-        user,
-        with_user,
-        without_user,
-        r#"This refresh is about `user_id` and `group_id`. Please note that it has an effect mostly
-on Windows as other platforms get this information alongside the Process information directly."#,
-    );
+    impl_get_set!(ProcessRefreshKind, user, with_user, without_user);
     impl_get_set!(ProcessRefreshKind, memory, with_memory, without_memory);
     impl_get_set!(ProcessRefreshKind, cwd, with_cwd, without_cwd);
     impl_get_set!(ProcessRefreshKind, root, with_root, without_root);
