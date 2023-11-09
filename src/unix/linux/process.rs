@@ -92,11 +92,11 @@ pub(crate) struct ProcessInner {
 impl ProcessInner {
     pub(crate) fn new(pid: Pid) -> Self {
         Self {
-            name: String::with_capacity(20),
+            name: String::new(),
             pid,
             parent: None,
-            cmd: Vec::with_capacity(2),
-            environ: Vec::with_capacity(10),
+            cmd: Vec::new(),
+            environ: Vec::new(),
             exe: PathBuf::new(),
             cwd: PathBuf::new(),
             root: PathBuf::new(),
@@ -277,7 +277,7 @@ pub(crate) fn set_time(p: &mut ProcessInner, utime: u64, stime: u64) {
     p.updated = true;
 }
 
-pub(crate) fn update_process_disk_activity(p: &mut ProcessInner, path: &Path) {
+pub(crate) fn update_process_disk_activity(p: &mut ProcessInner, path: &mut PathHandler) {
     let data = match get_all_data(path.join("io"), 16_384) {
         Ok(d) => d,
         Err(_) => return,
@@ -345,7 +345,7 @@ fn get_status(p: &mut ProcessInner, part: &str) {
         .unwrap_or_else(|| ProcessStatus::Unknown(0));
 }
 
-fn refresh_user_group_ids<P: PathPush>(p: &mut ProcessInner, path: &mut P) {
+fn refresh_user_group_ids(p: &mut ProcessInner, path: &mut PathHandler) {
     if let Some(((user_id, effective_user_id), (group_id, effective_group_id))) =
         get_uid_and_gid(path.join("status"))
     {
@@ -353,6 +353,62 @@ fn refresh_user_group_ids<P: PathPush>(p: &mut ProcessInner, path: &mut P) {
         p.effective_user_id = Some(Uid(effective_user_id));
         p.group_id = Some(Gid(group_id));
         p.effective_group_id = Some(Gid(effective_group_id));
+    }
+}
+
+fn update_proc_info(
+    p: &mut ProcessInner,
+    refresh_kind: ProcessRefreshKind,
+    proc_path: &mut PathHandler,
+    parts: &[&str],
+    memory: u64,
+    virtual_memory: u64,
+    uptime: u64,
+    info: &SystemInfo,
+) {
+    get_status(p, parts[2]);
+
+    if refresh_kind.user() && p.user_id.is_none() {
+        refresh_user_group_ids(p, proc_path);
+    }
+
+    if refresh_kind.exe() && p.exe == Path::new("") {
+        match proc_path.join("exe").read_link() {
+            Ok(exe_path) => p.exe = exe_path,
+            Err(_error) => {
+                sysinfo_debug!("Failed to retrieve exe for {}: {_error:?}", p.pid().0);
+                // Do not use cmd[0] because it is not the same thing.
+                // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
+                p.exe = PathBuf::new();
+            }
+        }
+    }
+
+    if refresh_kind.cmd() && p.cmd.is_empty() {
+        p.cmd = copy_from_file(proc_path.join("cmdline"));
+    }
+    if refresh_kind.environ() {
+        p.environ = copy_from_file(proc_path.join("environ"));
+    }
+    if refresh_kind.cwd() {
+        p.cwd = realpath(proc_path.join("cwd"));
+    }
+    if refresh_kind.root() {
+        p.root = realpath(proc_path.join("root"));
+    }
+
+    update_time_and_memory(
+        proc_path,
+        p,
+        parts,
+        memory,
+        virtual_memory,
+        uptime,
+        info,
+        refresh_kind,
+    );
+    if refresh_kind.disk_usage() {
+        update_process_disk_activity(p, proc_path);
     }
 }
 
@@ -383,54 +439,19 @@ fn retrieve_all_new_process_info(
         .start_time_without_boot_time
         .saturating_add(info.boot_time);
 
-    get_status(&mut p, parts[2]);
-
-    if refresh_kind.user() {
-        refresh_user_group_ids(&mut p, &mut proc_path);
-    }
-
     p.name = name.into();
 
-    if refresh_kind.exe() {
-        match proc_path.join("exe").read_link() {
-            Ok(exe_path) => {
-                p.exe = exe_path;
-            }
-            Err(_) => {
-                sysinfo_debug!("Failed to retrieve exe for {}", pid.0);
-                // Do not use cmd[0] because it is not the same thing.
-                // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
-                p.exe = PathBuf::new()
-            }
-        }
-    }
-
-    if refresh_kind.cmd() {
-        p.cmd = copy_from_file(proc_path.join("cmdline"));
-    }
-    if refresh_kind.environ() {
-        p.environ = copy_from_file(proc_path.join("environ"));
-    }
-    if refresh_kind.cwd() {
-        p.cwd = realpath(proc_path.join("cwd"));
-    }
-    if refresh_kind.root() {
-        p.root = realpath(proc_path.join("root"));
-    }
-
-    update_time_and_memory(
-        path,
+    update_proc_info(
         &mut p,
+        refresh_kind,
+        &mut proc_path,
         parts,
         proc_list.memory,
         proc_list.virtual_memory,
         uptime,
         info,
-        refresh_kind,
     );
-    if refresh_kind.disk_usage() {
-        update_process_disk_activity(&mut p, path);
-    }
+
     Process { inner: p }
 }
 
@@ -451,9 +472,6 @@ pub(crate) fn _get_process_data(
         Some(Ok(nb)) if nb != pid => nb,
         _ => return Err(()),
     };
-
-    let parent_memory = proc_list.memory;
-    let parent_virtual_memory = proc_list.virtual_memory;
 
     let data;
     let parts = if let Some(ref mut entry) = proc_list.tasks.get_mut(&pid) {
@@ -481,22 +499,21 @@ pub(crate) fn _get_process_data(
         // If the start time differs, then it means it's not the same process anymore and that we
         // need to get all its information, hence why we check it here.
         if start_time_without_boot_time == entry.start_time_without_boot_time {
-            get_status(entry, parts[2]);
-            update_time_and_memory(
-                path,
+            let mut proc_path = PathHandler::new(path);
+
+            update_proc_info(
                 entry,
+                refresh_kind,
+                &mut proc_path,
                 &parts,
-                parent_memory,
-                parent_virtual_memory,
+                proc_list.memory,
+                proc_list.virtual_memory,
                 uptime,
                 info,
-                refresh_kind,
             );
-            if refresh_kind.disk_usage() {
-                update_process_disk_activity(entry, path);
-            }
+
             if refresh_kind.user() && entry.user_id.is_none() {
-                refresh_user_group_ids(entry, &mut PathBuf::from(path));
+                refresh_user_group_ids(entry, &mut proc_path);
             }
             return Ok((None, pid));
         }
@@ -526,7 +543,7 @@ pub(crate) fn _get_process_data(
 
 #[allow(clippy::too_many_arguments)]
 fn update_time_and_memory(
-    path: &Path,
+    path: &mut PathHandler,
     entry: &mut ProcessInner,
     parts: &[&str],
     parent_memory: u64,
@@ -646,19 +663,14 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
                 sysinfo_debug!("Failed to read file in `copy_from_file`: {:?}", _e);
                 Vec::new()
             } else {
-                let mut out = Vec::with_capacity(20);
-                let mut start = 0;
-                for (pos, x) in data.iter().enumerate() {
-                    if *x == 0 {
-                        if pos - start >= 1 {
-                            if let Ok(s) =
-                                std::str::from_utf8(&data[start..pos]).map(|x| x.trim().to_owned())
-                            {
-                                out.push(s);
-                            }
-                        }
-                        start = pos + 1; // to keeping prevent '\0'
+                let mut out = Vec::with_capacity(10);
+                let mut data = data.as_slice();
+                while let Some(pos) = data.into_iter().position(|c| *c == 0) {
+                    match std::str::from_utf8(&data[..pos]).map(|s| s.trim()) {
+                        Ok(s) if !s.is_empty() => out.push(s.to_string()),
+                        _ => {}
                     }
+                    data = &data[pos + 1..];
                 }
                 out
             }
