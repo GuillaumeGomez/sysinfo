@@ -701,6 +701,18 @@ impl System {
     pub fn host_name(&self) -> Option<String> {
         self.inner.host_name()
     }
+
+    /// Returns the CPU architecture (eg. x86, amd64, aarch64, ...)
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// println!("CPU Archicture: {:?}", s.cpu_arch());
+    /// ```
+    pub fn cpu_arch(&self) -> Option<String> {
+        self.inner.cpu_arch()
+    }
 }
 
 /// Struct containing information of a process.
