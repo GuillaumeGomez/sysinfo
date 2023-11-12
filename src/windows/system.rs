@@ -325,7 +325,7 @@ impl SystemInner {
                     now,
                     refresh_kind,
                 );
-                p.update(refresh_kind.witout_memory(), nb_cpus, now);
+                p.update(refresh_kind.without_memory(), nb_cpus, now);
                 Some(Process { inner: p })
             })
             .collect::<Vec<_>>();

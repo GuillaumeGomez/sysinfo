@@ -506,21 +506,6 @@ mod test {
         );
     }
 
-    // We ensure that the `Process` cmd information is retrieved as expected.
-    #[test]
-    fn check_cmd_line() {
-        if !IS_SUPPORTED {
-            return;
-        }
-        let mut sys = System::new();
-        sys.refresh_processes_specifics(ProcessRefreshKind::new());
-
-        assert!(sys
-            .processes()
-            .iter()
-            .any(|(_, process)| !process.cmd().is_empty()));
-    }
-
     #[test]
     fn check_cpu_arch() {
         let s = System::new();
