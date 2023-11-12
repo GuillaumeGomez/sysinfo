@@ -451,7 +451,27 @@ impl SystemInner {
         std::env::consts::OS.to_owned()
     }
     pub(crate) fn cpu_arch(&self) -> Option<String> {
-        get_cpu_arch()
+        unsafe {
+            // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
+            let info = SYSTEM_INFO::default();
+            match info.Anonymous.Anonymous.wProcessorArchitecture {
+                SystemInformation::PROCESSOR_ARCHITECTURE_ALPHA => Some("alpha".to_string()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_ALPHA64 => Some("alpha64".to_string()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_AMD64 => Some("x86_64".to_string()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_ARM => Some("arm".to_string()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => Some("arm".to_string()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_ARM64 => Some("arm64".to_string()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_IA32_ON_ARM64
+                | SystemInformation::PROCESSOR_ARCHITECTURE_IA32_ON_WIN64 => {
+                    Some("ia32".to_string())
+                }
+                SystemInformation::PROCESSOR_ARCHITECTURE_IA64 => Some("ia64".to_string()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_INTEL => Some("x86".to_string()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_MIPS => Some("mips".to_string()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_PPC => Some("powerpc".to_string()),
+                _ => None,
+            }
+        }
     }
 }
 
@@ -543,19 +563,4 @@ fn get_dns_hostname() -> Option<String> {
 
     sysinfo_debug!("Failed to get computer hostname");
     None
-}
-
-fn get_cpu_arch() -> Option<String> {
-    // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
-    unsafe {
-        let info = SYSTEM_INFO::default();
-        match info.Anonymous.Anonymous.wProcessorArchitecture {
-            SystemInformation::PROCESSOR_ARCHITECTURE_INTEL => Some("x86".to_string()),
-            SystemInformation::PROCESSOR_ARCHITECTURE_ARM => Some("arm".to_string()),
-            SystemInformation::PROCESSOR_ARCHITECTURE_AMD64 => Some("x86_64".to_string()),
-            SystemInformation::PROCESSOR_ARCHITECTURE_ARM64 => Some("arm64".to_string()),
-            SystemInformation::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => Some("arm".to_string()),
-            _ => None,
-        }
-    }
 }

@@ -9,6 +9,7 @@ use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessRefreshKind};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
+use std::ffi::CStr;
 use std::mem;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::time::SystemTime;
@@ -407,7 +408,25 @@ impl SystemInner {
     }
 
     pub(crate) fn cpu_arch(&self) -> Option<String> {
-        get_cpu_arch()
+        let mut arch_str: [u8; 32] = [0; 32];
+        let mut mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
+
+        unsafe {
+            if get_sys_value(
+                mem::size_of::<[u8; 32]>(),
+                arch_str.as_mut_ptr() as *mut _,
+                &mut mib,
+            ) {
+                CStr::from_bytes_until_nul(&arch_str)
+                    .ok()
+                    .and_then(|res| match res.to_str() {
+                        Ok(arch) => Some(arch.to_string()),
+                        Err(_) => None,
+                    })
+            } else {
+                None
+            }
+        }
     }
 }
 
@@ -452,29 +471,6 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
 
                 String::from_utf8(buf).ok()
             }
-        }
-    }
-}
-
-pub(crate) fn get_cpu_arch() -> Option<String> {
-    use std::ffi::CStr;
-    let mut arch_str: [u8; 32] = [0; 32];
-
-    unsafe {
-        let mut mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
-        if get_sys_value(
-            mem::size_of::<[u8; 32]>(),
-            arch_str.as_mut_ptr() as *mut _,
-            &mut mib,
-        ) {
-            CStr::from_bytes_until_nul(&arch_str)
-                .map(|res| match res.to_str() {
-                    Ok(arch) => Some(arch.to_string()),
-                    Err(_) => None,
-                })
-                .unwrap_or_else(|_| None)
-        } else {
-            None
         }
     }
 }

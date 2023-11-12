@@ -82,7 +82,7 @@ windows = { version = "0.51", features = [
     "Win32_System_WindowsProgramming",
     "Win32_System_Wmi",
     "Win32_UI_Shell",
-] }
+]}
 
 [target.'cfg(not(any(target_os = "unknown", target_arch = "wasm32")))'.dependencies]
 libc = "^0.2.150"
