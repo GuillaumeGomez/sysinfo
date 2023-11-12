@@ -67,6 +67,7 @@ impl CpusWrapper {
             // We get the CPU vendor ID in here.
             let vendor_id =
                 get_sys_value_str_by_name(b"hw.model\0").unwrap_or_else(|| "<unknown>".to_owned());
+
             for pos in 0..self.nb_cpus {
                 if refresh_kind.frequency() {
                     unsafe {

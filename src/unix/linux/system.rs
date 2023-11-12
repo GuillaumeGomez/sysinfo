@@ -480,6 +480,9 @@ impl SystemInner {
         get_system_info_android(InfoType::DistributionID)
             .unwrap_or_else(|| std::env::consts::OS.to_owned())
     }
+    pub(crate) fn cpu_arch(&self) -> Option<String> {
+        get_cpu_arch()
+    }
 }
 
 fn read_u64(filename: &str) -> Option<u64> {
@@ -634,6 +637,27 @@ fn get_system_info_android(info: InfoType) -> Option<String> {
                 value_buffer.resize(pos, 0);
             }
             String::from_utf8(value_buffer).ok()
+        } else {
+            None
+        }
+    }
+}
+
+fn get_cpu_arch() -> Option<String> {
+    let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
+
+    unsafe {
+        if libc::uname(raw.as_mut_ptr()) == 0 {
+            let info = raw.assume_init();
+
+            let machine = info
+                .machine
+                .iter()
+                .filter(|c| **c != 0)
+                .map(|c| *c as u8 as char)
+                .collect::<String>();
+
+            Some(machine)
         } else {
             None
         }

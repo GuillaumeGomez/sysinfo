@@ -520,4 +520,10 @@ mod test {
             .iter()
             .any(|(_, process)| !process.cmd().is_empty()));
     }
+
+    #[test]
+    fn check_cpu_arch() {
+        let s = System::new();
+        assert_eq!(s.cpu_arch().is_some(), IS_SUPPORTED);
+    }
 }
