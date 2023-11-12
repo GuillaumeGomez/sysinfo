@@ -226,8 +226,23 @@ impl SystemInner {
     pub(crate) fn distribution_id(&self) -> String {
         std::env::consts::OS.to_owned()
     }
+
     pub(crate) fn cpu_arch(&self) -> Option<String> {
-        get_cpu_arch()
+        let mut arch_str: [u8; 32] = [0; 32];
+        let mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
+
+        unsafe {
+            if get_sys_value(&mib, &mut arch_str) {
+                CStr::from_bytes_until_nul(&arch_str)
+                    .ok()
+                    .and_then(|res| match res.to_str() {
+                        Ok(arch) => Some(arch.to_string()),
+                        Err(_) => None,
+                    })
+            } else {
+                None
+            }
+        }
     }
 }
 
@@ -595,25 +610,6 @@ impl Drop for SystemInfo {
             if !self.procstat.is_null() {
                 libc::procstat_close(self.procstat);
             }
-        }
-    }
-}
-
-pub(crate) fn get_cpu_arch() -> Option<String> {
-    use std::ffi::CStr;
-    let mut arch_str: [u8; 32] = [0; 32];
-
-    unsafe {
-        let mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
-        if get_sys_value(&mib, &mut arch_str) {
-            CStr::from_bytes_until_nul(&arch_str)
-                .map(|res| match res.to_str() {
-                    Ok(arch) => Some(arch.to_string()),
-                    Err(_) => None,
-                })
-                .unwrap_or_else(|_| None)
-        } else {
-            None
         }
     }
 }

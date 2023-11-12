@@ -8,6 +8,7 @@ use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessInner, ProcessRef
 use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cmp::min;
 use std::collections::HashMap;
+use std::ffi::CStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
@@ -480,8 +481,26 @@ impl SystemInner {
         get_system_info_android(InfoType::DistributionID)
             .unwrap_or_else(|| std::env::consts::OS.to_owned())
     }
+
     pub(crate) fn cpu_arch(&self) -> Option<String> {
-        get_cpu_arch()
+        let mut raw = std::mem::MaybeUninit::<libc::utsname>::uninit();
+
+        unsafe {
+            if libc::uname(raw.as_mut_ptr()) != 0 {
+                return None;
+            }
+            let info = raw.assume_init();
+            // Converting `&[i8]` to `&[u8]`.
+            let machine: &[u8] =
+                std::slice::from_raw_parts(info.machine.as_ptr() as *const _, info.machine.len());
+
+            CStr::from_bytes_until_nul(machine)
+                .ok()
+                .and_then(|res| match res.to_str() {
+                    Ok(arch) => Some(arch.to_string()),
+                    Err(_) => None,
+                })
+        }
     }
 }
 
@@ -637,27 +656,6 @@ fn get_system_info_android(info: InfoType) -> Option<String> {
                 value_buffer.resize(pos, 0);
             }
             String::from_utf8(value_buffer).ok()
-        } else {
-            None
-        }
-    }
-}
-
-fn get_cpu_arch() -> Option<String> {
-    let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
-
-    unsafe {
-        if libc::uname(raw.as_mut_ptr()) == 0 {
-            let info = raw.assume_init();
-
-            let machine = info
-                .machine
-                .iter()
-                .filter(|c| **c != 0)
-                .map(|c| *c as u8 as char)
-                .collect::<String>();
-
-            Some(machine)
         } else {
             None
         }

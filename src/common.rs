@@ -702,7 +702,7 @@ impl System {
         self.inner.host_name()
     }
 
-    /// Returns the CPU architecture (eg. x86, amd64, aarch64, ...)
+    /// Returns the CPU architecture (eg. x86, amd64, aarch64, ...).
     ///
     /// ```no_run
     /// use sysinfo::System;

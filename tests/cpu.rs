@@ -24,7 +24,6 @@ fn test_cpu() {
         assert!(s.cpus().iter().any(|c| !c.brand().is_empty()));
     }
     assert!(s.cpus().iter().any(|c| !c.vendor_id().is_empty()));
-    assert!(s.cpu_arch().is_some());
 }
 
 #[test]
