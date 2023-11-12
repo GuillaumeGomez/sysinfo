@@ -450,7 +450,7 @@ fn get_exe_and_name_backup(
             }
             Some((exe, name))
         }
-        _ => Err(()),
+        _ => None,
     }
 }
 
@@ -579,7 +579,7 @@ fn get_process_infos(
     }
 
     let (cmd, proc_args) = if refresh_kind.environ() || refresh_kind.cmd() {
-        get_arguments(proc_args, n_args);
+        get_arguments(proc_args, n_args)
     } else {
         (Vec::new(), &[])
     };
