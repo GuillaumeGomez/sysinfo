@@ -1,10 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::mem::{self, MaybeUninit};
-use std::ops::Deref;
 use std::path::{Path, PathBuf};
-
-use std::borrow::Borrow;
 
 use libc::{c_int, c_void, kill};
 
@@ -48,22 +45,16 @@ pub(crate) struct ProcessInner {
 }
 
 impl ProcessInner {
-    pub(crate) fn new_empty(
-        pid: Pid,
-        exe: PathBuf,
-        name: String,
-        cwd: PathBuf,
-        root: PathBuf,
-    ) -> Self {
+    pub(crate) fn new_empty(pid: Pid) -> Self {
         Self {
-            name,
+            name: String::new(),
             pid,
             parent: None,
             cmd: Vec::new(),
             environ: Vec::new(),
-            exe,
-            cwd,
-            root,
+            exe: PathBuf::new(),
+            cwd: PathBuf::new(),
+            root: PathBuf::new(),
             memory: 0,
             virtual_memory: 0,
             cpu_usage: 0.,
@@ -85,14 +76,7 @@ impl ProcessInner {
         }
     }
 
-    pub(crate) fn new(
-        pid: Pid,
-        parent: Option<Pid>,
-        start_time: u64,
-        run_time: u64,
-        cwd: PathBuf,
-        root: PathBuf,
-    ) -> Self {
+    pub(crate) fn new(pid: Pid, parent: Option<Pid>, start_time: u64, run_time: u64) -> Self {
         Self {
             name: String::new(),
             pid,
@@ -100,8 +84,8 @@ impl ProcessInner {
             cmd: Vec::new(),
             environ: Vec::new(),
             exe: PathBuf::new(),
-            cwd,
-            root,
+            cwd: PathBuf::new(),
+            root: PathBuf::new(),
             memory: 0,
             virtual_memory: 0,
             cpu_usage: 0.,
@@ -349,33 +333,19 @@ unsafe fn get_bsd_info(pid: Pid) -> Option<libc::proc_bsdinfo> {
     }
 }
 
-unsafe fn convert_node_path_info(node: &libc::vnode_info_path) -> PathBuf {
-    if node.vip_vi.vi_stat.vst_dev == 0 {
-        return PathBuf::new();
-    }
-    cstr_to_rust_with_size(
-        node.vip_path.as_ptr() as _,
-        Some(node.vip_path.len() * node.vip_path[0].len()),
-    )
-    .map(PathBuf::from)
-    .unwrap_or_default()
-}
-
 unsafe fn create_new_process(
     pid: Pid,
     now: u64,
     refresh_kind: ProcessRefreshKind,
     info: Option<libc::proc_bsdinfo>,
 ) -> Result<Option<Process>, ()> {
-    let (cwd, root) = get_cwd_root(pid, refresh_kind);
-
     let info = match info {
         Some(info) => info,
         None => {
-            if let Some((exe, name)) = get_exe_and_name_backup(pid, refresh_kind) {
-                return Ok(Some(Process {
-                    inner: ProcessInner::new_empty(pid, exe, name, cwd, root),
-                }));
+            let mut p = ProcessInner::new_empty(pid);
+            if get_exe_and_name_backup(&mut p, refresh_kind) {
+                get_cwd_root(&mut p, refresh_kind);
+                return Ok(Some(Process { inner: p }));
             }
             // If we can't even have the name, no point in keeping it.
             return Err(());
@@ -389,24 +359,12 @@ unsafe fn create_new_process(
     let start_time = info.pbi_start_tvsec;
     let run_time = now.saturating_sub(start_time);
 
-    let mut p = ProcessInner::new(pid, parent, start_time, run_time, cwd, root);
-    match get_process_infos(pid, refresh_kind) {
-        Some((exe, name, cmd, environ)) => {
-            p.exe = exe;
-            p.name = name;
-            p.cmd = cmd;
-            p.environ = environ;
-        }
-        None => {
-            if let Some((exe, name)) = get_exe_and_name_backup(pid, refresh_kind) {
-                p.exe = exe;
-                p.name = name;
-            } else {
-                // If we can't even have the name, no point in keeping it.
-                return Err(());
-            }
-        }
+    let mut p = ProcessInner::new(pid, parent, start_time, run_time);
+    if !get_process_infos(&mut p, refresh_kind) && !get_exe_and_name_backup(&mut p, refresh_kind) {
+        // If we can't even have the name, no point in keeping it.
+        return Err(());
     }
+    get_cwd_root(&mut p, refresh_kind);
 
     if refresh_kind.memory() {
         let task_info = get_task_info(pid);
@@ -426,68 +384,79 @@ unsafe fn create_new_process(
 }
 
 /// Less efficient way to retrieve `exe` and `name`.
-fn get_exe_and_name_backup(
-    pid: Pid,
+unsafe fn get_exe_and_name_backup(
+    process: &mut ProcessInner,
     refresh_kind: ProcessRefreshKind,
-) -> Option<(PathBuf, String)> {
+) -> bool {
+    if !refresh_kind.exe() && !process.name.is_empty() {
+        return false;
+    }
     let mut buffer: Vec<u8> = Vec::with_capacity(libc::PROC_PIDPATHINFO_MAXSIZE as _);
     match libc::proc_pidpath(
-        pid.0,
+        process.pid.0,
         buffer.as_mut_ptr() as *mut _,
         libc::PROC_PIDPATHINFO_MAXSIZE as _,
     ) {
         x if x > 0 => {
             buffer.set_len(x as _);
             let tmp = String::from_utf8_unchecked(buffer);
-            let mut exe = PathBuf::from(tmp);
-            let name = exe
-                .file_name()
-                .and_then(|x| x.to_str())
-                .unwrap_or("")
-                .to_owned();
-            if !refresh_kind.exe() {
-                exe = PathBuf::new();
+            let exe = PathBuf::from(tmp);
+            if process.name.is_empty() {
+                process.name = exe
+                    .file_name()
+                    .and_then(|x| x.to_str())
+                    .unwrap_or("")
+                    .to_owned();
             }
-            Some((exe, name))
+            if refresh_kind.exe() {
+                process.exe = exe;
+            }
+            true
         }
-        _ => Err(()),
+        _ => false,
     }
 }
 
-/// Returns `cwd` and `root`.
-fn get_cwd_root(pid: Pid, refresh_kind: ProcessRefreshKind) -> (PathBuf, PathBuf) {
+unsafe fn convert_node_path_info(node: &libc::vnode_info_path) -> Option<PathBuf> {
+    if node.vip_vi.vi_stat.vst_dev == 0 {
+        return None;
+    }
+    cstr_to_rust_with_size(
+        node.vip_path.as_ptr() as _,
+        Some(node.vip_path.len() * node.vip_path[0].len()),
+    )
+    .map(PathBuf::from)
+}
+
+unsafe fn get_cwd_root(process: &mut ProcessInner, refresh_kind: ProcessRefreshKind) {
     if !refresh_kind.cwd() && !refresh_kind.root() {
-        return (PathBuf::new(), PathBuf::new());
+        return;
     }
     let mut vnodepathinfo = mem::zeroed::<libc::proc_vnodepathinfo>();
     let result = libc::proc_pidinfo(
-        pid.0,
+        process.pid.0,
         libc::PROC_PIDVNODEPATHINFO,
         0,
         &mut vnodepathinfo as *mut _ as *mut _,
         mem::size_of::<libc::proc_vnodepathinfo>() as _,
     );
     if result < 1 {
-        return (PathBuf::new(), PathBuf::new());
+        sysinfo_debug!("Failed to retrieve cwd and root for {}", process.pid.0);
+        return;
     }
-    let cwd = if refresh_kind.cwd() {
-        convert_node_path_info(&vnodepathinfo.pvi_cdir)
-    } else {
-        PathBuf::new()
-    };
-    let root = if refresh_kind.root() {
-        convert_node_path_info(&vnodepathinfo.pvi_rdir)
-    } else {
-        PathBuf::new()
-    };
-    (cwd, root)
+    if refresh_kind.cwd() {
+        if let Some(cwd) = convert_node_path_info(&vnodepathinfo.pvi_cdir) {
+            process.cwd = cwd;
+        }
+    }
+    if refresh_kind.root() {
+        if let Some(root) = convert_node_path_info(&vnodepathinfo.pvi_rdir) {
+            process.root = root;
+        }
+    }
 }
 
-/// Returns (exe, name, cmd, environ)
-fn get_process_infos(
-    pid: Pid,
-    refresh_kind: ProcessRefreshKind,
-) -> Option<(PathBuf, String, Vec<String>, Vec<String>)> {
+unsafe fn get_process_infos(process: &mut ProcessInner, refresh_kind: ProcessRefreshKind) -> bool {
     /*
      * /---------------\ 0x00000000
      * | ::::::::::::: |
@@ -518,7 +487,7 @@ fn get_process_infos(
      * :               :
      * \---------------/ 0xffffffff
      */
-    let mut mib: [libc::c_int; 3] = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid.0 as _];
+    let mut mib: [libc::c_int; 3] = [libc::CTL_KERN, libc::KERN_PROCARGS2, process.pid.0 as _];
     let mut arg_max = 0;
     // First we retrieve the size we will need for our data (in `arg_max`).
     if libc::sysctl(
@@ -532,9 +501,9 @@ fn get_process_infos(
     {
         sysinfo_debug!(
             "couldn't get arguments and environment size for PID {}",
-            pid.0
+            process.pid.0
         );
-        return None; // not enough rights I assume?
+        return false; // not enough rights I assume?
     }
 
     let mut proc_args: Vec<u8> = Vec::with_capacity(arg_max as _);
@@ -547,14 +516,17 @@ fn get_process_infos(
         0,
     ) == -1
     {
-        sysinfo_debug!("couldn't get arguments and environment for PID {}", pid.0);
-        return None; // What changed since the previous call? Dark magic!
+        sysinfo_debug!(
+            "couldn't get arguments and environment for PID {}",
+            process.pid.0
+        );
+        return false; // What changed since the previous call? Dark magic!
     }
 
     proc_args.set_len(arg_max);
 
     if proc_args.is_empty() {
-        return None;
+        return false;
     }
     // We copy the number of arguments (`argc`) to `n_args`.
     let mut n_args: c_int = 0;
@@ -567,28 +539,28 @@ fn get_process_infos(
     // We skip `argc`.
     let proc_args = &proc_args[mem::size_of::<c_int>()..];
 
-    let (mut exe, proc_args) = get_exe(proc_args);
-    let name = exe
-        .file_name()
-        .and_then(|x| x.to_str())
-        .unwrap_or("")
-        .to_owned();
-
-    if !refresh_kind.exe() {
-        exe = PathBuf::new();
+    let (exe, proc_args) = get_exe(proc_args);
+    if process.name.is_empty() {
+        process.name = exe
+            .file_name()
+            .and_then(|x| x.to_str())
+            .unwrap_or("")
+            .to_owned();
     }
 
-    let (cmd, proc_args) = if refresh_kind.environ() || refresh_kind.cmd() {
-        get_arguments(proc_args, n_args);
-    } else {
-        (Vec::new(), &[])
-    };
-    let environ = if refresh_kind.environ() {
-        get_environ(proc_args)
-    } else {
-        Vec::new()
-    };
-    Some((exe, name, parse_command_line(&cmd), environ))
+    if refresh_kind.exe() {
+        process.exe = exe;
+    }
+
+    if !refresh_kind.environ() && !refresh_kind.cmd() {
+        // Nothing else to be done!
+        return true;
+    }
+    let proc_args = get_arguments(&mut process.cmd, proc_args, n_args, refresh_kind.cmd());
+    if refresh_kind.environ() {
+        get_environ(&mut process.environ, proc_args);
+    }
+    true
 }
 
 fn get_exe(data: &[u8]) -> (PathBuf, &[u8]) {
@@ -601,20 +573,28 @@ fn get_exe(data: &[u8]) -> (PathBuf, &[u8]) {
     }
 }
 
-fn get_arguments(mut data: &[u8], mut n_args: c_int) -> (Vec<String>, &[u8]) {
+fn get_arguments<'a>(
+    cmd: &mut Vec<String>,
+    mut data: &'a [u8],
+    mut n_args: c_int,
+    refresh_cmd: bool,
+) -> &'a [u8] {
+    if refresh_cmd {
+        cmd.clear();
+    }
+
     if n_args < 1 {
-        return (Vec::new(), data);
+        return data;
     }
     while data.first() == Some(&0) {
         data = &data[1..];
     }
-    let mut cmd = Vec::with_capacity(n_args as _);
 
     unsafe {
         while n_args > 0 && !data.is_empty() {
             let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
             let arg = std::str::from_utf8_unchecked(&data[..pos]);
-            if !arg.is_empty() {
+            if !arg.is_empty() && refresh_cmd {
                 cmd.push(arg.to_string());
             }
             data = &data[pos..];
@@ -623,21 +603,23 @@ fn get_arguments(mut data: &[u8], mut n_args: c_int) -> (Vec<String>, &[u8]) {
             }
             n_args -= 1;
         }
-        (cmd, data)
+        data
     }
 }
 
-fn get_environ(mut data: &[u8]) -> Vec<String> {
+fn get_environ(environ: &mut Vec<String>, mut data: &[u8]) {
+    environ.clear();
+
     while data.first() == Some(&0) {
         data = &data[1..];
     }
-    let mut environ = Vec::new();
+
     unsafe {
         while !data.is_empty() {
             let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
             let arg = std::str::from_utf8_unchecked(&data[..pos]);
             if arg.is_empty() {
-                return environ;
+                return;
             }
             environ.push(arg.to_string());
             data = &data[pos..];
@@ -645,7 +627,6 @@ fn get_environ(mut data: &[u8]) -> Vec<String> {
                 data = &data[1..];
             }
         }
-        environ
     }
 }
 
@@ -660,15 +641,7 @@ pub(crate) fn update_process(
     unsafe {
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
             let p = &mut p.inner;
-            if p.memory == 0 {
-                // We don't have access to this process' information.
-                return if check_if_pid_is_alive(pid, check_if_alive) {
-                    p.updated = true;
-                    Ok(None)
-                } else {
-                    Err(())
-                };
-            }
+
             if let Some(info) = get_bsd_info(pid) {
                 if info.pbi_start_tvsec != p.start_time {
                     // We don't it to be removed, just replaced.
@@ -677,6 +650,16 @@ pub(crate) fn update_process(
                     return create_new_process(pid, now, refresh_kind, Some(info));
                 }
             }
+
+            if !get_process_infos(p, refresh_kind) {
+                get_exe_and_name_backup(p, refresh_kind);
+            }
+            get_cwd_root(p, refresh_kind);
+
+            if refresh_kind.disk_usage() {
+                update_proc_disk_activity(p);
+            }
+
             let mut thread_info = mem::zeroed::<libc::proc_threadinfo>();
             let (user_time, system_time, thread_status) = if libc::proc_pidinfo(
                 pid.0,
@@ -712,14 +695,11 @@ pub(crate) fn update_process(
                     p.virtual_memory = task_info.pti_virtual_size;
                 }
             }
-
-            if refresh_kind.disk_usage() {
-                update_proc_disk_activity(p);
-            }
             p.updated = true;
-            return Ok(None);
+            Ok(None)
+        } else {
+            create_new_process(pid, now, refresh_kind, get_bsd_info(pid))
         }
-        create_new_process(pid, now, refresh_kind, get_bsd_info(pid))
     }
 }
 
@@ -765,24 +745,4 @@ pub(crate) fn get_proc_list() -> Option<Vec<Pid>> {
             Some(pids)
         }
     }
-}
-
-fn parse_command_line<T: Deref<Target = str> + Borrow<str>>(cmd: &[T]) -> Vec<String> {
-    let mut x = 0;
-    let mut command = Vec::with_capacity(cmd.len());
-    while x < cmd.len() {
-        let mut y = x;
-        if cmd[y].starts_with('\'') || cmd[y].starts_with('"') {
-            let c = if cmd[y].starts_with('\'') { '\'' } else { '"' };
-            while y < cmd.len() && !cmd[y].ends_with(c) {
-                y += 1;
-            }
-            command.push(cmd[x..y].join(" "));
-            x = y;
-        } else {
-            command.push(cmd[x].to_owned());
-        }
-        x += 1;
-    }
-    command
 }
