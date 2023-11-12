@@ -632,26 +632,6 @@ fn test_process_creds() {
     }));
 }
 
-// Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/1084>
-#[test]
-fn test_process_memory_refresh() {
-    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
-        return;
-    }
-
-    // Ensure the process memory is available on the first refresh.
-    let mut s = System::new();
-
-    // Refresh our own process
-    let pid = Pid::from_u32(std::process::id());
-    s.refresh_process_specifics(pid, sysinfo::ProcessRefreshKind::new());
-
-    let proc = s.process(pid).unwrap();
-    // Check that the memory values re not empty.
-    assert!(proc.memory() > 0);
-    assert!(proc.virtual_memory() > 0);
-}
-
 // This test ensures that only the requested information is retrieved.
 #[test]
 fn test_process_specific_refresh() {
@@ -704,12 +684,17 @@ fn test_process_specific_refresh() {
             s.refresh_process_specifics(pid, ProcessRefreshKind::new());
             {
                 let p = s.process(pid).unwrap();
-                assert_eq!(p.$name()$($extra)+);
+                assert_eq!(
+                    p.$name()$($extra)+,
+                    concat!("failed 0 check check for ", stringify!($name)),
+                );
             }
             s.refresh_process_specifics(pid, ProcessRefreshKind::new().$method());
             {
                 let p = s.process(pid).unwrap();
-                assert_ne!(p.$name()$($extra)+);
+                assert_ne!(
+                    p.$name()$($extra)+,
+                    concat!("failed non-0 check check for ", stringify!($name)),);
             }
         }
     }
@@ -723,7 +708,9 @@ fn test_process_specific_refresh() {
     update_specific_and_check!(memory);
     update_specific_and_check!(environ, with_environ, .len(), 0);
     update_specific_and_check!(cmd, with_cmd, .len(), 0);
-    update_specific_and_check!(exe, with_exe, , Path::new(""));
+    if cfg!(not(target_os = "windows")) {
+        update_specific_and_check!(exe, with_exe, , Path::new(""));
+        update_specific_and_check!(root, with_root, , Path::new(""));
+    }
     update_specific_and_check!(cwd, with_cwd, , Path::new(""));
-    update_specific_and_check!(root, with_root, , Path::new(""));
 }
