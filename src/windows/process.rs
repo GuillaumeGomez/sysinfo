@@ -394,6 +394,7 @@ impl ProcessInner {
                 written_bytes: 0,
             };
             get_process_params(&mut p, refresh_kind);
+            // Should always be called after we refreshed `cwd`.
             update_root(&mut p, refresh_kind);
             Some(p)
         }
@@ -443,6 +444,7 @@ impl ProcessInner {
                 };
 
                 get_process_params(&mut p, refresh_kind);
+                // Should always be called after we refreshed `cwd`.
                 update_root(&mut p, refresh_kind);
                 p
             }
@@ -476,6 +478,7 @@ impl ProcessInner {
                 read_bytes: 0,
                 written_bytes: 0,
             };
+            // Should always be called after we refreshed `cwd`.
             update_root(&mut p, refresh_kind);
             p
         }
@@ -508,6 +511,7 @@ impl ProcessInner {
                 self.exe = exe;
             }
         }
+        // Should always be called after we refreshed `cwd`.
         update_root(self, refresh_kind);
         self.run_time = now.saturating_sub(self.start_time());
         self.updated = true;
@@ -658,10 +662,20 @@ unsafe fn get_process_times(handle: HANDLE) -> u64 {
     super::utils::filetime_to_u64(fstart)
 }
 
+// On Windows, the root folder is always the current drive. So we get it from its `cwd`.
 fn update_root(process: &mut ProcessInner, refresh_kind: ProcessRefreshKind) {
-    if refresh_kind.root() && process.exe.parent().is_some() {
-        process.root = process.exe.clone();
-        process.root.pop();
+    if refresh_kind.root() && process.cwd.parent().is_some() {
+        if !process.cwd.has_root() {
+            process.root = PathBuf::new();
+            return;
+        }
+        let mut ancestors = process.cwd.ancestors().peekable();
+        while let Some(path) = ancestors.next() {
+            if ancestors.peek().is_none() {
+                process.root = path.into();
+                break;
+            }
+        }
     }
 }
 
