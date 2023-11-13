@@ -248,26 +248,7 @@ pub(crate) unsafe fn get_process_data(
     }
 
     // This is a new process, we need to get more information!
-    let mut buffer = [0; libc::PATH_MAX as usize + 1];
 
-    let exe = if refresh_kind.exe() {
-        get_sys_value_str(
-            &[
-                libc::CTL_KERN,
-                libc::KERN_PROC,
-                libc::KERN_PROC_PATHNAME,
-                kproc.ki_pid,
-            ],
-            &mut buffer,
-        )
-        .map(|exe| PathBuf::from(exe))
-        .unwrap_or_else(|| {
-            sysinfo_debug!("Failed to get `exe` for {}", kproc.ki_pid);
-            PathBuf::new()
-        })
-    } else {
-        PathBuf::new()
-    };
     // For some reason, it can return completely invalid path like `p\u{5}`. So we need to use
     // procstat to get around this problem.
     // let cwd = get_sys_value_str(
@@ -297,7 +278,7 @@ pub(crate) unsafe fn get_process_data(
             memory,
             // procstat_getfiles
             cwd: PathBuf::new(),
-            exe,
+            exe: PathBuf::new(),
             // kvm_getargv isn't thread-safe so we get it in the main thread.
             name: String::new(),
             // kvm_getargv isn't thread-safe so we get it in the main thread.
@@ -314,4 +295,25 @@ pub(crate) unsafe fn get_process_data(
             updated: false,
         },
     }))
+}
+
+pub(crate) unsafe fn get_exe(exe: &mut PathBuf, pid: crate::Pid, refresh_kind: ProcessRefreshKind) {
+    if refresh_kind.exe() && exe.as_os_str().is_empty() {
+        let mut buffer = [0; libc::PATH_MAX as usize + 1];
+
+        *exe = get_sys_value_str(
+            &[
+                libc::CTL_KERN,
+                libc::KERN_PROC,
+                libc::KERN_PROC_PATHNAME,
+                pid.0,
+            ],
+            &mut buffer,
+        )
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            sysinfo_debug!("Failed to get `exe` for {}", pid.0);
+            PathBuf::new()
+        });
+    }
 }

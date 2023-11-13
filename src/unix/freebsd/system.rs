@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
 
 use crate::sys::cpu::{physical_core_count, CpusWrapper};
+use crate::sys::process::get_exe;
 use crate::sys::utils::{
     self, boot_time, c_buf_to_string, from_cstr_array, get_sys_value, get_sys_value_by_name,
     get_system_info, init_mib,
@@ -116,13 +117,15 @@ impl SystemInner {
                 now,
                 refresh_kind,
             ) {
-                Ok(Some(proc_)) => {
-                    self.add_missing_proc_info(self.system_info.kd.as_ptr(), kproc, proc_);
-                    true
+                Ok(Some(process)) => {
+                    self.process_list.insert(process.inner.pid, process);
                 }
-                Ok(None) => true,
-                Err(_) => false,
+                Ok(None) => {}
+                Err(_) => return false,
             }
+            let process = self.process_list.get_mut(&Pid(kproc.ki_pid)).unwrap();
+            add_missing_proc_info(&mut self.system_info, kproc, process, refresh_kind);
+            true
         }
     }
 
@@ -248,27 +251,33 @@ impl SystemInner {
 
 impl SystemInner {
     unsafe fn refresh_procs(&mut self, refresh_kind: ProcessRefreshKind) {
-        let kd = self.system_info.kd.as_ptr();
-        let procs = {
-            let mut count = 0;
-            let procs = libc::kvm_getprocs(kd, libc::KERN_PROC_PROC, 0, &mut count);
-            if count < 1 {
-                sysinfo_debug!("kvm_getprocs returned nothing...");
-                return;
-            }
+        let mut count = 0;
+        let kvm_procs = libc::kvm_getprocs(
+            self.system_info.kd.as_ptr(),
+            libc::KERN_PROC_PROC,
+            0,
+            &mut count,
+        );
+        if count < 1 {
+            sysinfo_debug!("kvm_getprocs returned nothing...");
+            return;
+        }
+
+        let new_processes = {
             #[cfg(feature = "multithread")]
             use rayon::iter::{ParallelIterator, ParallelIterator as IterTrait};
             #[cfg(not(feature = "multithread"))]
             use std::iter::Iterator as IterTrait;
 
+            let kvm_procs: &mut [utils::KInfoProc] =
+                std::slice::from_raw_parts_mut(kvm_procs as _, count as _);
+
             let fscale = self.system_info.fscale;
             let page_size = self.system_info.page_size as isize;
             let now = super::utils::get_now();
             let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
-            let procs: &mut [utils::KInfoProc] =
-                std::slice::from_raw_parts_mut(procs as _, count as _);
 
-            IterTrait::filter_map(crate::utils::into_iter(procs), |kproc| {
+            IterTrait::filter_map(crate::utils::into_iter(kvm_procs), |kproc| {
                 super::process::get_process_data(
                     kproc,
                     &proc_list,
@@ -277,8 +286,7 @@ impl SystemInner {
                     now,
                     refresh_kind,
                 )
-                .ok()
-                .and_then(|p| p.map(|p| (kproc, p)))
+                .ok()?
             })
             .collect::<Vec<_>>()
         };
@@ -287,48 +295,55 @@ impl SystemInner {
         self.process_list
             .retain(|_, v| std::mem::replace(&mut v.inner.updated, false));
 
-        for (kproc, proc_) in procs {
-            self.add_missing_proc_info(kd, kproc, proc_);
+        for process in new_processes {
+            self.process_list.insert(process.inner.pid, process);
+        }
+        let kvm_procs: &mut [utils::KInfoProc] =
+            std::slice::from_raw_parts_mut(kvm_procs as _, count as _);
+
+        for kproc in kvm_procs {
+            if let Some(process) = self.process_list.get_mut(&Pid(kproc.ki_pid)) {
+                add_missing_proc_info(&mut self.system_info, kproc, process, refresh_kind);
+            }
         }
     }
+}
 
-    unsafe fn add_missing_proc_info(
-        &mut self,
-        kd: *mut libc::kvm_t,
-        kproc: &libc::kinfo_proc,
-        mut proc_: Process,
-        refresh_kind: ProcessRefreshKind,
-    ) {
-        {
-            let proc_inner = &mut proc_.inner;
-            if refresh_kind.cmd() {
-                proc_inner.cmd = from_cstr_array(libc::kvm_getargv(kd, kproc, 0) as _);
-            }
-            self.system_info
-                .get_proc_missing_info(kproc, proc_inner, refresh_kind);
-            if !proc_inner.cmd.is_empty() {
+unsafe fn add_missing_proc_info(
+    system_info: &mut SystemInfo,
+    kproc: &libc::kinfo_proc,
+    proc_: &mut Process,
+    refresh_kind: ProcessRefreshKind,
+) {
+    {
+        let kd = system_info.kd.as_ptr();
+        let proc_inner = &mut proc_.inner;
+        if refresh_kind.cmd() || proc_inner.name.is_empty() {
+            let cmd = from_cstr_array(libc::kvm_getargv(kd, kproc, 0) as _);
+
+            if !cmd.is_empty() {
                 // First, we try to retrieve the name from the command line.
-                let p = Path::new(&proc_inner.cmd[0]);
+                let p = Path::new(&cmd[0]);
                 if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
                     proc_inner.name = name.to_owned();
                 }
-                if proc_inner.root.as_os_str().is_empty() {
-                    if let Some(parent) = p.parent() {
-                        proc_inner.root = parent.to_path_buf();
-                    }
-                }
             }
-            if proc_inner.name.is_empty() {
-                // The name can be cut short because the `ki_comm` field size is limited,
-                // which is why we prefer to get the name from the command line as much as
-                // possible.
-                proc_inner.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_default();
-            }
-            if refresh_kind.environ() {
-                proc_inner.environ = from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _);
+
+            if refresh_kind.cmd() {
+                proc_inner.cmd = cmd;
             }
         }
-        self.process_list.insert(proc_.inner.pid, proc_);
+        get_exe(&mut proc_inner.exe, proc_inner.pid, refresh_kind);
+        system_info.get_proc_missing_info(kproc, proc_inner, refresh_kind);
+        if proc_inner.name.is_empty() {
+            // The name can be cut short because the `ki_comm` field size is limited,
+            // which is why we prefer to get the name from the command line as much as
+            // possible.
+            proc_inner.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_default();
+        }
+        if refresh_kind.environ() {
+            proc_inner.environ = from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _);
+        }
     }
 }
 
@@ -589,9 +604,10 @@ impl SystemInfo {
         }
         if self.procstat.is_null() {
             self.procstat = libc::procstat_open_sysctl();
-        }
-        if self.procstat.is_null() {
-            return;
+            if self.procstat.is_null() {
+                sysinfo_debug!("procstat_open_sysctl failed");
+                return;
+            }
         }
         let head = libc::procstat_getfiles(self.procstat, kproc as *const _ as usize as *mut _, 0);
         if head.is_null() {
