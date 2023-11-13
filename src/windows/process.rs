@@ -394,8 +394,6 @@ impl ProcessInner {
                 written_bytes: 0,
             };
             get_process_params(&mut p, refresh_kind);
-            // Should always be called after we refreshed `cwd`.
-            update_root(&mut p, refresh_kind);
             Some(p)
         }
     }
@@ -444,8 +442,6 @@ impl ProcessInner {
                 };
 
                 get_process_params(&mut p, refresh_kind);
-                // Should always be called after we refreshed `cwd`.
-                update_root(&mut p, refresh_kind);
                 p
             }
         } else {
@@ -454,7 +450,7 @@ impl ProcessInner {
             } else {
                 PathBuf::new()
             };
-            let mut p = Self {
+            Self {
                 handle: None,
                 name,
                 pid,
@@ -477,10 +473,7 @@ impl ProcessInner {
                 old_written_bytes: 0,
                 read_bytes: 0,
                 written_bytes: 0,
-            };
-            // Should always be called after we refreshed `cwd`.
-            update_root(&mut p, refresh_kind);
-            p
+            }
         }
     }
 
@@ -504,15 +497,12 @@ impl ProcessInner {
         }
         if refresh_kind.exe() {
             unsafe {
-                let exe = match self.handle.as_ref() {
+                self.exe = match self.handle.as_ref() {
                     Some(handle) => get_exe(handle),
                     None => get_executable_path(self.pid),
                 };
-                self.exe = exe;
             }
         }
-        // Should always be called after we refreshed `cwd`.
-        update_root(self, refresh_kind);
         self.run_time = now.saturating_sub(self.start_time());
         self.updated = true;
     }
@@ -663,18 +653,19 @@ unsafe fn get_process_times(handle: HANDLE) -> u64 {
 }
 
 // On Windows, the root folder is always the current drive. So we get it from its `cwd`.
-fn update_root(process: &mut ProcessInner, refresh_kind: ProcessRefreshKind) {
-    if refresh_kind.root() && process.cwd.parent().is_some() {
-        if !process.cwd.has_root() {
-            process.root = PathBuf::new();
-            return;
-        }
-        let mut ancestors = process.cwd.ancestors().peekable();
-        while let Some(path) = ancestors.next() {
-            if ancestors.peek().is_none() {
-                process.root = path.into();
-                break;
-            }
+fn update_root(refresh_kind: ProcessRefreshKind, cwd: &Path, root: &mut PathBuf) {
+    if !refresh_kind.root() {
+        return;
+    }
+    if cwd.as_os_str().is_empty() || !cwd.has_root() {
+        *root = PathBuf::new();
+        return;
+    }
+    let mut ancestors = cwd.ancestors().peekable();
+    while let Some(path) = ancestors.next() {
+        if ancestors.peek().is_none() {
+            *root = path.into();
+            break;
         }
     }
 }
@@ -851,7 +842,8 @@ unsafe fn get_process_params(process: &mut ProcessInner, refresh_kind: ProcessRe
         sysinfo_debug!("Non 64 bit targets are not supported");
         return;
     }
-    if !refresh_kind.cmd() && !refresh_kind.environ() && !refresh_kind.cwd() {
+    if !(refresh_kind.cmd() || refresh_kind.environ() || refresh_kind.cwd() || refresh_kind.root())
+    {
         return;
     }
     let handle = match process.handle.as_ref().map(|handle| handle.0) {
@@ -926,7 +918,13 @@ unsafe fn get_process_params(process: &mut ProcessInner, refresh_kind: ProcessRe
         let proc_params = proc_params.assume_init();
         get_cmd_line(&proc_params, handle, refresh_kind, &mut process.cmd);
         get_proc_env(&proc_params, handle, refresh_kind, &mut process.environ);
-        get_cwd(&proc_params, handle, refresh_kind, &mut process.cwd);
+        get_cwd_and_root(
+            &proc_params,
+            handle,
+            refresh_kind,
+            &mut process.cwd,
+            &mut process.root,
+        );
     }
     // target is a 32 bit process in wow64 mode
 
@@ -961,24 +959,36 @@ unsafe fn get_process_params(process: &mut ProcessInner, refresh_kind: ProcessRe
     let proc_params = proc_params.assume_init();
     get_cmd_line(&proc_params, handle, refresh_kind, &mut process.cmd);
     get_proc_env(&proc_params, handle, refresh_kind, &mut process.environ);
-    get_cwd(&proc_params, handle, refresh_kind, &mut process.cwd);
+    get_cwd_and_root(
+        &proc_params,
+        handle,
+        refresh_kind,
+        &mut process.cwd,
+        &mut process.root,
+    );
 }
 
-fn get_cwd<T: RtlUserProcessParameters>(
+fn get_cwd_and_root<T: RtlUserProcessParameters>(
     params: &T,
     handle: HANDLE,
     refresh_kind: ProcessRefreshKind,
     cwd: &mut PathBuf,
+    root: &mut PathBuf,
 ) {
-    if !refresh_kind.cwd() {
+    if !refresh_kind.cwd() && !refresh_kind.root() {
         return;
     }
     match params.get_cwd(handle) {
         Ok(buffer) => unsafe {
-            *cwd = PathBuf::from(null_terminated_wchar_to_string(buffer.as_slice()));
+            let tmp_cwd = PathBuf::from(null_terminated_wchar_to_string(buffer.as_slice()));
+            // Should always be called after we refreshed `cwd`.
+            update_root(refresh_kind, &tmp_cwd, root);
+            if refresh_kind.cwd() {
+                *cwd = tmp_cwd;
+            }
         },
         Err(_e) => {
-            sysinfo_debug!("get_cwd failed to get data: {}", _e);
+            sysinfo_debug!("get_cwd_and_root failed to get data: {:?}", _e);
             *cwd = PathBuf::new();
         }
     }

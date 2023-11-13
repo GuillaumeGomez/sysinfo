@@ -725,8 +725,6 @@ fn test_process_specific_refresh() {
     update_specific_and_check!(memory);
     update_specific_and_check!(environ, with_environ, .len(), 0);
     update_specific_and_check!(cmd, with_cmd, .len(), 0);
-    update_specific_and_check!(exe, with_exe, , Path::new(""));
-    update_specific_and_check!(cwd, with_cwd, , Path::new(""));
     if !cfg!(any(
         target_os = "macos",
         target_os = "ios",
@@ -734,4 +732,6 @@ fn test_process_specific_refresh() {
     )) {
         update_specific_and_check!(root, with_root, , Path::new(""));
     }
+    update_specific_and_check!(exe, with_exe, , Path::new(""));
+    update_specific_and_check!(cwd, with_cwd, , Path::new(""));
 }
