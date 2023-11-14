@@ -373,7 +373,7 @@ fn update_proc_info(
         refresh_user_group_ids(p, proc_path);
     }
 
-    if refresh_kind.exe() && p.exe == Path::new("") {
+    if refresh_kind.exe() && p.exe.as_os_str().is_empty() {
         match proc_path.join("exe").read_link() {
             Ok(exe_path) => p.exe = exe_path,
             Err(_error) => {
