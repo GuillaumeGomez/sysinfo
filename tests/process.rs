@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use sysinfo::{Pid, System};
+use sysinfo::{Pid, ProcessRefreshKind, System};
 
 #[test]
 fn test_process() {
@@ -14,7 +14,14 @@ fn test_process() {
     assert!(s
         .processes()
         .values()
-        .any(|p| !p.exe().to_str().unwrap_or("").is_empty()));
+        .all(|p| p.exe().as_os_str().is_empty()));
+
+    let mut s = System::new();
+    s.refresh_processes_specifics(ProcessRefreshKind::new().with_exe());
+    assert!(s
+        .processes()
+        .values()
+        .any(|p| !p.exe().as_os_str().is_empty()));
 }
 
 #[test]
@@ -41,7 +48,7 @@ fn test_cwd() {
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
     let mut s = System::new();
-    s.refresh_processes();
+    s.refresh_processes_specifics(ProcessRefreshKind::new().with_cwd());
     p.kill().expect("Unable to kill process.");
 
     let processes = s.processes();
@@ -78,7 +85,7 @@ fn test_cmd() {
     std::thread::sleep(std::time::Duration::from_millis(500));
     let mut s = System::new();
     assert!(s.processes().is_empty());
-    s.refresh_processes();
+    s.refresh_processes_specifics(ProcessRefreshKind::new().with_cmd());
     p.kill().expect("Unable to kill process.");
     assert!(!s.processes().is_empty());
     if let Some(process) = s.process(Pid::from_u32(p.id() as _)) {
@@ -153,7 +160,7 @@ fn test_environ() {
     let pid = Pid::from_u32(p.id() as _);
     let mut s = System::new();
 
-    s.refresh_processes();
+    s.refresh_processes_specifics(ProcessRefreshKind::new().with_environ());
 
     let processes = s.processes();
     let proc_ = processes.get(&pid);
@@ -179,7 +186,19 @@ fn test_process_refresh() {
     s.refresh_process(sysinfo::get_current_pid().expect("failed to get current pid"));
     assert!(s
         .process(sysinfo::get_current_pid().expect("failed to get current pid"))
-        .is_some(),);
+        .is_some());
+
+    assert!(s
+        .processes()
+        .iter()
+        .all(|(_, p)| p.exe().as_os_str().is_empty()
+            && p.environ().is_empty()
+            && p.cwd().as_os_str().is_empty()
+            && p.cmd().is_empty()));
+    assert!(s
+        .processes()
+        .iter()
+        .any(|(_, p)| !p.name().is_empty() && p.memory() != 0));
 }
 
 #[test]
