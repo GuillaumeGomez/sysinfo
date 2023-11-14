@@ -234,10 +234,23 @@ impl System {
 
     /// Gets all processes and updates their information.
     ///
-    /// It does the same as `system.refresh_processes_specifics(ProcessRefreshKind::everything())`.
+    /// It does the same as:
+    ///
+    /// ```no_run
+    /// # use sysinfo::{ProcessRefreshKind, System};
+    /// # let mut system = System::new();
+    /// system.refresh_processes_specifics(
+    ///     ProcessRefreshKind::new()
+    ///         .with_memory()
+    ///         .with_cpu()
+    ///         .with_disk_usage(),
+    /// );
+    /// ```
     ///
     /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
     /// by using [`set_open_files_limit`][crate::set_open_files_limit].
+    ///
+    /// Example:
     ///
     /// ```no_run
     /// use sysinfo::System;
@@ -246,7 +259,12 @@ impl System {
     /// s.refresh_processes();
     /// ```
     pub fn refresh_processes(&mut self) {
-        self.refresh_processes_specifics(ProcessRefreshKind::everything());
+        self.refresh_processes_specifics(
+            ProcessRefreshKind::new()
+                .with_memory()
+                .with_cpu()
+                .with_disk_usage(),
+        );
     }
 
     /// Gets all processes and updates the specified information.
@@ -268,8 +286,25 @@ impl System {
     /// exist (it will **NOT** be removed from the processes if it doesn't exist anymore). If it
     /// isn't listed yet, it'll be added.
     ///
-    /// It is the same as calling
-    /// `sys.refresh_process_specifics(pid, ProcessRefreshKind::everything())`.
+    /// It is the same as calling:
+    ///
+    /// ```no_run
+    /// # use sysinfo::{Pid, ProcessRefreshKind, System};
+    /// # let mut system = System::new();
+    /// # let pid = Pid::from(0);
+    /// system.refresh_process_specifics(
+    ///     pid,
+    ///     ProcessRefreshKind::new()
+    ///         .with_memory()
+    ///         .with_cpu()
+    ///         .with_disk_usage(),
+    /// );
+    /// ```
+    ///
+    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
+    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
+    ///
+    /// Example:
     ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
@@ -278,12 +313,21 @@ impl System {
     /// s.refresh_process(Pid::from(1337));
     /// ```
     pub fn refresh_process(&mut self, pid: Pid) -> bool {
-        self.refresh_process_specifics(pid, ProcessRefreshKind::everything())
+        self.refresh_process_specifics(
+            pid,
+            ProcessRefreshKind::new()
+                .with_memory()
+                .with_cpu()
+                .with_disk_usage(),
+        )
     }
 
     /// Refreshes *only* the process corresponding to `pid`. Returns `false` if the process doesn't
     /// exist (it will **NOT** be removed from the processes if it doesn't exist anymore). If it
     /// isn't listed yet, it'll be added.
+    ///
+    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
+    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
     ///
     /// ```no_run
     /// use sysinfo::{Pid, ProcessRefreshKind, System};
@@ -346,16 +390,13 @@ impl System {
     ///     println!("{} {}", process.pid(), process.name());
     /// }
     /// ```
-    // FIXME: replace the returned type with `impl Iterator<Item = &Process>` when it's supported!
     pub fn processes_by_name<'a: 'b, 'b>(
         &'a self,
         name: &'b str,
-    ) -> Box<dyn Iterator<Item = &'a Process> + 'b> {
-        Box::new(
-            self.processes()
-                .values()
-                .filter(move |val: &&Process| val.name().contains(name)),
-        )
+    ) -> impl Iterator<Item = &'a Process> + 'b {
+        self.processes()
+            .values()
+            .filter(move |val: &&Process| val.name().contains(name))
     }
 
     /// Returns an iterator of processes with exactly the given `name`.
@@ -377,16 +418,13 @@ impl System {
     ///     println!("{} {}", process.pid(), process.name());
     /// }
     /// ```
-    // FIXME: replace the returned type with `impl Iterator<Item = &Process>` when it's supported!
     pub fn processes_by_exact_name<'a: 'b, 'b>(
         &'a self,
         name: &'b str,
-    ) -> Box<dyn Iterator<Item = &'a Process> + 'b> {
-        Box::new(
-            self.processes()
-                .values()
-                .filter(move |val: &&Process| val.name() == name),
-        )
+    ) -> impl Iterator<Item = &'a Process> + 'b {
+        self.processes()
+            .values()
+            .filter(move |val: &&Process| val.name() == name)
     }
 
     /// Returns "global" CPUs information (aka the addition of all the CPUs).
@@ -1377,6 +1415,12 @@ assert_eq!(r.", stringify!($name), "().is_some(), false);
 
 /// Used to determine what you want to refresh specifically on the [`Process`] type.
 ///
+/// When all refresh are ruled out, a [`Process`] will still retrieve the following information:
+///  * Process ID ([`Pid`])
+///  * Parent process ID
+///  * Process name
+///  * Start time
+///
 /// ⚠️ Just like all other refresh types, ruling out a refresh doesn't assure you that
 /// the information won't be retrieved if the information is accessible without needing
 /// extra computation.
@@ -1455,7 +1499,19 @@ impl ProcessRefreshKind {
         with_disk_usage,
         without_disk_usage
     );
-    impl_get_set!(ProcessRefreshKind, user, with_user, without_user);
+    impl_get_set!(
+        ProcessRefreshKind,
+        user,
+        with_user,
+        without_user,
+        "\
+It will retrieve the following information:
+
+ * user ID
+ * user effective ID (if available on the platform)
+ * user group ID (if available on the platform)
+ * user effective ID (if available on the platform)"
+    );
     impl_get_set!(ProcessRefreshKind, memory, with_memory, without_memory);
     impl_get_set!(ProcessRefreshKind, cwd, with_cwd, without_cwd);
     impl_get_set!(ProcessRefreshKind, root, with_root, without_root);
