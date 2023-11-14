@@ -1401,6 +1401,12 @@ pub struct ProcessRefreshKind {
     cpu: bool,
     disk_usage: bool,
     user: bool,
+    memory: bool,
+    cwd: bool,
+    root: bool,
+    environ: bool,
+    cmd: bool,
+    exe: bool,
 }
 
 impl ProcessRefreshKind {
@@ -1433,6 +1439,12 @@ impl ProcessRefreshKind {
             cpu: true,
             disk_usage: true,
             user: true,
+            memory: true,
+            cwd: true,
+            root: true,
+            environ: true,
+            cmd: true,
+            exe: true,
         }
     }
 
@@ -1443,14 +1455,13 @@ impl ProcessRefreshKind {
         with_disk_usage,
         without_disk_usage
     );
-    impl_get_set!(
-        ProcessRefreshKind,
-        user,
-        with_user,
-        without_user,
-        r#"This refresh is about `user_id` and `group_id`. Please note that it has an effect mostly
-on Windows as other platforms get this information alongside the Process information directly."#,
-    );
+    impl_get_set!(ProcessRefreshKind, user, with_user, without_user);
+    impl_get_set!(ProcessRefreshKind, memory, with_memory, without_memory);
+    impl_get_set!(ProcessRefreshKind, cwd, with_cwd, without_cwd);
+    impl_get_set!(ProcessRefreshKind, root, with_root, without_root);
+    impl_get_set!(ProcessRefreshKind, environ, with_environ, without_environ);
+    impl_get_set!(ProcessRefreshKind, cmd, with_cmd, without_cmd);
+    impl_get_set!(ProcessRefreshKind, exe, with_exe, without_exe);
 }
 
 /// Used to determine what you want to refresh specifically on the [`Cpu`] type.

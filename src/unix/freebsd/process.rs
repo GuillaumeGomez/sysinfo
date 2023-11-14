@@ -207,8 +207,15 @@ pub(crate) unsafe fn get_process_data(
     let status = ProcessStatus::from(kproc.ki_stat);
 
     // from FreeBSD source /src/usr.bin/top/machine.c
-    let virtual_memory = kproc.ki_size as _;
-    let memory = (kproc.ki_rssize as u64).saturating_mul(page_size as _);
+    let (virtual_memory, memory) = if refresh_kind.memory() {
+        (
+            kproc.ki_size as _,
+            (kproc.ki_rssize as u64).saturating_mul(page_size as _),
+        )
+    } else {
+        (0, 0)
+    };
+
     // FIXME: This is to get the "real" run time (in micro-seconds).
     // let run_time = (kproc.ki_runtime + 5_000) / 10_000;
 
@@ -223,8 +230,10 @@ pub(crate) unsafe fn get_process_data(
             proc_.cpu_usage = cpu_usage;
             proc_.parent = parent;
             proc_.status = status;
-            proc_.virtual_memory = virtual_memory;
-            proc_.memory = memory;
+            if refresh_kind.memory() {
+                proc_.virtual_memory = virtual_memory;
+                proc_.memory = memory;
+            }
             proc_.run_time = now.saturating_sub(proc_.start_time);
 
             if refresh_kind.disk_usage() {
@@ -239,18 +248,7 @@ pub(crate) unsafe fn get_process_data(
     }
 
     // This is a new process, we need to get more information!
-    let mut buffer = [0; libc::PATH_MAX as usize + 1];
 
-    let exe = get_sys_value_str(
-        &[
-            libc::CTL_KERN,
-            libc::KERN_PROC,
-            libc::KERN_PROC_PATHNAME,
-            kproc.ki_pid,
-        ],
-        &mut buffer,
-    )
-    .unwrap_or_default();
     // For some reason, it can return completely invalid path like `p\u{5}`. So we need to use
     // procstat to get around this problem.
     // let cwd = get_sys_value_str(
@@ -280,7 +278,7 @@ pub(crate) unsafe fn get_process_data(
             memory,
             // procstat_getfiles
             cwd: PathBuf::new(),
-            exe: exe.into(),
+            exe: PathBuf::new(),
             // kvm_getargv isn't thread-safe so we get it in the main thread.
             name: String::new(),
             // kvm_getargv isn't thread-safe so we get it in the main thread.
@@ -297,4 +295,25 @@ pub(crate) unsafe fn get_process_data(
             updated: false,
         },
     }))
+}
+
+pub(crate) unsafe fn get_exe(exe: &mut PathBuf, pid: crate::Pid, refresh_kind: ProcessRefreshKind) {
+    if refresh_kind.exe() && exe.as_os_str().is_empty() {
+        let mut buffer = [0; libc::PATH_MAX as usize + 1];
+
+        *exe = get_sys_value_str(
+            &[
+                libc::CTL_KERN,
+                libc::KERN_PROC,
+                libc::KERN_PROC_PATHNAME,
+                pid.0,
+            ],
+            &mut buffer,
+        )
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            sysinfo_debug!("Failed to get `exe` for {}", pid.0);
+            PathBuf::new()
+        });
+    }
 }

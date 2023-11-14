@@ -357,15 +357,10 @@ impl ProcessInner {
             let info = info.assume_init();
 
             let name = get_process_name(pid).unwrap_or_default();
-            let exe = get_exe(&process_handler);
-            let mut root = exe.clone();
-            root.pop();
-            let (cmd, environ, cwd) = match get_process_params(&process_handler) {
-                Ok(args) => args,
-                Err(_e) => {
-                    sysinfo_debug!("Failed to get process parameters: {}", _e);
-                    (Vec::new(), Vec::new(), PathBuf::new())
-                }
+            let exe = if refresh_kind.exe() {
+                get_exe(&process_handler)
+            } else {
+                PathBuf::new()
             };
             let (start_time, run_time) = get_start_and_run_time(*process_handler, now);
             let parent = if info.InheritedFromUniqueProcessId != 0 {
@@ -374,17 +369,17 @@ impl ProcessInner {
                 None
             };
             let user_id = get_process_user_id(&process_handler, refresh_kind);
-            Some(Self {
+            let mut p = Self {
                 handle: Some(Arc::new(process_handler)),
                 name,
                 pid,
                 parent,
                 user_id,
-                cmd,
-                environ,
+                cmd: Vec::new(),
+                environ: Vec::new(),
                 exe,
-                cwd,
-                root,
+                cwd: PathBuf::new(),
+                root: PathBuf::new(),
                 status: ProcessStatus::Run,
                 memory: 0,
                 virtual_memory: 0,
@@ -397,7 +392,9 @@ impl ProcessInner {
                 old_written_bytes: 0,
                 read_bytes: 0,
                 written_bytes: 0,
-            })
+            };
+            get_process_params(&mut p, refresh_kind);
+            Some(p)
         }
     }
 
@@ -412,29 +409,24 @@ impl ProcessInner {
     ) -> Self {
         if let Some(handle) = get_process_handler(pid) {
             unsafe {
-                let exe = get_exe(&handle);
-                let mut root = exe.clone();
-                root.pop();
-                let (cmd, environ, cwd) = match get_process_params(&handle) {
-                    Ok(args) => args,
-                    Err(_e) => {
-                        sysinfo_debug!("Failed to get process parameters: {}", _e);
-                        (Vec::new(), Vec::new(), PathBuf::new())
-                    }
+                let exe = if refresh_kind.exe() {
+                    get_exe(&handle)
+                } else {
+                    PathBuf::new()
                 };
                 let (start_time, run_time) = get_start_and_run_time(*handle, now);
                 let user_id = get_process_user_id(&handle, refresh_kind);
-                Self {
+                let mut p = Self {
                     handle: Some(Arc::new(handle)),
                     name,
                     pid,
                     user_id,
                     parent,
-                    cmd,
-                    environ,
+                    cmd: Vec::new(),
+                    environ: Vec::new(),
                     exe,
-                    cwd,
-                    root,
+                    cwd: PathBuf::new(),
+                    root: PathBuf::new(),
                     status: ProcessStatus::Run,
                     memory,
                     virtual_memory,
@@ -447,9 +439,17 @@ impl ProcessInner {
                     old_written_bytes: 0,
                     read_bytes: 0,
                     written_bytes: 0,
-                }
+                };
+
+                get_process_params(&mut p, refresh_kind);
+                p
             }
         } else {
+            let exe = if refresh_kind.exe() {
+                get_executable_path(pid)
+            } else {
+                PathBuf::new()
+            };
             Self {
                 handle: None,
                 name,
@@ -458,7 +458,7 @@ impl ProcessInner {
                 parent,
                 cmd: Vec::new(),
                 environ: Vec::new(),
-                exe: get_executable_path(pid),
+                exe,
                 cwd: PathBuf::new(),
                 root: PathBuf::new(),
                 status: ProcessStatus::Run,
@@ -489,7 +489,20 @@ impl ProcessInner {
         if refresh_kind.disk_usage() {
             update_disk_usage(self);
         }
-        update_memory(self);
+        if refresh_kind.memory() {
+            update_memory(self);
+        }
+        unsafe {
+            get_process_params(self, refresh_kind);
+        }
+        if refresh_kind.exe() {
+            unsafe {
+                self.exe = match self.handle.as_ref() {
+                    Some(handle) => get_exe(handle),
+                    None => get_executable_path(self.pid),
+                };
+            }
+        }
         self.run_time = now.saturating_sub(self.start_time());
         self.updated = true;
     }
@@ -639,6 +652,24 @@ unsafe fn get_process_times(handle: HANDLE) -> u64 {
     super::utils::filetime_to_u64(fstart)
 }
 
+// On Windows, the root folder is always the current drive. So we get it from its `cwd`.
+fn update_root(refresh_kind: ProcessRefreshKind, cwd: &Path, root: &mut PathBuf) {
+    if !refresh_kind.root() {
+        return;
+    }
+    if cwd.as_os_str().is_empty() || !cwd.has_root() {
+        *root = PathBuf::new();
+        return;
+    }
+    let mut ancestors = cwd.ancestors().peekable();
+    while let Some(path) = ancestors.next() {
+        if ancestors.peek().is_none() {
+            *root = path.into();
+            break;
+        }
+    }
+}
+
 #[inline]
 fn compute_start(process_times: u64) -> u64 {
     // 11_644_473_600 is the number of seconds between the Windows epoch (1601-01-01) and
@@ -664,13 +695,13 @@ pub(crate) fn get_start_time(handle: HANDLE) -> u64 {
 }
 
 unsafe fn ph_query_process_variable_size(
-    process_handle: &HandleWrapper,
+    process_handle: HANDLE,
     process_information_class: PROCESSINFOCLASS,
 ) -> Option<Vec<u16>> {
     let mut return_length = MaybeUninit::<u32>::uninit();
 
     let mut status = NtQueryInformationProcess(
-        **process_handle,
+        process_handle,
         process_information_class as _,
         null_mut(),
         0,
@@ -693,7 +724,7 @@ unsafe fn ph_query_process_variable_size(
     let buf_len = (return_length as usize) / 2;
     let mut buffer: Vec<u16> = Vec::with_capacity(buf_len + 1);
     status = NtQueryInformationProcess(
-        **process_handle,
+        process_handle,
         process_information_class as _,
         buffer.as_mut_ptr() as *mut _,
         return_length,
@@ -727,13 +758,10 @@ unsafe fn get_cmdline_from_buffer(buffer: PCWSTR) -> Vec<String> {
     res
 }
 
-unsafe fn get_region_size(
-    handle: &HandleWrapper,
-    ptr: *const c_void,
-) -> Result<usize, &'static str> {
+unsafe fn get_region_size(handle: HANDLE, ptr: *const c_void) -> Result<usize, &'static str> {
     let mut meminfo = MaybeUninit::<MEMORY_BASIC_INFORMATION>::uninit();
     if VirtualQueryEx(
-        **handle,
+        handle,
         Some(ptr),
         meminfo.as_mut_ptr().cast(),
         size_of::<MEMORY_BASIC_INFORMATION>(),
@@ -746,7 +774,7 @@ unsafe fn get_region_size(
 }
 
 unsafe fn get_process_data(
-    handle: &HandleWrapper,
+    handle: HANDLE,
     ptr: *const c_void,
     size: usize,
 ) -> Result<Vec<u16>, &'static str> {
@@ -754,7 +782,7 @@ unsafe fn get_process_data(
     let mut bytes_read = 0;
 
     if ReadProcessMemory(
-        **handle,
+        handle,
         ptr,
         buffer.as_mut_ptr().cast(),
         size,
@@ -777,25 +805,25 @@ unsafe fn get_process_data(
 }
 
 trait RtlUserProcessParameters {
-    fn get_cmdline(&self, handle: &HandleWrapper) -> Result<Vec<u16>, &'static str>;
-    fn get_cwd(&self, handle: &HandleWrapper) -> Result<Vec<u16>, &'static str>;
-    fn get_environ(&self, handle: &HandleWrapper) -> Result<Vec<u16>, &'static str>;
+    fn get_cmdline(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str>;
+    fn get_cwd(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str>;
+    fn get_environ(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str>;
 }
 
 macro_rules! impl_RtlUserProcessParameters {
     ($t:ty) => {
         impl RtlUserProcessParameters for $t {
-            fn get_cmdline(&self, handle: &HandleWrapper) -> Result<Vec<u16>, &'static str> {
+            fn get_cmdline(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str> {
                 let ptr = self.CommandLine.Buffer;
                 let size = self.CommandLine.Length;
                 unsafe { get_process_data(handle, ptr as _, size as _) }
             }
-            fn get_cwd(&self, handle: &HandleWrapper) -> Result<Vec<u16>, &'static str> {
+            fn get_cwd(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str> {
                 let ptr = self.CurrentDirectory.DosPath.Buffer;
                 let size = self.CurrentDirectory.DosPath.Length;
                 unsafe { get_process_data(handle, ptr as _, size as _) }
             }
-            fn get_environ(&self, handle: &HandleWrapper) -> Result<Vec<u16>, &'static str> {
+            fn get_environ(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str> {
                 let ptr = self.Environment;
                 unsafe {
                     let size = get_region_size(handle, ptr as _)?;
@@ -809,17 +837,24 @@ macro_rules! impl_RtlUserProcessParameters {
 impl_RtlUserProcessParameters!(RTL_USER_PROCESS_PARAMETERS32);
 impl_RtlUserProcessParameters!(RTL_USER_PROCESS_PARAMETERS);
 
-unsafe fn get_process_params(
-    handle: &HandleWrapper,
-) -> Result<(Vec<String>, Vec<String>, PathBuf), &'static str> {
+unsafe fn get_process_params(process: &mut ProcessInner, refresh_kind: ProcessRefreshKind) {
     if !cfg!(target_pointer_width = "64") {
-        return Err("Non 64 bit targets are not supported");
+        sysinfo_debug!("Non 64 bit targets are not supported");
+        return;
     }
+    if !(refresh_kind.cmd() || refresh_kind.environ() || refresh_kind.cwd() || refresh_kind.root())
+    {
+        return;
+    }
+    let handle = match process.handle.as_ref().map(|handle| handle.0) {
+        Some(h) => h,
+        None => return,
+    };
 
     // First check if target process is running in wow64 compatibility emulator
     let mut pwow32info = MaybeUninit::<*const c_void>::uninit();
     if NtQueryInformationProcess(
-        **handle,
+        handle,
         ProcessWow64Information,
         pwow32info.as_mut_ptr().cast(),
         size_of::<*const c_void>() as u32,
@@ -827,7 +862,8 @@ unsafe fn get_process_params(
     )
     .is_err()
     {
-        return Err("Unable to check WOW64 information about the process");
+        sysinfo_debug!("Unable to check WOW64 information about the process");
+        return;
     }
     let pwow32info = pwow32info.assume_init();
 
@@ -836,7 +872,7 @@ unsafe fn get_process_params(
 
         let mut pbasicinfo = MaybeUninit::<PROCESS_BASIC_INFORMATION>::uninit();
         if NtQueryInformationProcess(
-            **handle,
+            handle,
             ProcessBasicInformation,
             pbasicinfo.as_mut_ptr().cast(),
             size_of::<PROCESS_BASIC_INFORMATION>() as u32,
@@ -844,13 +880,14 @@ unsafe fn get_process_params(
         )
         .is_err()
         {
-            return Err("Unable to get basic process information");
+            sysinfo_debug!("Unable to get basic process information");
+            return;
         }
         let pinfo = pbasicinfo.assume_init();
 
         let mut peb = MaybeUninit::<PEB>::uninit();
         if ReadProcessMemory(
-            **handle,
+            handle,
             pinfo.PebBaseAddress.cast(),
             peb.as_mut_ptr().cast(),
             size_of::<PEB>(),
@@ -858,14 +895,15 @@ unsafe fn get_process_params(
         )
         .is_err()
         {
-            return Err("Unable to read process PEB");
+            sysinfo_debug!("Unable to read process PEB");
+            return;
         }
 
         let peb = peb.assume_init();
 
         let mut proc_params = MaybeUninit::<RTL_USER_PROCESS_PARAMETERS>::uninit();
         if ReadProcessMemory(
-            **handle,
+            handle,
             peb.ProcessParameters.cast(),
             proc_params.as_mut_ptr().cast(),
             size_of::<RTL_USER_PROCESS_PARAMETERS>(),
@@ -873,21 +911,26 @@ unsafe fn get_process_params(
         )
         .is_err()
         {
-            return Err("Unable to read process parameters");
+            sysinfo_debug!("Unable to read process parameters");
+            return;
         }
 
         let proc_params = proc_params.assume_init();
-        return Ok((
-            get_cmd_line(&proc_params, handle),
-            get_proc_env(&proc_params, handle),
-            get_cwd(&proc_params, handle),
-        ));
+        get_cmd_line(&proc_params, handle, refresh_kind, &mut process.cmd);
+        get_proc_env(&proc_params, handle, refresh_kind, &mut process.environ);
+        get_cwd_and_root(
+            &proc_params,
+            handle,
+            refresh_kind,
+            &mut process.cwd,
+            &mut process.root,
+        );
     }
     // target is a 32 bit process in wow64 mode
 
     let mut peb32 = MaybeUninit::<PEB32>::uninit();
     if ReadProcessMemory(
-        **handle,
+        handle,
         pwow32info,
         peb32.as_mut_ptr().cast(),
         size_of::<PEB32>(),
@@ -895,13 +938,14 @@ unsafe fn get_process_params(
     )
     .is_err()
     {
-        return Err("Unable to read PEB32");
+        sysinfo_debug!("Unable to read PEB32");
+        return;
     }
     let peb32 = peb32.assume_init();
 
     let mut proc_params = MaybeUninit::<RTL_USER_PROCESS_PARAMETERS32>::uninit();
     if ReadProcessMemory(
-        **handle,
+        handle,
         peb32.ProcessParameters as *mut _,
         proc_params.as_mut_ptr().cast(),
         size_of::<RTL_USER_PROCESS_PARAMETERS32>(),
@@ -909,22 +953,43 @@ unsafe fn get_process_params(
     )
     .is_err()
     {
-        return Err("Unable to read 32 bit process parameters");
+        sysinfo_debug!("Unable to read 32 bit process parameters");
+        return;
     }
     let proc_params = proc_params.assume_init();
-    Ok((
-        get_cmd_line(&proc_params, handle),
-        get_proc_env(&proc_params, handle),
-        get_cwd(&proc_params, handle),
-    ))
+    get_cmd_line(&proc_params, handle, refresh_kind, &mut process.cmd);
+    get_proc_env(&proc_params, handle, refresh_kind, &mut process.environ);
+    get_cwd_and_root(
+        &proc_params,
+        handle,
+        refresh_kind,
+        &mut process.cwd,
+        &mut process.root,
+    );
 }
 
-fn get_cwd<T: RtlUserProcessParameters>(params: &T, handle: &HandleWrapper) -> PathBuf {
+fn get_cwd_and_root<T: RtlUserProcessParameters>(
+    params: &T,
+    handle: HANDLE,
+    refresh_kind: ProcessRefreshKind,
+    cwd: &mut PathBuf,
+    root: &mut PathBuf,
+) {
+    if !refresh_kind.cwd() && !refresh_kind.root() {
+        return;
+    }
     match params.get_cwd(handle) {
-        Ok(buffer) => unsafe { PathBuf::from(null_terminated_wchar_to_string(buffer.as_slice())) },
+        Ok(buffer) => unsafe {
+            let tmp_cwd = PathBuf::from(null_terminated_wchar_to_string(buffer.as_slice()));
+            // Should always be called after we refreshed `cwd`.
+            update_root(refresh_kind, &tmp_cwd, root);
+            if refresh_kind.cwd() {
+                *cwd = tmp_cwd;
+            }
+        },
         Err(_e) => {
-            sysinfo_debug!("get_cwd failed to get data: {}", _e);
-            PathBuf::new()
+            sysinfo_debug!("get_cwd_and_root failed to get data: {:?}", _e);
+            *cwd = PathBuf::new();
         }
     }
 }
@@ -938,10 +1003,7 @@ unsafe fn null_terminated_wchar_to_string(slice: &[u16]) -> String {
     }
 }
 
-fn get_cmd_line_old<T: RtlUserProcessParameters>(
-    params: &T,
-    handle: &HandleWrapper,
-) -> Vec<String> {
+fn get_cmd_line_old<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<String> {
     match params.get_cmdline(handle) {
         Ok(buffer) => unsafe { get_cmdline_from_buffer(PCWSTR::from_raw(buffer.as_ptr())) },
         Err(_e) => {
@@ -952,7 +1014,7 @@ fn get_cmd_line_old<T: RtlUserProcessParameters>(
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-fn get_cmd_line_new(handle: &HandleWrapper) -> Vec<String> {
+fn get_cmd_line_new(handle: HANDLE) -> Vec<String> {
     unsafe {
         if let Some(buffer) = ph_query_process_variable_size(handle, ProcessCommandLineInformation)
         {
@@ -965,25 +1027,41 @@ fn get_cmd_line_new(handle: &HandleWrapper) -> Vec<String> {
     }
 }
 
-fn get_cmd_line<T: RtlUserProcessParameters>(params: &T, handle: &HandleWrapper) -> Vec<String> {
+fn get_cmd_line<T: RtlUserProcessParameters>(
+    params: &T,
+    handle: HANDLE,
+    refresh_kind: ProcessRefreshKind,
+    cmd_line: &mut Vec<String>,
+) {
+    if !refresh_kind.cmd() {
+        return;
+    }
     if *WINDOWS_8_1_OR_NEWER {
-        get_cmd_line_new(handle)
+        *cmd_line = get_cmd_line_new(handle);
     } else {
-        get_cmd_line_old(params, handle)
+        *cmd_line = get_cmd_line_old(params, handle);
     }
 }
 
-fn get_proc_env<T: RtlUserProcessParameters>(params: &T, handle: &HandleWrapper) -> Vec<String> {
+fn get_proc_env<T: RtlUserProcessParameters>(
+    params: &T,
+    handle: HANDLE,
+    refresh_kind: ProcessRefreshKind,
+    environ: &mut Vec<String>,
+) {
+    if !refresh_kind.environ() {
+        return;
+    }
     match params.get_environ(handle) {
         Ok(buffer) => {
             let equals = "=".encode_utf16().next().unwrap();
             let raw_env = buffer;
-            let mut result = Vec::new();
+            environ.clear();
             let mut begin = 0;
             while let Some(offset) = raw_env[begin..].iter().position(|&c| c == 0) {
                 let end = begin + offset;
                 if raw_env[begin..end].iter().any(|&c| c == equals) {
-                    result.push(
+                    environ.push(
                         OsString::from_wide(&raw_env[begin..end])
                             .to_string_lossy()
                             .into_owned(),
@@ -993,11 +1071,10 @@ fn get_proc_env<T: RtlUserProcessParameters>(params: &T, handle: &HandleWrapper)
                     break;
                 }
             }
-            result
         }
         Err(_e) => {
             sysinfo_debug!("get_proc_env failed to get data: {}", _e);
-            Vec::new()
+            *environ = Vec::new();
         }
     }
 }
