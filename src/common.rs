@@ -390,16 +390,13 @@ impl System {
     ///     println!("{} {}", process.pid(), process.name());
     /// }
     /// ```
-    // FIXME: replace the returned type with `impl Iterator<Item = &Process>` when it's supported!
     pub fn processes_by_name<'a: 'b, 'b>(
         &'a self,
         name: &'b str,
-    ) -> Box<dyn Iterator<Item = &'a Process> + 'b> {
-        Box::new(
-            self.processes()
-                .values()
-                .filter(move |val: &&Process| val.name().contains(name)),
-        )
+    ) -> impl Iterator<Item = &'a Process> + 'b {
+        self.processes()
+            .values()
+            .filter(move |val: &&Process| val.name().contains(name))
     }
 
     /// Returns an iterator of processes with exactly the given `name`.
@@ -421,16 +418,13 @@ impl System {
     ///     println!("{} {}", process.pid(), process.name());
     /// }
     /// ```
-    // FIXME: replace the returned type with `impl Iterator<Item = &Process>` when it's supported!
     pub fn processes_by_exact_name<'a: 'b, 'b>(
         &'a self,
         name: &'b str,
-    ) -> Box<dyn Iterator<Item = &'a Process> + 'b> {
-        Box::new(
-            self.processes()
-                .values()
-                .filter(move |val: &&Process| val.name() == name),
-        )
+    ) -> impl Iterator<Item = &'a Process> + 'b {
+        self.processes()
+            .values()
+            .filter(move |val: &&Process| val.name() == name)
     }
 
     /// Returns "global" CPUs information (aka the addition of all the CPUs).
