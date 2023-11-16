@@ -633,6 +633,8 @@ impl System {
 
     /// Returns the system load average value.
     ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
     /// ⚠️ This is currently not working on **Windows**.
     ///
     /// ```no_run
