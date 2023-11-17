@@ -101,7 +101,7 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
     cfg_if::cfg_if! {
         if #[cfg(all(not(feature = "unknown-ci"), any(target_os = "linux", target_os = "android")))]
         {
-            use crate::unix::linux::system::REMAINING_FILES;
+            use crate::sys::system::REMAINING_FILES;
             use std::sync::atomic::Ordering;
 
             if _new_limit < 0 {
