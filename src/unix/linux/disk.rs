@@ -246,7 +246,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
         })
         .filter(|(fs_spec, fs_file, fs_vfstype)| {
             // Check if fs_vfstype is one of our 'ignored' file systems.
-            let filtered = matches!(
+            let mut filtered = matches!(
                 *fs_vfstype,
                 "rootfs" | // https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt
                 "sysfs" | // pseudo file system for kernel objects
