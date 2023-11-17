@@ -261,7 +261,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
                 "iso9660" // optical media
             );
 
-            // If the nfs_support feature is enabled, don't filter it out.
+            // If the netdevs feature is enabled, don't filter cifs/nfs out.
             if !cfg!(feature = "netdevs") && matches!(*fs_vfstype, "cifs" | "nfs" | "nfs4") {
                 // calling statvfs on a mounted CIFS or NFS may hang, when they are mounted with option: hard
                 filtered = true;
