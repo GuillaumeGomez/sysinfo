@@ -101,6 +101,9 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
     cfg_if::cfg_if! {
         if #[cfg(all(not(feature = "unknown-ci"), any(target_os = "linux", target_os = "android")))]
         {
+            use crate::unix::linux::system::REMAINING_FILES;
+            use std::sync::atomic::Ordering;
+
             if _new_limit < 0 {
                 _new_limit = 0;
             }
@@ -108,18 +111,15 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
             if _new_limit > max {
                 _new_limit = max;
             }
-            unsafe {
-                if let Ok(ref mut x) = sys::system::REMAINING_FILES.lock() {
-                    // If files are already open, to be sure that the number won't be bigger when those
-                    // files are closed, we subtract the current number of opened files to the new
-                    // limit.
-                    let diff = max.saturating_sub(**x);
-                    **x = _new_limit.saturating_sub(diff);
-                    true
-                } else {
-                    false
-                }
-            }
+
+            // If files are already open, to be sure that the number won't be bigger when those
+            // files are closed, we subtract the current number of opened files to the new
+            // limit.
+            let remaining = REMAINING_FILES.load(Ordering::SeqCst);
+            let diff = max.saturating_sub(remaining);
+            REMAINING_FILES.store(_new_limit.saturating_sub(diff), Ordering::SeqCst);
+            true
+
         } else {
             false
         }

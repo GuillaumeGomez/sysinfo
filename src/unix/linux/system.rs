@@ -13,12 +13,11 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicIsize;
 
 // This whole thing is to prevent having too many files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
-#[allow(clippy::mutex_atomic)]
-pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<isize>>> =
+pub(crate) static REMAINING_FILES: once_cell::sync::Lazy<AtomicIsize> =
     once_cell::sync::Lazy::new(|| {
         unsafe {
             let mut limits = libc::rlimit {
@@ -27,7 +26,7 @@ pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<isize>>> 
             };
             if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
                 // Most Linux system now defaults to 1024.
-                return Arc::new(Mutex::new(1024 / 2));
+                return AtomicIsize::new(1024 / 2);
             }
             // We save the value in case the update fails.
             let current = limits.rlim_cur;
@@ -36,13 +35,11 @@ pub(crate) static mut REMAINING_FILES: once_cell::sync::Lazy<Arc<Mutex<isize>>> 
             limits.rlim_cur = limits.rlim_max;
             // In this part, we leave minimum 50% of the available file descriptors to the process
             // using sysinfo.
-            Arc::new(Mutex::new(
-                if libc::setrlimit(libc::RLIMIT_NOFILE, &limits) == 0 {
-                    limits.rlim_cur / 2
-                } else {
-                    current / 2
-                } as _,
-            ))
+            AtomicIsize::new(if libc::setrlimit(libc::RLIMIT_NOFILE, &limits) == 0 {
+                limits.rlim_cur / 2
+            } else {
+                current / 2
+            } as _)
         }
     });
 
