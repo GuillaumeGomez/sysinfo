@@ -35,13 +35,17 @@ pub(crate) struct FileCounter(File);
 
 impl FileCounter {
     pub(crate) fn new(f: File) -> Option<Self> {
-        if REMAINING_FILES.load(Ordering::SeqCst) > 0 {
-            REMAINING_FILES.fetch_sub(1, Ordering::SeqCst);
-            return Some(Self(f));
-        }
+        let any_remaining =
+            REMAINING_FILES.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
+                if remaining > 0 {
+                    Some(remaining - 1)
+                } else {
+                    // All file descriptors we were allowed are being used.
+                    None
+                }
+            });
 
-        // All file descriptors we were allowed are being used.
-        None
+        any_remaining.ok().map(|_| Self(f))
     }
 }
 
