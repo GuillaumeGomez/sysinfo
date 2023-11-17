@@ -258,10 +258,14 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
                 "pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
                 "squashfs" | // squashfs is a compressed read-only file system (for snaps)
                 "rpc_pipefs" | // The pipefs pseudo file system service
-                "iso9660" | // optical media
-                "nfs4" | // calling statvfs on a mounted NFS may hang
-                "nfs" // nfs2 or nfs3
+                "iso9660" // optical media
             );
+
+            // If the nfs_support feature is enabled, don't filter it out.
+            if !cfg!(feature = "netdevs") && matches!(*fs_vfstype, "cifs" | "nfs" | "nfs4") {
+                // calling statvfs on a mounted CIFS or NFS may hang, when they are mounted with option: hard
+                filtered = true;
+            }
 
             !(filtered ||
                fs_file.starts_with("/sys") || // check if fs_file is an 'ignored' mount point
