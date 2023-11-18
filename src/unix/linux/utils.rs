@@ -3,6 +3,7 @@
 use std::fs::File;
 use std::io::{self, Read, Seek};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 
 use crate::sys::system::REMAINING_FILES;
 
@@ -34,16 +35,17 @@ pub(crate) struct FileCounter(File);
 
 impl FileCounter {
     pub(crate) fn new(f: File) -> Option<Self> {
-        unsafe {
-            if let Ok(ref mut x) = REMAINING_FILES.lock() {
-                if **x > 0 {
-                    **x -= 1;
-                    return Some(Self(f));
+        let any_remaining =
+            REMAINING_FILES.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
+                if remaining > 0 {
+                    Some(remaining - 1)
+                } else {
+                    // All file descriptors we were allowed are being used.
+                    None
                 }
-                // All file descriptors we were allowed are being used.
-            }
-        }
-        None
+            });
+
+        any_remaining.ok().map(|_| Self(f))
     }
 }
 
@@ -62,11 +64,7 @@ impl std::ops::DerefMut for FileCounter {
 
 impl Drop for FileCounter {
     fn drop(&mut self) {
-        unsafe {
-            if let Ok(ref mut x) = crate::sys::system::REMAINING_FILES.lock() {
-                **x += 1;
-            }
-        }
+        REMAINING_FILES.fetch_add(1, Ordering::Relaxed);
     }
 }
 
