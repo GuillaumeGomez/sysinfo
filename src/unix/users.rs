@@ -91,6 +91,9 @@ pub(crate) unsafe fn get_user_groups(
             &mut nb_groups as *mut _ as *mut _,
         ) == -1
         {
+            // Ensure the length matches the number of returned groups.
+            // Needs to be updated for `Vec::reserve` to actually add additional capacity.
+            groups.set_len(nb_groups as _);
             groups.reserve(256);
             continue;
         }
