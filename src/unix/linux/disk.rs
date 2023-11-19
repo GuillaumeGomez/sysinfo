@@ -246,8 +246,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
         })
         .filter(|(fs_spec, fs_file, fs_vfstype)| {
             // Check if fs_vfstype is one of our 'ignored' file systems.
-            let filtered = matches!(
-                *fs_vfstype,
+            let filtered = match *fs_vfstype {
                 "rootfs" | // https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt
                 "sysfs" | // pseudo file system for kernel objects
                 "proc" |  // another pseudo file system
@@ -258,10 +257,12 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
                 "pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
                 "squashfs" | // squashfs is a compressed read-only file system (for snaps)
                 "rpc_pipefs" | // The pipefs pseudo file system service
-                "iso9660" | // optical media
-                "nfs4" | // calling statvfs on a mounted NFS may hang
-                "nfs" // nfs2 or nfs3
-            );
+                "iso9660" // optical media
+                => true,
+                // calling statvfs on a mounted CIFS or NFS may hang, when they are mounted with option: hard
+                "cifs" | "nfs" | "nfs4" => !cfg!(feature = "linux-netdevs"),
+                _ => false,
+            };
 
             !(filtered ||
                fs_file.starts_with("/sys") || // check if fs_file is an 'ignored' mount point
