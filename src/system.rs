@@ -10,7 +10,8 @@ mod tests {
     #[test]
     fn test_refresh_system() {
         let mut sys = System::new();
-        sys.refresh_system();
+        sys.refresh_memory();
+        sys.refresh_cpu_usage();
         // We don't want to test on unsupported systems.
         if crate::IS_SUPPORTED {
             assert!(sys.total_memory() != 0);

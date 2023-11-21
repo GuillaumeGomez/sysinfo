@@ -38,7 +38,7 @@ void check_tasks(CSystem system) {
     }
     pthread_t thread;
     pthread_create(&thread, NULL, sleeping_func, NULL);
-    sysinfo_refresh_system(system);
+    sysinfo_refresh_processes(system);
     CProcess process = sysinfo_process_by_pid(system, getpid());
     printf("\n== Task(s) for current process: ==\n");
     print_process(process);

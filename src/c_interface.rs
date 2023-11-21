@@ -42,20 +42,6 @@ pub extern "C" fn sysinfo_destroy(system: CSystem) {
     }
 }
 
-/// Equivalent of [`System::refresh_system()`][crate::System#method.refresh_system].
-#[no_mangle]
-pub extern "C" fn sysinfo_refresh_system(system: CSystem) {
-    assert!(!system.is_null());
-    unsafe {
-        let mut system: Box<System> = Box::from_raw(system as *mut System);
-        {
-            let system: &mut System = system.borrow_mut();
-            system.refresh_system();
-        }
-        Box::into_raw(system);
-    }
-}
-
 /// Equivalent of [`System::refresh_memory()`][crate::System#method.refresh_memory].
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_memory(system: CSystem) {

@@ -119,34 +119,16 @@ impl System {
 
     /// Refreshes all system and processes information.
     ///
+    /// It is the equivalent of usin `system.refresh_specifics(RefreshKind::everything())`.
+    ///
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// s.refresh_all();
     /// ```
     pub fn refresh_all(&mut self) {
-        self.refresh_system();
-        self.refresh_processes();
-    }
-
-    /// Refreshes system information (RAM, swap, CPU usage and components' temperature).
-    ///
-    /// If you want some more specific refreshes, you might be interested into looking at
-    /// [`refresh_memory`] and [`refresh_cpu`].
-    ///
-    /// [`refresh_memory`]: System::refresh_memory
-    /// [`refresh_cpu`]: System::refresh_memory
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_system();
-    /// ```
-    pub fn refresh_system(&mut self) {
-        self.refresh_memory();
-        self.refresh_cpu_usage();
+        self.refresh_specifics(RefreshKind::everything());
     }
 
     /// Refreshes RAM and SWAP usage.
@@ -154,7 +136,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// s.refresh_memory();
     /// ```
     pub fn refresh_memory(&mut self) {

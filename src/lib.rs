@@ -197,7 +197,7 @@ mod test {
     #[test]
     fn check_process_memory_usage() {
         let mut s = System::new();
-        s.refresh_all();
+        s.refresh_specifics(RefreshKind::everything());
 
         if IS_SUPPORTED {
             // No process should have 0 as memory usage.

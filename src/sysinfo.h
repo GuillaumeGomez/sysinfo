@@ -24,7 +24,6 @@ void        sysinfo_destroy(CSystem system);
 CNetworks   sysinfo_networks_init(void);
 void        sysinfo_networks_destroy(CNetworks networks);
 
-void        sysinfo_refresh_system(CSystem system);
 void        sysinfo_refresh_memory(CSystem system);
 void        sysinfo_refresh_cpu(CSystem system);
 void        sysinfo_refresh_all(CSystem system);
