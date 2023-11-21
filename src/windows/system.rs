@@ -201,14 +201,14 @@ impl SystemInner {
         let mut buffer_size = 512 * 1024;
         let mut process_information: Vec<u8> = Vec::with_capacity(buffer_size);
 
-        loop {
-            let mut cb_needed = 0;
-            // reserve(n) ensures the Vec has capacity for n elements on top of len
-            // so we should reserve buffer_size - len. len will always be zero at this point
-            // this is a no-op on the first call as buffer_size == capacity
-            process_information.reserve(buffer_size);
+        unsafe {
+            loop {
+                let mut cb_needed = 0;
+                // reserve(n) ensures the Vec has capacity for n elements on top of len
+                // so we should reserve buffer_size - len. len will always be zero at this point
+                // this is a no-op on the first call as buffer_size == capacity
+                process_information.reserve(buffer_size);
 
-            unsafe {
                 let ntstatus = NtQuerySystemInformation(
                     SystemProcessInformation,
                     process_information.as_mut_ptr() as *mut _,
@@ -238,105 +238,101 @@ impl SystemInner {
                     }
                 }
             }
-        }
 
-        // If we reach this point NtQuerySystemInformation succeeded
-        // and the buffer contents are initialized
-        unsafe {
+            // If we reach this point NtQuerySystemInformation succeeded
+            // and the buffer contents are initialized
             process_information.set_len(buffer_size);
-        }
 
-        // Parse the data block to get process information
-        let mut process_ids = Vec::with_capacity(500);
-        let mut process_information_offset = 0;
-        loop {
-            let p = unsafe {
-                process_information
+            // Parse the data block to get process information
+            let mut process_ids = Vec::with_capacity(500);
+            let mut process_information_offset = 0;
+            loop {
+                let p = process_information
                     .as_ptr()
                     .offset(process_information_offset)
-                    as *const SYSTEM_PROCESS_INFORMATION
+                    as *const SYSTEM_PROCESS_INFORMATION;
+
+                process_ids.push(Wrap(p));
+
+                // read_unaligned is necessary to avoid
+                // misaligned pointer dereference: address must be a multiple of 0x8 but is 0x...
+                // under x86_64 wine (and possibly other systems)
+                let pi = ptr::read_unaligned(p);
+
+                if pi.NextEntryOffset == 0 {
+                    break;
+                }
+
+                process_information_offset += pi.NextEntryOffset as isize;
+            }
+            let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
+            let nb_cpus = if refresh_kind.cpu() {
+                self.cpus.len() as u64
+            } else {
+                0
             };
 
-            process_ids.push(Wrap(p));
+            let now = get_now();
 
-            // read_unaligned is necessary to avoid
-            // misaligned pointer dereference: address must be a multiple of 0x8 but is 0x...
-            // under x86_64 wine (and possibly other systems)
-            let pi = unsafe { ptr::read_unaligned(p) };
+            #[cfg(feature = "multithread")]
+            use rayon::iter::ParallelIterator;
 
-            if pi.NextEntryOffset == 0 {
-                break;
-            }
-
-            process_information_offset += pi.NextEntryOffset as isize;
-        }
-        let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
-        let nb_cpus = if refresh_kind.cpu() {
-            self.cpus.len() as u64
-        } else {
-            0
-        };
-
-        let now = get_now();
-
-        #[cfg(feature = "multithread")]
-        use rayon::iter::ParallelIterator;
-
-        // TODO: instead of using parallel iterator only here, would be better to be
-        //       able to run it over `process_information` directly!
-        let processes = into_iter(process_ids)
-            .filter_map(|pi| {
-                // as above, read_unaligned is necessary
-                let pi = unsafe { ptr::read_unaligned(pi.0) };
-                let pid = Pid(pi.UniqueProcessId as _);
-                if let Some(proc_) = unsafe { (*process_list.0.get()).get_mut(&pid) } {
-                    let proc_ = &mut proc_.inner;
-                    if proc_
-                        .get_start_time()
-                        .map(|start| start == proc_.start_time())
-                        .unwrap_or(true)
-                    {
-                        if refresh_kind.memory() {
-                            proc_.memory = pi.WorkingSetSize as _;
-                            proc_.virtual_memory = pi.VirtualSize as _;
+            // TODO: instead of using parallel iterator only here, would be better to be
+            //       able to run it over `process_information` directly!
+            let processes = into_iter(process_ids)
+                .filter_map(|pi| {
+                    // as above, read_unaligned is necessary
+                    let pi = ptr::read_unaligned(pi.0);
+                    let pid = Pid(pi.UniqueProcessId as _);
+                    if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
+                        let proc_ = &mut proc_.inner;
+                        if proc_
+                            .get_start_time()
+                            .map(|start| start == proc_.start_time())
+                            .unwrap_or(true)
+                        {
+                            if refresh_kind.memory() {
+                                proc_.memory = pi.WorkingSetSize as _;
+                                proc_.virtual_memory = pi.VirtualSize as _;
+                            }
+                            proc_.update(refresh_kind, nb_cpus, now);
+                            return None;
                         }
-                        proc_.update(refresh_kind, nb_cpus, now);
-                        return None;
+                        // If the PID owner changed, we need to recompute the whole process.
+                        sysinfo_debug!("owner changed for PID {}", proc_.pid());
                     }
-                    // If the PID owner changed, we need to recompute the whole process.
-                    sysinfo_debug!("owner changed for PID {}", proc_.pid());
-                }
-                let name = get_process_name(&pi, pid);
-                let (memory, virtual_memory) = if refresh_kind.memory() {
-                    (pi.WorkingSetSize as _, pi.VirtualSize as _)
-                } else {
-                    (0, 0)
-                };
-                let mut p = ProcessInner::new_full(
-                    pid,
-                    if pi.InheritedFromUniqueProcessId as usize != 0 {
-                        Some(Pid(pi.InheritedFromUniqueProcessId as _))
+                    let name = get_process_name(&pi, pid);
+                    let (memory, virtual_memory) = if refresh_kind.memory() {
+                        (pi.WorkingSetSize as _, pi.VirtualSize as _)
                     } else {
-                        None
-                    },
-                    memory,
-                    virtual_memory,
-                    name,
-                    now,
-                    refresh_kind,
-                );
-                p.update(refresh_kind.without_memory(), nb_cpus, now);
-                Some(Process { inner: p })
-            })
-            .collect::<Vec<_>>();
-        for p in processes.into_iter() {
-            self.process_list.insert(p.pid(), p);
+                        (0, 0)
+                    };
+                    let mut p = ProcessInner::new_full(
+                        pid,
+                        if pi.InheritedFromUniqueProcessId as usize != 0 {
+                            Some(Pid(pi.InheritedFromUniqueProcessId as _))
+                        } else {
+                            None
+                        },
+                        memory,
+                        virtual_memory,
+                        name,
+                        now,
+                        refresh_kind,
+                    );
+                    p.update(refresh_kind.without_memory(), nb_cpus, now);
+                    Some(Process { inner: p })
+                })
+                .collect::<Vec<_>>();
+            for p in processes.into_iter() {
+                self.process_list.insert(p.pid(), p);
+            }
+            self.process_list.retain(|_, v| {
+                let x = v.inner.updated;
+                v.inner.updated = false;
+                x
+            });
         }
-        self.process_list.retain(|_, v| {
-            let x = v.inner.updated;
-            v.inner.updated = false;
-            x
-        });
     }
 
     pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
