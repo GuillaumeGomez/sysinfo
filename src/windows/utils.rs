@@ -98,6 +98,8 @@ pub(crate) fn get_reg_string_value(hkey: HKEY, path: &str, field_name: &str) -> 
             match new_key.get_value(&c_field_name, &mut buf, &mut buf_len) {
                 Ok(()) => break,
                 Err(err) if err.code() == Foundation::ERROR_MORE_DATA.to_hresult() => {
+                    // Needs to be updated for `Vec::reserve` to actually add additional capacity.
+                    buf.set_len(buf.capacity());
                     buf.reserve(buf_len as _);
                 }
                 _ => return None,

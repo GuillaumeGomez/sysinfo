@@ -64,6 +64,9 @@ pub(crate) unsafe fn get_group_name(
         {
             // If there was not enough memory, we give it more.
             if last_errno == libc::ERANGE as _ {
+                // Needs to be updated for `Vec::reserve` to actually add additional capacity.
+                // In here it's "fine" since we never read from `buffer`.
+                buffer.set_len(buffer.capacity());
                 buffer.reserve(2048);
                 continue;
             }

@@ -501,19 +501,25 @@ pub(crate) fn get_frequencies(nb_cpus: usize) -> Vec<u64> {
 }
 
 pub(crate) fn get_physical_core_count() -> Option<usize> {
-    // we cannot use the number of cpus here to pre calculate the buf size
-    // GetLogicalCpuInformationEx with RelationProcessorCore passed to it not only returns
-    // the logical cores but also numa nodes
+    // We cannot use the number of cpus here to pre calculate the buf size.
+    // `GetLogicalCpuInformationEx` with `RelationProcessorCore` passed to it not only returns
+    // the logical cores but also numa nodes.
     //
     // GetLogicalCpuInformationEx: https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex
 
     let mut needed_size = 0;
     unsafe {
+        // This function call will always return an error as it only returns "success" when it
+        // has written at least one item in the buffer (which it cannot do here).
         let _err = GetLogicalProcessorInformationEx(RelationAll, None, &mut needed_size);
 
         let mut buf: Vec<u8> = Vec::with_capacity(needed_size as _);
 
         loop {
+            // Needs to be updated for `Vec::reserve` to actually add additional capacity if
+            // `GetLogicalProcessorInformationEx` fails because the buffer isn't big enough.
+            buf.set_len(needed_size as _);
+
             if GetLogicalProcessorInformationEx(
                 RelationAll,
                 Some(buf.as_mut_ptr().cast()),
@@ -539,6 +545,17 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
                 needed_size as usize - buf.capacity()
             } else {
                 1
+            };
+            needed_size = match needed_size.checked_add(reserve as _) {
+                Some(new_size) => new_size,
+                None => {
+                    sysinfo_debug!(
+                        "get_physical_core_count: buffer size is too big ({} + {})",
+                        needed_size,
+                        reserve,
+                    );
+                    return None;
+                }
             };
             buf.reserve(reserve);
         }
