@@ -36,6 +36,9 @@ pub(crate) unsafe fn get_group_name(
     }
     let g = g.assume_init();
     let mut group_name = Vec::new();
+    if g.gr_name.is_null() {
+        return Some(String::new());
+    }
     let c_group_name = g.gr_name;
     let mut x = 0;
     loop {
