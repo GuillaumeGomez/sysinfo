@@ -1,3 +1,7 @@
+# 0.29.11
+
+ * macOS: Fix bug when a user group doesn't have a name.
+
 # 0.29.10
 
  * Linux: Correctly handle max memory value for cgroups.
