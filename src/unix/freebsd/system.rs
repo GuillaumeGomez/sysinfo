@@ -318,7 +318,10 @@ unsafe fn add_missing_proc_info(
     {
         let kd = system_info.kd.as_ptr();
         let proc_inner = &mut proc_.inner;
-        if refresh_kind.cmd() || proc_inner.name.is_empty() {
+        let cmd_needs_update = refresh_kind
+            .cmd()
+            .needs_update(|| proc_inner.cmd.is_empty());
+        if proc_inner.name.is_empty() || cmd_needs_update {
             let cmd = from_cstr_array(libc::kvm_getargv(kd, kproc, 0) as _);
 
             if !cmd.is_empty() {
@@ -327,10 +330,10 @@ unsafe fn add_missing_proc_info(
                 if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
                     proc_inner.name = name.to_owned();
                 }
-            }
 
-            if refresh_kind.cmd() {
-                proc_inner.cmd = cmd;
+                if cmd_needs_update {
+                    proc_inner.cmd = cmd;
+                }
             }
         }
         get_exe(&mut proc_inner.exe, proc_inner.pid, refresh_kind);
@@ -341,7 +344,10 @@ unsafe fn add_missing_proc_info(
             // possible.
             proc_inner.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_default();
         }
-        if refresh_kind.environ() {
+        if refresh_kind
+            .environ()
+            .needs_update(|| proc_inner.environ.is_empty())
+        {
             proc_inner.environ = from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _);
         }
     }
@@ -593,10 +599,16 @@ impl SystemInfo {
         refresh_kind: ProcessRefreshKind,
     ) {
         let mut done = 0;
-        if refresh_kind.cwd() {
+        let cwd_needs_update = refresh_kind
+            .cwd()
+            .needs_update(|| proc_.cwd().as_os_str().is_empty());
+        let root_needs_update = refresh_kind
+            .root()
+            .needs_update(|| proc_.root().as_os_str().is_empty());
+        if cwd_needs_update {
             done += 1;
         }
-        if refresh_kind.root() {
+        if root_needs_update {
             done += 1;
         }
         if done == 0 {
@@ -618,14 +630,14 @@ impl SystemInfo {
             {
                 let tmp = &*entry;
                 if tmp.fs_uflags & libc::PS_FST_UFLAG_CDIR != 0 {
-                    if refresh_kind.cwd() && !tmp.fs_path.is_null() {
+                    if cwd_needs_update && !tmp.fs_path.is_null() {
                         if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
                             proc_.cwd = PathBuf::from(p);
                             done -= 1;
                         }
                     }
                 } else if tmp.fs_uflags & libc::PS_FST_UFLAG_RDIR != 0 {
-                    if refresh_kind.root() && !tmp.fs_path.is_null() {
+                    if root_needs_update && !tmp.fs_path.is_null() {
                         if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
                             proc_.root = PathBuf::from(p);
                             done -= 1;
