@@ -88,10 +88,7 @@ fn get_process_handler(pid: Pid) -> Option<HandleWrapper> {
         })
 }
 
-unsafe fn get_process_user_id(
-    handle: &HandleWrapper,
-    refresh_kind: ProcessRefreshKind,
-) -> Option<Uid> {
+unsafe fn get_process_user_id(process: &mut ProcessInner, refresh_kind: ProcessRefreshKind) {
     struct HeapWrap<T>(*mut T);
 
     impl<T> HeapWrap<T> {
@@ -118,39 +115,57 @@ unsafe fn get_process_user_id(
         }
     }
 
-    if !refresh_kind.user() {
-        return None;
+    let handle = match &process.handle {
+        // We get back the pointer so we don't need to clone the wrapping `Arc`.
+        Some(handle) => ***handle,
+        None => return,
+    };
+
+    if !refresh_kind
+        .user()
+        .needs_update(|| process.user_id.is_none())
+    {
+        return;
     }
 
     let mut token = Default::default();
 
-    if OpenProcessToken(**handle, TOKEN_QUERY, &mut token).is_err() {
+    if OpenProcessToken(handle, TOKEN_QUERY, &mut token).is_err() {
         sysinfo_debug!("OpenProcessToken failed");
-        return None;
+        return;
     }
 
-    let token = HandleWrapper::new(token)?;
+    let token = match HandleWrapper::new(token) {
+        Some(token) => token,
+        None => return,
+    };
 
     let mut size = 0;
 
     if let Err(err) = GetTokenInformation(*token, TokenUser, None, 0, &mut size) {
         if err.code() != ERROR_INSUFFICIENT_BUFFER.to_hresult() {
             sysinfo_debug!("GetTokenInformation failed, error: {:?}", err);
-            return None;
+            return;
         }
     }
 
-    let ptu: HeapWrap<TOKEN_USER> = HeapWrap::new(size)?;
+    let ptu: HeapWrap<TOKEN_USER> = match HeapWrap::new(size) {
+        Some(ptu) => ptu,
+        None => return,
+    };
 
     if let Err(_err) = GetTokenInformation(*token, TokenUser, Some(ptu.0.cast()), size, &mut size) {
         sysinfo_debug!(
             "GetTokenInformation failed (returned {_err:?}), error: {:?}",
             io::Error::last_os_error()
         );
-        return None;
+        return;
     }
 
-    Sid::from_psid((*ptu.0).User.Sid).map(Uid)
+    // We force this check to prevent overwritting a `Some` with a `None`.
+    if let Some(uid) = Sid::from_psid((*ptu.0).User.Sid).map(Uid) {
+        process.user_id = Some(uid);
+    }
 }
 
 struct HandleWrapper(HANDLE);
@@ -357,7 +372,7 @@ impl ProcessInner {
             let info = info.assume_init();
 
             let name = get_process_name(pid).unwrap_or_default();
-            let exe = if refresh_kind.exe() {
+            let exe = if refresh_kind.exe().needs_update(|| true) {
                 get_exe(&process_handler)
             } else {
                 PathBuf::new()
@@ -368,13 +383,12 @@ impl ProcessInner {
             } else {
                 None
             };
-            let user_id = get_process_user_id(&process_handler, refresh_kind);
             let mut p = Self {
                 handle: Some(Arc::new(process_handler)),
                 name,
                 pid,
                 parent,
-                user_id,
+                user_id: None,
                 cmd: Vec::new(),
                 environ: Vec::new(),
                 exe,
@@ -393,6 +407,7 @@ impl ProcessInner {
                 read_bytes: 0,
                 written_bytes: 0,
             };
+            get_process_user_id(&mut p, refresh_kind);
             get_process_params(&mut p, refresh_kind);
             Some(p)
         }
@@ -409,18 +424,17 @@ impl ProcessInner {
     ) -> Self {
         if let Some(handle) = get_process_handler(pid) {
             unsafe {
-                let exe = if refresh_kind.exe() {
+                let exe = if refresh_kind.exe().needs_update(|| true) {
                     get_exe(&handle)
                 } else {
                     PathBuf::new()
                 };
                 let (start_time, run_time) = get_start_and_run_time(*handle, now);
-                let user_id = get_process_user_id(&handle, refresh_kind);
                 let mut p = Self {
                     handle: Some(Arc::new(handle)),
                     name,
                     pid,
-                    user_id,
+                    user_id: None,
                     parent,
                     cmd: Vec::new(),
                     environ: Vec::new(),
@@ -441,11 +455,12 @@ impl ProcessInner {
                     written_bytes: 0,
                 };
 
+                get_process_user_id(&mut p, refresh_kind);
                 get_process_params(&mut p, refresh_kind);
                 p
             }
         } else {
-            let exe = if refresh_kind.exe() {
+            let exe = if refresh_kind.exe().needs_update(|| true) {
                 get_executable_path(pid)
             } else {
                 PathBuf::new()
@@ -493,9 +508,13 @@ impl ProcessInner {
             update_memory(self);
         }
         unsafe {
+            get_process_user_id(self, refresh_kind);
             get_process_params(self, refresh_kind);
         }
-        if refresh_kind.exe() {
+        if refresh_kind
+            .exe()
+            .needs_update(|| self.exe.as_os_str().is_empty())
+        {
             unsafe {
                 self.exe = match self.handle.as_ref() {
                     Some(handle) => get_exe(handle),
@@ -654,7 +673,10 @@ unsafe fn get_process_times(handle: HANDLE) -> u64 {
 
 // On Windows, the root folder is always the current drive. So we get it from its `cwd`.
 fn update_root(refresh_kind: ProcessRefreshKind, cwd: &Path, root: &mut PathBuf) {
-    if !refresh_kind.root() {
+    if !refresh_kind
+        .root()
+        .needs_update(|| root.as_os_str().is_empty())
+    {
         return;
     }
     if cwd.as_os_str().is_empty() || !cwd.has_root() {
@@ -842,7 +864,16 @@ unsafe fn get_process_params(process: &mut ProcessInner, refresh_kind: ProcessRe
         sysinfo_debug!("Non 64 bit targets are not supported");
         return;
     }
-    if !(refresh_kind.cmd() || refresh_kind.environ() || refresh_kind.cwd() || refresh_kind.root())
+    if !(refresh_kind.cmd().needs_update(|| process.cmd.is_empty())
+        || refresh_kind
+            .environ()
+            .needs_update(|| process.environ.is_empty())
+        || refresh_kind
+            .cwd()
+            .needs_update(|| process.cwd.as_os_str().is_empty())
+        || refresh_kind
+            .root()
+            .needs_update(|| process.root.as_os_str().is_empty()))
     {
         return;
     }
@@ -975,7 +1006,13 @@ fn get_cwd_and_root<T: RtlUserProcessParameters>(
     cwd: &mut PathBuf,
     root: &mut PathBuf,
 ) {
-    if !refresh_kind.cwd() && !refresh_kind.root() {
+    let cwd_needs_update = refresh_kind
+        .cwd()
+        .needs_update(|| cwd.as_os_str().is_empty());
+    let root_needs_update = refresh_kind
+        .root()
+        .needs_update(|| root.as_os_str().is_empty());
+    if !cwd_needs_update && !root_needs_update {
         return;
     }
     match params.get_cwd(handle) {
@@ -983,7 +1020,7 @@ fn get_cwd_and_root<T: RtlUserProcessParameters>(
             let tmp_cwd = PathBuf::from(null_terminated_wchar_to_string(buffer.as_slice()));
             // Should always be called after we refreshed `cwd`.
             update_root(refresh_kind, &tmp_cwd, root);
-            if refresh_kind.cwd() {
+            if cwd_needs_update {
                 *cwd = tmp_cwd;
             }
         },
@@ -1033,7 +1070,7 @@ fn get_cmd_line<T: RtlUserProcessParameters>(
     refresh_kind: ProcessRefreshKind,
     cmd_line: &mut Vec<String>,
 ) {
-    if !refresh_kind.cmd() {
+    if !refresh_kind.cmd().needs_update(|| cmd_line.is_empty()) {
         return;
     }
     if *WINDOWS_8_1_OR_NEWER {
@@ -1049,7 +1086,7 @@ fn get_proc_env<T: RtlUserProcessParameters>(
     refresh_kind: ProcessRefreshKind,
     environ: &mut Vec<String>,
 ) {
-    if !refresh_kind.environ() {
+    if !refresh_kind.environ().needs_update(|| environ.is_empty()) {
         return;
     }
     match params.get_environ(handle) {
