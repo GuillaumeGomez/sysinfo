@@ -1342,6 +1342,65 @@ assert_eq!(r.", stringify!($name), "(), false);
         }
     };
 
+    // To handle `UpdateKind`.
+    ($ty_name:ident, $name:ident, $with:ident, $without:ident, UpdateKind $(, $extra_doc:literal)? $(,)?) => {
+        #[doc = concat!("Returns the value of the \"", stringify!($name), "\" refresh kind.")]
+        $(#[doc = concat!("
+", $extra_doc, "
+")])?
+        #[doc = concat!("
+```
+use sysinfo::{", stringify!($ty_name), ", UpdateKind};
+
+let r = ", stringify!($ty_name), "::new();
+assert_eq!(r.", stringify!($name), "(), UpdateKind::Never);
+
+let r = r.with_", stringify!($name), "(UpdateKind::OnlyIfNotSet);
+assert_eq!(r.", stringify!($name), "(), UpdateKind::OnlyIfNotSet);
+
+let r = r.without_", stringify!($name), "();
+assert_eq!(r.", stringify!($name), "(), UpdateKind::Never);
+```")]
+        pub fn $name(&self) -> UpdateKind {
+            self.$name
+        }
+
+        #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind.
+
+```
+use sysinfo::{", stringify!($ty_name), ", UpdateKind};
+
+let r = ", stringify!($ty_name), "::new();
+assert_eq!(r.", stringify!($name), "(), UpdateKind::Never);
+
+let r = r.with_", stringify!($name), "(UpdateKind::OnlyIfNotSet);
+assert_eq!(r.", stringify!($name), "(), UpdateKind::OnlyIfNotSet);
+```")]
+        #[must_use]
+        pub fn $with(mut self, kind: UpdateKind) -> Self {
+            self.$name = kind;
+            self
+        }
+
+        #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `UpdateKind::Never`.
+
+```
+use sysinfo::{", stringify!($ty_name), ", UpdateKind};
+
+let r = ", stringify!($ty_name), "::everything();
+assert_eq!(r.", stringify!($name), "(), UpdateKind::OnlyIfNotSet);
+
+let r = r.without_", stringify!($name), "();
+assert_eq!(r.", stringify!($name), "(), UpdateKind::Never);
+```")]
+        #[must_use]
+        pub fn $without(mut self) -> Self {
+            self.$name = UpdateKind::Never;
+            self
+        }
+    };
+
+    // To handle `*RefreshKind`.
     ($ty_name:ident, $name:ident, $with:ident, $without:ident, $typ:ty $(,)?) => {
         #[doc = concat!("Returns the value of the \"", stringify!($name), "\" refresh kind.
 
@@ -1361,7 +1420,7 @@ assert_eq!(r.", stringify!($name), "().is_some(), false);
             self.$name
         }
 
-        #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `true`.
+        #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `Some(...)`.
 
 ```
 use sysinfo::{", stringify!($ty_name), ", ", stringify!($typ), "};
@@ -1378,7 +1437,7 @@ assert_eq!(r.", stringify!($name), "().is_some(), true);
             self
         }
 
-        #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `false`.
+        #[doc = concat!("Sets the value of the \"", stringify!($name), "\" refresh kind to `None`.
 
 ```
 use sysinfo::", stringify!($ty_name), ";
@@ -1395,6 +1454,42 @@ assert_eq!(r.", stringify!($name), "().is_some(), false);
             self
         }
     };
+}
+
+/// This enum allows you to specify when you want the related information to be updated.
+///
+/// For example if you only want the [`Process::exe()`] information to be refreshed only if it's not
+/// already set:
+///
+/// ```no_run
+/// use sysinfo::{ProcessRefreshKind, System, UpdateKind};
+///
+/// let mut system = System::new();
+/// system.refresh_processes_specifics(
+///     ProcessRefreshKind::new().with_exe(UpdateKind::OnlyIfNotSet),
+/// );
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum UpdateKind {
+    /// Never update the related information.
+    #[default]
+    Never,
+    /// Always update the related information.
+    Always,
+    /// Only update the related information if it was not already set at least once.
+    OnlyIfNotSet,
+}
+
+impl UpdateKind {
+    /// If `self` is `OnlyIfNotSet`, `f` is called and its returned value is returned.
+    #[allow(dead_code)] // Needed for unsupported targets.
+    pub(crate) fn needs_update(self, f: impl Fn() -> bool) -> bool {
+        match self {
+            Self::Never => false,
+            Self::Always => true,
+            Self::OnlyIfNotSet => f(),
+        }
+    }
 }
 
 /// Used to determine what you want to refresh specifically on the [`Process`] type.
@@ -1428,51 +1523,52 @@ assert_eq!(r.", stringify!($name), "().is_some(), false);
 pub struct ProcessRefreshKind {
     cpu: bool,
     disk_usage: bool,
-    user: bool,
     memory: bool,
-    cwd: bool,
-    root: bool,
-    environ: bool,
-    cmd: bool,
-    exe: bool,
+    user: UpdateKind,
+    cwd: UpdateKind,
+    root: UpdateKind,
+    environ: UpdateKind,
+    cmd: UpdateKind,
+    exe: UpdateKind,
 }
 
 impl ProcessRefreshKind {
     /// Creates a new `ProcessRefreshKind` with every refresh set to `false`.
     ///
     /// ```
-    /// use sysinfo::ProcessRefreshKind;
+    /// use sysinfo::{ProcessRefreshKind, UpdateKind};
     ///
     /// let r = ProcessRefreshKind::new();
     ///
     /// assert_eq!(r.cpu(), false);
-    /// assert_eq!(r.disk_usage(), false);
+    /// assert_eq!(r.user(), UpdateKind::Never);
     /// ```
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Creates a new `ProcessRefreshKind` with every refresh set to `true`.
+    /// Creates a new `ProcessRefreshKind` with every refresh set to `true` or
+    /// `UpdateKind::OnlyIfNotSet`.
     ///
     /// ```
-    /// use sysinfo::ProcessRefreshKind;
+    /// use sysinfo::{ProcessRefreshKind, UpdateKind};
     ///
     /// let r = ProcessRefreshKind::everything();
     ///
     /// assert_eq!(r.cpu(), true);
-    /// assert_eq!(r.disk_usage(), true);
+    /// assert_eq!(r.user(), UpdateKind::OnlyIfNotSet);
     /// ```
     pub fn everything() -> Self {
         Self {
             cpu: true,
             disk_usage: true,
-            user: true,
             memory: true,
-            cwd: true,
-            root: true,
-            environ: true,
-            cmd: true,
-            exe: true,
+            user: UpdateKind::OnlyIfNotSet,
+            cwd: UpdateKind::OnlyIfNotSet,
+            root: UpdateKind::OnlyIfNotSet,
+            environ: UpdateKind::OnlyIfNotSet,
+            cmd: UpdateKind::OnlyIfNotSet,
+            exe: UpdateKind::OnlyIfNotSet,
         }
     }
 
@@ -1488,6 +1584,7 @@ impl ProcessRefreshKind {
         user,
         with_user,
         without_user,
+        UpdateKind,
         "\
 It will retrieve the following information:
 
@@ -1497,11 +1594,23 @@ It will retrieve the following information:
  * user effective ID (if available on the platform)"
     );
     impl_get_set!(ProcessRefreshKind, memory, with_memory, without_memory);
-    impl_get_set!(ProcessRefreshKind, cwd, with_cwd, without_cwd);
-    impl_get_set!(ProcessRefreshKind, root, with_root, without_root);
-    impl_get_set!(ProcessRefreshKind, environ, with_environ, without_environ);
-    impl_get_set!(ProcessRefreshKind, cmd, with_cmd, without_cmd);
-    impl_get_set!(ProcessRefreshKind, exe, with_exe, without_exe);
+    impl_get_set!(ProcessRefreshKind, cwd, with_cwd, without_cwd, UpdateKind);
+    impl_get_set!(
+        ProcessRefreshKind,
+        root,
+        with_root,
+        without_root,
+        UpdateKind
+    );
+    impl_get_set!(
+        ProcessRefreshKind,
+        environ,
+        with_environ,
+        without_environ,
+        UpdateKind
+    );
+    impl_get_set!(ProcessRefreshKind, cmd, with_cmd, without_cmd, UpdateKind);
+    impl_get_set!(ProcessRefreshKind, exe, with_exe, without_exe, UpdateKind);
 }
 
 /// Used to determine what you want to refresh specifically on the [`Cpu`] type.

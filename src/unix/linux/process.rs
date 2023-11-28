@@ -345,7 +345,15 @@ fn get_status(p: &mut ProcessInner, part: &str) {
         .unwrap_or_else(|| ProcessStatus::Unknown(0));
 }
 
-fn refresh_user_group_ids(p: &mut ProcessInner, path: &mut PathHandler) {
+fn refresh_user_group_ids(
+    p: &mut ProcessInner,
+    path: &mut PathHandler,
+    refresh_kind: ProcessRefreshKind,
+) {
+    if !refresh_kind.user().needs_update(|| p.user_id.is_none()) {
+        return;
+    }
+
     if let Some(((user_id, effective_user_id), (group_id, effective_group_id))) =
         get_uid_and_gid(path.join("status"))
     {
@@ -368,12 +376,12 @@ fn update_proc_info(
     info: &SystemInfo,
 ) {
     get_status(p, parts[2]);
+    refresh_user_group_ids(p, proc_path, refresh_kind);
 
-    if refresh_kind.user() && p.user_id.is_none() {
-        refresh_user_group_ids(p, proc_path);
-    }
-
-    if refresh_kind.exe() && p.exe.as_os_str().is_empty() {
+    if refresh_kind
+        .exe()
+        .needs_update(|| p.exe.as_os_str().is_empty())
+    {
         match proc_path.join("exe").read_link() {
             Ok(exe_path) => p.exe = exe_path,
             Err(_error) => {
@@ -385,16 +393,22 @@ fn update_proc_info(
         }
     }
 
-    if refresh_kind.cmd() && p.cmd.is_empty() {
+    if refresh_kind.cmd().needs_update(|| p.cmd.is_empty()) {
         p.cmd = copy_from_file(proc_path.join("cmdline"));
     }
-    if refresh_kind.environ() {
+    if refresh_kind.environ().needs_update(|| p.environ.is_empty()) {
         p.environ = copy_from_file(proc_path.join("environ"));
     }
-    if refresh_kind.cwd() {
+    if refresh_kind
+        .cwd()
+        .needs_update(|| p.cwd.as_os_str().is_empty())
+    {
         p.cwd = realpath(proc_path.join("cwd"));
     }
-    if refresh_kind.root() {
+    if refresh_kind
+        .root()
+        .needs_update(|| p.root.as_os_str().is_empty())
+    {
         p.root = realpath(proc_path.join("root"));
     }
 
@@ -513,9 +527,7 @@ pub(crate) fn _get_process_data(
                 info,
             );
 
-            if refresh_kind.user() && entry.user_id.is_none() {
-                refresh_user_group_ids(entry, &mut proc_path);
-            }
+            refresh_user_group_ids(entry, &mut proc_path, refresh_kind);
             return Ok((None, pid));
         }
         parts
