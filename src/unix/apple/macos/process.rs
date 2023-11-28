@@ -388,7 +388,10 @@ unsafe fn get_exe_and_name_backup(
     process: &mut ProcessInner,
     refresh_kind: ProcessRefreshKind,
 ) -> bool {
-    if !refresh_kind.exe() && !process.name.is_empty() {
+    let exe_needs_update = refresh_kind
+        .exe()
+        .needs_update(|| process.exe.as_os_str().is_empty());
+    if !process.name.is_empty() && !exe_needs_update {
         return false;
     }
     let mut buffer: Vec<u8> = Vec::with_capacity(libc::PROC_PIDPATHINFO_MAXSIZE as _);
@@ -408,7 +411,7 @@ unsafe fn get_exe_and_name_backup(
                     .unwrap_or("")
                     .to_owned();
             }
-            if refresh_kind.exe() {
+            if exe_needs_update {
                 process.exe = exe;
             }
             true
@@ -429,7 +432,13 @@ unsafe fn convert_node_path_info(node: &libc::vnode_info_path) -> Option<PathBuf
 }
 
 unsafe fn get_cwd_root(process: &mut ProcessInner, refresh_kind: ProcessRefreshKind) {
-    if !refresh_kind.cwd() && !refresh_kind.root() {
+    let cwd_needs_update = refresh_kind
+        .cwd()
+        .needs_update(|| process.cwd.as_os_str().is_empty());
+    let root_needs_update = refresh_kind
+        .root()
+        .needs_update(|| process.root.as_os_str().is_empty());
+    if !cwd_needs_update && !root_needs_update {
         return;
     }
     let mut vnodepathinfo = mem::zeroed::<libc::proc_vnodepathinfo>();
@@ -444,12 +453,12 @@ unsafe fn get_cwd_root(process: &mut ProcessInner, refresh_kind: ProcessRefreshK
         sysinfo_debug!("Failed to retrieve cwd and root for {}", process.pid.0);
         return;
     }
-    if refresh_kind.cwd() {
+    if cwd_needs_update {
         if let Some(cwd) = convert_node_path_info(&vnodepathinfo.pvi_cdir) {
             process.cwd = cwd;
         }
     }
-    if refresh_kind.root() {
+    if root_needs_update {
         if let Some(root) = convert_node_path_info(&vnodepathinfo.pvi_rdir) {
             process.root = root;
         }
@@ -548,16 +557,23 @@ unsafe fn get_process_infos(process: &mut ProcessInner, refresh_kind: ProcessRef
             .to_owned();
     }
 
-    if refresh_kind.exe() {
+    if refresh_kind
+        .exe()
+        .needs_update(|| process.exe.as_os_str().is_empty())
+    {
         process.exe = exe;
     }
 
-    if !refresh_kind.environ() && !refresh_kind.cmd() {
+    let environ_needs_update = refresh_kind
+        .environ()
+        .needs_update(|| process.environ.is_empty());
+    let cmd_needs_update = refresh_kind.cmd().needs_update(|| process.cmd.is_empty());
+    if !environ_needs_update && !cmd_needs_update {
         // Nothing else to be done!
         return true;
     }
-    let proc_args = get_arguments(&mut process.cmd, proc_args, n_args, refresh_kind.cmd());
-    if refresh_kind.environ() {
+    let proc_args = get_arguments(&mut process.cmd, proc_args, n_args, cmd_needs_update);
+    if environ_needs_update {
         get_environ(&mut process.environ, proc_args);
     }
     true
