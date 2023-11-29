@@ -37,8 +37,7 @@ impl Default for System {
 impl System {
     /// Creates a new [`System`] instance with nothing loaded.
     ///
-    /// Use the [`refresh_all`] method to update its internal information (or any of the `refresh_`
-    /// method).
+    /// Use one of the refresh methods (like [`refresh_all`]) to update its internal information.
     ///
     /// [`System`]: crate::System
     /// [`refresh_all`]: #method.refresh_all
@@ -119,7 +118,10 @@ impl System {
 
     /// Refreshes all system and processes information.
     ///
-    /// It is the equivalent of usin `system.refresh_specifics(RefreshKind::everything())`.
+    /// It is the same as calling `system.refresh_specifics(RefreshKind::everything())`.
+    ///
+    /// Don't forget to take a look at [`ProcessRefreshKind::everything`] method to see what it
+    /// will update for processes more in details.
     ///
     /// ```no_run
     /// use sysinfo::System;
@@ -151,7 +153,7 @@ impl System {
     /// to get accurate value as it uses previous results to compute the next value.
     ///
     /// Calling this method is the same as calling
-    /// `refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())`.
+    /// `system.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())`.
     ///
     /// ```no_run
     /// use sysinfo::System;
@@ -168,7 +170,7 @@ impl System {
     /// Refreshes CPUs frequency information.
     ///
     /// Calling this method is the same as calling
-    /// `refresh_cpu_specifics(CpuRefreshKind::new().with_frequency())`.
+    /// `system.refresh_cpu_specifics(CpuRefreshKind::new().with_frequency())`.
     ///
     /// ```no_run
     /// use sysinfo::System;
@@ -188,7 +190,7 @@ impl System {
     /// to get accurate value as it uses previous results to compute the next value.
     ///
     /// Calling this method is the same as calling
-    /// `refresh_cpu_specifics(CpuRefreshKind::everything())`.
+    /// `system.refresh_cpu_specifics(CpuRefreshKind::everything())`.
     ///
     /// ```no_run
     /// use sysinfo::System;
@@ -1548,7 +1550,7 @@ impl ProcessRefreshKind {
     }
 
     /// Creates a new `ProcessRefreshKind` with every refresh set to `true` or
-    /// `UpdateKind::OnlyIfNotSet`.
+    /// [`UpdateKind::OnlyIfNotSet`].
     ///
     /// ```
     /// use sysinfo::{ProcessRefreshKind, UpdateKind};
