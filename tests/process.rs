@@ -3,28 +3,6 @@
 use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
 
 #[test]
-fn test_process() {
-    let mut s = System::new();
-    assert_eq!(s.processes().len(), 0);
-    s.refresh_processes();
-    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
-        return;
-    }
-    assert!(!s.processes().is_empty());
-    assert!(s
-        .processes()
-        .values()
-        .all(|p| p.exe().as_os_str().is_empty()));
-
-    let mut s = System::new();
-    s.refresh_processes_specifics(ProcessRefreshKind::new().with_exe(UpdateKind::Always));
-    assert!(s
-        .processes()
-        .values()
-        .any(|p| !p.exe().as_os_str().is_empty()));
-}
-
-#[test]
 fn test_cwd() {
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
@@ -188,17 +166,13 @@ fn test_process_refresh() {
         .process(sysinfo::get_current_pid().expect("failed to get current pid"))
         .is_some());
 
+    assert!(s.processes().iter().all(|(_, p)| p.environ().is_empty()
+        && p.cwd().as_os_str().is_empty()
+        && p.cmd().is_empty()));
     assert!(s
         .processes()
         .iter()
-        .all(|(_, p)| p.exe().as_os_str().is_empty()
-            && p.environ().is_empty()
-            && p.cwd().as_os_str().is_empty()
-            && p.cmd().is_empty()));
-    assert!(s
-        .processes()
-        .iter()
-        .any(|(_, p)| !p.name().is_empty() && p.memory() != 0));
+        .any(|(_, p)| !p.exe().as_os_str().is_empty() && !p.name().is_empty() && p.memory() != 0));
 }
 
 #[test]

@@ -221,13 +221,14 @@ impl System {
     /// It does the same as:
     ///
     /// ```no_run
-    /// # use sysinfo::{ProcessRefreshKind, System};
+    /// # use sysinfo::{ProcessRefreshKind, System, UpdateKind};
     /// # let mut system = System::new();
     /// system.refresh_processes_specifics(
     ///     ProcessRefreshKind::new()
     ///         .with_memory()
     ///         .with_cpu()
-    ///         .with_disk_usage(),
+    ///         .with_disk_usage()
+    ///         .with_exe(UpdateKind::OnlyIfNotSet),
     /// );
     /// ```
     ///
@@ -247,7 +248,8 @@ impl System {
             ProcessRefreshKind::new()
                 .with_memory()
                 .with_cpu()
-                .with_disk_usage(),
+                .with_disk_usage()
+                .with_exe(UpdateKind::OnlyIfNotSet),
         );
     }
 
@@ -273,7 +275,7 @@ impl System {
     /// It is the same as calling:
     ///
     /// ```no_run
-    /// # use sysinfo::{Pid, ProcessRefreshKind, System};
+    /// # use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
     /// # let mut system = System::new();
     /// # let pid = Pid::from(0);
     /// system.refresh_process_specifics(
@@ -281,7 +283,8 @@ impl System {
     ///     ProcessRefreshKind::new()
     ///         .with_memory()
     ///         .with_cpu()
-    ///         .with_disk_usage(),
+    ///         .with_disk_usage()
+    ///         .with_exe(UpdateKind::OnlyIfNotSet),
     /// );
     /// ```
     ///
@@ -302,7 +305,8 @@ impl System {
             ProcessRefreshKind::new()
                 .with_memory()
                 .with_cpu()
-                .with_disk_usage(),
+                .with_disk_usage()
+                .with_exe(UpdateKind::OnlyIfNotSet),
         )
     }
 
