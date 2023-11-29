@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use sysinfo::{Pid, ProcessRefreshKind, System};
+use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
 
 #[test]
 fn test_process() {
@@ -17,7 +17,7 @@ fn test_process() {
         .all(|p| p.exe().as_os_str().is_empty()));
 
     let mut s = System::new();
-    s.refresh_processes_specifics(ProcessRefreshKind::new().with_exe());
+    s.refresh_processes_specifics(ProcessRefreshKind::new().with_exe(UpdateKind::Always));
     assert!(s
         .processes()
         .values()
@@ -48,7 +48,7 @@ fn test_cwd() {
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
     let mut s = System::new();
-    s.refresh_processes_specifics(ProcessRefreshKind::new().with_cwd());
+    s.refresh_processes_specifics(ProcessRefreshKind::new().with_cwd(UpdateKind::Always));
     p.kill().expect("Unable to kill process.");
 
     let processes = s.processes();
@@ -85,8 +85,8 @@ fn test_cmd() {
     std::thread::sleep(std::time::Duration::from_millis(500));
     let mut s = System::new();
     assert!(s.processes().is_empty());
-    s.refresh_processes_specifics(ProcessRefreshKind::new().with_cmd());
-    p.kill().expect("Unable to kill process.");
+    s.refresh_processes_specifics(ProcessRefreshKind::new().with_cmd(UpdateKind::Always));
+    p.kill().expect("Unable to kill process");
     assert!(!s.processes().is_empty());
     if let Some(process) = s.process(Pid::from_u32(p.id() as _)) {
         if cfg!(target_os = "windows") {
@@ -160,7 +160,7 @@ fn test_environ() {
     let pid = Pid::from_u32(p.id() as _);
     let mut s = System::new();
 
-    s.refresh_processes_specifics(ProcessRefreshKind::new().with_environ());
+    s.refresh_processes_specifics(ProcessRefreshKind::new().with_environ(UpdateKind::Always));
 
     let processes = s.processes();
     let proc_ = processes.get(&pid);
@@ -716,7 +716,7 @@ fn test_process_specific_refresh() {
                     concat!("failed 0 check check for ", stringify!($name)),
                 );
             }
-            s.refresh_process_specifics(pid, ProcessRefreshKind::new().$method());
+            s.refresh_process_specifics(pid, ProcessRefreshKind::new().$method(UpdateKind::Always));
             {
                 let p = s.process(pid).unwrap();
                 assert_ne!(
