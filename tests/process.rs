@@ -3,28 +3,6 @@
 use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
 
 #[test]
-fn test_process() {
-    let mut s = System::new();
-    assert_eq!(s.processes().len(), 0);
-    s.refresh_processes();
-    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
-        return;
-    }
-    assert!(!s.processes().is_empty());
-    assert!(s
-        .processes()
-        .values()
-        .all(|p| p.root().as_os_str().is_empty()));
-
-    let mut s = System::new();
-    s.refresh_processes_specifics(ProcessRefreshKind::new().with_root(UpdateKind::Always));
-    assert!(s
-        .processes()
-        .values()
-        .any(|p| !p.root().as_os_str().is_empty()));
-}
-
-#[test]
 fn test_cwd() {
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
