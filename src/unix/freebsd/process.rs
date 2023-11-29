@@ -43,12 +43,12 @@ impl fmt::Display for ProcessStatus {
 pub(crate) struct ProcessInner {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
-    pub(crate) exe: PathBuf,
+    pub(crate) exe: Option<PathBuf>,
     pub(crate) pid: Pid,
     parent: Option<Pid>,
     pub(crate) environ: Vec<String>,
-    pub(crate) cwd: PathBuf,
-    pub(crate) root: PathBuf,
+    pub(crate) cwd: Option<PathBuf>,
+    pub(crate) root: Option<PathBuf>,
     pub(crate) memory: u64,
     pub(crate) virtual_memory: u64,
     pub(crate) updated: bool,
@@ -80,8 +80,8 @@ impl ProcessInner {
         &self.cmd
     }
 
-    pub(crate) fn exe(&self) -> &Path {
-        self.exe.as_path()
+    pub(crate) fn exe(&self) -> Option<&Path> {
+        self.exe.as_deref()
     }
 
     pub(crate) fn pid(&self) -> Pid {
@@ -92,12 +92,12 @@ impl ProcessInner {
         &self.environ
     }
 
-    pub(crate) fn cwd(&self) -> &Path {
-        self.cwd.as_path()
+    pub(crate) fn cwd(&self) -> Option<&Path> {
+        self.cwd.as_deref()
     }
 
-    pub(crate) fn root(&self) -> &Path {
-        self.root.as_path()
+    pub(crate) fn root(&self) -> Option<&Path> {
+        self.root.as_deref()
     }
 
     pub(crate) fn memory(&self) -> u64 {
@@ -277,14 +277,14 @@ pub(crate) unsafe fn get_process_data(
             virtual_memory,
             memory,
             // procstat_getfiles
-            cwd: PathBuf::new(),
-            exe: PathBuf::new(),
+            cwd: None,
+            exe: None,
             // kvm_getargv isn't thread-safe so we get it in the main thread.
             name: String::new(),
             // kvm_getargv isn't thread-safe so we get it in the main thread.
             cmd: Vec::new(),
             // kvm_getargv isn't thread-safe so we get it in the main thread.
-            root: PathBuf::new(),
+            root: None,
             // kvm_getenvv isn't thread-safe so we get it in the main thread.
             environ: Vec::new(),
             status,
@@ -297,11 +297,12 @@ pub(crate) unsafe fn get_process_data(
     }))
 }
 
-pub(crate) unsafe fn get_exe(exe: &mut PathBuf, pid: crate::Pid, refresh_kind: ProcessRefreshKind) {
-    if refresh_kind
-        .exe()
-        .needs_update(|| exe.as_os_str().is_empty())
-    {
+pub(crate) unsafe fn get_exe(
+    exe: &mut Option<PathBuf>,
+    pid: crate::Pid,
+    refresh_kind: ProcessRefreshKind,
+) {
+    if refresh_kind.exe().needs_update(|| exe.is_none()) {
         let mut buffer = [0; libc::PATH_MAX as usize + 1];
 
         *exe = get_sys_value_str(
@@ -313,10 +314,6 @@ pub(crate) unsafe fn get_exe(exe: &mut PathBuf, pid: crate::Pid, refresh_kind: P
             ],
             &mut buffer,
         )
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            sysinfo_debug!("Failed to get `exe` for {}", pid.0);
-            PathBuf::new()
-        });
+        .map(PathBuf::from);
     }
 }

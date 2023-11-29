@@ -599,12 +599,8 @@ impl SystemInfo {
         refresh_kind: ProcessRefreshKind,
     ) {
         let mut done = 0;
-        let cwd_needs_update = refresh_kind
-            .cwd()
-            .needs_update(|| proc_.cwd().as_os_str().is_empty());
-        let root_needs_update = refresh_kind
-            .root()
-            .needs_update(|| proc_.root().as_os_str().is_empty());
+        let cwd_needs_update = refresh_kind.cwd().needs_update(|| proc_.cwd().is_none());
+        let root_needs_update = refresh_kind.root().needs_update(|| proc_.root().is_none());
         if cwd_needs_update {
             done += 1;
         }
@@ -632,14 +628,14 @@ impl SystemInfo {
                 if tmp.fs_uflags & libc::PS_FST_UFLAG_CDIR != 0 {
                     if cwd_needs_update && !tmp.fs_path.is_null() {
                         if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
-                            proc_.cwd = PathBuf::from(p);
+                            proc_.cwd = Some(PathBuf::from(p));
                             done -= 1;
                         }
                     }
                 } else if tmp.fs_uflags & libc::PS_FST_UFLAG_RDIR != 0 {
                     if root_needs_update && !tmp.fs_path.is_null() {
                         if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
-                            proc_.root = PathBuf::from(p);
+                            proc_.root = Some(PathBuf::from(p));
                             done -= 1;
                         }
                     }

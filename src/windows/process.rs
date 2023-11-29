@@ -201,12 +201,12 @@ unsafe impl Sync for HandleWrapper {}
 pub(crate) struct ProcessInner {
     name: String,
     cmd: Vec<String>,
-    exe: PathBuf,
+    exe: Option<PathBuf>,
     pid: Pid,
     user_id: Option<Uid>,
     environ: Vec<String>,
-    cwd: PathBuf,
-    root: PathBuf,
+    cwd: Option<PathBuf>,
+    root: Option<PathBuf>,
     pub(crate) memory: u64,
     pub(crate) virtual_memory: u64,
     parent: Option<Pid>,
@@ -338,7 +338,7 @@ unsafe fn get_process_name(pid: Pid) -> Option<String> {
     name
 }
 
-unsafe fn get_exe(process_handler: &HandleWrapper) -> PathBuf {
+unsafe fn get_exe(process_handler: &HandleWrapper) -> Option<PathBuf> {
     let mut exe_buf = [0u16; MAX_PATH as usize + 1];
     GetModuleFileNameExW(
         **process_handler,
@@ -346,7 +346,7 @@ unsafe fn get_exe(process_handler: &HandleWrapper) -> PathBuf {
         exe_buf.as_mut_slice(),
     );
 
-    PathBuf::from(null_terminated_wchar_to_string(&exe_buf))
+    Some(PathBuf::from(null_terminated_wchar_to_string(&exe_buf)))
 }
 
 impl ProcessInner {
@@ -375,7 +375,7 @@ impl ProcessInner {
             let exe = if refresh_kind.exe().needs_update(|| true) {
                 get_exe(&process_handler)
             } else {
-                PathBuf::new()
+                None
             };
             let (start_time, run_time) = get_start_and_run_time(*process_handler, now);
             let parent = if info.InheritedFromUniqueProcessId != 0 {
@@ -392,8 +392,8 @@ impl ProcessInner {
                 cmd: Vec::new(),
                 environ: Vec::new(),
                 exe,
-                cwd: PathBuf::new(),
-                root: PathBuf::new(),
+                cwd: None,
+                root: None,
                 status: ProcessStatus::Run,
                 memory: 0,
                 virtual_memory: 0,
@@ -427,7 +427,7 @@ impl ProcessInner {
                 let exe = if refresh_kind.exe().needs_update(|| true) {
                     get_exe(&handle)
                 } else {
-                    PathBuf::new()
+                    None
                 };
                 let (start_time, run_time) = get_start_and_run_time(*handle, now);
                 let mut p = Self {
@@ -439,8 +439,8 @@ impl ProcessInner {
                     cmd: Vec::new(),
                     environ: Vec::new(),
                     exe,
-                    cwd: PathBuf::new(),
-                    root: PathBuf::new(),
+                    cwd: None,
+                    root: None,
                     status: ProcessStatus::Run,
                     memory,
                     virtual_memory,
@@ -463,7 +463,7 @@ impl ProcessInner {
             let exe = if refresh_kind.exe().needs_update(|| true) {
                 get_executable_path(pid)
             } else {
-                PathBuf::new()
+                None
             };
             Self {
                 handle: None,
@@ -474,8 +474,8 @@ impl ProcessInner {
                 cmd: Vec::new(),
                 environ: Vec::new(),
                 exe,
-                cwd: PathBuf::new(),
-                root: PathBuf::new(),
+                cwd: None,
+                root: None,
                 status: ProcessStatus::Run,
                 memory,
                 virtual_memory,
@@ -511,10 +511,7 @@ impl ProcessInner {
             get_process_user_id(self, refresh_kind);
             get_process_params(self, refresh_kind);
         }
-        if refresh_kind
-            .exe()
-            .needs_update(|| self.exe.as_os_str().is_empty())
-        {
+        if refresh_kind.exe().needs_update(|| self.exe.is_none()) {
             unsafe {
                 self.exe = match self.handle.as_ref() {
                     Some(handle) => get_exe(handle),
@@ -553,8 +550,8 @@ impl ProcessInner {
         &self.cmd
     }
 
-    pub(crate) fn exe(&self) -> &Path {
-        self.exe.as_path()
+    pub(crate) fn exe(&self) -> Option<&Path> {
+        self.exe.as_deref()
     }
 
     pub(crate) fn pid(&self) -> Pid {
@@ -565,12 +562,12 @@ impl ProcessInner {
         &self.environ
     }
 
-    pub(crate) fn cwd(&self) -> &Path {
-        self.cwd.as_path()
+    pub(crate) fn cwd(&self) -> Option<&Path> {
+        self.cwd.as_deref()
     }
 
-    pub(crate) fn root(&self) -> &Path {
-        self.root.as_path()
+    pub(crate) fn root(&self) -> Option<&Path> {
+        self.root.as_deref()
     }
 
     pub(crate) fn memory(&self) -> u64 {
@@ -672,23 +669,20 @@ unsafe fn get_process_times(handle: HANDLE) -> u64 {
 }
 
 // On Windows, the root folder is always the current drive. So we get it from its `cwd`.
-fn update_root(refresh_kind: ProcessRefreshKind, cwd: &Path, root: &mut PathBuf) {
-    if !refresh_kind
-        .root()
-        .needs_update(|| root.as_os_str().is_empty())
-    {
+fn update_root(refresh_kind: ProcessRefreshKind, cwd: &Path, root: &mut Option<PathBuf>) {
+    if !refresh_kind.root().needs_update(|| root.is_none()) {
         return;
     }
-    if cwd.as_os_str().is_empty() || !cwd.has_root() {
-        *root = PathBuf::new();
-        return;
-    }
-    let mut ancestors = cwd.ancestors().peekable();
-    while let Some(path) = ancestors.next() {
-        if ancestors.peek().is_none() {
-            *root = path.into();
-            break;
+    if cwd.has_root() {
+        let mut ancestors = cwd.ancestors().peekable();
+        while let Some(path) = ancestors.next() {
+            if ancestors.peek().is_none() {
+                *root = Some(path.into());
+                return;
+            }
         }
+    } else {
+        *root = None;
     }
 }
 
@@ -868,12 +862,8 @@ unsafe fn get_process_params(process: &mut ProcessInner, refresh_kind: ProcessRe
         || refresh_kind
             .environ()
             .needs_update(|| process.environ.is_empty())
-        || refresh_kind
-            .cwd()
-            .needs_update(|| process.cwd.as_os_str().is_empty())
-        || refresh_kind
-            .root()
-            .needs_update(|| process.root.as_os_str().is_empty()))
+        || refresh_kind.cwd().needs_update(|| process.cwd.is_none())
+        || refresh_kind.root().needs_update(|| process.root.is_none()))
     {
         return;
     }
@@ -1003,15 +993,11 @@ fn get_cwd_and_root<T: RtlUserProcessParameters>(
     params: &T,
     handle: HANDLE,
     refresh_kind: ProcessRefreshKind,
-    cwd: &mut PathBuf,
-    root: &mut PathBuf,
+    cwd: &mut Option<PathBuf>,
+    root: &mut Option<PathBuf>,
 ) {
-    let cwd_needs_update = refresh_kind
-        .cwd()
-        .needs_update(|| cwd.as_os_str().is_empty());
-    let root_needs_update = refresh_kind
-        .root()
-        .needs_update(|| root.as_os_str().is_empty());
+    let cwd_needs_update = refresh_kind.cwd().needs_update(|| cwd.is_none());
+    let root_needs_update = refresh_kind.root().needs_update(|| root.is_none());
     if !cwd_needs_update && !root_needs_update {
         return;
     }
@@ -1021,12 +1007,12 @@ fn get_cwd_and_root<T: RtlUserProcessParameters>(
             // Should always be called after we refreshed `cwd`.
             update_root(refresh_kind, &tmp_cwd, root);
             if cwd_needs_update {
-                *cwd = tmp_cwd;
+                *cwd = Some(tmp_cwd);
             }
         },
         Err(_e) => {
             sysinfo_debug!("get_cwd_and_root failed to get data: {:?}", _e);
-            *cwd = PathBuf::new();
+            *cwd = None;
         }
     }
 }
@@ -1116,7 +1102,7 @@ fn get_proc_env<T: RtlUserProcessParameters>(
     }
 }
 
-pub(crate) fn get_executable_path(_pid: Pid) -> PathBuf {
+pub(crate) fn get_executable_path(_pid: Pid) -> Option<PathBuf> {
     /*let where_req = format!("ProcessId={}", pid);
 
     if let Some(ret) = run_wmi(&["process", "where", &where_req, "get", "ExecutablePath"]) {
@@ -1127,7 +1113,7 @@ pub(crate) fn get_executable_path(_pid: Pid) -> PathBuf {
             return line.to_owned();
         }
     }*/
-    PathBuf::new()
+    None
 }
 
 #[inline]

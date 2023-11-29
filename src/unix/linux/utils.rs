@@ -20,12 +20,12 @@ pub(crate) fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Res
 }
 
 #[allow(clippy::useless_conversion)]
-pub(crate) fn realpath(path: &Path) -> std::path::PathBuf {
+pub(crate) fn realpath(path: &Path) -> Option<std::path::PathBuf> {
     match std::fs::read_link(path) {
-        Ok(f) => f,
+        Ok(path) => Some(path),
         Err(_e) => {
             sysinfo_debug!("failed to get real path for {:?}: {:?}", path, _e);
-            PathBuf::new()
+            None
         }
     }
 }
