@@ -855,7 +855,7 @@ impl Process {
     ///
     /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("{}", process.exe().display());
+    ///     println!("{:?}", process.exe());
     /// }
     /// ```
     ///
@@ -870,7 +870,7 @@ impl Process {
     /// replacement for this.
     /// A process [may change its `cmd[0]` value](https://man7.org/linux/man-pages/man5/proc.5.html)
     /// freely, making this an untrustworthy source of information.
-    pub fn exe(&self) -> &Path {
+    pub fn exe(&self) -> Option<&Path> {
         self.inner.exe()
     }
 
@@ -909,10 +909,10 @@ impl Process {
     ///
     /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("{}", process.cwd().display());
+    ///     println!("{:?}", process.cwd());
     /// }
     /// ```
-    pub fn cwd(&self) -> &Path {
+    pub fn cwd(&self) -> Option<&Path> {
         self.inner.cwd()
     }
 
@@ -923,10 +923,10 @@ impl Process {
     ///
     /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("{}", process.root().display());
+    ///     println!("{:?}", process.root());
     /// }
     /// ```
-    pub fn root(&self) -> &Path {
+    pub fn root(&self) -> Option<&Path> {
         self.inner.root()
     }
 

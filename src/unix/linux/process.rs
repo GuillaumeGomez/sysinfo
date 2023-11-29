@@ -59,12 +59,12 @@ impl fmt::Display for ProcessStatus {
 pub(crate) struct ProcessInner {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
-    pub(crate) exe: PathBuf,
+    pub(crate) exe: Option<PathBuf>,
     pub(crate) pid: Pid,
     parent: Option<Pid>,
     pub(crate) environ: Vec<String>,
-    pub(crate) cwd: PathBuf,
-    pub(crate) root: PathBuf,
+    pub(crate) cwd: Option<PathBuf>,
+    pub(crate) root: Option<PathBuf>,
     pub(crate) memory: u64,
     pub(crate) virtual_memory: u64,
     utime: u64,
@@ -97,9 +97,9 @@ impl ProcessInner {
             parent: None,
             cmd: Vec::new(),
             environ: Vec::new(),
-            exe: PathBuf::new(),
-            cwd: PathBuf::new(),
-            root: PathBuf::new(),
+            exe: None,
+            cwd: None,
+            root: None,
             memory: 0,
             virtual_memory: 0,
             cpu_usage: 0.,
@@ -142,8 +142,8 @@ impl ProcessInner {
         &self.cmd
     }
 
-    pub(crate) fn exe(&self) -> &Path {
-        self.exe.as_path()
+    pub(crate) fn exe(&self) -> Option<&Path> {
+        self.exe.as_deref()
     }
 
     pub(crate) fn pid(&self) -> Pid {
@@ -154,12 +154,12 @@ impl ProcessInner {
         &self.environ
     }
 
-    pub(crate) fn cwd(&self) -> &Path {
-        self.cwd.as_path()
+    pub(crate) fn cwd(&self) -> Option<&Path> {
+        self.cwd.as_deref()
     }
 
-    pub(crate) fn root(&self) -> &Path {
-        self.root.as_path()
+    pub(crate) fn root(&self) -> Option<&Path> {
+        self.root.as_deref()
     }
 
     pub(crate) fn memory(&self) -> u64 {
@@ -378,19 +378,10 @@ fn update_proc_info(
     get_status(p, parts[2]);
     refresh_user_group_ids(p, proc_path, refresh_kind);
 
-    if refresh_kind
-        .exe()
-        .needs_update(|| p.exe.as_os_str().is_empty())
-    {
-        match proc_path.join("exe").read_link() {
-            Ok(exe_path) => p.exe = exe_path,
-            Err(_error) => {
-                sysinfo_debug!("Failed to retrieve exe for {}: {_error:?}", p.pid().0);
-                // Do not use cmd[0] because it is not the same thing.
-                // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
-                p.exe = PathBuf::new();
-            }
-        }
+    if refresh_kind.exe().needs_update(|| p.exe.is_none()) {
+        // Do not use cmd[0] because it is not the same thing.
+        // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
+        p.exe = realpath(proc_path.join("exe"));
     }
 
     if refresh_kind.cmd().needs_update(|| p.cmd.is_empty()) {
@@ -399,16 +390,10 @@ fn update_proc_info(
     if refresh_kind.environ().needs_update(|| p.environ.is_empty()) {
         p.environ = copy_from_file(proc_path.join("environ"));
     }
-    if refresh_kind
-        .cwd()
-        .needs_update(|| p.cwd.as_os_str().is_empty())
-    {
+    if refresh_kind.cwd().needs_update(|| p.cwd.is_none()) {
         p.cwd = realpath(proc_path.join("cwd"));
     }
-    if refresh_kind
-        .root()
-        .needs_update(|| p.root.as_os_str().is_empty())
-    {
+    if refresh_kind.root().needs_update(|| p.root.is_none()) {
         p.root = realpath(proc_path.join("root"));
     }
 

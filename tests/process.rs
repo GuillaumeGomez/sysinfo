@@ -34,7 +34,7 @@ fn test_cwd() {
 
     if let Some(p) = p {
         assert_eq!(p.pid(), pid);
-        assert_eq!(p.cwd(), std::env::current_dir().unwrap());
+        assert_eq!(p.cwd().unwrap(), &std::env::current_dir().unwrap());
     } else {
         panic!("Process not found!");
     }
@@ -166,13 +166,14 @@ fn test_process_refresh() {
         .process(sysinfo::get_current_pid().expect("failed to get current pid"))
         .is_some());
 
-    assert!(s.processes().iter().all(|(_, p)| p.environ().is_empty()
-        && p.cwd().as_os_str().is_empty()
-        && p.cmd().is_empty()));
     assert!(s
         .processes()
         .iter()
-        .any(|(_, p)| !p.exe().as_os_str().is_empty() && !p.name().is_empty() && p.memory() != 0));
+        .all(|(_, p)| p.environ().is_empty() && p.cwd().is_none() && p.cmd().is_empty()));
+    assert!(s
+        .processes()
+        .iter()
+        .any(|(_, p)| !p.name().is_empty() && p.memory() != 0));
 }
 
 #[test]
@@ -628,7 +629,6 @@ fn test_process_creds() {
 // This test ensures that only the requested information is retrieved.
 #[test]
 fn test_process_specific_refresh() {
-    use std::path::Path;
     use sysinfo::{DiskUsage, ProcessRefreshKind};
 
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
@@ -645,9 +645,9 @@ fn test_process_specific_refresh() {
         }
         assert_eq!(p.environ().len(), 0);
         assert_eq!(p.cmd().len(), 0);
-        assert_eq!(p.exe(), Path::new(""));
-        assert_eq!(p.cwd(), Path::new(""));
-        assert_eq!(p.root(), Path::new(""));
+        assert_eq!(p.exe(), None);
+        assert_eq!(p.cwd(), None);
+        assert_eq!(p.root(), None);
         assert_eq!(p.memory(), 0);
         assert_eq!(p.virtual_memory(), 0);
         // These two won't be checked, too much lazyness in testing them...
@@ -723,8 +723,8 @@ fn test_process_specific_refresh() {
         target_os = "ios",
         feature = "apple-sandbox",
     )) {
-        update_specific_and_check!(root, with_root, , Path::new(""));
+        update_specific_and_check!(root, with_root, , None);
     }
-    update_specific_and_check!(exe, with_exe, , Path::new(""));
-    update_specific_and_check!(cwd, with_cwd, , Path::new(""));
+    update_specific_and_check!(exe, with_exe, , None);
+    update_specific_and_check!(cwd, with_cwd, , None);
 }

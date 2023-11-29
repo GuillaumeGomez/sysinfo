@@ -14,12 +14,12 @@ use crate::unix::utils::cstr_to_rust_with_size;
 pub(crate) struct ProcessInner {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
-    pub(crate) exe: PathBuf,
+    pub(crate) exe: Option<PathBuf>,
     pid: Pid,
     parent: Option<Pid>,
     pub(crate) environ: Vec<String>,
-    cwd: PathBuf,
-    pub(crate) root: PathBuf,
+    cwd: Option<PathBuf>,
+    pub(crate) root: Option<PathBuf>,
     pub(crate) memory: u64,
     pub(crate) virtual_memory: u64,
     old_utime: u64,
@@ -52,9 +52,9 @@ impl ProcessInner {
             parent: None,
             cmd: Vec::new(),
             environ: Vec::new(),
-            exe: PathBuf::new(),
-            cwd: PathBuf::new(),
-            root: PathBuf::new(),
+            exe: None,
+            cwd: None,
+            root: None,
             memory: 0,
             virtual_memory: 0,
             cpu_usage: 0.,
@@ -83,9 +83,9 @@ impl ProcessInner {
             parent,
             cmd: Vec::new(),
             environ: Vec::new(),
-            exe: PathBuf::new(),
-            cwd: PathBuf::new(),
-            root: PathBuf::new(),
+            exe: None,
+            cwd: None,
+            root: None,
             memory: 0,
             virtual_memory: 0,
             cpu_usage: 0.,
@@ -120,8 +120,8 @@ impl ProcessInner {
         &self.cmd
     }
 
-    pub(crate) fn exe(&self) -> &Path {
-        self.exe.as_path()
+    pub(crate) fn exe(&self) -> Option<&Path> {
+        self.exe.as_deref()
     }
 
     pub(crate) fn pid(&self) -> Pid {
@@ -132,12 +132,12 @@ impl ProcessInner {
         &self.environ
     }
 
-    pub(crate) fn cwd(&self) -> &Path {
-        self.cwd.as_path()
+    pub(crate) fn cwd(&self) -> Option<&Path> {
+        self.cwd.as_deref()
     }
 
-    pub(crate) fn root(&self) -> &Path {
-        self.root.as_path()
+    pub(crate) fn root(&self) -> Option<&Path> {
+        self.root.as_deref()
     }
 
     pub(crate) fn memory(&self) -> u64 {
@@ -388,9 +388,7 @@ unsafe fn get_exe_and_name_backup(
     process: &mut ProcessInner,
     refresh_kind: ProcessRefreshKind,
 ) -> bool {
-    let exe_needs_update = refresh_kind
-        .exe()
-        .needs_update(|| process.exe.as_os_str().is_empty());
+    let exe_needs_update = refresh_kind.exe().needs_update(|| process.exe.is_none());
     if !process.name.is_empty() && !exe_needs_update {
         return false;
     }
@@ -412,7 +410,7 @@ unsafe fn get_exe_and_name_backup(
                     .to_owned();
             }
             if exe_needs_update {
-                process.exe = exe;
+                process.exe = Some(exe);
             }
             true
         }
@@ -432,12 +430,8 @@ unsafe fn convert_node_path_info(node: &libc::vnode_info_path) -> Option<PathBuf
 }
 
 unsafe fn get_cwd_root(process: &mut ProcessInner, refresh_kind: ProcessRefreshKind) {
-    let cwd_needs_update = refresh_kind
-        .cwd()
-        .needs_update(|| process.cwd.as_os_str().is_empty());
-    let root_needs_update = refresh_kind
-        .root()
-        .needs_update(|| process.root.as_os_str().is_empty());
+    let cwd_needs_update = refresh_kind.cwd().needs_update(|| process.cwd.is_none());
+    let root_needs_update = refresh_kind.root().needs_update(|| process.root.is_none());
     if !cwd_needs_update && !root_needs_update {
         return;
     }
@@ -454,14 +448,10 @@ unsafe fn get_cwd_root(process: &mut ProcessInner, refresh_kind: ProcessRefreshK
         return;
     }
     if cwd_needs_update {
-        if let Some(cwd) = convert_node_path_info(&vnodepathinfo.pvi_cdir) {
-            process.cwd = cwd;
-        }
+        process.cwd = convert_node_path_info(&vnodepathinfo.pvi_cdir);
     }
     if root_needs_update {
-        if let Some(root) = convert_node_path_info(&vnodepathinfo.pvi_rdir) {
-            process.root = root;
-        }
+        process.root = convert_node_path_info(&vnodepathinfo.pvi_rdir);
     }
 }
 
@@ -557,11 +547,8 @@ unsafe fn get_process_infos(process: &mut ProcessInner, refresh_kind: ProcessRef
             .to_owned();
     }
 
-    if refresh_kind
-        .exe()
-        .needs_update(|| process.exe.as_os_str().is_empty())
-    {
-        process.exe = exe;
+    if refresh_kind.exe().needs_update(|| process.exe.is_none()) {
+        process.exe = Some(exe);
     }
 
     let environ_needs_update = refresh_kind

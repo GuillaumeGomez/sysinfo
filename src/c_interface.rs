@@ -462,7 +462,7 @@ pub extern "C" fn sysinfo_process_executable_path(process: CProcess) -> RString 
     assert!(!process.is_null());
     let process = process as *const Process;
     unsafe {
-        if let Some(p) = (*process).exe().to_str() {
+        if let Some(p) = (*process).exe().and_then(|exe| exe.to_str()) {
             if let Ok(c) = CString::new(p) {
                 return c.into_raw() as _;
             }
@@ -477,7 +477,7 @@ pub extern "C" fn sysinfo_process_root_directory(process: CProcess) -> RString {
     assert!(!process.is_null());
     let process = process as *const Process;
     unsafe {
-        if let Some(p) = (*process).root().to_str() {
+        if let Some(p) = (*process).root().and_then(|root| root.to_str()) {
             if let Ok(c) = CString::new(p) {
                 return c.into_raw() as _;
             }
@@ -492,7 +492,7 @@ pub extern "C" fn sysinfo_process_current_directory(process: CProcess) -> RStrin
     assert!(!process.is_null());
     let process = process as *const Process;
     unsafe {
-        if let Some(p) = (*process).cwd().to_str() {
+        if let Some(p) = (*process).cwd().and_then(|cwd| cwd.to_str()) {
             if let Ok(c) = CString::new(p) {
                 return c.into_raw() as _;
             }

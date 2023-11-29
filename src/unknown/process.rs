@@ -29,8 +29,8 @@ impl ProcessInner {
         &[]
     }
 
-    pub(crate) fn exe(&self) -> &Path {
-        Path::new("")
+    pub(crate) fn exe(&self) -> Option<&Path> {
+        None
     }
 
     pub(crate) fn pid(&self) -> Pid {
@@ -41,12 +41,12 @@ impl ProcessInner {
         &[]
     }
 
-    pub(crate) fn cwd(&self) -> &Path {
-        Path::new("")
+    pub(crate) fn cwd(&self) -> Option<&Path> {
+        None
     }
 
-    pub(crate) fn root(&self) -> &Path {
-        Path::new("")
+    pub(crate) fn root(&self) -> Option<&Path> {
+        None
     }
 
     pub(crate) fn memory(&self) -> u64 {
