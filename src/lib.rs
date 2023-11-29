@@ -53,7 +53,7 @@ cfg_if::cfg_if! {
 pub use crate::common::{
     get_current_pid, CGroupLimits, Component, Components, Cpu, CpuRefreshKind, Disk, DiskKind,
     DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr, NetworkData, Networks, Pid, Process,
-    ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, Uid, User, Users,
+    ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, Uid, UpdateKind, User, Users,
 };
 
 pub(crate) use crate::sys::{
@@ -327,7 +327,8 @@ mod test {
 
             // And now check that our `get_user_by_id` method works.
             let s = System::new_with_specifics(
-                RefreshKind::new().with_processes(ProcessRefreshKind::new().with_user()),
+                RefreshKind::new()
+                    .with_processes(ProcessRefreshKind::new().with_user(UpdateKind::Always)),
             );
             assert!(s
                 .processes()
@@ -343,7 +344,8 @@ mod test {
         // If `getent` doesn't find them, we can assume it's a dark secret from the linux land.
         if IS_SUPPORTED && cfg!(not(target_os = "linux")) {
             let s = System::new_with_specifics(
-                RefreshKind::new().with_processes(ProcessRefreshKind::new().with_user()),
+                RefreshKind::new()
+                    .with_processes(ProcessRefreshKind::new().with_user(UpdateKind::Always)),
             );
             let users = Users::new_with_refreshed_list();
 

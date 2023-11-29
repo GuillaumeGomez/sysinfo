@@ -298,7 +298,10 @@ pub(crate) unsafe fn get_process_data(
 }
 
 pub(crate) unsafe fn get_exe(exe: &mut PathBuf, pid: crate::Pid, refresh_kind: ProcessRefreshKind) {
-    if refresh_kind.exe() && exe.as_os_str().is_empty() {
+    if refresh_kind
+        .exe()
+        .needs_update(|| exe.as_os_str().is_empty())
+    {
         let mut buffer = [0; libc::PATH_MAX as usize + 1];
 
         *exe = get_sys_value_str(
