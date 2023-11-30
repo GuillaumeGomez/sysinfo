@@ -56,6 +56,36 @@ impl fmt::Display for ProcessStatus {
     }
 }
 
+#[allow(dead_code)]
+#[repr(usize)]
+enum ProcIndex {
+    Pid = 0,
+    ShortExe,
+    State,
+    ParentPid,
+    GroupId,
+    SessionId,
+    Tty,
+    ForegroundProcessGroupId,
+    Flags,
+    MinorFaults,
+    ChildrenMinorFaults,
+    MajorFaults,
+    ChildrenMajorFaults,
+    UserTime,
+    SystemTime,
+    ChildrenUserTime,
+    ChildrenKernelTime,
+    Priority,
+    Nice,
+    NumberOfThreads,
+    IntervalTimerSigalarm,
+    StartTime,
+    VirtualSize,
+    ResidentSetSize,
+    // More exist but we only use the listed ones. For more, take a look at `man proc`.
+}
+
 pub(crate) struct ProcessInner {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
@@ -326,7 +356,7 @@ unsafe impl<'a, T> Sync for Wrap<'a, T> {}
 fn compute_start_time_without_boot_time(parts: &[&str], info: &SystemInfo) -> u64 {
     // To be noted that the start time is invalid here, it still needs to be converted into
     // "real" time.
-    u64::from_str(parts[21]).unwrap_or(0) / info.clock_cycle
+    u64::from_str(parts[ProcIndex::StartTime as usize]).unwrap_or(0) / info.clock_cycle
 }
 
 fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<String, ()> {
@@ -375,7 +405,7 @@ fn update_proc_info(
     uptime: u64,
     info: &SystemInfo,
 ) {
-    get_status(p, parts[2]);
+    get_status(p, parts[ProcIndex::State as usize]);
     refresh_user_group_ids(p, proc_path, refresh_kind);
 
     if refresh_kind.exe().needs_update(|| p.exe.is_none()) {
@@ -423,12 +453,12 @@ fn retrieve_all_new_process_info(
 ) -> Process {
     let mut p = ProcessInner::new(pid);
     let mut proc_path = PathHandler::new(path);
-    let name = parts[1];
+    let name = parts[ProcIndex::ShortExe as usize];
 
     p.parent = if proc_list.pid.0 != 0 {
         Some(proc_list.pid)
     } else {
-        match Pid::from_str(parts[3]) {
+        match Pid::from_str(parts[ProcIndex::ParentPid as usize]) {
             Ok(p) if p.0 != 0 => Some(p),
             _ => None,
         }
@@ -458,7 +488,7 @@ fn retrieve_all_new_process_info(
 pub(crate) fn _get_process_data(
     path: &Path,
     proc_list: &mut ProcessInner,
-    pid: Pid,
+    parent_pid: Pid,
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
@@ -469,7 +499,7 @@ pub(crate) fn _get_process_data(
         // It's because when reading `/proc/[PID]` folder, we then go through the folders inside it.
         // Then, if we encounter a sub-folder with the same PID as the parent, then it's a link to
         // the current folder we already did read so no need to do anything.
-        Some(Ok(nb)) if nb != pid => nb,
+        Some(Ok(nb)) if nb != parent_pid => nb,
         _ => return Err(()),
     };
 
@@ -553,7 +583,7 @@ fn update_time_and_memory(
     {
         if refresh_kind.memory() {
             // rss
-            entry.memory = u64::from_str(parts[23])
+            entry.memory = u64::from_str(parts[ProcIndex::ResidentSetSize as usize])
                 .unwrap_or(0)
                 .saturating_mul(info.page_size_b);
             if entry.memory >= parent_memory {
@@ -561,15 +591,16 @@ fn update_time_and_memory(
             }
             // vsz correspond to the Virtual memory size in bytes.
             // see: https://man7.org/linux/man-pages/man5/proc.5.html
-            entry.virtual_memory = u64::from_str(parts[22]).unwrap_or(0);
+            entry.virtual_memory =
+                u64::from_str(parts[ProcIndex::VirtualSize as usize]).unwrap_or(0);
             if entry.virtual_memory >= parent_virtual_memory {
                 entry.virtual_memory -= parent_virtual_memory;
             }
         }
         set_time(
             entry,
-            u64::from_str(parts[13]).unwrap_or(0),
-            u64::from_str(parts[14]).unwrap_or(0),
+            u64::from_str(parts[ProcIndex::UserTime as usize]).unwrap_or(0),
+            u64::from_str(parts[ProcIndex::SystemTime as usize]).unwrap_or(0),
         );
         entry.run_time = uptime.saturating_sub(entry.start_time_without_boot_time);
     }
@@ -586,7 +617,7 @@ fn update_time_and_memory(
 pub(crate) fn refresh_procs(
     proc_list: &mut ProcessInner,
     path: &Path,
-    pid: Pid,
+    parent_pid: Pid,
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
@@ -607,7 +638,7 @@ pub(crate) fn refresh_procs(
             }
         })
         .collect::<Vec<_>>();
-    if pid.0 == 0 {
+    if parent_pid.0 == 0 {
         let proc_list = Wrap(UnsafeCell::new(proc_list));
 
         #[cfg(feature = "multithread")]
@@ -618,7 +649,7 @@ pub(crate) fn refresh_procs(
                 let (p, _) = _get_process_data(
                     e.as_path(),
                     proc_list.get(),
-                    pid,
+                    parent_pid,
                     uptime,
                     info,
                     refresh_kind,
@@ -632,9 +663,15 @@ pub(crate) fn refresh_procs(
         let new_tasks = folders
             .iter()
             .filter_map(|e| {
-                let (p, pid) =
-                    _get_process_data(e.as_path(), proc_list, pid, uptime, info, refresh_kind)
-                        .ok()?;
+                let (p, pid) = _get_process_data(
+                    e.as_path(),
+                    proc_list,
+                    parent_pid,
+                    uptime,
+                    info,
+                    refresh_kind,
+                )
+                .ok()?;
                 updated_pids.push(pid);
                 p
             })
@@ -745,8 +782,8 @@ fn parse_stat_file(data: &str) -> Option<Vec<&str>> {
     parts.push(data_it.next()?);
     parts.extend(data.split_whitespace());
     // Remove command name '('
-    if let Some(name) = parts[1].strip_prefix('(') {
-        parts[1] = name;
+    if let Some(name) = parts[ProcIndex::ShortExe as usize].strip_prefix('(') {
+        parts[ProcIndex::ShortExe as usize] = name;
     }
     Some(parts)
 }
