@@ -556,7 +556,7 @@ fn slice_to_nb(s: &[u8]) -> u64 {
     for c in s {
         nb = nb * 10 + (c - b'0') as u64;
     }
-    return nb;
+    nb
 }
 
 fn get_memory(path: &Path, entry: &mut ProcessInner, info: &SystemInfo) -> bool {
@@ -581,12 +581,12 @@ fn get_memory(path: &Path, entry: &mut ProcessInner, info: &SystemInfo) -> bool 
     let mut parts = buf.split(|c| *c == b' ');
     entry.memory = parts
         .next()
-        .map(|s| slice_to_nb(s))
+        .map(slice_to_nb)
         .unwrap_or(0)
         .saturating_mul(info.page_size_b);
     entry.virtual_memory = parts
         .next()
-        .map(|s| slice_to_nb(s))
+        .map(slice_to_nb)
         .unwrap_or(0)
         .saturating_mul(info.page_size_b);
     true
@@ -602,7 +602,9 @@ fn update_time_and_memory(
     refresh_kind: ProcessRefreshKind,
 ) {
     {
+        #[allow(clippy::collapsible_if)]
         if refresh_kind.memory() {
+            // Keeping this nested level for readability reasons.
             if !get_memory(path.join("statm"), entry, info) {
                 old_get_memory(entry, parts, info);
             }
