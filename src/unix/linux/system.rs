@@ -600,7 +600,7 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
             InfoType::DistributionID => "ID=",
         };
 
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             if let Some(stripped) = line.strip_prefix(info_str) {
                 return Some(stripped.replace('"', ""));
             }
@@ -621,7 +621,7 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
             return None;
         }
     };
-    for line in reader.lines().flatten() {
+    for line in reader.lines().map_while(Result::ok) {
         if let Some(stripped) = line.strip_prefix(info_str) {
             return Some(stripped.replace('"', ""));
         }
