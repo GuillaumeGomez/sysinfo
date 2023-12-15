@@ -400,8 +400,6 @@ fn update_proc_info(
     refresh_kind: ProcessRefreshKind,
     proc_path: &mut PathHandler,
     parts: &[&str],
-    memory: u64,
-    virtual_memory: u64,
     uptime: u64,
     info: &SystemInfo,
 ) {
@@ -427,16 +425,7 @@ fn update_proc_info(
         p.root = realpath(proc_path.join("root"));
     }
 
-    update_time_and_memory(
-        proc_path,
-        p,
-        parts,
-        memory,
-        virtual_memory,
-        uptime,
-        info,
-        refresh_kind,
-    );
+    update_time_and_memory(proc_path, p, parts, uptime, info, refresh_kind);
     if refresh_kind.disk_usage() {
         update_process_disk_activity(p, proc_path);
     }
@@ -471,16 +460,7 @@ fn retrieve_all_new_process_info(
 
     p.name = name.into();
 
-    update_proc_info(
-        &mut p,
-        refresh_kind,
-        &mut proc_path,
-        parts,
-        proc_list.memory,
-        proc_list.virtual_memory,
-        uptime,
-        info,
-    );
+    update_proc_info(&mut p, refresh_kind, &mut proc_path, parts, uptime, info);
 
     Process { inner: p }
 }
@@ -531,16 +511,7 @@ pub(crate) fn _get_process_data(
         if start_time_without_boot_time == entry.start_time_without_boot_time {
             let mut proc_path = PathHandler::new(path);
 
-            update_proc_info(
-                entry,
-                refresh_kind,
-                &mut proc_path,
-                &parts,
-                proc_list.memory,
-                proc_list.virtual_memory,
-                uptime,
-                info,
-            );
+            update_proc_info(entry, refresh_kind, &mut proc_path, &parts, uptime, info);
 
             refresh_user_group_ids(entry, &mut proc_path, refresh_kind);
             return Ok((None, pid));
@@ -569,32 +540,71 @@ pub(crate) fn _get_process_data(
     Ok((None, pid))
 }
 
+fn old_get_memory(entry: &mut ProcessInner, parts: &[&str], info: &SystemInfo) {
+    // rss
+    entry.memory = u64::from_str(parts[ProcIndex::ResidentSetSize as usize])
+        .unwrap_or(0)
+        .saturating_mul(info.page_size_b);
+    // vsz correspond to the Virtual memory size in bytes.
+    // see: https://man7.org/linux/man-pages/man5/proc.5.html
+    entry.virtual_memory = u64::from_str(parts[ProcIndex::VirtualSize as usize]).unwrap_or(0);
+}
+
+fn slice_to_nb(s: &[u8]) -> u64 {
+    let mut nb: u64 = 0;
+
+    for c in s {
+        nb = nb * 10 + (c - b'0') as u64;
+    }
+    return nb;
+}
+
+fn get_memory(path: &Path, entry: &mut ProcessInner, info: &SystemInfo) -> bool {
+    let mut file = match File::open(path) {
+        Ok(f) => f,
+        Err(_e) => {
+            sysinfo_debug!(
+                "Using old memory information (failed to open {:?}: {_e:?})",
+                path
+            );
+            return false;
+        }
+    };
+    let mut buf = Vec::new();
+    if let Err(_e) = file.read_to_end(&mut buf) {
+        sysinfo_debug!(
+            "Using old memory information (failed to read {:?}: {_e:?})",
+            path
+        );
+        return false;
+    }
+    let mut parts = buf.split(|c| *c == b' ');
+    entry.memory = parts
+        .next()
+        .map(|s| slice_to_nb(s))
+        .unwrap_or(0)
+        .saturating_mul(info.page_size_b);
+    entry.virtual_memory = parts
+        .next()
+        .map(|s| slice_to_nb(s))
+        .unwrap_or(0)
+        .saturating_mul(info.page_size_b);
+    true
+}
+
 #[allow(clippy::too_many_arguments)]
 fn update_time_and_memory(
     path: &mut PathHandler,
     entry: &mut ProcessInner,
     parts: &[&str],
-    parent_memory: u64,
-    parent_virtual_memory: u64,
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
 ) {
     {
         if refresh_kind.memory() {
-            // rss
-            entry.memory = u64::from_str(parts[ProcIndex::ResidentSetSize as usize])
-                .unwrap_or(0)
-                .saturating_mul(info.page_size_b);
-            if entry.memory >= parent_memory {
-                entry.memory -= parent_memory;
-            }
-            // vsz correspond to the Virtual memory size in bytes.
-            // see: https://man7.org/linux/man-pages/man5/proc.5.html
-            entry.virtual_memory =
-                u64::from_str(parts[ProcIndex::VirtualSize as usize]).unwrap_or(0);
-            if entry.virtual_memory >= parent_virtual_memory {
-                entry.virtual_memory -= parent_virtual_memory;
+            if !get_memory(path.join("statm"), entry, info) {
+                old_get_memory(entry, parts, info);
             }
         }
         set_time(
