@@ -1212,7 +1212,7 @@ impl Process {
         any(target_os = "linux", target_os = "android"),
         not(feature = "unknown-ci")
     ))]
-    pub fn tasks(&self) -> &HashMap<Pid, Process> {
+    pub fn tasks(&self) -> &std::collections::HashSet<Pid> {
         &self.inner.tasks
     }
 }

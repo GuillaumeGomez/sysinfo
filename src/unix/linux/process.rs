@@ -1,9 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::cell::UnsafeCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
 use std::fmt;
-use std::fs::{self, File};
+use std::fs::{self, DirEntry, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -14,7 +15,6 @@ use crate::sys::system::SystemInfo;
 use crate::sys::utils::{
     get_all_data, get_all_data_from_file, realpath, FileCounter, PathHandler, PathPush,
 };
-use crate::utils::into_iter;
 use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 #[doc(hidden)]
@@ -111,7 +111,7 @@ pub(crate) struct ProcessInner {
     group_id: Option<Gid>,
     effective_group_id: Option<Gid>,
     pub(crate) status: ProcessStatus,
-    pub(crate) tasks: HashMap<Pid, Process>,
+    pub(crate) tasks: HashSet<Pid>,
     pub(crate) stat_file: Option<FileCounter>,
     old_read_bytes: u64,
     old_written_bytes: u64,
@@ -146,11 +146,7 @@ impl ProcessInner {
             group_id: None,
             effective_group_id: None,
             status: ProcessStatus::Unknown(0),
-            tasks: if pid.0 == 0 {
-                HashMap::with_capacity(1000)
-            } else {
-                HashMap::new()
-            },
+            tasks: HashSet::new(),
             stat_file: None,
             old_read_bytes: 0,
             old_written_bytes: 0,
@@ -286,17 +282,10 @@ pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, total_time: f32, max_value
         / total_time
         * 100.)
         .min(max_value);
-
-    for task in p.tasks.values_mut() {
-        compute_cpu_usage(&mut task.inner, total_time, max_value);
-    }
 }
 
 pub(crate) fn unset_updated(p: &mut ProcessInner) {
     p.updated = false;
-    for task in p.tasks.values_mut() {
-        unset_updated(&mut task.inner);
-    }
 }
 
 pub(crate) fn set_time(p: &mut ProcessInner, utime: u64, stime: u64) {
@@ -433,7 +422,7 @@ fn update_proc_info(
 
 fn retrieve_all_new_process_info(
     pid: Pid,
-    proc_list: &ProcessInner,
+    parent_pid: Option<Pid>,
     parts: &[&str],
     path: &Path,
     info: &SystemInfo,
@@ -444,13 +433,12 @@ fn retrieve_all_new_process_info(
     let mut proc_path = PathHandler::new(path);
     let name = parts[ProcIndex::ShortExe as usize];
 
-    p.parent = if proc_list.pid.0 != 0 {
-        Some(proc_list.pid)
-    } else {
-        match Pid::from_str(parts[ProcIndex::ParentPid as usize]) {
+    p.parent = match parent_pid {
+        Some(parent_pid) if parent_pid.0 != 0 => Some(parent_pid),
+        _ => match Pid::from_str(parts[ProcIndex::ParentPid as usize]) {
             Ok(p) if p.0 != 0 => Some(p),
             _ => None,
-        }
+        },
     };
 
     p.start_time_without_boot_time = compute_start_time_without_boot_time(parts, info);
@@ -467,24 +455,15 @@ fn retrieve_all_new_process_info(
 
 pub(crate) fn _get_process_data(
     path: &Path,
-    proc_list: &mut ProcessInner,
-    parent_pid: Pid,
+    proc_list: &mut HashMap<Pid, Process>,
+    pid: Pid,
+    parent_pid: Option<Pid>,
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
 ) -> Result<(Option<Process>, Pid), ()> {
-    let pid = match path.file_name().and_then(|x| x.to_str()).map(Pid::from_str) {
-        // If `pid` and `nb` are the same, it means the file is linking to itself so we skip it.
-        //
-        // It's because when reading `/proc/[PID]` folder, we then go through the folders inside it.
-        // Then, if we encounter a sub-folder with the same PID as the parent, then it's a link to
-        // the current folder we already did read so no need to do anything.
-        Some(Ok(nb)) if nb != parent_pid => nb,
-        _ => return Err(()),
-    };
-
     let data;
-    let parts = if let Some(ref mut entry) = proc_list.tasks.get_mut(&pid) {
+    let parts = if let Some(ref mut entry) = proc_list.get_mut(&pid) {
         let entry = &mut entry.inner;
         data = if let Some(mut f) = entry.stat_file.take() {
             match get_all_data_from_file(&mut f, 1024) {
@@ -522,15 +501,23 @@ pub(crate) fn _get_process_data(
         let data = _get_stat_data(path, &mut stat_file)?;
         let parts = parse_stat_file(&data).ok_or(())?;
 
-        let mut p =
-            retrieve_all_new_process_info(pid, proc_list, &parts, path, info, refresh_kind, uptime);
+        let mut p = retrieve_all_new_process_info(
+            pid,
+            parent_pid,
+            &parts,
+            path,
+            info,
+            refresh_kind,
+            uptime,
+        );
         p.inner.stat_file = stat_file;
         return Ok((Some(p), pid));
     };
 
     // If we're here, it means that the PID still exists but it's a different process.
-    let p = retrieve_all_new_process_info(pid, proc_list, &parts, path, info, refresh_kind, uptime);
-    match proc_list.tasks.get_mut(&pid) {
+    let p =
+        retrieve_all_new_process_info(pid, parent_pid, &parts, path, info, refresh_kind, uptime);
+    match proc_list.get_mut(&pid) {
         Some(ref mut entry) => **entry = p,
         // If it ever enters this case, it means that the process was removed from the HashMap
         // in-between with the usage of dark magic.
@@ -616,88 +603,118 @@ fn update_time_and_memory(
         );
         entry.run_time = uptime.saturating_sub(entry.start_time_without_boot_time);
     }
-    refresh_procs(
-        entry,
-        path.join("task"),
-        entry.pid,
-        uptime,
-        info,
-        refresh_kind,
-    );
+}
+
+struct ProcAndTasks {
+    pid: Pid,
+    path: PathBuf,
+    tasks: HashSet<Pid>,
+}
+
+fn get_all_pid_entries(
+    parent: Option<&OsStr>,
+    entry: DirEntry,
+    data: &mut Vec<ProcAndTasks>,
+) -> Option<Pid> {
+    let entry = entry.path();
+    let name = entry.file_name();
+
+    if name == parent {
+        // Needed because tasks have their own PID listed in the "task" folder.
+        return None;
+    }
+    let name = name?;
+    if !entry.is_dir() {
+        return None;
+    }
+    let pid = Pid::from(usize::from_str(&name.to_string_lossy()).ok()?);
+
+    let tasks_dir = Path::join(&entry, "task");
+    let mut tasks = HashSet::new();
+    if tasks_dir.is_dir() {
+        if let Ok(entries) = fs::read_dir(tasks_dir) {
+            for task in entries
+                .into_iter()
+                .filter_map(|entry| get_all_pid_entries(Some(name), entry.ok()?, data))
+            {
+                tasks.insert(task);
+            }
+        }
+    }
+    data.push(ProcAndTasks {
+        pid,
+        path: entry,
+        tasks,
+    });
+    Some(pid)
+}
+
+#[cfg(feature = "multithread")]
+#[inline]
+pub(crate) fn iter<T>(val: T) -> rayon::iter::IterBridge<T>
+where
+    T: rayon::iter::ParallelBridge,
+{
+    val.par_bridge()
+}
+
+#[cfg(not(feature = "multithread"))]
+#[inline]
+pub(crate) fn iter<T>(val: T) -> T
+where
+    T: Iterator,
+{
+    val
 }
 
 pub(crate) fn refresh_procs(
-    proc_list: &mut ProcessInner,
+    proc_list: &mut HashMap<Pid, Process>,
     path: &Path,
-    parent_pid: Pid,
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
 ) -> bool {
-    let d = match fs::read_dir(path) {
-        Ok(d) => d,
-        Err(_) => return false,
-    };
-    let folders = d
-        .filter_map(|entry| {
-            let entry = entry.ok()?;
-            let entry = entry.path();
+    #[cfg(feature = "multithread")]
+    use rayon::iter::ParallelIterator;
 
-            if entry.is_dir() {
-                Some(entry)
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-    if parent_pid.0 == 0 {
+    // FIXME: To prevent retrieving a task more than once (it can be listed in `/proc/[PID]/task`
+    // subfolder and directly in `/proc` at the same time), might be interesting to use a `HashSet`.
+    let procs = {
+        let d = match fs::read_dir(path) {
+            Ok(d) => d,
+            Err(_) => return false,
+        };
         let proc_list = Wrap(UnsafeCell::new(proc_list));
 
-        #[cfg(feature = "multithread")]
-        use rayon::iter::ParallelIterator;
-
-        into_iter(folders)
+        iter(d)
+            .map(|entry| {
+                let Ok(entry) = entry else { return Vec::new() };
+                let mut entries = Vec::new();
+                get_all_pid_entries(None, entry, &mut entries);
+                entries
+            })
+            .flatten()
             .filter_map(|e| {
-                let (p, _) = _get_process_data(
-                    e.as_path(),
+                let (mut p, _) = _get_process_data(
+                    e.path.as_path(),
                     proc_list.get(),
-                    parent_pid,
+                    e.pid,
+                    None,
                     uptime,
                     info,
                     refresh_kind,
                 )
                 .ok()?;
+                if let Some(ref mut p) = p {
+                    p.inner.tasks = e.tasks;
+                }
                 p
             })
             .collect::<Vec<_>>()
-    } else {
-        let mut updated_pids = Vec::with_capacity(folders.len());
-        let new_tasks = folders
-            .iter()
-            .filter_map(|e| {
-                let (p, pid) = _get_process_data(
-                    e.as_path(),
-                    proc_list,
-                    parent_pid,
-                    uptime,
-                    info,
-                    refresh_kind,
-                )
-                .ok()?;
-                updated_pids.push(pid);
-                p
-            })
-            .collect::<Vec<_>>();
-        // Sub-tasks are not cleaned up outside so we do it here directly.
-        proc_list
-            .tasks
-            .retain(|&pid, _| updated_pids.iter().any(|&x| x == pid));
-        new_tasks
+    };
+    for proc_ in procs {
+        proc_list.insert(proc_.pid(), proc_);
     }
-    .into_iter()
-    .for_each(|e| {
-        proc_list.tasks.insert(e.pid(), e);
-    });
     true
 }
 

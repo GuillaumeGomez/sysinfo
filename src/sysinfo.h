@@ -49,7 +49,7 @@ void        sysinfo_cpus_usage(CSystem system, unsigned int *length, float **cpu
 size_t      sysinfo_processes(CSystem system, bool (*fn_pointer)(PID, CProcess, void*),
                               void *data);
 #ifdef __linux__
-size_t      sysinfo_process_tasks(CProcess process, bool (*fn_pointer)(PID, CProcess, void*),
+size_t      sysinfo_process_tasks(CProcess process, bool (*fn_pointer)(PID, void*),
                                   void *data);
 #endif
 CProcess    sysinfo_process_by_pid(CSystem system, PID pid);
