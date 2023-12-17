@@ -393,24 +393,22 @@ fn test_refresh_tasks() {
     let mut s = System::new();
     s.refresh_processes();
 
-    assert!(s
-        .process(pid)
-        .unwrap()
-        .tasks()
-        .values()
-        .any(|t| t.name() == task_name));
+    assert!(s.process(pid).unwrap().tasks().iter().any(|task_pid| s
+        .process(*task_pid)
+        .map(|task| task.name() == task_name)
+        .unwrap_or(false)));
+    assert!(s.processes_by_exact_name(task_name).next().is_some());
 
     // Let's give some time to the system to clean up...
     std::thread::sleep(std::time::Duration::from_secs(2));
 
     s.refresh_processes();
 
-    assert!(!s
-        .process(pid)
-        .unwrap()
-        .tasks()
-        .values()
-        .any(|t| t.name() == task_name));
+    assert!(!s.process(pid).unwrap().tasks().iter().any(|task_pid| s
+        .process(*task_pid)
+        .map(|task| task.name() == task_name)
+        .unwrap_or(false)));
+    assert!(s.processes_by_exact_name(task_name).next().is_none());
 }
 
 // Checks that `refresh_process` is NOT removing dead processes.

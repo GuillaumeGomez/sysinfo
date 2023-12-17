@@ -21,6 +21,9 @@ pub type CProcess = *const c_void;
 pub type RString = *const c_char;
 /// Callback used by [`processes`][crate::System#method.processes].
 pub type ProcessLoop = extern "C" fn(pid: PID, process: CProcess, data: *mut c_void) -> bool;
+#[cfg(target_os = "linux")]
+/// Callback used by [`tasks`][crate::Process#method.tasks].
+pub type ProcessPidLoop = extern "C" fn(pid: PID, data: *mut c_void) -> bool;
 /// Equivalent of [`Networks`][crate::Networks] struct.
 pub type CNetworks = *mut c_void;
 /// Equivalent of [`Disks`][crate::Disks] struct.
@@ -395,15 +398,15 @@ pub extern "C" fn sysinfo_process_by_pid(system: CSystem, pid: PID) -> CProcess 
 #[no_mangle]
 pub extern "C" fn sysinfo_process_tasks(
     process: CProcess,
-    fn_pointer: Option<ProcessLoop>,
+    fn_pointer: Option<ProcessPidLoop>,
     data: *mut c_void,
 ) -> size_t {
     assert!(!process.is_null());
     if let Some(fn_pointer) = fn_pointer {
         unsafe {
             let process = process as *const Process;
-            for (pid, process) in (*process).tasks().iter() {
-                if !fn_pointer(pid.0, process as *const Process as CProcess, data) {
+            for pid in (*process).tasks().iter() {
+                if !fn_pointer(pid.0, data) {
                     break;
                 }
             }

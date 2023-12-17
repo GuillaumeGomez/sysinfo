@@ -4,13 +4,7 @@
 /// Uses the `rayon::iter::IntoParallelIterator` trait.
 #[cfg(all(
     all(
-        any(
-            target_os = "linux",
-            target_os = "android",
-            target_os = "macos",
-            target_os = "windows",
-            target_os = "freebsd",
-        ),
+        any(target_os = "macos", target_os = "windows", target_os = "freebsd",),
         feature = "multithread"
     ),
     not(all(target_os = "macos", feature = "apple-sandbox")),
@@ -27,13 +21,7 @@ where
 /// Uses the `std::iter::IntoIterator` trait.
 #[cfg(all(
     all(
-        any(
-            target_os = "linux",
-            target_os = "android",
-            target_os = "macos",
-            target_os = "windows",
-            target_os = "freebsd",
-        ),
+        any(target_os = "macos", target_os = "windows", target_os = "freebsd",),
         not(feature = "multithread")
     ),
     not(feature = "unknown-ci"),
