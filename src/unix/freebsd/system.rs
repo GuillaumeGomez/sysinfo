@@ -64,8 +64,12 @@ impl SystemInner {
         self.cpus.refresh(refresh_kind)
     }
 
-    pub(crate) fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
-        unsafe { self.refresh_procs(refresh_kind) }
+    pub(crate) fn refresh_processes_specifics(
+        &mut self,
+        filter: Option<&[Pid]>,
+        refresh_kind: ProcessRefreshKind,
+    ) {
+        unsafe { self.refresh_procs(filter, refresh_kind) }
     }
 
     pub(crate) fn refresh_process_specifics(
@@ -250,7 +254,7 @@ impl SystemInner {
 }
 
 impl SystemInner {
-    unsafe fn refresh_procs(&mut self, refresh_kind: ProcessRefreshKind) {
+    unsafe fn refresh_procs(&mut self, filter: Option<&[Pid]>, refresh_kind: ProcessRefreshKind) {
         let mut count = 0;
         let kvm_procs = libc::kvm_getprocs(
             self.system_info.kd.as_ptr(),
@@ -262,6 +266,26 @@ impl SystemInner {
             sysinfo_debug!("kvm_getprocs returned nothing...");
             return;
         }
+
+        #[inline(always)]
+        fn real_filter(e: &libc::kinfo_proc, filter: &[Pid]) -> bool {
+            filter.contains(&Pid(e.ki_pid))
+        }
+
+        #[inline(always)]
+        fn empty_filter(_e: &libc::kinfo_proc, _filter: &[Pid]) -> bool {
+            true
+        }
+
+        #[allow(clippy::type_complexity)]
+        let (filter, filter_callback): (
+            &[Pid],
+            &(dyn Fn(&libc::kinfo_proc, &[Pid]) -> bool + Sync + Send),
+        ) = if let Some(filter) = filter {
+            (filter, &real_filter)
+        } else {
+            (&[], &empty_filter)
+        };
 
         let new_processes = {
             #[cfg(feature = "multithread")]
@@ -278,6 +302,9 @@ impl SystemInner {
             let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
 
             IterTrait::filter_map(crate::utils::into_iter(kvm_procs), |kproc| {
+                if !filter_callback(kproc, filter) {
+                    return None;
+                }
                 super::process::get_process_data(
                     kproc,
                     &proc_list,

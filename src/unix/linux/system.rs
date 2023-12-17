@@ -230,13 +230,18 @@ impl SystemInner {
         self.refresh_cpus(false, refresh_kind);
     }
 
-    pub(crate) fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
+    pub(crate) fn refresh_processes_specifics(
+        &mut self,
+        filter: Option<&[Pid]>,
+        refresh_kind: ProcessRefreshKind,
+    ) {
         let uptime = self.uptime();
         refresh_procs(
             &mut self.process_list,
             Path::new("/proc"),
             uptime,
             &self.info,
+            filter,
             refresh_kind,
         );
         self.clear_procs(refresh_kind);

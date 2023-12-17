@@ -265,7 +265,65 @@ impl System {
     /// s.refresh_processes_specifics(ProcessRefreshKind::new());
     /// ```
     pub fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
-        self.inner.refresh_processes_specifics(refresh_kind)
+        self.inner.refresh_processes_specifics(None, refresh_kind)
+    }
+
+    /// Gets specified processes and updates their information.
+    ///
+    /// It does the same as:
+    ///
+    /// ```no_run
+    /// # use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
+    /// # let mut system = System::new();
+    /// system.refresh_pids_specifics(
+    ///     &[Pid::from(1), Pid::from(2)],
+    ///     ProcessRefreshKind::new()
+    ///         .with_memory()
+    ///         .with_cpu()
+    ///         .with_disk_usage()
+    ///         .with_exe(UpdateKind::OnlyIfNotSet),
+    /// );
+    /// ```
+    ///
+    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
+    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
+    ///
+    /// Example:
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_processes();
+    /// ```
+    pub fn refresh_pids(&mut self, pids: &[Pid]) {
+        self.refresh_pids_specifics(
+            pids,
+            ProcessRefreshKind::new()
+                .with_memory()
+                .with_cpu()
+                .with_disk_usage()
+                .with_exe(UpdateKind::OnlyIfNotSet),
+        );
+    }
+
+    /// Gets specified processes and updates the specified information.
+    ///
+    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
+    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, ProcessRefreshKind, System};
+    ///
+    /// let mut s = System::new_all();
+    /// s.refresh_pids_specifics(&[Pid::from(1), Pid::from(2)], ProcessRefreshKind::new());
+    /// ```
+    pub fn refresh_pids_specifics(&mut self, pids: &[Pid], refresh_kind: ProcessRefreshKind) {
+        if pids.is_empty() {
+            return;
+        }
+        self.inner
+            .refresh_processes_specifics(Some(pids), refresh_kind)
     }
 
     /// Refreshes *only* the process corresponding to `pid`. Returns `false` if the process doesn't
