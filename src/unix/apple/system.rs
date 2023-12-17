@@ -225,10 +225,8 @@ impl SystemInner {
             let port = self.port;
             time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
         }
-        match {
-            let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
-            update_process(&wrap, pid, time_interval, now, refresh_kind, true)
-        } {
+        let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
+        match update_process(&wrap, pid, time_interval, now, refresh_kind, true) {
             Ok(Some(p)) => {
                 self.process_list.insert(p.pid(), p);
                 true
