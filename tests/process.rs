@@ -474,7 +474,7 @@ fn test_wait_child() {
         std::process::Command::new("waitfor")
             .arg("/t")
             .arg("300")
-            .arg("RefreshProcess")
+            .arg("WaitChild")
             .stdout(std::process::Stdio::null())
             .spawn()
             .unwrap()
@@ -735,4 +735,40 @@ fn test_process_specific_refresh() {
     }
     update_specific_and_check!(exe, with_exe, , None);
     update_specific_and_check!(cwd, with_cwd, , None);
+}
+
+#[test]
+fn test_refresh_pids() {
+    if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let self_pid = sysinfo::get_current_pid().expect("failed to get current pid");
+    let mut s = System::new();
+
+    let mut p = if cfg!(target_os = "windows") {
+        std::process::Command::new("waitfor")
+            .arg("/t")
+            .arg("3")
+            .arg("RefreshPids")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep")
+            .arg("3")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+
+    let child_pid = Pid::from_u32(p.id() as _);
+    let pids = &[child_pid, self_pid];
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    s.refresh_pids(pids);
+    p.kill().expect("Unable to kill process.");
+
+    assert_eq!(s.processes().len(), 2);
+    for pid in s.processes().keys() {
+        assert!(pids.contains(pid));
+    }
 }
