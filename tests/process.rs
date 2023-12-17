@@ -393,10 +393,15 @@ fn test_refresh_tasks() {
     let mut s = System::new();
     s.refresh_processes();
 
-    assert!(s.process(pid).unwrap().tasks().iter().any(|task_pid| s
-        .process(*task_pid)
-        .map(|task| task.name() == task_name)
-        .unwrap_or(false)));
+    assert!(s
+        .process(pid)
+        .unwrap()
+        .tasks()
+        .map(|tasks| tasks.iter().any(|task_pid| s
+            .process(*task_pid)
+            .map(|task| task.name() == task_name)
+            .unwrap_or(false)))
+        .unwrap_or(false));
     assert!(s.processes_by_exact_name(task_name).next().is_some());
 
     // Let's give some time to the system to clean up...
@@ -404,10 +409,15 @@ fn test_refresh_tasks() {
 
     s.refresh_processes();
 
-    assert!(!s.process(pid).unwrap().tasks().iter().any(|task_pid| s
-        .process(*task_pid)
-        .map(|task| task.name() == task_name)
-        .unwrap_or(false)));
+    assert!(!s
+        .process(pid)
+        .unwrap()
+        .tasks()
+        .map(|tasks| tasks.iter().any(|task_pid| s
+            .process(*task_pid)
+            .map(|task| task.name() == task_name)
+            .unwrap_or(false)))
+        .unwrap_or(false));
     assert!(s.processes_by_exact_name(task_name).next().is_none());
 }
 

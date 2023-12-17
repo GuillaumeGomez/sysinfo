@@ -111,7 +111,7 @@ pub(crate) struct ProcessInner {
     group_id: Option<Gid>,
     effective_group_id: Option<Gid>,
     pub(crate) status: ProcessStatus,
-    pub(crate) tasks: HashSet<Pid>,
+    pub(crate) tasks: Option<HashSet<Pid>>,
     pub(crate) stat_file: Option<FileCounter>,
     old_read_bytes: u64,
     old_written_bytes: u64,
@@ -146,7 +146,7 @@ impl ProcessInner {
             group_id: None,
             effective_group_id: None,
             status: ProcessStatus::Unknown(0),
-            tasks: HashSet::new(),
+            tasks: None,
             stat_file: None,
             old_read_bytes: 0,
             old_written_bytes: 0,
@@ -608,7 +608,7 @@ fn update_time_and_memory(
 struct ProcAndTasks {
     pid: Pid,
     path: PathBuf,
-    tasks: HashSet<Pid>,
+    tasks: Option<HashSet<Pid>>,
 }
 
 fn get_all_pid_entries(
@@ -630,8 +630,8 @@ fn get_all_pid_entries(
     let pid = Pid::from(usize::from_str(&name.to_string_lossy()).ok()?);
 
     let tasks_dir = Path::join(&entry, "task");
-    let mut tasks = HashSet::new();
-    if tasks_dir.is_dir() {
+    let tasks = if tasks_dir.is_dir() {
+        let mut tasks = HashSet::new();
         if let Ok(entries) = fs::read_dir(tasks_dir) {
             for task in entries
                 .into_iter()
@@ -640,7 +640,10 @@ fn get_all_pid_entries(
                 tasks.insert(task);
             }
         }
-    }
+        Some(tasks)
+    } else {
+        None
+    };
     data.push(ProcAndTasks {
         pid,
         path: entry,
