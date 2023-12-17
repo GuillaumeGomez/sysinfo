@@ -675,10 +675,31 @@ pub(crate) fn refresh_procs(
     path: &Path,
     uptime: u64,
     info: &SystemInfo,
+    filter: Option<&[Pid]>,
     refresh_kind: ProcessRefreshKind,
 ) -> bool {
     #[cfg(feature = "multithread")]
     use rayon::iter::ParallelIterator;
+
+    #[inline(always)]
+    fn real_filter(e: &ProcAndTasks, filter: &[Pid]) -> bool {
+        filter.contains(&e.pid)
+    }
+
+    #[inline(always)]
+    fn empty_filter(_e: &ProcAndTasks, _filter: &[Pid]) -> bool {
+        true
+    }
+
+    #[allow(clippy::type_complexity)]
+    let (filter, filter_callback): (
+        &[Pid],
+        &(dyn Fn(&ProcAndTasks, &[Pid]) -> bool + Sync + Send),
+    ) = if let Some(filter) = filter {
+        (filter, &real_filter)
+    } else {
+        (&[], &empty_filter)
+    };
 
     // FIXME: To prevent retrieving a task more than once (it can be listed in `/proc/[PID]/task`
     // subfolder and directly in `/proc` at the same time), might be interesting to use a `HashSet`.
@@ -697,6 +718,7 @@ pub(crate) fn refresh_procs(
                 entries
             })
             .flatten()
+            .filter(|e| filter_callback(e, filter))
             .filter_map(|e| {
                 let (mut p, _) = _get_process_data(
                     e.path.as_path(),

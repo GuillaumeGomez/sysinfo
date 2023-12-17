@@ -196,7 +196,11 @@ impl SystemInner {
     }
 
     #[allow(clippy::cast_ptr_alignment)]
-    pub(crate) fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
+    pub(crate) fn refresh_processes_specifics(
+        &mut self,
+        filter: Option<&[Pid]>,
+        refresh_kind: ProcessRefreshKind,
+    ) {
         // Windows 10 notebook requires at least 512KiB of memory to make it in one go
         let mut buffer_size = 512 * 1024;
         let mut process_information: Vec<u8> = Vec::with_capacity(buffer_size);
@@ -239,6 +243,26 @@ impl SystemInner {
                 }
             }
 
+            #[inline(always)]
+            fn real_filter(e: Pid, filter: &[Pid]) -> bool {
+                filter.contains(&e)
+            }
+
+            #[inline(always)]
+            fn empty_filter(_e: Pid, _filter: &[Pid]) -> bool {
+                true
+            }
+
+            #[allow(clippy::type_complexity)]
+            let (filter, filter_callback): (
+                &[Pid],
+                &(dyn Fn(Pid, &[Pid]) -> bool + Sync + Send),
+            ) = if let Some(filter) = filter {
+                (filter, &real_filter)
+            } else {
+                (&[], &empty_filter)
+            };
+
             // If we reach this point NtQuerySystemInformation succeeded
             // and the buffer contents are initialized
             process_information.set_len(buffer_size);
@@ -252,7 +276,9 @@ impl SystemInner {
                     .offset(process_information_offset)
                     as *const SYSTEM_PROCESS_INFORMATION;
 
-                process_ids.push(Wrap(p));
+                if filter_callback(Pid((*p).UniqueProcessId as _), filter) {
+                    process_ids.push(Wrap(p));
+                }
 
                 // read_unaligned is necessary to avoid
                 // misaligned pointer dereference: address must be a multiple of 0x8 but is 0x...

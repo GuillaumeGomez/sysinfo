@@ -164,10 +164,19 @@ impl SystemInner {
     }
 
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    pub(crate) fn refresh_processes_specifics(&mut self, _refresh_kind: ProcessRefreshKind) {}
+    pub(crate) fn refresh_processes_specifics(
+        &mut self,
+        _filter: Option<&[Pid]>,
+        _refresh_kind: ProcessRefreshKind,
+    ) {
+    }
 
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-    pub(crate) fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
+    pub(crate) fn refresh_processes_specifics(
+        &mut self,
+        filter: Option<&[Pid]>,
+        refresh_kind: ProcessRefreshKind,
+    ) {
         use crate::utils::into_iter;
 
         unsafe {
@@ -177,6 +186,26 @@ impl SystemInner {
             }
         }
         if let Some(pids) = get_proc_list() {
+            #[inline(always)]
+            fn real_filter(e: Pid, filter: &[Pid]) -> bool {
+                filter.contains(&e)
+            }
+
+            #[inline(always)]
+            fn empty_filter(_e: Pid, _filter: &[Pid]) -> bool {
+                true
+            }
+
+            #[allow(clippy::type_complexity)]
+            let (filter, filter_callback): (
+                &[Pid],
+                &(dyn Fn(Pid, &[Pid]) -> bool + Sync + Send),
+            ) = if let Some(filter) = filter {
+                (filter, &real_filter)
+            } else {
+                (&[], &empty_filter)
+            };
+
             let now = get_now();
             let port = self.port;
             let time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
@@ -188,6 +217,9 @@ impl SystemInner {
 
                 into_iter(pids)
                     .flat_map(|pid| {
+                        if !filter_callback(pid, filter) {
+                            return None;
+                        }
                         match update_process(wrap, pid, time_interval, now, refresh_kind, false) {
                             Ok(x) => x,
                             _ => None,
