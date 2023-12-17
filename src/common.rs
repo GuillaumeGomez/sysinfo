@@ -6,7 +6,7 @@ use crate::{
 };
 
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::{From, TryFrom};
 use std::ffi::OsStr;
 use std::fmt;
@@ -802,7 +802,7 @@ impl Process {
     /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     if process.kill_with(Signal::Kill).is_none() {
-    ///         eprintln!("This signal isn't supported on this platform");
+    ///         println!("This signal isn't supported on this platform");
     ///     }
     /// }
     /// ```
@@ -1102,7 +1102,7 @@ impl Process {
     /// let mut s = System::new_all();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     eprintln!("User id for process 1337: {:?}", process.user_id());
+    ///     println!("User id for process 1337: {:?}", process.user_id());
     /// }
     /// ```
     pub fn user_id(&self) -> Option<&Uid> {
@@ -1125,7 +1125,7 @@ impl Process {
     /// let mut s = System::new_all();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     eprintln!("User id for process 1337: {:?}", process.effective_user_id());
+    ///     println!("User id for process 1337: {:?}", process.effective_user_id());
     /// }
     /// ```
     pub fn effective_user_id(&self) -> Option<&Uid> {
@@ -1142,7 +1142,7 @@ impl Process {
     /// let mut s = System::new_all();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     eprintln!("Group ID for process 1337: {:?}", process.group_id());
+    ///     println!("Group ID for process 1337: {:?}", process.group_id());
     /// }
     /// ```
     pub fn group_id(&self) -> Option<Gid> {
@@ -1163,7 +1163,7 @@ impl Process {
     /// let mut s = System::new_all();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     eprintln!("User id for process 1337: {:?}", process.effective_group_id());
+    ///     println!("User id for process 1337: {:?}", process.effective_group_id());
     /// }
     /// ```
     pub fn effective_group_id(&self) -> Option<Gid> {
@@ -1178,9 +1178,9 @@ impl Process {
     /// let mut s = System::new_all();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     eprintln!("Waiting for pid 1337");
+    ///     println!("Waiting for pid 1337");
     ///     process.wait();
-    ///     eprintln!("Pid 1337 exited");
+    ///     println!("Pid 1337 exited");
     /// }
     /// ```
     pub fn wait(&self) {
@@ -1198,22 +1198,44 @@ impl Process {
     /// let mut s = System::new_all();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     eprintln!("Session ID for process 1337: {:?}", process.session_id());
+    ///     println!("Session ID for process 1337: {:?}", process.session_id());
     /// }
     /// ```
     pub fn session_id(&self) -> Option<Pid> {
         self.inner.session_id()
     }
 
-    /// Tasks run by this process.
+    /// Tasks run by this process. If there are none, returns `None`.
     ///
-    /// ⚠️ This method is only available on Linux.
-    #[cfg(all(
-        any(target_os = "linux", target_os = "android"),
-        not(feature = "unknown-ci")
-    ))]
-    pub fn tasks(&self) -> &std::collections::HashSet<Pid> {
-        &self.inner.tasks
+    /// ⚠️ This method always returns `None` on other plantforms than Linux.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     if let Some(tasks) = process.tasks() {
+    ///         println!("Listing tasks for process {:?}", process.pid());
+    ///         for task_pid in tasks {
+    ///             if let Some(task) = s.process(*task_pid) {
+    ///                 println!("Task {:?}: {:?}", task.pid(), task.name());
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn tasks(&self) -> Option<&HashSet<Pid>> {
+        cfg_if::cfg_if! {
+            if #[cfg(all(
+                any(target_os = "linux", target_os = "android"),
+                not(feature = "unknown-ci")
+            ))] {
+                self.inner.tasks.as_ref()
+            } else {
+                None
+            }
+        }
     }
 }
 
@@ -1807,7 +1829,7 @@ impl Networks {
     ///
     /// let networks = Networks::new_with_refreshed_list();
     /// for network in &networks {
-    ///     eprintln!("{network:?}");
+    ///     println!("{network:?}");
     /// }
     /// ```
     pub fn new_with_refreshed_list() -> Self {
@@ -1823,7 +1845,7 @@ impl Networks {
     ///
     /// let networks = Networks::new_with_refreshed_list();
     /// for network in networks.list() {
-    ///     eprintln!("{network:?}");
+    ///     println!("{network:?}");
     /// }
     /// ```
     pub fn list(&self) -> &HashMap<String, NetworkData> {
@@ -2266,7 +2288,7 @@ impl Disks {
     /// let mut disks = Disks::new();
     /// disks.refresh_list();
     /// for disk in disks.list() {
-    ///     eprintln!("{disk:?}");
+    ///     println!("{disk:?}");
     /// }
     /// ```
     pub fn new() -> Self {
@@ -2283,7 +2305,7 @@ impl Disks {
     ///
     /// let mut disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list() {
-    ///     eprintln!("{disk:?}");
+    ///     println!("{disk:?}");
     /// }
     /// ```
     pub fn new_with_refreshed_list() -> Self {
@@ -2299,7 +2321,7 @@ impl Disks {
     ///
     /// let disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list() {
-    ///     eprintln!("{disk:?}");
+    ///     println!("{disk:?}");
     /// }
     /// ```
     pub fn list(&self) -> &[Disk] {
@@ -2314,7 +2336,7 @@ impl Disks {
     /// let mut disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list_mut() {
     ///     disk.refresh();
-    ///     eprintln!("{disk:?}");
+    ///     println!("{disk:?}");
     /// }
     /// ```
     pub fn list_mut(&mut self) -> &mut [Disk] {
@@ -2486,7 +2508,7 @@ impl Users {
     /// let mut users = Users::new();
     /// users.refresh_list();
     /// for user in users.list() {
-    ///     eprintln!("{user:?}");
+    ///     println!("{user:?}");
     /// }
     /// ```
     pub fn new() -> Self {
@@ -2501,7 +2523,7 @@ impl Users {
     ///
     /// let mut users = Users::new_with_refreshed_list();
     /// for user in users.list() {
-    ///     eprintln!("{user:?}");
+    ///     println!("{user:?}");
     /// }
     /// ```
     pub fn new_with_refreshed_list() -> Self {
@@ -2517,7 +2539,7 @@ impl Users {
     ///
     /// let users = Users::new_with_refreshed_list();
     /// for user in users.list() {
-    ///     eprintln!("{user:?}");
+    ///     println!("{user:?}");
     /// }
     /// ```
     pub fn list(&self) -> &[User] {
@@ -2573,7 +2595,7 @@ impl Users {
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     if let Some(user_id) = process.user_id() {
-    ///         eprintln!("User for process 1337: {:?}", users.get_user_by_id(user_id));
+    ///         println!("User for process 1337: {:?}", users.get_user_by_id(user_id));
     ///     }
     /// }
     /// ```
@@ -3158,7 +3180,7 @@ pub enum ProcessStatus {
 ///         println!("current pid: {}", pid);
 ///     }
 ///     Err(e) => {
-///         eprintln!("failed to get current pid: {}", e);
+///         println!("failed to get current pid: {}", e);
 ///     }
 /// }
 /// ```
@@ -3228,7 +3250,7 @@ impl fmt::Display for MacAddr {
 ///
 /// let components = Components::new_with_refreshed_list();
 /// for component in &components {
-///     eprintln!("{component:?}");
+///     println!("{component:?}");
 /// }
 /// ```
 pub struct Components {
@@ -3299,7 +3321,7 @@ impl Components {
     /// let mut components = Components::new();
     /// components.refresh_list();
     /// for component in &components {
-    ///     eprintln!("{component:?}");
+    ///     println!("{component:?}");
     /// }
     /// ```
     pub fn new() -> Self {
@@ -3317,7 +3339,7 @@ impl Components {
     ///
     /// let mut components = Components::new_with_refreshed_list();
     /// for component in components.list() {
-    ///     eprintln!("{component:?}");
+    ///     println!("{component:?}");
     /// }
     /// ```
     pub fn new_with_refreshed_list() -> Self {
@@ -3333,7 +3355,7 @@ impl Components {
     ///
     /// let components = Components::new_with_refreshed_list();
     /// for component in components.list() {
-    ///     eprintln!("{component:?}");
+    ///     println!("{component:?}");
     /// }
     /// ```
     pub fn list(&self) -> &[Component] {
@@ -3348,7 +3370,7 @@ impl Components {
     /// let mut components = Components::new_with_refreshed_list();
     /// for component in components.list_mut() {
     ///     component.refresh();
-    ///     eprintln!("{component:?}");
+    ///     println!("{component:?}");
     /// }
     /// ```
     pub fn list_mut(&mut self) -> &mut [Component] {

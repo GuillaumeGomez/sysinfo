@@ -21,7 +21,6 @@ pub type CProcess = *const c_void;
 pub type RString = *const c_char;
 /// Callback used by [`processes`][crate::System#method.processes].
 pub type ProcessLoop = extern "C" fn(pid: PID, process: CProcess, data: *mut c_void) -> bool;
-#[cfg(target_os = "linux")]
 /// Callback used by [`tasks`][crate::Process#method.tasks].
 pub type ProcessPidLoop = extern "C" fn(pid: PID, data: *mut c_void) -> bool;
 /// Equivalent of [`Networks`][crate::Networks] struct.
@@ -102,7 +101,6 @@ pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
 }
 
 /// Equivalent of [`System::refresh_process()`][crate::System#method.refresh_process].
-#[cfg(target_os = "linux")]
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: PID) {
     assert!(!system.is_null());
@@ -394,7 +392,6 @@ pub extern "C" fn sysinfo_process_by_pid(system: CSystem, pid: PID) -> CProcess 
 /// # ⚠️ WARNING ⚠️
 ///
 /// While having this method processes, you should *never* call any refresh method!
-#[cfg(target_os = "linux")]
 #[no_mangle]
 pub extern "C" fn sysinfo_process_tasks(
     process: CProcess,
@@ -405,12 +402,16 @@ pub extern "C" fn sysinfo_process_tasks(
     if let Some(fn_pointer) = fn_pointer {
         unsafe {
             let process = process as *const Process;
-            for pid in (*process).tasks().iter() {
-                if !fn_pointer(pid.0, data) {
-                    break;
+            if let Some(tasks) = (*process).tasks() {
+                for pid in tasks {
+                    if !fn_pointer(pid.0, data) {
+                        break;
+                    }
                 }
+                tasks.len() as size_t
+            } else {
+                0
             }
-            (*process).tasks().len() as size_t
         }
     } else {
         0

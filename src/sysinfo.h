@@ -28,9 +28,7 @@ void        sysinfo_refresh_memory(CSystem system);
 void        sysinfo_refresh_cpu(CSystem system);
 void        sysinfo_refresh_all(CSystem system);
 void        sysinfo_refresh_processes(CSystem system);
-#ifdef __linux__
 void        sysinfo_refresh_process(CSystem system, PID pid);
-#endif
 
 CDisks      sysinfo_disks_init(void);
 void        sysinfo_disks_destroy(CDisks disks);
@@ -48,10 +46,8 @@ void        sysinfo_cpus_usage(CSystem system, unsigned int *length, float **cpu
 
 size_t      sysinfo_processes(CSystem system, bool (*fn_pointer)(PID, CProcess, void*),
                               void *data);
-#ifdef __linux__
 size_t      sysinfo_process_tasks(CProcess process, bool (*fn_pointer)(PID, void*),
                                   void *data);
-#endif
 CProcess    sysinfo_process_by_pid(CSystem system, PID pid);
 PID         sysinfo_process_pid(CProcess process);
 PID         sysinfo_process_parent_pid(CProcess process);
