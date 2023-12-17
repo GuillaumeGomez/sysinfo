@@ -238,7 +238,7 @@ impl SystemInner {
         let mut hostname: [c_int; 2] = [0; 2];
         unsafe {
             init_mib(b"kern.hostname\0", &mut hostname);
-            get_system_info(&hostname, Some(""))
+            get_system_info(&hostname, None)
         }
     }
 
