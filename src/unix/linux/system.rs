@@ -10,7 +10,7 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::Read;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::atomic::AtomicIsize;
@@ -594,16 +594,18 @@ enum InfoType {
 
 #[cfg(not(target_os = "android"))]
 fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> Option<String> {
-    if let Ok(f) = File::open(path) {
-        let reader = BufReader::new(f);
-
+    if let Ok(buf) = File::open(path).and_then(|mut f| {
+        let mut buf = String::new();
+        f.read_to_string(&mut buf)?;
+        Ok(buf)
+    }) {
         let info_str = match info {
             InfoType::Name => "NAME=",
             InfoType::OsVersion => "VERSION_ID=",
             InfoType::DistributionID => "ID=",
         };
 
-        for line in reader.lines().map_while(Result::ok) {
+        for line in buf.lines() {
             if let Some(stripped) = line.strip_prefix(info_str) {
                 return Some(stripped.replace('"', ""));
             }
@@ -614,7 +616,13 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
     // VERSION_ID is not required in the `/etc/os-release` file
     // per https://www.linux.org/docs/man5/os-release.html
     // If this fails for some reason, fallback to None
-    let reader = BufReader::new(File::open(fallback_path).ok()?);
+    let buf = File::open(fallback_path)
+        .and_then(|mut f| {
+            let mut buf = String::new();
+            f.read_to_string(&mut buf)?;
+            Ok(buf)
+        })
+        .ok()?;
 
     let info_str = match info {
         InfoType::OsVersion => "DISTRIB_RELEASE=",
@@ -624,7 +632,7 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
             return None;
         }
     };
-    for line in reader.lines().map_while(Result::ok) {
+    for line in buf.lines() {
         if let Some(stripped) = line.strip_prefix(info_str) {
             return Some(stripped.replace('"', ""));
         }

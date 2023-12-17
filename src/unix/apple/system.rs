@@ -381,7 +381,7 @@ impl SystemInner {
         #[cfg(target_os = "macos")]
         let long_name = Some(format!(
             "MacOS {} {}",
-            self.os_version().unwrap_or_default(),
+            Self::os_version().unwrap_or_default(),
             friendly_name
         ));
 
