@@ -32,10 +32,9 @@ use windows::Win32::System::Threading::GetExitCodeProcess;
 const WINDOWS_ELEVEN_BUILD_NUMBER: u32 = 22000;
 
 impl SystemInner {
-    fn is_windows_eleven(&self) -> bool {
+    fn is_windows_eleven() -> bool {
         WINDOWS_ELEVEN_BUILD_NUMBER
-            <= self
-                .kernel_version()
+            <= Self::kernel_version()
                 .unwrap_or_default()
                 .parse()
                 .unwrap_or(0)
@@ -67,7 +66,6 @@ pub(crate) struct SystemInner {
     swap_used: u64,
     cpus: CpusWrapper,
     query: Option<Query>,
-    boot_time: u64,
 }
 
 impl SystemInner {
@@ -80,7 +78,6 @@ impl SystemInner {
             swap_used: 0,
             cpus: CpusWrapper::new(),
             query: None,
-            boot_time: unsafe { boot_time() },
         }
     }
 
@@ -410,24 +407,24 @@ impl SystemInner {
         self.swap_used
     }
 
-    pub(crate) fn uptime(&self) -> u64 {
+    pub(crate) fn uptime() -> u64 {
         unsafe { GetTickCount64() / 1_000 }
     }
 
-    pub(crate) fn boot_time(&self) -> u64 {
-        self.boot_time
+    pub(crate) fn boot_time() -> u64 {
+        unsafe { boot_time() }
     }
 
-    pub(crate) fn load_average(&self) -> LoadAvg {
+    pub(crate) fn load_average() -> LoadAvg {
         get_load_average()
     }
 
-    pub(crate) fn name(&self) -> Option<String> {
+    pub(crate) fn name() -> Option<String> {
         Some("Windows".to_owned())
     }
 
-    pub(crate) fn long_os_version(&self) -> Option<String> {
-        if self.is_windows_eleven() {
+    pub(crate) fn long_os_version() -> Option<String> {
+        if Self::is_windows_eleven() {
             return get_reg_string_value(
                 HKEY_LOCAL_MACHINE,
                 "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
@@ -442,11 +439,11 @@ impl SystemInner {
         )
     }
 
-    pub(crate) fn host_name(&self) -> Option<String> {
+    pub(crate) fn host_name() -> Option<String> {
         get_dns_hostname()
     }
 
-    pub(crate) fn kernel_version(&self) -> Option<String> {
+    pub(crate) fn kernel_version() -> Option<String> {
         get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
@@ -454,14 +451,14 @@ impl SystemInner {
         )
     }
 
-    pub(crate) fn os_version(&self) -> Option<String> {
+    pub(crate) fn os_version() -> Option<String> {
         let build_number = get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
             "CurrentBuildNumber",
         )
         .unwrap_or_default();
-        let major = if self.is_windows_eleven() {
+        let major = if Self::is_windows_eleven() {
             11u32
         } else {
             u32::from_le_bytes(
@@ -476,10 +473,10 @@ impl SystemInner {
         Some(format!("{major} ({build_number})"))
     }
 
-    pub(crate) fn distribution_id(&self) -> String {
+    pub(crate) fn distribution_id() -> String {
         std::env::consts::OS.to_owned()
     }
-    pub(crate) fn cpu_arch(&self) -> Option<String> {
+    pub(crate) fn cpu_arch() -> Option<String> {
         unsafe {
             // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
             let info = SYSTEM_INFO::default();

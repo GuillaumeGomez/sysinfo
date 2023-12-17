@@ -365,34 +365,33 @@ mod test {
 
     #[test]
     fn check_system_info() {
-        let s = System::new();
-
         // We don't want to test on unsupported systems.
         if IS_SUPPORTED {
-            assert!(!s.name().expect("Failed to get system name").is_empty());
+            assert!(!System::name()
+                .expect("Failed to get system name")
+                .is_empty());
 
-            assert!(!s
-                .kernel_version()
+            assert!(!System::kernel_version()
                 .expect("Failed to get kernel version")
                 .is_empty());
 
-            assert!(!s.os_version().expect("Failed to get os version").is_empty());
+            assert!(!System::os_version()
+                .expect("Failed to get os version")
+                .is_empty());
 
-            assert!(!s
-                .long_os_version()
+            assert!(!System::long_os_version()
                 .expect("Failed to get long OS version")
                 .is_empty());
         }
 
-        assert!(!s.distribution_id().is_empty());
+        assert!(!System::distribution_id().is_empty());
     }
 
     #[test]
     fn check_host_name() {
         // We don't want to test on unsupported systems.
         if IS_SUPPORTED {
-            let s = System::new();
-            assert!(s.host_name().is_some());
+            assert!(System::host_name().is_some());
         }
     }
 
@@ -512,7 +511,6 @@ mod test {
 
     #[test]
     fn check_cpu_arch() {
-        let s = System::new();
-        assert_eq!(s.cpu_arch().is_some(), IS_SUPPORTED);
+        assert_eq!(System::cpu_arch().is_some(), IS_SUPPORTED);
     }
 }

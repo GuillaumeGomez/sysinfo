@@ -25,7 +25,6 @@ pub(crate) struct SystemInner {
     mem_used: u64,
     swap_total: u64,
     swap_used: u64,
-    boot_time: u64,
     system_info: SystemInfo,
     cpus: CpusWrapper,
 }
@@ -39,7 +38,6 @@ impl SystemInner {
             mem_used: 0,
             swap_total: 0,
             swap_used: 0,
-            boot_time: boot_time(),
             system_info: SystemInfo::new(),
             cpus: CpusWrapper::new(),
         }
@@ -186,19 +184,19 @@ impl SystemInner {
         self.swap_used
     }
 
-    pub(crate) fn uptime(&self) -> u64 {
+    pub(crate) fn uptime() -> u64 {
         unsafe {
             let csec = libc::time(std::ptr::null_mut());
 
-            libc::difftime(csec, self.boot_time as _) as u64
+            libc::difftime(csec, Self::boot_time() as _) as u64
         }
     }
 
-    pub(crate) fn boot_time(&self) -> u64 {
-        self.boot_time
+    pub(crate) fn boot_time() -> u64 {
+        boot_time()
     }
 
-    pub(crate) fn load_average(&self) -> LoadAvg {
+    pub(crate) fn load_average() -> LoadAvg {
         let mut loads = vec![0f64; 3];
         unsafe {
             libc::getloadavg(loads.as_mut_ptr(), 3);
@@ -210,31 +208,53 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn name(&self) -> Option<String> {
-        self.system_info.get_os_name()
+    pub(crate) fn name() -> Option<String> {
+        let mut os_type: [c_int; 2] = [0; 2];
+        unsafe {
+            init_mib(b"kern.ostype\0", &mut os_type);
+            get_system_info(&os_type, Some("FreeBSD"))
+        }
     }
 
-    pub(crate) fn long_os_version(&self) -> Option<String> {
-        self.system_info.get_os_release_long()
+    pub(crate) fn os_version() -> Option<String> {
+        let mut os_release: [c_int; 2] = [0; 2];
+        unsafe {
+            init_mib(b"kern.osrelease\0", &mut os_release);
+            // It returns something like "13.0-RELEASE". We want to keep everything until the "-".
+            get_system_info(&os_release, None)
+                .and_then(|s| s.split('-').next().map(|s| s.to_owned()))
+        }
     }
 
-    pub(crate) fn host_name(&self) -> Option<String> {
-        self.system_info.get_hostname()
+    pub(crate) fn long_os_version() -> Option<String> {
+        let mut os_release: [c_int; 2] = [0; 2];
+        unsafe {
+            init_mib(b"kern.osrelease\0", &mut os_release);
+            get_system_info(&os_release, None)
+        }
     }
 
-    pub(crate) fn kernel_version(&self) -> Option<String> {
-        self.system_info.get_kernel_version()
+    pub(crate) fn host_name() -> Option<String> {
+        let mut hostname: [c_int; 2] = [0; 2];
+        unsafe {
+            init_mib(b"kern.hostname\0", &mut hostname);
+            get_system_info(&hostname, Some(""))
+        }
     }
 
-    pub(crate) fn os_version(&self) -> Option<String> {
-        self.system_info.get_os_release()
+    pub(crate) fn kernel_version() -> Option<String> {
+        let mut kern_version: [c_int; 2] = [0; 2];
+        unsafe {
+            init_mib(b"kern.version\0", &mut kern_version);
+            get_system_info(&kern_version, None)
+        }
     }
 
-    pub(crate) fn distribution_id(&self) -> String {
+    pub(crate) fn distribution_id() -> String {
         std::env::consts::OS.to_owned()
     }
 
-    pub(crate) fn cpu_arch(&self) -> Option<String> {
+    pub(crate) fn cpu_arch() -> Option<String> {
         let mut arch_str: [u8; 32] = [0; 32];
         let mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
 
@@ -429,10 +449,6 @@ struct SystemInfo {
     virtual_cache_count: [c_int; 4],
     virtual_inactive_count: [c_int; 4],
     virtual_free_count: [c_int; 4],
-    os_type: [c_int; 2],
-    os_release: [c_int; 2],
-    kern_version: [c_int; 2],
-    hostname: [c_int; 2],
     buf_space: [c_int; 2],
     kd: NonNull<libc::kvm_t>,
     /// From FreeBSD manual: "The kernel fixed-point scale factor". It's used when computing
@@ -470,10 +486,6 @@ impl SystemInfo {
                 virtual_inactive_count: Default::default(),
                 virtual_free_count: Default::default(),
                 buf_space: Default::default(),
-                os_type: Default::default(),
-                os_release: Default::default(),
-                kern_version: Default::default(),
-                hostname: Default::default(),
                 kd,
                 fscale: 0.,
                 procstat: std::ptr::null_mut(),
@@ -505,35 +517,8 @@ impl SystemInfo {
             init_mib(b"vm.stats.vm.v_free_count\0", &mut si.virtual_free_count);
             init_mib(b"vfs.bufspace\0", &mut si.buf_space);
 
-            init_mib(b"kern.ostype\0", &mut si.os_type);
-            init_mib(b"kern.osrelease\0", &mut si.os_release);
-            init_mib(b"kern.version\0", &mut si.kern_version);
-            init_mib(b"kern.hostname\0", &mut si.hostname);
-
             si
         }
-    }
-
-    fn get_os_name(&self) -> Option<String> {
-        get_system_info(&[self.os_type[0], self.os_type[1]], Some("FreeBSD"))
-    }
-
-    fn get_kernel_version(&self) -> Option<String> {
-        get_system_info(&[self.kern_version[0], self.kern_version[1]], None)
-    }
-
-    fn get_os_release_long(&self) -> Option<String> {
-        get_system_info(&[self.os_release[0], self.os_release[1]], None)
-    }
-
-    fn get_os_release(&self) -> Option<String> {
-        // It returns something like "13.0-RELEASE". We want to keep everything until the "-".
-        get_system_info(&[self.os_release[0], self.os_release[1]], None)
-            .and_then(|s| s.split('-').next().map(|s| s.to_owned()))
-    }
-
-    fn get_hostname(&self) -> Option<String> {
-        get_system_info(&[self.hostname[0], self.hostname[1]], Some(""))
     }
 
     /// Returns (used, total).

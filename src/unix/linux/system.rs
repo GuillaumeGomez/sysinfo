@@ -59,12 +59,12 @@ pub(crate) fn get_max_nb_fds() -> isize {
 }
 
 fn boot_time() -> u64 {
-    if let Ok(f) = File::open("/proc/stat") {
-        let buf = BufReader::new(f);
-        let line = buf
-            .split(b'\n')
-            .filter_map(|r| r.ok())
-            .find(|l| l.starts_with(b"btime"));
+    if let Ok(buf) = File::open("/proc/stat").and_then(|mut f| {
+        let mut buf = Vec::new();
+        f.read_to_end(&mut buf)?;
+        Ok(buf)
+    }) {
+        let line = buf.split(|c| *c == b'\n').find(|l| l.starts_with(b"btime"));
 
         if let Some(line) = line {
             return line
@@ -235,7 +235,7 @@ impl SystemInner {
         filter: Option<&[Pid]>,
         refresh_kind: ProcessRefreshKind,
     ) {
-        let uptime = self.uptime();
+        let uptime = Self::uptime();
         refresh_procs(
             &mut self.process_list,
             Path::new("/proc"),
@@ -253,7 +253,7 @@ impl SystemInner {
         pid: Pid,
         refresh_kind: ProcessRefreshKind,
     ) -> bool {
-        let uptime = self.uptime();
+        let uptime = Self::uptime();
         match _get_process_data(
             &Path::new("/proc/").join(pid.to_string()),
             &mut self.process_list,
@@ -348,7 +348,7 @@ impl SystemInner {
         self.swap_total - self.swap_free
     }
 
-    pub(crate) fn uptime(&self) -> u64 {
+    pub(crate) fn uptime() -> u64 {
         let content = get_all_data("/proc/uptime", 50).unwrap_or_default();
         content
             .split('.')
@@ -357,11 +357,11 @@ impl SystemInner {
             .unwrap_or_default()
     }
 
-    pub(crate) fn boot_time(&self) -> u64 {
-        self.info.boot_time
+    pub(crate) fn boot_time() -> u64 {
+        boot_time()
     }
 
-    pub(crate) fn load_average(&self) -> LoadAvg {
+    pub(crate) fn load_average() -> LoadAvg {
         let mut s = String::new();
         if File::open("/proc/loadavg")
             .and_then(|mut f| f.read_to_string(&mut s))
@@ -383,7 +383,7 @@ impl SystemInner {
     }
 
     #[cfg(not(target_os = "android"))]
-    pub(crate) fn name(&self) -> Option<String> {
+    pub(crate) fn name() -> Option<String> {
         get_system_info_linux(
             InfoType::Name,
             Path::new("/etc/os-release"),
@@ -392,11 +392,11 @@ impl SystemInner {
     }
 
     #[cfg(target_os = "android")]
-    pub(crate) fn name(&self) -> Option<String> {
+    pub(crate) fn name() -> Option<String> {
         get_system_info_android(InfoType::Name)
     }
 
-    pub(crate) fn long_os_version(&self) -> Option<String> {
+    pub(crate) fn long_os_version() -> Option<String> {
         #[cfg(target_os = "android")]
         let system_name = "Android";
 
@@ -406,12 +406,12 @@ impl SystemInner {
         Some(format!(
             "{} {} {}",
             system_name,
-            self.os_version().unwrap_or_default(),
-            self.name().unwrap_or_default()
+            Self::os_version().unwrap_or_default(),
+            Self::name().unwrap_or_default()
         ))
     }
 
-    pub(crate) fn host_name(&self) -> Option<String> {
+    pub(crate) fn host_name() -> Option<String> {
         unsafe {
             let hostname_max = sysconf(_SC_HOST_NAME_MAX);
             let mut buffer = vec![0_u8; hostname_max as usize];
@@ -428,7 +428,7 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn kernel_version(&self) -> Option<String> {
+    pub(crate) fn kernel_version() -> Option<String> {
         let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
 
         unsafe {
@@ -450,7 +450,7 @@ impl SystemInner {
     }
 
     #[cfg(not(target_os = "android"))]
-    pub(crate) fn os_version(&self) -> Option<String> {
+    pub(crate) fn os_version() -> Option<String> {
         get_system_info_linux(
             InfoType::OsVersion,
             Path::new("/etc/os-release"),
@@ -459,12 +459,12 @@ impl SystemInner {
     }
 
     #[cfg(target_os = "android")]
-    pub(crate) fn os_version(&self) -> Option<String> {
+    pub(crate) fn os_version() -> Option<String> {
         get_system_info_android(InfoType::OsVersion)
     }
 
     #[cfg(not(target_os = "android"))]
-    pub(crate) fn distribution_id(&self) -> String {
+    pub(crate) fn distribution_id() -> String {
         get_system_info_linux(
             InfoType::DistributionID,
             Path::new("/etc/os-release"),
@@ -474,7 +474,7 @@ impl SystemInner {
     }
 
     #[cfg(target_os = "android")]
-    pub(crate) fn distribution_id(&self) -> String {
+    pub(crate) fn distribution_id() -> String {
         // Currently get_system_info_android doesn't support InfoType::DistributionID and always
         // returns None. This call is done anyway for consistency with non-Android implementation
         // and to suppress dead-code warning for DistributionID on Android.
@@ -482,7 +482,7 @@ impl SystemInner {
             .unwrap_or_else(|| std::env::consts::OS.to_owned())
     }
 
-    pub(crate) fn cpu_arch(&self) -> Option<String> {
+    pub(crate) fn cpu_arch() -> Option<String> {
         let mut raw = std::mem::MaybeUninit::<libc::utsname>::uninit();
 
         unsafe {

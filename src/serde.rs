@@ -120,15 +120,15 @@ impl serde::Serialize for crate::System {
         state.serialize_field("free_swap", &self.free_swap())?;
         state.serialize_field("used_swap", &self.used_swap())?;
 
-        state.serialize_field("uptime", &self.uptime())?;
-        state.serialize_field("boot_time", &self.boot_time())?;
-        state.serialize_field("load_average", &self.load_average())?;
-        state.serialize_field("name", &self.name())?;
-        state.serialize_field("kernel_version", &self.kernel_version())?;
-        state.serialize_field("os_version", &self.os_version())?;
-        state.serialize_field("long_os_version", &self.long_os_version())?;
-        state.serialize_field("distribution_id", &self.distribution_id())?;
-        state.serialize_field("host_name", &self.host_name())?;
+        state.serialize_field("uptime", &Self::uptime())?;
+        state.serialize_field("boot_time", &Self::boot_time())?;
+        state.serialize_field("load_average", &Self::load_average())?;
+        state.serialize_field("name", &Self::name())?;
+        state.serialize_field("kernel_version", &Self::kernel_version())?;
+        state.serialize_field("os_version", &Self::os_version())?;
+        state.serialize_field("long_os_version", &Self::long_os_version())?;
+        state.serialize_field("distribution_id", &Self::distribution_id())?;
+        state.serialize_field("host_name", &Self::host_name())?;
 
         state.end()
     }
