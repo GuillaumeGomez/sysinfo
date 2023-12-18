@@ -268,7 +268,7 @@ fn interpret_input(
             writeln!(&mut io::stdout(), "brand: {}", sys.cpus()[0].brand());
         }
         "load_avg" => {
-            let load_avg = sys.load_average();
+            let load_avg = System::load_average();
             writeln!(&mut io::stdout(), "one minute     : {}%", load_avg.one);
             writeln!(&mut io::stdout(), "five minutes   : {}%", load_avg.five);
             writeln!(&mut io::stdout(), "fifteen minutes: {}%", load_avg.fifteen);
@@ -376,11 +376,11 @@ fn interpret_input(
             }
         }
         "boot_time" => {
-            writeln!(&mut io::stdout(), "{} seconds", sys.boot_time());
+            writeln!(&mut io::stdout(), "{} seconds", System::boot_time());
         }
         "uptime" => {
-            let up = sys.uptime();
-            let mut uptime = sys.uptime();
+            let up = System::uptime();
+            let mut uptime = up;
             let days = uptime / 86400;
             uptime -= days * 86400;
             let hours = uptime / 3600;
@@ -435,13 +435,11 @@ fn interpret_input(
                  System OS version:        {}\n\
                  System OS (long) version: {}\n\
                  System host name:         {}",
-                sys.name().unwrap_or_else(|| "<unknown>".to_owned()),
-                sys.kernel_version()
-                    .unwrap_or_else(|| "<unknown>".to_owned()),
-                sys.os_version().unwrap_or_else(|| "<unknown>".to_owned()),
-                sys.long_os_version()
-                    .unwrap_or_else(|| "<unknown>".to_owned()),
-                sys.host_name().unwrap_or_else(|| "<unknown>".to_owned()),
+                System::name().unwrap_or_else(|| "<unknown>".to_owned()),
+                System::kernel_version().unwrap_or_else(|| "<unknown>".to_owned()),
+                System::os_version().unwrap_or_else(|| "<unknown>".to_owned()),
+                System::long_os_version().unwrap_or_else(|| "<unknown>".to_owned()),
+                System::host_name().unwrap_or_else(|| "<unknown>".to_owned()),
             );
         }
         e => {

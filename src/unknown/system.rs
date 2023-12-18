@@ -94,15 +94,15 @@ impl SystemInner {
         0
     }
 
-    pub(crate) fn uptime(&self) -> u64 {
+    pub(crate) fn uptime() -> u64 {
         0
     }
 
-    pub(crate) fn boot_time(&self) -> u64 {
+    pub(crate) fn boot_time() -> u64 {
         0
     }
 
-    pub(crate) fn load_average(&self) -> LoadAvg {
+    pub(crate) fn load_average() -> LoadAvg {
         LoadAvg {
             one: 0.,
             five: 0.,
@@ -110,30 +110,30 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn name(&self) -> Option<String> {
+    pub(crate) fn name() -> Option<String> {
         None
     }
 
-    pub(crate) fn long_os_version(&self) -> Option<String> {
+    pub(crate) fn long_os_version() -> Option<String> {
         None
     }
 
-    pub(crate) fn kernel_version(&self) -> Option<String> {
+    pub(crate) fn kernel_version() -> Option<String> {
         None
     }
 
-    pub(crate) fn os_version(&self) -> Option<String> {
+    pub(crate) fn os_version() -> Option<String> {
         None
     }
 
-    pub(crate) fn distribution_id(&self) -> String {
+    pub(crate) fn distribution_id() -> String {
         std::env::consts::OS.to_owned()
     }
 
-    pub(crate) fn host_name(&self) -> Option<String> {
+    pub(crate) fn host_name() -> Option<String> {
         None
     }
-    pub(crate) fn cpu_arch(&self) -> Option<String> {
+    pub(crate) fn cpu_arch() -> Option<String> {
         None
     }
 }

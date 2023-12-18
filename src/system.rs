@@ -98,21 +98,25 @@ mod tests {
 
     #[test]
     fn check_hostname_has_no_nuls() {
-        let sys = System::new();
-
-        if let Some(hostname) = sys.host_name() {
+        if let Some(hostname) = System::host_name() {
             assert!(!hostname.contains('\u{0}'))
         }
     }
 
     #[test]
     fn check_uptime() {
-        let sys = System::new();
-        let uptime = sys.uptime();
+        let uptime = System::uptime();
         if crate::IS_SUPPORTED {
             std::thread::sleep(std::time::Duration::from_millis(1000));
-            let new_uptime = sys.uptime();
+            let new_uptime = System::uptime();
             assert!(uptime < new_uptime);
+        }
+    }
+
+    #[test]
+    fn check_boot_time() {
+        if crate::IS_SUPPORTED {
+            assert_ne!(System::boot_time(), 0);
         }
     }
 

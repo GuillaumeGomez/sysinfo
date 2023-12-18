@@ -29,7 +29,6 @@ pub(crate) struct SystemInner {
     swap_free: u64,
     page_size_b: u64,
     port: mach_port_t,
-    boot_time: u64,
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     clock_info: Option<crate::sys::macos::system::SystemTimeInfo>,
     cpus: CpusWrapper,
@@ -88,7 +87,6 @@ impl SystemInner {
                 swap_free: 0,
                 page_size_b: sysconf(_SC_PAGESIZE) as _,
                 port,
-                boot_time: boot_time(),
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
                 clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
                 cpus: CpusWrapper::new(),
@@ -321,15 +319,15 @@ impl SystemInner {
         self.swap_total - self.swap_free
     }
 
-    pub(crate) fn uptime(&self) -> u64 {
+    pub(crate) fn uptime() -> u64 {
         unsafe {
             let csec = libc::time(::std::ptr::null_mut());
 
-            libc::difftime(csec, self.boot_time as _) as u64
+            libc::difftime(csec, Self::boot_time() as _) as _
         }
     }
 
-    pub(crate) fn load_average(&self) -> LoadAvg {
+    pub(crate) fn load_average() -> LoadAvg {
         let mut loads = vec![0f64; 3];
 
         unsafe {
@@ -342,17 +340,17 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn boot_time(&self) -> u64 {
-        self.boot_time
+    pub(crate) fn boot_time() -> u64 {
+        boot_time()
     }
 
-    pub(crate) fn name(&self) -> Option<String> {
+    pub(crate) fn name() -> Option<String> {
         get_system_info(libc::KERN_OSTYPE, Some("Darwin"))
     }
 
-    pub(crate) fn long_os_version(&self) -> Option<String> {
+    pub(crate) fn long_os_version() -> Option<String> {
         #[cfg(target_os = "macos")]
-        let friendly_name = match self.os_version().unwrap_or_default() {
+        let friendly_name = match Self::os_version().unwrap_or_default() {
             f_n if f_n.starts_with("14.0") => "Sonoma",
             f_n if f_n.starts_with("10.16")
                 | f_n.starts_with("11.0")
@@ -383,25 +381,25 @@ impl SystemInner {
         #[cfg(target_os = "macos")]
         let long_name = Some(format!(
             "MacOS {} {}",
-            self.os_version().unwrap_or_default(),
+            Self::os_version().unwrap_or_default(),
             friendly_name
         ));
 
         #[cfg(target_os = "ios")]
-        let long_name = Some(format!("iOS {}", self.os_version().unwrap_or_default()));
+        let long_name = Some(format!("iOS {}", Self::os_version().unwrap_or_default()));
 
         long_name
     }
 
-    pub(crate) fn host_name(&self) -> Option<String> {
+    pub(crate) fn host_name() -> Option<String> {
         get_system_info(libc::KERN_HOSTNAME, None)
     }
 
-    pub(crate) fn kernel_version(&self) -> Option<String> {
+    pub(crate) fn kernel_version() -> Option<String> {
         get_system_info(libc::KERN_OSRELEASE, None)
     }
 
-    pub(crate) fn os_version(&self) -> Option<String> {
+    pub(crate) fn os_version() -> Option<String> {
         unsafe {
             // get the size for the buffer first
             let mut size = 0;
@@ -433,11 +431,11 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn distribution_id(&self) -> String {
+    pub(crate) fn distribution_id() -> String {
         std::env::consts::OS.to_owned()
     }
 
-    pub(crate) fn cpu_arch(&self) -> Option<String> {
+    pub(crate) fn cpu_arch() -> Option<String> {
         let mut arch_str: [u8; 32] = [0; 32];
         let mut mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
 

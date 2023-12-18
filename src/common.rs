@@ -655,26 +655,28 @@ impl System {
 
     /// Returns system uptime (in seconds).
     ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// println!("System running since {} seconds", s.uptime());
+    /// println!("System running since {} seconds", System::uptime());
     /// ```
-    pub fn uptime(&self) -> u64 {
-        self.inner.uptime()
+    pub fn uptime() -> u64 {
+        SystemInner::uptime()
     }
 
     /// Returns the time (in seconds) when the system booted since UNIX epoch.
     ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new();
-    /// println!("System booted at {} seconds", s.boot_time());
+    /// println!("System booted at {} seconds", System::boot_time());
     /// ```
-    pub fn boot_time(&self) -> u64 {
-        self.inner.boot_time()
+    pub fn boot_time() -> u64 {
+        SystemInner::boot_time()
     }
 
     /// Returns the system load average value.
@@ -686,8 +688,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// let load_avg = s.load_average();
+    /// let load_avg = System::load_average();
     /// println!(
     ///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
     ///     load_avg.one,
@@ -695,8 +696,8 @@ impl System {
     ///     load_avg.fifteen,
     /// );
     /// ```
-    pub fn load_average(&self) -> LoadAvg {
-        self.inner.load_average()
+    pub fn load_average() -> LoadAvg {
+        SystemInner::load_average()
     }
 
     /// Returns the system name.
@@ -706,11 +707,10 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new();
-    /// println!("OS: {:?}", s.name());
+    /// println!("OS: {:?}", System::name());
     /// ```
-    pub fn name(&self) -> Option<String> {
-        self.inner.name()
+    pub fn name() -> Option<String> {
+        SystemInner::name()
     }
 
     /// Returns the system's kernel version.
@@ -720,25 +720,24 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new();
-    /// println!("kernel version: {:?}", s.kernel_version());
+    /// println!("kernel version: {:?}", System::kernel_version());
     /// ```
-    pub fn kernel_version(&self) -> Option<String> {
-        self.inner.kernel_version()
+    pub fn kernel_version() -> Option<String> {
+        SystemInner::kernel_version()
     }
 
-    /// Returns the system version (e.g. for MacOS this will return 11.1 rather than the kernel version).
+    /// Returns the system version (e.g. for MacOS this will return 11.1 rather than the kernel
+    /// version).
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new();
-    /// println!("OS version: {:?}", s.os_version());
+    /// println!("OS version: {:?}", System::os_version());
     /// ```
-    pub fn os_version(&self) -> Option<String> {
-        self.inner.os_version()
+    pub fn os_version() -> Option<String> {
+        SystemInner::os_version()
     }
 
     /// Returns the system long os version (e.g "MacOS 11.2 BigSur").
@@ -748,11 +747,10 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new();
-    /// println!("Long OS Version: {:?}", s.long_os_version());
+    /// println!("Long OS Version: {:?}", System::long_os_version());
     /// ```
-    pub fn long_os_version(&self) -> Option<String> {
-        self.inner.long_os_version()
+    pub fn long_os_version() -> Option<String> {
+        SystemInner::long_os_version()
     }
 
     /// Returns the distribution id as defined by os-release,
@@ -767,37 +765,36 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new();
-    /// println!("Distribution ID: {:?}", s.distribution_id());
+    /// println!("Distribution ID: {:?}", System::distribution_id());
     /// ```
-    pub fn distribution_id(&self) -> String {
-        self.inner.distribution_id()
+    pub fn distribution_id() -> String {
+        SystemInner::distribution_id()
     }
 
-    /// Returns the system hostname based off DNS
+    /// Returns the system hostname based off DNS.
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new();
-    /// println!("Hostname: {:?}", s.host_name());
+    /// println!("Hostname: {:?}", System::host_name());
     /// ```
-    pub fn host_name(&self) -> Option<String> {
-        self.inner.host_name()
+    pub fn host_name() -> Option<String> {
+        SystemInner::host_name()
     }
 
     /// Returns the CPU architecture (eg. x86, amd64, aarch64, ...).
     ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new();
-    /// println!("CPU Archicture: {:?}", s.cpu_arch());
+    /// println!("CPU Archicture: {:?}", System::cpu_arch());
     /// ```
-    pub fn cpu_arch(&self) -> Option<String> {
-        self.inner.cpu_arch()
+    pub fn cpu_arch() -> Option<String> {
+        SystemInner::cpu_arch()
     }
 }
 
@@ -2797,8 +2794,7 @@ pub struct CGroupLimits {
 /// ```no_run
 /// use sysinfo::System;
 ///
-/// let s = System::new_all();
-/// let load_avg = s.load_average();
+/// let load_avg = System::load_average();
 /// println!(
 ///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
 ///     load_avg.one,

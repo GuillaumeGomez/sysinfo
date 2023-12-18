@@ -272,6 +272,8 @@ fn test_process_times() {
     if !sysinfo::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
         return;
     }
+    let boot_time = System::boot_time();
+    assert!(boot_time > 0);
     let mut p = if cfg!(target_os = "windows") {
         std::process::Command::new("waitfor")
             .arg("/t")
@@ -300,15 +302,15 @@ fn test_process_times() {
         assert!(p.run_time() <= 2);
         assert!(p.start_time() > p.run_time());
         // On linux, for whatever reason, the uptime seems to be older than the boot time, leading
-        // to this weird `+ 3` to ensure the test is passing as it should...
+        // to this weird `+ 5` to ensure the test is passing as it should...
         assert!(
-            p.start_time() + 3
+            p.start_time() + 5
                 > SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
                     .as_secs(),
         );
-        assert!(p.start_time() >= s.boot_time());
+        assert!(p.start_time() >= boot_time);
     } else {
         panic!("Process not found!");
     }

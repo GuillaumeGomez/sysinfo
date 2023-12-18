@@ -585,82 +585,56 @@ pub extern "C" fn sysinfo_cpu_frequency(system: CSystem) -> u64 {
 
 /// Equivalent of [`System::name()`][crate::System#method.name].
 #[no_mangle]
-pub extern "C" fn sysinfo_system_name(system: CSystem) -> RString {
-    assert!(!system.is_null());
-    unsafe {
-        let system: Box<System> = Box::from_raw(system as *mut System);
-        let c_string = if let Some(c) = system.name().and_then(|p| CString::new(p).ok()) {
-            c.into_raw() as _
-        } else {
-            std::ptr::null()
-        };
-        Box::into_raw(system);
-        c_string
-    }
+pub extern "C" fn sysinfo_system_name() -> RString {
+    let c_string = if let Some(c) = System::name().and_then(|p| CString::new(p).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    };
+    c_string
 }
 
 /// Equivalent of [`System::version()`][crate::System#method.version].
 #[no_mangle]
-pub extern "C" fn sysinfo_system_version(system: CSystem) -> RString {
-    assert!(!system.is_null());
-    unsafe {
-        let system: Box<System> = Box::from_raw(system as *mut System);
-        let c_string = if let Some(c) = system.os_version().and_then(|c| CString::new(c).ok()) {
-            c.into_raw() as _
-        } else {
-            std::ptr::null()
-        };
-        Box::into_raw(system);
-        c_string
-    }
+pub extern "C" fn sysinfo_system_version() -> RString {
+    let c_string = if let Some(c) = System::os_version().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    };
+    c_string
 }
 
 /// Equivalent of [`System::kernel_version()`][crate::System#method.kernel_version].
 #[no_mangle]
-pub extern "C" fn sysinfo_system_kernel_version(system: CSystem) -> RString {
-    assert!(!system.is_null());
-    unsafe {
-        let system: Box<System> = Box::from_raw(system as *mut System);
-        let c_string = if let Some(c) = system.kernel_version().and_then(|c| CString::new(c).ok()) {
-            c.into_raw() as _
-        } else {
-            std::ptr::null()
-        };
+pub extern "C" fn sysinfo_system_kernel_version() -> RString {
+    let c_string = if let Some(c) = System::kernel_version().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    };
 
-        Box::into_raw(system);
-        c_string
-    }
+    c_string
 }
 
 /// Equivalent of [`System::host_name()`][crate::System#method.host_name].
 #[no_mangle]
-pub extern "C" fn sysinfo_system_host_name(system: CSystem) -> RString {
-    assert!(!system.is_null());
-    unsafe {
-        let system: Box<System> = Box::from_raw(system as *mut System);
-        let c_string = if let Some(c) = system.host_name().and_then(|c| CString::new(c).ok()) {
-            c.into_raw() as _
-        } else {
-            std::ptr::null()
-        };
-        Box::into_raw(system);
-        c_string
-    }
+pub extern "C" fn sysinfo_system_host_name() -> RString {
+    let c_string = if let Some(c) = System::host_name().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    };
+    c_string
 }
 
 /// Equivalent of [`System::long_os_version()`][crate::System#method.long_os_version].
 #[no_mangle]
-pub extern "C" fn sysinfo_system_long_version(system: CSystem) -> RString {
-    assert!(!system.is_null());
-    unsafe {
-        let system: Box<System> = Box::from_raw(system as *mut System);
-        let c_string = if let Some(c) = system.long_os_version().and_then(|c| CString::new(c).ok())
-        {
-            c.into_raw() as _
-        } else {
-            std::ptr::null()
-        };
-        Box::into_raw(system);
-        c_string
-    }
+pub extern "C" fn sysinfo_system_long_version() -> RString {
+    let c_string = if let Some(c) = System::long_os_version().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    };
+    c_string
 }
