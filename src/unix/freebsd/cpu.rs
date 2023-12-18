@@ -187,7 +187,7 @@ pub(crate) fn physical_core_count() -> Option<usize> {
 }
 
 unsafe fn get_frequency_for_cpu(cpu_nb: usize) -> u64 {
-    let mut frequency = 0;
+    let mut frequency: c_int = 0;
 
     // The information can be missing if it's running inside a VM.
     if !get_sys_value_by_name(
