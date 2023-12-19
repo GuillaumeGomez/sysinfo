@@ -80,7 +80,7 @@ declare_signals! {
 }
 
 #[doc = include_str!("../../../md_doc/is_supported.md")]
-pub const IS_SUPPORTED: bool = true;
+pub const IS_SUPPORTED_SYSTEM: bool = true;
 #[doc = include_str!("../../../md_doc/supported_signals.md")]
 pub const SUPPORTED_SIGNALS: &[crate::Signal] = supported_signals();
 #[doc = include_str!("../../../md_doc/minimum_cpu_update_interval.md")]

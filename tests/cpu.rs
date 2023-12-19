@@ -7,7 +7,7 @@ fn test_cpu() {
     let mut s = sysinfo::System::new();
     assert!(s.cpus().is_empty());
 
-    if !sysinfo::IS_SUPPORTED {
+    if !sysinfo::IS_SUPPORTED_SYSTEM {
         return;
     }
 
@@ -28,7 +28,7 @@ fn test_cpu() {
 
 #[test]
 fn test_physical_core_numbers() {
-    if sysinfo::IS_SUPPORTED {
+    if sysinfo::IS_SUPPORTED_SYSTEM {
         let s = sysinfo::System::new();
         let count = s.physical_core_count();
         assert_ne!(count, None);
