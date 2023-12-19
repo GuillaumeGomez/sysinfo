@@ -5,7 +5,7 @@ use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessRefreshKind};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -94,61 +94,65 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn refresh_memory(&mut self) {
+    pub(crate) fn refresh_memory_specifics(&mut self, refresh_kind: MemoryRefreshKind) {
         let mut mib = [libc::CTL_VM as _, libc::VM_SWAPUSAGE as _];
 
         unsafe {
-            // get system values
-            // get swap info
-            let mut xs: libc::xsw_usage = mem::zeroed::<libc::xsw_usage>();
-            if get_sys_value(
-                mem::size_of::<libc::xsw_usage>(),
-                &mut xs as *mut _ as *mut c_void,
-                &mut mib,
-            ) {
-                self.swap_total = xs.xsu_total;
-                self.swap_free = xs.xsu_avail;
-            }
-            mib[0] = libc::CTL_HW as _;
-            mib[1] = libc::HW_MEMSIZE as _;
-            // get ram info
-            if self.mem_total < 1 {
-                get_sys_value(
-                    mem::size_of::<u64>(),
-                    &mut self.mem_total as *mut u64 as *mut c_void,
+            if refresh_kind.swap() {
+                // get system values
+                // get swap info
+                let mut xs: libc::xsw_usage = mem::zeroed::<libc::xsw_usage>();
+                if get_sys_value(
+                    mem::size_of::<libc::xsw_usage>(),
+                    &mut xs as *mut _ as *mut c_void,
                     &mut mib,
-                );
+                ) {
+                    self.swap_total = xs.xsu_total;
+                    self.swap_free = xs.xsu_avail;
+                }
             }
-            let mut count: u32 = libc::HOST_VM_INFO64_COUNT as _;
-            let mut stat = mem::zeroed::<vm_statistics64>();
-            if host_statistics64(
-                self.port,
-                libc::HOST_VM_INFO64,
-                &mut stat as *mut vm_statistics64 as *mut _,
-                &mut count,
-            ) == libc::KERN_SUCCESS
-            {
-                // From the apple documentation:
-                //
-                // /*
-                //  * NB: speculative pages are already accounted for in "free_count",
-                //  * so "speculative_count" is the number of "free" pages that are
-                //  * used to hold data that was read speculatively from disk but
-                //  * haven't actually been used by anyone so far.
-                //  */
-                self.mem_available = u64::from(stat.free_count)
-                    .saturating_add(u64::from(stat.inactive_count))
-                    .saturating_add(u64::from(stat.purgeable_count))
-                    .saturating_sub(u64::from(stat.compressor_page_count))
-                    .saturating_mul(self.page_size_b);
-                self.mem_used = u64::from(stat.active_count)
-                    .saturating_add(u64::from(stat.wire_count))
-                    .saturating_add(u64::from(stat.compressor_page_count))
-                    .saturating_add(u64::from(stat.speculative_count))
-                    .saturating_mul(self.page_size_b);
-                self.mem_free = u64::from(stat.free_count)
-                    .saturating_sub(u64::from(stat.speculative_count))
-                    .saturating_mul(self.page_size_b);
+            if refresh_kind.ram() {
+                mib[0] = libc::CTL_HW as _;
+                mib[1] = libc::HW_MEMSIZE as _;
+                // get ram info
+                if self.mem_total < 1 {
+                    get_sys_value(
+                        mem::size_of::<u64>(),
+                        &mut self.mem_total as *mut u64 as *mut c_void,
+                        &mut mib,
+                    );
+                }
+                let mut count: u32 = libc::HOST_VM_INFO64_COUNT as _;
+                let mut stat = mem::zeroed::<vm_statistics64>();
+                if host_statistics64(
+                    self.port,
+                    libc::HOST_VM_INFO64,
+                    &mut stat as *mut vm_statistics64 as *mut _,
+                    &mut count,
+                ) == libc::KERN_SUCCESS
+                {
+                    // From the apple documentation:
+                    //
+                    // /*
+                    //  * NB: speculative pages are already accounted for in "free_count",
+                    //  * so "speculative_count" is the number of "free" pages that are
+                    //  * used to hold data that was read speculatively from disk but
+                    //  * haven't actually been used by anyone so far.
+                    //  */
+                    self.mem_available = u64::from(stat.free_count)
+                        .saturating_add(u64::from(stat.inactive_count))
+                        .saturating_add(u64::from(stat.purgeable_count))
+                        .saturating_sub(u64::from(stat.compressor_page_count))
+                        .saturating_mul(self.page_size_b);
+                    self.mem_used = u64::from(stat.active_count)
+                        .saturating_add(u64::from(stat.wire_count))
+                        .saturating_add(u64::from(stat.compressor_page_count))
+                        .saturating_add(u64::from(stat.speculative_count))
+                        .saturating_mul(self.page_size_b);
+                    self.mem_free = u64::from(stat.free_count)
+                        .saturating_sub(u64::from(stat.speculative_count))
+                        .saturating_mul(self.page_size_b);
+                }
             }
         }
     }

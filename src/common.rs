@@ -105,8 +105,8 @@ impl System {
     /// );
     /// ```
     pub fn refresh_specifics(&mut self, refreshes: RefreshKind) {
-        if refreshes.memory() {
-            self.refresh_memory();
+        if let Some(kind) = refreshes.memory() {
+            self.refresh_memory_specifics(kind);
         }
         if let Some(kind) = refreshes.cpu() {
             self.refresh_cpu_specifics(kind);
@@ -135,6 +135,10 @@ impl System {
 
     /// Refreshes RAM and SWAP usage.
     ///
+    /// It is the same as calling `system.refresh_memory_specifics(MemoryRefreshKind::everything())`.
+    ///
+    /// If you don't want to refresh both, take a look at [`System::refresh_memory_specifics`].
+    ///
     /// ```no_run
     /// use sysinfo::System;
     ///
@@ -142,7 +146,19 @@ impl System {
     /// s.refresh_memory();
     /// ```
     pub fn refresh_memory(&mut self) {
-        self.inner.refresh_memory()
+        self.refresh_memory_specifics(MemoryRefreshKind::everything())
+    }
+
+    /// Refreshes system memory specific information.
+    ///
+    /// ```no_run
+    /// use sysinfo::{MemoryRefreshKind, System};
+    ///
+    /// let mut s = System::new();
+    /// s.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
+    /// ```
+    pub fn refresh_memory_specifics(&mut self, refresh_kind: MemoryRefreshKind) {
+        self.inner.refresh_memory_specifics(refresh_kind)
     }
 
     /// Refreshes CPUs usage.
@@ -1731,6 +1747,7 @@ impl CpuRefreshKind {
     /// let r = CpuRefreshKind::new();
     ///
     /// assert_eq!(r.frequency(), false);
+    /// assert_eq!(r.cpu_usage(), false);
     /// ```
     pub fn new() -> Self {
         Self::default()
@@ -1744,6 +1761,7 @@ impl CpuRefreshKind {
     /// let r = CpuRefreshKind::everything();
     ///
     /// assert_eq!(r.frequency(), true);
+    /// assert_eq!(r.cpu_usage(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
@@ -1754,6 +1772,65 @@ impl CpuRefreshKind {
 
     impl_get_set!(CpuRefreshKind, cpu_usage, with_cpu_usage, without_cpu_usage);
     impl_get_set!(CpuRefreshKind, frequency, with_frequency, without_frequency);
+}
+
+/// Used to determine which memory you want to refresh specifically.
+///
+/// ⚠️ Just like all other refresh types, ruling out a refresh doesn't assure you that
+/// the information won't be retrieved if the information is accessible without needing
+/// extra computation.
+///
+/// ```
+/// use sysinfo::{MemoryRefreshKind, System};
+///
+/// let mut system = System::new();
+///
+/// // We don't want to update all memories information.
+/// system.refresh_memory_specifics(CpuRefreshKind::new().with_ram());
+///
+/// println!("total RAM: {}", system.total_memory());
+/// println!("free RAM:  {}", system.free_memory());
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MemoryRefreshKind {
+    ram: bool,
+    swap: bool,
+}
+
+impl MemoryRefreshKind {
+    /// Creates a new `MemoryRefreshKind` with every refresh set to `false`.
+    ///
+    /// ```
+    /// use sysinfo::MemoryRefreshKind;
+    ///
+    /// let r = MemoryRefreshKind::new();
+    ///
+    /// assert_eq!(r.ram(), false);
+    /// assert_eq!(r.swap(), false);
+    /// ```
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates a new `MemoryRefreshKind` with every refresh set to `true`.
+    ///
+    /// ```
+    /// use sysinfo::MemoryRefreshKind;
+    ///
+    /// let r = MemoryRefreshKind::everything();
+    ///
+    /// assert_eq!(r.ram(), true);
+    /// assert_eq!(r.swap(), true);
+    /// ```
+    pub fn everything() -> Self {
+        Self {
+            ram: true,
+            swap: true,
+        }
+    }
+
+    impl_get_set!(MemoryRefreshKind, ram, with_ram, without_ram);
+    impl_get_set!(MemoryRefreshKind, swap, with_swap, without_swap);
 }
 
 /// Used to determine what you want to refresh specifically on the [`System`][crate::System] type.
@@ -1776,7 +1853,7 @@ impl CpuRefreshKind {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RefreshKind {
     processes: Option<ProcessRefreshKind>,
-    memory: bool,
+    memory: Option<MemoryRefreshKind>,
     cpu: Option<CpuRefreshKind>,
 }
 
@@ -1789,7 +1866,7 @@ impl RefreshKind {
     /// let r = RefreshKind::new();
     ///
     /// assert_eq!(r.processes().is_some(), false);
-    /// assert_eq!(r.memory(), false);
+    /// assert_eq!(r.memory().is_some(), false);
     /// assert_eq!(r.cpu().is_some(), false);
     /// ```
     pub fn new() -> Self {
@@ -1804,13 +1881,13 @@ impl RefreshKind {
     /// let r = RefreshKind::everything();
     ///
     /// assert_eq!(r.processes().is_some(), true);
-    /// assert_eq!(r.memory(), true);
+    /// assert_eq!(r.memory().is_some(), true);
     /// assert_eq!(r.cpu().is_some(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
             processes: Some(ProcessRefreshKind::everything()),
-            memory: true,
+            memory: Some(MemoryRefreshKind::everything()),
             cpu: Some(CpuRefreshKind::everything()),
         }
     }
@@ -1822,7 +1899,13 @@ impl RefreshKind {
         without_processes,
         ProcessRefreshKind
     );
-    impl_get_set!(RefreshKind, memory, with_memory, without_memory);
+    impl_get_set!(
+        RefreshKind,
+        memory,
+        with_memory,
+        without_memory,
+        MemoryRefreshKind
+    );
     impl_get_set!(RefreshKind, cpu, with_cpu, without_cpu, CpuRefreshKind);
 }
 

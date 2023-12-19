@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, ProcessRefreshKind};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessRefreshKind};
 
 use crate::sys::cpu::*;
 use crate::sys::process::get_start_time;
@@ -136,29 +136,36 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn refresh_memory(&mut self) {
+    pub(crate) fn refresh_memory_specifics(&mut self, refresh_kind: MemoryRefreshKind) {
         unsafe {
-            let mut mem_info: MEMORYSTATUSEX = zeroed();
-            mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
-            let _err = GlobalMemoryStatusEx(&mut mem_info);
-            self.mem_total = mem_info.ullTotalPhys as _;
-            self.mem_available = mem_info.ullAvailPhys as _;
-            let mut perf_info: PERFORMANCE_INFORMATION = zeroed();
-            if K32GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as u32)
+            if refresh_kind.ram() {
+                let mut mem_info: MEMORYSTATUSEX = zeroed();
+                mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
+                let _err = GlobalMemoryStatusEx(&mut mem_info);
+                self.mem_total = mem_info.ullTotalPhys as _;
+                self.mem_available = mem_info.ullAvailPhys as _;
+            }
+            if refresh_kind.swap() {
+                let mut perf_info: PERFORMANCE_INFORMATION = zeroed();
+                if K32GetPerformanceInfo(
+                    &mut perf_info,
+                    size_of::<PERFORMANCE_INFORMATION>() as u32,
+                )
                 .as_bool()
-            {
-                let swap_total = perf_info.PageSize.saturating_mul(
-                    perf_info
-                        .CommitLimit
-                        .saturating_sub(perf_info.PhysicalTotal),
-                );
-                let swap_used = perf_info.PageSize.saturating_mul(
-                    perf_info
-                        .CommitTotal
-                        .saturating_sub(perf_info.PhysicalTotal),
-                );
-                self.swap_total = swap_total as _;
-                self.swap_used = swap_used as _;
+                {
+                    let swap_total = perf_info.PageSize.saturating_mul(
+                        perf_info
+                            .CommitLimit
+                            .saturating_sub(perf_info.PhysicalTotal),
+                    );
+                    let swap_used = perf_info.PageSize.saturating_mul(
+                        perf_info
+                            .CommitTotal
+                            .saturating_sub(perf_info.PhysicalTotal),
+                    );
+                    self.swap_total = swap_total as _;
+                    self.swap_used = swap_used as _;
+                }
             }
         }
     }
