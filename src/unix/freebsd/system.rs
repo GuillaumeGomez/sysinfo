@@ -1,6 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessInner, ProcessRefreshKind};
+use crate::{
+    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessInner, ProcessRefreshKind,
+};
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -43,15 +45,19 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn refresh_memory(&mut self) {
-        if self.mem_total == 0 {
-            self.mem_total = self.system_info.get_total_memory();
+    pub(crate) fn refresh_memory_specifics(&mut self, refresh_kind: MemoryRefreshKind) {
+        if refresh_kind.ram() {
+            if self.mem_total == 0 {
+                self.mem_total = self.system_info.get_total_memory();
+            }
+            self.mem_used = self.system_info.get_used_memory();
+            self.mem_free = self.system_info.get_free_memory();
         }
-        self.mem_used = self.system_info.get_used_memory();
-        self.mem_free = self.system_info.get_free_memory();
-        let (swap_used, swap_total) = self.system_info.get_swap_info();
-        self.swap_total = swap_total;
-        self.swap_used = swap_used;
+        if refresh_kind.swap() {
+            let (swap_used, swap_total) = self.system_info.get_swap_info();
+            self.swap_total = swap_total;
+            self.swap_used = swap_used;
+        }
     }
 
     pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {

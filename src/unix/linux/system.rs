@@ -3,7 +3,7 @@
 use crate::sys::cpu::{get_physical_core_count, CpusWrapper};
 use crate::sys::process::{_get_process_data, compute_cpu_usage, refresh_procs, unset_updated};
 use crate::sys::utils::{get_all_data, to_u64};
-use crate::{Cpu, CpuRefreshKind, LoadAvg, Pid, Process, ProcessRefreshKind};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind};
 
 use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cmp::min;
@@ -187,7 +187,10 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn refresh_memory(&mut self) {
+    pub(crate) fn refresh_memory_specifics(&mut self, refresh_kind: MemoryRefreshKind) {
+        if !refresh_kind.ram() && !refresh_kind.swap() {
+            return;
+        }
         let mut mem_available_found = false;
         read_table("/proc/meminfo", ':', |key, value_kib| {
             let field = match key {

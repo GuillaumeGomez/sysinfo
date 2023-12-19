@@ -52,8 +52,9 @@ cfg_if::cfg_if! {
 
 pub use crate::common::{
     get_current_pid, CGroupLimits, Component, Components, Cpu, CpuRefreshKind, Disk, DiskKind,
-    DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr, NetworkData, Networks, Pid, Process,
-    ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, Uid, UpdateKind, User, Users,
+    DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr, MemoryRefreshKind, NetworkData, Networks, Pid,
+    Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, Uid, UpdateKind, User,
+    Users,
 };
 
 pub(crate) use crate::sys::{
@@ -71,7 +72,6 @@ mod common;
 mod debug;
 #[cfg(feature = "serde")]
 mod serde;
-mod system;
 mod utils;
 
 /// This function is only used on Linux targets, on the other platforms it does nothing and returns
@@ -512,5 +512,61 @@ mod test {
     #[test]
     fn check_cpu_arch() {
         assert_eq!(System::cpu_arch().is_some(), IS_SUPPORTED);
+    }
+
+    // This test only exists to ensure that the `Display` and `Debug` traits are implemented on the
+    // `ProcessStatus` enum on all targets.
+    #[test]
+    fn check_display_impl_process_status() {
+        println!("{} {:?}", ProcessStatus::Parked, ProcessStatus::Idle);
+    }
+
+    // Ensure that the `Display` and `Debug` traits are implemented on the `MacAddr` struct
+    #[test]
+    fn check_display_impl_mac_address() {
+        println!(
+            "{} {:?}",
+            MacAddr([0x1, 0x2, 0x3, 0x4, 0x5, 0x6]),
+            MacAddr([0xa, 0xb, 0xc, 0xd, 0xe, 0xf])
+        );
+    }
+
+    #[test]
+    fn check_mac_address_is_unspecified_true() {
+        assert!(MacAddr::UNSPECIFIED.is_unspecified());
+        assert!(MacAddr([0; 6]).is_unspecified());
+    }
+
+    #[test]
+    fn check_mac_address_is_unspecified_false() {
+        assert!(!MacAddr([1, 2, 3, 4, 5, 6]).is_unspecified());
+    }
+
+    // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented
+    // on `Uid`, `Gid` and `Pid`.
+    #[allow(clippy::unnecessary_fallible_conversions)]
+    #[test]
+    fn check_uid_gid_from_impls() {
+        use std::convert::TryFrom;
+        use std::str::FromStr;
+
+        #[cfg(not(windows))]
+        {
+            assert!(crate::Uid::try_from(0usize).is_ok());
+            assert!(crate::Uid::from_str("0").is_ok());
+        }
+        #[cfg(windows)]
+        {
+            assert!(crate::Uid::from_str("S-1-5-18").is_ok()); // SECURITY_LOCAL_SYSTEM_RID
+            assert!(crate::Uid::from_str("0").is_err());
+        }
+
+        assert!(crate::Gid::try_from(0usize).is_ok());
+        assert!(crate::Gid::from_str("0").is_ok());
+
+        assert!(crate::Pid::try_from(0usize).is_ok());
+        // If it doesn't panic, it's fine.
+        let _ = crate::Pid::from(0);
+        assert!(crate::Pid::from_str("0").is_ok());
     }
 }

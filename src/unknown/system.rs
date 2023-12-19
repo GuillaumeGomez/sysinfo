@@ -1,6 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Cpu, CpuInner, CpuRefreshKind, LoadAvg, Pid, Process, ProcessRefreshKind};
+use crate::{
+    Cpu, CpuInner, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
+};
 
 use std::collections::HashMap;
 
@@ -19,7 +21,7 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn refresh_memory(&mut self) {}
+    pub(crate) fn refresh_memory_specifics(&mut self, _refresh_kind: MemoryRefreshKind) {}
 
     pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
         None
