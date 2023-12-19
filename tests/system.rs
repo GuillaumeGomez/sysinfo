@@ -207,6 +207,11 @@ fn test_refresh_memory() {
     assert_eq!(s.total_swap(), 0);
     assert_eq!(s.free_swap(), 0);
 
+    if std::env::var("APPLE_CI").is_ok() {
+        // Apparently there is no swap for macOS in CIs so can't run futher than this point.
+        return;
+    }
+
     s.refresh_memory_specifics(sysinfo::MemoryRefreshKind::new().with_swap());
     assert_ne!(s.total_swap(), 0);
     assert_ne!(s.free_swap(), 0);
