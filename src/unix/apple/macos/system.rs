@@ -143,7 +143,7 @@ mod test {
     /// Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/956>.
     #[test]
     fn test_getting_time_interval() {
-        if !crate::IS_SUPPORTED || cfg!(feature = "apple-sandbox") {
+        if !crate::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
             return;
         }
 

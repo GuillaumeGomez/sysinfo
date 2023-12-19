@@ -61,7 +61,7 @@ pub(crate) use crate::sys::{
     ComponentInner, ComponentsInner, CpuInner, DiskInner, DisksInner, NetworkDataInner,
     NetworksInner, ProcessInner, SystemInner, UserInner,
 };
-pub use crate::sys::{IS_SUPPORTED, MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
+pub use crate::sys::{IS_SUPPORTED_SYSTEM, MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
 
 #[cfg(feature = "c-interface")]
 pub use crate::c_interface::*;
@@ -181,7 +181,7 @@ mod test {
     #[cfg(feature = "unknown-ci")]
     #[test]
     fn check_unknown_ci_feature() {
-        assert!(!IS_SUPPORTED);
+        assert!(!IS_SUPPORTED_SYSTEM);
     }
 
     // If this test doesn't compile, it means the current OS doesn't implement them correctly.
@@ -191,7 +191,7 @@ mod test {
         fn check_supported_signals(_: &'static [Signal]) {}
         fn check_minimum_cpu_update_interval(_: std::time::Duration) {}
 
-        check_is_supported(IS_SUPPORTED);
+        check_is_supported(IS_SUPPORTED_SYSTEM);
         check_supported_signals(SUPPORTED_SIGNALS);
         check_minimum_cpu_update_interval(MINIMUM_CPU_UPDATE_INTERVAL);
     }
@@ -201,7 +201,7 @@ mod test {
         let mut s = System::new();
         s.refresh_specifics(RefreshKind::everything());
 
-        if IS_SUPPORTED {
+        if IS_SUPPORTED_SYSTEM {
             // No process should have 0 as memory usage.
             #[cfg(not(feature = "apple-sandbox"))]
             assert!(!s.processes().iter().all(|(_, proc_)| proc_.memory() == 0));
@@ -231,7 +231,7 @@ mod test {
         assert_eq!(s.used_swap(), 0);
 
         s.refresh_memory();
-        if IS_SUPPORTED {
+        if IS_SUPPORTED_SYSTEM {
             assert!(s.total_memory() > 0);
             assert!(s.used_memory() > 0);
             if s.total_swap() > 0 {
@@ -249,7 +249,7 @@ mod test {
     #[cfg(target_os = "linux")]
     #[test]
     fn check_processes_cpu_usage() {
-        if !IS_SUPPORTED {
+        if !IS_SUPPORTED_SYSTEM {
             return;
         }
         let mut s = System::new();
@@ -277,7 +277,7 @@ mod test {
 
     #[test]
     fn check_cpu_usage() {
-        if !IS_SUPPORTED {
+        if !IS_SUPPORTED_SYSTEM {
             return;
         }
         let mut s = System::new();
@@ -309,7 +309,7 @@ mod test {
         let user_list = users.list();
         assert!(user_list.len() >= MIN_USERS);
 
-        if IS_SUPPORTED {
+        if IS_SUPPORTED_SYSTEM {
             #[cfg(not(target_os = "windows"))]
             {
                 let user = user_list
@@ -342,7 +342,7 @@ mod test {
     fn check_all_process_uids_resolvable() {
         // On linux, some user IDs don't have an associated user (no idea why though).
         // If `getent` doesn't find them, we can assume it's a dark secret from the linux land.
-        if IS_SUPPORTED && cfg!(not(target_os = "linux")) {
+        if IS_SUPPORTED_SYSTEM && cfg!(not(target_os = "linux")) {
             let s = System::new_with_specifics(
                 RefreshKind::new()
                     .with_processes(ProcessRefreshKind::new().with_user(UpdateKind::Always)),
@@ -366,7 +366,7 @@ mod test {
     #[test]
     fn check_system_info() {
         // We don't want to test on unsupported systems.
-        if IS_SUPPORTED {
+        if IS_SUPPORTED_SYSTEM {
             assert!(!System::name()
                 .expect("Failed to get system name")
                 .is_empty());
@@ -390,7 +390,7 @@ mod test {
     #[test]
     fn check_host_name() {
         // We don't want to test on unsupported systems.
-        if IS_SUPPORTED {
+        if IS_SUPPORTED_SYSTEM {
             assert!(System::host_name().is_some());
         }
     }
@@ -398,7 +398,7 @@ mod test {
     #[test]
     fn check_refresh_process_return_value() {
         // We don't want to test on unsupported systems.
-        if IS_SUPPORTED {
+        if IS_SUPPORTED_SYSTEM {
             let _pid = get_current_pid().expect("Failed to get current PID");
 
             #[cfg(not(feature = "apple-sandbox"))]
@@ -415,9 +415,9 @@ mod test {
     #[test]
     fn ensure_is_supported_is_set_correctly() {
         if MIN_USERS > 0 {
-            assert!(IS_SUPPORTED);
+            assert!(IS_SUPPORTED_SYSTEM);
         } else {
-            assert!(!IS_SUPPORTED);
+            assert!(!IS_SUPPORTED_SYSTEM);
         }
     }
 
@@ -427,7 +427,7 @@ mod test {
 
         // This information isn't retrieved by default.
         assert!(s.cpus().is_empty());
-        if IS_SUPPORTED {
+        if IS_SUPPORTED_SYSTEM {
             // The physical cores count is recomputed every time the function is called, so the
             // information must be relevant even with nothing initialized.
             let physical_cores_count = s
@@ -453,7 +453,7 @@ mod test {
 
     #[test]
     fn check_nb_supported_signals() {
-        if IS_SUPPORTED {
+        if IS_SUPPORTED_SYSTEM {
             assert!(
                 !SUPPORTED_SIGNALS.is_empty(),
                 "SUPPORTED_SIGNALS shouldn't be empty on supported systems!"
@@ -469,7 +469,7 @@ mod test {
     // Ensure that the CPUs frequency isn't retrieved until we ask for it.
     #[test]
     fn check_cpu_frequency() {
-        if !IS_SUPPORTED {
+        if !IS_SUPPORTED_SYSTEM {
             return;
         }
         let mut s = System::new();
@@ -494,7 +494,7 @@ mod test {
     // so this test ensures that it doesn't happen.
     #[test]
     fn check_refresh_process_update() {
-        if !IS_SUPPORTED {
+        if !IS_SUPPORTED_SYSTEM {
             return;
         }
         let mut s = System::new_all();
@@ -511,7 +511,7 @@ mod test {
 
     #[test]
     fn check_cpu_arch() {
-        assert_eq!(System::cpu_arch().is_some(), IS_SUPPORTED);
+        assert_eq!(System::cpu_arch().is_some(), IS_SUPPORTED_SYSTEM);
     }
 
     // This test only exists to ensure that the `Display` and `Debug` traits are implemented on the

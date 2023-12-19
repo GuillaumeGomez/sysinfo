@@ -6,7 +6,7 @@
 fn test_networks() {
     use sysinfo::Networks;
 
-    if sysinfo::IS_SUPPORTED {
+    if sysinfo::IS_SUPPORTED_SYSTEM {
         let mut n = Networks::new();
         assert_eq!(n.iter().count(), 0);
         n.refresh();

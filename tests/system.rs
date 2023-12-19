@@ -10,7 +10,7 @@ fn test_refresh_system() {
     sys.refresh_memory();
     sys.refresh_cpu_usage();
     // We don't want to test on unsupported systems.
-    if sysinfo::IS_SUPPORTED {
+    if sysinfo::IS_SUPPORTED_SYSTEM {
         assert!(sys.total_memory() != 0);
         assert!(sys.free_memory() != 0);
     }
@@ -25,7 +25,7 @@ fn test_refresh_process() {
     // We don't want to test on unsupported systems.
 
     #[cfg(not(feature = "apple-sandbox"))]
-    if sysinfo::IS_SUPPORTED {
+    if sysinfo::IS_SUPPORTED_SYSTEM {
         assert!(
             sys.refresh_process(sysinfo::get_current_pid().expect("failed to get current pid")),
             "process not listed",
@@ -44,7 +44,7 @@ fn test_get_process() {
     let current_pid = match sysinfo::get_current_pid() {
         Ok(pid) => pid,
         _ => {
-            if !sysinfo::IS_SUPPORTED {
+            if !sysinfo::IS_SUPPORTED_SYSTEM {
                 return;
             }
             panic!("get_current_pid should work!");
@@ -54,7 +54,7 @@ fn test_get_process() {
         assert!(p.memory() > 0);
     } else {
         #[cfg(not(feature = "apple-sandbox"))]
-        assert!(!sysinfo::IS_SUPPORTED);
+        assert!(!sysinfo::IS_SUPPORTED_SYSTEM);
     }
 }
 
@@ -76,7 +76,7 @@ fn check_if_send_and_sync() {
     let current_pid = match sysinfo::get_current_pid() {
         Ok(pid) => pid,
         _ => {
-            if !sysinfo::IS_SUPPORTED {
+            if !sysinfo::IS_SUPPORTED_SYSTEM {
                 return;
             }
             panic!("get_current_pid should work!");
@@ -89,7 +89,7 @@ fn check_if_send_and_sync() {
                  // doesn't implement the Sync trait.
     } else {
         #[cfg(not(feature = "apple-sandbox"))]
-        assert!(!sysinfo::IS_SUPPORTED);
+        assert!(!sysinfo::IS_SUPPORTED_SYSTEM);
     }
 }
 
@@ -103,7 +103,7 @@ fn check_hostname_has_no_nuls() {
 #[test]
 fn check_uptime() {
     let uptime = System::uptime();
-    if sysinfo::IS_SUPPORTED {
+    if sysinfo::IS_SUPPORTED_SYSTEM {
         std::thread::sleep(std::time::Duration::from_millis(1000));
         let new_uptime = System::uptime();
         assert!(uptime < new_uptime);
@@ -112,7 +112,7 @@ fn check_uptime() {
 
 #[test]
 fn check_boot_time() {
-    if sysinfo::IS_SUPPORTED {
+    if sysinfo::IS_SUPPORTED_SYSTEM {
         assert_ne!(System::boot_time(), 0);
     }
 }
@@ -127,7 +127,7 @@ fn test_consecutive_cpu_usage_update() {
     use std::time::Duration;
     use sysinfo::{Pid, ProcessRefreshKind, System};
 
-    if !sysinfo::IS_SUPPORTED {
+    if !sysinfo::IS_SUPPORTED_SYSTEM {
         return;
     }
 
@@ -182,7 +182,7 @@ fn test_consecutive_cpu_usage_update() {
 
 #[test]
 fn test_refresh_memory() {
-    if !sysinfo::IS_SUPPORTED {
+    if !sysinfo::IS_SUPPORTED_SYSTEM {
         return;
     }
     // On linux, since it's the same file, memory information are always retrieved.

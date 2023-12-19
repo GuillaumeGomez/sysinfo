@@ -18,7 +18,7 @@ use std::str::FromStr;
 /// ```
 /// use sysinfo::System;
 ///
-/// if sysinfo::IS_SUPPORTED {
+/// if sysinfo::IS_SUPPORTED_SYSTEM {
 ///     println!("System: {:?}", System::new_all());
 /// } else {
 ///     println!("This OS isn't supported (yet?).");
@@ -79,7 +79,7 @@ impl System {
     ///      RefreshKind::new().with_processes(ProcessRefreshKind::everything()),
     /// );
     ///
-    /// # if sysinfo::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
+    /// # if sysinfo::IS_SUPPORTED_SYSTEM && !cfg!(feature = "apple-sandbox") {
     /// assert!(!system.processes().is_empty());
     /// # }
     /// ```
@@ -1846,7 +1846,7 @@ impl MemoryRefreshKind {
 /// let mut system = System::new_with_specifics(RefreshKind::everything().without_memory());
 ///
 /// assert_eq!(system.total_memory(), 0);
-/// # if sysinfo::IS_SUPPORTED && !cfg!(feature = "apple-sandbox") {
+/// # if sysinfo::IS_SUPPORTED_SYSTEM && !cfg!(feature = "apple-sandbox") {
 /// assert!(system.processes().len() > 0);
 /// # }
 /// ```
