@@ -122,10 +122,10 @@ fn check_boot_time() {
 #[test]
 #[ignore] // This test MUST be run on its own to prevent wrong CPU usage measurements.
 fn test_consecutive_cpu_usage_update() {
-    use sysinfo::{Pid, ProcessRefreshKind, System};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use std::time::Duration;
+    use sysinfo::{Pid, ProcessRefreshKind, System};
 
     if !sysinfo::IS_SUPPORTED {
         return;
@@ -178,4 +178,51 @@ fn test_consecutive_cpu_usage_update() {
         );
     }
     stop.store(false, Ordering::Relaxed);
+}
+
+#[test]
+fn test_refresh_memory() {
+    if !sysinfo::IS_SUPPORTED {
+        return;
+    }
+    // On linux, since it's the same file, memory information are always retrieved.
+    let is_linux = cfg!(any(target_os = "linux", target_os = "android"));
+    let mut s = System::new();
+    assert_eq!(s.total_memory(), 0);
+    assert_eq!(s.free_memory(), 0);
+
+    s.refresh_memory_specifics(sysinfo::MemoryRefreshKind::new().with_ram());
+    assert_ne!(s.total_memory(), 0);
+    assert_ne!(s.free_memory(), 0);
+
+    if is_linux {
+        assert_ne!(s.total_swap(), 0);
+        assert_ne!(s.free_swap(), 0);
+    } else {
+        assert_eq!(s.total_swap(), 0);
+        assert_eq!(s.free_swap(), 0);
+    }
+
+    let mut s = System::new();
+    assert_eq!(s.total_swap(), 0);
+    assert_eq!(s.free_swap(), 0);
+
+    s.refresh_memory_specifics(sysinfo::MemoryRefreshKind::new().with_swap());
+    assert_ne!(s.total_swap(), 0);
+    assert_ne!(s.free_swap(), 0);
+
+    if is_linux {
+        assert_ne!(s.total_memory(), 0);
+        assert_ne!(s.free_memory(), 0);
+    } else {
+        assert_eq!(s.total_memory(), 0);
+        assert_eq!(s.free_memory(), 0);
+    }
+
+    let mut s = System::new();
+    s.refresh_memory();
+    assert_ne!(s.total_swap(), 0);
+    assert_ne!(s.free_swap(), 0);
+    assert_ne!(s.total_memory(), 0);
+    assert_ne!(s.free_memory(), 0);
 }
