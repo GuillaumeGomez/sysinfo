@@ -2,6 +2,8 @@
 
 ## 0.29 to 0.30
 
+With this update, the minimum supported Rust version goes up to 1.69.
+
 ### Major changes
 
 There are two major changes in this update. The first one was that all the traits were removed.
@@ -69,7 +71,7 @@ Like that, you get yet another extra level of control over what's updated and wh
 to be able to refresh multiple PIDs while being able to have support for `sysinfo` multi-threading
 context (and much better performance in any case even if disabled).
 
-Some methods are now static methods (they don't need `&self` anymore):
+Some methods are now static methods:
  * `boot_time`
  * `cpu_arch`
  * `distribution_id`
@@ -80,6 +82,12 @@ Some methods are now static methods (they don't need `&self` anymore):
  * `name`
  * `os_version`
  * `uptime`
+
+Meaning you can call them without having an instance of `System`:
+
+```rust
+println!("host name: {}", System::host_name());
+```
 
 A new `System::refresh_memory_specifics` method and a new `MemoryRefreshKind` type were added,
 allowing you to control whether you want both RAM and SWAP memories to be updated or only one of
@@ -112,3 +120,12 @@ equivalents) on the value returned by the `list_mut` methods.
 By default, `sysinfo` excludes network devices because they can make the retrieval hangs
 indefinitely. If you still want to get network devices knowing this risk, you can enable this
 feature.
+
+### `Cpu` changes
+
+Information like `Cpu::brand`, `Cpu::vendor_id` or `Cpu::frequency` are not set on the "global" CPU.
+
+## CHANGELOG
+
+If you want the full list of changes, take a look at the
+[CHANGELOG](https://github.com/GuillaumeGomez/sysinfo/blob/master/CHANGELOG.md).
