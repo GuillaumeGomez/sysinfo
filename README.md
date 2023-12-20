@@ -22,6 +22,10 @@ The minimum-supported version of `rustc` is **1.69**.
 
 ## Usage
 
+If you want to migrate from an older version, don't hesitate to take a look at the
+[CHANGELOG](https://github.com/GuillaumeGomez/sysinfo/blob/master/CHANGELOG.md) and at the
+[migration guide](https://github.com/GuillaumeGomez/sysinfo/blob/master/migration_guide.md).
+
 ⚠️ Before any attempt to read the different structs' information, you need to update them to
 get up-to-date information because for most of them, it works on diff between the current value
 and the old one.
