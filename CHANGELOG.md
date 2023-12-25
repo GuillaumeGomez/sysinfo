@@ -1,3 +1,7 @@
+# 0.30.1
+
+ * Linux: Fix invalid memory information retrieval (virtual and resident set size were reversed).
+
 # 0.30.0
 
  * Split `System` into subtypes: `Components`, `Disks`, `Networks` and `Users`.
