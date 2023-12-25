@@ -566,12 +566,12 @@ fn get_memory(path: &Path, entry: &mut ProcessInner, info: &SystemInfo) -> bool 
         return false;
     }
     let mut parts = buf.split(|c| *c == b' ');
-    entry.memory = parts
+    entry.virtual_memory = parts
         .next()
         .map(slice_to_nb)
         .unwrap_or(0)
         .saturating_mul(info.page_size_b);
-    entry.virtual_memory = parts
+    entry.memory = parts
         .next()
         .map(slice_to_nb)
         .unwrap_or(0)
