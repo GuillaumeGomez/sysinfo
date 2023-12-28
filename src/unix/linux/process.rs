@@ -9,13 +9,15 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use libc::{gid_t, kill, uid_t};
+use libc::{c_ulong, gid_t, kill, uid_t};
 
 use crate::sys::system::SystemInfo;
 use crate::sys::utils::{
     get_all_data, get_all_data_from_file, realpath, FileCounter, PathHandler, PathPush,
 };
-use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, Uid};
+use crate::{
+    DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, ThreadKind, Uid,
+};
 
 #[doc(hidden)]
 impl From<char> for ProcessStatus {
@@ -86,6 +88,9 @@ enum ProcIndex {
     // More exist but we only use the listed ones. For more, take a look at `man proc`.
 }
 
+/* Not exposed yet. Defined at include/linux/sched.h */
+const PF_KTHREAD: c_ulong = 0x00200000;
+
 pub(crate) struct ProcessInner {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
@@ -117,10 +122,12 @@ pub(crate) struct ProcessInner {
     old_written_bytes: u64,
     read_bytes: u64,
     written_bytes: u64,
+    thread_kind: Option<ThreadKind>,
+    proc_path: PathBuf,
 }
 
 impl ProcessInner {
-    pub(crate) fn new(pid: Pid) -> Self {
+    pub(crate) fn new(pid: Pid, proc_path: PathBuf) -> Self {
         Self {
             name: String::new(),
             pid,
@@ -152,6 +159,8 @@ impl ProcessInner {
             old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
+            thread_kind: None,
+            proc_path,
         }
     }
 
@@ -264,6 +273,10 @@ impl ProcessInner {
                 Some(Pid(session_id))
             }
         }
+    }
+
+    pub(crate) fn thread_kind(&self) -> Option<ThreadKind> {
+        self.thread_kind
     }
 }
 
@@ -429,7 +442,7 @@ fn retrieve_all_new_process_info(
     refresh_kind: ProcessRefreshKind,
     uptime: u64,
 ) -> Process {
-    let mut p = ProcessInner::new(pid);
+    let mut p = ProcessInner::new(pid, path.to_owned());
     let mut proc_path = PathHandler::new(path);
     let name = parts[ProcIndex::ShortExe as usize];
 
@@ -447,6 +460,14 @@ fn retrieve_all_new_process_info(
         .saturating_add(info.boot_time);
 
     p.name = name.into();
+    if c_ulong::from_str(parts[ProcIndex::Flags as usize])
+        .map(|flags| flags & PF_KTHREAD != 0)
+        .unwrap_or(false)
+    {
+        p.thread_kind = Some(ThreadKind::Kernel);
+    } else if parent_pid.is_some() {
+        p.thread_kind = Some(ThreadKind::Userland);
+    }
 
     update_proc_info(&mut p, refresh_kind, &mut proc_path, parts, uptime, info);
 
@@ -475,7 +496,7 @@ pub(crate) fn _get_process_data(
                 Err(_) => {
                     // It's possible that the file descriptor is no longer valid in case the
                     // original process was terminated and another one took its place.
-                    _get_stat_data(path, &mut entry.stat_file)?
+                    _get_stat_data(&entry.proc_path, &mut entry.stat_file)?
                 }
             }
         } else {
@@ -607,12 +628,14 @@ fn update_time_and_memory(
 
 struct ProcAndTasks {
     pid: Pid,
+    parent_pid: Option<Pid>,
     path: PathBuf,
     tasks: Option<HashSet<Pid>>,
 }
 
 fn get_all_pid_entries(
     parent: Option<&OsStr>,
+    parent_pid: Option<Pid>,
     entry: DirEntry,
     data: &mut Vec<ProcAndTasks>,
 ) -> Option<Pid> {
@@ -635,7 +658,7 @@ fn get_all_pid_entries(
         if let Ok(entries) = fs::read_dir(tasks_dir) {
             for task in entries
                 .into_iter()
-                .filter_map(|entry| get_all_pid_entries(Some(name), entry.ok()?, data))
+                .filter_map(|entry| get_all_pid_entries(Some(name), Some(pid), entry.ok()?, data))
             {
                 tasks.insert(task);
             }
@@ -646,6 +669,7 @@ fn get_all_pid_entries(
     };
     data.push(ProcAndTasks {
         pid,
+        parent_pid,
         path: entry,
         tasks,
     });
@@ -714,7 +738,7 @@ pub(crate) fn refresh_procs(
             .map(|entry| {
                 let Ok(entry) = entry else { return Vec::new() };
                 let mut entries = Vec::new();
-                get_all_pid_entries(None, entry, &mut entries);
+                get_all_pid_entries(None, None, entry, &mut entries);
                 entries
             })
             .flatten()
@@ -724,7 +748,7 @@ pub(crate) fn refresh_procs(
                     e.path.as_path(),
                     proc_list.get(),
                     e.pid,
-                    None,
+                    e.parent_pid,
                     uptime,
                     info,
                     refresh_kind,

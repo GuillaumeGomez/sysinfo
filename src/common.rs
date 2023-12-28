@@ -1278,7 +1278,7 @@ impl Process {
 
     /// Tasks run by this process. If there are none, returns `None`.
     ///
-    /// ⚠️ This method always returns `None` on other plantforms than Linux.
+    /// ⚠️ This method always returns `None` on other platforms than Linux.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
@@ -1303,6 +1303,35 @@ impl Process {
                 not(feature = "unknown-ci")
             ))] {
                 self.inner.tasks.as_ref()
+            } else {
+                None
+            }
+        }
+    }
+
+    /// If the process is a thread, it'll return `Some` with the kind of thread it is. Returns
+    /// `None` otherwise.
+    ///
+    /// ⚠️ This method always returns `None` on other platforms than Linux.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    ///
+    /// for (_, process) in s.processes() {
+    ///     if let Some(thread_kind) = process.thread_kind() {
+    ///         println!("Process {:?} is a {thread_kind:?} thread", process.pid());
+    ///     }
+    /// }
+    /// ```
+    pub fn thread_kind(&self) -> Option<ThreadKind> {
+        cfg_if::cfg_if! {
+            if #[cfg(all(
+                any(target_os = "linux", target_os = "android"),
+                not(feature = "unknown-ci")
+            ))] {
+                self.inner.thread_kind()
             } else {
                 None
             }
@@ -3303,6 +3332,15 @@ pub enum ProcessStatus {
     UninterruptibleDiskSleep,
     /// Unknown.
     Unknown(u32),
+}
+
+/// Enum describing the different kind of threads.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ThreadKind {
+    /// Kernel thread.
+    Kernel,
+    /// User thread.
+    Userland,
 }
 
 /// Returns the pid for the current process.
