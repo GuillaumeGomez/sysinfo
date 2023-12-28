@@ -1,3 +1,8 @@
+# 0.30.2
+
+ * Add `ThreadKind` enum.
+ * Add `Process::thread_kind` method.
+
 # 0.30.1
 
  * Linux: Fix invalid memory information retrieval (virtual and resident set size were reversed).
