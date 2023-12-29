@@ -291,15 +291,17 @@ unsafe fn get_process_name(pid: Pid) -> Option<String> {
             &mut info as *mut _ as *mut _,
             size_of::<SYSTEM_PROCESS_ID_INFORMATION>() as _,
             null_mut(),
-        ) {
+        )
+        .ok()
+        {
             Ok(()) => break,
             Err(err) if err.code() == STATUS_INFO_LENGTH_MISMATCH.to_hresult() => {
                 if !info.ImageName.Buffer.is_null() {
                     let _err = LocalFree(HLOCAL(info.ImageName.Buffer.cast()));
                 }
                 if i > 2 {
-                    // Too many iterations, we should have the correct length at this point normally,
-                    // aborting name retrieval.
+                    // Too many iterations, we should have the correct length at this point
+                    // normally, aborting name retrieval.
                     sysinfo_debug!(
                     "NtQuerySystemInformation returned `STATUS_INFO_LENGTH_MISMATCH` too many times"
                 );
@@ -716,15 +718,15 @@ unsafe fn ph_query_process_variable_size(
 ) -> Option<Vec<u16>> {
     let mut return_length = MaybeUninit::<u32>::uninit();
 
-    let mut status = NtQueryInformationProcess(
+    if let Err(err) = NtQueryInformationProcess(
         process_handle,
         process_information_class as _,
         null_mut(),
         0,
         return_length.as_mut_ptr() as *mut _,
-    );
-
-    if let Err(err) = status {
+    )
+    .ok()
+    {
         if ![
             STATUS_BUFFER_OVERFLOW.into(),
             STATUS_BUFFER_TOO_SMALL.into(),
@@ -739,14 +741,15 @@ unsafe fn ph_query_process_variable_size(
     let mut return_length = return_length.assume_init();
     let buf_len = (return_length as usize) / 2;
     let mut buffer: Vec<u16> = Vec::with_capacity(buf_len + 1);
-    status = NtQueryInformationProcess(
+    if NtQueryInformationProcess(
         process_handle,
         process_information_class as _,
         buffer.as_mut_ptr() as *mut _,
         return_length,
         &mut return_length as *mut _,
-    );
-    if status.is_err() {
+    )
+    .is_err()
+    {
         return None;
     }
     buffer.set_len(buf_len);

@@ -217,14 +217,14 @@ impl SystemInner {
                 // this is a no-op on the first call as buffer_size == capacity
                 process_information.reserve(buffer_size);
 
-                let ntstatus = NtQuerySystemInformation(
+                match NtQuerySystemInformation(
                     SystemProcessInformation,
                     process_information.as_mut_ptr() as *mut _,
                     buffer_size as _,
                     &mut cb_needed,
-                );
-
-                match ntstatus {
+                )
+                .ok()
+                {
                     Ok(()) => break,
                     Err(err) if err.code() == STATUS_INFO_LENGTH_MISMATCH.to_hresult() => {
                         // GetNewBufferSize
