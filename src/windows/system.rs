@@ -153,16 +153,12 @@ impl SystemInner {
                 )
                 .as_bool()
                 {
-                    let swap_total = perf_info.PageSize.saturating_mul(
-                        perf_info
-                            .CommitLimit
-                            .saturating_sub(perf_info.PhysicalTotal),
-                    );
-                    let swap_used = perf_info.PageSize.saturating_mul(
-                        perf_info
-                            .CommitTotal
-                            .saturating_sub(perf_info.PhysicalTotal),
-                    );
+                    let page_size = perf_info.PageSize as u64;
+                    let physical_total = perf_info.PhysicalTotal as u64;
+                    let commit_limit = perf_info.CommitLimit as u64;
+                    let commit_total = perf_info.CommitTotal as u64;
+                    let swap_total = page_size.saturating_mul(commit_limit.saturating_sub(physical_total));
+                    let swap_used = page_size.saturating_mul(commit_total.saturating_sub(physical_total));
                     self.swap_total = swap_total as _;
                     self.swap_used = swap_used as _;
                 }
