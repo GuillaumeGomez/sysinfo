@@ -280,14 +280,14 @@ impl SystemInner {
                     .offset(process_information_offset)
                     as *const SYSTEM_PROCESS_INFORMATION;
 
-                if filter_callback(Pid((*p).UniqueProcessId as _), filter) {
-                    process_ids.push(Wrap(p));
-                }
-
                 // read_unaligned is necessary to avoid
                 // misaligned pointer dereference: address must be a multiple of 0x8 but is 0x...
                 // under x86_64 wine (and possibly other systems)
                 let pi = ptr::read_unaligned(p);
+
+                if filter_callback(Pid(pi.UniqueProcessId as _), filter) {
+                    process_ids.push(Wrap(p));
+                }
 
                 if pi.NextEntryOffset == 0 {
                     break;
