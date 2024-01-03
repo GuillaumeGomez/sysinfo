@@ -4,7 +4,7 @@
 
 # 0.30.3
 
- * Improve dependendy stack by updating the `windows` dependency.
+ * Improve dependency stack by updating the `windows` dependency.
 
 # 0.30.2
 
