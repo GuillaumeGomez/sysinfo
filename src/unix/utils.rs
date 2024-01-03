@@ -1,12 +1,14 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+
 use libc::c_char;
 
-pub(crate) fn cstr_to_rust(c: *const c_char) -> Option<String> {
+pub(crate) fn cstr_to_rust(c: *const c_char) -> Option<OsString> {
     cstr_to_rust_with_size(c, None)
 }
 
-pub(crate) fn cstr_to_rust_with_size(c: *const c_char, size: Option<usize>) -> Option<String> {
+pub(crate) fn cstr_to_rust_with_size(c: *const c_char, size: Option<usize>) -> Option<OsString> {
     if c.is_null() {
         return None;
     }
@@ -27,6 +29,6 @@ pub(crate) fn cstr_to_rust_with_size(c: *const c_char, size: Option<usize>) -> O
                 break;
             }
         }
-        String::from_utf8(s).ok()
+        Some(OsString::from_vec(s))
     }
 }

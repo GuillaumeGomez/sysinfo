@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::ffi::OsStr;
+
 use crate::Component;
 
 pub(crate) struct ComponentInner;
@@ -17,8 +19,8 @@ impl ComponentInner {
         None
     }
 
-    pub(crate) fn label(&self) -> &str {
-        ""
+    pub(crate) fn label(&self) -> &OsStr {
+        OsStr::new("")
     }
 
     pub(crate) fn refresh(&mut self) {}

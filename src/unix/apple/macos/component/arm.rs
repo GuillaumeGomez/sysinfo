@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::ffi::CStr;
+use std::ffi::{CStr, OsStr, OsString};
+use std::os::unix::ffi::OsStrExt;
 
 use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex};
 use core_foundation_sys::base::{kCFAllocatorDefault, CFRetain};
@@ -114,7 +115,7 @@ impl ComponentsInner {
 
                 let name_ptr =
                     CFStringGetCStringPtr(name.inner() as *const _, kCFStringEncodingUTF8);
-                let name_str = CStr::from_ptr(name_ptr).to_string_lossy().to_string();
+                let name_str = OsStr::from_bytes(CStr::from_ptr(name_ptr).to_bytes()).to_owned();
 
                 let mut component = ComponentInner::new(name_str, None, None, service);
                 component.refresh();
@@ -128,14 +129,14 @@ impl ComponentsInner {
 pub(crate) struct ComponentInner {
     service: CFReleaser<__IOHIDServiceClient>,
     temperature: f32,
-    label: String,
+    label: OsString,
     max: f32,
     critical: Option<f32>,
 }
 
 impl ComponentInner {
     pub(crate) fn new(
-        label: String,
+        label: OsString,
         max: Option<f32>,
         critical: Option<f32>,
         service: CFReleaser<__IOHIDServiceClient>,
@@ -161,7 +162,7 @@ impl ComponentInner {
         self.critical
     }
 
-    pub(crate) fn label(&self) -> &str {
+    pub(crate) fn label(&self) -> &OsStr {
         &self.label
     }
 

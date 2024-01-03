@@ -2,13 +2,15 @@
 
 use std::cell::UnsafeCell;
 use std::collections::{HashMap, HashSet};
-use std::ffi::OsStr;
-use std::fmt;
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, DirEntry, File};
 use std::io::Read;
+use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::{fmt, str};
 
+use bstr::ByteSlice;
 use libc::{c_ulong, gid_t, kill, uid_t};
 
 use crate::sys::system::SystemInfo;
@@ -62,7 +64,6 @@ impl fmt::Display for ProcessStatus {
 #[repr(usize)]
 enum ProcIndex {
     Pid = 0,
-    ShortExe,
     State,
     ParentPid,
     GroupId,
@@ -92,12 +93,12 @@ enum ProcIndex {
 const PF_KTHREAD: c_ulong = 0x00200000;
 
 pub(crate) struct ProcessInner {
-    pub(crate) name: String,
-    pub(crate) cmd: Vec<String>,
+    pub(crate) name: OsString,
+    pub(crate) cmd: Vec<OsString>,
     pub(crate) exe: Option<PathBuf>,
     pub(crate) pid: Pid,
     parent: Option<Pid>,
-    pub(crate) environ: Vec<String>,
+    pub(crate) environ: Vec<OsString>,
     pub(crate) cwd: Option<PathBuf>,
     pub(crate) root: Option<PathBuf>,
     pub(crate) memory: u64,
@@ -129,7 +130,7 @@ pub(crate) struct ProcessInner {
 impl ProcessInner {
     pub(crate) fn new(pid: Pid, proc_path: PathBuf) -> Self {
         Self {
-            name: String::new(),
+            name: OsString::new(),
             pid,
             parent: None,
             cmd: Vec::new(),
@@ -169,11 +170,11 @@ impl ProcessInner {
         unsafe { Some(kill(self.pid.0, c_signal) == 0) }
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.name
     }
 
-    pub(crate) fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[OsString] {
         &self.cmd
     }
 
@@ -185,7 +186,7 @@ impl ProcessInner {
         self.pid
     }
 
-    pub(crate) fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[OsString] {
         &self.environ
     }
 
@@ -315,21 +316,21 @@ pub(crate) fn update_process_disk_activity(p: &mut ProcessInner, path: &mut Path
         Err(_) => return,
     };
     let mut done = 0;
-    for line in data.split('\n') {
-        let mut parts = line.split(": ");
+    for line in data.split(|&b| b == b'\n') {
+        let mut parts = line.split_str(": ");
         match parts.next() {
-            Some("read_bytes") => {
+            Some(b"read_bytes") => {
                 p.old_read_bytes = p.read_bytes;
                 p.read_bytes = parts
                     .next()
-                    .and_then(|x| x.parse::<u64>().ok())
+                    .and_then(|x| str::from_utf8(x).ok()?.parse::<u64>().ok())
                     .unwrap_or(p.old_read_bytes);
             }
-            Some("write_bytes") => {
+            Some(b"write_bytes") => {
                 p.old_written_bytes = p.written_bytes;
                 p.written_bytes = parts
                     .next()
-                    .and_then(|x| x.parse::<u64>().ok())
+                    .and_then(|x| str::from_utf8(x).ok()?.parse::<u64>().ok())
                     .unwrap_or(p.old_written_bytes);
             }
             _ => continue,
@@ -355,15 +356,16 @@ unsafe impl<'a, T> Send for Wrap<'a, T> {}
 unsafe impl<'a, T> Sync for Wrap<'a, T> {}
 
 #[inline(always)]
-fn compute_start_time_without_boot_time(parts: &[&str], info: &SystemInfo) -> u64 {
+fn compute_start_time_without_boot_time(parts: &Parts<'_>, info: &SystemInfo) -> u64 {
     // To be noted that the start time is invalid here, it still needs to be converted into
     // "real" time.
-    u64::from_str(parts[ProcIndex::StartTime as usize]).unwrap_or(0) / info.clock_cycle
+    u64::from_str(parts.str_parts[ProcIndex::StartTime as usize]).unwrap_or(0) / info.clock_cycle
 }
 
-fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<String, ()> {
+fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<Vec<u8>, ()> {
     let mut file = File::open(path.join("stat")).map_err(|_| ())?;
-    let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
+    let mut data = Vec::new();
+    file.read_to_end(&mut data).map_err(drop)?;
     *stat_file = FileCounter::new(file);
     Ok(data)
 }
@@ -401,11 +403,11 @@ fn update_proc_info(
     p: &mut ProcessInner,
     refresh_kind: ProcessRefreshKind,
     proc_path: &mut PathHandler,
-    parts: &[&str],
+    str_parts: &[&str],
     uptime: u64,
     info: &SystemInfo,
 ) {
-    get_status(p, parts[ProcIndex::State as usize]);
+    get_status(p, str_parts[ProcIndex::State as usize]);
     refresh_user_group_ids(p, proc_path, refresh_kind);
 
     if refresh_kind.exe().needs_update(|| p.exe.is_none()) {
@@ -427,7 +429,7 @@ fn update_proc_info(
         p.root = realpath(proc_path.join("root"));
     }
 
-    update_time_and_memory(proc_path, p, parts, uptime, info, refresh_kind);
+    update_time_and_memory(proc_path, p, str_parts, uptime, info, refresh_kind);
     if refresh_kind.disk_usage() {
         update_process_disk_activity(p, proc_path);
     }
@@ -436,7 +438,7 @@ fn update_proc_info(
 fn retrieve_all_new_process_info(
     pid: Pid,
     parent_pid: Option<Pid>,
-    parts: &[&str],
+    parts: &Parts<'_>,
     path: &Path,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
@@ -444,11 +446,11 @@ fn retrieve_all_new_process_info(
 ) -> Process {
     let mut p = ProcessInner::new(pid, path.to_owned());
     let mut proc_path = PathHandler::new(path);
-    let name = parts[ProcIndex::ShortExe as usize];
+    let name = parts.short_exe;
 
     p.parent = match parent_pid {
         Some(parent_pid) if parent_pid.0 != 0 => Some(parent_pid),
-        _ => match Pid::from_str(parts[ProcIndex::ParentPid as usize]) {
+        _ => match Pid::from_str(parts.str_parts[ProcIndex::ParentPid as usize]) {
             Ok(p) if p.0 != 0 => Some(p),
             _ => None,
         },
@@ -459,8 +461,8 @@ fn retrieve_all_new_process_info(
         .start_time_without_boot_time
         .saturating_add(info.boot_time);
 
-    p.name = name.into();
-    if c_ulong::from_str(parts[ProcIndex::Flags as usize])
+    p.name = OsStr::from_bytes(name).to_os_string();
+    if c_ulong::from_str(parts.str_parts[ProcIndex::Flags as usize])
         .map(|flags| flags & PF_KTHREAD != 0)
         .unwrap_or(false)
     {
@@ -469,7 +471,14 @@ fn retrieve_all_new_process_info(
         p.thread_kind = Some(ThreadKind::Userland);
     }
 
-    update_proc_info(&mut p, refresh_kind, &mut proc_path, parts, uptime, info);
+    update_proc_info(
+        &mut p,
+        refresh_kind,
+        &mut proc_path,
+        &parts.str_parts,
+        uptime,
+        info,
+    );
 
     Process { inner: p }
 }
@@ -511,7 +520,14 @@ pub(crate) fn _get_process_data(
         if start_time_without_boot_time == entry.start_time_without_boot_time {
             let mut proc_path = PathHandler::new(path);
 
-            update_proc_info(entry, refresh_kind, &mut proc_path, &parts, uptime, info);
+            update_proc_info(
+                entry,
+                refresh_kind,
+                &mut proc_path,
+                &parts.str_parts,
+                uptime,
+                info,
+            );
 
             refresh_user_group_ids(entry, &mut proc_path, refresh_kind);
             return Ok((None, pid));
@@ -548,14 +564,14 @@ pub(crate) fn _get_process_data(
     Ok((None, pid))
 }
 
-fn old_get_memory(entry: &mut ProcessInner, parts: &[&str], info: &SystemInfo) {
+fn old_get_memory(entry: &mut ProcessInner, str_parts: &[&str], info: &SystemInfo) {
     // rss
-    entry.memory = u64::from_str(parts[ProcIndex::ResidentSetSize as usize])
+    entry.memory = u64::from_str(str_parts[ProcIndex::ResidentSetSize as usize])
         .unwrap_or(0)
         .saturating_mul(info.page_size_b);
     // vsz correspond to the Virtual memory size in bytes.
     // see: https://man7.org/linux/man-pages/man5/proc.5.html
-    entry.virtual_memory = u64::from_str(parts[ProcIndex::VirtualSize as usize]).unwrap_or(0);
+    entry.virtual_memory = u64::from_str(str_parts[ProcIndex::VirtualSize as usize]).unwrap_or(0);
 }
 
 fn slice_to_nb(s: &[u8]) -> u64 {
@@ -604,7 +620,7 @@ fn get_memory(path: &Path, entry: &mut ProcessInner, info: &SystemInfo) -> bool 
 fn update_time_and_memory(
     path: &mut PathHandler,
     entry: &mut ProcessInner,
-    parts: &[&str],
+    str_parts: &[&str],
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
@@ -614,13 +630,13 @@ fn update_time_and_memory(
         if refresh_kind.memory() {
             // Keeping this nested level for readability reasons.
             if !get_memory(path.join("statm"), entry, info) {
-                old_get_memory(entry, parts, info);
+                old_get_memory(entry, str_parts, info);
             }
         }
         set_time(
             entry,
-            u64::from_str(parts[ProcIndex::UserTime as usize]).unwrap_or(0),
-            u64::from_str(parts[ProcIndex::SystemTime as usize]).unwrap_or(0),
+            u64::from_str(str_parts[ProcIndex::UserTime as usize]).unwrap_or(0),
+            u64::from_str(str_parts[ProcIndex::SystemTime as usize]).unwrap_or(0),
         );
         entry.run_time = uptime.saturating_sub(entry.start_time_without_boot_time);
     }
@@ -767,7 +783,7 @@ pub(crate) fn refresh_procs(
     true
 }
 
-fn copy_from_file(entry: &Path) -> Vec<String> {
+fn copy_from_file(entry: &Path) -> Vec<OsString> {
     match File::open(entry) {
         Ok(mut f) => {
             let mut data = Vec::with_capacity(16_384);
@@ -779,9 +795,9 @@ fn copy_from_file(entry: &Path) -> Vec<String> {
                 let mut out = Vec::with_capacity(10);
                 let mut data = data.as_slice();
                 while let Some(pos) = data.iter().position(|c| *c == 0) {
-                    match std::str::from_utf8(&data[..pos]).map(|s| s.trim()) {
-                        Ok(s) if !s.is_empty() => out.push(s.to_string()),
-                        _ => {}
+                    let s = &data[..pos].trim();
+                    if !s.is_empty() {
+                        out.push(OsStr::from_bytes(s).to_os_string());
                     }
                     data = &data[pos + 1..];
                 }
@@ -803,11 +819,15 @@ fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))>
     // here. From these lines, we're looking at the first and second entries to get
     // the real u/gid.
 
-    let f = |h: &str, n: &str| -> (Option<uid_t>, Option<uid_t>) {
-        if h.starts_with(n) {
-            let mut ids = h.split_whitespace();
-            let real = ids.nth(1).unwrap_or("0").parse().ok();
-            let effective = ids.next().unwrap_or("0").parse().ok();
+    let f = |h: &[u8], n: &str| -> (Option<uid_t>, Option<uid_t>) {
+        if h.starts_with_str(n) {
+            let mut ids = h.fields();
+            let real = str::from_utf8(ids.nth(1).unwrap_or(b"0"))
+                .ok()
+                .and_then(|v| v.parse().ok());
+            let effective = str::from_utf8(ids.next().unwrap_or(b"0"))
+                .ok()
+                .and_then(|v| v.parse().ok());
 
             (real, effective)
         } else {
@@ -842,7 +862,12 @@ fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))>
     }
 }
 
-fn parse_stat_file(data: &str) -> Option<Vec<&str>> {
+struct Parts<'a> {
+    str_parts: Vec<&'a str>,
+    short_exe: &'a [u8],
+}
+
+fn parse_stat_file(data: &[u8]) -> Option<Parts<'_>> {
     // The stat file is "interesting" to parse, because spaces cannot
     // be used as delimiters. The second field stores the command name
     // surrounded by parentheses. Unfortunately, whitespace and
@@ -852,16 +877,15 @@ fn parse_stat_file(data: &str) -> Option<Vec<&str>> {
     // in the entire string. All other fields are delimited by
     // whitespace.
 
-    let mut parts = Vec::with_capacity(52);
-    let mut data_it = data.splitn(2, ' ');
-    parts.push(data_it.next()?);
-    let mut data_it = data_it.next()?.rsplitn(2, ')');
-    let data = data_it.next()?;
-    parts.push(data_it.next()?);
-    parts.extend(data.split_whitespace());
-    // Remove command name '('
-    if let Some(name) = parts[ProcIndex::ShortExe as usize].strip_prefix('(') {
-        parts[ProcIndex::ShortExe as usize] = name;
-    }
-    Some(parts)
+    let mut str_parts = Vec::with_capacity(51);
+    let mut data_it = data.splitn(2, |&b| b == b' ');
+    str_parts.push(str::from_utf8(data_it.next()?).ok()?);
+    let mut data_it = data_it.next()?.rsplitn(2, |&b| b == b')');
+    let data = str::from_utf8(data_it.next()?).ok()?;
+    let short_exe = data_it.next()?;
+    str_parts.extend(data.split_whitespace());
+    Some(Parts {
+        str_parts,
+        short_exe: short_exe.strip_prefix(&[b'(']).unwrap_or(short_exe),
+    })
 }

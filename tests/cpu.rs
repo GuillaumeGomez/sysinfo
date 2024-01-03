@@ -17,7 +17,7 @@ fn test_cpu() {
     let s = sysinfo::System::new_all();
     assert!(!s.cpus().is_empty());
 
-    assert!(!s.cpus()[0].brand().chars().any(|c| c == '\0'));
+    assert!(!s.cpus()[0].brand().as_encoded_bytes().contains(&b'\0'));
 
     if !cfg!(target_os = "freebsd") {
         // This information is currently not retrieved on freebsd...

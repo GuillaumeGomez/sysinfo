@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use bstr::ByteSlice;
 use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
 
 #[test]
@@ -70,7 +71,7 @@ fn test_cmd() {
         if cfg!(target_os = "windows") {
             // Sometimes, we get the full path instead for some reasons... So just in case,
             // we check for the command independently that from the arguments.
-            assert!(process.cmd()[0].contains("waitfor"));
+            assert!(process.cmd()[0].as_encoded_bytes().contains_str("waitfor"));
             assert_eq!(&process.cmd()[1..], &["/t", "3", "CmdSignal"]);
         } else {
             assert_eq!(process.cmd(), &["sleep", "3"]);
@@ -147,7 +148,7 @@ fn test_environ() {
         p.kill().expect("Unable to kill process.");
         assert_eq!(proc_.pid(), pid);
         let env = format!("FOO={big_env}");
-        assert!(proc_.environ().iter().any(|e| *e == env));
+        assert!(proc_.environ().iter().any(|e| *e == *env));
     } else {
         panic!("Process not found!");
     }
@@ -178,9 +179,7 @@ fn test_process_refresh() {
 
 #[test]
 fn test_process_disk_usage() {
-    use std::fs;
-    use std::fs::File;
-    use std::io::prelude::*;
+    use std::{fs, fs::File, io::prelude::*};
     use sysinfo::get_current_pid;
 
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
@@ -404,7 +403,10 @@ fn test_refresh_tasks() {
             .map(|task| task.name() == task_name)
             .unwrap_or(false)))
         .unwrap_or(false));
-    assert!(s.processes_by_exact_name(task_name).next().is_some());
+    assert!(s
+        .processes_by_exact_name(task_name.as_ref())
+        .next()
+        .is_some());
 
     // Let's give some time to the system to clean up...
     std::thread::sleep(std::time::Duration::from_secs(2));
@@ -420,7 +422,10 @@ fn test_refresh_tasks() {
             .map(|task| task.name() == task_name)
             .unwrap_or(false)))
         .unwrap_or(false));
-    assert!(s.processes_by_exact_name(task_name).next().is_none());
+    assert!(s
+        .processes_by_exact_name(task_name.as_ref())
+        .next()
+        .is_none());
 }
 
 // Checks that `refresh_process` is NOT removing dead processes.
@@ -564,14 +569,14 @@ fn test_process_iterator_lifetimes() {
     {
         let name = String::from("");
         // errors before PR #904: name does not live long enough
-        process = s.processes_by_name(&name).next();
+        process = s.processes_by_name(name.as_ref()).next();
     }
     process.unwrap();
 
     let process: Option<&sysinfo::Process>;
     {
         // worked fine before and after: &'static str lives longer than System, error couldn't appear
-        process = s.processes_by_name("").next();
+        process = s.processes_by_name("".as_ref()).next();
     }
     process.unwrap();
 }

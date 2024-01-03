@@ -2,6 +2,7 @@
 
 use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
+use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
@@ -41,12 +42,12 @@ impl fmt::Display for ProcessStatus {
 }
 
 pub(crate) struct ProcessInner {
-    pub(crate) name: String,
-    pub(crate) cmd: Vec<String>,
+    pub(crate) name: OsString,
+    pub(crate) cmd: Vec<OsString>,
     pub(crate) exe: Option<PathBuf>,
     pub(crate) pid: Pid,
     parent: Option<Pid>,
-    pub(crate) environ: Vec<String>,
+    pub(crate) environ: Vec<OsString>,
     pub(crate) cwd: Option<PathBuf>,
     pub(crate) root: Option<PathBuf>,
     pub(crate) memory: u64,
@@ -72,11 +73,11 @@ impl ProcessInner {
         unsafe { Some(libc::kill(self.pid.0, c_signal) == 0) }
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.name
     }
 
-    pub(crate) fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[OsString] {
         &self.cmd
     }
 
@@ -88,7 +89,7 @@ impl ProcessInner {
         self.pid
     }
 
-    pub(crate) fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[OsString] {
         &self.environ
     }
 
@@ -280,7 +281,7 @@ pub(crate) unsafe fn get_process_data(
             cwd: None,
             exe: None,
             // kvm_getargv isn't thread-safe so we get it in the main thread.
-            name: String::new(),
+            name: OsString::new(),
             // kvm_getargv isn't thread-safe so we get it in the main thread.
             cmd: Vec::new(),
             // kvm_getargv isn't thread-safe so we get it in the main thread.

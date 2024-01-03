@@ -6,8 +6,8 @@ use windows::Win32::System::Registry::{
     RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, KEY_READ, REG_NONE,
 };
 
-use std::ffi::OsStr;
-use std::os::windows::ffi::OsStrExt;
+use std::ffi::{OsStr, OsString};
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::time::SystemTime;
 
 #[inline]
@@ -23,15 +23,12 @@ pub(crate) fn get_now() -> u64 {
         .unwrap_or(0)
 }
 
-pub(crate) unsafe fn to_str(p: PWSTR) -> String {
+pub(crate) unsafe fn to_str(p: PWSTR) -> OsString {
     if p.is_null() {
-        return String::new();
+        return OsString::new();
     }
 
-    p.to_string().unwrap_or_else(|_e| {
-        sysinfo_debug!("Failed to convert to UTF-16 string: {}", _e);
-        String::new()
-    })
+    OsString::from_wide(p.as_wide())
 }
 
 fn utf16_str<S: AsRef<OsStr> + ?Sized>(text: &S) -> Vec<u16> {
@@ -85,7 +82,7 @@ impl Drop for RegKey {
     }
 }
 
-pub(crate) fn get_reg_string_value(hkey: HKEY, path: &str, field_name: &str) -> Option<String> {
+pub(crate) fn get_reg_string_value(hkey: HKEY, path: &str, field_name: &str) -> Option<OsString> {
     let c_path = utf16_str(path);
     let c_field_name = utf16_str(field_name);
 
@@ -109,10 +106,8 @@ pub(crate) fn get_reg_string_value(hkey: HKEY, path: &str, field_name: &str) -> 
         buf.set_len(buf_len as _);
 
         let words = std::slice::from_raw_parts(buf.as_ptr() as *const u16, buf.len() / 2);
-        let mut s = String::from_utf16_lossy(words);
-        while s.ends_with('\u{0}') {
-            s.pop();
-        }
+        let zero_count = words.iter().rev().take_while(|&&c| c == 0).count();
+        let s = OsString::from_wide(&words[..words.len() - zero_count]);
         Some(s)
     }
 }

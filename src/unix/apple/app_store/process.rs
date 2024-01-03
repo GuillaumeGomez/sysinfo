@@ -1,6 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::path::Path;
+use std::{
+    ffi::{OsStr, OsString},
+    path::Path,
+};
 
 use crate::{DiskUsage, Gid, Pid, ProcessStatus, Signal, Uid};
 
@@ -11,11 +14,11 @@ impl ProcessInner {
         None
     }
 
-    pub(crate) fn name(&self) -> &str {
-        ""
+    pub(crate) fn name(&self) -> &OsStr {
+        OsStr::new("")
     }
 
-    pub(crate) fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[OsString] {
         &[]
     }
 
@@ -27,7 +30,7 @@ impl ProcessInner {
         Pid(0)
     }
 
-    pub(crate) fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[OsString] {
         &[]
     }
 

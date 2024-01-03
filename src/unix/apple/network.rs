@@ -3,6 +3,8 @@
 use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
 
 use std::collections::{hash_map, HashMap};
+use std::ffi::OsString;
+use std::os::unix::ffi::OsStringExt;
 use std::ptr::null_mut;
 
 use crate::common::MacAddr;
@@ -17,7 +19,7 @@ macro_rules! old_and_new {
 }
 
 pub(crate) struct NetworksInner {
-    pub(crate) interfaces: HashMap<String, NetworkData>,
+    pub(crate) interfaces: HashMap<OsString, NetworkData>,
 }
 
 impl NetworksInner {
@@ -27,7 +29,7 @@ impl NetworksInner {
         }
     }
 
-    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+    pub(crate) fn list(&self) -> &HashMap<OsString, NetworkData> {
         &self.interfaces
     }
 
@@ -96,7 +98,7 @@ impl NetworksInner {
                         continue;
                     }
                     name.set_len(libc::strlen(pname));
-                    let name = String::from_utf8_unchecked(name);
+                    let name = OsString::from_vec(name);
                     match self.interfaces.entry(name) {
                         hash_map::Entry::Occupied(mut e) => {
                             let interface = e.get_mut();

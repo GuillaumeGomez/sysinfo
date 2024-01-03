@@ -5,6 +5,8 @@ use crate::network::refresh_networks_addresses;
 use crate::NetworkData;
 
 use std::collections::{hash_map, HashMap};
+use std::ffi::OsString;
+use std::os::windows::ffi::OsStringExt;
 
 use windows::Win32::NetworkManagement::IpHelper::{
     FreeMibTable, GetIfEntry2, GetIfTable2, MIB_IF_ROW2, MIB_IF_TABLE2,
@@ -19,7 +21,7 @@ macro_rules! old_and_new {
 }
 
 pub(crate) struct NetworksInner {
-    pub(crate) interfaces: HashMap<String, NetworkData>,
+    pub(crate) interfaces: HashMap<OsString, NetworkData>,
 }
 
 impl NetworksInner {
@@ -29,7 +31,7 @@ impl NetworksInner {
         }
     }
 
-    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+    pub(crate) fn list(&self) -> &HashMap<OsString, NetworkData> {
         &self.interfaces
     }
 
@@ -91,10 +93,7 @@ impl NetworksInner {
                     }
                     pos += 1;
                 }
-                let interface_name = match String::from_utf16(&ptr.Alias[..pos]) {
-                    Ok(s) => s,
-                    _ => continue,
-                };
+                let interface_name = OsString::from_wide(&ptr.Alias[..pos]);
                 match self.interfaces.entry(interface_name) {
                     hash_map::Entry::Occupied(mut e) => {
                         let interface = e.get_mut();

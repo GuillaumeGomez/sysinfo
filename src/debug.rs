@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use bstr::ByteSlice;
+
 use crate::{
     Component, Components, Cpu, Disk, Disks, NetworkData, Networks, Process, System, User, Users,
 };
@@ -73,14 +75,7 @@ impl fmt::Debug for Process {
 
 impl fmt::Debug for Components {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Components {{ {} }}",
-            self.iter()
-                .map(|x| format!("{x:?}"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 
@@ -90,7 +85,7 @@ impl fmt::Debug for Component {
             write!(
                 f,
                 "{}: {}°C (max: {}°C / critical: {}°C)",
-                self.label(),
+                self.label().as_encoded_bytes().as_bstr(),
                 self.temperature(),
                 self.max(),
                 critical
@@ -99,7 +94,7 @@ impl fmt::Debug for Component {
             write!(
                 f,
                 "{}: {}°C (max: {}°C)",
-                self.label(),
+                self.label().as_encoded_bytes().as_bstr(),
                 self.temperature(),
                 self.max()
             )
@@ -109,14 +104,7 @@ impl fmt::Debug for Component {
 
 impl fmt::Debug for Networks {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Networks {{ {} }}",
-            self.iter()
-                .map(|x| format!("{x:?}"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 
@@ -141,27 +129,13 @@ impl fmt::Debug for NetworkData {
 
 impl fmt::Debug for Disks {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Disks {{ {} }}",
-            self.iter()
-                .map(|x| format!("{x:?}"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 
 impl fmt::Debug for Users {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Users {{ {} }}",
-            self.iter()
-                .map(|x| format!("{x:?}"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 

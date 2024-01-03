@@ -4,7 +4,7 @@ use crate::{
     Cpu, CpuInner, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
 };
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ffi::OsString};
 
 pub(crate) struct SystemInner {
     processes_list: HashMap<Pid, Process>,
@@ -112,27 +112,27 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn name() -> Option<String> {
+    pub(crate) fn name() -> Option<OsString> {
         None
     }
 
-    pub(crate) fn long_os_version() -> Option<String> {
+    pub(crate) fn long_os_version() -> Option<OsString> {
         None
     }
 
-    pub(crate) fn kernel_version() -> Option<String> {
+    pub(crate) fn kernel_version() -> Option<OsString> {
         None
     }
 
-    pub(crate) fn os_version() -> Option<String> {
+    pub(crate) fn os_version() -> Option<OsString> {
         None
     }
 
-    pub(crate) fn distribution_id() -> String {
-        std::env::consts::OS.to_owned()
+    pub(crate) fn distribution_id() -> OsString {
+        std::env::consts::OS.into()
     }
 
-    pub(crate) fn host_name() -> Option<String> {
+    pub(crate) fn host_name() -> Option<OsString> {
         None
     }
     pub(crate) fn cpu_arch() -> Option<String> {

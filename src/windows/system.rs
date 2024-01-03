@@ -12,10 +12,13 @@ use crate::utils::into_iter;
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::mem::{size_of, zeroed};
+use std::os::windows::ffi::OsStringExt;
 use std::ptr;
 use std::time::SystemTime;
 
+use bstr::ByteSlice;
 use ntapi::ntexapi::SYSTEM_PROCESS_INFORMATION;
 use windows::core::PWSTR;
 use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SystemProcessInformation};
@@ -36,7 +39,8 @@ impl SystemInner {
         WINDOWS_ELEVEN_BUILD_NUMBER
             <= Self::kernel_version()
                 .unwrap_or_default()
-                .parse()
+                .to_str()
+                .and_then(|s| s.parse().ok())
                 .unwrap_or(0)
     }
 }
@@ -426,42 +430,54 @@ impl SystemInner {
         get_load_average()
     }
 
-    pub(crate) fn name() -> Option<String> {
-        Some("Windows".to_owned())
+    pub(crate) fn name() -> Option<OsString> {
+        Some("Windows".into())
     }
 
-    pub(crate) fn long_os_version() -> Option<String> {
+    pub(crate) fn long_os_version() -> Option<OsString> {
         if Self::is_windows_eleven() {
             return get_reg_string_value(
                 HKEY_LOCAL_MACHINE,
-                "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+                r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
                 "ProductName",
             )
-            .map(|product_name| product_name.replace("Windows 10 ", "Windows 11 "));
+            .map(|product_name| {
+                // SAFETY: We only replace the Windows version, which is valid
+                // UTF-8. Since OsString is a superset of UTF-8 and we only
+                // modify the valid UTF-8 bytes, the OsString stays correctly
+                // encoded.
+                unsafe {
+                    OsString::from_encoded_bytes_unchecked(
+                        product_name
+                            .into_encoded_bytes()
+                            .replace("Windows 10 ", "Windows 11 "),
+                    )
+                }
+            });
         }
         get_reg_string_value(
             HKEY_LOCAL_MACHINE,
-            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
             "ProductName",
         )
     }
 
-    pub(crate) fn host_name() -> Option<String> {
+    pub(crate) fn host_name() -> Option<OsString> {
         get_dns_hostname()
     }
 
-    pub(crate) fn kernel_version() -> Option<String> {
+    pub(crate) fn kernel_version() -> Option<OsString> {
         get_reg_string_value(
             HKEY_LOCAL_MACHINE,
-            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
             "CurrentBuildNumber",
         )
     }
 
-    pub(crate) fn os_version() -> Option<String> {
+    pub(crate) fn os_version() -> Option<OsString> {
         let build_number = get_reg_string_value(
             HKEY_LOCAL_MACHINE,
-            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
             "CurrentBuildNumber",
         )
         .unwrap_or_default();
@@ -471,17 +487,24 @@ impl SystemInner {
             u32::from_le_bytes(
                 get_reg_value_u32(
                     HKEY_LOCAL_MACHINE,
-                    "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+                    r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
                     "CurrentMajorVersionNumber",
                 )
                 .unwrap_or_default(),
             )
         };
-        Some(format!("{major} ({build_number})"))
+
+        unsafe {
+            let mut buf = format!("{major} (").into_bytes();
+            buf.extend(build_number.into_encoded_bytes());
+            buf.push(b')');
+
+            Some(OsString::from_encoded_bytes_unchecked(buf))
+        }
     }
 
-    pub(crate) fn distribution_id() -> String {
-        std::env::consts::OS.to_owned()
+    pub(crate) fn distribution_id() -> OsString {
+        std::env::consts::OS.into()
     }
     pub(crate) fn cpu_arch() -> Option<String> {
         unsafe {
@@ -542,7 +565,7 @@ fn refresh_existing_process(
 
 #[allow(clippy::size_of_in_element_count)]
 //^ needed for "name.Length as usize / std::mem::size_of::<u16>()"
-pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: Pid) -> String {
+pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: Pid) -> OsString {
     let name = &process.ImageName;
     if name.Buffer.is_null() {
         match process_id.0 {
@@ -550,6 +573,7 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
             4 => "System".to_owned(),
             _ => format!("<no name> Process {process_id}"),
         }
+        .into()
     } else {
         unsafe {
             let slice = std::slice::from_raw_parts(
@@ -558,12 +582,12 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
                 name.Length as usize / std::mem::size_of::<u16>(),
             );
 
-            String::from_utf16_lossy(slice)
+            OsString::from_wide(slice)
         }
     }
 }
 
-fn get_dns_hostname() -> Option<String> {
+fn get_dns_hostname() -> Option<OsString> {
     let mut buffer_size = 0;
     // Running this first to get the buffer size since the DNS name can be longer than MAX_COMPUTERNAME_LENGTH
     // setting the `lpBuffer` to null will return the buffer size
@@ -590,7 +614,7 @@ fn get_dns_hostname() -> Option<String> {
                 buffer.resize(pos, 0);
             }
 
-            return String::from_utf16(&buffer).ok();
+            return Some(OsString::from_wide(&buffer));
         }
     }
 

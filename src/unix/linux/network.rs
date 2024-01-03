@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::collections::{hash_map, HashMap};
+use std::ffi::{OsStr, OsString};
 use std::io::Read;
 use std::path::Path;
 use std::{fs::File, u8};
@@ -40,7 +41,7 @@ fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
 }
 
 fn refresh_networks_list_from_sysfs(
-    interfaces: &mut HashMap<String, NetworkData>,
+    interfaces: &mut HashMap<OsString, NetworkData>,
     sysfs_net: &Path,
 ) {
     if let Ok(dir) = std::fs::read_dir(sysfs_net) {
@@ -52,10 +53,7 @@ fn refresh_networks_list_from_sysfs(
 
         for entry in dir.flatten() {
             let parent = &entry.path().join("statistics");
-            let entry = match entry.file_name().into_string() {
-                Ok(entry) => entry,
-                Err(_) => continue,
-            };
+            let entry = entry.file_name();
             let rx_bytes = read(parent, "rx_bytes", &mut data);
             let tx_bytes = read(parent, "tx_bytes", &mut data);
             let rx_packets = read(parent, "rx_packets", &mut data);
@@ -112,7 +110,7 @@ fn refresh_networks_list_from_sysfs(
 }
 
 pub(crate) struct NetworksInner {
-    pub(crate) interfaces: HashMap<String, NetworkData>,
+    pub(crate) interfaces: HashMap<OsString, NetworkData>,
 }
 
 impl NetworksInner {
@@ -122,7 +120,7 @@ impl NetworksInner {
         }
     }
 
-    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+    pub(crate) fn list(&self) -> &HashMap<OsString, NetworkData> {
         &self.interfaces
     }
 
@@ -178,7 +176,7 @@ pub(crate) struct NetworkDataInner {
 }
 
 impl NetworkDataInner {
-    fn update(&mut self, path: &str, data: &mut Vec<u8>) {
+    fn update(&mut self, path: &OsStr, data: &mut Vec<u8>) {
         let path = &Path::new("/sys/class/net/").join(path).join("statistics");
         old_and_new!(self, rx_bytes, old_rx_bytes, read(path, "rx_bytes", data));
         old_and_new!(self, tx_bytes, old_tx_bytes, read(path, "tx_bytes", data));
@@ -276,8 +274,7 @@ impl NetworkDataInner {
 #[cfg(test)]
 mod test {
     use super::refresh_networks_list_from_sysfs;
-    use std::collections::HashMap;
-    use std::fs;
+    use std::{collections::HashMap, ffi::OsString, fs};
 
     #[test]
     fn refresh_networks_list_add_interface() {
@@ -293,7 +290,7 @@ mod test {
         fs::create_dir(sys_net_dir.path().join("itf2")).expect("failed to create subdirectory");
 
         refresh_networks_list_from_sysfs(&mut interfaces, sys_net_dir.path());
-        let mut itf_names: Vec<String> = interfaces.keys().map(|n| n.to_owned()).collect();
+        let mut itf_names: Vec<OsString> = interfaces.keys().map(|n| n.to_owned()).collect();
         itf_names.sort();
         assert_eq!(itf_names, ["itf1", "itf2"]);
     }
@@ -310,7 +307,7 @@ mod test {
         let mut interfaces = HashMap::new();
 
         refresh_networks_list_from_sysfs(&mut interfaces, sys_net_dir.path());
-        let mut itf_names: Vec<String> = interfaces.keys().map(|n| n.to_owned()).collect();
+        let mut itf_names: Vec<OsString> = interfaces.keys().map(|n| n.to_owned()).collect();
         itf_names.sort();
         assert_eq!(itf_names, ["itf1", "itf2"]);
 

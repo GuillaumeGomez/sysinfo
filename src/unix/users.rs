@@ -1,5 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::{
+    ffi::{OsStr, OsString},
+    os::unix::ffi::OsStrExt,
+};
+
 use crate::{
     common::{Gid, Uid},
     Group,
@@ -13,12 +18,12 @@ use libc::{getgrgid_r, getgrouplist};
 pub(crate) struct UserInner {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,
-    pub(crate) name: String,
+    pub(crate) name: OsString,
     c_user: Vec<u8>,
 }
 
 impl UserInner {
-    pub(crate) fn new(uid: Uid, gid: Gid, name: String) -> Self {
+    pub(crate) fn new(uid: Uid, gid: Gid, name: OsString) -> Self {
         let mut c_user = name.as_bytes().to_vec();
         c_user.push(0);
         Self {
@@ -37,7 +42,7 @@ impl UserInner {
         self.gid
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.name
     }
 
@@ -49,7 +54,7 @@ impl UserInner {
 pub(crate) unsafe fn get_group_name(
     id: libc::gid_t,
     buffer: &mut Vec<libc::c_char>,
-) -> Option<String> {
+) -> Option<OsString> {
     let mut g = std::mem::MaybeUninit::<libc::group>::uninit();
     let mut tmp_ptr = std::ptr::null_mut();
     let mut last_errno = 0;
@@ -117,28 +122,31 @@ pub(crate) unsafe fn get_user_groups(
 // Not used by mac.
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub(crate) fn get_users(users: &mut Vec<User>) {
-    use std::fs::File;
-    use std::io::Read;
+    use std::os::unix::ffi::OsStrExt;
+
+    use bstr::ByteSlice;
 
     #[inline]
-    fn parse_id(id: &str) -> Option<u32> {
-        id.parse::<u32>().ok()
+    fn parse_id(id: &[u8]) -> Option<u32> {
+        std::str::from_utf8(id).ok()?.parse::<u32>().ok()
     }
 
     users.clear();
 
-    let mut s = String::new();
-
-    let _ = File::open("/etc/passwd").and_then(|mut f| f.read_to_string(&mut s));
+    let s = std::fs::read("/etc/passwd").unwrap_or_default();
     for line in s.lines() {
-        let mut parts = line.split(':');
+        let mut parts = line.split_str(":");
         if let Some(username) = parts.next() {
             let mut parts = parts.skip(1);
             // Skip the user if the uid cannot be parsed correctly
             if let Some(uid) = parts.next().and_then(parse_id) {
                 if let Some(group_id) = parts.next().and_then(parse_id) {
                     users.push(User {
-                        inner: UserInner::new(Uid(uid), Gid(group_id), username.to_owned()),
+                        inner: UserInner::new(
+                            Uid(uid),
+                            Gid(group_id),
+                            OsStr::from_bytes(username).to_owned(),
+                        ),
                     });
                 }
             }

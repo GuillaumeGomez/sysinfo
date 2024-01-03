@@ -8,7 +8,7 @@ use crate::{
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::convert::{From, TryFrom};
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::path::Path;
 use std::str::FromStr;
@@ -412,7 +412,7 @@ impl System {
     ///
     /// let s = System::new_all();
     /// for (pid, process) in s.processes() {
-    ///     println!("{} {}", pid, process.name());
+    ///     println!("{} {:?}", pid, process.name());
     /// }
     /// ```
     pub fn processes(&self) -> &HashMap<Pid, Process> {
@@ -426,7 +426,7 @@ impl System {
     ///
     /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("{}", process.name());
+    ///     println!("{:?}", process.name());
     /// }
     /// ```
     pub fn process(&self, pid: Pid) -> Option<&Process> {
@@ -448,17 +448,18 @@ impl System {
     /// use sysinfo::System;
     ///
     /// let s = System::new_all();
-    /// for process in s.processes_by_name("htop") {
-    ///     println!("{} {}", process.pid(), process.name());
+    /// for process in s.processes_by_name("htop".as_ref()) {
+    ///     println!("{} {:?}", process.pid(), process.name());
     /// }
     /// ```
     pub fn processes_by_name<'a: 'b, 'b>(
         &'a self,
-        name: &'b str,
+        name: &'b OsStr,
     ) -> impl Iterator<Item = &'a Process> + 'b {
+        let finder = memchr::memmem::Finder::new(name.as_encoded_bytes());
         self.processes()
             .values()
-            .filter(move |val: &&Process| val.name().contains(name))
+            .filter(move |val: &&Process| finder.find(val.name().as_encoded_bytes()).is_some())
     }
 
     /// Returns an iterator of processes with exactly the given `name`.
@@ -476,13 +477,13 @@ impl System {
     /// use sysinfo::System;
     ///
     /// let s = System::new_all();
-    /// for process in s.processes_by_exact_name("htop") {
-    ///     println!("{} {}", process.pid(), process.name());
+    /// for process in s.processes_by_exact_name("htop".as_ref()) {
+    ///     println!("{} {:?}", process.pid(), process.name());
     /// }
     /// ```
     pub fn processes_by_exact_name<'a: 'b, 'b>(
         &'a self,
-        name: &'b str,
+        name: &'b OsStr,
     ) -> impl Iterator<Item = &'a Process> + 'b {
         self.processes()
             .values()
@@ -725,7 +726,7 @@ impl System {
     ///
     /// println!("OS: {:?}", System::name());
     /// ```
-    pub fn name() -> Option<String> {
+    pub fn name() -> Option<OsString> {
         SystemInner::name()
     }
 
@@ -738,7 +739,7 @@ impl System {
     ///
     /// println!("kernel version: {:?}", System::kernel_version());
     /// ```
-    pub fn kernel_version() -> Option<String> {
+    pub fn kernel_version() -> Option<OsString> {
         SystemInner::kernel_version()
     }
 
@@ -752,7 +753,7 @@ impl System {
     ///
     /// println!("OS version: {:?}", System::os_version());
     /// ```
-    pub fn os_version() -> Option<String> {
+    pub fn os_version() -> Option<OsString> {
         SystemInner::os_version()
     }
 
@@ -765,7 +766,7 @@ impl System {
     ///
     /// println!("Long OS Version: {:?}", System::long_os_version());
     /// ```
-    pub fn long_os_version() -> Option<String> {
+    pub fn long_os_version() -> Option<OsString> {
         SystemInner::long_os_version()
     }
 
@@ -783,7 +784,7 @@ impl System {
     ///
     /// println!("Distribution ID: {:?}", System::distribution_id());
     /// ```
-    pub fn distribution_id() -> String {
+    pub fn distribution_id() -> OsString {
         SystemInner::distribution_id()
     }
 
@@ -796,7 +797,7 @@ impl System {
     ///
     /// println!("Hostname: {:?}", System::host_name());
     /// ```
-    pub fn host_name() -> Option<String> {
+    pub fn host_name() -> Option<OsString> {
         SystemInner::host_name()
     }
 
@@ -830,7 +831,7 @@ impl System {
 ///
 /// let s = System::new_all();
 /// if let Some(process) = s.process(Pid::from(1337)) {
-///     println!("{}", process.name());
+///     println!("{:?}", process.name());
 /// }
 /// ```
 pub struct Process {
@@ -898,10 +899,10 @@ impl Process {
     ///
     /// let s = System::new_all();
     /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("{}", process.name());
+    ///     println!("{:?}", process.name());
     /// }
     /// ```
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &OsStr {
         self.inner.name()
     }
 
@@ -915,7 +916,7 @@ impl Process {
     ///     println!("{:?}", process.cmd());
     /// }
     /// ```
-    pub fn cmd(&self) -> &[String] {
+    pub fn cmd(&self) -> &[OsString] {
         self.inner.cmd()
     }
 
@@ -969,7 +970,7 @@ impl Process {
     ///     println!("{:?}", process.environ());
     /// }
     /// ```
-    pub fn environ(&self) -> &[String] {
+    pub fn environ(&self) -> &[OsString] {
         self.inner.environ()
     }
 
@@ -1945,7 +1946,7 @@ impl RefreshKind {
 ///
 /// let networks = Networks::new_with_refreshed_list();
 /// for (interface_name, network) in &networks {
-///     println!("[{interface_name}]: {network:?}");
+///     println!("[{interface_name:?}]: {network:?}");
 /// }
 /// ```
 pub struct Networks {
@@ -1953,8 +1954,8 @@ pub struct Networks {
 }
 
 impl<'a> IntoIterator for &'a Networks {
-    type Item = (&'a String, &'a NetworkData);
-    type IntoIter = std::collections::hash_map::Iter<'a, String, NetworkData>;
+    type Item = (&'a OsString, &'a NetworkData);
+    type IntoIter = std::collections::hash_map::Iter<'a, OsString, NetworkData>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -1978,7 +1979,7 @@ impl Networks {
     /// let mut networks = Networks::new();
     /// networks.refresh_list();
     /// for (interface_name, network) in &networks {
-    ///     println!("[{interface_name}]: {network:?}");
+    ///     println!("[{interface_name:?}]: {network:?}");
     /// }
     /// ```
     pub fn new() -> Self {
@@ -2015,7 +2016,7 @@ impl Networks {
     ///     println!("{network:?}");
     /// }
     /// ```
-    pub fn list(&self) -> &HashMap<String, NetworkData> {
+    pub fn list(&self) -> &HashMap<OsString, NetworkData> {
         self.inner.list()
     }
 
@@ -2053,7 +2054,7 @@ impl Networks {
 }
 
 impl std::ops::Deref for Networks {
-    type Target = HashMap<String, NetworkData>;
+    type Target = HashMap<OsString, NetworkData>;
 
     fn deref(&self) -> &Self::Target {
         self.list()
@@ -2067,7 +2068,7 @@ impl std::ops::Deref for Networks {
 ///
 /// let networks = Networks::new_with_refreshed_list();
 /// for (interface_name, network) in &networks {
-///     println!("[{interface_name}] {network:?}");
+///     println!("[{interface_name:?}] {network:?}");
 /// }
 /// ```
 pub struct NetworkData {
@@ -2607,7 +2608,7 @@ impl fmt::Display for DiskKind {
 ///
 /// let mut users = Users::new();
 /// for user in users.list() {
-///     println!("{} is in {} groups", user.name(), user.groups().len());
+///     println!("{:?} is in {} groups", user.name(), user.groups().len());
 /// }
 /// ```
 pub struct Users {
@@ -3094,10 +3095,10 @@ impl User {
     ///
     /// let users = Users::new_with_refreshed_list();
     /// for user in users.list() {
-    ///     println!("{}", user.name());
+    ///     println!("{:?}", user.name());
     /// }
     /// ```
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &OsStr {
         self.inner.name()
     }
 
@@ -3110,7 +3111,7 @@ impl User {
     ///
     /// let users = Users::new_with_refreshed_list();
     /// for user in users.list() {
-    ///     println!("{} is in {:?}", user.name(), user.groups());
+    ///     println!("{:?} is in {:?}", user.name(), user.groups());
     /// }
     /// ```
     pub fn groups(&self) -> Vec<Group> {
@@ -3142,7 +3143,7 @@ impl User {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Group {
     pub(crate) id: Gid,
-    pub(crate) name: String,
+    pub(crate) name: OsString,
 }
 
 impl Group {
@@ -3174,11 +3175,11 @@ impl Group {
     ///
     /// for user in users.list() {
     ///     for group in user.groups() {
-    ///         println!("{}", group.name());
+    ///         println!("{:?}", group.name());
     ///     }
     /// }
     /// ```
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &OsStr {
         &self.name
     }
 }
@@ -3593,7 +3594,7 @@ impl Components {
 ///
 /// let components = Components::new_with_refreshed_list();
 /// for component in &components {
-///     println!("{} {}°C", component.label(), component.temperature());
+///     println!("{:?} {}°C", component.label(), component.temperature());
 /// }
 /// ```
 pub struct Component {
@@ -3679,10 +3680,10 @@ impl Component {
     ///
     /// let components = Components::new_with_refreshed_list();
     /// for component in &components {
-    ///     println!("{}", component.label());
+    ///     println!("{:?}", component.label());
     /// }
     /// ```
-    pub fn label(&self) -> &str {
+    pub fn label(&self) -> &OsStr {
         self.inner.label()
     }
 
@@ -3758,10 +3759,10 @@ impl Cpu {
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
     /// );
     /// for cpu in s.cpus() {
-    ///     println!("{}", cpu.name());
+    ///     println!("{:?}", cpu.name());
     /// }
     /// ```
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &OsStr {
         self.inner.name()
     }
 
@@ -3774,10 +3775,10 @@ impl Cpu {
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
     /// );
     /// for cpu in s.cpus() {
-    ///     println!("{}", cpu.vendor_id());
+    ///     println!("{:?}", cpu.vendor_id());
     /// }
     /// ```
-    pub fn vendor_id(&self) -> &str {
+    pub fn vendor_id(&self) -> &OsStr {
         self.inner.vendor_id()
     }
 
@@ -3790,10 +3791,10 @@ impl Cpu {
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
     /// );
     /// for cpu in s.cpus() {
-    ///     println!("{}", cpu.brand());
+    ///     println!("{:?}", cpu.brand());
     /// }
     /// ```
-    pub fn brand(&self) -> &str {
+    pub fn brand(&self) -> &OsStr {
         self.inner.brand()
     }
 

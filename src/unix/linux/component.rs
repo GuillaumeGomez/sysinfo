@@ -6,15 +6,19 @@
 // transposed to rust we only read `u32` or `i32` values.
 use crate::Component;
 
+use bstr::ByteSlice;
+
 use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
 use std::fs::{read_dir, File};
 use std::io::Read;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 
 #[derive(Default)]
 pub(crate) struct ComponentInner {
     /// Optional associated device of a `Component`.
-    device_model: Option<String>,
+    device_model: Option<OsString>,
     /// The chip name.
     ///
     /// Kernel documentation extract:
@@ -26,7 +30,7 @@ pub(crate) struct ComponentInner {
     /// mandatory attribute.
     /// I2C devices get this attribute created automatically.
     /// ```
-    name: String,
+    name: OsString,
     /// Temperature current value
     /// - Read in: `temp[1-*]_input`.
     /// - Unit: read as millidegree Celsius converted to Celsius.
@@ -70,7 +74,7 @@ pub(crate) struct ComponentInner {
     /// Should only be created if the driver has hints about what
     /// this temperature channel is being used for, and user-space
     /// doesn't. In all other cases, the label is provided by user-space.
-    label: String,
+    label: OsString,
     // TODO: not used now.
     // Historical minimum temperature
     // - Read in:`temp[1-*]_lowest
@@ -94,12 +98,12 @@ pub(crate) struct ComponentInner {
 }
 
 // Read arbitrary data from sysfs.
-fn get_file_line(file: &Path, capacity: usize) -> Option<String> {
-    let mut reader = String::with_capacity(capacity);
+fn get_file_line(file: &Path, capacity: usize) -> Option<OsString> {
+    let mut reader = Vec::with_capacity(capacity);
     let mut f = File::open(file).ok()?;
-    f.read_to_string(&mut reader).ok()?;
+    f.read_to_end(&mut reader).ok()?;
     reader.truncate(reader.trim_end().len());
-    Some(reader)
+    Some(OsString::from_vec(reader))
 }
 
 /// Designed at first for reading an `i32` or `u32` aka `c_long`
@@ -277,7 +281,7 @@ impl ComponentInner {
 
     /// Compute a label out of available information.
     /// See the table in `Component::label`'s documentation.
-    fn format_label(&self, class: &str, id: u32) -> String {
+    fn format_label(&self, class: &str, id: u32) -> OsString {
         let ComponentInner {
             device_model,
             name,
@@ -285,14 +289,26 @@ impl ComponentInner {
             ..
         } = self;
         let has_label = !label.is_empty();
-        match (has_label, device_model) {
-            (true, Some(device_model)) => {
-                format!("{name} {label} {device_model} {class}{id}")
-            }
-            (true, None) => format!("{name} {label}"),
-            (false, Some(device_model)) => format!("{name} {device_model}"),
-            (false, None) => format!("{name} {class}{id}"),
+
+        let mut buf = name.as_bytes().to_vec();
+
+        if has_label {
+            buf.push(b' ');
+            buf.extend(label.as_bytes());
         }
+
+        if let Some(device_model) = device_model {
+            buf.push(b' ');
+            buf.extend(device_model.as_bytes());
+        }
+
+        if has_label == device_model.is_some() {
+            buf.push(b' ');
+            buf.extend(class.as_bytes());
+            buf.extend(id.to_string().as_bytes());
+        }
+
+        OsString::from_vec(buf)
     }
 
     pub(crate) fn temperature(&self) -> f32 {
@@ -307,7 +323,7 @@ impl ComponentInner {
         self.threshold_critical
     }
 
-    pub(crate) fn label(&self) -> &str {
+    pub(crate) fn label(&self) -> &OsStr {
         &self.label
     }
 

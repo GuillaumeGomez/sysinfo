@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::common::MacAddr;
-use std::ptr::null_mut;
+use std::{ffi::OsString, os::unix::ffi::OsStringExt, ptr::null_mut};
 
 /// This iterator yields an interface name and address.
 pub(crate) struct InterfaceAddressIterator {
@@ -12,7 +12,7 @@ pub(crate) struct InterfaceAddressIterator {
 }
 
 impl Iterator for InterfaceAddressIterator {
-    type Item = (String, MacAddr);
+    type Item = (OsString, MacAddr);
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
@@ -31,7 +31,7 @@ impl Iterator for InterfaceAddressIterator {
                     let mut name = vec![0u8; libc::IFNAMSIZ + 6];
                     libc::strcpy(name.as_mut_ptr() as _, (*ifap).ifa_name);
                     name.set_len(libc::strlen((*ifap).ifa_name));
-                    let name = String::from_utf8_unchecked(name);
+                    let name = OsString::from_vec(name);
 
                     return Some((name, addr));
                 }

@@ -7,6 +7,8 @@ use crate::{
     Group, User,
 };
 
+use std::ffi::{OsStr, OsString};
+use std::os::windows::ffi::OsStringExt;
 use std::ptr::null_mut;
 use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::{ERROR_MORE_DATA, LUID};
@@ -23,13 +25,13 @@ use windows::Win32::Security::Authentication::Identity::{
 pub(crate) struct UserInner {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,
-    pub(crate) name: String,
+    pub(crate) name: OsString,
     c_user_name: Option<Vec<u16>>,
     is_local: bool,
 }
 
 impl UserInner {
-    fn new(uid: Uid, name: String, c_name: PCWSTR, is_local: bool) -> Self {
+    fn new(uid: Uid, name: OsString, c_name: PCWSTR, is_local: bool) -> Self {
         let c_user_name = if c_name.is_null() {
             None
         } else {
@@ -52,7 +54,7 @@ impl UserInner {
         self.gid
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.name
     }
 
@@ -248,14 +250,10 @@ pub(crate) fn get_users(users: &mut Vec<User>) {
                     // a better name), but fall back to the name we were given
                     // if this fails.
                     let name = sid.account_name().unwrap_or_else(|| {
-                        String::from_utf16(std::slice::from_raw_parts(
+                        OsString::from_wide(std::slice::from_raw_parts(
                             data.UserName.Buffer.as_ptr(),
                             data.UserName.Length as usize / std::mem::size_of::<u16>(),
                         ))
-                        .unwrap_or_else(|_err| {
-                            sysinfo_debug!("Failed to convert from UTF-16 string: {}", _err);
-                            String::new()
-                        })
                     });
 
                     users.push(User {

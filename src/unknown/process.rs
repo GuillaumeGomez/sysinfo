@@ -2,6 +2,7 @@
 
 use crate::{DiskUsage, Gid, Pid, ProcessStatus, Signal, Uid};
 
+use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::path::Path;
 
@@ -21,11 +22,11 @@ impl ProcessInner {
         None
     }
 
-    pub(crate) fn name(&self) -> &str {
-        ""
+    pub(crate) fn name(&self) -> &OsStr {
+        OsStr::new("")
     }
 
-    pub(crate) fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[OsString] {
         &[]
     }
 
@@ -37,7 +38,7 @@ impl ProcessInner {
         self.pid
     }
 
-    pub(crate) fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[OsString] {
         &[]
     }
 

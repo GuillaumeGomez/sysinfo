@@ -6,7 +6,7 @@ description = "Library to get system information such as processes, CPUs, disks,
 repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "MIT"
 readme = "README.md"
-rust-version = "1.69"
+rust-version = "1.74"
 exclude = ["/test-unknown"]
 categories = ["filesystem", "os", "api-bindings"]
 edition = "2018"
@@ -40,7 +40,9 @@ cargo-args = ["-Zbuild-std"]
 rustdoc-args = ["--generate-link-to-definition"]
 
 [dependencies]
+bstr = "1.9.0"
 cfg-if = "1.0"
+memchr = "2.7.1"
 rayon = { version = "^1.8", optional = true }
 serde = { version = "^1.0.190", optional = true }
 

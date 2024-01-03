@@ -4,8 +4,9 @@ use crate::{Pid, Process};
 use libc::{c_char, c_int, timeval};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::ffi::CStr;
+use std::ffi::{CStr, OsStr, OsString};
 use std::mem;
+use std::os::unix::ffi::OsStrExt;
 use std::time::SystemTime;
 
 /// This struct is used to switch between the "old" and "new" every time you use "get_mut".
@@ -109,23 +110,26 @@ pub(crate) unsafe fn get_sys_value_array<T: Sized>(mib: &[c_int], value: &mut [T
     ) == 0
 }
 
-pub(crate) fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
+pub(crate) fn c_buf_to_str(buf: &[libc::c_char]) -> &OsStr {
     unsafe {
         let buf: &[u8] = std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
         if let Some(pos) = buf.iter().position(|x| *x == 0) {
             // Shrink buffer to terminate the null bytes
-            std::str::from_utf8(&buf[..pos]).ok()
+            OsStr::from_bytes(&buf[..pos])
         } else {
-            std::str::from_utf8(buf).ok()
+            OsStr::from_bytes(buf)
         }
     }
 }
 
-pub(crate) fn c_buf_to_string(buf: &[libc::c_char]) -> Option<String> {
-    c_buf_to_str(buf).map(|s| s.to_owned())
+pub(crate) fn c_buf_to_string(buf: &[libc::c_char]) -> OsString {
+    c_buf_to_str(buf).to_owned()
 }
 
-pub(crate) unsafe fn get_sys_value_str(mib: &[c_int], buf: &mut [libc::c_char]) -> Option<String> {
+pub(crate) unsafe fn get_sys_value_str(
+    mib: &[c_int],
+    buf: &mut [libc::c_char],
+) -> Option<OsString> {
     let mut len = mem::size_of_val(buf) as libc::size_t;
     if libc::sysctl(
         mib.as_ptr(),
@@ -138,7 +142,9 @@ pub(crate) unsafe fn get_sys_value_str(mib: &[c_int], buf: &mut [libc::c_char]) 
     {
         return None;
     }
-    c_buf_to_string(&buf[..len / mem::size_of::<libc::c_char>()])
+    Some(c_buf_to_string(
+        &buf[..len / mem::size_of::<libc::c_char>()],
+    ))
 }
 
 pub(crate) unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T) -> bool {
@@ -155,7 +161,7 @@ pub(crate) unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T)
         && original == len
 }
 
-pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
+pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<OsString> {
     let mut size = 0;
 
     unsafe {
@@ -180,7 +186,7 @@ pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
             ) == 0
                 && size > 0
             {
-                c_buf_to_string(&buf)
+                Some(c_buf_to_string(&buf))
             } else {
                 // getting the system value failed
                 None
@@ -191,7 +197,7 @@ pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
     }
 }
 
-pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
+pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<OsString> {
     let mut size = 0;
 
     unsafe {
@@ -207,7 +213,7 @@ pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<St
 
         // exit early if we did not update the size
         if size == 0 {
-            default.map(|s| s.to_owned())
+            default.map(|s| s.into())
         } else {
             // set the buffer to the correct size
             let mut buf: Vec<libc::c_char> = vec![0; size as _];
@@ -222,15 +228,15 @@ pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<St
             ) == -1
             {
                 // If command fails return default
-                default.map(|s| s.to_owned())
+                default.map(|s| s.into())
             } else {
-                c_buf_to_string(&buf)
+                Some(c_buf_to_string(&buf))
             }
         }
     }
 }
 
-pub(crate) unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<String> {
+pub(crate) unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<OsString> {
     if ptr.is_null() {
         return Vec::new();
     }
@@ -249,9 +255,7 @@ pub(crate) unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<String> {
 
     for pos in 0..max {
         let p = ptr.add(pos);
-        if let Ok(s) = CStr::from_ptr(*p).to_str() {
-            ret.push(s.to_owned());
-        }
+        ret.push(OsStr::from_bytes(CStr::from_ptr(*p).to_bytes()).to_os_string());
     }
     ret
 }

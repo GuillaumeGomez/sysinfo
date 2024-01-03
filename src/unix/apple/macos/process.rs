@@ -1,6 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::ffi::{OsStr, OsString};
 use std::mem::{self, MaybeUninit};
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 
 use libc::{c_int, c_void, kill};
@@ -12,12 +14,12 @@ use crate::sys::system::Wrap;
 use crate::unix::utils::cstr_to_rust_with_size;
 
 pub(crate) struct ProcessInner {
-    pub(crate) name: String,
-    pub(crate) cmd: Vec<String>,
+    pub(crate) name: OsString,
+    pub(crate) cmd: Vec<OsString>,
     pub(crate) exe: Option<PathBuf>,
     pid: Pid,
     parent: Option<Pid>,
-    pub(crate) environ: Vec<String>,
+    pub(crate) environ: Vec<OsString>,
     cwd: Option<PathBuf>,
     pub(crate) root: Option<PathBuf>,
     pub(crate) memory: u64,
@@ -47,7 +49,7 @@ pub(crate) struct ProcessInner {
 impl ProcessInner {
     pub(crate) fn new_empty(pid: Pid) -> Self {
         Self {
-            name: String::new(),
+            name: OsString::new(),
             pid,
             parent: None,
             cmd: Vec::new(),
@@ -78,7 +80,7 @@ impl ProcessInner {
 
     pub(crate) fn new(pid: Pid, parent: Option<Pid>, start_time: u64, run_time: u64) -> Self {
         Self {
-            name: String::new(),
+            name: OsString::new(),
             pid,
             parent,
             cmd: Vec::new(),
@@ -112,11 +114,11 @@ impl ProcessInner {
         unsafe { Some(kill(self.pid.0, c_signal) == 0) }
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.name
     }
 
-    pub(crate) fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[OsString] {
         &self.cmd
     }
 
@@ -128,7 +130,7 @@ impl ProcessInner {
         self.pid
     }
 
-    pub(crate) fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[OsString] {
         &self.environ
     }
 
@@ -400,14 +402,10 @@ unsafe fn get_exe_and_name_backup(
     ) {
         x if x > 0 => {
             buffer.set_len(x as _);
-            let tmp = String::from_utf8_unchecked(buffer);
+            let tmp = OsString::from_vec(buffer);
             let exe = PathBuf::from(tmp);
             if process.name.is_empty() {
-                process.name = exe
-                    .file_name()
-                    .and_then(|x| x.to_str())
-                    .unwrap_or("")
-                    .to_owned();
+                process.name = exe.file_name().unwrap_or_default().to_owned();
             }
             if exe_needs_update {
                 process.exe = Some(exe);
@@ -540,11 +538,7 @@ unsafe fn get_process_infos(process: &mut ProcessInner, refresh_kind: ProcessRef
 
     let (exe, proc_args) = get_exe(proc_args);
     if process.name.is_empty() {
-        process.name = exe
-            .file_name()
-            .and_then(|x| x.to_str())
-            .unwrap_or("")
-            .to_owned();
+        process.name = exe.file_name().unwrap_or_default().to_owned();
     }
 
     if refresh_kind.exe().needs_update(|| process.exe.is_none()) {
@@ -568,16 +562,14 @@ unsafe fn get_process_infos(process: &mut ProcessInner, refresh_kind: ProcessRef
 
 fn get_exe(data: &[u8]) -> (PathBuf, &[u8]) {
     let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
-    unsafe {
-        (
-            Path::new(std::str::from_utf8_unchecked(&data[..pos])).to_path_buf(),
-            &data[pos..],
-        )
-    }
+    (
+        Path::new(OsStr::from_bytes(&data[..pos])).to_path_buf(),
+        &data[pos..],
+    )
 }
 
 fn get_arguments<'a>(
-    cmd: &mut Vec<String>,
+    cmd: &mut Vec<OsString>,
     mut data: &'a [u8],
     mut n_args: c_int,
     refresh_cmd: bool,
@@ -593,42 +585,38 @@ fn get_arguments<'a>(
         data = &data[1..];
     }
 
-    unsafe {
-        while n_args > 0 && !data.is_empty() {
-            let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
-            let arg = std::str::from_utf8_unchecked(&data[..pos]);
-            if !arg.is_empty() && refresh_cmd {
-                cmd.push(arg.to_string());
-            }
-            data = &data[pos..];
-            while data.first() == Some(&0) {
-                data = &data[1..];
-            }
-            n_args -= 1;
+    while n_args > 0 && !data.is_empty() {
+        let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
+        let arg = &data[..pos];
+        if !arg.is_empty() && refresh_cmd {
+            cmd.push(OsStr::from_bytes(arg).to_os_string());
         }
-        data
+        data = &data[pos..];
+        while data.first() == Some(&0) {
+            data = &data[1..];
+        }
+        n_args -= 1;
     }
+    data
 }
 
-fn get_environ(environ: &mut Vec<String>, mut data: &[u8]) {
+fn get_environ(environ: &mut Vec<OsString>, mut data: &[u8]) {
     environ.clear();
 
     while data.first() == Some(&0) {
         data = &data[1..];
     }
 
-    unsafe {
-        while !data.is_empty() {
-            let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
-            let arg = std::str::from_utf8_unchecked(&data[..pos]);
-            if arg.is_empty() {
-                return;
-            }
-            environ.push(arg.to_string());
-            data = &data[pos..];
-            while data.first() == Some(&0) {
-                data = &data[1..];
-            }
+    while !data.is_empty() {
+        let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
+        let arg = &data[..pos];
+        if arg.is_empty() {
+            return;
+        }
+        environ.push(OsStr::from_bytes(arg).to_os_string());
+        data = &data[pos..];
+        while data.first() == Some(&0) {
+            data = &data[1..];
         }
     }
 }

@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::ffi::OsString;
+use std::os::windows::ffi::OsStringExt;
 use std::ptr::null_mut;
 
 use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, ERROR_SUCCESS};
@@ -42,7 +44,7 @@ impl InterfaceAddressIterator {
 }
 
 impl Iterator for InterfaceAddressIterator {
-    type Item = (String, MacAddr);
+    type Item = (OsString, MacAddr);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.adapter.is_null() {
@@ -52,14 +54,10 @@ impl Iterator for InterfaceAddressIterator {
             let adapter = self.adapter;
             // Move to the next adapter
             self.adapter = (*adapter).Next;
-            if let Ok(interface_name) = (*adapter).FriendlyName.to_string() {
-                // take the first 6 bytes and return the MAC address instead
-                let [mac @ .., _, _] = (*adapter).PhysicalAddress;
-                Some((interface_name, MacAddr(mac)))
-            } else {
-                // Not sure whether error can occur when parsing adapter name.
-                self.next()
-            }
+            let interface_name = OsString::from_wide((*adapter).FriendlyName.as_wide());
+            // take the first 6 bytes and return the MAC address instead
+            let [mac @ .., _, _] = (*adapter).PhysicalAddress;
+            Some((interface_name, MacAddr(mac)))
         }
     }
 }

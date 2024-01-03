@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::ffi::{OsStr, OsString};
+
 use crate::sys::utils::{
     get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name, init_mib, VecSwitcher,
 };
@@ -47,7 +49,7 @@ impl CpusWrapper {
             init_mib(b"kern.cp_times\0", &mut mib_cp_times);
             Self {
                 global_cpu: Cpu {
-                    inner: CpuInner::new(String::new(), String::new(), 0),
+                    inner: CpuInner::new(String::new(), OsString::new(), 0),
                 },
                 cpus: Vec::with_capacity(nb_cpus),
                 got_cpu_frequency: false,
@@ -66,7 +68,7 @@ impl CpusWrapper {
 
             // We get the CPU vendor ID in here.
             let vendor_id =
-                get_sys_value_str_by_name(b"hw.model\0").unwrap_or_else(|| "<unknown>".to_owned());
+                get_sys_value_str_by_name(b"hw.model\0").unwrap_or_else(|| "<unknown>".into());
 
             for pos in 0..self.nb_cpus {
                 if refresh_kind.frequency() {
@@ -139,12 +141,12 @@ impl CpusWrapper {
 pub(crate) struct CpuInner {
     pub(crate) cpu_usage: f32,
     name: String,
-    pub(crate) vendor_id: String,
+    pub(crate) vendor_id: OsString,
     pub(crate) frequency: u64,
 }
 
 impl CpuInner {
-    pub(crate) fn new(name: String, vendor_id: String, frequency: u64) -> Self {
+    pub(crate) fn new(name: String, vendor_id: OsString, frequency: u64) -> Self {
         Self {
             cpu_usage: 0.,
             name,
@@ -157,20 +159,20 @@ impl CpuInner {
         self.cpu_usage
     }
 
-    pub(crate) fn name(&self) -> &str {
-        &self.name
+    pub(crate) fn name(&self) -> &OsStr {
+        OsStr::new(&self.name)
     }
 
     pub(crate) fn frequency(&self) -> u64 {
         self.frequency
     }
 
-    pub(crate) fn vendor_id(&self) -> &str {
+    pub(crate) fn vendor_id(&self) -> &OsStr {
         &self.vendor_id
     }
 
-    pub(crate) fn brand(&self) -> &str {
-        ""
+    pub(crate) fn brand(&self) -> &OsStr {
+        OsStr::new("")
     }
 }
 

@@ -3,18 +3,17 @@
 #![allow(clippy::too_many_arguments)]
 
 use std::collections::{HashMap, HashSet};
-use std::fs::File;
+use std::ffi::{OsStr, OsString};
+use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read};
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
+use std::str;
 use std::time::Instant;
+
+use bstr::ByteSlice;
 
 use crate::sys::utils::to_u64;
 use crate::{Cpu, CpuRefreshKind};
-
-macro_rules! to_str {
-    ($e:expr) => {
-        unsafe { std::str::from_utf8_unchecked($e) }
-    };
-}
 
 pub(crate) struct CpusWrapper {
     pub(crate) global_cpu: Cpu,
@@ -34,7 +33,7 @@ impl CpusWrapper {
         Self {
             global_cpu: Cpu {
                 inner: CpuInner::new_with_values(
-                    "",
+                    OsStr::new(""),
                     0,
                     0,
                     0,
@@ -46,8 +45,8 @@ impl CpusWrapper {
                     0,
                     0,
                     0,
-                    String::new(),
-                    String::new(),
+                    OsString::new(),
+                    OsString::new(),
                 ),
             },
             cpus: Vec::with_capacity(4),
@@ -105,7 +104,7 @@ impl CpusWrapper {
                     let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
                     if first {
                         self.global_cpu.inner.name =
-                            to_str!(parts.next().unwrap_or(&[])).to_owned();
+                            OsStr::from_bytes(parts.next().unwrap_or(&[])).to_owned();
                     } else {
                         parts.next();
                     }
@@ -132,11 +131,11 @@ impl CpusWrapper {
                         if first {
                             let (vendor_id, brand) = match vendors_brands.remove(&i) {
                                 Some((vendor_id, brand)) => (vendor_id, brand),
-                                None => (String::new(), String::new()),
+                                None => (OsString::new(), OsString::new()),
                             };
                             self.cpus.push(Cpu {
                                 inner: CpuInner::new_with_values(
-                                    to_str!(parts.next().unwrap_or(&[])),
+                                    OsStr::from_bytes(parts.next().unwrap_or(&[])),
                                     parts.next().map(to_u64).unwrap_or(0),
                                     parts.next().map(to_u64).unwrap_or(0),
                                     parts.next().map(to_u64).unwrap_or(0),
@@ -310,18 +309,18 @@ impl CpuValues {
 pub(crate) struct CpuInner {
     old_values: CpuValues,
     new_values: CpuValues,
-    pub(crate) name: String,
+    pub(crate) name: OsString,
     cpu_usage: f32,
     total_time: u64,
     old_total_time: u64,
     pub(crate) frequency: u64,
-    pub(crate) vendor_id: String,
-    pub(crate) brand: String,
+    pub(crate) vendor_id: OsString,
+    pub(crate) brand: OsString,
 }
 
 impl CpuInner {
     pub(crate) fn new_with_values(
-        name: &str,
+        name: &OsStr,
         user: u64,
         nice: u64,
         system: u64,
@@ -333,8 +332,8 @@ impl CpuInner {
         guest: u64,
         guest_nice: u64,
         frequency: u64,
-        vendor_id: String,
-        brand: String,
+        vendor_id: OsString,
+        brand: OsString,
     ) -> Self {
         let mut new_values = CpuValues::new();
         new_values.set(
@@ -393,7 +392,7 @@ impl CpuInner {
         self.cpu_usage
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.name
     }
 
@@ -402,11 +401,11 @@ impl CpuInner {
         self.frequency
     }
 
-    pub(crate) fn vendor_id(&self) -> &str {
+    pub(crate) fn vendor_id(&self) -> &OsStr {
         &self.vendor_id
     }
 
-    pub(crate) fn brand(&self) -> &str {
+    pub(crate) fn brand(&self) -> &OsStr {
         &self.brand
     }
 }
@@ -714,41 +713,40 @@ fn get_arm_part(implementer: u32, part: u32) -> Option<&'static str> {
 }
 
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
-pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
-    let mut s = String::new();
-    if File::open("/proc/cpuinfo")
-        .and_then(|mut f| f.read_to_string(&mut s))
-        .is_err()
-    {
+pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (OsString, OsString)> {
+    let Ok(s) = fs::read("/proc/cpuinfo") else {
         return HashMap::new();
+    };
+
+    fn get_value(s: &[u8]) -> OsString {
+        OsString::from_vec(
+            s.rsplit(|&b| b == b':')
+                .next()
+                .map(|x| x.trim().to_owned())
+                .unwrap_or_default(),
+        )
     }
 
-    fn get_value(s: &str) -> String {
-        s.split(':')
-            .last()
-            .map(|x| x.trim().to_owned())
-            .unwrap_or_default()
-    }
-
-    fn get_hex_value(s: &str) -> u32 {
-        s.split(':')
-            .last()
+    fn get_hex_value(s: &[u8]) -> u32 {
+        s.rsplit(|&b| b == b':')
+            .next()
             .map(|x| x.trim())
-            .filter(|x| x.starts_with("0x"))
-            .map(|x| u32::from_str_radix(&x[2..], 16).unwrap())
+            .and_then(|x| x.strip_prefix(b"0x"))
+            .and_then(|x| str::from_utf8(x).ok())
+            .and_then(|x| u32::from_str_radix(x, 16).ok())
             .unwrap_or_default()
     }
 
     #[inline]
-    fn is_new_processor(line: &str) -> bool {
-        line.starts_with("processor\t")
+    fn is_new_processor(line: &[u8]) -> bool {
+        line.starts_with(b"processor\t")
     }
 
     #[derive(Default)]
     struct CpuInfo {
         index: usize,
-        vendor_id: Option<String>,
-        brand: Option<String>,
+        vendor_id: Option<OsString>,
+        brand: Option<OsString>,
         implementer: Option<u32>,
         part: Option<u32>,
     }
@@ -759,11 +757,11 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
                 || (self.implementer.is_some() && self.part.is_some())
         }
 
-        fn convert(mut self) -> (usize, String, String) {
+        fn convert(mut self) -> (usize, OsString, OsString) {
             let (vendor_id, brand) = if let (Some(implementer), Some(part)) =
                 (self.implementer.take(), self.part.take())
             {
-                let vendor_id = get_arm_implementer(implementer).map(String::from);
+                let vendor_id = get_arm_implementer(implementer).map(OsString::from);
                 // It's possible to "model name" even with an ARM CPU, so just in case we can't retrieve
                 // the brand from "CPU part", we will then use the value from "model name".
                 //
@@ -775,7 +773,7 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
                 // CPU part        : 0xd03
                 // ```
                 let brand = get_arm_part(implementer, part)
-                    .map(String::from)
+                    .map(OsString::from)
                     .or_else(|| self.brand.take());
                 (vendor_id, brand)
             } else {
@@ -789,14 +787,15 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
         }
     }
 
-    let mut cpus: HashMap<usize, (String, String)> = HashMap::new();
-    let mut lines = s.split('\n');
+    let mut cpus: HashMap<usize, (OsString, OsString)> = HashMap::new();
+    let mut lines = s.split(|&b| b == b'\n');
     while let Some(line) = lines.next() {
         if is_new_processor(line) {
             let index = match line
-                .split(':')
+                .split(|&b| b == b':')
                 .nth(1)
-                .and_then(|i| i.trim().parse::<usize>().ok())
+                .and_then(|i| i.trim().to_str().ok())
+                .and_then(|i| i.parse::<usize>().ok())
             {
                 Some(index) => index,
                 None => {
@@ -812,13 +811,13 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
 
             #[allow(clippy::while_let_on_iterator)]
             while let Some(line) = lines.next() {
-                if line.starts_with("vendor_id\t") {
+                if line.starts_with(b"vendor_id\t") {
                     info.vendor_id = Some(get_value(line));
-                } else if line.starts_with("model name\t") {
+                } else if line.starts_with(b"model name\t") {
                     info.brand = Some(get_value(line));
-                } else if line.starts_with("CPU implementer\t") {
+                } else if line.starts_with(b"CPU implementer\t") {
                     info.implementer = Some(get_hex_value(line));
-                } else if line.starts_with("CPU part\t") {
+                } else if line.starts_with(b"CPU part\t") {
                     info.part = Some(get_hex_value(line));
                 } else if info.has_all_info() || is_new_processor(line) {
                     break;

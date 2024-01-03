@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::ffi::OsStr;
+
 use super::utils::get_sys_value_by_name;
 use crate::Component;
 
@@ -23,8 +25,8 @@ impl ComponentInner {
         None
     }
 
-    pub(crate) fn label(&self) -> &str {
-        &self.label
+    pub(crate) fn label(&self) -> &OsStr {
+        OsStr::new(&self.label)
     }
 
     pub(crate) fn refresh(&mut self) {

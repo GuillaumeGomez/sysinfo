@@ -105,7 +105,7 @@ pub(crate) fn get_disk_type(disk: &libc::statfs) -> Option<DiskKind> {
                     )
                 };
 
-                if let Some(disk_type) = disk_type.and_then(|medium| match medium.as_str() {
+                if let Some(disk_type) = disk_type.and_then(|medium| match &medium {
                     _ if medium == ffi::kIOPropertyMediumTypeSolidStateKey => Some(DiskKind::SSD),
                     _ if medium == ffi::kIOPropertyMediumTypeRotationalKey => Some(DiskKind::HDD),
                     _ => None,

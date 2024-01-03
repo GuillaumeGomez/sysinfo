@@ -2,7 +2,7 @@
 
 use core_foundation_sys::base::CFRelease;
 use libc::{c_void, sysctl, sysctlbyname};
-use std::ptr::NonNull;
+use std::{ffi::OsString, os::unix::ffi::OsStringExt, ptr::NonNull};
 
 // A helper using to auto release the resource got from CoreFoundation.
 // More information about the ownership policy for CoreFoundation pelease refer the link below:
@@ -35,13 +35,12 @@ impl<T> Drop for CFReleaser<T> {
 unsafe impl<T> Send for CFReleaser<T> {}
 unsafe impl<T> Sync for CFReleaser<T> {}
 
-pub(crate) fn vec_to_rust(buf: Vec<i8>) -> Option<String> {
-    String::from_utf8(
+pub(crate) fn vec_to_rust(buf: Vec<i8>) -> OsString {
+    OsString::from_vec(
         buf.into_iter()
             .flat_map(|b| if b > 0 { Some(b as u8) } else { None })
             .collect(),
     )
-    .ok()
 }
 
 pub(crate) unsafe fn get_sys_value(mut len: usize, value: *mut c_void, mib: &mut [i32]) -> bool {

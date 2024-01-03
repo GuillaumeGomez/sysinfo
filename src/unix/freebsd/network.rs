@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::collections::{hash_map, HashMap};
+use std::ffi::OsString;
 use std::mem::MaybeUninit;
 
 use super::utils;
@@ -16,7 +17,7 @@ macro_rules! old_and_new {
 }
 
 pub(crate) struct NetworksInner {
-    pub(crate) interfaces: HashMap<String, NetworkData>,
+    pub(crate) interfaces: HashMap<OsString, NetworkData>,
 }
 
 impl NetworksInner {
@@ -26,7 +27,7 @@ impl NetworksInner {
         }
     }
 
-    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+    pub(crate) fn list(&self) -> &HashMap<OsString, NetworkData> {
         &self.interfaces
     }
 
@@ -79,45 +80,45 @@ impl NetworksInner {
             if !utils::get_sys_value(&mib, &mut data) {
                 continue;
             }
-            if let Some(name) = utils::c_buf_to_string(&data.ifmd_name) {
-                let data = &data.ifmd_data;
-                match self.interfaces.entry(name) {
-                    hash_map::Entry::Occupied(mut e) => {
-                        let interface = e.get_mut();
-                        let interface = &mut interface.inner;
+            let name = utils::c_buf_to_string(&data.ifmd_name);
+            let data = &data.ifmd_data;
 
-                        old_and_new!(interface, ifi_ibytes, old_ifi_ibytes, data);
-                        old_and_new!(interface, ifi_obytes, old_ifi_obytes, data);
-                        old_and_new!(interface, ifi_ipackets, old_ifi_ipackets, data);
-                        old_and_new!(interface, ifi_opackets, old_ifi_opackets, data);
-                        old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
-                        old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
-                        interface.updated = true;
+            match self.interfaces.entry(name) {
+                hash_map::Entry::Occupied(mut e) => {
+                    let interface = e.get_mut();
+                    let interface = &mut interface.inner;
+
+                    old_and_new!(interface, ifi_ibytes, old_ifi_ibytes, data);
+                    old_and_new!(interface, ifi_obytes, old_ifi_obytes, data);
+                    old_and_new!(interface, ifi_ipackets, old_ifi_ipackets, data);
+                    old_and_new!(interface, ifi_opackets, old_ifi_opackets, data);
+                    old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
+                    old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
+                    interface.updated = true;
+                }
+                hash_map::Entry::Vacant(e) => {
+                    if !refresh_all {
+                        // This is simply a refresh, we don't want to add new interfaces!
+                        continue;
                     }
-                    hash_map::Entry::Vacant(e) => {
-                        if !refresh_all {
-                            // This is simply a refresh, we don't want to add new interfaces!
-                            continue;
-                        }
-                        e.insert(NetworkData {
-                            inner: NetworkDataInner {
-                                ifi_ibytes: data.ifi_ibytes,
-                                old_ifi_ibytes: 0,
-                                ifi_obytes: data.ifi_obytes,
-                                old_ifi_obytes: 0,
-                                ifi_ipackets: data.ifi_ipackets,
-                                old_ifi_ipackets: 0,
-                                ifi_opackets: data.ifi_opackets,
-                                old_ifi_opackets: 0,
-                                ifi_ierrors: data.ifi_ierrors,
-                                old_ifi_ierrors: 0,
-                                ifi_oerrors: data.ifi_oerrors,
-                                old_ifi_oerrors: 0,
-                                updated: true,
-                                mac_addr: MacAddr::UNSPECIFIED,
-                            },
-                        });
-                    }
+                    e.insert(NetworkData {
+                        inner: NetworkDataInner {
+                            ifi_ibytes: data.ifi_ibytes,
+                            old_ifi_ibytes: 0,
+                            ifi_obytes: data.ifi_obytes,
+                            old_ifi_obytes: 0,
+                            ifi_ipackets: data.ifi_ipackets,
+                            old_ifi_ipackets: 0,
+                            ifi_opackets: data.ifi_opackets,
+                            old_ifi_opackets: 0,
+                            ifi_ierrors: data.ifi_ierrors,
+                            old_ifi_ierrors: 0,
+                            ifi_oerrors: data.ifi_oerrors,
+                            old_ifi_oerrors: 0,
+                            updated: true,
+                            mac_addr: MacAddr::UNSPECIFIED,
+                        },
+                    });
                 }
             }
         }

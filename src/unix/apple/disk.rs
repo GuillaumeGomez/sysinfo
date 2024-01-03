@@ -269,6 +269,7 @@ unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
 ) -> Option<T> {
     #[cfg(target_os = "macos")]
     let _defined;
+    #[allow(clippy::infallible_destructuring_match)]
     let key = match key {
         DictKey::Extern(val) => val,
         #[cfg(target_os = "macos")]
@@ -294,7 +295,7 @@ unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
     }
 }
 
-pub(super) unsafe fn get_str_value(dict: CFDictionaryRef, key: DictKey) -> Option<String> {
+pub(super) unsafe fn get_str_value(dict: CFDictionaryRef, key: DictKey) -> Option<OsString> {
     get_dict_value(dict, key, |v| {
         let v = v as cfs::CFStringRef;
 
@@ -313,7 +314,7 @@ pub(super) unsafe fn get_str_value(dict: CFDictionaryRef, key: DictKey) -> Optio
             );
 
             if success != 0 {
-                utils::vec_to_rust(buf)
+                Some(utils::vec_to_rust(buf))
             } else {
                 None
             }

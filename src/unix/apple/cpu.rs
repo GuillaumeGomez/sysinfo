@@ -4,8 +4,10 @@ use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 use crate::{Cpu, CpuRefreshKind};
 
 use libc::{c_char, c_void, host_processor_info, mach_port_t, mach_task_self};
+use std::ffi::{OsStr, OsString};
 use std::mem;
 use std::ops::Deref;
+use std::os::unix::ffi::OsStringExt;
 use std::sync::Arc;
 
 pub(crate) struct CpusWrapper {
@@ -22,8 +24,8 @@ impl CpusWrapper {
                     "0".to_owned(),
                     Arc::new(CpuData::new(std::ptr::null_mut(), 0)),
                     0,
-                    String::new(),
-                    String::new(),
+                    OsString::new(),
+                    OsString::new(),
                 ),
             },
             cpus: Vec::new(),
@@ -92,7 +94,7 @@ impl CpuData {
 impl Drop for CpuData {
     fn drop(&mut self) {
         if !self.cpu_info.0.is_null() {
-            let prev_cpu_info_size = std::mem::size_of::<i32>() as u32 * self.num_cpu_info;
+            let prev_cpu_info_size = mem::size_of::<i32>() as u32 * self.num_cpu_info;
             unsafe {
                 libc::vm_deallocate(
                     mach_task_self(),
@@ -110,8 +112,8 @@ pub(crate) struct CpuInner {
     cpu_usage: f32,
     cpu_data: Arc<CpuData>,
     frequency: u64,
-    vendor_id: String,
-    brand: String,
+    vendor_id: OsString,
+    brand: OsString,
 }
 
 impl CpuInner {
@@ -119,8 +121,8 @@ impl CpuInner {
         name: String,
         cpu_data: Arc<CpuData>,
         frequency: u64,
-        vendor_id: String,
-        brand: String,
+        vendor_id: OsString,
+        brand: OsString,
     ) -> Self {
         Self {
             name,
@@ -153,26 +155,26 @@ impl CpuInner {
         self.cpu_usage
     }
 
-    pub(crate) fn name(&self) -> &str {
-        &self.name
+    pub(crate) fn name(&self) -> &OsStr {
+        OsStr::new(&self.name)
     }
 
     pub(crate) fn frequency(&self) -> u64 {
         self.frequency
     }
 
-    pub(crate) fn vendor_id(&self) -> &str {
+    pub(crate) fn vendor_id(&self) -> &OsStr {
         &self.vendor_id
     }
 
-    pub(crate) fn brand(&self) -> &str {
+    pub(crate) fn brand(&self) -> &OsStr {
         &self.brand
     }
 }
 
 pub(crate) unsafe fn get_cpu_frequency() -> u64 {
     let mut speed: u64 = 0;
-    let mut len = std::mem::size_of::<u64>();
+    let mut len = mem::size_of::<u64>();
     if libc::sysctlbyname(
         b"hw.cpufrequency\0".as_ptr() as *const _,
         &mut speed as *mut _ as _,
@@ -186,7 +188,7 @@ pub(crate) unsafe fn get_cpu_frequency() -> u64 {
 
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
     {
-        return 0;
+        0
     }
     #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     {
@@ -323,7 +325,7 @@ pub(crate) fn init_cpus(
     });
 }
 
-fn get_sysctl_str(s: &[u8]) -> String {
+fn get_sysctl_str(s: &[u8]) -> OsString {
     let mut len = 0;
 
     unsafe {
@@ -335,7 +337,7 @@ fn get_sysctl_str(s: &[u8]) -> String {
             0,
         );
         if len < 1 {
-            return String::new();
+            return OsString::new();
         }
 
         let mut buf = Vec::with_capacity(len);
@@ -351,19 +353,17 @@ fn get_sysctl_str(s: &[u8]) -> String {
             while buf.last() == Some(&b'\0') {
                 buf.pop();
             }
-            String::from_utf8(buf).unwrap_or_else(|_| String::new())
-        } else {
-            String::new()
         }
+        OsString::from_vec(buf)
     }
 }
 
-pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
+pub(crate) fn get_vendor_id_and_brand() -> (OsString, OsString) {
     // On apple M1, `sysctl machdep.cpu.vendor` returns "", so fallback to "Apple" if the result
     // is empty.
     let mut vendor = get_sysctl_str(b"machdep.cpu.vendor\0");
     if vendor.is_empty() {
-        vendor = "Apple".to_string();
+        vendor = "Apple".into();
     }
 
     (vendor, get_sysctl_str(b"machdep.cpu.brand_string\0"))

@@ -5,7 +5,7 @@ use crate::Component;
 
 use libc::{c_char, c_int, c_void};
 
-use std::mem;
+use std::{ffi::OsStr, mem};
 
 const COMPONENTS_TEMPERATURE_IDS: &[(&str, &[i8])] = &[
     ("PECI CPU", &['T' as i8, 'C' as i8, 'X' as i8, 'C' as i8]), // PECI CPU "TCXC"
@@ -86,9 +86,7 @@ impl ComponentsInner {
                 get_temperature(connection, &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0]);
 
             for (id, v) in COMPONENTS_TEMPERATURE_IDS.iter() {
-                if let Some(c) =
-                    ComponentInner::new((*id).to_owned(), None, critical_temp, v, connection)
-                {
+                if let Some(c) = ComponentInner::new(id, None, critical_temp, v, connection) {
                     self.components.push(Component { inner: c });
                 }
             }
@@ -100,14 +98,14 @@ pub(crate) struct ComponentInner {
     temperature: f32,
     max: f32,
     critical: Option<f32>,
-    label: String,
+    label: &'static str,
     ffi_part: ComponentFFI,
 }
 
 impl ComponentInner {
     /// Creates a new `ComponentInner` with the given information.
     pub(crate) fn new(
-        label: String,
+        label: &'static str,
         max: Option<f32>,
         critical: Option<f32>,
         key: &[i8],
@@ -135,8 +133,8 @@ impl ComponentInner {
         self.critical
     }
 
-    pub(crate) fn label(&self) -> &str {
-        &self.label
+    pub(crate) fn label(&self) -> &OsStr {
+        OsStr::new(&self.label)
     }
 
     pub(crate) fn refresh(&mut self) {

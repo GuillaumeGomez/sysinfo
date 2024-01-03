@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::ffi::OsStr;
+
 use crate::{Gid, Group, Uid, User};
 
 pub(crate) struct UserInner;
@@ -13,8 +15,8 @@ impl UserInner {
         Gid(0)
     }
 
-    pub(crate) fn name(&self) -> &str {
-        ""
+    pub(crate) fn name(&self) -> &OsStr {
+        OsStr::new("")
     }
 
     pub(crate) fn groups(&self) -> Vec<Group> {

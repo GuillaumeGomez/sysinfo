@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::ffi::OsStr;
+
 use crate::Component;
 
 use windows::core::w;
@@ -21,7 +23,6 @@ pub(crate) struct ComponentInner {
     temperature: f32,
     max: f32,
     critical: Option<f32>,
-    label: String,
     connection: Option<Connection>,
 }
 
@@ -38,7 +39,6 @@ impl ComponentInner {
         c.temperature(true)
             .map(|(temperature, critical)| ComponentInner {
                 temperature,
-                label: "Computer".to_owned(),
                 max: temperature,
                 critical,
                 connection: Some(c),
@@ -57,8 +57,8 @@ impl ComponentInner {
         self.critical
     }
 
-    pub(crate) fn label(&self) -> &str {
-        &self.label
+    pub(crate) fn label(&self) -> &OsStr {
+        OsStr::new("Computer")
     }
 
     pub(crate) fn refresh(&mut self) {

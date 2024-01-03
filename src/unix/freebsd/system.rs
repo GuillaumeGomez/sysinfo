@@ -6,8 +6,9 @@ use crate::{
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::ffi::CStr;
+use std::ffi::{CStr, OsString};
 use std::mem::MaybeUninit;
+use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
 
@@ -18,6 +19,7 @@ use crate::sys::utils::{
     get_system_info, init_mib,
 };
 
+use bstr::ByteSlice;
 use libc::c_int;
 
 pub(crate) struct SystemInner {
@@ -214,7 +216,7 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn name() -> Option<String> {
+    pub(crate) fn name() -> Option<OsString> {
         let mut os_type: [c_int; 2] = [0; 2];
         unsafe {
             init_mib(b"kern.ostype\0", &mut os_type);
@@ -222,17 +224,21 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn os_version() -> Option<String> {
+    pub(crate) fn os_version() -> Option<OsString> {
         let mut os_release: [c_int; 2] = [0; 2];
         unsafe {
             init_mib(b"kern.osrelease\0", &mut os_release);
             // It returns something like "13.0-RELEASE". We want to keep everything until the "-".
-            get_system_info(&os_release, None)
-                .and_then(|s| s.split('-').next().map(|s| s.to_owned()))
+            get_system_info(&os_release, None).map(|s| {
+                let mut s = s.into_vec();
+                let pos = s.find_byte(b'-').unwrap_or(s.len());
+                s.drain(pos..);
+                OsString::from_vec(s)
+            })
         }
     }
 
-    pub(crate) fn long_os_version() -> Option<String> {
+    pub(crate) fn long_os_version() -> Option<OsString> {
         let mut os_release: [c_int; 2] = [0; 2];
         unsafe {
             init_mib(b"kern.osrelease\0", &mut os_release);
@@ -240,7 +246,7 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn host_name() -> Option<String> {
+    pub(crate) fn host_name() -> Option<OsString> {
         let mut hostname: [c_int; 2] = [0; 2];
         unsafe {
             init_mib(b"kern.hostname\0", &mut hostname);
@@ -248,7 +254,7 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn kernel_version() -> Option<String> {
+    pub(crate) fn kernel_version() -> Option<OsString> {
         let mut kern_version: [c_int; 2] = [0; 2];
         unsafe {
             init_mib(b"kern.version\0", &mut kern_version);
@@ -256,8 +262,8 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn distribution_id() -> String {
-        std::env::consts::OS.to_owned()
+    pub(crate) fn distribution_id() -> OsString {
+        std::env::consts::OS.into()
     }
 
     pub(crate) fn cpu_arch() -> Option<String> {
@@ -380,7 +386,7 @@ unsafe fn add_missing_proc_info(
             if !cmd.is_empty() {
                 // First, we try to retrieve the name from the command line.
                 let p = Path::new(&cmd[0]);
-                if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
+                if let Some(name) = p.file_name() {
                     proc_inner.name = name.to_owned();
                 }
 
@@ -395,7 +401,7 @@ unsafe fn add_missing_proc_info(
             // The name can be cut short because the `ki_comm` field size is limited,
             // which is why we prefer to get the name from the command line as much as
             // possible.
-            proc_inner.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_default();
+            proc_inner.name = c_buf_to_string(&kproc.ki_comm);
         }
         if refresh_kind
             .environ()

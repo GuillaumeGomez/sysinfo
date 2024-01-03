@@ -4,7 +4,7 @@ use crate::sys::tools::KeyHandler;
 use crate::{Cpu, CpuRefreshKind, LoadAvg};
 
 use std::collections::HashMap;
-use std::ffi::c_void;
+use std::ffi::{c_void, OsStr};
 use std::io::Error;
 use std::mem;
 use std::ops::DerefMut;
@@ -254,7 +254,7 @@ impl CpusWrapper {
         Self {
             global: Cpu {
                 inner: CpuInner::new_with_values(
-                    "Total CPU".to_owned(),
+                    "Total CPU".into(),
                     String::new(),
                     String::new(),
                     0,
@@ -324,20 +324,20 @@ impl CpuInner {
         self.cpu_usage
     }
 
-    pub(crate) fn name(&self) -> &str {
-        &self.name
+    pub(crate) fn name(&self) -> &OsStr {
+        OsStr::new(&self.name)
     }
 
     pub(crate) fn frequency(&self) -> u64 {
         self.frequency
     }
 
-    pub(crate) fn vendor_id(&self) -> &str {
-        &self.vendor_id
+    pub(crate) fn vendor_id(&self) -> &OsStr {
+        OsStr::new(&self.vendor_id)
     }
 
-    pub(crate) fn brand(&self) -> &str {
-        &self.brand
+    pub(crate) fn brand(&self) -> &OsStr {
+        OsStr::new(&self.brand)
     }
 
     pub(crate) fn new_with_values(
@@ -390,6 +390,8 @@ fn get_vendor_id_not_great(info: &SYSTEM_INFO) -> String {
     }
 }
 
+// We can retrieve these as OsString because __cpuid is not part of the OS and
+// therefore doesn't follow any wide string conventions.
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
     #[cfg(target_arch = "x86")]
@@ -397,12 +399,8 @@ pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::__cpuid;
 
-    unsafe fn add_u32(v: &mut Vec<u8>, i: u32) {
-        let i = &i as *const u32 as *const u8;
-        v.push(*i);
-        v.push(*i.offset(1));
-        v.push(*i.offset(2));
-        v.push(*i.offset(3));
+    fn add_u32(v: &mut Vec<u8>, i: u32) {
+        v.extend(i.to_ne_bytes());
     }
 
     unsafe {

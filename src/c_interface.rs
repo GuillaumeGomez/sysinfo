@@ -524,7 +524,7 @@ pub extern "C" fn sysinfo_cpu_vendor_id(system: CSystem) -> RString {
         let c_string = if let Some(c) = system
             .cpus()
             .first()
-            .and_then(|cpu| CString::new(cpu.vendor_id()).ok())
+            .and_then(|cpu| CString::new(cpu.vendor_id().as_encoded_bytes()).ok())
         {
             c.into_raw() as RString
         } else {
@@ -544,7 +544,7 @@ pub extern "C" fn sysinfo_cpu_brand(system: CSystem) -> RString {
         let c_string = if let Some(c) = system
             .cpus()
             .first()
-            .and_then(|cpu| CString::new(cpu.brand()).ok())
+            .and_then(|cpu| CString::new(cpu.brand().as_encoded_bytes()).ok())
         {
             c.into_raw() as RString
         } else {
@@ -586,18 +586,21 @@ pub extern "C" fn sysinfo_cpu_frequency(system: CSystem) -> u64 {
 /// Equivalent of [`System::name()`][crate::System#method.name].
 #[no_mangle]
 pub extern "C" fn sysinfo_system_name() -> RString {
-    let c_string = if let Some(c) = System::name().and_then(|p| CString::new(p).ok()) {
-        c.into_raw() as _
-    } else {
-        std::ptr::null()
-    };
+    let c_string =
+        if let Some(c) = System::name().and_then(|p| CString::new(p.as_encoded_bytes()).ok()) {
+            c.into_raw() as _
+        } else {
+            std::ptr::null()
+        };
     c_string
 }
 
 /// Equivalent of [`System::version()`][crate::System#method.version].
 #[no_mangle]
 pub extern "C" fn sysinfo_system_version() -> RString {
-    let c_string = if let Some(c) = System::os_version().and_then(|c| CString::new(c).ok()) {
+    let c_string = if let Some(c) =
+        System::os_version().and_then(|c| CString::new(c.as_encoded_bytes()).ok())
+    {
         c.into_raw() as _
     } else {
         std::ptr::null()
@@ -608,7 +611,9 @@ pub extern "C" fn sysinfo_system_version() -> RString {
 /// Equivalent of [`System::kernel_version()`][crate::System#method.kernel_version].
 #[no_mangle]
 pub extern "C" fn sysinfo_system_kernel_version() -> RString {
-    let c_string = if let Some(c) = System::kernel_version().and_then(|c| CString::new(c).ok()) {
+    let c_string = if let Some(c) =
+        System::kernel_version().and_then(|c| CString::new(c.as_encoded_bytes()).ok())
+    {
         c.into_raw() as _
     } else {
         std::ptr::null()
@@ -620,7 +625,9 @@ pub extern "C" fn sysinfo_system_kernel_version() -> RString {
 /// Equivalent of [`System::host_name()`][crate::System#method.host_name].
 #[no_mangle]
 pub extern "C" fn sysinfo_system_host_name() -> RString {
-    let c_string = if let Some(c) = System::host_name().and_then(|c| CString::new(c).ok()) {
+    let c_string = if let Some(c) =
+        System::host_name().and_then(|c| CString::new(c.as_encoded_bytes()).ok())
+    {
         c.into_raw() as _
     } else {
         std::ptr::null()
@@ -631,7 +638,9 @@ pub extern "C" fn sysinfo_system_host_name() -> RString {
 /// Equivalent of [`System::long_os_version()`][crate::System#method.long_os_version].
 #[no_mangle]
 pub extern "C" fn sysinfo_system_long_version() -> RString {
-    let c_string = if let Some(c) = System::long_os_version().and_then(|c| CString::new(c).ok()) {
+    let c_string = if let Some(c) =
+        System::long_os_version().and_then(|c| CString::new(c.as_encoded_bytes()).ok())
+    {
         c.into_raw() as _
     } else {
         std::ptr::null()

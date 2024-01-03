@@ -4,6 +4,7 @@
 #![allow(unused_must_use, non_upper_case_globals)]
 #![allow(clippy::manual_range_contains)]
 
+use bstr::ByteSlice;
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::{Components, Disks, Networks, Pid, Signal, System, Users};
@@ -242,7 +243,7 @@ fn interpret_input(
                     &mut io::stdout(),
                     "{}:{} status={:?}",
                     pid,
-                    proc_.name(),
+                    proc_.name().as_encoded_bytes().as_bstr(),
                     proc_.status()
                 );
             }
@@ -252,7 +253,7 @@ fn interpret_input(
                 writeln!(
                     &mut io::stdout(),
                     "[{}] {} MHz",
-                    cpu.name(),
+                    cpu.name().as_encoded_bytes().as_bstr(),
                     cpu.frequency(),
                 );
             }
@@ -261,11 +262,15 @@ fn interpret_input(
             writeln!(
                 &mut io::stdout(),
                 "vendor ID: {}",
-                sys.cpus()[0].vendor_id()
+                sys.cpus()[0].vendor_id().as_encoded_bytes().as_bstr()
             );
         }
         "brand" => {
-            writeln!(&mut io::stdout(), "brand: {}", sys.cpus()[0].brand());
+            writeln!(
+                &mut io::stdout(),
+                "brand: {}",
+                sys.cpus()[0].brand().as_encoded_bytes().as_bstr()
+            );
         }
         "load_avg" => {
             let load_avg = System::load_average();
@@ -289,8 +294,12 @@ fn interpret_input(
                 };
             } else {
                 let proc_name = tmp[1];
-                for proc_ in sys.processes_by_name(proc_name) {
-                    writeln!(&mut io::stdout(), "==== {} ====", proc_.name());
+                for proc_ in sys.processes_by_name(proc_name.as_ref()) {
+                    writeln!(
+                        &mut io::stdout(),
+                        "==== {} ====",
+                        proc_.name().as_encoded_bytes().as_bstr()
+                    );
                     writeln!(&mut io::stdout(), "{proc_:?}");
                 }
             }
@@ -305,7 +314,7 @@ fn interpret_input(
                 writeln!(
                     &mut io::stdout(),
                     "{}:\n  ether {}\n  input data  (new / total): {} / {} B\n  output data (new / total): {} / {} B",
-                    interface_name,
+                    interface_name.as_encoded_bytes().as_bstr(),
                     data.mac_address(),
                     data.received(),
                     data.total_received(),
@@ -435,11 +444,26 @@ fn interpret_input(
                  System OS version:        {}\n\
                  System OS (long) version: {}\n\
                  System host name:         {}",
-                System::name().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::kernel_version().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::os_version().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::long_os_version().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::host_name().unwrap_or_else(|| "<unknown>".to_owned()),
+                System::name()
+                    .unwrap_or_else(|| "<unknown>".into())
+                    .as_encoded_bytes()
+                    .as_bstr(),
+                System::kernel_version()
+                    .unwrap_or_else(|| "<unknown>".into())
+                    .as_encoded_bytes()
+                    .as_bstr(),
+                System::os_version()
+                    .unwrap_or_else(|| "<unknown>".into())
+                    .as_encoded_bytes()
+                    .as_bstr(),
+                System::long_os_version()
+                    .unwrap_or_else(|| "<unknown>".into())
+                    .as_encoded_bytes()
+                    .as_bstr(),
+                System::host_name()
+                    .unwrap_or_else(|| "<unknown>".into())
+                    .as_encoded_bytes()
+                    .as_bstr(),
             );
         }
         e => {

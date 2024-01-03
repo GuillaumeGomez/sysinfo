@@ -134,13 +134,7 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>) {
             continue;
         }
 
-        let mount_point = match c_buf_to_str(&fs_info.f_mntonname) {
-            Some(m) => m,
-            None => {
-                sysinfo_debug!("Cannot get disk mount point, ignoring it.");
-                continue;
-            }
-        };
+        let mount_point = c_buf_to_str(&fs_info.f_mntonname);
 
         let name = if mount_point == "/" {
             OsString::from("root")

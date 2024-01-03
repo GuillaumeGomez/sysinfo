@@ -5,14 +5,16 @@ use crate::sys::process::{_get_process_data, compute_cpu_usage, refresh_procs, u
 use crate::sys::utils::{get_all_data, to_u64};
 use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind};
 
+use bstr::ByteSlice;
 use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 use std::cmp::min;
 use std::collections::HashMap;
-use std::ffi::CStr;
+use std::ffi::{CStr, OsString};
 use std::fs::File;
 use std::io::Read;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::Path;
-use std::str::FromStr;
+use std::str::{self, FromStr};
 use std::sync::atomic::AtomicIsize;
 
 // This whole thing is to prevent having too many files open at once. It could be problematic
@@ -192,20 +194,20 @@ impl SystemInner {
             return;
         }
         let mut mem_available_found = false;
-        read_table("/proc/meminfo", ':', |key, value_kib| {
+        read_table("/proc/meminfo", b':', |key, value_kib| {
             let field = match key {
-                "MemTotal" => &mut self.mem_total,
-                "MemFree" => &mut self.mem_free,
-                "MemAvailable" => {
+                b"MemTotal" => &mut self.mem_total,
+                b"MemFree" => &mut self.mem_free,
+                b"MemAvailable" => {
                     mem_available_found = true;
                     &mut self.mem_available
                 }
-                "Buffers" => &mut self.mem_buffers,
-                "Cached" => &mut self.mem_page_cache,
-                "Shmem" => &mut self.mem_shmem,
-                "SReclaimable" => &mut self.mem_slab_reclaimable,
-                "SwapTotal" => &mut self.swap_total,
-                "SwapFree" => &mut self.swap_free,
+                b"Buffers" => &mut self.mem_buffers,
+                b"Cached" => &mut self.mem_page_cache,
+                b"Shmem" => &mut self.mem_shmem,
+                b"SReclaimable" => &mut self.mem_slab_reclaimable,
+                b"SwapTotal" => &mut self.swap_total,
+                b"SwapFree" => &mut self.swap_free,
                 _ => return,
             };
             // /proc/meminfo reports KiB, though it says "kB". Convert it.
@@ -354,9 +356,9 @@ impl SystemInner {
     pub(crate) fn uptime() -> u64 {
         let content = get_all_data("/proc/uptime", 50).unwrap_or_default();
         content
-            .split('.')
+            .split(|&b| b == b'.')
             .next()
-            .and_then(|t| t.parse().ok())
+            .and_then(|t| str::from_utf8(t).ok()?.parse().ok())
             .unwrap_or_default()
     }
 
@@ -386,7 +388,7 @@ impl SystemInner {
     }
 
     #[cfg(not(target_os = "android"))]
-    pub(crate) fn name() -> Option<String> {
+    pub(crate) fn name() -> Option<OsString> {
         get_system_info_linux(
             InfoType::Name,
             Path::new("/etc/os-release"),
@@ -395,26 +397,27 @@ impl SystemInner {
     }
 
     #[cfg(target_os = "android")]
-    pub(crate) fn name() -> Option<String> {
+    pub(crate) fn name() -> Option<OsString> {
         get_system_info_android(InfoType::Name)
     }
 
-    pub(crate) fn long_os_version() -> Option<String> {
+    pub(crate) fn long_os_version() -> Option<OsString> {
         #[cfg(target_os = "android")]
-        let system_name = "Android";
+        let system_name = b"Android";
 
         #[cfg(not(target_os = "android"))]
-        let system_name = "Linux";
+        let system_name = b"Linux";
 
-        Some(format!(
-            "{} {} {}",
-            system_name,
-            Self::os_version().unwrap_or_default(),
-            Self::name().unwrap_or_default()
-        ))
+        let mut buf = Vec::from(system_name);
+        buf.push(b' ');
+        buf.extend(Self::os_version().unwrap_or_default().as_bytes());
+        buf.push(b' ');
+        buf.extend(Self::name().unwrap_or_default().as_bytes());
+
+        Some(OsString::from_vec(buf))
     }
 
-    pub(crate) fn host_name() -> Option<String> {
+    pub(crate) fn host_name() -> Option<OsString> {
         unsafe {
             let hostname_max = sysconf(_SC_HOST_NAME_MAX);
             let mut buffer = vec![0_u8; hostname_max as usize];
@@ -423,7 +426,7 @@ impl SystemInner {
                     // Shrink buffer to terminate the null bytes
                     buffer.resize(pos, 0);
                 }
-                String::from_utf8(buffer).ok()
+                Some(OsString::from_vec(buffer))
             } else {
                 sysinfo_debug!("gethostname failed: hostname cannot be retrieved...");
                 None
@@ -431,7 +434,7 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn kernel_version() -> Option<String> {
+    pub(crate) fn kernel_version() -> Option<OsString> {
         let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
 
         unsafe {
@@ -441,11 +444,11 @@ impl SystemInner {
                 let release = info
                     .release
                     .iter()
-                    .filter(|c| **c != 0)
-                    .map(|c| *c as u8 as char)
-                    .collect::<String>();
+                    .map(|&c| c as _)
+                    .filter(|c| *c != 0)
+                    .collect();
 
-                Some(release)
+                Some(OsString::from_vec(release))
             } else {
                 None
             }
@@ -453,7 +456,7 @@ impl SystemInner {
     }
 
     #[cfg(not(target_os = "android"))]
-    pub(crate) fn os_version() -> Option<String> {
+    pub(crate) fn os_version() -> Option<OsString> {
         get_system_info_linux(
             InfoType::OsVersion,
             Path::new("/etc/os-release"),
@@ -462,27 +465,27 @@ impl SystemInner {
     }
 
     #[cfg(target_os = "android")]
-    pub(crate) fn os_version() -> Option<String> {
+    pub(crate) fn os_version() -> Option<OsString> {
         get_system_info_android(InfoType::OsVersion)
     }
 
     #[cfg(not(target_os = "android"))]
-    pub(crate) fn distribution_id() -> String {
+    pub(crate) fn distribution_id() -> OsString {
         get_system_info_linux(
             InfoType::DistributionID,
             Path::new("/etc/os-release"),
             Path::new(""),
         )
-        .unwrap_or_else(|| std::env::consts::OS.to_owned())
+        .unwrap_or_else(|| std::env::consts::OS.to_owned().into())
     }
 
     #[cfg(target_os = "android")]
-    pub(crate) fn distribution_id() -> String {
+    pub(crate) fn distribution_id() -> OsString {
         // Currently get_system_info_android doesn't support InfoType::DistributionID and always
         // returns None. This call is done anyway for consistency with non-Android implementation
         // and to suppress dead-code warning for DistributionID on Android.
         get_system_info_android(InfoType::DistributionID)
-            .unwrap_or_else(|| std::env::consts::OS.to_owned())
+            .unwrap_or_else(|| std::env::consts::OS.to_owned().into())
     }
 
     pub(crate) fn cpu_arch() -> Option<String> {
@@ -508,24 +511,24 @@ impl SystemInner {
 }
 
 fn read_u64(filename: &str) -> Option<u64> {
-    get_all_data(filename, 16_635)
-        .ok()
-        .and_then(|d| u64::from_str(d.trim()).ok())
+    let d = get_all_data(filename, 16_635).ok()?;
+    let d = str::from_utf8(d.trim()).ok()?;
+    u64::from_str(d).ok()
 }
 
-fn read_table<F>(filename: &str, colsep: char, mut f: F)
+fn read_table<F>(filename: &str, colsep: u8, mut f: F)
 where
-    F: FnMut(&str, u64),
+    F: FnMut(&[u8], u64),
 {
     if let Ok(content) = get_all_data(filename, 16_635) {
         content
-            .split('\n')
+            .split(|&b| b == b'\n')
             .flat_map(|line| {
-                let mut split = line.split(colsep);
+                let mut split = line.split(|&b| b == colsep);
                 let key = split.next()?;
                 let value = split.next()?;
-                let value0 = value.trim_start().split(' ').next()?;
-                let value0_u64 = u64::from_str(value0).ok()?;
+                let value0 = value.trim_start().split(|&b| b == b' ').next()?;
+                let value0_u64 = u64::from_str(str::from_utf8(value0).ok()?).ok()?;
                 Some((key, value0_u64))
             })
             .for_each(|(k, v)| f(k, v));
@@ -557,7 +560,7 @@ impl crate::CGroupLimits {
                 limits.free_swap = sys.swap_total.saturating_sub(swap_cur);
             }
 
-            read_table("/sys/fs/cgroup/memory.stat", ' ', |_key, value| {
+            read_table("/sys/fs/cgroup/memory.stat", b' ', |_key, value| {
                 limits.free_memory = limits.free_memory.saturating_sub(value);
             });
 
@@ -596,12 +599,10 @@ enum InfoType {
 }
 
 #[cfg(not(target_os = "android"))]
-fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> Option<String> {
-    if let Ok(buf) = File::open(path).and_then(|mut f| {
-        let mut buf = String::new();
-        f.read_to_string(&mut buf)?;
-        Ok(buf)
-    }) {
+fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> Option<OsString> {
+    use bstr::ByteSlice;
+
+    if let Ok(buf) = std::fs::read(path) {
         let info_str = match info {
             InfoType::Name => "NAME=",
             InfoType::OsVersion => "VERSION_ID=",
@@ -609,8 +610,10 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
         };
 
         for line in buf.lines() {
-            if let Some(stripped) = line.strip_prefix(info_str) {
-                return Some(stripped.replace('"', ""));
+            if let Some(stripped) = line.strip_prefix(info_str.as_bytes()) {
+                let mut stripped = stripped.to_vec();
+                stripped.retain(|&b| b != b'"');
+                return Some(OsString::from_vec(stripped));
             }
         }
     }
@@ -619,13 +622,7 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
     // VERSION_ID is not required in the `/etc/os-release` file
     // per https://www.linux.org/docs/man5/os-release.html
     // If this fails for some reason, fallback to None
-    let buf = File::open(fallback_path)
-        .and_then(|mut f| {
-            let mut buf = String::new();
-            f.read_to_string(&mut buf)?;
-            Ok(buf)
-        })
-        .ok()?;
+    let buf = std::fs::read(fallback_path).ok()?;
 
     let info_str = match info {
         InfoType::OsVersion => "DISTRIB_RELEASE=",
@@ -636,15 +633,17 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
         }
     };
     for line in buf.lines() {
-        if let Some(stripped) = line.strip_prefix(info_str) {
-            return Some(stripped.replace('"', ""));
+        if let Some(stripped) = line.strip_prefix(info_str.as_bytes()) {
+            let mut stripped = stripped.to_vec();
+            stripped.retain(|&b| b != b'"');
+            return Some(OsString::from_vec(stripped));
         }
     }
     None
 }
 
 #[cfg(target_os = "android")]
-fn get_system_info_android(info: InfoType) -> Option<String> {
+fn get_system_info_android(info: InfoType) -> Option<OsString> {
     // https://android.googlesource.com/platform/frameworks/base/+/refs/heads/master/core/java/android/os/Build.java#58
     let name: &'static [u8] = match info {
         InfoType::Name => b"ro.product.model\0",
@@ -666,7 +665,7 @@ fn get_system_info_android(info: InfoType) -> Option<String> {
             if let Some(pos) = value_buffer.iter().position(|c| *c == 0) {
                 value_buffer.resize(pos, 0);
             }
-            String::from_utf8(value_buffer).ok()
+            Some(OsString::from_vec(value_buffer))
         } else {
             None
         }
@@ -692,7 +691,7 @@ mod test {
     #[test]
     #[cfg(not(target_os = "android"))]
     fn lsb_release_fallback_not_android() {
-        use std::path::Path;
+        use std::{ffi::OsString, path::Path};
 
         let dir = tempfile::tempdir().expect("failed to create temporary directory");
         let tmp1 = dir.path().join("tmp1");
@@ -727,25 +726,25 @@ DISTRIB_DESCRIPTION="Ubuntu 20.10"
         // Check for the "normal" path: "/etc/os-release"
         assert_eq!(
             get_system_info_linux(InfoType::OsVersion, &tmp1, Path::new("")),
-            Some("20.10".to_owned())
+            Some(OsString::from("20.10"))
         );
         assert_eq!(
             get_system_info_linux(InfoType::Name, &tmp1, Path::new("")),
-            Some("Ubuntu".to_owned())
+            Some(OsString::from("Ubuntu"))
         );
         assert_eq!(
             get_system_info_linux(InfoType::DistributionID, &tmp1, Path::new("")),
-            Some("ubuntu".to_owned())
+            Some(OsString::from("ubuntu"))
         );
 
         // Check for the "fallback" path: "/etc/lsb-release"
         assert_eq!(
             get_system_info_linux(InfoType::OsVersion, Path::new(""), &tmp2),
-            Some("20.10".to_owned())
+            Some(OsString::from("20.10"))
         );
         assert_eq!(
             get_system_info_linux(InfoType::Name, Path::new(""), &tmp2),
-            Some("Ubuntu".to_owned())
+            Some(OsString::from("Ubuntu"))
         );
         assert_eq!(
             get_system_info_linux(InfoType::DistributionID, Path::new(""), &tmp2),

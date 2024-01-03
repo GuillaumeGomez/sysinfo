@@ -3,12 +3,13 @@
 use crate::sys::utils::{get_all_data, to_cpath};
 use crate::{Disk, DiskKind};
 
+use bstr::ByteSlice;
 use libc::statvfs;
 use std::ffi::{OsStr, OsString};
-use std::fs;
 use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
+use std::{fs, str};
 
 macro_rules! cast {
     ($x:expr) => {
@@ -187,11 +188,9 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
         .join(trimmed)
         .join("queue/rotational");
     // Normally, this file only contains '0' or '1' but just in case, we get 8 bytes...
-    match get_all_data(path, 8)
-        .unwrap_or_default()
-        .trim()
-        .parse()
+    match str::from_utf8(get_all_data(path, 8).unwrap_or_default().trim())
         .ok()
+        .and_then(|v| v.parse().ok())
     {
         // The disk is marked as rotational so it's a HDD.
         Some(1) => DiskKind::HDD,
@@ -204,7 +203,7 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
     }
 }
 
-fn get_all_list(container: &mut Vec<Disk>, content: &str) {
+fn get_all_list(container: &mut Vec<Disk>, content: &[u8]) {
     container.clear();
     // The goal of this array is to list all removable devices (the ones whose name starts with
     // "usb-").
@@ -232,49 +231,49 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
             // mounts format
             // http://man7.org/linux/man-pages/man5/fstab.5.html
             // fs_spec<tab>fs_file<tab>fs_vfstype<tab>other fields
-            let mut fields = line.split_whitespace();
-            let fs_spec = fields.next().unwrap_or("");
+            let mut fields = line.fields();
+            let fs_spec = fields.next().unwrap_or(b"");
             let fs_file = fields
                 .next()
-                .unwrap_or("")
+                .unwrap_or(b"")
                 .replace("\\134", "\\")
                 .replace("\\040", " ")
                 .replace("\\011", "\t")
                 .replace("\\012", "\n");
-            let fs_vfstype = fields.next().unwrap_or("");
+            let fs_vfstype = fields.next().unwrap_or(b"");
             (fs_spec, fs_file, fs_vfstype)
         })
         .filter(|(fs_spec, fs_file, fs_vfstype)| {
             // Check if fs_vfstype is one of our 'ignored' file systems.
             let filtered = match *fs_vfstype {
-                "rootfs" | // https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt
-                "sysfs" | // pseudo file system for kernel objects
-                "proc" |  // another pseudo file system
-                "tmpfs" |
-                "devtmpfs" |
-                "cgroup" |
-                "cgroup2" |
-                "pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
-                "squashfs" | // squashfs is a compressed read-only file system (for snaps)
-                "rpc_pipefs" | // The pipefs pseudo file system service
-                "iso9660" // optical media
+                b"rootfs" | // https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt
+                b"sysfs" | // pseudo file system for kernel objects
+                b"proc" |  // another pseudo file system
+                b"tmpfs" |
+                b"devtmpfs" |
+                b"cgroup" |
+                b"cgroup2" |
+                b"pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
+                b"squashfs" | // squashfs is a compressed read-only file system (for snaps)
+                b"rpc_pipefs" | // The pipefs pseudo file system service
+                b"iso9660" // optical media
                 => true,
                 // calling statvfs on a mounted CIFS or NFS may hang, when they are mounted with option: hard
-                "cifs" | "nfs" | "nfs4" => !cfg!(feature = "linux-netdevs"),
+                b"cifs" | b"nfs" | b"nfs4" => !cfg!(feature = "linux-netdevs"),
                 _ => false,
             };
 
             !(filtered ||
-               fs_file.starts_with("/sys") || // check if fs_file is an 'ignored' mount point
-               fs_file.starts_with("/proc") ||
-               (fs_file.starts_with("/run") && !fs_file.starts_with("/run/media")) ||
-               fs_spec.starts_with("sunrpc"))
+               fs_file.starts_with(b"/sys") || // check if fs_file is an 'ignored' mount point
+               fs_file.starts_with(b"/proc") ||
+               (fs_file.starts_with(b"/run") && !fs_file.starts_with(b"/run/media")) ||
+               fs_spec.starts_with(b"sunrpc"))
         })
         .filter_map(|(fs_spec, fs_file, fs_vfstype)| {
             new_disk(
-                fs_spec.as_ref(),
-                Path::new(&fs_file),
-                fs_vfstype.as_ref(),
+                OsStr::from_bytes(fs_spec),
+                Path::new(OsStr::from_bytes(&fs_file)),
+                OsStr::from_bytes(fs_vfstype),
                 &removable_entries,
             )
         })
