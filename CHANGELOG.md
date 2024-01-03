@@ -1,3 +1,7 @@
+# 0.30.4
+
+ * Windows: Fix misaligned read.
+
 # 0.30.3
 
  * Improve dependendy stack by updating the `windows` dependency.
