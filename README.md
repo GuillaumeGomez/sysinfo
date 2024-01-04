@@ -18,7 +18,7 @@ You can still use `sysinfo` on non-supported OSes, it'll simply do nothing and a
 empty values. You can check in your program directly if an OS is supported by checking the
 [`IS_SUPPORTED_SYSTEM`] constant.
 
-The minimum-supported version of `rustc` is **1.70**.
+The minimum-supported version of `rustc` is **1.74**.
 
 ## Usage
 
@@ -68,7 +68,7 @@ println!("NB CPUs: {}", sys.cpus().len());
 
 // Display processes ID, name na disk usage:
 for (pid, process) in sys.processes() {
-    println!("[{pid}] {} {:?}", process.name(), process.disk_usage());
+    println!("[{pid}] {:?} {:?}", process.name(), process.disk_usage());
 }
 
 // We display all disks' information:
@@ -182,8 +182,8 @@ virtual systems.
 
 Apple has restrictions as to which APIs can be linked into binaries that are distributed through the app store.
 By default, `sysinfo` is not compatible with these restrictions. You can use the `apple-app-store`
-feature flag to disable the Apple prohibited features. This also enables the `apple-sandbox` feature. 
-In the case of applications using the sandbox outside of the app store, the `apple-sandbox` feature 
+feature flag to disable the Apple prohibited features. This also enables the `apple-sandbox` feature.
+In the case of applications using the sandbox outside of the app store, the `apple-sandbox` feature
 can be used alone to avoid causing policy violations at runtime.
 
 ### How it works

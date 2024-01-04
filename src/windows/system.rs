@@ -12,7 +12,9 @@ use crate::utils::into_iter;
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::mem::{size_of, zeroed};
+use std::os::windows::ffi::OsStringExt;
 use std::ptr;
 use std::time::SystemTime;
 
@@ -427,14 +429,14 @@ impl SystemInner {
         if Self::is_windows_eleven() {
             return get_reg_string_value(
                 HKEY_LOCAL_MACHINE,
-                "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+                r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
                 "ProductName",
             )
             .map(|product_name| product_name.replace("Windows 10 ", "Windows 11 "));
         }
         get_reg_string_value(
             HKEY_LOCAL_MACHINE,
-            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
             "ProductName",
         )
     }
@@ -446,7 +448,7 @@ impl SystemInner {
     pub(crate) fn kernel_version() -> Option<String> {
         get_reg_string_value(
             HKEY_LOCAL_MACHINE,
-            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
             "CurrentBuildNumber",
         )
     }
@@ -454,7 +456,7 @@ impl SystemInner {
     pub(crate) fn os_version() -> Option<String> {
         let build_number = get_reg_string_value(
             HKEY_LOCAL_MACHINE,
-            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
             "CurrentBuildNumber",
         )
         .unwrap_or_default();
@@ -464,7 +466,7 @@ impl SystemInner {
             u32::from_le_bytes(
                 get_reg_value_u32(
                     HKEY_LOCAL_MACHINE,
-                    "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+                    r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
                     "CurrentMajorVersionNumber",
                 )
                 .unwrap_or_default(),
@@ -535,7 +537,7 @@ fn refresh_existing_process(
 
 #[allow(clippy::size_of_in_element_count)]
 //^ needed for "name.Length as usize / std::mem::size_of::<u16>()"
-pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: Pid) -> String {
+pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: Pid) -> OsString {
     let name = &process.ImageName;
     if name.Buffer.is_null() {
         match process_id.0 {
@@ -543,6 +545,7 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
             4 => "System".to_owned(),
             _ => format!("<no name> Process {process_id}"),
         }
+        .into()
     } else {
         unsafe {
             let slice = std::slice::from_raw_parts(
@@ -551,7 +554,7 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
                 name.Length as usize / std::mem::size_of::<u16>(),
             );
 
-            String::from_utf16_lossy(slice)
+            OsString::from_wide(slice)
         }
     }
 }

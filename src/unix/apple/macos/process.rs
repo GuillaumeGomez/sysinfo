@@ -1,6 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::ffi::{OsStr, OsString};
 use std::mem::{self, MaybeUninit};
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 
 use libc::{c_int, c_void, kill};
@@ -12,7 +14,7 @@ use crate::sys::system::Wrap;
 use crate::unix::utils::cstr_to_rust_with_size;
 
 pub(crate) struct ProcessInner {
-    pub(crate) name: String,
+    pub(crate) name: OsString,
     pub(crate) cmd: Vec<String>,
     pub(crate) exe: Option<PathBuf>,
     pid: Pid,
@@ -47,7 +49,7 @@ pub(crate) struct ProcessInner {
 impl ProcessInner {
     pub(crate) fn new_empty(pid: Pid) -> Self {
         Self {
-            name: String::new(),
+            name: OsString::new(),
             pid,
             parent: None,
             cmd: Vec::new(),
@@ -78,7 +80,7 @@ impl ProcessInner {
 
     pub(crate) fn new(pid: Pid, parent: Option<Pid>, start_time: u64, run_time: u64) -> Self {
         Self {
-            name: String::new(),
+            name: OsString::new(),
             pid,
             parent,
             cmd: Vec::new(),
@@ -112,7 +114,7 @@ impl ProcessInner {
         unsafe { Some(kill(self.pid.0, c_signal) == 0) }
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.name
     }
 
@@ -400,12 +402,11 @@ unsafe fn get_exe_and_name_backup(
     ) {
         x if x > 0 => {
             buffer.set_len(x as _);
-            let tmp = String::from_utf8_unchecked(buffer);
+            let tmp = OsString::from_vec(buffer);
             let exe = PathBuf::from(tmp);
             if process.name.is_empty() {
                 exe.file_name()
-                    .and_then(|x| x.to_str())
-                    .unwrap_or("")
+                    .unwrap_or_default()
                     .clone_into(&mut process.name);
             }
             if exe_needs_update {
@@ -540,14 +541,12 @@ unsafe fn get_process_infos(process: &mut ProcessInner, refresh_kind: ProcessRef
     let (exe, proc_args) = get_exe(proc_args);
     if process.name.is_empty() {
         exe.file_name()
-            .and_then(|x| x.to_str())
-            .unwrap_or("")
-            .to_owned()
+            .unwrap_or_default()
             .clone_into(&mut process.name);
     }
 
     if refresh_kind.exe().needs_update(|| process.exe.is_none()) {
-        process.exe = Some(exe);
+        process.exe = Some(exe.to_owned());
     }
 
     let environ_needs_update = refresh_kind
@@ -565,14 +564,10 @@ unsafe fn get_process_infos(process: &mut ProcessInner, refresh_kind: ProcessRef
     true
 }
 
-fn get_exe(data: &[u8]) -> (PathBuf, &[u8]) {
+fn get_exe(data: &[u8]) -> (&Path, &[u8]) {
     let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
-    unsafe {
-        (
-            Path::new(std::str::from_utf8_unchecked(&data[..pos])).to_path_buf(),
-            &data[pos..],
-        )
-    }
+    let (exe, proc_args) = data.split_at(pos);
+    (Path::new(OsStr::from_bytes(exe)), proc_args)
 }
 
 fn get_arguments<'a>(

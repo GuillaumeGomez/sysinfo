@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::utils::{get_all_data, to_cpath};
+use crate::sys::utils::{get_all_utf8_data, to_cpath};
 use crate::{Disk, DiskKind};
 
 use libc::statvfs;
@@ -80,7 +80,7 @@ impl crate::DisksInner {
     pub(crate) fn refresh_list(&mut self) {
         get_all_list(
             &mut self.disks,
-            &get_all_data("/proc/mounts", 16_385).unwrap_or_default(),
+            &get_all_utf8_data("/proc/mounts", 16_385).unwrap_or_default(),
         )
     }
 
@@ -187,7 +187,7 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
         .join(trimmed)
         .join("queue/rotational");
     // Normally, this file only contains '0' or '1' but just in case, we get 8 bytes...
-    match get_all_data(path, 8)
+    match get_all_utf8_data(path, 8)
         .unwrap_or_default()
         .trim()
         .parse()

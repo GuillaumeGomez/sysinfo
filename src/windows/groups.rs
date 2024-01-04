@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::utils::to_str;
+use crate::sys::utils::to_utf8_str;
 use crate::{
     common::{Gid, GroupInner},
     windows::sid::Sid,
@@ -95,7 +95,7 @@ pub(crate) fn get_groups(groups: &mut Vec<Group>) {
                             // Get the account name from the SID (because it's usually
                             // a better name), but fall back to the name we were given
                             // if this fails.
-                            let name = to_str(entry.grpi0_name);
+                            let name = to_utf8_str(entry.grpi0_name);
                             groups.push(Group {
                                 inner: GroupInner::new(Gid(0), name),
                             });

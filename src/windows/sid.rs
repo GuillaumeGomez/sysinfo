@@ -9,7 +9,7 @@ use windows::Win32::Security::{
     CopySid, GetLengthSid, IsValidSid, LookupAccountSidW, SidTypeUnknown,
 };
 
-use crate::sys::utils::to_str;
+use crate::sys::utils::to_utf8_str;
 
 #[doc = include_str!("../../md_doc/sid.md")]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -102,7 +102,7 @@ impl Sid {
                 return None;
             }
 
-            Some(to_str(PWSTR::from_raw(name.as_mut_ptr())))
+            Some(to_utf8_str(PWSTR::from_raw(name.as_mut_ptr())))
         }
     }
 }
@@ -115,7 +115,7 @@ impl Display for Sid {
                 sysinfo_debug!("ConvertSidToStringSidW failed: {:?}", _err);
                 return None;
             }
-            let result = to_str(string_sid);
+            let result = to_utf8_str(string_sid);
             let _err = LocalFree(HLOCAL(string_sid.0 as _));
             Some(result)
         }

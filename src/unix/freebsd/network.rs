@@ -80,7 +80,7 @@ impl NetworksInner {
             if !utils::get_sys_value(&mib, &mut data) {
                 continue;
             }
-            if let Some(name) = utils::c_buf_to_string(&data.ifmd_name) {
+            if let Some(name) = utils::c_buf_to_utf8_string(&data.ifmd_name) {
                 let data = &data.ifmd_data;
                 match self.interfaces.entry(name) {
                     hash_map::Entry::Occupied(mut e) => {

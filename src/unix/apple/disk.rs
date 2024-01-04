@@ -269,6 +269,7 @@ unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
 ) -> Option<T> {
     #[cfg(target_os = "macos")]
     let _defined;
+    #[allow(clippy::infallible_destructuring_match)]
     let key = match key {
         DictKey::Extern(val) => val,
         #[cfg(target_os = "macos")]

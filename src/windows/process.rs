@@ -4,7 +4,7 @@ use crate::sys::system::is_proc_running;
 use crate::windows::Sid;
 use crate::{DiskUsage, Gid, Pid, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fmt;
 #[cfg(feature = "debug")]
 use std::io;
@@ -198,7 +198,7 @@ unsafe impl Send for HandleWrapper {}
 unsafe impl Sync for HandleWrapper {}
 
 pub(crate) struct ProcessInner {
-    name: String,
+    name: OsString,
     cmd: Vec<String>,
     exe: Option<PathBuf>,
     pid: Pid,
@@ -269,7 +269,7 @@ unsafe fn display_ntstatus_error(ntstatus: windows::core::HRESULT) {
 
 // Take a look at https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/ex/sysinfo/query.htm
 // for explanations.
-unsafe fn get_process_name(pid: Pid) -> Option<String> {
+unsafe fn get_process_name(pid: Pid) -> Option<OsString> {
     let mut info = SYSTEM_PROCESS_ID_INFORMATION {
         ProcessId: pid.0 as _,
         ImageName: MaybeUninit::zeroed().assume_init(),
@@ -337,9 +337,7 @@ unsafe fn get_process_name(pid: Pid) -> Option<String> {
         info.ImageName.Length as usize / std::mem::size_of::<u16>(),
     );
     let os_str = OsString::from_wide(s);
-    let name = Path::new(&os_str)
-        .file_name()
-        .map(|s| s.to_string_lossy().to_string());
+    let name = Path::new(&os_str).file_name().map(|s| s.to_os_string());
     let _err = LocalFree(HLOCAL(info.ImageName.Buffer.cast()));
     name
 }
@@ -424,7 +422,7 @@ impl ProcessInner {
         parent: Option<Pid>,
         memory: u64,
         virtual_memory: u64,
-        name: String,
+        name: OsString,
         now: u64,
         refresh_kind: ProcessRefreshKind,
     ) -> Self {
@@ -548,7 +546,7 @@ impl ProcessInner {
         }
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &OsStr {
         &self.name
     }
 

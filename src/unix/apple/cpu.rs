@@ -186,7 +186,7 @@ pub(crate) unsafe fn get_cpu_frequency() -> u64 {
 
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
     {
-        return 0;
+        0
     }
     #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     {

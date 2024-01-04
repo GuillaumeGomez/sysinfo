@@ -14,7 +14,7 @@ use std::ptr::NonNull;
 use crate::sys::cpu::{physical_core_count, CpusWrapper};
 use crate::sys::process::get_exe;
 use crate::sys::utils::{
-    self, boot_time, c_buf_to_string, from_cstr_array, get_sys_value, get_sys_value_by_name,
+    self, boot_time, c_buf_to_os_string, from_cstr_array, get_sys_value, get_sys_value_by_name,
     get_system_info, init_mib,
 };
 
@@ -380,7 +380,7 @@ unsafe fn add_missing_proc_info(
             if !cmd.is_empty() {
                 // First, we try to retrieve the name from the command line.
                 let p = Path::new(&cmd[0]);
-                if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
+                if let Some(name) = p.file_name() {
                     name.clone_into(&mut proc_inner.name);
                 }
 
@@ -395,7 +395,7 @@ unsafe fn add_missing_proc_info(
             // The name can be cut short because the `ki_comm` field size is limited,
             // which is why we prefer to get the name from the command line as much as
             // possible.
-            proc_inner.name = c_buf_to_string(&kproc.ki_comm).unwrap_or_default();
+            proc_inner.name = c_buf_to_os_string(&kproc.ki_comm);
         }
         if refresh_kind
             .environ()
