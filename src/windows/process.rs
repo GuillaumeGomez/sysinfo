@@ -271,8 +271,9 @@ unsafe fn get_process_name(pid: Pid) -> Option<String> {
         ProcessId: pid.0 as _,
         ImageName: MaybeUninit::zeroed().assume_init(),
     };
-    // `MaximumLength` MUST BE a power of 2: here 128
-    info.ImageName.MaximumLength = 1 << 15; // the returned name may be a full UNC path, up to 32767
+    // `MaximumLength` MUST BE a power of 2: here 32768 because the the returned name may be a full
+    // UNC path (up to 32767).
+    info.ImageName.MaximumLength = 1 << 15;
 
     for i in 0.. {
         let local_alloc = LocalAlloc(
