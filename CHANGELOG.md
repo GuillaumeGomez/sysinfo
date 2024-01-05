@@ -1,3 +1,8 @@
+# 0.30.5
+
+ * Windows: Correctly retrieve processes name on 32 bits platforms.
+ * Windows: Fix swap memory computation.
+
 # 0.30.4
 
  * Windows: Fix misaligned read.
