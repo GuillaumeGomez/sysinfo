@@ -140,29 +140,24 @@ impl SystemInner {
         unsafe {
             if refresh_kind.ram() {
                 let mut mem_info: MEMORYSTATUSEX = zeroed();
-                mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
+                mem_info.dwLength = size_of::<MEMORYSTATUSEX>() as _;
                 let _err = GlobalMemoryStatusEx(&mut mem_info);
                 self.mem_total = mem_info.ullTotalPhys as _;
                 self.mem_available = mem_info.ullAvailPhys as _;
             }
             if refresh_kind.swap() {
                 let mut perf_info: PERFORMANCE_INFORMATION = zeroed();
-                if K32GetPerformanceInfo(
-                    &mut perf_info,
-                    size_of::<PERFORMANCE_INFORMATION>() as u32,
-                )
-                .as_bool()
+                if K32GetPerformanceInfo(&mut perf_info, size_of::<PERFORMANCE_INFORMATION>() as _)
+                    .as_bool()
                 {
                     let page_size = perf_info.PageSize as u64;
                     let physical_total = perf_info.PhysicalTotal as u64;
                     let commit_limit = perf_info.CommitLimit as u64;
                     let commit_total = perf_info.CommitTotal as u64;
-                    let swap_total =
+                    self.swap_total =
                         page_size.saturating_mul(commit_limit.saturating_sub(physical_total));
-                    let swap_used =
+                    self.swap_used =
                         page_size.saturating_mul(commit_total.saturating_sub(physical_total));
-                    self.swap_total = swap_total as _;
-                    self.swap_used = swap_used as _;
                 }
             }
         }
