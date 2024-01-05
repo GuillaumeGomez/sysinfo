@@ -272,7 +272,7 @@ unsafe fn get_process_name(pid: Pid) -> Option<String> {
         ImageName: MaybeUninit::zeroed().assume_init(),
     };
     // `MaximumLength` MUST BE a power of 2: here 128
-    info.ImageName.MaximumLength = 1 << 7;
+    info.ImageName.MaximumLength = 1 << 15; // the returned name may be a full UNC path, up to 32767
 
     for i in 0.. {
         let local_alloc = LocalAlloc(
@@ -857,10 +857,6 @@ impl_RtlUserProcessParameters!(RTL_USER_PROCESS_PARAMETERS32);
 impl_RtlUserProcessParameters!(RTL_USER_PROCESS_PARAMETERS);
 
 unsafe fn get_process_params(process: &mut ProcessInner, refresh_kind: ProcessRefreshKind) {
-    if !cfg!(target_pointer_width = "64") {
-        sysinfo_debug!("Non 64 bit targets are not supported");
-        return;
-    }
     if !(refresh_kind.cmd().needs_update(|| process.cmd.is_empty())
         || refresh_kind
             .environ()
