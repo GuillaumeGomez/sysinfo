@@ -88,9 +88,6 @@ enum ProcIndex {
     // More exist but we only use the listed ones. For more, take a look at `man proc`.
 }
 
-/* Not exposed yet. Defined at include/linux/sched.h */
-const PF_KTHREAD: c_ulong = 0x00200000;
-
 pub(crate) struct ProcessInner {
     pub(crate) name: String,
     pub(crate) cmd: Vec<String>,
@@ -461,7 +458,7 @@ fn retrieve_all_new_process_info(
 
     p.name = name.into();
     if c_ulong::from_str(parts[ProcIndex::Flags as usize])
-        .map(|flags| flags & PF_KTHREAD != 0)
+        .map(|flags| flags & libc::PF_KTHREAD as c_ulong != 0)
         .unwrap_or(false)
     {
         p.thread_kind = Some(ThreadKind::Kernel);
