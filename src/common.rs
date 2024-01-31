@@ -2034,7 +2034,7 @@ impl Networks {
     /// Refreshes the network interfaces' content. If you didn't run [`Networks::refresh_list`]
     /// before, calling this method won't do anything as no interfaces are present.
     ///
-    /// ⚠️ If a user is added or removed, this method won't take it into account. Use
+    /// ⚠️ If a network interface is added or removed, this method won't take it into account. Use
     /// [`Networks::refresh_list`] instead.
     ///
     /// ⚠️ If you didn't call [`Networks::refresh_list`] beforehand, this method will do nothing
@@ -2077,10 +2077,19 @@ pub struct NetworkData {
 impl NetworkData {
     /// Returns the number of received bytes since the last refresh.
     ///
+    /// If you want the total number of bytes received, take a look at the
+    /// [`total_received`](NetworkData::total_received) method.
+    ///
     /// ```no_run
     /// use sysinfo::Networks;
+    /// use std::{thread, time};
     ///
-    /// let networks = Networks::new_with_refreshed_list();
+    /// let mut networks = Networks::new_with_refreshed_list();
+    /// // Waiting a bit to get data from network...
+    /// thread::sleep(time::Duration::from_millis(10));
+    /// // Refreshing again to generate diff.
+    /// networks.refresh();
+    ///
     /// for (interface_name, network) in &networks {
     ///     println!("in: {} B", network.received());
     /// }
@@ -2090,6 +2099,9 @@ impl NetworkData {
     }
 
     /// Returns the total number of received bytes.
+    ///
+    /// If you want the amount of received bytes since the last refresh, take a look at the
+    /// [`received`](NetworkData::received) method.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
@@ -2105,10 +2117,19 @@ impl NetworkData {
 
     /// Returns the number of transmitted bytes since the last refresh.
     ///
+    /// If you want the total number of bytes transmitted, take a look at the
+    /// [`total_transmitted`](NetworkData::total_transmitted) method.
+    ///
     /// ```no_run
     /// use sysinfo::Networks;
+    /// use std::{thread, time};
     ///
-    /// let networks = Networks::new_with_refreshed_list();
+    /// let mut networks = Networks::new_with_refreshed_list();
+    /// // Waiting a bit to get data from network...
+    /// thread::sleep(time::Duration::from_millis(10));
+    /// // Refreshing again to generate diff.
+    /// networks.refresh();
+    ///
     /// for (interface_name, network) in &networks {
     ///     println!("out: {} B", network.transmitted());
     /// }
@@ -2118,6 +2139,9 @@ impl NetworkData {
     }
 
     /// Returns the total number of transmitted bytes.
+    ///
+    /// If you want the amount of transmitted bytes since the last refresh, take a look at the
+    /// [`transmitted`](NetworkData::transmitted) method.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
@@ -2133,10 +2157,19 @@ impl NetworkData {
 
     /// Returns the number of incoming packets since the last refresh.
     ///
+    /// If you want the total number of packets received, take a look at the
+    /// [`total_packets_received`](NetworkData::total_packets_received) method.
+    ///
     /// ```no_run
     /// use sysinfo::Networks;
+    /// use std::{thread, time};
     ///
-    /// let networks = Networks::new_with_refreshed_list();
+    /// let mut networks = Networks::new_with_refreshed_list();
+    /// // Waiting a bit to get data from network...
+    /// thread::sleep(time::Duration::from_millis(10));
+    /// // Refreshing again to generate diff.
+    /// networks.refresh();
+    ///
     /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.packets_received());
     /// }
@@ -2146,6 +2179,9 @@ impl NetworkData {
     }
 
     /// Returns the total number of incoming packets.
+    ///
+    /// If you want the amount of received packets since the last refresh, take a look at the
+    /// [`packets_received`](NetworkData::packets_received) method.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
@@ -2161,10 +2197,19 @@ impl NetworkData {
 
     /// Returns the number of outcoming packets since the last refresh.
     ///
+    /// If you want the total number of packets transmitted, take a look at the
+    /// [`total_packets_transmitted`](NetworkData::total_packets_transmitted) method.
+    ///
     /// ```no_run
     /// use sysinfo::Networks;
+    /// use std::{thread, time};
     ///
-    /// let networks = Networks::new_with_refreshed_list();
+    /// let mut networks = Networks::new_with_refreshed_list();
+    /// // Waiting a bit to get data from network...
+    /// thread::sleep(time::Duration::from_millis(10));
+    /// // Refreshing again to generate diff.
+    /// networks.refresh();
+    ///
     /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.packets_transmitted());
     /// }
@@ -2174,6 +2219,9 @@ impl NetworkData {
     }
 
     /// Returns the total number of outcoming packets.
+    ///
+    /// If you want the amount of transmitted packets since the last refresh, take a look at the
+    /// [`packets_transmitted`](NetworkData::packets_transmitted) method.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
@@ -2189,10 +2237,19 @@ impl NetworkData {
 
     /// Returns the number of incoming errors since the last refresh.
     ///
+    /// If you want the total number of errors on received packets, take a look at the
+    /// [`total_errors_on_received`](NetworkData::total_errors_on_received) method.
+    ///
     /// ```no_run
     /// use sysinfo::Networks;
+    /// use std::{thread, time};
     ///
-    /// let networks = Networks::new_with_refreshed_list();
+    /// let mut networks = Networks::new_with_refreshed_list();
+    /// // Waiting a bit to get data from network...
+    /// thread::sleep(time::Duration::from_millis(10));
+    /// // Refreshing again to generate diff.
+    /// networks.refresh();
+    ///
     /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.errors_on_received());
     /// }
@@ -2202,6 +2259,9 @@ impl NetworkData {
     }
 
     /// Returns the total number of incoming errors.
+    ///
+    /// If you want the amount of errors on received packets since the last refresh, take a look at
+    /// the [`errors_on_received`](NetworkData::errors_on_received) method.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
@@ -2217,10 +2277,19 @@ impl NetworkData {
 
     /// Returns the number of outcoming errors since the last refresh.
     ///
+    /// If you want the total number of errors on transmitted packets, take a look at the
+    /// [`total_errors_on_transmitted`](NetworkData::total_errors_on_transmitted) method.
+    ///
     /// ```no_run
     /// use sysinfo::Networks;
+    /// use std::{thread, time};
     ///
-    /// let networks = Networks::new_with_refreshed_list();
+    /// let mut networks = Networks::new_with_refreshed_list();
+    /// // Waiting a bit to get data from network...
+    /// thread::sleep(time::Duration::from_millis(10));
+    /// // Refreshing again to generate diff.
+    /// networks.refresh();
+    ///
     /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.errors_on_transmitted());
     /// }
@@ -2230,6 +2299,9 @@ impl NetworkData {
     }
 
     /// Returns the total number of outcoming errors.
+    ///
+    /// If you want the amount of errors on transmitted packets since the last refresh, take a look at
+    /// the [`errors_on_transmitted`](NetworkData::errors_on_transmitted) method.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
