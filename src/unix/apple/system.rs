@@ -7,6 +7,7 @@ use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
 use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind};
 
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -34,9 +35,12 @@ pub(crate) struct SystemInner {
     cpus: CpusWrapper,
 }
 
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 pub(crate) struct Wrap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
 
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 unsafe impl<'a> Send for Wrap<'a> {}
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 unsafe impl<'a> Sync for Wrap<'a> {}
 
 fn boot_time() -> u64 {

@@ -155,6 +155,7 @@ enum TermalSensorType {
     IntelPECI,
     /// Not all types are supported by all chips so we keep space for
     /// unknown sensors.
+    #[allow(dead_code)]
     Unknown(u8),
 }
 
