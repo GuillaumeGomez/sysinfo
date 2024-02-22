@@ -3005,7 +3005,7 @@ impl Groups {
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     if let Some(group_id) = process.group_id() {
-    ///         println!("User for process 1337: {:?}", groups.get_group_by_id(group_id));
+    ///         println!("User for process 1337: {:?}", groups.get_group_by_id(&group_id));
     ///     }
     /// }
     /// ```
