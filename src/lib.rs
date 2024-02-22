@@ -58,7 +58,7 @@ pub use crate::common::{
 };
 
 pub(crate) use crate::sys::{
-    ComponentInner, ComponentsInner, CpuInner, DiskInner, DisksInner, NetworkDataInner,
+    ComponentInner, ComponentsInner, CpuInner, DiskInner, DisksInner, GroupInner, NetworkDataInner,
     NetworksInner, ProcessInner, SystemInner, UserInner,
 };
 pub use crate::sys::{IS_SUPPORTED_SYSTEM, MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
