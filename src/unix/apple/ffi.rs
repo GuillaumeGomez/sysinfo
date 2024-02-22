@@ -29,6 +29,8 @@ extern "C" {
 }
 
 #[cfg_attr(feature = "debug", derive(Eq, Hash, PartialEq))]
+#[allow(unused)]
+#[allow(non_camel_case_types)]
 #[derive(Clone)]
 #[repr(C)]
 pub struct Val_t {

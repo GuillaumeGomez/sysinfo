@@ -2,6 +2,7 @@
 
 use crate::{Gid, Group, Uid, User};
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub(crate) struct GroupInner;
 
 impl GroupInner {
