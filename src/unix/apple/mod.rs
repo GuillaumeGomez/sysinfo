@@ -18,7 +18,6 @@ pub mod component;
 pub mod cpu;
 pub mod disk;
 mod ffi;
-pub mod groups;
 pub mod network;
 pub mod process;
 pub mod system;

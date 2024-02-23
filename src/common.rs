@@ -2981,37 +2981,6 @@ impl Groups {
     pub fn refresh_list(&mut self) {
         crate::sys::get_groups(&mut self.groups);
     }
-
-    /// Returns the [`Group`] matching the given `group_id`.
-    ///
-    /// **Important**: The group list must be filled before using this method, otherwise it will
-    /// always return `None` (through the `refresh_*` methods).
-    ///
-    /// It is a shorthand for:
-    ///
-    /// ```ignore
-    /// # use sysinfo::Groups;
-    /// let groups = Groups::new_with_refreshed_list();
-    /// groups.list().find(|user| user.id() == user_id);
-    /// ```
-    ///
-    /// Full example:
-    ///
-    /// ```no_run
-    /// use sysinfo::{Pid, System, Groups};
-    ///
-    /// let mut s = System::new_all();
-    /// let groups = Groups::new_with_refreshed_list();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     if let Some(group_id) = process.group_id() {
-    ///         println!("User for process 1337: {:?}", groups.get_group_by_id(&group_id));
-    ///     }
-    /// }
-    /// ```
-    pub fn get_group_by_id(&self, group_id: &Gid) -> Option<&Group> {
-        self.groups.iter().find(|group| group.id() == group_id)
-    }
 }
 
 /// An enum representing signals on UNIX-like systems.
