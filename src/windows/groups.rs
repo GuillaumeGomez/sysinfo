@@ -12,22 +12,19 @@ use windows::Win32::NetworkManagement::NetManagement::{
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub(crate) struct GroupInner {
-    pub(crate) gid: Gid,
-    pub(crate) name: String,
-}
+pub(crate) struct GroupInner(crate::common::BaseGroupInner);
 
 impl GroupInner {
-    fn new(gid: Gid, name: String) -> Self {
-        Self { gid, name }
+    pub(crate) fn new(id: Gid, name: String) -> Self {
+        Self(crate::common::BaseGroupInner { id, name })
     }
 
     pub(crate) fn id(&self) -> &Gid {
-        &self.gid
+        &self.0.id
     }
 
     pub(crate) fn name(&self) -> &str {
-        &self.name
+        &self.0.name
     }
 }
 

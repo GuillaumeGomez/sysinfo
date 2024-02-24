@@ -139,10 +139,7 @@ unsafe fn get_groups_for_user(username: PCWSTR) -> Vec<Group> {
         if !buf.0.is_null() {
             let entries = std::slice::from_raw_parts(buf.0, nb_entries as _);
             groups.extend(entries.iter().map(|entry| Group {
-                inner: GroupInner {
-                    gid: Gid(0),
-                    name: to_str(entry.lgrui0_name),
-                },
+                inner: GroupInner::new(Gid(0), to_str(entry.lgrui0_name)),
             }));
         }
     } else {

@@ -3330,9 +3330,15 @@ impl User {
     }
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub(crate) struct BaseGroupInner {
+    pub(crate) id: Gid,
+    pub(crate) name: String,
+}
+
 /// Type containing group information.
 ///
-/// It is returned by [`User::groups`].
+/// It is returned by [`User::groups`] or [`Groups::list`].
 ///
 /// ```no_run
 /// use sysinfo::Users;
