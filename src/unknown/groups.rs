@@ -1,17 +1,14 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Gid, Group};
-
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub(crate) struct GroupInner;
+use crate::{Gid, Group, GroupInner};
 
 impl GroupInner {
     pub(crate) fn id(&self) -> &Gid {
-        &Gid(0)
+        &self.id
     }
 
     pub(crate) fn name(&self) -> &str {
-        ""
+        &self.name
     }
 }
 

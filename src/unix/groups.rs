@@ -1,30 +1,26 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::common::Gid;
-
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 use crate::Group;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct GroupInner(crate::common::BaseGroupInner);
-
-impl GroupInner {
-    pub(crate) fn new(id: Gid, name: String) -> Self {
-        Self(crate::common::BaseGroupInner { id, name })
+impl crate::GroupInner {
+    pub(crate) fn new(id: crate::Gid, name: String) -> Self {
+        Self { id, name }
     }
 
-    pub(crate) fn id(&self) -> &Gid {
-        &self.0.id
+    pub(crate) fn id(&self) -> &crate::Gid {
+        &self.id
     }
 
     pub(crate) fn name(&self) -> &str {
-        &self.0.name
+        &self.name
     }
 }
 
 // Not used by mac.
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub(crate) fn get_groups(groups: &mut Vec<Group>) {
+    use crate::common::{Gid, GroupInner};
     use std::fs::File;
     use std::io::Read;
 

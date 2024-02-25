@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    ComponentInner, ComponentsInner, CpuInner, GroupInner, NetworkDataInner, NetworksInner,
-    ProcessInner, SystemInner, UserInner,
+    ComponentInner, ComponentsInner, CpuInner, NetworkDataInner, NetworksInner, ProcessInner,
+    SystemInner, UserInner,
 };
 
 use std::cmp::Ordering;
@@ -3331,7 +3331,7 @@ impl User {
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub(crate) struct BaseGroupInner {
+pub(crate) struct GroupInner {
     pub(crate) id: Gid,
     pub(crate) name: String,
 }

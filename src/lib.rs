@@ -57,8 +57,9 @@ pub use crate::common::{
     ThreadKind, Uid, UpdateKind, User, Users,
 };
 
+pub(crate) use crate::common::GroupInner;
 pub(crate) use crate::sys::{
-    ComponentInner, ComponentsInner, CpuInner, DiskInner, DisksInner, GroupInner, NetworkDataInner,
+    ComponentInner, ComponentsInner, CpuInner, DiskInner, DisksInner, NetworkDataInner,
     NetworksInner, ProcessInner, SystemInner, UserInner,
 };
 pub use crate::sys::{IS_SUPPORTED_SYSTEM, MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
