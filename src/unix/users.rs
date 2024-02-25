@@ -106,8 +106,7 @@ pub(crate) unsafe fn get_user_groups(
             .filter_map(|group_id| {
                 let name = get_group_name(*group_id as _, &mut buffer)?;
                 Some(Group {
-                    name,
-                    id: Gid(*group_id as _),
+                    inner: crate::GroupInner::new(Gid(*group_id as _), name),
                 })
             })
             .collect();

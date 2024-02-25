@@ -18,6 +18,7 @@ pub mod component;
 pub mod cpu;
 pub mod disk;
 mod ffi;
+pub mod groups;
 pub mod network;
 pub mod process;
 pub mod system;
@@ -30,6 +31,7 @@ pub(crate) use self::disk::DiskInner;
 pub(crate) use self::network::{NetworkDataInner, NetworksInner};
 pub(crate) use self::process::ProcessInner;
 pub(crate) use self::system::SystemInner;
+pub(crate) use crate::unix::groups::get_groups;
 pub(crate) use crate::unix::users::{get_users, UserInner};
 pub(crate) use crate::unix::DisksInner;
 

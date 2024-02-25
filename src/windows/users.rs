@@ -4,7 +4,7 @@ use crate::sys::utils::to_str;
 use crate::{
     common::{Gid, Uid},
     windows::sid::Sid,
-    Group, User,
+    Group, GroupInner, User,
 };
 
 use std::ptr::null_mut;
@@ -139,8 +139,7 @@ unsafe fn get_groups_for_user(username: PCWSTR) -> Vec<Group> {
         if !buf.0.is_null() {
             let entries = std::slice::from_raw_parts(buf.0, nb_entries as _);
             groups.extend(entries.iter().map(|entry| Group {
-                name: to_str(entry.lgrui0_name),
-                id: Gid(0),
+                inner: GroupInner::new(Gid(0), to_str(entry.lgrui0_name)),
             }));
         }
     } else {

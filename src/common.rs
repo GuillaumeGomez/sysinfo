@@ -7,7 +7,7 @@ use crate::{
 
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::convert::{From, TryFrom};
+use std::convert::TryFrom;
 use std::ffi::OsStr;
 use std::fmt;
 use std::path::Path;
@@ -2843,6 +2843,146 @@ impl Users {
     }
 }
 
+/// Interacting with groups.
+///
+/// ```no_run
+/// use sysinfo::Groups;
+///
+/// let mut groups = Groups::new();
+/// for group in groups.list() {
+///     println!("{}", group.name());
+/// }
+/// ```
+pub struct Groups {
+    groups: Vec<Group>,
+}
+
+impl Default for Groups {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl From<Groups> for Vec<Group> {
+    fn from(groups: Groups) -> Self {
+        groups.groups
+    }
+}
+
+impl From<Vec<Group>> for Groups {
+    fn from(groups: Vec<Group>) -> Self {
+        Self { groups }
+    }
+}
+
+impl std::ops::Deref for Groups {
+    type Target = [Group];
+
+    fn deref(&self) -> &Self::Target {
+        self.list()
+    }
+}
+
+impl std::ops::DerefMut for Groups {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.list_mut()
+    }
+}
+
+impl<'a> IntoIterator for &'a Groups {
+    type Item = &'a Group;
+    type IntoIter = std::slice::Iter<'a, Group>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.list().iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Groups {
+    type Item = &'a mut Group;
+    type IntoIter = std::slice::IterMut<'a, Group>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.list_mut().iter_mut()
+    }
+}
+
+impl Groups {
+    /// Creates a new empty [`Groups`][crate::Groups] type.
+    ///
+    /// If you want it to be filled directly, take a look at [`Groups::new_with_refreshed_list`].
+    ///
+    /// ```no_run
+    /// use sysinfo::Groups;
+    ///
+    /// let mut groups = Groups::new();
+    /// groups.refresh_list();
+    /// for group in groups.list() {
+    ///     println!("{group:?}");
+    /// }
+    /// ```
+    pub fn new() -> Self {
+        Self { groups: Vec::new() }
+    }
+
+    /// Creates a new [`Groups`][crate::Groups] type with the user list loaded.
+    /// It is a combination of [`Groups::new`] and [`Groups::refresh_list`].
+    ///
+    /// ```no_run
+    /// use sysinfo::Groups;
+    ///
+    /// let mut groups = Groups::new_with_refreshed_list();
+    /// for group in groups.list() {
+    ///     println!("{group:?}");
+    /// }
+    /// ```
+    pub fn new_with_refreshed_list() -> Self {
+        let mut groups = Self::new();
+        groups.refresh_list();
+        groups
+    }
+
+    /// Returns the users list.
+    ///
+    /// ```no_run
+    /// use sysinfo::Groups;
+    ///
+    /// let groups = Groups::new_with_refreshed_list();
+    /// for group in groups.list() {
+    ///     println!("{group:?}");
+    /// }
+    /// ```
+    pub fn list(&self) -> &[Group] {
+        &self.groups
+    }
+
+    /// Returns the groups list.
+    ///
+    /// ```no_run
+    /// use sysinfo::Groups;
+    ///
+    /// let mut groups = Groups::new_with_refreshed_list();
+    /// groups.list_mut().sort_by(|user1, user2| {
+    ///     user1.name().partial_cmp(user2.name()).unwrap()
+    /// });
+    /// ```
+    pub fn list_mut(&mut self) -> &mut [Group] {
+        &mut self.groups
+    }
+
+    /// The group list will be emptied then completely recomputed.
+    ///
+    /// ```no_run
+    /// use sysinfo::Users;
+    ///
+    /// let mut users = Users::new();
+    /// users.refresh_list();
+    /// ```
+    pub fn refresh_list(&mut self) {
+        crate::sys::get_groups(&mut self.groups);
+    }
+}
+
 /// An enum representing signals on UNIX-like systems.
 ///
 /// On non-unix systems, this enum is mostly useless and is only there to keep coherency between
@@ -3190,9 +3330,15 @@ impl User {
     }
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub(crate) struct GroupInner {
+    pub(crate) id: Gid,
+    pub(crate) name: String,
+}
+
 /// Type containing group information.
 ///
-/// It is returned by [`User::groups`].
+/// It is returned by [`User::groups`] or [`Groups::list`].
 ///
 /// ```no_run
 /// use sysinfo::Users;
@@ -3213,8 +3359,7 @@ impl User {
 /// ```
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Group {
-    pub(crate) id: Gid,
-    pub(crate) name: String,
+    pub(crate) inner: GroupInner,
 }
 
 impl Group {
@@ -3234,7 +3379,7 @@ impl Group {
     /// }
     /// ```
     pub fn id(&self) -> &Gid {
-        &self.id
+        self.inner.id()
     }
 
     /// Returns the name of the group.
@@ -3251,7 +3396,7 @@ impl Group {
     /// }
     /// ```
     pub fn name(&self) -> &str {
-        &self.name
+        self.inner.name()
     }
 }
 

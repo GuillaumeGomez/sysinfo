@@ -3,6 +3,7 @@
 pub mod component;
 pub mod cpu;
 pub mod disk;
+pub mod groups;
 pub mod network;
 pub mod process;
 pub mod system;
@@ -11,6 +12,7 @@ pub mod users;
 pub(crate) use self::component::{ComponentInner, ComponentsInner};
 pub(crate) use self::cpu::CpuInner;
 pub(crate) use self::disk::{DiskInner, DisksInner};
+pub(crate) use self::groups::get_groups;
 pub(crate) use self::network::{NetworkDataInner, NetworksInner};
 pub(crate) use self::process::ProcessInner;
 pub(crate) use self::system::SystemInner;

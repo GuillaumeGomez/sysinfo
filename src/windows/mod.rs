@@ -3,6 +3,7 @@
 mod component;
 mod cpu;
 mod disk;
+mod groups;
 mod network;
 pub(crate) mod network_helper;
 mod process;
@@ -15,6 +16,7 @@ mod utils;
 pub(crate) use self::component::{ComponentInner, ComponentsInner};
 pub(crate) use self::cpu::CpuInner;
 pub(crate) use self::disk::{DiskInner, DisksInner};
+pub(crate) use self::groups::get_groups;
 pub(crate) use self::network::{NetworkDataInner, NetworksInner};
 pub(crate) use self::process::ProcessInner;
 pub use self::sid::Sid;

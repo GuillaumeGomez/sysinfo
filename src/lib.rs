@@ -52,11 +52,12 @@ cfg_if::cfg_if! {
 
 pub use crate::common::{
     get_current_pid, CGroupLimits, Component, Components, Cpu, CpuRefreshKind, Disk, DiskKind,
-    DiskUsage, Disks, Gid, Group, LoadAvg, MacAddr, MemoryRefreshKind, NetworkData, Networks, Pid,
-    Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, ThreadKind, Uid,
-    UpdateKind, User, Users,
+    DiskUsage, Disks, Gid, Group, Groups, LoadAvg, MacAddr, MemoryRefreshKind, NetworkData,
+    Networks, Pid, Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System,
+    ThreadKind, Uid, UpdateKind, User, Users,
 };
 
+pub(crate) use crate::common::GroupInner;
 pub(crate) use crate::sys::{
     ComponentInner, ComponentsInner, CpuInner, DiskInner, DisksInner, NetworkDataInner,
     NetworksInner, ProcessInner, SystemInner, UserInner,
@@ -568,5 +569,13 @@ mod test {
         // If it doesn't panic, it's fine.
         let _ = crate::Pid::from(0);
         assert!(crate::Pid::from_str("0").is_ok());
+    }
+
+    #[test]
+    fn check_groups() {
+        if !crate::IS_SUPPORTED_SYSTEM {
+            return;
+        }
+        assert!(!Groups::new_with_refreshed_list().is_empty());
     }
 }
