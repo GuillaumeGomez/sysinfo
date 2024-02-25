@@ -570,4 +570,12 @@ mod test {
         let _ = crate::Pid::from(0);
         assert!(crate::Pid::from_str("0").is_ok());
     }
+
+    #[test]
+    fn check_groups() {
+        if !crate::IS_SUPPORTED_SYSTEM {
+            return;
+        }
+        assert!(!Groups::new_with_refreshed_list().is_empty());
+    }
 }
