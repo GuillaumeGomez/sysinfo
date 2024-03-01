@@ -784,7 +784,7 @@ fn test_process_run_time() {
     let current_pid = sysinfo::get_current_pid().expect("failed to get current pid");
     s.refresh_process(current_pid);
     let run_time = s.process(current_pid).expect("no process found").run_time();
-    std::thread::sleep(std::time::Duration::from_millis(1500));
+    std::thread::sleep(std::time::Duration::from_secs(2));
     s.refresh_process(current_pid);
     let new_run_time = s.process(current_pid).expect("no process found").run_time();
     assert!(
