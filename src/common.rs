@@ -1140,8 +1140,8 @@ impl Process {
 
     /// Returns number of bytes read and written to disk.
     ///
-    /// ⚠️ On Windows and FreeBSD, this method actually returns **ALL** I/O
-    /// read and written bytes.
+    /// ⚠️ On Windows, this method actually returns **ALL** I/O read and
+    /// written bytes.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
