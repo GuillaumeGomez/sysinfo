@@ -686,6 +686,7 @@ pub(crate) fn update_process(
                 }
             };
             p.status = thread_status;
+            p.run_time = now.saturating_sub(p.start_time);
 
             if refresh_kind.cpu() || refresh_kind.memory() {
                 let task_info = get_task_info(pid);
