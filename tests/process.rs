@@ -774,3 +774,23 @@ fn test_refresh_pids() {
         assert!(pids.contains(pid));
     }
 }
+
+#[test]
+fn test_process_run_time() {
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut s = System::new();
+    let current_pid = sysinfo::get_current_pid().expect("failed to get current pid");
+    s.refresh_process(current_pid);
+    let run_time = s.process(current_pid).expect("no process found").run_time();
+    std::thread::sleep(std::time::Duration::from_millis(1500));
+    s.refresh_process(current_pid);
+    let new_run_time = s.process(current_pid).expect("no process found").run_time();
+    assert!(
+        new_run_time > run_time,
+        "{} not superior to {}",
+        new_run_time,
+        run_time
+    );
+}
