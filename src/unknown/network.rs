@@ -2,6 +2,7 @@
 
 use crate::common::MacAddr;
 use crate::NetworkData;
+use crate::IpNetwork;
 
 use std::collections::HashMap;
 

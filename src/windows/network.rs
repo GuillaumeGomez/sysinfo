@@ -2,6 +2,7 @@
 
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
+use crate::IpNetwork;
 use crate::NetworkData;
 
 use std::collections::{hash_map, HashMap};
@@ -137,6 +138,7 @@ impl NetworksInner {
                                 errors_out: ptr.OutErrors,
                                 old_errors_out: ptr.OutErrors,
                                 mac_addr: MacAddr::UNSPECIFIED,
+                                ip_networks: vec![],
                                 updated: true,
                             },
                         });

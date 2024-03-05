@@ -108,7 +108,7 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
     }
 }
 
-pub(crate) fn get_interface_ip_network() -> HashMap<String, Vec<IpNetwork>> {
+pub(crate) fn get_interface_ip_networks() -> HashMap<String, Vec<IpNetwork>> {
     ipconfig::get_adapters()
         .unwrap_or(vec![])
         .into_iter()
@@ -116,10 +116,10 @@ pub(crate) fn get_interface_ip_network() -> HashMap<String, Vec<IpNetwork>> {
             (
                 a.friendly_name().to_owned(),
                 a.prefixes()
-                    .into_iter()
-                    .map(|(addr, prefix)| IpNetwork::new(addr, prefix))
+                    .iter()
+                    .filter_map(|(addr, prefix)| IpNetwork::new(*addr, *prefix as u8).ok())
                     .collect(),
             )
         })
-        .collect();
+        .collect()
 }

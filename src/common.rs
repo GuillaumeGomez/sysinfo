@@ -2337,7 +2337,7 @@ impl NetworkData {
     ///
     /// let mut networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
-    ///     println!("Ip Networks: {}", network.ip_networks());
+    ///     println!("Ip Networks: {:?}", network.ip_networks());
     /// }
     /// ```
     pub fn ip_networks(&self) -> &[IpNetwork] {

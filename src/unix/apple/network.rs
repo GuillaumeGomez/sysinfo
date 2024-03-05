@@ -5,10 +5,9 @@ use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFIN
 use std::collections::{hash_map, HashMap};
 use std::ptr::null_mut;
 
-use ipnetwork::IpNetwork;
-
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
+use crate::IpNetwork;
 use crate::NetworkData;
 
 macro_rules! old_and_new {
@@ -198,7 +197,7 @@ pub(crate) struct NetworkDataInner {
     /// MAC address
     pub(crate) mac_addr: MacAddr,
     /// IP networks
-    pub(crate) ip_networks: Vec<ipnetwok::IpNetwork>,
+    pub(crate) ip_networks: Vec<IpNetwork>,
 }
 
 impl NetworkDataInner {
