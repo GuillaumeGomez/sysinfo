@@ -5,6 +5,7 @@ use crate::{
     SystemInner, UserInner,
 };
 
+use ipnetwork::IpNetwork;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
@@ -2327,6 +2328,20 @@ impl NetworkData {
     /// ```
     pub fn mac_address(&self) -> MacAddr {
         self.inner.mac_address()
+    }
+
+    /// Returns the Ip Networks associated to current interface.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new_with_refreshed_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("Ip Networks: {}", network.ip_networks());
+    /// }
+    /// ```
+    pub fn ip_networks(&self) -> &[IpNetwork] {
+        self.inner.ip_networks()
     }
 }
 

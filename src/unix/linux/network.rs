@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use ipnetwork::IpNetwork;
 use std::collections::{hash_map, HashMap};
 use std::io::Read;
 use std::path::Path;
@@ -95,6 +96,7 @@ fn refresh_networks_list_from_sysfs(
                             tx_errors,
                             old_tx_errors: tx_errors,
                             mac_addr: MacAddr::UNSPECIFIED,
+                            ip_networks: vec![],
                             // rx_compressed,
                             // old_rx_compressed: rx_compressed,
                             // tx_compressed,
@@ -163,6 +165,7 @@ pub(crate) struct NetworkDataInner {
     old_tx_errors: u64,
     /// MAC address
     pub(crate) mac_addr: MacAddr,
+    pub(crate) ip_networks: Vec<IpNetwork>,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
     // /// that support packet compression (e.g: PPP).
@@ -270,6 +273,10 @@ impl NetworkDataInner {
 
     pub(crate) fn mac_address(&self) -> MacAddr {
         self.mac_addr
+    }
+
+    pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
+        &self.ip_networks
     }
 }
 

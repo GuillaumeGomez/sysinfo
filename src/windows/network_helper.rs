@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use ipnetwork::IpNetwork;
+use std::collections::HashMap;
 use std::ptr::null_mut;
 
 use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, ERROR_SUCCESS};
@@ -104,4 +106,20 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
 
         Err(format!("GetAdaptersAddresses() failed with code {ret}"))
     }
+}
+
+pub(crate) fn get_interface_ip_network() -> HashMap<String, Vec<IpNetwork>> {
+    ipconfig::get_adapters()
+        .unwrap_or(vec![])
+        .into_iter()
+        .map(|a| {
+            (
+                a.friendly_name().to_owned(),
+                a.prefixes()
+                    .into_iter()
+                    .map(|(addr, prefix)| IpNetwork::new(addr, prefix))
+                    .collect(),
+            )
+        })
+        .collect();
 }

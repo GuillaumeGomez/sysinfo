@@ -63,6 +63,7 @@ pub(crate) use crate::sys::{
     NetworksInner, ProcessInner, SystemInner, UserInner,
 };
 pub use crate::sys::{IS_SUPPORTED_SYSTEM, MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
+pub use ipnetwork::IpNetwork;
 
 #[cfg(feature = "c-interface")]
 pub use crate::c_interface::*;

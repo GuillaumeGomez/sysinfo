@@ -79,4 +79,8 @@ impl NetworkDataInner {
     pub(crate) fn mac_address(&self) -> MacAddr {
         MacAddr::UNSPECIFIED
     }
+
+    pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
+        &[]
+    }
 }

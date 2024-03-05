@@ -115,6 +115,7 @@ impl NetworksInner {
                                 old_ifi_oerrors: 0,
                                 updated: true,
                                 mac_addr: MacAddr::UNSPECIFIED,
+                                ip_networks: vec![],
                             },
                         });
                     }
@@ -149,6 +150,8 @@ pub(crate) struct NetworkDataInner {
     updated: bool,
     /// MAC address
     pub(crate) mac_addr: MacAddr,
+    /// IP networks
+    pub(crate) ip_networks: Vec<ipnetwok::IpNetwork>,
 }
 
 impl NetworkDataInner {
@@ -202,5 +205,9 @@ impl NetworkDataInner {
 
     pub(crate) fn mac_address(&self) -> MacAddr {
         self.mac_addr
+    }
+
+    pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
+        &self.ip_networks
     }
 }

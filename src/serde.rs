@@ -286,6 +286,7 @@ impl Serialize for crate::NetworkData {
             &self.total_errors_on_transmitted(),
         )?;
         state.serialize_field("mac_address", &self.mac_address())?;
+        state.serialize_field("ip_networks", &self.ip_networks())?;
 
         state.end()
     }

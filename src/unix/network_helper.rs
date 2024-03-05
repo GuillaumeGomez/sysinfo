@@ -1,7 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::common::MacAddr;
+use std::collections::HashMap;
 use std::ptr::null_mut;
+
+use ipnetwork::IpNetwork;
+
+use crate::common::MacAddr;
 
 /// This iterator yields an interface name and address.
 pub(crate) struct InterfaceAddressIterator {
@@ -115,4 +119,11 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
             Err("failed to call getifaddrs()".to_string())
         }
     }
+}
+
+pub(crate) fn get_interface_ip_networks() -> HashMap<String, Vec<IpNetwork>> {
+    pnet_datalink::interfaces()
+        .into_iter()
+        .map(|i| (i.name, i.ips))
+        .collect()
 }

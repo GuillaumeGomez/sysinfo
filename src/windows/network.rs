@@ -200,6 +200,7 @@ pub(crate) struct NetworkDataInner {
     old_errors_out: u64,
     updated: bool,
     pub(crate) mac_addr: MacAddr,
+    pub(crate) ip_networks: Vec<IpNetwork>,
 }
 
 impl NetworkDataInner {
@@ -253,5 +254,9 @@ impl NetworkDataInner {
 
     pub(crate) fn mac_address(&self) -> MacAddr {
         self.mac_addr
+    }
+
+    pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
+        &self.ip_networks
     }
 }
