@@ -110,7 +110,7 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
 
 pub(crate) fn get_interface_ip_networks() -> HashMap<String, Vec<IpNetwork>> {
     ipconfig::get_adapters()
-        .unwrap_or(vec![])
+        .unwrap_or_default()
         .into_iter()
         .map(|a| {
             (
