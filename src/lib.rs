@@ -177,8 +177,8 @@ mod doctest {
 
 #[cfg(test)]
 mod test {
-    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use crate::*;
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     #[cfg(feature = "unknown-ci")]
     #[test]
@@ -547,7 +547,8 @@ mod test {
     // Ensure that the `Display` and `Debug` traits are implemented on the `IpNetwork` struct
     #[test]
     fn check_display_impl_ip_network_ipv4() {
-        println!("{} {:?}",
+        println!(
+            "{} {:?}",
             IpNetwork::new(IpAddr::from(Ipv4Addr::new(1, 2, 3, 4)), 3),
             IpNetwork::new(IpAddr::from(Ipv4Addr::new(255, 255, 255, 0)), 21)
         );
@@ -555,9 +556,16 @@ mod test {
 
     #[test]
     fn check_display_impl_ip_network_ipv6() {
-        println!("{} {:?}",
-            IpNetwork::new(IpAddr::from(Ipv6Addr::new(0xffff, 0xaabb, 00, 0, 0, 0x000c, 11, 21)), 127),
-            IpNetwork::new(IpAddr::from(Ipv6Addr::new(0xffcc, 0, 0, 0xffcc, 0, 0xffff, 0, 0xccaa)), 120)
+        println!(
+            "{} {:?}",
+            IpNetwork::new(
+                IpAddr::from(Ipv6Addr::new(0xffff, 0xaabb, 00, 0, 0, 0x000c, 11, 21)),
+                127
+            ),
+            IpNetwork::new(
+                IpAddr::from(Ipv6Addr::new(0xffcc, 0, 0, 0xffcc, 0, 0xffff, 0, 0xccaa)),
+                120
+            )
         )
     }
 
