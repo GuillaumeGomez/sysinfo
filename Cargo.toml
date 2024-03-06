@@ -43,17 +43,12 @@ rustdoc-args = ["--generate-link-to-definition"]
 cfg-if = "1.0"
 rayon = { version = "^1.8", optional = true }
 serde = { version = "^1.0.190", optional = true }
-ipnetwork = "0.20"
 
 [target.'cfg(any(windows, target_os = "linux", target_os = "android"))'.dependencies]
 once_cell = "1.18"
 
-[target.'cfg(unix)'.dependencies]
-pnet_datalink = "0.34"
-
 [target.'cfg(windows)'.dependencies]
 ntapi = "0.4"
-ipconfig = "0.3.2"
 windows = { version = "0.52", features = [
     "Wdk_System_SystemInformation",
     "Wdk_System_SystemServices",

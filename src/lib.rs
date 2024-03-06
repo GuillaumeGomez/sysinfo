@@ -52,9 +52,9 @@ cfg_if::cfg_if! {
 
 pub use crate::common::{
     get_current_pid, CGroupLimits, Component, Components, Cpu, CpuRefreshKind, Disk, DiskKind,
-    DiskUsage, Disks, Gid, Group, Groups, LoadAvg, MacAddr, MemoryRefreshKind, NetworkData,
-    Networks, Pid, Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System,
-    ThreadKind, Uid, UpdateKind, User, Users,
+    DiskUsage, Disks, Gid, Group, Groups, IpNetwork, LoadAvg, MacAddr, MemoryRefreshKind,
+    NetworkData, Networks, Pid, Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal,
+    System, ThreadKind, Uid, UpdateKind, User, Users,
 };
 
 pub(crate) use crate::common::GroupInner;
@@ -63,7 +63,6 @@ pub(crate) use crate::sys::{
     NetworksInner, ProcessInner, SystemInner, UserInner,
 };
 pub use crate::sys::{IS_SUPPORTED_SYSTEM, MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
-pub use ipnetwork::IpNetwork;
 
 #[cfg(feature = "c-interface")]
 pub use crate::c_interface::*;
@@ -178,6 +177,7 @@ mod doctest {
 
 #[cfg(test)]
 mod test {
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use crate::*;
 
     #[cfg(feature = "unknown-ci")]
@@ -542,6 +542,23 @@ mod test {
     #[test]
     fn check_mac_address_is_unspecified_false() {
         assert!(!MacAddr([1, 2, 3, 4, 5, 6]).is_unspecified());
+    }
+
+    // Ensure that the `Display` and `Debug` traits are implemented on the `IpNetwork` struct
+    #[test]
+    fn check_display_impl_ip_network_ipv4() {
+        println!("{} {:?}",
+            IpNetwork::new(IpAddr::from(Ipv4Addr::new(1, 2, 3, 4)), 3),
+            IpNetwork::new(IpAddr::from(Ipv4Addr::new(255, 255, 255, 0)), 21)
+        );
+    }
+
+    #[test]
+    fn check_display_impl_ip_network_ipv6() {
+        println!("{} {:?}",
+            IpNetwork::new(IpAddr::from(Ipv6Addr::new(0xffff, 0xaabb, 00, 0, 0, 0x000c, 11, 21)), 127),
+            IpNetwork::new(IpAddr::from(Ipv6Addr::new(0xffcc, 0, 0, 0xffcc, 0, 0xffff, 0, 0xccaa)), 120)
+        )
     }
 
     // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented

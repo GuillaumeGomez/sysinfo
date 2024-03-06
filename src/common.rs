@@ -5,12 +5,13 @@ use crate::{
     SystemInner, UserInner,
 };
 
-use ipnetwork::IpNetwork;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::ffi::OsStr;
 use std::fmt;
+use std::fmt::Formatter;
+use std::net::IpAddr;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -3647,6 +3648,38 @@ impl fmt::Display for MacAddr {
             "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
             data[0], data[1], data[2], data[3], data[4], data[5],
         )
+    }
+}
+
+/// Ip networks address for network interface.
+///
+/// It is returned by [`NetworkData::ip_networks`][crate::NetworkData::ip_networks].
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct IpNetwork {
+    addr: IpAddr,
+    prefix: u8,
+}
+
+impl IpNetwork {
+    /// build new IpNetwork
+    pub fn new(addr: IpAddr, prefix: u8) -> Self {
+        Self { addr, prefix }
+    }
+
+    /// return the addr of the IpNetwork
+    pub fn addr(&self) -> IpAddr {
+        self.addr
+    }
+
+    /// return the prefix of the IpNetwork
+    pub fn prefix(&self) -> u8 {
+        self.prefix
+    }
+}
+
+impl fmt::Display for IpNetwork {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{}", self.addr, self.prefix)
     }
 }
 

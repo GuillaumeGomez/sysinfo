@@ -1,12 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use ipnetwork::IpNetwork;
 use std::collections::{hash_map, HashMap};
 use std::io::Read;
 use std::path::Path;
 use std::{fs::File, u8};
 
-use crate::common::MacAddr;
+use crate::common::{IpNetwork, MacAddr};
 use crate::network::refresh_networks_addresses;
 use crate::NetworkData;
 

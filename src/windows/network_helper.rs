@@ -1,17 +1,19 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use ipnetwork::IpNetwork;
-use std::collections::HashMap;
-use std::ptr::null_mut;
+use std::collections::{HashMap, HashSet};
+use std::net::IpAddr;
+use std::ptr::{null_mut, NonNull};
 
 use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, ERROR_SUCCESS};
 use windows::Win32::NetworkManagement::IpHelper::{
     GetAdaptersAddresses, GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_DNS_SERVER, GAA_FLAG_SKIP_MULTICAST,
-    IP_ADAPTER_ADDRESSES_LH,
+    IP_ADAPTER_ADDRESSES_LH, IP_ADAPTER_UNICAST_ADDRESS_LH,
 };
-use windows::Win32::Networking::WinSock::AF_UNSPEC;
+use windows::Win32::Networking::WinSock::{
+    AF_INET, AF_INET6, AF_UNSPEC, SOCKADDR, SOCKADDR_IN, SOCKADDR_IN6,
+};
 
-use crate::common::MacAddr;
+use crate::common::{IpNetwork, MacAddr};
 
 /// this iterator yields an interface name and address
 pub(crate) struct InterfaceAddressIterator {
@@ -66,6 +68,31 @@ impl Iterator for InterfaceAddressIterator {
     }
 }
 
+impl InterfaceAddressIterator {
+    pub fn generate_ip_networks(&mut self) -> HashMap<String, HashSet<IpNetwork>> {
+        let mut results = HashMap::new();
+        while !self.adapter.is_null() {
+            unsafe {
+                let adapter = self.adapter;
+                // Move to the next adapter
+                self.adapter = (*adapter).Next;
+                if let Ok(interface_name) = (*adapter).FriendlyName.to_string() {
+                    let ip_networks = get_ip_networks((*adapter).FirstUnicastAddress);
+                    results.insert(interface_name, ip_networks);
+                }
+            }
+        }
+        results
+    }
+}
+
+pub(crate) fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>> {
+    match get_interface_address() {
+        Ok(mut interface_iter) => interface_iter.generate_ip_networks(),
+        _ => HashMap::new(),
+    }
+}
+
 impl Drop for InterfaceAddressIterator {
     fn drop(&mut self) {
         unsafe {
@@ -108,18 +135,35 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
     }
 }
 
-pub(crate) fn get_interface_ip_networks() -> HashMap<String, Vec<IpNetwork>> {
-    ipconfig::get_adapters()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|a| {
-            (
-                a.friendly_name().to_owned(),
-                a.prefixes()
-                    .iter()
-                    .filter_map(|(addr, prefix)| IpNetwork::new(*addr, *prefix as u8).ok())
-                    .collect(),
-            )
-        })
-        .collect()
+fn get_ip_networks(mut prefixes_ptr: *mut IP_ADAPTER_UNICAST_ADDRESS_LH) -> HashSet<IpNetwork> {
+    let mut ip_networks = HashSet::new();
+    while !prefixes_ptr.is_null() {
+        let prefix = unsafe { prefixes_ptr.read_unaligned() };
+        if let Some(socket_address) = NonNull::new(prefix.Address.lpSockaddr) {
+            if let Some(ipaddr) = get_ip_address_from_socket_address(socket_address) {
+                ip_networks.insert(IpNetwork::new(ipaddr, prefix.OnLinkPrefixLength));
+            }
+        }
+        prefixes_ptr = prefix.Next;
+    }
+    ip_networks
+}
+
+/// Converts a Windows socket address to an ip address.
+fn get_ip_address_from_socket_address(socket_address: NonNull<SOCKADDR>) -> Option<IpAddr> {
+    let socket_address_family = unsafe { socket_address.as_ref().sa_family };
+
+    if socket_address_family == AF_INET {
+        let socket_address = unsafe { socket_address.cast::<SOCKADDR_IN>().as_ref() };
+        let address = unsafe { socket_address.sin_addr.S_un.S_addr };
+        let ipv4_address = IpAddr::from(address.to_ne_bytes());
+        Some(ipv4_address)
+    } else if socket_address_family == AF_INET6 {
+        let socket_address = unsafe { socket_address.cast::<SOCKADDR_IN6>().as_ref() };
+        let address = unsafe { socket_address.sin6_addr.u.Byte };
+        let ipv6_address = IpAddr::from(address);
+        Some(ipv6_address)
+    } else {
+        None
+    }
 }

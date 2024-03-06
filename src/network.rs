@@ -7,10 +7,9 @@ use crate::NetworkData;
 
 /// Interface addresses are OS-independent
 pub(crate) fn refresh_networks_addresses(interfaces: &mut HashMap<String, NetworkData>) {
-    let ip_network_map = get_interface_ip_networks();
-    for (interface_name, ip_networks) in ip_network_map {
+    for (interface_name, ip_networks) in get_interface_ip_networks() {
         if let Some(interface) = interfaces.get_mut(&interface_name) {
-            interface.inner.ip_networks = ip_networks;
+            interface.inner.ip_networks = ip_networks.into_iter().collect::<Vec<_>>();
         }
     }
     match get_interface_address() {
