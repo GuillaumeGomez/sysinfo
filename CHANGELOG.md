@@ -1,3 +1,8 @@
+# 0.30.7
+
+ * Linux: Fix cgroup memory computation.
+ * FreeBSD: Fix documentation about disk usage.
+
 # 0.30.6
 
  * macOS: Fix missing update of process run time.
