@@ -569,6 +569,18 @@ mod test {
         )
     }
 
+    #[test]
+    fn check_ip_networks() {
+        if !IS_SUPPORTED_SYSTEM {
+            return;
+        }
+        let networks = Networks::new_with_refreshed_list();
+        if networks.is_empty() || networks.iter().any(|(_, n)| !n.ip_networks().is_empty()) {
+            return;
+        }
+        panic!("Networks should have at least one IP network ");
+    }
+
     // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented
     // on `Uid`, `Gid` and `Pid`.
     #[allow(clippy::unnecessary_fallible_conversions)]

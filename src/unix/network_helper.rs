@@ -128,31 +128,36 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
 }
 
 pub(crate) fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>> {
+    unsafe { inner_interface_ip_networks() }
+}
+
+unsafe fn inner_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>> {
     let mut ifaces: HashMap<String, HashSet<IpNetwork>> = HashMap::new();
     let mut addrs: MaybeUninit<*mut libc::ifaddrs> = MaybeUninit::uninit();
 
     // Safety: addrs.as_mut_ptr() is valid, it points to addrs.
-    if unsafe { libc::getifaddrs(addrs.as_mut_ptr()) } != 0 {
+    if libc::getifaddrs(addrs.as_mut_ptr()) != 0 {
+        sysinfo_debug!("Failed to operate libc::getifaddrs as ifaddrs Uninitialized");
         return ifaces;
     }
 
     // Safety: If there was an error, we would have already returned.
     // Therefore, getifaddrs has initialized `addrs`.
-    let addrs = unsafe { addrs.assume_init() };
+    let addrs = addrs.assume_init();
 
     let mut addr = addrs;
     while !addr.is_null() {
         // Safety: We assume that addr is valid for the lifetime of this loop
         // body, and is not mutated.
-        let addr_ref: &libc::ifaddrs = unsafe { &*addr };
+        let addr_ref: &libc::ifaddrs = &*addr;
 
         let c_str = addr_ref.ifa_name as *const c_char;
 
         // Safety: ifa_name is a null terminated interface name
-        let bytes = unsafe { CStr::from_ptr(c_str).to_bytes() };
+        let bytes = CStr::from_ptr(c_str).to_bytes();
 
         // Safety: Interfaces on unix must be valid UTF-8
-        let name = unsafe { from_utf8_unchecked(bytes).to_owned() };
+        let name = from_utf8_unchecked(bytes).to_owned();
         let ip = sockaddr_to_network_addr(addr_ref.ifa_addr as *const libc::sockaddr);
         let netmask = sockaddr_to_network_addr(addr_ref.ifa_netmask as *const libc::sockaddr);
         let prefix = netmask
@@ -170,10 +175,7 @@ pub(crate) fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>>
     }
 
     // Safety: addrs has been previously allocated through getifaddrs
-    unsafe {
-        libc::freeifaddrs(addrs);
-    }
-
+    libc::freeifaddrs(addrs);
     ifaces
 }
 
