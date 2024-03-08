@@ -86,7 +86,7 @@ impl InterfaceAddressIterator {
     }
 }
 
-pub(crate) fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>> {
+pub(crate) unsafe fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>> {
     match get_interface_address() {
         Ok(mut interface_iter) => interface_iter.generate_ip_networks(),
         _ => HashMap::new(),
@@ -101,38 +101,36 @@ impl Drop for InterfaceAddressIterator {
     }
 }
 
-pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
-    unsafe {
-        // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#remarks
-        // A 15k buffer is recommended
-        let mut size: u32 = 15 * 1024;
-        let mut ret = ERROR_SUCCESS.0;
-        let mut iterator = InterfaceAddressIterator::new();
+pub(crate) unsafe fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
+    // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#remarks
+    // A 15k buffer is recommended
+    let mut size: u32 = 15 * 1024;
+    let mut ret = ERROR_SUCCESS.0;
+    let mut iterator = InterfaceAddressIterator::new();
 
-        // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#examples
-        // Try to retrieve adapter information up to 3 times
-        for _ in 0..3 {
-            iterator = iterator.realloc(size as _)?;
-            ret = GetAdaptersAddresses(
-                AF_UNSPEC.0.into(),
-                GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER,
-                None,
-                Some(iterator.buf),
-                &mut size,
-            );
-            if ret == ERROR_SUCCESS.0 {
-                return Ok(iterator);
-            } else if ret != ERROR_BUFFER_OVERFLOW.0 {
-                break;
-            }
-            // if the given memory size is too small to hold the adapter information,
-            // the SizePointer returned will point to the required size of the buffer,
-            // and we should continue.
-            // Otherwise, break the loop and check the return code again
+    // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#examples
+    // Try to retrieve adapter information up to 3 times
+    for _ in 0..3 {
+        iterator = iterator.realloc(size as _)?;
+        ret = GetAdaptersAddresses(
+            AF_UNSPEC.0.into(),
+            GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER,
+            None,
+            Some(iterator.buf),
+            &mut size,
+        );
+        if ret == ERROR_SUCCESS.0 {
+            return Ok(iterator);
+        } else if ret != ERROR_BUFFER_OVERFLOW.0 {
+            break;
         }
-
-        Err(format!("GetAdaptersAddresses() failed with code {ret}"))
+        // if the given memory size is too small to hold the adapter information,
+        // the SizePointer returned will point to the required size of the buffer,
+        // and we should continue.
+        // Otherwise, break the loop and check the return code again
     }
+
+    Err(format!("GetAdaptersAddresses() failed with code {ret}"))
 }
 
 fn get_ip_networks(mut prefixes_ptr: *mut IP_ADAPTER_UNICAST_ADDRESS_LH) -> HashSet<IpNetwork> {

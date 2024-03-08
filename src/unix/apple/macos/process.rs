@@ -403,8 +403,7 @@ unsafe fn get_exe_and_name_backup(
             let tmp = String::from_utf8_unchecked(buffer);
             let exe = PathBuf::from(tmp);
             if process.name.is_empty() {
-                 exe
-                    .file_name()
+                exe.file_name()
                     .and_then(|x| x.to_str())
                     .unwrap_or("")
                     .clone_into(&mut process.name);
@@ -540,11 +539,11 @@ unsafe fn get_process_infos(process: &mut ProcessInner, refresh_kind: ProcessRef
 
     let (exe, proc_args) = get_exe(proc_args);
     if process.name.is_empty() {
-         exe
-            .file_name()
+        exe.file_name()
             .and_then(|x| x.to_str())
             .unwrap_or("")
-            .to_owned().clone_into(&mut process.name);
+            .to_owned()
+            .clone_into(&mut process.name);
     }
 
     if refresh_kind.exe().needs_update(|| process.exe.is_none()) {

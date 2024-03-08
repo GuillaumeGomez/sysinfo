@@ -127,11 +127,7 @@ pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String
     }
 }
 
-pub(crate) fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>> {
-    unsafe { inner_interface_ip_networks() }
-}
-
-unsafe fn inner_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>> {
+pub(crate) unsafe fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>> {
     let mut ifaces: HashMap<String, HashSet<IpNetwork>> = HashMap::new();
     let mut addrs: MaybeUninit<*mut libc::ifaddrs> = MaybeUninit::uninit();
 
