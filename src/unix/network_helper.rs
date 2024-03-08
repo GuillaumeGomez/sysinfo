@@ -167,9 +167,9 @@ unsafe fn inner_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>> {
             ifaces
                 .entry(name)
                 .and_modify(|values| {
-                    values.insert(IpNetwork::new(ip, prefix));
+                    values.insert(IpNetwork { addr: ip, prefix });
                 })
-                .or_insert(HashSet::from([IpNetwork::new(ip, prefix)]));
+                .or_insert(HashSet::from([IpNetwork { addr: ip, prefix }]));
         }
         addr = addr_ref.ifa_next;
     }

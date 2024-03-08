@@ -422,8 +422,8 @@ impl Serialize for crate::IpNetwork {
     {
         let mut state = serializer.serialize_struct("IpNetwork", 2)?;
 
-        state.serialize_field("addr", &self.addr())?;
-        state.serialize_field("prefix", &self.prefix())?;
+        state.serialize_field("addr", &self.addr)?;
+        state.serialize_field("prefix", &self.prefix)?;
 
         state.end()
     }

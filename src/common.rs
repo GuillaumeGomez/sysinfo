@@ -3656,25 +3656,10 @@ impl fmt::Display for MacAddr {
 /// It is returned by [`NetworkData::ip_networks`][crate::NetworkData::ip_networks].
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct IpNetwork {
-    addr: IpAddr,
-    prefix: u8,
-}
-
-impl IpNetwork {
-    /// build new IpNetwork
-    pub fn new(addr: IpAddr, prefix: u8) -> Self {
-        Self { addr, prefix }
-    }
-
-    /// return the addr of the IpNetwork
-    pub fn addr(&self) -> IpAddr {
-        self.addr
-    }
-
-    /// return the prefix of the IpNetwork
-    pub fn prefix(&self) -> u8 {
-        self.prefix
-    }
+    /// The ip of the network interface
+    pub addr: IpAddr,
+    /// The netmask, prefix of the ipaddress
+    pub prefix: u8,
 }
 
 impl fmt::Display for IpNetwork {

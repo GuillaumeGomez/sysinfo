@@ -549,8 +549,14 @@ mod test {
     fn check_display_impl_ip_network_ipv4() {
         println!(
             "{} {:?}",
-            IpNetwork::new(IpAddr::from(Ipv4Addr::new(1, 2, 3, 4)), 3),
-            IpNetwork::new(IpAddr::from(Ipv4Addr::new(255, 255, 255, 0)), 21)
+            IpNetwork {
+                addr: IpAddr::from(Ipv4Addr::new(1, 2, 3, 4)),
+                prefix: 3
+            },
+            IpNetwork {
+                addr: IpAddr::from(Ipv4Addr::new(255, 255, 255, 0)),
+                prefix: 21
+            }
         );
     }
 
@@ -558,14 +564,14 @@ mod test {
     fn check_display_impl_ip_network_ipv6() {
         println!(
             "{} {:?}",
-            IpNetwork::new(
-                IpAddr::from(Ipv6Addr::new(0xffff, 0xaabb, 00, 0, 0, 0x000c, 11, 21)),
-                127
-            ),
-            IpNetwork::new(
-                IpAddr::from(Ipv6Addr::new(0xffcc, 0, 0, 0xffcc, 0, 0xffff, 0, 0xccaa)),
-                120
-            )
+            IpNetwork {
+                addr: IpAddr::from(Ipv6Addr::new(0xffff, 0xaabb, 00, 0, 0, 0x000c, 11, 21)),
+                prefix: 127
+            },
+            IpNetwork {
+                addr: IpAddr::from(Ipv6Addr::new(0xffcc, 0, 0, 0xffcc, 0, 0xffff, 0, 0xccaa)),
+                prefix: 120
+            }
         )
     }
 
@@ -575,7 +581,7 @@ mod test {
             return;
         }
         let networks = Networks::new_with_refreshed_list();
-        if networks.is_empty() || networks.iter().any(|(_, n)| !n.ip_networks().is_empty()) {
+        if networks.iter().any(|(_, n)| !n.ip_networks().is_empty()) {
             return;
         }
         panic!("Networks should have at least one IP network ");
