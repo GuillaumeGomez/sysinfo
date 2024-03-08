@@ -116,14 +116,12 @@ unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> Option<MacAddr>
 }
 
 /// Return an iterator on (interface_name, address) pairs
-pub(crate) fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
+pub(crate) unsafe fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
     let mut ifap = null_mut();
-    unsafe {
-        if retry_eintr!(libc::getifaddrs(&mut ifap)) == 0 && !ifap.is_null() {
-            Ok(InterfaceAddressIterator { ifap, buf: ifap })
-        } else {
-            Err("failed to call getifaddrs()".to_string())
-        }
+    if retry_eintr!(libc::getifaddrs(&mut ifap)) == 0 && !ifap.is_null() {
+        Ok(InterfaceAddressIterator { ifap, buf: ifap })
+    } else {
+        Err("failed to call getifaddrs()".to_string())
     }
 }
 

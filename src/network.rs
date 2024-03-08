@@ -13,7 +13,7 @@ pub(crate) fn refresh_networks_addresses(interfaces: &mut HashMap<String, Networ
             interface.inner.ip_networks = ip_networks.into_iter().collect::<Vec<_>>();
         }
     }
-    match get_interface_address() {
+    match unsafe { get_interface_address() } {
         Ok(ifa_iterator) => {
             for (name, ifa) in ifa_iterator {
                 if let Some(interface) = interfaces.get_mut(&name) {
