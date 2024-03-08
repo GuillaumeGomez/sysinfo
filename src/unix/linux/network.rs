@@ -5,7 +5,7 @@ use std::io::Read;
 use std::path::Path;
 use std::{fs::File, u8};
 
-use crate::common::MacAddr;
+use crate::common::{IpNetwork, MacAddr};
 use crate::network::refresh_networks_addresses;
 use crate::NetworkData;
 
@@ -95,6 +95,7 @@ fn refresh_networks_list_from_sysfs(
                             tx_errors,
                             old_tx_errors: tx_errors,
                             mac_addr: MacAddr::UNSPECIFIED,
+                            ip_networks: vec![],
                             // rx_compressed,
                             // old_rx_compressed: rx_compressed,
                             // tx_compressed,
@@ -163,6 +164,7 @@ pub(crate) struct NetworkDataInner {
     old_tx_errors: u64,
     /// MAC address
     pub(crate) mac_addr: MacAddr,
+    pub(crate) ip_networks: Vec<IpNetwork>,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
     // /// that support packet compression (e.g: PPP).
@@ -270,6 +272,10 @@ impl NetworkDataInner {
 
     pub(crate) fn mac_address(&self) -> MacAddr {
         self.mac_addr
+    }
+
+    pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
+        &self.ip_networks
     }
 }
 

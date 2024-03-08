@@ -2,6 +2,7 @@
 
 use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
+use crate::IpNetwork;
 use crate::NetworkData;
 
 use std::collections::{hash_map, HashMap};
@@ -137,6 +138,7 @@ impl NetworksInner {
                                 errors_out: ptr.OutErrors,
                                 old_errors_out: ptr.OutErrors,
                                 mac_addr: MacAddr::UNSPECIFIED,
+                                ip_networks: vec![],
                                 updated: true,
                             },
                         });
@@ -200,6 +202,7 @@ pub(crate) struct NetworkDataInner {
     old_errors_out: u64,
     updated: bool,
     pub(crate) mac_addr: MacAddr,
+    pub(crate) ip_networks: Vec<IpNetwork>,
 }
 
 impl NetworkDataInner {
@@ -253,5 +256,9 @@ impl NetworkDataInner {
 
     pub(crate) fn mac_address(&self) -> MacAddr {
         self.mac_addr
+    }
+
+    pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
+        &self.ip_networks
     }
 }

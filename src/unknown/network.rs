@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::common::MacAddr;
+use crate::IpNetwork;
 use crate::NetworkData;
 
 use std::collections::HashMap;
@@ -78,5 +79,9 @@ impl NetworkDataInner {
 
     pub(crate) fn mac_address(&self) -> MacAddr {
         MacAddr::UNSPECIFIED
+    }
+
+    pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
+        &[]
     }
 }

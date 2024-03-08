@@ -381,7 +381,7 @@ unsafe fn add_missing_proc_info(
                 // First, we try to retrieve the name from the command line.
                 let p = Path::new(&cmd[0]);
                 if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
-                    proc_inner.name = name.to_owned();
+                    name.clone_into(&mut proc_inner.name);
                 }
 
                 if cmd_needs_update {

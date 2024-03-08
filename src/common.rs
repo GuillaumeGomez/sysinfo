@@ -10,6 +10,8 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::ffi::OsStr;
 use std::fmt;
+use std::fmt::Formatter;
+use std::net::IpAddr;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -2328,6 +2330,20 @@ impl NetworkData {
     pub fn mac_address(&self) -> MacAddr {
         self.inner.mac_address()
     }
+
+    /// Returns the Ip Networks associated to current interface.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new_with_refreshed_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("Ip Networks: {:?}", network.ip_networks());
+    /// }
+    /// ```
+    pub fn ip_networks(&self) -> &[IpNetwork] {
+        self.inner.ip_networks()
+    }
 }
 
 /// Struct containing a disk information.
@@ -3632,6 +3648,23 @@ impl fmt::Display for MacAddr {
             "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
             data[0], data[1], data[2], data[3], data[4], data[5],
         )
+    }
+}
+
+/// Ip networks address for network interface.
+///
+/// It is returned by [`NetworkData::ip_networks`][crate::NetworkData::ip_networks].
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct IpNetwork {
+    /// The ip of the network interface
+    pub addr: IpAddr,
+    /// The netmask, prefix of the ipaddress
+    pub prefix: u8,
+}
+
+impl fmt::Display for IpNetwork {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{}", self.addr, self.prefix)
     }
 }
 
