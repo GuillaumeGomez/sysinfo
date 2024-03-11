@@ -180,7 +180,7 @@ fn sockaddr_to_network_addr(sa: *const libc::sockaddr) -> Option<IpAddr> {
             None
         } else {
             let addr = sockaddr_to_addr(
-                &*(sa as *const libc::sockaddr_storage),
+                &(sa as *const libc::sockaddr_storage).read_unaligned(),
                 mem::size_of::<libc::sockaddr_storage>(),
             );
 
@@ -253,7 +253,7 @@ fn sockaddr_to_network_addr(sa: *const libc::sockaddr) -> Option<IpAddr> {
             None
         } else {
             let addr = sockaddr_to_addr(
-                &*(sa as *const libc::sockaddr_storage),
+                &(sa as *const libc::sockaddr_storage).read_unaligned(),
                 mem::size_of::<libc::sockaddr_storage>(),
             );
 
