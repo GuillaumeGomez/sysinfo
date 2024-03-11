@@ -250,7 +250,6 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
                 "rootfs" | // https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt
                 "sysfs" | // pseudo file system for kernel objects
                 "proc" |  // another pseudo file system
-                "tmpfs" |
                 "devtmpfs" |
                 "cgroup" |
                 "cgroup2" |
@@ -259,6 +258,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
                 "rpc_pipefs" | // The pipefs pseudo file system service
                 "iso9660" // optical media
                 => true,
+                "tmpfs" => !cfg!(feature = "linux-tmpfs"),
                 // calling statvfs on a mounted CIFS or NFS may hang, when they are mounted with option: hard
                 "cifs" | "nfs" | "nfs4" => !cfg!(feature = "linux-netdevs"),
                 _ => false,

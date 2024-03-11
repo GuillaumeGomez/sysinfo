@@ -2485,6 +2485,9 @@ impl Disk {
 /// }
 /// ```
 ///
+/// ⚠️ Note that tmpfs mounts are excluded by default under Linux.
+/// To display tmpfs mount points, the `linux-tmpfs` feature must be enabled.
+///
 /// ⚠️ Note that network devices are excluded by default under Linux.
 /// To display mount points using the CIFS and NFS protocols, the `linux-netdevs`
 /// feature must be enabled. Note, however, that sysinfo may hang under certain
