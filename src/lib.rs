@@ -102,7 +102,7 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
     cfg_if::cfg_if! {
         if #[cfg(all(not(feature = "unknown-ci"), any(target_os = "linux", target_os = "android")))]
         {
-            use crate::sys::system::REMAINING_FILES;
+            use crate::sys::system::remaining_files;
             use std::sync::atomic::Ordering;
 
             if _new_limit < 0 {
@@ -116,7 +116,7 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
             // If files are already open, to be sure that the number won't be bigger when those
             // files are closed, we subtract the current number of opened files to the new
             // limit.
-            REMAINING_FILES.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
+            remaining_files().fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
                 let diff = max.saturating_sub(remaining);
                 Some(_new_limit.saturating_sub(diff))
             }).unwrap();

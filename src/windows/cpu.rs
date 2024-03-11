@@ -8,7 +8,7 @@ use std::ffi::c_void;
 use std::io::Error;
 use std::mem;
 use std::ops::DerefMut;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 use windows::core::{s, PCSTR, PCWSTR};
 use windows::Win32::Foundation::{
@@ -43,11 +43,13 @@ const LOADAVG_FACTOR_15F: f64 = 0.9944598480048967508795473394;
 const SAMPLING_INTERVAL: usize = 5;
 
 // maybe use a read/write lock instead?
-static LOAD_AVG: once_cell::sync::Lazy<Mutex<Option<LoadAvg>>> =
-    once_cell::sync::Lazy::new(|| unsafe { init_load_avg() });
+fn load_avg() -> &'static Mutex<Option<LoadAvg>> {
+    static LOAD_AVG: OnceLock<Mutex<Option<LoadAvg>>> = OnceLock::new();
+    LOAD_AVG.get_or_init(|| unsafe { init_load_avg() })
+}
 
 pub(crate) fn get_load_average() -> LoadAvg {
-    if let Ok(avg) = LOAD_AVG.lock() {
+    if let Ok(avg) = load_avg().lock() {
         if let Some(avg) = &*avg {
             return avg.clone();
         }
@@ -68,7 +70,7 @@ unsafe extern "system" fn load_avg_callback(counter: *mut c_void, _: BOOLEAN) {
         return;
     }
     let display_value = display_value.assume_init();
-    if let Ok(mut avg) = LOAD_AVG.lock() {
+    if let Ok(mut avg) = load_avg().lock() {
         if let Some(avg) = avg.deref_mut() {
             let current_load = display_value.Anonymous.doubleValue;
 

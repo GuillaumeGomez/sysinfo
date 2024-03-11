@@ -5,7 +5,7 @@ use std::io::{self, Read, Seek};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
-use crate::sys::system::REMAINING_FILES;
+use crate::sys::system::remaining_files;
 
 pub(crate) fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
     let mut buf = String::with_capacity(size);
@@ -36,7 +36,7 @@ pub(crate) struct FileCounter(File);
 impl FileCounter {
     pub(crate) fn new(f: File) -> Option<Self> {
         let any_remaining =
-            REMAINING_FILES.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
+            remaining_files().fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
                 if remaining > 0 {
                     Some(remaining - 1)
                 } else {
@@ -64,7 +64,7 @@ impl std::ops::DerefMut for FileCounter {
 
 impl Drop for FileCounter {
     fn drop(&mut self) {
-        REMAINING_FILES.fetch_add(1, Ordering::Relaxed);
+        remaining_files().fetch_add(1, Ordering::Relaxed);
     }
 }
 
