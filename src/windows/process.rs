@@ -239,9 +239,9 @@ impl CPUsageCalculationValues {
         }
     }
 }
-static WINDOWS_8_1_OR_NEWER: OnceLock<bool> = OnceLock::new();
 
 fn windows_8_1_or_newer() -> &'static bool {
+    static WINDOWS_8_1_OR_NEWER: OnceLock<bool> = OnceLock::new();
     WINDOWS_8_1_OR_NEWER.get_or_init(|| unsafe {
         let mut version_info: OSVERSIONINFOEXW = MaybeUninit::zeroed().assume_init();
 

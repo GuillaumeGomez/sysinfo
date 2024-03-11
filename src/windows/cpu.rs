@@ -43,9 +43,8 @@ const LOADAVG_FACTOR_15F: f64 = 0.9944598480048967508795473394;
 const SAMPLING_INTERVAL: usize = 5;
 
 // maybe use a read/write lock instead?
-static LOAD_AVG: OnceLock<Mutex<Option<LoadAvg>>> = OnceLock::new();
-
 fn load_avg() -> &'static Mutex<Option<LoadAvg>> {
+    static LOAD_AVG: OnceLock<Mutex<Option<LoadAvg>>> = OnceLock::new();
     LOAD_AVG.get_or_init(|| unsafe { init_load_avg() })
 }
 

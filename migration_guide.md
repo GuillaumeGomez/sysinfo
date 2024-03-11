@@ -2,7 +2,7 @@
 
 ## 0.29 to 0.30
 
-With this update, the minimum supported Rust version goes up to 1.70.
+With this update, the minimum supported Rust version goes up to 1.69.
 
 ### Major changes
 

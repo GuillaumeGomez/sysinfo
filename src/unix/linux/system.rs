@@ -17,9 +17,8 @@ use std::sync::{atomic::AtomicIsize, OnceLock};
 
 // This whole thing is to prevent having too many files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
-pub(crate) static REMAINING_FILES: OnceLock<AtomicIsize> = OnceLock::new();
-
 pub(crate) fn remaining_files() -> &'static AtomicIsize {
+    static REMAINING_FILES: OnceLock<AtomicIsize> = OnceLock::new();
     REMAINING_FILES.get_or_init(|| unsafe {
         let mut limits = libc::rlimit {
             rlim_cur: 0,
