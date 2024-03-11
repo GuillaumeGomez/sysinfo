@@ -16,13 +16,12 @@ use std::path::{Path, PathBuf};
 use std::process;
 use std::ptr::null_mut;
 use std::str;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use libc::c_void;
 use ntapi::ntexapi::{SystemProcessIdInformation, SYSTEM_PROCESS_ID_INFORMATION};
 use ntapi::ntrtl::RTL_USER_PROCESS_PARAMETERS;
 use ntapi::ntwow64::{PEB32, RTL_USER_PROCESS_PARAMETERS32};
-use once_cell::sync::Lazy;
 use windows::core::PCWSTR;
 use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SYSTEM_INFORMATION_CLASS};
 use windows::Wdk::System::SystemServices::RtlGetVersion;
@@ -240,18 +239,22 @@ impl CPUsageCalculationValues {
         }
     }
 }
-static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| unsafe {
-    let mut version_info: OSVERSIONINFOEXW = MaybeUninit::zeroed().assume_init();
+static WINDOWS_8_1_OR_NEWER: OnceLock<bool> = OnceLock::new();
 
-    version_info.dwOSVersionInfoSize = std::mem::size_of::<OSVERSIONINFOEXW>() as u32;
-    if RtlGetVersion((&mut version_info as *mut OSVERSIONINFOEXW).cast()).is_err() {
-        return true;
-    }
+fn windows_8_1_or_newer() -> &'static bool {
+    WINDOWS_8_1_OR_NEWER.get_or_init(|| unsafe {
+        let mut version_info: OSVERSIONINFOEXW = MaybeUninit::zeroed().assume_init();
 
-    // Windows 8.1 is 6.3
-    version_info.dwMajorVersion > 6
-        || version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 3
-});
+        version_info.dwOSVersionInfoSize = std::mem::size_of::<OSVERSIONINFOEXW>() as u32;
+        if RtlGetVersion((&mut version_info as *mut OSVERSIONINFOEXW).cast()).is_err() {
+            return true;
+        }
+
+        // Windows 8.1 is 6.3
+        version_info.dwMajorVersion > 6
+            || version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 3
+    })
+}
 
 #[cfg(feature = "debug")]
 unsafe fn display_ntstatus_error(ntstatus: windows::core::HRESULT) {
@@ -1059,7 +1062,7 @@ fn get_cmd_line<T: RtlUserProcessParameters>(
     if !refresh_kind.cmd().needs_update(|| cmd_line.is_empty()) {
         return;
     }
-    if *WINDOWS_8_1_OR_NEWER {
+    if *windows_8_1_or_newer() {
         *cmd_line = get_cmd_line_new(handle);
     } else {
         *cmd_line = get_cmd_line_old(params, handle);
