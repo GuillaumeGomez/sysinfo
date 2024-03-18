@@ -15,11 +15,11 @@ use crate::unix::utils::cstr_to_rust_with_size;
 
 pub(crate) struct ProcessInner {
     pub(crate) name: OsString,
-    pub(crate) cmd: Vec<String>,
+    pub(crate) cmd: Vec<OsString>,
     pub(crate) exe: Option<PathBuf>,
     pid: Pid,
     parent: Option<Pid>,
-    pub(crate) environ: Vec<String>,
+    pub(crate) environ: Vec<OsString>,
     cwd: Option<PathBuf>,
     pub(crate) root: Option<PathBuf>,
     pub(crate) memory: u64,
@@ -118,7 +118,7 @@ impl ProcessInner {
         &self.name
     }
 
-    pub(crate) fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[OsString] {
         &self.cmd
     }
 
@@ -130,7 +130,7 @@ impl ProcessInner {
         self.pid
     }
 
-    pub(crate) fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[OsString] {
         &self.environ
     }
 
@@ -571,7 +571,7 @@ fn get_exe(data: &[u8]) -> (&Path, &[u8]) {
 }
 
 fn get_arguments<'a>(
-    cmd: &mut Vec<String>,
+    cmd: &mut Vec<OsString>,
     mut data: &'a [u8],
     mut n_args: c_int,
     refresh_cmd: bool,
@@ -587,42 +587,38 @@ fn get_arguments<'a>(
         data = &data[1..];
     }
 
-    unsafe {
-        while n_args > 0 && !data.is_empty() {
-            let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
-            let arg = std::str::from_utf8_unchecked(&data[..pos]);
-            if !arg.is_empty() && refresh_cmd {
-                cmd.push(arg.to_string());
-            }
-            data = &data[pos..];
-            while data.first() == Some(&0) {
-                data = &data[1..];
-            }
-            n_args -= 1;
+    while n_args > 0 && !data.is_empty() {
+        let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
+        let arg = &data[..pos];
+        if !arg.is_empty() && refresh_cmd {
+            cmd.push(OsStr::from_bytes(arg).to_os_string());
         }
-        data
+        data = &data[pos..];
+        while data.first() == Some(&0) {
+            data = &data[1..];
+        }
+        n_args -= 1;
     }
+    data
 }
 
-fn get_environ(environ: &mut Vec<String>, mut data: &[u8]) {
+fn get_environ(environ: &mut Vec<OsString>, mut data: &[u8]) {
     environ.clear();
 
     while data.first() == Some(&0) {
         data = &data[1..];
     }
 
-    unsafe {
-        while !data.is_empty() {
-            let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
-            let arg = std::str::from_utf8_unchecked(&data[..pos]);
-            if arg.is_empty() {
-                return;
-            }
-            environ.push(arg.to_string());
-            data = &data[pos..];
-            while data.first() == Some(&0) {
-                data = &data[1..];
-            }
+    while !data.is_empty() {
+        let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
+        let arg = &data[..pos];
+        if arg.is_empty() {
+            return;
+        }
+        environ.push(OsStr::from_bytes(arg).to_os_string());
+        data = &data[pos..];
+        while data.first() == Some(&0) {
+            data = &data[1..];
         }
     }
 }

@@ -199,11 +199,11 @@ unsafe impl Sync for HandleWrapper {}
 
 pub(crate) struct ProcessInner {
     name: OsString,
-    cmd: Vec<String>,
+    cmd: Vec<OsString>,
     exe: Option<PathBuf>,
     pid: Pid,
     user_id: Option<Uid>,
-    environ: Vec<String>,
+    environ: Vec<OsString>,
     cwd: Option<PathBuf>,
     root: Option<PathBuf>,
     pub(crate) memory: u64,
@@ -550,7 +550,7 @@ impl ProcessInner {
         &self.name
     }
 
-    pub(crate) fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[OsString] {
         &self.cmd
     }
 
@@ -562,7 +562,7 @@ impl ProcessInner {
         self.pid
     }
 
-    pub(crate) fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[OsString] {
         &self.environ
     }
 
@@ -759,7 +759,7 @@ unsafe fn ph_query_process_variable_size(
     Some(buffer)
 }
 
-unsafe fn get_cmdline_from_buffer(buffer: PCWSTR) -> Vec<String> {
+unsafe fn get_cmdline_from_buffer(buffer: PCWSTR) -> Vec<OsString> {
     // Get argc and argv from the command line
     let mut argc = MaybeUninit::<i32>::uninit();
     let argv_p = CommandLineToArgvW(buffer, argc.as_mut_ptr());
@@ -771,7 +771,7 @@ unsafe fn get_cmdline_from_buffer(buffer: PCWSTR) -> Vec<String> {
 
     let mut res = Vec::new();
     for arg in argv {
-        res.push(String::from_utf16_lossy(arg.as_wide()));
+        res.push(OsString::from_wide(arg.as_wide()));
     }
 
     let _err = LocalFree(HLOCAL(argv_p as _));
@@ -1018,16 +1018,14 @@ fn get_cwd_and_root<T: RtlUserProcessParameters>(
     }
 }
 
-unsafe fn null_terminated_wchar_to_string(slice: &[u16]) -> String {
+unsafe fn null_terminated_wchar_to_string(slice: &[u16]) -> OsString {
     match slice.iter().position(|&x| x == 0) {
-        Some(pos) => OsString::from_wide(&slice[..pos])
-            .to_string_lossy()
-            .into_owned(),
-        None => OsString::from_wide(slice).to_string_lossy().into_owned(),
+        Some(pos) => OsString::from_wide(&slice[..pos]),
+        None => OsString::from_wide(slice),
     }
 }
 
-fn get_cmd_line_old<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<String> {
+fn get_cmd_line_old<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<OsString> {
     match params.get_cmdline(handle) {
         Ok(buffer) => unsafe { get_cmdline_from_buffer(PCWSTR::from_raw(buffer.as_ptr())) },
         Err(_e) => {
@@ -1038,7 +1036,7 @@ fn get_cmd_line_old<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> 
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-fn get_cmd_line_new(handle: HANDLE) -> Vec<String> {
+fn get_cmd_line_new(handle: HANDLE) -> Vec<OsString> {
     unsafe {
         if let Some(buffer) = ph_query_process_variable_size(handle, ProcessCommandLineInformation)
         {
@@ -1055,7 +1053,7 @@ fn get_cmd_line<T: RtlUserProcessParameters>(
     params: &T,
     handle: HANDLE,
     refresh_kind: ProcessRefreshKind,
-    cmd_line: &mut Vec<String>,
+    cmd_line: &mut Vec<OsString>,
 ) {
     if !refresh_kind.cmd().needs_update(|| cmd_line.is_empty()) {
         return;
@@ -1071,7 +1069,7 @@ fn get_proc_env<T: RtlUserProcessParameters>(
     params: &T,
     handle: HANDLE,
     refresh_kind: ProcessRefreshKind,
-    environ: &mut Vec<String>,
+    environ: &mut Vec<OsString>,
 ) {
     if !refresh_kind.environ().needs_update(|| environ.is_empty()) {
         return;
@@ -1085,11 +1083,7 @@ fn get_proc_env<T: RtlUserProcessParameters>(
             while let Some(offset) = raw_env[begin..].iter().position(|&c| c == 0) {
                 let end = begin + offset;
                 if raw_env[begin..end].iter().any(|&c| c == equals) {
-                    environ.push(
-                        OsString::from_wide(&raw_env[begin..end])
-                            .to_string_lossy()
-                            .into_owned(),
-                    );
+                    environ.push(OsString::from_wide(&raw_env[begin..end]));
                     begin = end + 1;
                 } else {
                     break;
