@@ -4,6 +4,7 @@
 #![allow(unused_must_use, non_upper_case_globals)]
 #![allow(clippy::manual_range_contains)]
 
+use bstr::ByteSlice;
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::{Components, Disks, Networks, Pid, Signal, System, Users};
@@ -242,7 +243,7 @@ fn interpret_input(
                     &mut io::stdout(),
                     "{}:{} status={:?}",
                     pid,
-                    proc_.name(),
+                    proc_.name().as_encoded_bytes().as_bstr(),
                     proc_.status()
                 );
             }
@@ -289,8 +290,12 @@ fn interpret_input(
                 };
             } else {
                 let proc_name = tmp[1];
-                for proc_ in sys.processes_by_name(proc_name) {
-                    writeln!(&mut io::stdout(), "==== {} ====", proc_.name());
+                for proc_ in sys.processes_by_name(proc_name.as_ref()) {
+                    writeln!(
+                        &mut io::stdout(),
+                        "==== {} ====",
+                        proc_.name().as_encoded_bytes().as_bstr()
+                    );
                     writeln!(&mut io::stdout(), "{proc_:?}");
                 }
             }

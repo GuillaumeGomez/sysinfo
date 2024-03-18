@@ -1,10 +1,10 @@
 task:
-  name: rust 1.70 on freebsd 13
+  name: rust 1.74 on freebsd 13
   freebsd_instance:
     image: freebsd-13-1-release-amd64
   setup_script:
     - curl https://sh.rustup.rs -sSf --output rustup.sh
-    - sh rustup.sh -y --profile=minimal --default-toolchain=1.70
+    - sh rustup.sh -y --profile=minimal --default-toolchain=1.74
     - . $HOME/.cargo/env
     - rustup --version
     - rustup component add clippy
@@ -37,14 +37,14 @@ task:
     - FREEBSD_CI=1 cargo test --lib -j1 -- --ignored
 
 task:
-  name: rust 1.70 on mac m1
+  name: rust 1.74 on mac m1
   macos_instance:
     image: ghcr.io/cirruslabs/macos-monterey-base:latest
   setup_script:
     - brew update
     - brew install curl
     - curl https://sh.rustup.rs -sSf --output rustup.sh
-    - sh rustup.sh -y --profile=minimal --default-toolchain=1.70
+    - sh rustup.sh -y --profile=minimal --default-toolchain=1.74
     - source $HOME/.cargo/env
     - rustup --version
     - rustup component add clippy

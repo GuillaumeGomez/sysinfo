@@ -404,7 +404,10 @@ fn test_refresh_tasks() {
             .map(|task| task.name() == task_name)
             .unwrap_or(false)))
         .unwrap_or(false));
-    assert!(s.processes_by_exact_name(task_name).next().is_some());
+    assert!(s
+        .processes_by_exact_name(task_name.as_ref())
+        .next()
+        .is_some());
 
     // Let's give some time to the system to clean up...
     std::thread::sleep(std::time::Duration::from_secs(2));
@@ -420,7 +423,10 @@ fn test_refresh_tasks() {
             .map(|task| task.name() == task_name)
             .unwrap_or(false)))
         .unwrap_or(false));
-    assert!(s.processes_by_exact_name(task_name).next().is_none());
+    assert!(s
+        .processes_by_exact_name(task_name.as_ref())
+        .next()
+        .is_none());
 }
 
 // Checks that `refresh_process` is NOT removing dead processes.
@@ -564,14 +570,14 @@ fn test_process_iterator_lifetimes() {
     {
         let name = String::from("");
         // errors before PR #904: name does not live long enough
-        process = s.processes_by_name(&name).next();
+        process = s.processes_by_name(name.as_ref()).next();
     }
     process.unwrap();
 
     let process: Option<&sysinfo::Process>;
     {
         // worked fine before and after: &'static str lives longer than System, error couldn't appear
-        process = s.processes_by_name("").next();
+        process = s.processes_by_name("".as_ref()).next();
     }
     process.unwrap();
 }

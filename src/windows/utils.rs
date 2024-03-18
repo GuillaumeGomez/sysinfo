@@ -23,7 +23,7 @@ pub(crate) fn get_now() -> u64 {
         .unwrap_or(0)
 }
 
-pub(crate) unsafe fn to_str(p: PWSTR) -> String {
+pub(crate) unsafe fn to_utf8_str(p: PWSTR) -> String {
     if p.is_null() {
         return String::new();
     }

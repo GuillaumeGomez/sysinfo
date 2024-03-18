@@ -4,8 +4,9 @@ use crate::{Pid, Process};
 use libc::{c_char, c_int, timeval};
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::ffi::CStr;
+use std::ffi::{CStr, OsStr, OsString};
 use std::mem;
+use std::os::unix::ffi::OsStrExt;
 use std::time::SystemTime;
 
 /// This struct is used to switch between the "old" and "new" every time you use "get_mut".
@@ -109,20 +110,37 @@ pub(crate) unsafe fn get_sys_value_array<T: Sized>(mib: &[c_int], value: &mut [T
     ) == 0
 }
 
-pub(crate) fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
+pub(crate) fn c_buf_to_utf8_str(buf: &[libc::c_char]) -> Option<&str> {
     unsafe {
         let buf: &[u8] = std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
-        if let Some(pos) = buf.iter().position(|x| *x == 0) {
+        std::str::from_utf8(if let Some(pos) = buf.iter().position(|x| *x == 0) {
             // Shrink buffer to terminate the null bytes
-            std::str::from_utf8(&buf[..pos]).ok()
+            &buf[..pos]
         } else {
-            std::str::from_utf8(buf).ok()
-        }
+            buf
+        })
+        .ok()
     }
 }
 
-pub(crate) fn c_buf_to_string(buf: &[libc::c_char]) -> Option<String> {
-    c_buf_to_str(buf).map(|s| s.to_owned())
+pub(crate) fn c_buf_to_utf8_string(buf: &[libc::c_char]) -> Option<String> {
+    c_buf_to_utf8_str(buf).map(|s| s.to_owned())
+}
+
+pub(crate) fn c_buf_to_os_str(buf: &[libc::c_char]) -> &OsStr {
+    unsafe {
+        let buf: &[u8] = std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
+        OsStr::from_bytes(if let Some(pos) = buf.iter().position(|x| *x == 0) {
+            // Shrink buffer to terminate the null bytes
+            &buf[..pos]
+        } else {
+            buf
+        })
+    }
+}
+
+pub(crate) fn c_buf_to_os_string(buf: &[libc::c_char]) -> OsString {
+    c_buf_to_os_str(buf).to_owned()
 }
 
 pub(crate) unsafe fn get_sys_value_str(mib: &[c_int], buf: &mut [libc::c_char]) -> Option<String> {
@@ -138,7 +156,7 @@ pub(crate) unsafe fn get_sys_value_str(mib: &[c_int], buf: &mut [libc::c_char]) 
     {
         return None;
     }
-    c_buf_to_string(&buf[..len / mem::size_of::<libc::c_char>()])
+    c_buf_to_utf8_string(&buf[..len / mem::size_of::<libc::c_char>()])
 }
 
 pub(crate) unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T) -> bool {
@@ -180,7 +198,7 @@ pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
             ) == 0
                 && size > 0
             {
-                c_buf_to_string(&buf)
+                c_buf_to_utf8_string(&buf)
             } else {
                 // getting the system value failed
                 None
@@ -224,7 +242,7 @@ pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<St
                 // If command fails return default
                 default.map(|s| s.to_owned())
             } else {
-                c_buf_to_string(&buf)
+                c_buf_to_utf8_string(&buf)
             }
         }
     }

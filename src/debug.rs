@@ -73,14 +73,7 @@ impl fmt::Debug for Process {
 
 impl fmt::Debug for Components {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Components {{ {} }}",
-            self.iter()
-                .map(|x| format!("{x:?}"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 
@@ -109,14 +102,7 @@ impl fmt::Debug for Component {
 
 impl fmt::Debug for Networks {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Networks {{ {} }}",
-            self.iter()
-                .map(|x| format!("{x:?}"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 
@@ -141,27 +127,13 @@ impl fmt::Debug for NetworkData {
 
 impl fmt::Debug for Disks {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Disks {{ {} }}",
-            self.iter()
-                .map(|x| format!("{x:?}"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 
 impl fmt::Debug for Users {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Users {{ {} }}",
-            self.iter()
-                .map(|x| format!("{x:?}"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 

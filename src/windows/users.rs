@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::utils::to_str;
+use crate::sys::utils::to_utf8_str;
 use crate::{
     common::{Gid, Uid},
     windows::sid::Sid,
@@ -139,7 +139,7 @@ unsafe fn get_groups_for_user(username: PCWSTR) -> Vec<Group> {
         if !buf.0.is_null() {
             let entries = std::slice::from_raw_parts(buf.0, nb_entries as _);
             groups.extend(entries.iter().map(|entry| Group {
-                inner: GroupInner::new(Gid(0), to_str(entry.lgrui0_name)),
+                inner: GroupInner::new(Gid(0), to_utf8_str(entry.lgrui0_name)),
             }));
         }
     } else {
@@ -190,7 +190,7 @@ pub(crate) fn get_users(users: &mut Vec<User>) {
                             // if this fails.
                             let name = sid
                                 .account_name()
-                                .unwrap_or_else(|| to_str(entry.usri0_name));
+                                .unwrap_or_else(|| to_utf8_str(entry.usri0_name));
                             users.push(User {
                                 inner: UserInner::new(
                                     Uid(sid),

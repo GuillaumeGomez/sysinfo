@@ -7,16 +7,23 @@ use std::sync::atomic::Ordering;
 
 use crate::sys::system::remaining_files;
 
-pub(crate) fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
+pub(crate) fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(size);
+    file.rewind()?;
+    file.read_to_end(&mut buf)?;
+    Ok(buf)
+}
+
+pub(crate) fn get_all_utf8_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
     let mut buf = String::with_capacity(size);
     file.rewind()?;
     file.read_to_string(&mut buf)?;
     Ok(buf)
 }
 
-pub(crate) fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
+pub(crate) fn get_all_utf8_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
     let mut file = File::open(file_path.as_ref())?;
-    get_all_data_from_file(&mut file, size)
+    get_all_utf8_data_from_file(&mut file, size)
 }
 
 #[allow(clippy::useless_conversion)]
