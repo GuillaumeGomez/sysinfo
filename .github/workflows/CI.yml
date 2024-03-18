@@ -12,12 +12,10 @@ jobs:
   rustfmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/toolchain@stable
         with:
-          profile: minimal
           toolchain: stable
-          override: true
           components: rustfmt
       - run: cargo fmt -- --check
 
@@ -30,12 +28,10 @@ jobs:
           - macos-latest
           - windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/toolchain@v1
         with:
-          profile: minimal
           toolchain: nightly
-          override: true
           components: clippy
       - run: cargo clippy --all-targets --features serde -- -D warnings
 
@@ -72,41 +68,35 @@ jobs:
           - stable
           - nightly
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Install toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/toolchain@v1
         with:
-          profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          override: true
-
-      - name: Install cross-target
-        if: matrix.triple.cross
-        run: rustup target add ${{ matrix.triple.target }}
 
       - name: Check
-        uses: actions-rs/cargo@v1
+        uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml -- -D warnings
           use-cross: ${{ matrix.triple.cross }}
 
       - name: Check debug feature
-        uses: actions-rs/cargo@v1
+        uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --features=debug -- -D warnings
           use-cross: ${{ matrix.triple.cross }}
 
       - name: Check without multithreading
-        uses: actions-rs/cargo@v1
+        uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features
           use-cross: ${{ matrix.triple.cross }}
 
       - name: Check example
-        uses: actions-rs/cargo@v1
+        uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: check
           args: --target=${{ matrix.triple.target }} --example simple
@@ -114,14 +104,14 @@ jobs:
 
       - name: Check (Apple app store restrictions)
         if: matrix.triple.os == 'macos-latest'
-        uses: actions-rs/cargo@v1
+        uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: check
           args: --features apple-sandbox --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml
           use-cross: ${{ matrix.triple.cross }}
       - name: Check without multithreading (Apple app store restrictions)
         if: matrix.triple.os == 'macos-latest'
-        uses: actions-rs/cargo@v1
+        uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: check
           args: --features apple-sandbox --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features
@@ -143,13 +133,11 @@ jobs:
           - stable
           - nightly
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Install toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/toolchain@stable
         with:
-          profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          override: true
       - name: Check docs
         run: cargo rustdoc -- -Z unstable-options --generate-link-to-definition
         if: matrix.toolchain == 'nightly'
@@ -192,12 +180,10 @@ jobs:
   c_interface:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/toolchain@stable
         with:
-          profile: minimal
           toolchain: stable
-          override: true
       - run: make
 
   unknown-targets:
@@ -208,12 +194,10 @@ jobs:
           - "1.70.0" # minimum supported rust version
           - stable
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/toolchain@stable
         with:
-          profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          override: true
           components: clippy
       - run: cargo clippy --features unknown-ci -- -D warnings
       - run: cargo check --features unknown-ci
