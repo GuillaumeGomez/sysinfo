@@ -8,7 +8,7 @@ use crate::{
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fmt::Formatter;
 use std::net::IpAddr;
@@ -918,7 +918,7 @@ impl Process {
     ///     println!("{:?}", process.cmd());
     /// }
     /// ```
-    pub fn cmd(&self) -> &[String] {
+    pub fn cmd(&self) -> &[OsString] {
         self.inner.cmd()
     }
 
@@ -972,7 +972,7 @@ impl Process {
     ///     println!("{:?}", process.environ());
     /// }
     /// ```
-    pub fn environ(&self) -> &[String] {
+    pub fn environ(&self) -> &[OsString] {
         self.inner.environ()
     }
 

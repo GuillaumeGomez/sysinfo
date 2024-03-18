@@ -143,7 +143,10 @@ pub(crate) fn c_buf_to_os_string(buf: &[libc::c_char]) -> OsString {
     c_buf_to_os_str(buf).to_owned()
 }
 
-pub(crate) unsafe fn get_sys_value_str(mib: &[c_int], buf: &mut [libc::c_char]) -> Option<String> {
+pub(crate) unsafe fn get_sys_value_str(
+    mib: &[c_int],
+    buf: &mut [libc::c_char],
+) -> Option<OsString> {
     let mut len = mem::size_of_val(buf) as libc::size_t;
     if libc::sysctl(
         mib.as_ptr(),
@@ -156,7 +159,9 @@ pub(crate) unsafe fn get_sys_value_str(mib: &[c_int], buf: &mut [libc::c_char]) 
     {
         return None;
     }
-    c_buf_to_utf8_string(&buf[..len / mem::size_of::<libc::c_char>()])
+    Some(c_buf_to_os_string(
+        &buf[..len / mem::size_of::<libc::c_char>()],
+    ))
 }
 
 pub(crate) unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T) -> bool {
@@ -248,7 +253,7 @@ pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<St
     }
 }
 
-pub(crate) unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<String> {
+pub(crate) unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<OsString> {
     if ptr.is_null() {
         return Vec::new();
     }
@@ -267,9 +272,7 @@ pub(crate) unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<String> {
 
     for pos in 0..max {
         let p = ptr.add(pos);
-        if let Ok(s) = CStr::from_ptr(*p).to_str() {
-            ret.push(s.to_owned());
-        }
+        ret.push(OsStr::from_bytes(CStr::from_ptr(*p).to_bytes()).to_os_string());
     }
     ret
 }

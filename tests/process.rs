@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use bstr::ByteSlice;
 use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
 
 #[test]
@@ -70,7 +71,7 @@ fn test_cmd() {
         if cfg!(target_os = "windows") {
             // Sometimes, we get the full path instead for some reasons... So just in case,
             // we check for the command independently that from the arguments.
-            assert!(process.cmd()[0].contains("waitfor"));
+            assert!(process.cmd()[0].as_encoded_bytes().contains_str("waitfor"));
             assert_eq!(&process.cmd()[1..], &["/t", "3", "CmdSignal"]);
         } else {
             assert_eq!(process.cmd(), &["sleep", "3"]);
@@ -147,7 +148,7 @@ fn test_environ() {
         p.kill().expect("Unable to kill process.");
         assert_eq!(proc_.pid(), pid);
         let env = format!("FOO={big_env}");
-        assert!(proc_.environ().iter().any(|e| *e == env));
+        assert!(proc_.environ().iter().any(|e| *e == *env));
     } else {
         panic!("Process not found!");
     }

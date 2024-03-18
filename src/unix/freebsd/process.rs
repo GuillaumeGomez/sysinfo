@@ -43,11 +43,11 @@ impl fmt::Display for ProcessStatus {
 
 pub(crate) struct ProcessInner {
     pub(crate) name: OsString,
-    pub(crate) cmd: Vec<String>,
+    pub(crate) cmd: Vec<OsString>,
     pub(crate) exe: Option<PathBuf>,
     pub(crate) pid: Pid,
     parent: Option<Pid>,
-    pub(crate) environ: Vec<String>,
+    pub(crate) environ: Vec<OsString>,
     pub(crate) cwd: Option<PathBuf>,
     pub(crate) root: Option<PathBuf>,
     pub(crate) memory: u64,
@@ -77,7 +77,7 @@ impl ProcessInner {
         &self.name
     }
 
-    pub(crate) fn cmd(&self) -> &[String] {
+    pub(crate) fn cmd(&self) -> &[OsString] {
         &self.cmd
     }
 
@@ -89,7 +89,7 @@ impl ProcessInner {
         self.pid
     }
 
-    pub(crate) fn environ(&self) -> &[String] {
+    pub(crate) fn environ(&self) -> &[OsString] {
         &self.environ
     }
 
