@@ -7,6 +7,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::time::Instant;
 
+use bstr::ByteSlice;
+
 use crate::sys::utils::to_u64;
 use crate::{Cpu, CpuRefreshKind};
 
@@ -102,7 +104,7 @@ impl CpusWrapper {
                     if &line[..4] != b"cpu " {
                         return;
                     }
-                    let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
+                    let mut parts = line.split_str(" ").filter(|s| !s.is_empty());
                     if first {
                         to_str!(parts.next().unwrap_or(&[]))
                             .clone_into(&mut self.global_cpu.inner.name);
@@ -128,7 +130,7 @@ impl CpusWrapper {
                             break;
                         }
 
-                        let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
+                        let mut parts = line.split_str(" ").filter(|s| !s.is_empty());
                         if first {
                             let (vendor_id, brand) = match vendors_brands.remove(&i) {
                                 Some((vendor_id, brand)) => (vendor_id, brand),

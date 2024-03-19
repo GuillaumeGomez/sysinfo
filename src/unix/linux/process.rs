@@ -598,7 +598,7 @@ fn get_memory(path: &Path, entry: &mut ProcessInner, info: &SystemInfo) -> bool 
         );
         return false;
     }
-    let mut parts = buf.split(|c| *c == b' ');
+    let mut parts = buf.split_str(" ");
     entry.virtual_memory = parts
         .next()
         .map(slice_to_nb)
