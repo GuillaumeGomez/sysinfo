@@ -57,7 +57,7 @@ pub(crate) struct ComponentInner {
     /// - 5: AMD AMDSI
     /// - 6: Intel PECI
     /// Not all types are supported by all chips
-    sensor_type: Option<TermalSensorType>,
+    sensor_type: Option<ThermalSensorType>,
     /// Component Label
     ///
     /// For formatting detail see `Component::label` function docstring.
@@ -140,7 +140,7 @@ fn convert_temp_celsius(temp: Option<i32>) -> Option<f32> {
 
 /// Information about thermal sensor. It may be unavailable as it's
 /// kernel module and chip dependent.
-enum TermalSensorType {
+enum ThermalSensorType {
     /// 1: CPU embedded diode
     CPUEmbeddedDiode,
     /// 2: 3904 transistor
@@ -159,7 +159,7 @@ enum TermalSensorType {
     Unknown(u8),
 }
 
-impl From<u8> for TermalSensorType {
+impl From<u8> for ThermalSensorType {
     fn from(input: u8) -> Self {
         match input {
             0 => Self::CPUEmbeddedDiode,
@@ -180,7 +180,7 @@ fn fill_component(component: &mut ComponentInner, item: &str, folder: &Path, fil
     match item {
         "type" => {
             component.sensor_type =
-                read_number_from_file::<u8>(&hwmon_file).map(TermalSensorType::from)
+                read_number_from_file::<u8>(&hwmon_file).map(ThermalSensorType::from)
         }
         "input" => {
             let temperature = get_temperature_from_file(&hwmon_file);
