@@ -3822,9 +3822,15 @@ impl Components {
     /// components.refresh();
     /// ```
     pub fn refresh(&mut self) {
-        for component in self.list_mut() {
-            component.refresh();
+        #[cfg(feature = "multithread")]
+        {
+            use rayon::iter::ParallelIterator;
+            use rayon::iter::IntoParallelRefMutIterator;
+            self.list_mut().par_iter_mut().for_each(|component| component.refresh());
         }
+
+        #[cfg(not(feature = "multithread"))]
+        self.list_mut().iter().for_each(|component| component.refresh());
     }
 
     /// The component list will be emptied then completely recomputed.
