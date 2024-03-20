@@ -46,6 +46,10 @@ where
     val.par_iter_mut()
 }
 
+// In the multithreaded version of `into_iter_mut` above, the `&mut` on the argument is indicating
+// the parallel iterator is an exclusive reference. In the non-multithreaded case, the `&mut` is
+// already part of `T` and specifying it will result in the argument being `&mut &mut T`.
+
 /// Converts the value into a sequential mutable iterator if the `multithread` feature is disabled.
 /// Uses the `std::iter::IntoIterator` trait.
 #[cfg(any(
