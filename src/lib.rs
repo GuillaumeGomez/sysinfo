@@ -73,7 +73,7 @@ mod common;
 mod debug;
 #[cfg(feature = "serde")]
 mod serde;
-mod utils;
+pub(crate) mod utils;
 
 /// This function is only used on Linux targets, on the other platforms it does nothing and returns
 /// `false`.
