@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    ComponentInner, ComponentsInner, CpuInner, NetworkDataInner, NetworksInner, ProcessInner,
-    SystemInner, UserInner,
+    utils::into_iter_mut, ComponentInner, ComponentsInner, CpuInner, NetworkDataInner,
+    NetworksInner, ProcessInner, SystemInner, UserInner,
 };
 
 use std::cmp::Ordering;
@@ -3822,9 +3822,13 @@ impl Components {
     /// components.refresh();
     /// ```
     pub fn refresh(&mut self) {
-        for component in self.list_mut() {
-            component.refresh();
-        }
+        #[cfg(all(
+            feature = "multithread",
+            not(feature = "unknown-ci"),
+            not(all(target_os = "macos", feature = "apple-sandbox")),
+        ))]
+        use rayon::iter::ParallelIterator;
+        into_iter_mut(self.list_mut()).for_each(|component| component.refresh());
     }
 
     /// The component list will be emptied then completely recomputed.
