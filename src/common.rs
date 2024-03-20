@@ -3822,7 +3822,11 @@ impl Components {
     /// components.refresh();
     /// ```
     pub fn refresh(&mut self) {
-        #[cfg(feature = "multithread")]
+        #[cfg(all(
+            feature = "multithread",
+            not(feature = "unknown-ci"),
+            not(all(target_os = "macos", feature = "apple-sandbox")),
+        ))]
         use rayon::iter::ParallelIterator;
         into_iter_mut(self.list_mut()).for_each(|component| component.refresh());
     }

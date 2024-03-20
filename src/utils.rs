@@ -22,6 +22,7 @@ where
     feature = "unknown-ci",
     all(target_os = "macos", feature = "apple-sandbox")
 ))]
+#[allow(dead_code)]
 pub(crate) fn into_iter<T>(val: T) -> T::IntoIter
 where
     T: IntoIterator,
@@ -42,7 +43,7 @@ pub(crate) fn into_iter_mut<'a, T>(
 where
     T: rayon::iter::IntoParallelRefMutIterator<'a> + ?Sized,
 {
-    return val.par_iter_mut();
+    val.par_iter_mut()
 }
 
 /// Converts the value into a sequential mutable iterator if the `multithread` feature is disabled.
@@ -56,5 +57,5 @@ pub(crate) fn into_iter_mut<T>(val: T) -> T::IntoIter
 where
     T: IntoIterator,
 {
-    return val.into_iter();
+    val.into_iter()
 }
