@@ -728,7 +728,7 @@ impl System {
     ///
     /// println!("OS: {:?}", System::name());
     /// ```
-    pub fn name() -> Option<String> {
+    pub fn name() -> Option<OsString> {
         SystemInner::name()
     }
 
@@ -741,7 +741,7 @@ impl System {
     ///
     /// println!("kernel version: {:?}", System::kernel_version());
     /// ```
-    pub fn kernel_version() -> Option<String> {
+    pub fn kernel_version() -> Option<OsString> {
         SystemInner::kernel_version()
     }
 
@@ -755,7 +755,7 @@ impl System {
     ///
     /// println!("OS version: {:?}", System::os_version());
     /// ```
-    pub fn os_version() -> Option<String> {
+    pub fn os_version() -> Option<OsString> {
         SystemInner::os_version()
     }
 
@@ -768,7 +768,7 @@ impl System {
     ///
     /// println!("Long OS Version: {:?}", System::long_os_version());
     /// ```
-    pub fn long_os_version() -> Option<String> {
+    pub fn long_os_version() -> Option<OsString> {
         SystemInner::long_os_version()
     }
 
@@ -786,7 +786,7 @@ impl System {
     ///
     /// println!("Distribution ID: {:?}", System::distribution_id());
     /// ```
-    pub fn distribution_id() -> String {
+    pub fn distribution_id() -> OsString {
         SystemInner::distribution_id()
     }
 
@@ -799,7 +799,7 @@ impl System {
     ///
     /// println!("Hostname: {:?}", System::host_name());
     /// ```
-    pub fn host_name() -> Option<String> {
+    pub fn host_name() -> Option<OsString> {
         SystemInner::host_name()
     }
 
@@ -812,7 +812,7 @@ impl System {
     ///
     /// println!("CPU Archicture: {:?}", System::cpu_arch());
     /// ```
-    pub fn cpu_arch() -> Option<String> {
+    pub fn cpu_arch() -> Option<OsString> {
         SystemInner::cpu_arch()
     }
 }

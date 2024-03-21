@@ -96,7 +96,7 @@ fn check_if_send_and_sync() {
 #[test]
 fn check_hostname_has_no_nuls() {
     if let Some(hostname) = System::host_name() {
-        assert!(!hostname.contains('\u{0}'))
+        assert!(!hostname.as_encoded_bytes().contains(&b'\0'))
     }
 }
 

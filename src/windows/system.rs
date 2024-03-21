@@ -18,6 +18,7 @@ use std::os::windows::ffi::OsStringExt;
 use std::ptr;
 use std::time::SystemTime;
 
+use bstr::ByteSlice;
 use ntapi::ntexapi::SYSTEM_PROCESS_INFORMATION;
 use windows::core::PWSTR;
 use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SystemProcessInformation};
@@ -38,7 +39,8 @@ impl SystemInner {
         WINDOWS_ELEVEN_BUILD_NUMBER
             <= Self::kernel_version()
                 .unwrap_or_default()
-                .parse()
+                .to_str()
+                .and_then(|s| s.parse().ok())
                 .unwrap_or(0)
     }
 }
@@ -421,18 +423,30 @@ impl SystemInner {
         get_load_average()
     }
 
-    pub(crate) fn name() -> Option<String> {
-        Some("Windows".to_owned())
+    pub(crate) fn name() -> Option<OsString> {
+        Some("Windows".into())
     }
 
-    pub(crate) fn long_os_version() -> Option<String> {
+    pub(crate) fn long_os_version() -> Option<OsString> {
         if Self::is_windows_eleven() {
             return get_reg_string_value(
                 HKEY_LOCAL_MACHINE,
                 r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
                 "ProductName",
             )
-            .map(|product_name| product_name.replace("Windows 10 ", "Windows 11 "));
+            .map(|product_name| {
+                // SAFETY: We only replace the Windows version, which is valid
+                // UTF-8. Since OsString is a superset of UTF-8 and we only
+                // modify the valid UTF-8 bytes, the OsString stays correctly
+                // encoded.
+                unsafe {
+                    OsString::from_encoded_bytes_unchecked(
+                        product_name
+                            .into_encoded_bytes()
+                            .replace("Windows 10 ", "Windows 11 "),
+                    )
+                }
+            });
         }
         get_reg_string_value(
             HKEY_LOCAL_MACHINE,
@@ -441,11 +455,11 @@ impl SystemInner {
         )
     }
 
-    pub(crate) fn host_name() -> Option<String> {
+    pub(crate) fn host_name() -> Option<OsString> {
         get_dns_hostname()
     }
 
-    pub(crate) fn kernel_version() -> Option<String> {
+    pub(crate) fn kernel_version() -> Option<OsString> {
         get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
@@ -453,7 +467,7 @@ impl SystemInner {
         )
     }
 
-    pub(crate) fn os_version() -> Option<String> {
+    pub(crate) fn os_version() -> Option<OsString> {
         let build_number = get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
@@ -472,31 +486,36 @@ impl SystemInner {
                 .unwrap_or_default(),
             )
         };
-        Some(format!("{major} ({build_number})"))
+
+        unsafe {
+            let mut buf = format!("{major} (").into_bytes();
+            buf.extend(build_number.into_encoded_bytes());
+            buf.push(b')');
+
+            Some(OsString::from_encoded_bytes_unchecked(buf))
+        }
     }
 
-    pub(crate) fn distribution_id() -> String {
-        std::env::consts::OS.to_owned()
+    pub(crate) fn distribution_id() -> OsString {
+        std::env::consts::OS.into()
     }
-    pub(crate) fn cpu_arch() -> Option<String> {
+    pub(crate) fn cpu_arch() -> Option<OsString> {
         unsafe {
             // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
             let info = SYSTEM_INFO::default();
             match info.Anonymous.Anonymous.wProcessorArchitecture {
-                SystemInformation::PROCESSOR_ARCHITECTURE_ALPHA => Some("alpha".to_string()),
-                SystemInformation::PROCESSOR_ARCHITECTURE_ALPHA64 => Some("alpha64".to_string()),
-                SystemInformation::PROCESSOR_ARCHITECTURE_AMD64 => Some("x86_64".to_string()),
-                SystemInformation::PROCESSOR_ARCHITECTURE_ARM => Some("arm".to_string()),
-                SystemInformation::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => Some("arm".to_string()),
-                SystemInformation::PROCESSOR_ARCHITECTURE_ARM64 => Some("arm64".to_string()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_ALPHA => Some("alpha".into()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_ALPHA64 => Some("alpha64".into()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_AMD64 => Some("x86_64".into()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_ARM => Some("arm".into()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_ARM32_ON_WIN64 => Some("arm".into()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_ARM64 => Some("arm64".into()),
                 SystemInformation::PROCESSOR_ARCHITECTURE_IA32_ON_ARM64
-                | SystemInformation::PROCESSOR_ARCHITECTURE_IA32_ON_WIN64 => {
-                    Some("ia32".to_string())
-                }
-                SystemInformation::PROCESSOR_ARCHITECTURE_IA64 => Some("ia64".to_string()),
-                SystemInformation::PROCESSOR_ARCHITECTURE_INTEL => Some("x86".to_string()),
-                SystemInformation::PROCESSOR_ARCHITECTURE_MIPS => Some("mips".to_string()),
-                SystemInformation::PROCESSOR_ARCHITECTURE_PPC => Some("powerpc".to_string()),
+                | SystemInformation::PROCESSOR_ARCHITECTURE_IA32_ON_WIN64 => Some("ia32".into()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_IA64 => Some("ia64".into()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_INTEL => Some("x86".into()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_MIPS => Some("mips".into()),
+                SystemInformation::PROCESSOR_ARCHITECTURE_PPC => Some("powerpc".into()),
                 _ => None,
             }
         }
@@ -559,7 +578,7 @@ pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id:
     }
 }
 
-fn get_dns_hostname() -> Option<String> {
+fn get_dns_hostname() -> Option<OsString> {
     let mut buffer_size = 0;
     // Running this first to get the buffer size since the DNS name can be longer than MAX_COMPUTERNAME_LENGTH
     // setting the `lpBuffer` to null will return the buffer size
@@ -586,7 +605,7 @@ fn get_dns_hostname() -> Option<String> {
                 buffer.resize(pos, 0);
             }
 
-            return String::from_utf16(&buffer).ok();
+            return Some(OsString::from_wide(&buffer));
         }
     }
 
