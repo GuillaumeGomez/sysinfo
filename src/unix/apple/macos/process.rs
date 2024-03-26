@@ -636,7 +636,7 @@ pub(crate) fn update_process(
             let p = &mut p.inner;
 
             if let Some(info) = get_bsd_info(pid) {
-                if info.pbi_start_tvsec != p.start_time {
+                if info.pbi_start_tvsec != p.start_time || (info.pbi_ppid != 0 && p.parent.map_or(false, |f| f.0 as u32 != info.pbi_ppid)) {
                     // We don't it to be removed, just replaced.
                     p.updated = true;
                     // The owner of this PID changed.
