@@ -47,3 +47,18 @@ fn test_global_cpu_info_not_set() {
     assert_eq!(s.global_cpu_info().brand(), "");
     assert_eq!(s.global_cpu_info().frequency(), 0);
 }
+
+#[test]
+fn test_too_rapid_cpu_refresh() {
+    let mut s = sysinfo::System::new();
+    assert!(s.cpus().is_empty());
+
+    if !sysinfo::IS_SUPPORTED_SYSTEM {
+        return;
+    }
+
+    s.refresh_cpu();
+    s.refresh_cpu();
+
+    assert!(s.cpus().iter().any(|c| !c.cpu_usage().is_nan()));
+}
