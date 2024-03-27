@@ -7,11 +7,14 @@ use libc::{c_char, c_void, host_processor_info, mach_port_t, mach_task_self};
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::time::Instant;
 
 pub(crate) struct CpusWrapper {
     pub(crate) global_cpu: Cpu,
     pub(crate) cpus: Vec<Cpu>,
     pub(crate) got_cpu_frequency: bool,
+    /// This field is needed to prevent updating when not enough time passed since last update.
+    last_update: Option<Instant>,
 }
 
 impl CpusWrapper {
@@ -28,13 +31,20 @@ impl CpusWrapper {
             },
             cpus: Vec::new(),
             got_cpu_frequency: false,
+            last_update: None,
         }
     }
 
     pub(crate) fn refresh(&mut self, refresh_kind: CpuRefreshKind, port: mach_port_t) {
+        let need_cpu_usage_update = self
+            .last_update
+            .map(|last_update| last_update.elapsed() > crate::MINIMUM_CPU_UPDATE_INTERVAL)
+            .unwrap_or(true);
+
         let cpus = &mut self.cpus;
         if cpus.is_empty() {
             init_cpus(port, cpus, &mut self.global_cpu, refresh_kind);
+            self.last_update = Some(Instant::now());
             self.got_cpu_frequency = refresh_kind.frequency();
             return;
         }
@@ -45,7 +55,8 @@ impl CpusWrapper {
             }
             self.got_cpu_frequency = true;
         }
-        if refresh_kind.cpu_usage() {
+        if refresh_kind.cpu_usage() && need_cpu_usage_update {
+            self.last_update = Some(Instant::now());
             update_cpu_usage(port, &mut self.global_cpu, |proc_data, cpu_info| {
                 let mut percentage = 0f32;
                 let mut offset = 0;
