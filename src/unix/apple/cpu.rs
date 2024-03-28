@@ -7,11 +7,14 @@ use libc::{c_char, c_void, host_processor_info, mach_port_t, mach_task_self};
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::time::Instant;
 
 pub(crate) struct CpusWrapper {
     pub(crate) global_cpu: Cpu,
     pub(crate) cpus: Vec<Cpu>,
     pub(crate) got_cpu_frequency: bool,
+    /// This field is needed to prevent updating when not enough time passed since last update.
+    last_update: Option<Instant>,
 }
 
 impl CpusWrapper {
@@ -28,13 +31,19 @@ impl CpusWrapper {
             },
             cpus: Vec::new(),
             got_cpu_frequency: false,
+            last_update: None,
         }
     }
 
     pub(crate) fn refresh(&mut self, refresh_kind: CpuRefreshKind, port: mach_port_t) {
+        let need_cpu_usage_update = self
+            .last_update
+            .is_some_and(|last_update| last_update.elapsed() > crate::MINIMUM_CPU_UPDATE_INTERVAL);
+
         let cpus = &mut self.cpus;
         if cpus.is_empty() {
             init_cpus(port, cpus, &mut self.global_cpu, refresh_kind);
+            self.last_update = Some(Instant::now());
             self.got_cpu_frequency = refresh_kind.frequency();
             return;
         }
@@ -45,7 +54,8 @@ impl CpusWrapper {
             }
             self.got_cpu_frequency = true;
         }
-        if refresh_kind.cpu_usage() {
+        if refresh_kind.cpu_usage() && need_cpu_usage_update {
+            self.last_update = Some(Instant::now());
             update_cpu_usage(port, &mut self.global_cpu, |proc_data, cpu_info| {
                 let mut percentage = 0f32;
                 let mut offset = 0;
@@ -229,19 +239,30 @@ fn get_idle(cpu_info: *mut i32, offset: isize) -> i32 {
 pub(crate) fn compute_usage_of_cpu(proc_: &Cpu, cpu_info: *mut i32, offset: isize) -> f32 {
     let old_cpu_info = proc_.inner.data().cpu_info.0;
     let in_use;
-    let total;
+    let idle;
 
     // In case we are initializing cpus, there is no "old value" yet.
     if old_cpu_info == cpu_info {
         in_use = get_in_use(cpu_info, offset);
-        total = in_use.saturating_add(get_idle(cpu_info, offset) as _);
+        idle = get_idle(cpu_info, offset);
     } else {
-        in_use = get_in_use(cpu_info, offset).saturating_sub(get_in_use(old_cpu_info, offset));
-        total = in_use.saturating_add(
-            get_idle(cpu_info, offset).saturating_sub(get_idle(old_cpu_info, offset)) as _,
-        );
+        let new_in_use = get_in_use(cpu_info, offset);
+        let old_in_use = get_in_use(old_cpu_info, offset);
+
+        let new_idle = get_idle(cpu_info, offset);
+        let old_idle = get_idle(old_cpu_info, offset);
+
+        in_use = new_in_use.saturating_sub(old_in_use);
+        idle = new_idle.saturating_sub(old_idle) as _;
     }
-    in_use as f32 / total as f32 * 100.
+    let total = in_use.saturating_add(idle as _);
+    let usage = (in_use as f32 / total as f32) * 100.;
+    if usage.is_nan() {
+        // If divided by zero, avoid returning a NaN
+        0.
+    } else {
+        usage
+    }
 }
 
 pub(crate) fn update_cpu_usage<F: FnOnce(Arc<CpuData>, *mut i32) -> (f32, usize)>(
