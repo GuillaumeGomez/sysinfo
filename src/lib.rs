@@ -453,6 +453,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::const_is_empty)]
     fn check_nb_supported_signals() {
         if IS_SUPPORTED_SYSTEM {
             assert!(
