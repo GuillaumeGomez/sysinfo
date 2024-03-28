@@ -239,19 +239,30 @@ fn get_idle(cpu_info: *mut i32, offset: isize) -> i32 {
 pub(crate) fn compute_usage_of_cpu(proc_: &Cpu, cpu_info: *mut i32, offset: isize) -> f32 {
     let old_cpu_info = proc_.inner.data().cpu_info.0;
     let in_use;
-    let total;
+    let idle;
 
     // In case we are initializing cpus, there is no "old value" yet.
     if old_cpu_info == cpu_info {
         in_use = get_in_use(cpu_info, offset);
-        total = in_use.saturating_add(get_idle(cpu_info, offset) as _);
+        idle = get_idle(cpu_info, offset);
     } else {
-        in_use = get_in_use(cpu_info, offset).saturating_sub(get_in_use(old_cpu_info, offset));
-        total = in_use.saturating_add(
-            get_idle(cpu_info, offset).saturating_sub(get_idle(old_cpu_info, offset)) as _,
-        );
+        let new_in_use = get_in_use(cpu_info, offset);
+        let old_in_use = get_in_use(old_cpu_info, offset);
+
+        let new_idle = get_idle(cpu_info, offset);
+        let old_idle = get_idle(old_cpu_info, offset);
+
+        in_use = new_in_use.saturating_sub(old_in_use);
+        idle = new_idle.saturating_sub(old_idle) as _;
     }
-    in_use as f32 / total as f32 * 100.
+    let total = in_use.saturating_add(idle as _);
+    let usage = (in_use as f32 / total as f32) * 100.;
+    if usage.is_nan() {
+        // If divided by zero, avoid returning a NaN
+        0.
+    } else {
+        usage
+    }
 }
 
 pub(crate) fn update_cpu_usage<F: FnOnce(Arc<CpuData>, *mut i32) -> (f32, usize)>(
