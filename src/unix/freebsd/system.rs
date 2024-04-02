@@ -362,6 +362,7 @@ impl SystemInner {
     }
 }
 
+#[allow(clippy::assigning_clones)]
 unsafe fn add_missing_proc_info(
     system_info: &mut SystemInfo,
     kproc: &libc::kinfo_proc,

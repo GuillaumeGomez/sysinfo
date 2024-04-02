@@ -67,6 +67,7 @@ impl CpusWrapper {
         }
     }
 
+    #[allow(clippy::assigning_clones)]
     pub(crate) fn refresh(&mut self, only_update_global_cpu: bool, refresh_kind: CpuRefreshKind) {
         let need_cpu_usage_update = self
             .last_update
