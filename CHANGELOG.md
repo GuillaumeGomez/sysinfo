@@ -1,3 +1,10 @@
+# 0.30.8
+
+ * Linux: Fix missing parallelization.
+ * Linux: Add `cargo` feature flag `linux-tmpfs` to list `tmpfs` mounts.
+ * macOS: Fix CPU usage returning `NaN`.
+ * `Components::refresh` is now parallelized.
+
 # 0.30.7
 
  * Linux: Fix cgroup memory computation.

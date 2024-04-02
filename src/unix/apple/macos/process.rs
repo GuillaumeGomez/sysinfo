@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#![allow(clippy::assigning_clones)]
+
 use std::mem::{self, MaybeUninit};
 use std::path::{Path, PathBuf};
 
