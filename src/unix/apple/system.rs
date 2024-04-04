@@ -10,8 +10,9 @@ use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, Proce
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::ffi::CStr;
+use std::ffi::{CStr, OsStr, OsString};
 use std::mem;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::time::SystemTime;
 
@@ -352,62 +353,56 @@ impl SystemInner {
         boot_time()
     }
 
-    pub(crate) fn name() -> Option<String> {
+    pub(crate) fn name() -> Option<OsString> {
         get_system_info(libc::KERN_OSTYPE, Some("Darwin"))
     }
 
-    pub(crate) fn long_os_version() -> Option<String> {
+    pub(crate) fn long_os_version() -> Option<OsString> {
         #[cfg(target_os = "macos")]
-        let friendly_name = match Self::os_version().unwrap_or_default() {
-            f_n if f_n.starts_with("14.0") => "Sonoma",
-            f_n if f_n.starts_with("10.16")
-                | f_n.starts_with("11.0")
-                | f_n.starts_with("11.1")
-                | f_n.starts_with("11.2") =>
+        let friendly_name = match Self::os_version().unwrap_or_default().as_bytes() {
+            f_n if f_n.starts_with(b"14.0") => "Sonoma",
+            f_n if f_n.starts_with(b"10.16")
+                | f_n.starts_with(b"11.0")
+                | f_n.starts_with(b"11.1")
+                | f_n.starts_with(b"11.2") =>
             {
                 "Big Sur"
             }
-            f_n if f_n.starts_with("10.15") => "Catalina",
-            f_n if f_n.starts_with("10.14") => "Mojave",
-            f_n if f_n.starts_with("10.13") => "High Sierra",
-            f_n if f_n.starts_with("10.12") => "Sierra",
-            f_n if f_n.starts_with("10.11") => "El Capitan",
-            f_n if f_n.starts_with("10.10") => "Yosemite",
-            f_n if f_n.starts_with("10.9") => "Mavericks",
-            f_n if f_n.starts_with("10.8") => "Mountain Lion",
-            f_n if f_n.starts_with("10.7") => "Lion",
-            f_n if f_n.starts_with("10.6") => "Snow Leopard",
-            f_n if f_n.starts_with("10.5") => "Leopard",
-            f_n if f_n.starts_with("10.4") => "Tiger",
-            f_n if f_n.starts_with("10.3") => "Panther",
-            f_n if f_n.starts_with("10.2") => "Jaguar",
-            f_n if f_n.starts_with("10.1") => "Puma",
-            f_n if f_n.starts_with("10.0") => "Cheetah",
+            f_n if f_n.starts_with(b"10.15") => "Catalina",
+            f_n if f_n.starts_with(b"10.14") => "Mojave",
+            f_n if f_n.starts_with(b"10.13") => "High Sierra",
+            f_n if f_n.starts_with(b"10.12") => "Sierra",
             _ => "",
         };
 
         #[cfg(target_os = "macos")]
-        let long_name = Some(format!(
-            "MacOS {} {}",
-            Self::os_version().unwrap_or_default(),
-            friendly_name
-        ));
+        let long_name = {
+            let mut buf = b"macOS ".to_vec();
+            buf.extend(Self::os_version().unwrap_or_default().as_bytes());
+            buf.push(b' ');
+            buf.extend(friendly_name.as_bytes());
+            Some(OsString::from_vec(buf))
+        };
 
         #[cfg(target_os = "ios")]
-        let long_name = Some(format!("iOS {}", Self::os_version().unwrap_or_default()));
+        let long_name = {
+            let mut buf = b"iOS ".to_vec();
+            buf.extend(Self::os_version().unwrap_or_default().as_bytes());
+            Some(OsString::from_vec(buf))
+        };
 
         long_name
     }
 
-    pub(crate) fn host_name() -> Option<String> {
+    pub(crate) fn host_name() -> Option<OsString> {
         get_system_info(libc::KERN_HOSTNAME, None)
     }
 
-    pub(crate) fn kernel_version() -> Option<String> {
+    pub(crate) fn kernel_version() -> Option<OsString> {
         get_system_info(libc::KERN_OSRELEASE, None)
     }
 
-    pub(crate) fn os_version() -> Option<String> {
+    pub(crate) fn os_version() -> Option<OsString> {
         unsafe {
             // get the size for the buffer first
             let mut size = 0;
@@ -427,7 +422,7 @@ impl SystemInner {
                         buf.resize(pos, 0);
                     }
 
-                    String::from_utf8(buf).ok()
+                    Some(OsString::from_vec(buf))
                 } else {
                     // getting the system value failed
                     None
@@ -439,11 +434,11 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn distribution_id() -> String {
-        std::env::consts::OS.to_owned()
+    pub(crate) fn distribution_id() -> OsString {
+        std::env::consts::OS.into()
     }
 
-    pub(crate) fn cpu_arch() -> Option<String> {
+    pub(crate) fn cpu_arch() -> Option<OsString> {
         let mut arch_str: [u8; 32] = [0; 32];
         let mut mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
 
@@ -453,12 +448,10 @@ impl SystemInner {
                 arch_str.as_mut_ptr() as *mut _,
                 &mut mib,
             ) {
-                CStr::from_bytes_until_nul(&arch_str)
-                    .ok()
-                    .and_then(|res| match res.to_str() {
-                        Ok(arch) => Some(arch.to_string()),
-                        Err(_) => None,
-                    })
+                Some(
+                    OsStr::from_bytes(CStr::from_bytes_until_nul(&arch_str).ok()?.to_bytes())
+                        .to_os_string(),
+                )
             } else {
                 None
             }
@@ -466,7 +459,7 @@ impl SystemInner {
     }
 }
 
-fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
+fn get_system_info(value: c_int, default: Option<&str>) -> Option<OsString> {
     let mut mib: [c_int; 2] = [libc::CTL_KERN, value];
     let mut size = 0;
 
@@ -483,7 +476,7 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
 
         // exit early if we did not update the size
         if size == 0 {
-            default.map(|s| s.to_owned())
+            default.map(|s| s.into())
         } else {
             // set the buffer to the correct size
             let mut buf = vec![0_u8; size as _];
@@ -498,14 +491,14 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
             ) == -1
             {
                 // If command fails return default
-                default.map(|s| s.to_owned())
+                default.map(|s| s.into())
             } else {
                 if let Some(pos) = buf.iter().position(|x| *x == 0) {
                     // Shrink buffer to terminate the null bytes
                     buf.resize(pos, 0);
                 }
 
-                String::from_utf8(buf).ok()
+                Some(OsString::from_vec(buf))
             }
         }
     }

@@ -214,7 +214,7 @@ pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
     }
 }
 
-pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
+pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<OsString> {
     let mut size = 0;
 
     unsafe {
@@ -230,7 +230,7 @@ pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<St
 
         // exit early if we did not update the size
         if size == 0 {
-            default.map(|s| s.to_owned())
+            default.map(|s| s.into())
         } else {
             // set the buffer to the correct size
             let mut buf: Vec<libc::c_char> = vec![0; size as _];
@@ -245,9 +245,9 @@ pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<St
             ) == -1
             {
                 // If command fails return default
-                default.map(|s| s.to_owned())
+                default.map(|s| s.into())
             } else {
-                c_buf_to_utf8_string(&buf)
+                Some(c_buf_to_os_string(&buf))
             }
         }
     }

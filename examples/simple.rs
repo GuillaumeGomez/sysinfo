@@ -440,11 +440,26 @@ fn interpret_input(
                  System OS version:        {}\n\
                  System OS (long) version: {}\n\
                  System host name:         {}",
-                System::name().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::kernel_version().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::os_version().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::long_os_version().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::host_name().unwrap_or_else(|| "<unknown>".to_owned()),
+                System::name()
+                    .unwrap_or_else(|| "<unknown>".into())
+                    .as_encoded_bytes()
+                    .as_bstr(),
+                System::kernel_version()
+                    .unwrap_or_else(|| "<unknown>".into())
+                    .as_encoded_bytes()
+                    .as_bstr(),
+                System::os_version()
+                    .unwrap_or_else(|| "<unknown>".into())
+                    .as_encoded_bytes()
+                    .as_bstr(),
+                System::long_os_version()
+                    .unwrap_or_else(|| "<unknown>".into())
+                    .as_encoded_bytes()
+                    .as_bstr(),
+                System::host_name()
+                    .unwrap_or_else(|| "<unknown>".into())
+                    .as_encoded_bytes()
+                    .as_bstr(),
             );
         }
         e => {
