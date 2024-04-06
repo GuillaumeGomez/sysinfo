@@ -396,12 +396,15 @@ fn refresh_user_group_ids(
 #[allow(clippy::too_many_arguments)]
 fn update_proc_info(
     p: &mut ProcessInner,
+    parent_pid: Option<Pid>,
     refresh_kind: ProcessRefreshKind,
     proc_path: &mut PathHandler,
     parts: &[&str],
     uptime: u64,
     info: &SystemInfo,
 ) {
+    update_parent_pid(p, parent_pid, parts);
+
     get_status(p, parts[ProcIndex::State as usize]);
     refresh_user_group_ids(p, proc_path, refresh_kind);
 
@@ -430,6 +433,16 @@ fn update_proc_info(
     }
 }
 
+fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, str_parts: &[&str]) {
+    p.parent = match parent_pid {
+        Some(parent_pid) if parent_pid.0 != 0 => Some(parent_pid),
+        _ => match Pid::from_str(str_parts[ProcIndex::ParentPid as usize]) {
+            Ok(p) if p.0 != 0 => Some(p),
+            _ => None,
+        },
+    };
+}
+
 fn retrieve_all_new_process_info(
     pid: Pid,
     parent_pid: Option<Pid>,
@@ -442,14 +455,6 @@ fn retrieve_all_new_process_info(
     let mut p = ProcessInner::new(pid, path.to_owned());
     let mut proc_path = PathHandler::new(path);
     let name = parts[ProcIndex::ShortExe as usize];
-
-    p.parent = match parent_pid {
-        Some(parent_pid) if parent_pid.0 != 0 => Some(parent_pid),
-        _ => match Pid::from_str(parts[ProcIndex::ParentPid as usize]) {
-            Ok(p) if p.0 != 0 => Some(p),
-            _ => None,
-        },
-    };
 
     p.start_time_without_boot_time = compute_start_time_without_boot_time(parts, info);
     p.start_time = p
@@ -466,7 +471,15 @@ fn retrieve_all_new_process_info(
         p.thread_kind = Some(ThreadKind::Userland);
     }
 
-    update_proc_info(&mut p, refresh_kind, &mut proc_path, parts, uptime, info);
+    update_proc_info(
+        &mut p,
+        parent_pid,
+        refresh_kind,
+        &mut proc_path,
+        parts,
+        uptime,
+        info,
+    );
 
     Process { inner: p }
 }
@@ -502,18 +515,21 @@ pub(crate) fn _get_process_data(
         let parts = parse_stat_file(&data).ok_or(())?;
         let start_time_without_boot_time = compute_start_time_without_boot_time(&parts, info);
 
-        // Update the parent if it changed.
-        if entry.parent != parent_pid {
-            entry.parent = parent_pid;
-        }
-
         // It's possible that a new process took this same PID when the "original one" terminated.
         // If the start time differs, then it means it's not the same process anymore and that we
         // need to get all its information, hence why we check it here.
         if start_time_without_boot_time == entry.start_time_without_boot_time {
             let mut proc_path = PathHandler::new(path);
 
-            update_proc_info(entry, refresh_kind, &mut proc_path, &parts, uptime, info);
+            update_proc_info(
+                entry,
+                parent_pid,
+                refresh_kind,
+                &mut proc_path,
+                &parts,
+                uptime,
+                info,
+            );
 
             refresh_user_group_ids(entry, &mut proc_path, refresh_kind);
             return Ok((None, pid));
