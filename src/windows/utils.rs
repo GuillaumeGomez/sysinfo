@@ -1,12 +1,16 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use windows::core::{PCWSTR, PWSTR};
-use windows::Win32::Foundation::{self, FILETIME};
+use windows::Win32::Foundation::{self, CloseHandle, FILETIME, HANDLE};
+use windows::Win32::Storage::FileSystem::{
+    CreateFileW, FILE_ACCESS_RIGHTS, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+};
 use windows::Win32::System::Registry::{
     RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, KEY_READ, REG_NONE,
 };
 
 use std::ffi::OsStr;
+use std::ops::Deref;
 use std::os::windows::ffi::OsStrExt;
 use std::time::SystemTime;
 
@@ -130,5 +134,49 @@ pub(crate) fn get_reg_value_u32(hkey: HKEY, path: &str, field_name: &str) -> Opt
             .get_value(&c_field_name, &mut buf, &mut buf_len)
             .map(|_| buf)
             .ok()
+    }
+}
+
+pub(crate) struct HandleWrapper(pub(crate) HANDLE);
+
+impl HandleWrapper {
+    pub(crate) fn new(handle: HANDLE) -> Option<Self> {
+        if handle.is_invalid() {
+            None
+        } else {
+            Some(Self(handle))
+        }
+    }
+
+    pub(crate) unsafe fn new_from_file(
+        drive_name: &[u16],
+        open_rights: FILE_ACCESS_RIGHTS,
+    ) -> Option<Self> {
+        let lpfilename = PCWSTR::from_raw(drive_name.as_ptr());
+        let handle = CreateFileW(
+            lpfilename,
+            open_rights.0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            None,
+            OPEN_EXISTING,
+            Default::default(),
+            HANDLE::default(),
+        )
+        .ok()?;
+        Some(Self(handle))
+    }
+}
+
+impl Deref for HandleWrapper {
+    type Target = HANDLE;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Drop for HandleWrapper {
+    fn drop(&mut self) {
+        let _err = unsafe { CloseHandle(self.0) };
     }
 }
