@@ -807,7 +807,8 @@ fn test_process_run_time() {
 // updated as well.
 #[test]
 fn test_parent_change() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") || cfg!(windows) {
+        // Windows never updates its parent PID so no need to check anything.
         return;
     }
 

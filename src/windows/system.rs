@@ -184,8 +184,8 @@ impl SystemInner {
             }
             // We need to re-make the process because the PID owner changed.
         }
-        if let Some(mut p) = ProcessInner::new_from_pid(pid, now, refresh_kind) {
-            p.update(refresh_kind, nb_cpus, now);
+        if let Some(mut p) = ProcessInner::new_from_pid(pid, now) {
+            p.update(refresh_kind, nb_cpus, now, true);
             p.updated = false;
             self.process_list.insert(pid, Process { inner: p });
             true
@@ -309,7 +309,8 @@ impl SystemInner {
                     // as above, read_unaligned is necessary
                     let pi = ptr::read_unaligned(pi.0);
                     let pid = Pid(pi.UniqueProcessId as _);
-                    let parent = if pi.InheritedFromUniqueProcessId as usize != 0 {
+                    let ppid: usize = pi.InheritedFromUniqueProcessId as _;
+                    let parent = if ppid != 0 {
                         Some(Pid(pi.InheritedFromUniqueProcessId as _))
                     } else {
                         None
@@ -325,7 +326,7 @@ impl SystemInner {
                                 proc_.memory = pi.WorkingSetSize as _;
                                 proc_.virtual_memory = pi.VirtualSize as _;
                             }
-                            proc_.update(refresh_kind, nb_cpus, now);
+                            proc_.update(refresh_kind, nb_cpus, now, false);
                             // Update the parent in case it changed.
                             proc_.parent = parent;
                             return None;
@@ -339,16 +340,9 @@ impl SystemInner {
                     } else {
                         (0, 0)
                     };
-                    let mut p = ProcessInner::new_full(
-                        pid,
-                        parent,
-                        memory,
-                        virtual_memory,
-                        name,
-                        now,
-                        refresh_kind,
-                    );
-                    p.update(refresh_kind.without_memory(), nb_cpus, now);
+                    let mut p =
+                        ProcessInner::new_full(pid, parent, memory, virtual_memory, name, now);
+                    p.update(refresh_kind.without_memory(), nb_cpus, now, false);
                     Some(Process { inner: p })
                 })
                 .collect::<Vec<_>>();
@@ -533,7 +527,7 @@ fn refresh_existing_process(
     } else {
         return Some(false);
     }
-    proc_.update(refresh_kind, nb_cpus, now);
+    proc_.update(refresh_kind, nb_cpus, now, false);
     proc_.updated = false;
     Some(true)
 }
