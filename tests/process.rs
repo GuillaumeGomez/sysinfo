@@ -81,11 +81,11 @@ fn test_cmd() {
     }
 }
 
-fn build_test_binary() {
+fn build_test_binary(file_name: &str) {
     std::process::Command::new("rustc")
         .arg("test_bin/main.rs")
         .arg("-o")
-        .arg("target/test_binary")
+        .arg(file_name)
         .stdout(std::process::Stdio::null())
         .spawn()
         .unwrap()
@@ -98,8 +98,9 @@ fn test_environ() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
-    build_test_binary();
-    let mut p = std::process::Command::new("./target/test_binary")
+    let file_name = "target/test_binary";
+    build_test_binary(file_name);
+    let mut p = std::process::Command::new(format!("./{file_name}"))
         .env("FOO", "BAR")
         .env("OTHER", "VALUE")
         .spawn()
@@ -810,8 +811,9 @@ fn test_parent_change() {
         return;
     }
 
-    build_test_binary();
-    let mut p = std::process::Command::new("./target/test_binary")
+    let file_name = "target/test_binary2";
+    build_test_binary(file_name);
+    let mut p = std::process::Command::new(format!("./{file_name}"))
         .arg("1")
         .spawn()
         .unwrap();
