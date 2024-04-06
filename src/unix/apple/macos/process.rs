@@ -335,6 +335,13 @@ unsafe fn get_bsd_info(pid: Pid) -> Option<libc::proc_bsdinfo> {
     }
 }
 
+fn get_parent(info: &libc::proc_bsdinfo) -> Option<Pid> {
+    match info.pbi_ppid as i32 {
+        0 => None,
+        p => Some(Pid(p)),
+    }
+}
+
 unsafe fn create_new_process(
     pid: Pid,
     now: u64,
@@ -353,10 +360,8 @@ unsafe fn create_new_process(
             return Err(());
         }
     };
-    let parent = match info.pbi_ppid as i32 {
-        0 => None,
-        p => Some(Pid(p)),
-    };
+
+    let parent = get_parent(&info);
 
     let start_time = info.pbi_start_tvsec;
     let run_time = now.saturating_sub(start_time);
@@ -653,6 +658,11 @@ pub(crate) fn update_process(
                     p.updated = true;
                     // The owner of this PID changed.
                     return create_new_process(pid, now, refresh_kind, Some(info));
+                }
+                let parent = get_parent(&info);
+                // Update the parent if it changed.
+                if p.parent != parent {
+                    p.parent = parent;
                 }
             }
 

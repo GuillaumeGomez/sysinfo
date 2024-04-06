@@ -209,7 +209,7 @@ pub(crate) struct ProcessInner {
     root: Option<PathBuf>,
     pub(crate) memory: u64,
     pub(crate) virtual_memory: u64,
-    parent: Option<Pid>,
+    pub(crate) parent: Option<Pid>,
     status: ProcessStatus,
     handle: Option<Arc<HandleWrapper>>,
     cpu_calc_values: CPUsageCalculationValues,

@@ -502,6 +502,11 @@ pub(crate) fn _get_process_data(
         let parts = parse_stat_file(&data).ok_or(())?;
         let start_time_without_boot_time = compute_start_time_without_boot_time(&parts, info);
 
+        // Update the parent if it changed.
+        if entry.parent != parent_pid {
+            entry.parent = parent_pid;
+        }
+
         // It's possible that a new process took this same PID when the "original one" terminated.
         // If the start time differs, then it means it's not the same process anymore and that we
         // need to get all its information, hence why we check it here.

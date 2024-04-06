@@ -307,6 +307,11 @@ impl SystemInner {
                     // as above, read_unaligned is necessary
                     let pi = ptr::read_unaligned(pi.0);
                     let pid = Pid(pi.UniqueProcessId as _);
+                    let parent = if pi.InheritedFromUniqueProcessId as usize != 0 {
+                        Some(Pid(pi.InheritedFromUniqueProcessId as _))
+                    } else {
+                        None
+                    };
                     if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
                         let proc_ = &mut proc_.inner;
                         if proc_
@@ -319,6 +324,8 @@ impl SystemInner {
                                 proc_.virtual_memory = pi.VirtualSize as _;
                             }
                             proc_.update(refresh_kind, nb_cpus, now);
+                            // Update the parent in case it changed.
+                            proc_.parent = parent;
                             return None;
                         }
                         // If the PID owner changed, we need to recompute the whole process.
@@ -332,11 +339,7 @@ impl SystemInner {
                     };
                     let mut p = ProcessInner::new_full(
                         pid,
-                        if pi.InheritedFromUniqueProcessId as usize != 0 {
-                            Some(Pid(pi.InheritedFromUniqueProcessId as _))
-                        } else {
-                            None
-                        },
+                        parent,
                         memory,
                         virtual_memory,
                         name,
