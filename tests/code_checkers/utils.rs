@@ -25,8 +25,9 @@ pub fn read_dirs<P: AsRef<Path>, F: FnMut(&Path, &str)>(dirs: &[P], callback: &m
 fn read_dir<P: AsRef<Path>, F: FnMut(&Path, &str)>(dir: P, callback: &mut F) {
     for entry in fs::read_dir(dir).expect("read_dir failed") {
         let entry = entry.expect("entry failed");
+        let file_type = entry.file_type().expect("file_type failed");
         let path = entry.path();
-        if path.is_dir() {
+        if file_type.is_dir() {
             read_dir(path, callback);
         } else if path
             .extension()
