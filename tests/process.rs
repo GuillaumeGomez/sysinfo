@@ -81,11 +81,11 @@ fn test_cmd() {
     }
 }
 
-fn build_test_binary() {
+fn build_test_binary(file_name: &str) {
     std::process::Command::new("rustc")
         .arg("test_bin/main.rs")
         .arg("-o")
-        .arg("target/test_binary")
+        .arg(file_name)
         .stdout(std::process::Stdio::null())
         .spawn()
         .unwrap()
@@ -98,8 +98,9 @@ fn test_environ() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
-    build_test_binary();
-    let mut p = std::process::Command::new("./target/test_binary")
+    let file_name = "target/test_binary";
+    build_test_binary(file_name);
+    let mut p = std::process::Command::new(format!("./{file_name}"))
         .env("FOO", "BAR")
         .env("OTHER", "VALUE")
         .spawn()
@@ -800,4 +801,53 @@ fn test_process_run_time() {
         new_run_time,
         run_time
     );
+}
+
+// Test that if the parent of a process is removed, then the child PID will be
+// updated as well.
+#[test]
+fn test_parent_change() {
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") || cfg!(windows) {
+        // Windows never updates its parent PID so no need to check anything.
+        return;
+    }
+
+    let file_name = "target/test_binary2";
+    build_test_binary(file_name);
+    let mut p = std::process::Command::new(format!("./{file_name}"))
+        .arg("1")
+        .spawn()
+        .unwrap();
+
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    let pid = Pid::from_u32(p.id() as _);
+    let mut s = System::new();
+    s.refresh_processes();
+
+    assert_eq!(
+        s.process(pid).expect("process was not created").parent(),
+        sysinfo::get_current_pid().ok(),
+    );
+
+    let child_pid = s
+        .processes()
+        .iter()
+        .find(|(_, proc_)| proc_.parent() == Some(pid))
+        .map(|(pid, _)| *pid)
+        .expect("failed to get child process");
+
+    // Waiting for the parent process to stop.
+    p.wait().expect("wait failed");
+
+    s.refresh_processes();
+    // Parent should not be around anymore.
+    assert!(s.process(pid).is_none());
+
+    let child = s.process(child_pid).expect("child is dead");
+    // Child should have a different parent now.
+    assert_ne!(child.parent(), Some(pid));
+
+    // We kill the child to clean up.
+    child.kill();
 }
