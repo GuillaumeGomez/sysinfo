@@ -657,6 +657,13 @@ fn get_all_pid_entries(
     entry: DirEntry,
     data: &mut Vec<ProcAndTasks>,
 ) -> Option<Pid> {
+    let Ok(file_type) = entry.file_type() else {
+        return None;
+    };
+    if !file_type.is_dir() {
+        return None;
+    }
+
     let entry = entry.path();
     let name = entry.file_name();
 
@@ -665,26 +672,23 @@ fn get_all_pid_entries(
         return None;
     }
     let name = name?;
-    if !entry.is_dir() {
-        return None;
-    }
     let pid = Pid::from(usize::from_str(&name.to_string_lossy()).ok()?);
 
     let tasks_dir = Path::join(&entry, "task");
-    let tasks = if tasks_dir.is_dir() {
+
+    let tasks = if let Ok(entries) = fs::read_dir(tasks_dir) {
         let mut tasks = HashSet::new();
-        if let Ok(entries) = fs::read_dir(tasks_dir) {
-            for task in entries
-                .into_iter()
-                .filter_map(|entry| get_all_pid_entries(Some(name), Some(pid), entry.ok()?, data))
-            {
-                tasks.insert(task);
-            }
+        for task in entries
+            .into_iter()
+            .filter_map(|entry| get_all_pid_entries(Some(name), Some(pid), entry.ok()?, data))
+        {
+            tasks.insert(task);
         }
         Some(tasks)
     } else {
         None
     };
+
     data.push(ProcAndTasks {
         pid,
         parent_pid,
