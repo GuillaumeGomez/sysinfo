@@ -1,3 +1,8 @@
+# 0.30.9
+
+ * Linux/Windows: Performance improvements.
+ * Linux/macOS/FreeBSD: Parent process ID is updated if changed as expected.
+
 # 0.30.8
 
  * Linux: Fix missing parallelization.
