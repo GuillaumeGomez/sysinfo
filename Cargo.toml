@@ -8,7 +8,7 @@ license = "MIT"
 readme = "README.md"
 rust-version = "1.74"
 exclude = ["/test-unknown"]
-categories = ["filesystem", "os", "api-bindings"]
+keywords = ["system-information", "disk", "process", "network", "cpu"]
 edition = "2018"
 
 [lib]
@@ -19,7 +19,7 @@ default = ["multithread"]
 apple-sandbox = []
 apple-app-store = ["apple-sandbox"]
 c-interface = []
-multithread = ["rayon"]
+multithread = ["dep:rayon"]
 linux-netdevs = []
 linux-tmpfs = []
 debug = ["libc/extra_traits"]
