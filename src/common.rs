@@ -7,7 +7,6 @@ use crate::{
 
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fmt::Formatter;

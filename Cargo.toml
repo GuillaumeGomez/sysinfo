@@ -9,7 +9,7 @@ readme = "README.md"
 rust-version = "1.74"
 exclude = ["/test-unknown"]
 keywords = ["system-information", "disk", "process", "network", "cpu"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 name = "sysinfo"
