@@ -315,6 +315,8 @@ impl SystemInner {
                     } else {
                         None
                     };
+                    // Not sure why we need to make this
+                    let process_list: &Wrap<UnsafeCell<&mut HashMap<Pid, Process>>> = &process_list;
                     if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
                         let proc_ = &mut proc_.inner;
                         if proc_

@@ -2,7 +2,7 @@
 
 use crate::Component;
 
-use windows::core::w;
+use windows::core::{w, VARIANT};
 use windows::Win32::Foundation::{SysAllocString, SysFreeString};
 use windows::Win32::Security::PSECURITY_DESCRIPTOR;
 use windows::Win32::System::Com::{
@@ -11,7 +11,7 @@ use windows::Win32::System::Com::{
     RPC_C_IMP_LEVEL_IMPERSONATE,
 };
 use windows::Win32::System::Rpc::{RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE};
-use windows::Win32::System::Variant::{VariantClear, VARIANT};
+use windows::Win32::System::Variant::VariantClear;
 use windows::Win32::System::Wmi::{
     IEnumWbemClassObject, IWbemLocator, IWbemServices, WbemLocator, WBEM_FLAG_FORWARD_ONLY,
     WBEM_FLAG_NONSYSTEM_ONLY, WBEM_FLAG_RETURN_IMMEDIATELY, WBEM_INFINITE,
@@ -276,7 +276,7 @@ impl Connection {
             let mut variant = variant.assume_init();
 
             // temperature is given in tenth of degrees Kelvin
-            let temp = (variant.Anonymous.decVal.Anonymous2.Lo64 / 10) as f32 - 273.15;
+            let temp = (variant.as_raw().Anonymous.decVal.Anonymous2.Lo64 / 10) as f32 - 273.15;
             let _r = VariantClear(&mut variant);
 
             let mut critical = None;
@@ -286,7 +286,8 @@ impl Connection {
                     .ok()?;
 
                 // temperature is given in tenth of degrees Kelvin
-                critical = Some((variant.Anonymous.decVal.Anonymous2.Lo64 / 10) as f32 - 273.15);
+                critical =
+                    Some((variant.as_raw().Anonymous.decVal.Anonymous2.Lo64 / 10) as f32 - 273.15);
                 let _r = VariantClear(&mut variant);
             }
 

@@ -145,7 +145,7 @@ impl NetworksInner {
                     }
                 }
             }
-            let _err = FreeMibTable(table as _);
+            FreeMibTable(table as _);
         }
         // Remove interfaces which are gone.
         self.interfaces.retain(|_, d| d.inner.updated);

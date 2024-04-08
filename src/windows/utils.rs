@@ -80,6 +80,7 @@ impl RegKey {
             Some(buf.as_mut_ptr()),
             Some(buf_len),
         )
+        .ok()
     }
 }
 
