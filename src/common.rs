@@ -1624,7 +1624,7 @@ impl UpdateKind {
 ///
 /// When all refresh are ruled out, a [`Process`] will still retrieve the following information:
 ///  * Process ID ([`Pid`])
-///  * Parent process ID
+///  * Parent process ID (on Windows it never changes though)
 ///  * Process name
 ///  * Start time
 ///

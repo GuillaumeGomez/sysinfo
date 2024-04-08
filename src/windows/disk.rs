@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::sys::utils::HandleWrapper;
 use crate::{Disk, DiskKind};
 
 use std::ffi::{c_void, OsStr, OsString};
@@ -8,11 +9,10 @@ use std::os::windows::ffi::OsStringExt;
 use std::path::Path;
 
 use windows::core::{Error, HRESULT, PCWSTR};
-use windows::Win32::Foundation::{CloseHandle, HANDLE, MAX_PATH};
+use windows::Win32::Foundation::MAX_PATH;
 use windows::Win32::Storage::FileSystem::{
-    CreateFileW, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDiskFreeSpaceExW,
-    GetDriveTypeW, GetVolumeInformationW, GetVolumePathNamesForVolumeNameW, FILE_ACCESS_RIGHTS,
-    FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+    FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDiskFreeSpaceExW, GetDriveTypeW,
+    GetVolumeInformationW, GetVolumePathNamesForVolumeNameW,
 };
 use windows::Win32::System::Ioctl::{
     PropertyStandardQuery, StorageDeviceSeekPenaltyProperty, DEVICE_SEEK_PENALTY_DESCRIPTOR,
@@ -205,31 +205,6 @@ impl DisksInner {
     }
 }
 
-struct HandleWrapper(HANDLE);
-
-impl HandleWrapper {
-    unsafe fn new(drive_name: &[u16], open_rights: FILE_ACCESS_RIGHTS) -> Option<Self> {
-        let lpfilename = PCWSTR::from_raw(drive_name.as_ptr());
-        let handle = CreateFileW(
-            lpfilename,
-            open_rights.0,
-            FILE_SHARE_READ | FILE_SHARE_WRITE,
-            None,
-            OPEN_EXISTING,
-            Default::default(),
-            HANDLE::default(),
-        )
-        .ok()?;
-        Some(Self(handle))
-    }
-}
-
-impl Drop for HandleWrapper {
-    fn drop(&mut self) {
-        let _err = unsafe { CloseHandle(self.0) };
-    }
-}
-
 unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {
     let mut total_size = 0;
     let mut available_space = 0;
@@ -292,7 +267,8 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
                 .copied()
                 .chain([0])
                 .collect::<Vec<_>>();
-            let Some(handle) = HandleWrapper::new(&device_path[..], Default::default()) else {
+            let Some(handle) = HandleWrapper::new_from_file(&device_path[..], Default::default())
+            else {
                 return Vec::new();
             };
             let Some((total_space, available_space)) = get_drive_size(&mount_paths[0][..]) else {

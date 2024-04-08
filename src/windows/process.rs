@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::system::is_proc_running;
+use crate::sys::utils::HandleWrapper;
 use crate::windows::Sid;
 use crate::{DiskUsage, Gid, Pid, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
@@ -9,7 +10,6 @@ use std::fmt;
 #[cfg(feature = "debug")]
 use std::io;
 use std::mem::{size_of, zeroed, MaybeUninit};
-use std::ops::Deref;
 use std::os::windows::ffi::OsStringExt;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
@@ -31,9 +31,8 @@ use windows::Wdk::System::Threading::{
     ProcessWow64Information, PROCESSINFOCLASS,
 };
 use windows::Win32::Foundation::{
-    CloseHandle, LocalFree, ERROR_INSUFFICIENT_BUFFER, FILETIME, HANDLE, HINSTANCE, HLOCAL,
-    MAX_PATH, STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH,
-    UNICODE_STRING,
+    LocalFree, ERROR_INSUFFICIENT_BUFFER, FILETIME, HANDLE, HINSTANCE, HLOCAL, MAX_PATH,
+    STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH, UNICODE_STRING,
 };
 use windows::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
@@ -168,32 +167,6 @@ unsafe fn get_process_user_id(process: &mut ProcessInner, refresh_kind: ProcessR
     }
 }
 
-struct HandleWrapper(HANDLE);
-
-impl HandleWrapper {
-    fn new(handle: HANDLE) -> Option<Self> {
-        if handle.is_invalid() {
-            None
-        } else {
-            Some(Self(handle))
-        }
-    }
-}
-
-impl Deref for HandleWrapper {
-    type Target = HANDLE;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Drop for HandleWrapper {
-    fn drop(&mut self) {
-        let _err = unsafe { CloseHandle(self.0) };
-    }
-}
-
 #[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for HandleWrapper {}
 unsafe impl Sync for HandleWrapper {}
@@ -209,7 +182,7 @@ pub(crate) struct ProcessInner {
     root: Option<PathBuf>,
     pub(crate) memory: u64,
     pub(crate) virtual_memory: u64,
-    parent: Option<Pid>,
+    pub(crate) parent: Option<Pid>,
     status: ProcessStatus,
     handle: Option<Arc<HandleWrapper>>,
     cpu_calc_values: CPUsageCalculationValues,
@@ -353,48 +326,20 @@ unsafe fn get_exe(process_handler: &HandleWrapper) -> Option<PathBuf> {
 }
 
 impl ProcessInner {
-    pub(crate) fn new_from_pid(
-        pid: Pid,
-        now: u64,
-        refresh_kind: ProcessRefreshKind,
-    ) -> Option<Self> {
+    pub(crate) fn new_from_pid(pid: Pid, now: u64) -> Option<Self> {
         unsafe {
             let process_handler = get_process_handler(pid)?;
-            let mut info: MaybeUninit<PROCESS_BASIC_INFORMATION> = MaybeUninit::uninit();
-            if NtQueryInformationProcess(
-                process_handler.0,
-                ProcessBasicInformation,
-                info.as_mut_ptr().cast(),
-                size_of::<PROCESS_BASIC_INFORMATION>() as _,
-                null_mut(),
-            )
-            .is_err()
-            {
-                return None;
-            }
-            let info = info.assume_init();
-
             let name = get_process_name(pid).unwrap_or_default();
-            let exe = if refresh_kind.exe().needs_update(|| true) {
-                get_exe(&process_handler)
-            } else {
-                None
-            };
             let (start_time, run_time) = get_start_and_run_time(*process_handler, now);
-            let parent = if info.InheritedFromUniqueProcessId != 0 {
-                Some(Pid(info.InheritedFromUniqueProcessId as _))
-            } else {
-                None
-            };
-            let mut p = Self {
+            Some(Self {
                 handle: Some(Arc::new(process_handler)),
                 name,
                 pid,
-                parent,
+                parent: None,
                 user_id: None,
                 cmd: Vec::new(),
                 environ: Vec::new(),
-                exe,
+                exe: None,
                 cwd: None,
                 root: None,
                 status: ProcessStatus::Run,
@@ -409,10 +354,7 @@ impl ProcessInner {
                 old_written_bytes: 0,
                 read_bytes: 0,
                 written_bytes: 0,
-            };
-            get_process_user_id(&mut p, refresh_kind);
-            get_process_params(&mut p, refresh_kind);
-            Some(p)
+            })
         }
     }
 
@@ -423,75 +365,36 @@ impl ProcessInner {
         virtual_memory: u64,
         name: String,
         now: u64,
-        refresh_kind: ProcessRefreshKind,
     ) -> Self {
-        if let Some(handle) = get_process_handler(pid) {
-            unsafe {
-                let exe = if refresh_kind.exe().needs_update(|| true) {
-                    get_exe(&handle)
-                } else {
-                    None
-                };
-                let (start_time, run_time) = get_start_and_run_time(*handle, now);
-                let mut p = Self {
-                    handle: Some(Arc::new(handle)),
-                    name,
-                    pid,
-                    user_id: None,
-                    parent,
-                    cmd: Vec::new(),
-                    environ: Vec::new(),
-                    exe,
-                    cwd: None,
-                    root: None,
-                    status: ProcessStatus::Run,
-                    memory,
-                    virtual_memory,
-                    cpu_usage: 0.,
-                    cpu_calc_values: CPUsageCalculationValues::new(),
-                    start_time,
-                    run_time,
-                    updated: true,
-                    old_read_bytes: 0,
-                    old_written_bytes: 0,
-                    read_bytes: 0,
-                    written_bytes: 0,
-                };
-
-                get_process_user_id(&mut p, refresh_kind);
-                get_process_params(&mut p, refresh_kind);
-                p
-            }
+        let (handle, start_time, run_time) = if let Some(handle) = get_process_handler(pid) {
+            let (start_time, run_time) = get_start_and_run_time(*handle, now);
+            (Some(Arc::new(handle)), start_time, run_time)
         } else {
-            let exe = if refresh_kind.exe().needs_update(|| true) {
-                get_executable_path(pid)
-            } else {
-                None
-            };
-            Self {
-                handle: None,
-                name,
-                pid,
-                user_id: None,
-                parent,
-                cmd: Vec::new(),
-                environ: Vec::new(),
-                exe,
-                cwd: None,
-                root: None,
-                status: ProcessStatus::Run,
-                memory,
-                virtual_memory,
-                cpu_usage: 0.,
-                cpu_calc_values: CPUsageCalculationValues::new(),
-                start_time: 0,
-                run_time: 0,
-                updated: true,
-                old_read_bytes: 0,
-                old_written_bytes: 0,
-                read_bytes: 0,
-                written_bytes: 0,
-            }
+            (None, 0, 0)
+        };
+        Self {
+            handle,
+            name,
+            pid,
+            user_id: None,
+            parent,
+            cmd: Vec::new(),
+            environ: Vec::new(),
+            exe: None,
+            cwd: None,
+            root: None,
+            status: ProcessStatus::Run,
+            memory,
+            virtual_memory,
+            cpu_usage: 0.,
+            cpu_calc_values: CPUsageCalculationValues::new(),
+            start_time,
+            run_time,
+            updated: true,
+            old_read_bytes: 0,
+            old_written_bytes: 0,
+            read_bytes: 0,
+            written_bytes: 0,
         }
     }
 
@@ -500,6 +403,7 @@ impl ProcessInner {
         refresh_kind: crate::ProcessRefreshKind,
         nb_cpus: u64,
         now: u64,
+        refresh_parent: bool,
     ) {
         if refresh_kind.cpu() {
             compute_cpu_usage(self, nb_cpus);
@@ -512,7 +416,7 @@ impl ProcessInner {
         }
         unsafe {
             get_process_user_id(self, refresh_kind);
-            get_process_params(self, refresh_kind);
+            get_process_params(self, refresh_kind, refresh_parent);
         }
         if refresh_kind.exe().needs_update(|| self.exe.is_none()) {
             unsafe {
@@ -857,16 +761,25 @@ macro_rules! impl_RtlUserProcessParameters {
 impl_RtlUserProcessParameters!(RTL_USER_PROCESS_PARAMETERS32);
 impl_RtlUserProcessParameters!(RTL_USER_PROCESS_PARAMETERS);
 
-unsafe fn get_process_params(process: &mut ProcessInner, refresh_kind: ProcessRefreshKind) {
-    if !(refresh_kind.cmd().needs_update(|| process.cmd.is_empty())
+fn has_anything_to_update(process: &ProcessInner, refresh_kind: ProcessRefreshKind) -> bool {
+    refresh_kind.cmd().needs_update(|| process.cmd.is_empty())
         || refresh_kind
             .environ()
             .needs_update(|| process.environ.is_empty())
         || refresh_kind.cwd().needs_update(|| process.cwd.is_none())
-        || refresh_kind.root().needs_update(|| process.root.is_none()))
-    {
+        || refresh_kind.root().needs_update(|| process.root.is_none())
+}
+
+unsafe fn get_process_params(
+    process: &mut ProcessInner,
+    refresh_kind: ProcessRefreshKind,
+    refresh_parent: bool,
+) {
+    let has_anything_to_update = has_anything_to_update(process, refresh_kind);
+    if !refresh_parent && !has_anything_to_update {
         return;
     }
+
     let handle = match process.handle.as_ref().map(|handle| handle.0) {
         Some(h) => h,
         None => return,
@@ -905,6 +818,18 @@ unsafe fn get_process_params(process: &mut ProcessInner, refresh_kind: ProcessRe
             return;
         }
         let pinfo = pbasicinfo.assume_init();
+
+        let ppid: usize = pinfo.InheritedFromUniqueProcessId as _;
+        let parent = if ppid != 0 {
+            Some(Pid(pinfo.InheritedFromUniqueProcessId as _))
+        } else {
+            None
+        };
+        process.parent = parent;
+
+        if !has_anything_to_update {
+            return;
+        }
 
         let mut peb = MaybeUninit::<PEB>::uninit();
         if ReadProcessMemory(
@@ -948,6 +873,10 @@ unsafe fn get_process_params(process: &mut ProcessInner, refresh_kind: ProcessRe
         );
     }
     // target is a 32 bit process in wow64 mode
+
+    if !has_anything_to_update {
+        return;
+    }
 
     let mut peb32 = MaybeUninit::<PEB32>::uninit();
     if ReadProcessMemory(

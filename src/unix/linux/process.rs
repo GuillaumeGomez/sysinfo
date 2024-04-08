@@ -396,12 +396,15 @@ fn refresh_user_group_ids(
 #[allow(clippy::too_many_arguments)]
 fn update_proc_info(
     p: &mut ProcessInner,
+    parent_pid: Option<Pid>,
     refresh_kind: ProcessRefreshKind,
     proc_path: &mut PathHandler,
     parts: &[&str],
     uptime: u64,
     info: &SystemInfo,
 ) {
+    update_parent_pid(p, parent_pid, parts);
+
     get_status(p, parts[ProcIndex::State as usize]);
     refresh_user_group_ids(p, proc_path, refresh_kind);
 
@@ -430,6 +433,16 @@ fn update_proc_info(
     }
 }
 
+fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, str_parts: &[&str]) {
+    p.parent = match parent_pid {
+        Some(parent_pid) if parent_pid.0 != 0 => Some(parent_pid),
+        _ => match Pid::from_str(str_parts[ProcIndex::ParentPid as usize]) {
+            Ok(p) if p.0 != 0 => Some(p),
+            _ => None,
+        },
+    };
+}
+
 fn retrieve_all_new_process_info(
     pid: Pid,
     parent_pid: Option<Pid>,
@@ -442,14 +455,6 @@ fn retrieve_all_new_process_info(
     let mut p = ProcessInner::new(pid, path.to_owned());
     let mut proc_path = PathHandler::new(path);
     let name = parts[ProcIndex::ShortExe as usize];
-
-    p.parent = match parent_pid {
-        Some(parent_pid) if parent_pid.0 != 0 => Some(parent_pid),
-        _ => match Pid::from_str(parts[ProcIndex::ParentPid as usize]) {
-            Ok(p) if p.0 != 0 => Some(p),
-            _ => None,
-        },
-    };
 
     p.start_time_without_boot_time = compute_start_time_without_boot_time(parts, info);
     p.start_time = p
@@ -466,7 +471,15 @@ fn retrieve_all_new_process_info(
         p.thread_kind = Some(ThreadKind::Userland);
     }
 
-    update_proc_info(&mut p, refresh_kind, &mut proc_path, parts, uptime, info);
+    update_proc_info(
+        &mut p,
+        parent_pid,
+        refresh_kind,
+        &mut proc_path,
+        parts,
+        uptime,
+        info,
+    );
 
     Process { inner: p }
 }
@@ -508,7 +521,15 @@ pub(crate) fn _get_process_data(
         if start_time_without_boot_time == entry.start_time_without_boot_time {
             let mut proc_path = PathHandler::new(path);
 
-            update_proc_info(entry, refresh_kind, &mut proc_path, &parts, uptime, info);
+            update_proc_info(
+                entry,
+                parent_pid,
+                refresh_kind,
+                &mut proc_path,
+                &parts,
+                uptime,
+                info,
+            );
 
             refresh_user_group_ids(entry, &mut proc_path, refresh_kind);
             return Ok((None, pid));
@@ -636,6 +657,13 @@ fn get_all_pid_entries(
     entry: DirEntry,
     data: &mut Vec<ProcAndTasks>,
 ) -> Option<Pid> {
+    let Ok(file_type) = entry.file_type() else {
+        return None;
+    };
+    if !file_type.is_dir() {
+        return None;
+    }
+
     let entry = entry.path();
     let name = entry.file_name();
 
@@ -644,26 +672,23 @@ fn get_all_pid_entries(
         return None;
     }
     let name = name?;
-    if !entry.is_dir() {
-        return None;
-    }
     let pid = Pid::from(usize::from_str(&name.to_string_lossy()).ok()?);
 
     let tasks_dir = Path::join(&entry, "task");
-    let tasks = if tasks_dir.is_dir() {
+
+    let tasks = if let Ok(entries) = fs::read_dir(tasks_dir) {
         let mut tasks = HashSet::new();
-        if let Ok(entries) = fs::read_dir(tasks_dir) {
-            for task in entries
-                .into_iter()
-                .filter_map(|entry| get_all_pid_entries(Some(name), Some(pid), entry.ok()?, data))
-            {
-                tasks.insert(task);
-            }
+        for task in entries
+            .into_iter()
+            .filter_map(|entry| get_all_pid_entries(Some(name), Some(pid), entry.ok()?, data))
+        {
+            tasks.insert(task);
         }
         Some(tasks)
     } else {
         None
     };
+
     data.push(ProcAndTasks {
         pid,
         parent_pid,

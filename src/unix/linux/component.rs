@@ -240,9 +240,16 @@ impl ComponentInner {
         let dir = read_dir(folder).ok()?;
         let mut matchings: HashMap<u32, Component> = HashMap::with_capacity(10);
         for entry in dir.flatten() {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if file_type.is_dir() {
+                continue;
+            }
+
             let entry = entry.path();
             let filename = entry.file_name().and_then(|x| x.to_str()).unwrap_or("");
-            if entry.is_dir() || !filename.starts_with("temp") {
+            if !filename.starts_with("temp") {
                 continue;
             }
 
@@ -363,8 +370,11 @@ impl ComponentsInner {
         self.components.clear();
         if let Ok(dir) = read_dir(Path::new("/sys/class/hwmon/")) {
             for entry in dir.flatten() {
+                let Ok(file_type) = entry.file_type() else {
+                    continue;
+                };
                 let entry = entry.path();
-                if !entry.is_dir()
+                if !file_type.is_dir()
                     || !entry
                         .file_name()
                         .and_then(|x| x.to_str())
