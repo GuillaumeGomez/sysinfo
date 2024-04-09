@@ -374,16 +374,15 @@ impl ComponentsInner {
                     continue;
                 };
                 let entry = entry.path();
-                if !file_type.is_dir()
-                    || !entry
+                if !file_type.is_file()
+                    && entry
                         .file_name()
                         .and_then(|x| x.to_str())
                         .unwrap_or("")
                         .starts_with("hwmon")
                 {
-                    continue;
+                    ComponentInner::from_hwmon(&mut self.components, &entry);
                 }
-                ComponentInner::from_hwmon(&mut self.components, &entry);
             }
         }
     }
