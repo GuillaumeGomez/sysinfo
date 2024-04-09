@@ -11,7 +11,7 @@ fn test_cpu() {
         return;
     }
 
-    s.refresh_cpu();
+    s.refresh_cpu_all();
     assert!(!s.cpus().is_empty());
 
     let s = sysinfo::System::new_all();
@@ -42,7 +42,7 @@ fn test_global_cpu_info_not_set() {
     assert_eq!(s.global_cpu_info().vendor_id(), "");
     assert_eq!(s.global_cpu_info().brand(), "");
     assert_eq!(s.global_cpu_info().frequency(), 0);
-    s.refresh_cpu();
+    s.refresh_cpu_all();
     assert_eq!(s.global_cpu_info().vendor_id(), "");
     assert_eq!(s.global_cpu_info().brand(), "");
     assert_eq!(s.global_cpu_info().frequency(), 0);
@@ -57,8 +57,8 @@ fn test_too_rapid_cpu_refresh() {
         return;
     }
 
-    s.refresh_cpu();
-    s.refresh_cpu();
+    s.refresh_cpu_all();
+    s.refresh_cpu_all();
 
     assert!(s.cpus().iter().any(|c| !c.cpu_usage().is_nan()));
 }

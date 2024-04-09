@@ -114,11 +114,12 @@ fn bench_refresh_memory(b: &mut test::Bencher) {
 }
 
 #[bench]
-fn bench_refresh_cpu(b: &mut test::Bencher) {
+fn bench_refresh_cpu_usage(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
 
+    s.refresh_cpu_usage();
     b.iter(move || {
-        s.refresh_cpu();
+        s.refresh_cpu_usage();
     });
 }
 

@@ -201,7 +201,9 @@ impl System {
 
     /// Refreshes all information related to CPUs information.
     ///
-    /// ⚠️ Please note that the result will very likely be inaccurate at the first call.
+    /// If you only want the CPU usage, use [`System::refresh_cpu_usage`] instead.
+    ///
+    /// ⚠️ Please note that the result will be inaccurate at the first call.
     /// You need to call this method at least twice (with a bit of time between each call, like
     /// 200 ms, take a look at [`MINIMUM_CPU_UPDATE_INTERVAL`] for more information)
     /// to get accurate value as it uses previous results to compute the next value.
@@ -213,11 +215,11 @@ impl System {
     /// use sysinfo::System;
     ///
     /// let mut s = System::new_all();
-    /// s.refresh_cpu();
+    /// s.refresh_cpu_all();
     /// ```
     ///
     /// [`MINIMUM_CPU_UPDATE_INTERVAL`]: crate::MINIMUM_CPU_UPDATE_INTERVAL
-    pub fn refresh_cpu(&mut self) {
+    pub fn refresh_cpu_all(&mut self) {
         self.refresh_cpu_specifics(CpuRefreshKind::everything())
     }
 
@@ -493,7 +495,7 @@ impl System {
 
     /// Returns "global" CPUs information (aka the addition of all the CPUs).
     ///
-    /// To have up-to-date information, you need to call [`System::refresh_cpu`] or
+    /// To have up-to-date information, you need to call [`System::refresh_cpu_specifics`] or
     /// [`System::refresh_specifics`] with `cpu` enabled.
     ///
     /// **⚠️ Important ⚠️**
@@ -519,7 +521,7 @@ impl System {
 
     /// Returns the list of the CPUs.
     ///
-    /// By default, the list of CPUs is empty until you call [`System::refresh_cpu`] or
+    /// By default, the list of CPUs is empty until you call [`System::refresh_cpu_specifics`] or
     /// [`System::refresh_specifics`] with `cpu` enabled.
     ///
     /// ```no_run
@@ -3970,7 +3972,7 @@ impl Component {
 /// // Wait a bit because CPU usage is based on diff.
 /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
 /// // Refresh CPUs again.
-/// s.refresh_cpu();
+/// s.refresh_cpu_all();
 ///
 /// for cpu in s.cpus() {
 ///     println!("{}%", cpu.cpu_usage());
@@ -3996,7 +3998,7 @@ impl Cpu {
     /// // Wait a bit because CPU usage is based on diff.
     /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     /// // Refresh CPUs again.
-    /// s.refresh_cpu();
+    /// s.refresh_cpu_all();
     ///
     /// for cpu in s.cpus() {
     ///     println!("{}%", cpu.cpu_usage());
