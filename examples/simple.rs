@@ -179,7 +179,7 @@ fn interpret_input(
         }
         "refresh_cpu" => {
             writeln!(&mut io::stdout(), "Refreshing CPUs...");
-            sys.refresh_cpu();
+            sys.refresh_cpu_all();
             writeln!(&mut io::stdout(), "Done.");
         }
         "signals" => {

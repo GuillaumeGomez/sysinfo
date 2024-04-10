@@ -108,7 +108,7 @@ use sysinfo::System;
 let mut sys = System::new();
 
 loop {
-    sys.refresh_cpu(); // Refreshing CPU information.
+    sys.refresh_cpu_usage(); // Refreshing CPU usage.
     for cpu in sys.cpus() {
         print!("{}% ", cpu.cpu_usage());
     }
