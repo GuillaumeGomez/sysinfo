@@ -1,3 +1,7 @@
+# 0.30.10
+
+ * Linux: Fix components not being listed anymore.
+
 # 0.30.9
 
  * Linux/Windows: Performance improvements.
