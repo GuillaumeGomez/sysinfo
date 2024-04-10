@@ -201,7 +201,7 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.30.9"
+version = "0.30.10"
 dependencies = [
  "cfg-if",
  "core-foundation-sys",
