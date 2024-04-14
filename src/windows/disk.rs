@@ -122,6 +122,7 @@ pub(crate) struct DiskInner {
     file_system: OsString,
     mount_point: Vec<u16>,
     s_mount_point: OsString,
+    volume_serial_number: String,
     total_space: u64,
     available_space: u64,
     is_removable: bool,
@@ -142,6 +143,10 @@ impl DiskInner {
 
     pub(crate) fn mount_point(&self) -> &Path {
         self.s_mount_point.as_ref()
+    }
+
+    pub(crate) fn volume_serial_number(&self) -> &String {
+        &self.volume_serial_number
     }
 
     pub(crate) fn total_space(&self) -> u64 {
@@ -239,10 +244,11 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             }
             let mut name = [0u16; MAX_PATH as usize + 1];
             let mut file_system = [0u16; 32];
+            let mut volume_serial_number = 0u32;
             let volume_info_res = GetVolumeInformationW(
                 raw_volume_name,
                 Some(&mut name),
-                None,
+                Some(&mut volume_serial_number),
                 None,
                 None,
                 Some(&mut file_system),
@@ -312,6 +318,7 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
 
             let name = os_string_from_zero_terminated(&name);
             let file_system = os_string_from_zero_terminated(&file_system);
+            let volume_serial_number = format!("{:0>8}", format!("{:X}", volume_serial_number));
             mount_paths
                 .into_iter()
                 .map(move |mount_path| Disk {
@@ -321,6 +328,7 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
                         file_system: file_system.clone(),
                         s_mount_point: OsString::from_wide(&mount_path[..mount_path.len() - 1]),
                         mount_point: mount_path,
+                        volume_serial_number: volume_serial_number.clone(),
                         total_space,
                         available_space,
                         is_removable,

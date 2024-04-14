@@ -37,11 +37,12 @@ impl fmt::Debug for Disk {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             fmt,
-            "Disk({:?})[FS: {:?}][Type: {:?}][removable: {}] mounted on {:?}: {}/{} B",
+            "Disk({:?})[FS: {:?}][Type: {:?}][removable: {}] [VSN: {}] mounted on {:?}: {}/{} B",
             self.name(),
             self.file_system(),
             self.kind(),
             if self.is_removable() { "yes" } else { "no" },
+            self.volume_serial_number(),
             self.mount_point(),
             self.available_space(),
             self.total_space(),

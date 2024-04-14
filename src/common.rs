@@ -2419,6 +2419,20 @@ impl Disk {
         self.inner.mount_point()
     }
 
+    /// Returns the volume serial number.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let disks = Disks::new_with_refreshed_list();
+    /// for disk in disks.list() {
+    ///     println!("[{:?}] {:?}", disk.name(), disk.volume_serial_number());
+    /// }
+    /// ```
+    pub fn volume_serial_number(&self) -> &String {
+        self.inner.volume_serial_number()
+    }
+
     /// Returns the total disk size, in bytes.
     ///
     /// ```no_run
