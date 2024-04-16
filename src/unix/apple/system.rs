@@ -169,6 +169,11 @@ impl SystemInner {
         self.cpus.refresh(refresh_kind, self.port);
     }
 
+    pub(crate) fn refresh_cpu_list(&mut self, refresh_kind: CpuRefreshKind) {
+        self.cpus = CpusWrapper::new();
+        self.cpus.refresh(refresh_kind, self.port);
+    }
+
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
     pub(crate) fn refresh_processes_specifics(
         &mut self,

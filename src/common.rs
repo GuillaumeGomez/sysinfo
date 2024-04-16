@@ -199,6 +199,27 @@ impl System {
         self.refresh_cpu_specifics(CpuRefreshKind::new().with_frequency())
     }
 
+    /// Refreshes the list of CPU.
+    ///
+    /// Normally, this should almost never be needed as it's pretty rare for a computer
+    /// to add a CPU while running, but it's possible on some computers which shutdown
+    /// CPU if the load is low enough.
+    ///
+    /// The `refresh_kind` argument tells what information you want to be retrieved
+    /// for each CPU.
+    ///
+    /// ```no_run
+    /// use sysinfo::{CpuRefreshKind, System};
+    ///
+    /// let mut s = System::new_all();
+    /// // We already have the list of CPU filled, but we want to recompute it
+    /// // in case new CPUs were added.
+    /// s.refresh_cpu_list(CpuRefreshKind::everything());
+    /// ```
+    pub fn refresh_cpu_list(&mut self, refresh_kind: CpuRefreshKind) {
+        self.inner.refresh_cpu_list(refresh_kind);
+    }
+
     /// Refreshes all information related to CPUs information.
     ///
     /// If you only want the CPU usage, use [`System::refresh_cpu_usage`] instead.

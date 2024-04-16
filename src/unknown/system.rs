@@ -29,6 +29,8 @@ impl SystemInner {
 
     pub(crate) fn refresh_cpu_specifics(&mut self, _refresh_kind: CpuRefreshKind) {}
 
+    pub(crate) fn refresh_cpu_list(&mut self, _refresh_kind: CpuRefreshKind) {}
+
     pub(crate) fn refresh_processes_specifics(
         &mut self,
         _filter: Option<&[Pid]>,

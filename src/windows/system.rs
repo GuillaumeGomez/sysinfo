@@ -138,6 +138,11 @@ impl SystemInner {
         }
     }
 
+    pub(crate) fn refresh_cpu_list(&mut self, refresh_kind: CpuRefreshKind) {
+        self.cpus = CpusWrapper::new();
+        self.refresh_cpu_specifics(refresh_kind);
+    }
+
     pub(crate) fn refresh_memory_specifics(&mut self, refresh_kind: MemoryRefreshKind) {
         unsafe {
             if refresh_kind.ram() {

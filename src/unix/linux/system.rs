@@ -505,6 +505,11 @@ impl SystemInner {
                 })
         }
     }
+
+    pub(crate) fn refresh_cpu_list(&mut self, refresh_kind: CpuRefreshKind) {
+        self.cpus = CpusWrapper::new();
+        self.refresh_cpu_specifics(refresh_kind);
+    }
 }
 
 fn read_u64(filename: &str) -> Option<u64> {
