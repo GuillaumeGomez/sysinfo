@@ -68,6 +68,11 @@ impl SystemInner {
         self.cpus.refresh(refresh_kind)
     }
 
+    pub(crate) fn refresh_cpu_list(&mut self, refresh_kind: CpuRefreshKind) {
+        self.cpus = CpusWrapper::new();
+        self.cpus.refresh(refresh_kind);
+    }
+
     pub(crate) fn refresh_processes_specifics(
         &mut self,
         filter: Option<&[Pid]>,
