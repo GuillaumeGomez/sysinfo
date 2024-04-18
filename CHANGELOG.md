@@ -1,3 +1,7 @@
+# 0.30.11
+
+ * macOS: Fix some invalid utf8 conversions
+
 # 0.30.10
 
  * Linux: Fix components not being listed anymore.
