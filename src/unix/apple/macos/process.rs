@@ -2,7 +2,9 @@
 
 #![allow(clippy::assigning_clones)]
 
+use std::ffi::OsStr;
 use std::mem::{self, MaybeUninit};
+use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
 use libc::{c_int, c_void, kill};
@@ -407,7 +409,7 @@ unsafe fn get_exe_and_name_backup(
     ) {
         x if x > 0 => {
             buffer.set_len(x as _);
-            let tmp = String::from_utf8_unchecked(buffer);
+            let tmp = String::from_utf8_lossy(&buffer).to_string();
             let exe = PathBuf::from(tmp);
             if process.name.is_empty() {
                 process.name = exe
@@ -575,12 +577,10 @@ unsafe fn get_process_infos(process: &mut ProcessInner, refresh_kind: ProcessRef
 
 fn get_exe(data: &[u8]) -> (PathBuf, &[u8]) {
     let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
-    unsafe {
-        (
-            Path::new(std::str::from_utf8_unchecked(&data[..pos])).to_path_buf(),
-            &data[pos..],
-        )
-    }
+    (
+        Path::new(OsStr::from_bytes(&data[..pos])).to_path_buf(),
+        &data[pos..],
+    )
 }
 
 fn get_arguments<'a>(
@@ -600,21 +600,19 @@ fn get_arguments<'a>(
         data = &data[1..];
     }
 
-    unsafe {
-        while n_args > 0 && !data.is_empty() {
-            let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
-            let arg = std::str::from_utf8_unchecked(&data[..pos]);
-            if !arg.is_empty() && refresh_cmd {
-                cmd.push(arg.to_string());
-            }
-            data = &data[pos..];
-            while data.first() == Some(&0) {
-                data = &data[1..];
-            }
-            n_args -= 1;
+    while n_args > 0 && !data.is_empty() {
+        let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
+        let arg = String::from_utf8_lossy(&data[..pos]);
+        if !arg.is_empty() && refresh_cmd {
+            cmd.push(arg.to_string());
         }
-        data
+        data = &data[pos..];
+        while data.first() == Some(&0) {
+            data = &data[1..];
+        }
+        n_args -= 1;
     }
+    data
 }
 
 fn get_environ(environ: &mut Vec<String>, mut data: &[u8]) {
@@ -624,18 +622,16 @@ fn get_environ(environ: &mut Vec<String>, mut data: &[u8]) {
         data = &data[1..];
     }
 
-    unsafe {
-        while !data.is_empty() {
-            let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
-            let arg = std::str::from_utf8_unchecked(&data[..pos]);
-            if arg.is_empty() {
-                return;
-            }
-            environ.push(arg.to_string());
-            data = &data[pos..];
-            while data.first() == Some(&0) {
-                data = &data[1..];
-            }
+    while !data.is_empty() {
+        let pos = data.iter().position(|c| *c == 0).unwrap_or(data.len());
+        let arg = String::from_utf8_lossy(&data[..pos]);
+        if arg.is_empty() {
+            return;
+        }
+        environ.push(arg.to_string());
+        data = &data[pos..];
+        while data.first() == Some(&0) {
+            data = &data[1..];
         }
     }
 }
