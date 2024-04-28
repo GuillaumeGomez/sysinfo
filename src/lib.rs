@@ -493,6 +493,15 @@ mod test {
         }
     }
 
+    // Ensure that the global CPU name is always empty.
+    #[test]
+    fn check_global_cpu_name() {
+        let mut s = System::new();
+        assert_eq!(s.global_cpu_info().name(), "");
+        s.refresh_cpu_all();
+        assert_eq!(s.global_cpu_info().name(), "");
+    }
+
     // In case `Process::updated` is misused, `System::refresh_processes` might remove them
     // so this test ensures that it doesn't happen.
     #[test]

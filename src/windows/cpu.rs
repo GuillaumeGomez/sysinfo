@@ -255,12 +255,7 @@ impl CpusWrapper {
     pub fn new() -> Self {
         Self {
             global: Cpu {
-                inner: CpuInner::new_with_values(
-                    "Total CPU".to_owned(),
-                    String::new(),
-                    String::new(),
-                    0,
-                ),
+                inner: CpuInner::new_with_values(String::new(), String::new(), String::new(), 0),
             },
             cpus: Vec::new(),
             got_cpu_frequency: false,
