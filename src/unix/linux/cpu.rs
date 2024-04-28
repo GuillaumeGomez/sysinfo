@@ -102,13 +102,7 @@ impl CpusWrapper {
                     if &line[..4] != b"cpu " {
                         return;
                     }
-                    let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty());
-                    if first {
-                        to_str!(parts.next().unwrap_or(&[]))
-                            .clone_into(&mut self.global_cpu.inner.name);
-                    } else {
-                        parts.next();
-                    }
+                    let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty()).skip(1);
                     self.global_cpu.inner.set(
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),

@@ -22,7 +22,7 @@ impl CpusWrapper {
         Self {
             global_cpu: Cpu {
                 inner: CpuInner::new(
-                    "0".to_owned(),
+                    String::new(),
                     Arc::new(CpuData::new(std::ptr::null_mut(), 0)),
                     0,
                     String::new(),
