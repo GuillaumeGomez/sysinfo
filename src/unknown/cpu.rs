@@ -3,10 +3,6 @@
 pub(crate) struct CpuInner;
 
 impl CpuInner {
-    pub(crate) fn new() -> Self {
-        Self
-    }
-
     pub(crate) fn cpu_usage(&self) -> f32 {
         0.0
     }

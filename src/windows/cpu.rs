@@ -246,7 +246,7 @@ impl Query {
 }
 
 pub(crate) struct CpusWrapper {
-    global: Cpu,
+    pub(crate) global: CpuUsage,
     cpus: Vec<Cpu>,
     got_cpu_frequency: bool,
 }
@@ -254,20 +254,17 @@ pub(crate) struct CpusWrapper {
 impl CpusWrapper {
     pub fn new() -> Self {
         Self {
-            global: Cpu {
-                inner: CpuInner::new_with_values(String::new(), String::new(), String::new(), 0),
+            global: CpuUsage {
+                percent: 0f32,
+                key_used: None,
             },
             cpus: Vec::new(),
             got_cpu_frequency: false,
         }
     }
 
-    pub fn global_cpu(&self) -> &Cpu {
-        &self.global
-    }
-
-    pub fn global_cpu_mut(&mut self) -> &mut Cpu {
-        &mut self.global
+    pub fn global_cpu_usage(&self) -> f32 {
+        self.global.percent
     }
 
     pub fn cpus(&self) -> &[Cpu] {
@@ -300,25 +297,32 @@ impl CpusWrapper {
         for (cpu, frequency) in self.cpus.iter_mut().zip(frequencies) {
             cpu.inner.set_frequency(frequency);
         }
-        self.global
-            .inner
-            .set_frequency(self.cpus.first().map(|cpu| cpu.frequency()).unwrap_or(0));
         self.got_cpu_frequency = true;
+    }
+}
+
+pub(crate) struct CpuUsage {
+    percent: f32,
+    pub(crate) key_used: Option<KeyHandler>,
+}
+
+impl CpuUsage {
+    pub(crate) fn set_cpu_usage(&mut self, value: f32) {
+        self.percent = value;
     }
 }
 
 pub(crate) struct CpuInner {
     name: String,
-    cpu_usage: f32,
-    key_used: Option<KeyHandler>,
     vendor_id: String,
+    usage: CpuUsage,
     brand: String,
     frequency: u64,
 }
 
 impl CpuInner {
     pub(crate) fn cpu_usage(&self) -> f32 {
-        self.cpu_usage
+        self.usage.percent
     }
 
     pub(crate) fn name(&self) -> &str {
@@ -345,8 +349,10 @@ impl CpuInner {
     ) -> Self {
         Self {
             name,
-            cpu_usage: 0f32,
-            key_used: None,
+            usage: CpuUsage {
+                percent: 0f32,
+                key_used: None,
+            },
             vendor_id,
             brand,
             frequency,
@@ -354,7 +360,7 @@ impl CpuInner {
     }
 
     pub(crate) fn set_cpu_usage(&mut self, value: f32) {
-        self.cpu_usage = value;
+        self.usage.set_cpu_usage(value);
     }
 
     pub(crate) fn set_frequency(&mut self, value: u64) {
@@ -462,8 +468,9 @@ pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
     (get_vendor_id_not_great(info), String::new())
 }
 
+#[inline]
 pub(crate) fn get_key_used(p: &mut Cpu) -> &mut Option<KeyHandler> {
-    &mut p.inner.key_used
+    &mut p.inner.usage.key_used
 }
 
 // From https://stackoverflow.com/a/43813138:

@@ -203,7 +203,7 @@ fn interpret_input(
             writeln!(
                 &mut io::stdout(),
                 "total CPU usage: {}%",
-                sys.global_cpu_info().cpu_usage()
+                sys.global_cpu_usage(),
             );
             for cpu in sys.cpus() {
                 writeln!(&mut io::stdout(), "{cpu:?}");

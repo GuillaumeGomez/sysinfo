@@ -37,18 +37,6 @@ fn test_physical_core_numbers() {
 }
 
 #[test]
-fn test_global_cpu_info_not_set() {
-    let mut s = sysinfo::System::new();
-    assert_eq!(s.global_cpu_info().vendor_id(), "");
-    assert_eq!(s.global_cpu_info().brand(), "");
-    assert_eq!(s.global_cpu_info().frequency(), 0);
-    s.refresh_cpu_all();
-    assert_eq!(s.global_cpu_info().vendor_id(), "");
-    assert_eq!(s.global_cpu_info().brand(), "");
-    assert_eq!(s.global_cpu_info().frequency(), 0);
-}
-
-#[test]
 fn test_too_rapid_cpu_refresh() {
     let mut s = sysinfo::System::new();
     assert!(s.cpus().is_empty());
