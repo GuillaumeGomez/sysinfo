@@ -108,7 +108,7 @@ impl serde::Serialize for crate::System {
         // `19` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("System", 19)?;
 
-        state.serialize_field("global_cpu_info", &self.global_cpu_info())?;
+        state.serialize_field("global_cpu_usage", &self.global_cpu_usage())?;
         state.serialize_field("cpus", &self.cpus())?;
 
         state.serialize_field("physical_core_count", &self.physical_core_count())?;

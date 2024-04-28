@@ -1,23 +1,17 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{
-    Cpu, CpuInner, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
-};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind};
 
 use std::collections::HashMap;
 
 pub(crate) struct SystemInner {
     processes_list: HashMap<Pid, Process>,
-    global_cpu: Cpu,
 }
 
 impl SystemInner {
     pub(crate) fn new() -> Self {
         Self {
             processes_list: Default::default(),
-            global_cpu: Cpu {
-                inner: CpuInner::new(),
-            },
         }
     }
 
@@ -58,8 +52,8 @@ impl SystemInner {
         None
     }
 
-    pub(crate) fn global_cpu_info(&self) -> &Cpu {
-        &self.global_cpu
+    pub(crate) fn global_cpu_usage(&self) -> f32 {
+        0.
     }
 
     pub(crate) fn cpus(&self) -> &[Cpu] {

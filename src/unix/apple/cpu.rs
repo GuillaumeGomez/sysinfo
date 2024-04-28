@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 pub(crate) struct CpusWrapper {
-    pub(crate) global_cpu: Cpu,
+    pub(crate) global_cpu: CpuUsage,
     pub(crate) cpus: Vec<Cpu>,
     pub(crate) got_cpu_frequency: bool,
     /// This field is needed to prevent updating when not enough time passed since last update.
@@ -20,15 +20,7 @@ pub(crate) struct CpusWrapper {
 impl CpusWrapper {
     pub(crate) fn new() -> Self {
         Self {
-            global_cpu: Cpu {
-                inner: CpuInner::new(
-                    String::new(),
-                    Arc::new(CpuData::new(std::ptr::null_mut(), 0)),
-                    0,
-                    String::new(),
-                    String::new(),
-                ),
-            },
+            global_cpu: CpuUsage::new(),
             cpus: Vec::new(),
             got_cpu_frequency: false,
             last_update: None,
@@ -115,13 +107,36 @@ impl Drop for CpuData {
     }
 }
 
+pub(crate) struct CpuUsage {
+    percent: f32,
+    data: Arc<CpuData>,
+    // Cannot be frequency for each CPU apparently so we store it in the CPU usage...
+    frequency: u64,
+}
+
+impl CpuUsage {
+    pub(crate) fn new() -> Self {
+        Self {
+            percent: 0.,
+            data: Arc::new(CpuData::new(std::ptr::null_mut(), 0)),
+            frequency: 0,
+        }
+    }
+
+    pub(crate) fn percent(&self) -> f32 {
+        self.percent
+    }
+
+    pub(crate) fn set_cpu_usage(&mut self, value: f32) {
+        self.percent = value;
+    }
+}
+
 pub(crate) struct CpuInner {
     name: String,
-    cpu_usage: f32,
-    cpu_data: Arc<CpuData>,
-    frequency: u64,
     vendor_id: String,
     brand: String,
+    usage: CpuUsage,
 }
 
 impl CpuInner {
@@ -134,33 +149,35 @@ impl CpuInner {
     ) -> Self {
         Self {
             name,
-            cpu_usage: 0f32,
-            cpu_data,
-            frequency,
+            usage: CpuUsage {
+                percent: 0.,
+                data: cpu_data,
+                frequency,
+            },
             vendor_id,
             brand,
         }
     }
 
     pub(crate) fn set_cpu_usage(&mut self, cpu_usage: f32) {
-        self.cpu_usage = cpu_usage;
+        self.usage.set_cpu_usage(cpu_usage);
     }
 
     pub(crate) fn update(&mut self, cpu_usage: f32, cpu_data: Arc<CpuData>) {
-        self.cpu_usage = cpu_usage;
-        self.cpu_data = cpu_data;
+        self.usage.percent = cpu_usage;
+        self.usage.data = cpu_data;
     }
 
     pub(crate) fn data(&self) -> Arc<CpuData> {
-        Arc::clone(&self.cpu_data)
+        Arc::clone(&self.usage.data)
     }
 
     pub(crate) fn set_frequency(&mut self, frequency: u64) {
-        self.frequency = frequency;
+        self.usage.frequency = frequency;
     }
 
     pub(crate) fn cpu_usage(&self) -> f32 {
-        self.cpu_usage
+        self.usage.percent()
     }
 
     pub(crate) fn name(&self) -> &str {
@@ -168,7 +185,7 @@ impl CpuInner {
     }
 
     pub(crate) fn frequency(&self) -> u64 {
-        self.frequency
+        self.usage.frequency
     }
 
     pub(crate) fn vendor_id(&self) -> &str {
@@ -267,7 +284,7 @@ pub(crate) fn compute_usage_of_cpu(proc_: &Cpu, cpu_info: *mut i32, offset: isiz
 
 pub(crate) fn update_cpu_usage<F: FnOnce(Arc<CpuData>, *mut i32) -> (f32, usize)>(
     port: libc::mach_port_t,
-    global_cpu: &mut Cpu,
+    global_cpu: &mut CpuUsage,
     f: F,
 ) {
     let mut num_cpu_u = 0u32;
@@ -289,14 +306,14 @@ pub(crate) fn update_cpu_usage<F: FnOnce(Arc<CpuData>, *mut i32) -> (f32, usize)
                 f(Arc::new(CpuData::new(cpu_info, num_cpu_info)), cpu_info);
             total_cpu_usage = total_percentage / len as f32;
         }
-        global_cpu.inner.set_cpu_usage(total_cpu_usage);
+        global_cpu.set_cpu_usage(total_cpu_usage);
     }
 }
 
 pub(crate) fn init_cpus(
     port: libc::mach_port_t,
     cpus: &mut Vec<Cpu>,
-    global_cpu: &mut Cpu,
+    global_cpu: &mut CpuUsage,
     refresh_kind: CpuRefreshKind,
 ) {
     let mut num_cpu = 0;
@@ -306,7 +323,7 @@ pub(crate) fn init_cpus(
     let frequency = if refresh_kind.frequency() {
         unsafe { get_cpu_frequency() }
     } else {
-        global_cpu.frequency()
+        global_cpu.frequency
     };
 
     unsafe {

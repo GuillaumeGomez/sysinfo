@@ -514,15 +514,10 @@ impl System {
             .filter(move |val: &&Process| val.name() == name)
     }
 
-    /// Returns "global" CPUs information (aka the addition of all the CPUs).
+    /// Returns "global" CPUs usage (aka the addition of all the CPUs).
     ///
     /// To have up-to-date information, you need to call [`System::refresh_cpu_specifics`] or
     /// [`System::refresh_specifics`] with `cpu` enabled.
-    ///
-    /// **⚠️ Important ⚠️**
-    ///
-    /// Information like [`Cpu::brand`], [`Cpu::vendor_id`] or [`Cpu::frequency`]
-    /// are not set on the "global" CPU.
     ///
     /// ```no_run
     /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
@@ -530,14 +525,10 @@ impl System {
     /// let s = System::new_with_specifics(
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
     /// );
-    /// println!("{}%", s.global_cpu_info().cpu_usage());
+    /// println!("{}%", s.global_cpu_usage());
     /// ```
-    ///
-    /// [`Cpu::brand`]: crate::Cpu::brand
-    /// [`Cpu::vendor_id`]: crate::Cpu::vendor_id
-    /// [`Cpu::frequency`]: crate::Cpu::frequency
-    pub fn global_cpu_info(&self) -> &Cpu {
-        self.inner.global_cpu_info()
+    pub fn global_cpu_usage(&self) -> f32 {
+        self.inner.global_cpu_usage()
     }
 
     /// Returns the list of the CPUs.

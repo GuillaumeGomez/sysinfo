@@ -90,7 +90,7 @@ impl SystemInner {
                 add_english_counter(
                     r"\Processor(_Total)\% Idle Time".to_string(),
                     query,
-                    get_key_used(self.cpus.global_cpu_mut()),
+                    &mut self.cpus.global.key_used,
                     "tot_0".to_owned(),
                 );
                 for (pos, proc_) in self.cpus.iter_mut(refresh_kind).enumerate() {
@@ -106,7 +106,7 @@ impl SystemInner {
         if let Some(ref mut query) = self.query {
             query.refresh();
             let mut total_idle_time = None;
-            if let Some(ref key_used) = *get_key_used(self.cpus.global_cpu_mut()) {
+            if let Some(ref key_used) = self.cpus.global.key_used {
                 total_idle_time = Some(
                     query
                         .get(&key_used.unique_id)
@@ -114,14 +114,11 @@ impl SystemInner {
                 );
             }
             if let Some(total_idle_time) = total_idle_time {
-                self.cpus
-                    .global_cpu_mut()
-                    .inner
-                    .set_cpu_usage(100.0 - total_idle_time);
+                self.cpus.global.set_cpu_usage(100.0 - total_idle_time);
             }
-            for p in self.cpus.iter_mut(refresh_kind) {
+            for cpu in self.cpus.iter_mut(refresh_kind) {
                 let mut idle_time = None;
-                if let Some(ref key_used) = *get_key_used(p) {
+                if let Some(ref key_used) = *get_key_used(cpu) {
                     idle_time = Some(
                         query
                             .get(&key_used.unique_id)
@@ -129,7 +126,7 @@ impl SystemInner {
                     );
                 }
                 if let Some(idle_time) = idle_time {
-                    p.inner.set_cpu_usage(100.0 - idle_time);
+                    cpu.inner.set_cpu_usage(100.0 - idle_time);
                 }
             }
             if refresh_kind.frequency() {
@@ -372,8 +369,8 @@ impl SystemInner {
         self.process_list.get(&pid)
     }
 
-    pub(crate) fn global_cpu_info(&self) -> &Cpu {
-        self.cpus.global_cpu()
+    pub(crate) fn global_cpu_usage(&self) -> f32 {
+        self.cpus.global_cpu_usage()
     }
 
     pub(crate) fn cpus(&self) -> &[Cpu] {

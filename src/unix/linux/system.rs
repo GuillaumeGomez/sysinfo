@@ -310,8 +310,8 @@ impl SystemInner {
         self.process_list.get(&pid)
     }
 
-    pub(crate) fn global_cpu_info(&self) -> &Cpu {
-        &self.cpus.global_cpu
+    pub(crate) fn global_cpu_usage(&self) -> f32 {
+        self.cpus.global_cpu.usage()
     }
 
     pub(crate) fn cpus(&self) -> &[Cpu] {

@@ -17,7 +17,7 @@ macro_rules! to_str {
 }
 
 pub(crate) struct CpusWrapper {
-    pub(crate) global_cpu: Cpu,
+    pub(crate) global_cpu: CpuUsage,
     pub(crate) cpus: Vec<Cpu>,
     /// Field set to `false` in `update_cpus` and to `true` in `refresh_processes_specifics`.
     ///
@@ -32,24 +32,7 @@ pub(crate) struct CpusWrapper {
 impl CpusWrapper {
     pub(crate) fn new() -> Self {
         Self {
-            global_cpu: Cpu {
-                inner: CpuInner::new_with_values(
-                    "",
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    String::new(),
-                    String::new(),
-                ),
-            },
+            global_cpu: CpuUsage::default(),
             cpus: Vec::with_capacity(4),
             need_cpus_update: true,
             got_cpu_frequency: false,
@@ -103,7 +86,7 @@ impl CpusWrapper {
                         return;
                     }
                     let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty()).skip(1);
-                    self.global_cpu.inner.set(
+                    self.global_cpu.set(
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),
                         parts.next().map(to_u64).unwrap_or(0),
@@ -200,10 +183,7 @@ impl CpusWrapper {
     }
 
     pub(crate) fn get_global_raw_times(&self) -> (u64, u64) {
-        (
-            self.global_cpu.inner.total_time,
-            self.global_cpu.inner.old_total_time,
-        )
+        (self.global_cpu.total_time, self.global_cpu.old_total_time)
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -220,7 +200,7 @@ impl CpusWrapper {
 }
 
 /// Struct containing values to compute a CPU usage.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct CpuValues {
     user: u64,
     nice: u64,
@@ -235,22 +215,6 @@ pub(crate) struct CpuValues {
 }
 
 impl CpuValues {
-    /// Creates a new instance of `CpuValues` with everything set to `0`.
-    pub fn new() -> CpuValues {
-        CpuValues {
-            user: 0,
-            nice: 0,
-            system: 0,
-            idle: 0,
-            iowait: 0,
-            irq: 0,
-            softirq: 0,
-            steal: 0,
-            guest: 0,
-            guest_nice: 0,
-        }
-    }
-
     /// Sets the given argument to the corresponding fields.
     pub fn set(
         &mut self,
@@ -301,21 +265,17 @@ impl CpuValues {
     }
 }
 
-pub(crate) struct CpuInner {
+#[derive(Default)]
+pub(crate) struct CpuUsage {
+    percent: f32,
     old_values: CpuValues,
     new_values: CpuValues,
-    pub(crate) name: String,
-    cpu_usage: f32,
     total_time: u64,
     old_total_time: u64,
-    pub(crate) frequency: u64,
-    pub(crate) vendor_id: String,
-    pub(crate) brand: String,
 }
 
-impl CpuInner {
+impl CpuUsage {
     pub(crate) fn new_with_values(
-        name: &str,
         user: u64,
         nice: u64,
         system: u64,
@@ -326,24 +286,17 @@ impl CpuInner {
         steal: u64,
         guest: u64,
         guest_nice: u64,
-        frequency: u64,
-        vendor_id: String,
-        brand: String,
     ) -> Self {
-        let mut new_values = CpuValues::new();
+        let mut new_values = CpuValues::default();
         new_values.set(
             user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
         );
         Self {
-            name: name.to_owned(),
-            old_values: CpuValues::new(),
+            old_values: CpuValues::default(),
             new_values,
-            cpu_usage: 0f32,
+            percent: 0f32,
             total_time: 0,
             old_total_time: 0,
-            frequency,
-            vendor_id,
-            brand,
         }
     }
 
@@ -375,16 +328,75 @@ impl CpuInner {
         );
         self.total_time = self.new_values.total_time();
         self.old_total_time = self.old_values.total_time();
-        self.cpu_usage = min!(self.new_values.work_time(), self.old_values.work_time(), 0.)
+        self.percent = min!(self.new_values.work_time(), self.old_values.work_time(), 0.)
             / min!(self.total_time, self.old_total_time, 1.)
             * 100.;
-        if self.cpu_usage > 100. {
-            self.cpu_usage = 100.; // to prevent the percentage to go above 100%
+        if self.percent > 100. {
+            self.percent = 100.; // to prevent the percentage to go above 100%
         }
     }
 
+    pub(crate) fn usage(&self) -> f32 {
+        self.percent
+    }
+}
+
+pub(crate) struct CpuInner {
+    usage: CpuUsage,
+    pub(crate) name: String,
+    pub(crate) frequency: u64,
+    pub(crate) vendor_id: String,
+    pub(crate) brand: String,
+}
+
+impl CpuInner {
+    pub(crate) fn new_with_values(
+        name: &str,
+        user: u64,
+        nice: u64,
+        system: u64,
+        idle: u64,
+        iowait: u64,
+        irq: u64,
+        softirq: u64,
+        steal: u64,
+        guest: u64,
+        guest_nice: u64,
+        frequency: u64,
+        vendor_id: String,
+        brand: String,
+    ) -> Self {
+        Self {
+            usage: CpuUsage::new_with_values(
+                user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
+            ),
+            name: name.to_owned(),
+            frequency,
+            vendor_id,
+            brand,
+        }
+    }
+
+    pub(crate) fn set(
+        &mut self,
+        user: u64,
+        nice: u64,
+        system: u64,
+        idle: u64,
+        iowait: u64,
+        irq: u64,
+        softirq: u64,
+        steal: u64,
+        guest: u64,
+        guest_nice: u64,
+    ) {
+        self.usage.set(
+            user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
+        );
+    }
+
     pub(crate) fn cpu_usage(&self) -> f32 {
-        self.cpu_usage
+        self.usage.percent
     }
 
     pub(crate) fn name(&self) -> &str {

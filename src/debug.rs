@@ -21,7 +21,7 @@ impl fmt::Debug for Cpu {
 impl fmt::Debug for System {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("System")
-            .field("global CPU usage", &self.global_cpu_info().cpu_usage())
+            .field("global CPU usage", &self.global_cpu_usage())
             .field("load average", &Self::load_average())
             .field("total memory", &self.total_memory())
             .field("free memory", &self.free_memory())

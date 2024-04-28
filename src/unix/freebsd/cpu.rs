@@ -24,7 +24,7 @@ pub(crate) unsafe fn get_nb_cpus() -> usize {
 }
 
 pub(crate) struct CpusWrapper {
-    pub(crate) global_cpu: Cpu,
+    pub(crate) global_cpu_usage: f32,
     pub(crate) cpus: Vec<Cpu>,
     got_cpu_frequency: bool,
     mib_cp_time: [c_int; 2],
@@ -46,9 +46,7 @@ impl CpusWrapper {
             init_mib(b"kern.cp_time\0", &mut mib_cp_time);
             init_mib(b"kern.cp_times\0", &mut mib_cp_times);
             Self {
-                global_cpu: Cpu {
-                    inner: CpuInner::new(String::new(), String::new(), 0),
-                },
+                global_cpu_usage: 0.,
                 cpus: Vec::with_capacity(nb_cpus),
                 got_cpu_frequency: false,
                 mib_cp_time,
@@ -98,7 +96,7 @@ impl CpusWrapper {
             get_sys_value_array(&self.mib_cp_times, self.cp_times.get_mut());
         }
 
-        fn fill_cpu(proc_: &mut Cpu, new_cp_time: &[c_ulong], old_cp_time: &[c_ulong]) {
+        fn compute_cpu_usage(new_cp_time: &[c_ulong], old_cp_time: &[c_ulong]) -> f32 {
             let mut total_new: u64 = 0;
             let mut total_old: u64 = 0;
             let mut cp_diff: c_ulong = 0;
@@ -115,23 +113,19 @@ impl CpusWrapper {
 
             let total_diff = total_new.saturating_sub(total_old);
             if total_diff < 1 {
-                proc_.inner.cpu_usage = 0.;
+                0.
             } else {
-                proc_.inner.cpu_usage = cp_diff as f32 / total_diff as f32 * 100.;
+                cp_diff as f32 / total_diff as f32 * 100.
             }
         }
 
-        fill_cpu(
-            &mut self.global_cpu,
-            self.cp_time.get_new(),
-            self.cp_time.get_old(),
-        );
+        self.global_cpu_usage = compute_cpu_usage(self.cp_time.get_new(), self.cp_time.get_old());
         let old_cp_times = self.cp_times.get_old();
         let new_cp_times = self.cp_times.get_new();
-        for (pos, proc_) in self.cpus.iter_mut().enumerate() {
+        for (pos, cpu) in self.cpus.iter_mut().enumerate() {
             let index = pos * libc::CPUSTATES as usize;
 
-            fill_cpu(proc_, &new_cp_times[index..], &old_cp_times[index..]);
+            cpu.inner.cpu_usage = compute_cpu_usage(&new_cp_times[index..], &old_cp_times[index..]);
         }
     }
 }
