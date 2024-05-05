@@ -1,6 +1,10 @@
+# 0.30.12
+
+ * FreeBSD: Fix network interfaces retrieval (one was always missing).
+
 # 0.30.11
 
- * macOS: Fix some invalid utf8 conversions
+ * macOS: Fix some invalid utf8 conversions.
 
 # 0.30.10
 
