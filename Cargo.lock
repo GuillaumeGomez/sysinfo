@@ -218,7 +218,7 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.30.11"
+version = "0.30.12"
 dependencies = [
  "bstr",
  "cfg-if",
