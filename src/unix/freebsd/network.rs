@@ -66,7 +66,7 @@ impl NetworksInner {
             }
         }
         let mut data: libc::ifmibdata = MaybeUninit::zeroed().assume_init();
-        for row in 1..nb_interfaces {
+        for row in 1..=nb_interfaces {
             let mib = [
                 libc::CTL_NET,
                 libc::PF_LINK,
