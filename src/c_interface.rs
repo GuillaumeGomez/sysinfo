@@ -108,7 +108,7 @@ pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: PID) {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
         {
             let system: &mut System = system.borrow_mut();
-            system.refresh_process(Pid(pid));
+            system.refresh_process(Pid(pid.try_into().unwrap()));
         }
         Box::into_raw(system);
     }
@@ -352,7 +352,11 @@ pub extern "C" fn sysinfo_processes(
             let len = {
                 let entries = system.processes();
                 for (pid, process) in entries {
-                    if !fn_pointer(pid.0, process as *const Process as CProcess, data) {
+                    if !fn_pointer(
+                        pid.0.try_into().unwrap(),
+                        process as *const Process as CProcess,
+                        data,
+                    ) {
                         break;
                     }
                 }
@@ -377,7 +381,7 @@ pub extern "C" fn sysinfo_process_by_pid(system: CSystem, pid: PID) -> CProcess 
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        let ret = if let Some(process) = system.process(Pid(pid)) {
+        let ret = if let Some(process) = system.process(Pid(pid.try_into().unwrap())) {
             process as *const Process as CProcess
         } else {
             std::ptr::null()
@@ -404,7 +408,7 @@ pub extern "C" fn sysinfo_process_tasks(
             let process = process as *const Process;
             if let Some(tasks) = (*process).tasks() {
                 for pid in tasks {
-                    if !fn_pointer(pid.0, data) {
+                    if !fn_pointer(pid.0.try_into().unwrap(), data) {
                         break;
                     }
                 }
@@ -423,7 +427,7 @@ pub extern "C" fn sysinfo_process_tasks(
 pub extern "C" fn sysinfo_process_pid(process: CProcess) -> PID {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).pid().0 }
+    unsafe { (*process).pid().0.try_into().unwrap() }
 }
 
 /// Equivalent of [`Process::parent()`][crate::Process#method.parent].
@@ -433,7 +437,7 @@ pub extern "C" fn sysinfo_process_pid(process: CProcess) -> PID {
 pub extern "C" fn sysinfo_process_parent_pid(process: CProcess) -> PID {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).parent().unwrap_or(Pid(0)).0 }
+    unsafe { (*process).parent().unwrap_or(Pid(0)).0.try_into().unwrap() }
 }
 
 /// Equivalent of [`Process::cpu_usage()`][crate::Process#method.cpu_usage].
@@ -586,55 +590,49 @@ pub extern "C" fn sysinfo_cpu_frequency(system: CSystem) -> u64 {
 /// Equivalent of [`System::name()`][crate::System#method.name].
 #[no_mangle]
 pub extern "C" fn sysinfo_system_name() -> RString {
-    let c_string = if let Some(c) = System::name().and_then(|p| CString::new(p).ok()) {
+    if let Some(c) = System::name().and_then(|p| CString::new(p).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
-    };
-    c_string
+    }
 }
 
 /// Equivalent of [`System::version()`][crate::System#method.version].
 #[no_mangle]
 pub extern "C" fn sysinfo_system_version() -> RString {
-    let c_string = if let Some(c) = System::os_version().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = System::os_version().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
-    };
-    c_string
+    }
 }
 
 /// Equivalent of [`System::kernel_version()`][crate::System#method.kernel_version].
 #[no_mangle]
 pub extern "C" fn sysinfo_system_kernel_version() -> RString {
-    let c_string = if let Some(c) = System::kernel_version().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = System::kernel_version().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
-    };
-
-    c_string
+    }
 }
 
 /// Equivalent of [`System::host_name()`][crate::System#method.host_name].
 #[no_mangle]
 pub extern "C" fn sysinfo_system_host_name() -> RString {
-    let c_string = if let Some(c) = System::host_name().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = System::host_name().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
-    };
-    c_string
+    }
 }
 
 /// Equivalent of [`System::long_os_version()`][crate::System#method.long_os_version].
 #[no_mangle]
 pub extern "C" fn sysinfo_system_long_version() -> RString {
-    let c_string = if let Some(c) = System::long_os_version().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = System::long_os_version().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
-    };
-    c_string
+    }
 }
