@@ -823,7 +823,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// println!("CPU Archicture: {:?}", System::cpu_arch());
+    /// println!("CPU Architecture: {:?}", System::cpu_arch());
     /// ```
     pub fn cpu_arch() -> Option<String> {
         SystemInner::cpu_arch()
