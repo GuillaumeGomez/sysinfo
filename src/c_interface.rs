@@ -108,7 +108,7 @@ pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: PID) {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
         {
             let system: &mut System = system.borrow_mut();
-            system.refresh_process(Pid(pid.try_into().unwrap()));
+            system.refresh_process(Pid(pid as _));
         }
         Box::into_raw(system);
     }
@@ -353,7 +353,7 @@ pub extern "C" fn sysinfo_processes(
                 let entries = system.processes();
                 for (pid, process) in entries {
                     if !fn_pointer(
-                        pid.0.try_into().unwrap(),
+                        pid.0 as _,
                         process as *const Process as CProcess,
                         data,
                     ) {
@@ -381,7 +381,7 @@ pub extern "C" fn sysinfo_process_by_pid(system: CSystem, pid: PID) -> CProcess 
     assert!(!system.is_null());
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
-        let ret = if let Some(process) = system.process(Pid(pid.try_into().unwrap())) {
+        let ret = if let Some(process) = system.process(Pid(pid as _)) {
             process as *const Process as CProcess
         } else {
             std::ptr::null()
@@ -408,7 +408,7 @@ pub extern "C" fn sysinfo_process_tasks(
             let process = process as *const Process;
             if let Some(tasks) = (*process).tasks() {
                 for pid in tasks {
-                    if !fn_pointer(pid.0.try_into().unwrap(), data) {
+                    if !fn_pointer(pid.0 as _, data) {
                         break;
                     }
                 }
@@ -427,7 +427,7 @@ pub extern "C" fn sysinfo_process_tasks(
 pub extern "C" fn sysinfo_process_pid(process: CProcess) -> PID {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).pid().0.try_into().unwrap() }
+    unsafe { (*process).pid().0 as _ }
 }
 
 /// Equivalent of [`Process::parent()`][crate::Process#method.parent].
@@ -437,7 +437,7 @@ pub extern "C" fn sysinfo_process_pid(process: CProcess) -> PID {
 pub extern "C" fn sysinfo_process_parent_pid(process: CProcess) -> PID {
     assert!(!process.is_null());
     let process = process as *const Process;
-    unsafe { (*process).parent().unwrap_or(Pid(0)).0.try_into().unwrap() }
+    unsafe { (*process).parent().unwrap_or(Pid(0)).0 as _ }
 }
 
 /// Equivalent of [`Process::cpu_usage()`][crate::Process#method.cpu_usage].
