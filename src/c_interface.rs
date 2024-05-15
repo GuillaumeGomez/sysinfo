@@ -352,11 +352,7 @@ pub extern "C" fn sysinfo_processes(
             let len = {
                 let entries = system.processes();
                 for (pid, process) in entries {
-                    if !fn_pointer(
-                        pid.0 as _,
-                        process as *const Process as CProcess,
-                        data,
-                    ) {
+                    if !fn_pointer(pid.0 as _, process as *const Process as CProcess, data) {
                         break;
                     }
                 }
