@@ -176,6 +176,9 @@ impl System {
     /// use sysinfo::System;
     ///
     /// let mut s = System::new_all();
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPUs again.
     /// s.refresh_cpu_usage();
     /// ```
     ///
@@ -522,9 +525,13 @@ impl System {
     /// ```no_run
     /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
     ///
-    /// let s = System::new_with_specifics(
+    /// let mut s = System::new_with_specifics(
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
     /// );
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPUs again to get actual value.
+    /// s.refresh_cpu_usage();
     /// println!("{}%", s.global_cpu_usage());
     /// ```
     pub fn global_cpu_usage(&self) -> f32 {
@@ -539,9 +546,13 @@ impl System {
     /// ```no_run
     /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
     ///
-    /// let s = System::new_with_specifics(
+    /// let mut s = System::new_with_specifics(
     ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
     /// );
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPUs again to get actual value.
+    /// s.refresh_cpu_usage();
     /// for cpu in s.cpus() {
     ///     println!("{}%", cpu.cpu_usage());
     /// }
@@ -1143,9 +1154,15 @@ impl Process {
     /// more information).
     ///
     /// ```no_run
-    /// use sysinfo::{Pid, System};
+    /// use sysinfo::{Pid, ProcessRefreshKind, System};
     ///
-    /// let s = System::new_all();
+    /// let mut s = System::new_all();
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPU usage to get actual value.
+    /// s.refresh_processes_specifics(
+    ///     ProcessRefreshKind::new().with_cpu()
+    /// );
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}%", process.cpu_usage());
     /// }
@@ -3983,7 +4000,7 @@ impl Component {
 ///
 /// // Wait a bit because CPU usage is based on diff.
 /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-/// // Refresh CPUs again.
+/// // Refresh CPUs again to get actual value.
 /// s.refresh_cpu_all();
 ///
 /// for cpu in s.cpus() {
@@ -4009,7 +4026,7 @@ impl Cpu {
     ///
     /// // Wait a bit because CPU usage is based on diff.
     /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-    /// // Refresh CPUs again.
+    /// // Refresh CPUs again to get actual value.
     /// s.refresh_cpu_all();
     ///
     /// for cpu in s.cpus() {
