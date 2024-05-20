@@ -20,7 +20,7 @@ impl crate::GroupInner {
 // Not used by mac.
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub(crate) fn get_groups(groups: &mut Vec<Group>) {
-    use crate::common::{Gid, GroupInner};
+    use crate::{Gid, GroupInner};
     use std::fs::File;
     use std::io::Read;
 

@@ -1,18 +1,12 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{
-    utils::into_iter_mut, ComponentInner, ComponentsInner, CpuInner, NetworkDataInner,
-    NetworksInner, ProcessInner, SystemInner, UserInner,
-};
-
-use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::ffi::{OsStr, OsString};
 use std::fmt;
-use std::fmt::Formatter;
-use std::net::IpAddr;
 use std::path::Path;
 use std::str::FromStr;
+
+use crate::{CpuInner, Gid, ProcessInner, SystemInner, Uid};
 
 /// Structs containing system's information such as processes, memory and CPU.
 ///
@@ -841,6 +835,320 @@ impl System {
     }
 }
 
+/// A struct representing system load average value.
+///
+/// It is returned by [`System::load_average`][crate::System::load_average].
+///
+/// ```no_run
+/// use sysinfo::System;
+///
+/// let load_avg = System::load_average();
+/// println!(
+///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
+///     load_avg.one,
+///     load_avg.five,
+///     load_avg.fifteen,
+/// );
+/// ```
+#[repr(C)]
+#[derive(Default, Debug, Clone)]
+pub struct LoadAvg {
+    /// Average load within one minute.
+    pub one: f64,
+    /// Average load within five minutes.
+    pub five: f64,
+    /// Average load within fifteen minutes.
+    pub fifteen: f64,
+}
+
+/// An enum representing signals on UNIX-like systems.
+///
+/// On non-unix systems, this enum is mostly useless and is only there to keep coherency between
+/// the different OSes.
+///
+/// If you want the list of the supported signals on the current system, use
+/// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
+pub enum Signal {
+    /// Hangup detected on controlling terminal or death of controlling process.
+    Hangup,
+    /// Interrupt from keyboard.
+    Interrupt,
+    /// Quit from keyboard.
+    Quit,
+    /// Illegal instruction.
+    Illegal,
+    /// Trace/breakpoint trap.
+    Trap,
+    /// Abort signal from C abort function.
+    Abort,
+    /// IOT trap. A synonym for SIGABRT.
+    IOT,
+    /// Bus error (bad memory access).
+    Bus,
+    /// Floating point exception.
+    FloatingPointException,
+    /// Kill signal.
+    Kill,
+    /// User-defined signal 1.
+    User1,
+    /// Invalid memory reference.
+    Segv,
+    /// User-defined signal 2.
+    User2,
+    /// Broken pipe: write to pipe with no readers.
+    Pipe,
+    /// Timer signal from C alarm function.
+    Alarm,
+    /// Termination signal.
+    Term,
+    /// Child stopped or terminated.
+    Child,
+    /// Continue if stopped.
+    Continue,
+    /// Stop process.
+    Stop,
+    /// Stop typed at terminal.
+    TSTP,
+    /// Terminal input for background process.
+    TTIN,
+    /// Terminal output for background process.
+    TTOU,
+    /// Urgent condition on socket.
+    Urgent,
+    /// CPU time limit exceeded.
+    XCPU,
+    /// File size limit exceeded.
+    XFSZ,
+    /// Virtual alarm clock.
+    VirtualAlarm,
+    /// Profiling time expired.
+    Profiling,
+    /// Windows resize signal.
+    Winch,
+    /// I/O now possible.
+    IO,
+    /// Pollable event (Sys V). Synonym for IO
+    Poll,
+    /// Power failure (System V).
+    ///
+    /// Doesn't exist on apple systems so will be ignored.
+    Power,
+    /// Bad argument to routine (SVr4).
+    Sys,
+}
+
+impl std::fmt::Display for Signal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match *self {
+            Self::Hangup => "Hangup",
+            Self::Interrupt => "Interrupt",
+            Self::Quit => "Quit",
+            Self::Illegal => "Illegal",
+            Self::Trap => "Trap",
+            Self::Abort => "Abort",
+            Self::IOT => "IOT",
+            Self::Bus => "Bus",
+            Self::FloatingPointException => "FloatingPointException",
+            Self::Kill => "Kill",
+            Self::User1 => "User1",
+            Self::Segv => "Segv",
+            Self::User2 => "User2",
+            Self::Pipe => "Pipe",
+            Self::Alarm => "Alarm",
+            Self::Term => "Term",
+            Self::Child => "Child",
+            Self::Continue => "Continue",
+            Self::Stop => "Stop",
+            Self::TSTP => "TSTP",
+            Self::TTIN => "TTIN",
+            Self::TTOU => "TTOU",
+            Self::Urgent => "Urgent",
+            Self::XCPU => "XCPU",
+            Self::XFSZ => "XFSZ",
+            Self::VirtualAlarm => "VirtualAlarm",
+            Self::Profiling => "Profiling",
+            Self::Winch => "Winch",
+            Self::IO => "IO",
+            Self::Poll => "Poll",
+            Self::Power => "Power",
+            Self::Sys => "Sys",
+        };
+        f.write_str(s)
+    }
+}
+
+/// Contains memory limits for the current process.
+#[derive(Default, Debug, Clone)]
+pub struct CGroupLimits {
+    /// Total memory (in bytes) for the current cgroup.
+    pub total_memory: u64,
+    /// Free memory (in bytes) for the current cgroup.
+    pub free_memory: u64,
+    /// Free swap (in bytes) for the current cgroup.
+    pub free_swap: u64,
+}
+
+/// Type containing read and written bytes.
+///
+/// It is returned by [`Process::disk_usage`][crate::Process::disk_usage].
+///
+/// ```no_run
+/// use sysinfo::System;
+///
+/// let s = System::new_all();
+/// for (pid, process) in s.processes() {
+///     let disk_usage = process.disk_usage();
+///     println!("[{}] read bytes   : new/total => {}/{} B",
+///         pid,
+///         disk_usage.read_bytes,
+///         disk_usage.total_read_bytes,
+///     );
+///     println!("[{}] written bytes: new/total => {}/{} B",
+///         pid,
+///         disk_usage.written_bytes,
+///         disk_usage.total_written_bytes,
+///     );
+/// }
+/// ```
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd)]
+pub struct DiskUsage {
+    /// Total number of written bytes.
+    pub total_written_bytes: u64,
+    /// Number of written bytes since the last refresh.
+    pub written_bytes: u64,
+    /// Total number of read bytes.
+    pub total_read_bytes: u64,
+    /// Number of read bytes since the last refresh.
+    pub read_bytes: u64,
+}
+
+/// Enum describing the different status of a process.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProcessStatus {
+    /// ## Linux
+    ///
+    /// Idle kernel thread.
+    ///
+    /// ## macOs/FreeBSD
+    ///
+    /// Process being created by fork.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Idle,
+    /// Running.
+    Run,
+    /// ## Linux
+    ///
+    /// Sleeping in an interruptible waiting.
+    ///
+    /// ## macOS/FreeBSD
+    ///
+    /// Sleeping on an address.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Sleep,
+    /// ## Linux
+    ///
+    /// Stopped (on a signal) or (before Linux 2.6.33) trace stopped.
+    ///
+    /// ## macOS/FreeBSD
+    ///
+    /// Process debugging or suspension.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Stop,
+    /// ## Linux/FreeBSD/macOS
+    ///
+    /// Zombie process. Terminated but not reaped by its parent.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Zombie,
+    /// ## Linux
+    ///
+    /// Tracing stop (Linux 2.6.33 onward). Stopped by debugger during the tracing.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Tracing,
+    /// ## Linux
+    ///
+    /// Dead/uninterruptible sleep (usually IO).
+    ///
+    /// ## FreeBSD
+    ///
+    /// A process should never end up in this state.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Dead,
+    /// ## Linux
+    ///
+    /// Wakekill (Linux 2.6.33 to 3.13 only).
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Wakekill,
+    /// ## Linux
+    ///
+    /// Waking (Linux 2.6.33 to 3.13 only).
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Waking,
+    /// ## Linux
+    ///
+    /// Parked (Linux 3.9 to 3.13 only).
+    ///
+    /// ## macOS
+    ///
+    /// Halted at a clean point.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Parked,
+    /// ## FreeBSD
+    ///
+    /// Blocked on a lock.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    LockBlocked,
+    /// ## Linux
+    ///
+    /// Waiting in uninterruptible disk sleep.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    UninterruptibleDiskSleep,
+    /// Unknown.
+    Unknown(u32),
+}
+
+/// Enum describing the different kind of threads.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ThreadKind {
+    /// Kernel thread.
+    Kernel,
+    /// User thread.
+    Userland,
+}
+
 /// Struct containing information of a process.
 ///
 /// ## iOS
@@ -1374,7 +1682,7 @@ impl Process {
 
 macro_rules! pid_decl {
     ($typ:ty) => {
-        #[doc = include_str!("../md_doc/pid.md")]
+        #[doc = include_str!("../../md_doc/pid.md")]
         #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
         #[repr(transparent)]
         pub struct Pid(pub(crate) $typ);
@@ -1971,1645 +2279,6 @@ impl RefreshKind {
     impl_get_set!(RefreshKind, cpu, with_cpu, without_cpu, CpuRefreshKind);
 }
 
-/// Interacting with network interfaces.
-///
-/// ```no_run
-/// use sysinfo::Networks;
-///
-/// let networks = Networks::new_with_refreshed_list();
-/// for (interface_name, network) in &networks {
-///     println!("[{interface_name}]: {network:?}");
-/// }
-/// ```
-pub struct Networks {
-    pub(crate) inner: NetworksInner,
-}
-
-impl<'a> IntoIterator for &'a Networks {
-    type Item = (&'a String, &'a NetworkData);
-    type IntoIter = std::collections::hash_map::Iter<'a, String, NetworkData>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl Default for Networks {
-    fn default() -> Self {
-        Networks::new()
-    }
-}
-
-impl Networks {
-    /// Creates a new empty [`Networks`][crate::Networks] type.
-    ///
-    /// If you want it to be filled directly, take a look at [`Networks::new_with_refreshed_list`].
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("[{interface_name}]: {network:?}");
-    /// }
-    /// ```
-    pub fn new() -> Self {
-        Self {
-            inner: NetworksInner::new(),
-        }
-    }
-
-    /// Creates a new [`Networks`][crate::Networks] type with the disk list
-    /// loaded. It is a combination of [`Networks::new`] and
-    /// [`Networks::refresh_list`].
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for network in &networks {
-    ///     println!("{network:?}");
-    /// }
-    /// ```
-    pub fn new_with_refreshed_list() -> Self {
-        let mut networks = Self::new();
-        networks.refresh_list();
-        networks
-    }
-
-    /// Returns the network interfaces map.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for network in networks.list() {
-    ///     println!("{network:?}");
-    /// }
-    /// ```
-    pub fn list(&self) -> &HashMap<String, NetworkData> {
-        self.inner.list()
-    }
-
-    /// Refreshes the network interfaces list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
-    /// ```
-    pub fn refresh_list(&mut self) {
-        self.inner.refresh_list()
-    }
-
-    /// Refreshes the network interfaces' content. If you didn't run [`Networks::refresh_list`]
-    /// before, calling this method won't do anything as no interfaces are present.
-    ///
-    /// ⚠️ If a network interface is added or removed, this method won't take it into account. Use
-    /// [`Networks::refresh_list`] instead.
-    ///
-    /// ⚠️ If you didn't call [`Networks::refresh_list`] beforehand, this method will do nothing
-    /// as the network list will be empty.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Wait some time...? Then refresh the data of each network.
-    /// networks.refresh();
-    /// ```
-    pub fn refresh(&mut self) {
-        self.inner.refresh()
-    }
-}
-
-impl std::ops::Deref for Networks {
-    type Target = HashMap<String, NetworkData>;
-
-    fn deref(&self) -> &Self::Target {
-        self.list()
-    }
-}
-
-/// Getting volume of received and transmitted data.
-///
-/// ```no_run
-/// use sysinfo::Networks;
-///
-/// let networks = Networks::new_with_refreshed_list();
-/// for (interface_name, network) in &networks {
-///     println!("[{interface_name}] {network:?}");
-/// }
-/// ```
-pub struct NetworkData {
-    pub(crate) inner: NetworkDataInner,
-}
-
-impl NetworkData {
-    /// Returns the number of received bytes since the last refresh.
-    ///
-    /// If you want the total number of bytes received, take a look at the
-    /// [`total_received`](NetworkData::total_received) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    /// use std::{thread, time};
-    ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh();
-    ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {} B", network.received());
-    /// }
-    /// ```
-    pub fn received(&self) -> u64 {
-        self.inner.received()
-    }
-
-    /// Returns the total number of received bytes.
-    ///
-    /// If you want the amount of received bytes since the last refresh, take a look at the
-    /// [`received`](NetworkData::received) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {} B", network.total_received());
-    /// }
-    /// ```
-    pub fn total_received(&self) -> u64 {
-        self.inner.total_received()
-    }
-
-    /// Returns the number of transmitted bytes since the last refresh.
-    ///
-    /// If you want the total number of bytes transmitted, take a look at the
-    /// [`total_transmitted`](NetworkData::total_transmitted) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    /// use std::{thread, time};
-    ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh();
-    ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {} B", network.transmitted());
-    /// }
-    /// ```
-    pub fn transmitted(&self) -> u64 {
-        self.inner.transmitted()
-    }
-
-    /// Returns the total number of transmitted bytes.
-    ///
-    /// If you want the amount of transmitted bytes since the last refresh, take a look at the
-    /// [`transmitted`](NetworkData::transmitted) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {} B", network.total_transmitted());
-    /// }
-    /// ```
-    pub fn total_transmitted(&self) -> u64 {
-        self.inner.total_transmitted()
-    }
-
-    /// Returns the number of incoming packets since the last refresh.
-    ///
-    /// If you want the total number of packets received, take a look at the
-    /// [`total_packets_received`](NetworkData::total_packets_received) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    /// use std::{thread, time};
-    ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh();
-    ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {}", network.packets_received());
-    /// }
-    /// ```
-    pub fn packets_received(&self) -> u64 {
-        self.inner.packets_received()
-    }
-
-    /// Returns the total number of incoming packets.
-    ///
-    /// If you want the amount of received packets since the last refresh, take a look at the
-    /// [`packets_received`](NetworkData::packets_received) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {}", network.total_packets_received());
-    /// }
-    /// ```
-    pub fn total_packets_received(&self) -> u64 {
-        self.inner.total_packets_received()
-    }
-
-    /// Returns the number of outcoming packets since the last refresh.
-    ///
-    /// If you want the total number of packets transmitted, take a look at the
-    /// [`total_packets_transmitted`](NetworkData::total_packets_transmitted) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    /// use std::{thread, time};
-    ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh();
-    ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {}", network.packets_transmitted());
-    /// }
-    /// ```
-    pub fn packets_transmitted(&self) -> u64 {
-        self.inner.packets_transmitted()
-    }
-
-    /// Returns the total number of outcoming packets.
-    ///
-    /// If you want the amount of transmitted packets since the last refresh, take a look at the
-    /// [`packets_transmitted`](NetworkData::packets_transmitted) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {}", network.total_packets_transmitted());
-    /// }
-    /// ```
-    pub fn total_packets_transmitted(&self) -> u64 {
-        self.inner.total_packets_transmitted()
-    }
-
-    /// Returns the number of incoming errors since the last refresh.
-    ///
-    /// If you want the total number of errors on received packets, take a look at the
-    /// [`total_errors_on_received`](NetworkData::total_errors_on_received) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    /// use std::{thread, time};
-    ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh();
-    ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {}", network.errors_on_received());
-    /// }
-    /// ```
-    pub fn errors_on_received(&self) -> u64 {
-        self.inner.errors_on_received()
-    }
-
-    /// Returns the total number of incoming errors.
-    ///
-    /// If you want the amount of errors on received packets since the last refresh, take a look at
-    /// the [`errors_on_received`](NetworkData::errors_on_received) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {}", network.total_errors_on_received());
-    /// }
-    /// ```
-    pub fn total_errors_on_received(&self) -> u64 {
-        self.inner.total_errors_on_received()
-    }
-
-    /// Returns the number of outcoming errors since the last refresh.
-    ///
-    /// If you want the total number of errors on transmitted packets, take a look at the
-    /// [`total_errors_on_transmitted`](NetworkData::total_errors_on_transmitted) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    /// use std::{thread, time};
-    ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh();
-    ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {}", network.errors_on_transmitted());
-    /// }
-    /// ```
-    pub fn errors_on_transmitted(&self) -> u64 {
-        self.inner.errors_on_transmitted()
-    }
-
-    /// Returns the total number of outcoming errors.
-    ///
-    /// If you want the amount of errors on transmitted packets since the last refresh, take a look at
-    /// the [`errors_on_transmitted`](NetworkData::errors_on_transmitted) method.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {}", network.total_errors_on_transmitted());
-    /// }
-    /// ```
-    pub fn total_errors_on_transmitted(&self) -> u64 {
-        self.inner.total_errors_on_transmitted()
-    }
-
-    /// Returns the MAC address associated to current interface.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("MAC address: {}", network.mac_address());
-    /// }
-    /// ```
-    pub fn mac_address(&self) -> MacAddr {
-        self.inner.mac_address()
-    }
-
-    /// Returns the Ip Networks associated to current interface.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("Ip Networks: {:?}", network.ip_networks());
-    /// }
-    /// ```
-    pub fn ip_networks(&self) -> &[IpNetwork] {
-        self.inner.ip_networks()
-    }
-}
-
-/// Struct containing a disk information.
-///
-/// ```no_run
-/// use sysinfo::Disks;
-///
-/// let disks = Disks::new_with_refreshed_list();
-/// for disk in disks.list() {
-///     println!("{:?}: {:?}", disk.name(), disk.kind());
-/// }
-/// ```
-pub struct Disk {
-    pub(crate) inner: crate::DiskInner,
-}
-
-impl Disk {
-    /// Returns the kind of disk.
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {:?}", disk.name(), disk.kind());
-    /// }
-    /// ```
-    pub fn kind(&self) -> DiskKind {
-        self.inner.kind()
-    }
-
-    /// Returns the disk name.
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("{:?}", disk.name());
-    /// }
-    /// ```
-    pub fn name(&self) -> &OsStr {
-        self.inner.name()
-    }
-
-    /// Returns the file system used on this disk (so for example: `EXT4`, `NTFS`, etc...).
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {:?}", disk.name(), disk.file_system());
-    /// }
-    /// ```
-    pub fn file_system(&self) -> &OsStr {
-        self.inner.file_system()
-    }
-
-    /// Returns the mount point of the disk (`/` for example).
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {:?}", disk.name(), disk.mount_point());
-    /// }
-    /// ```
-    pub fn mount_point(&self) -> &Path {
-        self.inner.mount_point()
-    }
-
-    /// Returns the total disk size, in bytes.
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {}B", disk.name(), disk.total_space());
-    /// }
-    /// ```
-    pub fn total_space(&self) -> u64 {
-        self.inner.total_space()
-    }
-
-    /// Returns the available disk size, in bytes.
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {}B", disk.name(), disk.available_space());
-    /// }
-    /// ```
-    pub fn available_space(&self) -> u64 {
-        self.inner.available_space()
-    }
-
-    /// Returns `true` if the disk is removable.
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {}", disk.name(), disk.is_removable());
-    /// }
-    /// ```
-    pub fn is_removable(&self) -> bool {
-        self.inner.is_removable()
-    }
-
-    /// Updates the disk' information.
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let mut disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list_mut() {
-    ///     disk.refresh();
-    /// }
-    /// ```
-    pub fn refresh(&mut self) -> bool {
-        self.inner.refresh()
-    }
-}
-
-/// Disks interface.
-///
-/// ```no_run
-/// use sysinfo::Disks;
-///
-/// let disks = Disks::new_with_refreshed_list();
-/// for disk in disks.list() {
-///     println!("{disk:?}");
-/// }
-/// ```
-///
-/// ⚠️ Note that tmpfs mounts are excluded by default under Linux.
-/// To display tmpfs mount points, the `linux-tmpfs` feature must be enabled.
-///
-/// ⚠️ Note that network devices are excluded by default under Linux.
-/// To display mount points using the CIFS and NFS protocols, the `linux-netdevs`
-/// feature must be enabled. Note, however, that sysinfo may hang under certain
-/// circumstances. For example, if a CIFS or NFS share has been mounted with
-/// the _hard_ option, but the connection has an error, such as the share server has stopped.
-pub struct Disks {
-    inner: crate::DisksInner,
-}
-
-impl Default for Disks {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl From<Disks> for Vec<Disk> {
-    fn from(disks: Disks) -> Vec<Disk> {
-        disks.inner.into_vec()
-    }
-}
-
-impl From<Vec<Disk>> for Disks {
-    fn from(disks: Vec<Disk>) -> Self {
-        Self {
-            inner: crate::DisksInner::from_vec(disks),
-        }
-    }
-}
-
-impl<'a> IntoIterator for &'a Disks {
-    type Item = &'a Disk;
-    type IntoIter = std::slice::Iter<'a, Disk>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.list().iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a mut Disks {
-    type Item = &'a mut Disk;
-    type IntoIter = std::slice::IterMut<'a, Disk>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.list_mut().iter_mut()
-    }
-}
-
-impl Disks {
-    /// Creates a new empty [`Disks`][crate::Disks] type.
-    ///
-    /// If you want it to be filled directly, take a look at [`Disks::new_with_refreshed_list`].
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// for disk in disks.list() {
-    ///     println!("{disk:?}");
-    /// }
-    /// ```
-    pub fn new() -> Self {
-        Self {
-            inner: crate::DisksInner::new(),
-        }
-    }
-
-    /// Creates a new [`Disks`][crate::Disks] type with the disk list loaded.
-    /// It is a combination of [`Disks::new`] and [`Disks::refresh_list`].
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let mut disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("{disk:?}");
-    /// }
-    /// ```
-    pub fn new_with_refreshed_list() -> Self {
-        let mut disks = Self::new();
-        disks.refresh_list();
-        disks
-    }
-
-    /// Returns the disks list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("{disk:?}");
-    /// }
-    /// ```
-    pub fn list(&self) -> &[Disk] {
-        self.inner.list()
-    }
-
-    /// Returns the disks list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let mut disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list_mut() {
-    ///     disk.refresh();
-    ///     println!("{disk:?}");
-    /// }
-    /// ```
-    pub fn list_mut(&mut self) -> &mut [Disk] {
-        self.inner.list_mut()
-    }
-
-    /// Refreshes the listed disks' information.
-    ///
-    /// ⚠️ If a disk is added or removed, this method won't take it into account. Use
-    /// [`Disks::refresh_list`] instead.
-    ///
-    /// ⚠️ If you didn't call [`Disks::refresh_list`] beforehand, this method will do nothing as
-    /// the disk list will be empty.
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let mut disks = Disks::new_with_refreshed_list();
-    /// // We wait some time...?
-    /// disks.refresh();
-    /// ```
-    pub fn refresh(&mut self) {
-        for disk in self.list_mut() {
-            disk.refresh();
-        }
-    }
-
-    /// The disk list will be emptied then completely recomputed.
-    ///
-    /// ## Linux
-    ///
-    /// ⚠️ On Linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
-    /// systems are ignored and the information of a mounted NFS **cannot** be obtained
-    /// via [`Disks::refresh_list`]. This is due to the fact that I/O function
-    /// `statvfs` used by [`Disks::refresh_list`] is blocking and
-    /// [may hang](https://github.com/GuillaumeGomez/sysinfo/pull/876) in some cases,
-    /// requiring to call `systemctl stop` to terminate the NFS service from the remote
-    /// server in some cases.
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list();
-    /// ```
-    pub fn refresh_list(&mut self) {
-        self.inner.refresh_list();
-    }
-}
-
-impl std::ops::Deref for Disks {
-    type Target = [Disk];
-
-    fn deref(&self) -> &Self::Target {
-        self.list()
-    }
-}
-
-impl std::ops::DerefMut for Disks {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.list_mut()
-    }
-}
-
-/// Enum containing the different supported kinds of disks.
-///
-/// This type is returned by [`Disk::kind`](`crate::Disk::kind`).
-///
-/// ```no_run
-/// use sysinfo::Disks;
-///
-/// let disks = Disks::new_with_refreshed_list();
-/// for disk in disks.list() {
-///     println!("{:?}: {:?}", disk.name(), disk.kind());
-/// }
-/// ```
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum DiskKind {
-    /// HDD type.
-    HDD,
-    /// SSD type.
-    SSD,
-    /// Unknown type.
-    Unknown(isize),
-}
-
-impl fmt::Display for DiskKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(match *self {
-            DiskKind::HDD => "HDD",
-            DiskKind::SSD => "SSD",
-            _ => "Unknown",
-        })
-    }
-}
-
-/// Interacting with users.
-///
-/// ```no_run
-/// use sysinfo::Users;
-///
-/// let mut users = Users::new();
-/// for user in users.list() {
-///     println!("{} is in {} groups", user.name(), user.groups().len());
-/// }
-/// ```
-pub struct Users {
-    users: Vec<User>,
-}
-
-impl Default for Users {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl From<Users> for Vec<User> {
-    fn from(users: Users) -> Self {
-        users.users
-    }
-}
-
-impl From<Vec<User>> for Users {
-    fn from(users: Vec<User>) -> Self {
-        Self { users }
-    }
-}
-
-impl std::ops::Deref for Users {
-    type Target = [User];
-
-    fn deref(&self) -> &Self::Target {
-        self.list()
-    }
-}
-
-impl std::ops::DerefMut for Users {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.list_mut()
-    }
-}
-
-impl<'a> IntoIterator for &'a Users {
-    type Item = &'a User;
-    type IntoIter = std::slice::Iter<'a, User>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.list().iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a mut Users {
-    type Item = &'a mut User;
-    type IntoIter = std::slice::IterMut<'a, User>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.list_mut().iter_mut()
-    }
-}
-
-impl Users {
-    /// Creates a new empty [`Users`][crate::Users] type.
-    ///
-    /// If you want it to be filled directly, take a look at [`Users::new_with_refreshed_list`].
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
-    /// for user in users.list() {
-    ///     println!("{user:?}");
-    /// }
-    /// ```
-    pub fn new() -> Self {
-        Self { users: Vec::new() }
-    }
-
-    /// Creates a new [`Users`][crate::Users] type with the user list loaded.
-    /// It is a combination of [`Users::new`] and [`Users::refresh_list`].
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let mut users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{user:?}");
-    /// }
-    /// ```
-    pub fn new_with_refreshed_list() -> Self {
-        let mut users = Self::new();
-        users.refresh_list();
-        users
-    }
-
-    /// Returns the users list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{user:?}");
-    /// }
-    /// ```
-    pub fn list(&self) -> &[User] {
-        &self.users
-    }
-
-    /// Returns the users list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let mut users = Users::new_with_refreshed_list();
-    /// users.list_mut().sort_by(|user1, user2| {
-    ///     user1.name().partial_cmp(user2.name()).unwrap()
-    /// });
-    /// ```
-    pub fn list_mut(&mut self) -> &mut [User] {
-        &mut self.users
-    }
-
-    /// The user list will be emptied then completely recomputed.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
-    /// ```
-    pub fn refresh_list(&mut self) {
-        crate::sys::get_users(&mut self.users);
-    }
-
-    /// Returns the [`User`] matching the given `user_id`.
-    ///
-    /// **Important**: The user list must be filled before using this method, otherwise it will
-    /// always return `None` (through the `refresh_*` methods).
-    ///
-    /// It is a shorthand for:
-    ///
-    /// ```ignore
-    /// # use sysinfo::Users;
-    /// let users = Users::new_with_refreshed_list();
-    /// users.list().find(|user| user.id() == user_id);
-    /// ```
-    ///
-    /// Full example:
-    ///
-    /// ```no_run
-    /// use sysinfo::{Pid, System, Users};
-    ///
-    /// let mut s = System::new_all();
-    /// let users = Users::new_with_refreshed_list();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     if let Some(user_id) = process.user_id() {
-    ///         println!("User for process 1337: {:?}", users.get_user_by_id(user_id));
-    ///     }
-    /// }
-    /// ```
-    pub fn get_user_by_id(&self, user_id: &Uid) -> Option<&User> {
-        self.users.iter().find(|user| user.id() == user_id)
-    }
-}
-
-/// Interacting with groups.
-///
-/// ```no_run
-/// use sysinfo::Groups;
-///
-/// let mut groups = Groups::new();
-/// for group in groups.list() {
-///     println!("{}", group.name());
-/// }
-/// ```
-pub struct Groups {
-    groups: Vec<Group>,
-}
-
-impl Default for Groups {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl From<Groups> for Vec<Group> {
-    fn from(groups: Groups) -> Self {
-        groups.groups
-    }
-}
-
-impl From<Vec<Group>> for Groups {
-    fn from(groups: Vec<Group>) -> Self {
-        Self { groups }
-    }
-}
-
-impl std::ops::Deref for Groups {
-    type Target = [Group];
-
-    fn deref(&self) -> &Self::Target {
-        self.list()
-    }
-}
-
-impl std::ops::DerefMut for Groups {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.list_mut()
-    }
-}
-
-impl<'a> IntoIterator for &'a Groups {
-    type Item = &'a Group;
-    type IntoIter = std::slice::Iter<'a, Group>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.list().iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a mut Groups {
-    type Item = &'a mut Group;
-    type IntoIter = std::slice::IterMut<'a, Group>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.list_mut().iter_mut()
-    }
-}
-
-impl Groups {
-    /// Creates a new empty [`Groups`][crate::Groups] type.
-    ///
-    /// If you want it to be filled directly, take a look at [`Groups::new_with_refreshed_list`].
-    ///
-    /// ```no_run
-    /// use sysinfo::Groups;
-    ///
-    /// let mut groups = Groups::new();
-    /// groups.refresh_list();
-    /// for group in groups.list() {
-    ///     println!("{group:?}");
-    /// }
-    /// ```
-    pub fn new() -> Self {
-        Self { groups: Vec::new() }
-    }
-
-    /// Creates a new [`Groups`][crate::Groups] type with the user list loaded.
-    /// It is a combination of [`Groups::new`] and [`Groups::refresh_list`].
-    ///
-    /// ```no_run
-    /// use sysinfo::Groups;
-    ///
-    /// let mut groups = Groups::new_with_refreshed_list();
-    /// for group in groups.list() {
-    ///     println!("{group:?}");
-    /// }
-    /// ```
-    pub fn new_with_refreshed_list() -> Self {
-        let mut groups = Self::new();
-        groups.refresh_list();
-        groups
-    }
-
-    /// Returns the users list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Groups;
-    ///
-    /// let groups = Groups::new_with_refreshed_list();
-    /// for group in groups.list() {
-    ///     println!("{group:?}");
-    /// }
-    /// ```
-    pub fn list(&self) -> &[Group] {
-        &self.groups
-    }
-
-    /// Returns the groups list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Groups;
-    ///
-    /// let mut groups = Groups::new_with_refreshed_list();
-    /// groups.list_mut().sort_by(|user1, user2| {
-    ///     user1.name().partial_cmp(user2.name()).unwrap()
-    /// });
-    /// ```
-    pub fn list_mut(&mut self) -> &mut [Group] {
-        &mut self.groups
-    }
-
-    /// The group list will be emptied then completely recomputed.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
-    /// ```
-    pub fn refresh_list(&mut self) {
-        crate::sys::get_groups(&mut self.groups);
-    }
-}
-
-/// An enum representing signals on UNIX-like systems.
-///
-/// On non-unix systems, this enum is mostly useless and is only there to keep coherency between
-/// the different OSes.
-///
-/// If you want the list of the supported signals on the current system, use
-/// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
-pub enum Signal {
-    /// Hangup detected on controlling terminal or death of controlling process.
-    Hangup,
-    /// Interrupt from keyboard.
-    Interrupt,
-    /// Quit from keyboard.
-    Quit,
-    /// Illegal instruction.
-    Illegal,
-    /// Trace/breakpoint trap.
-    Trap,
-    /// Abort signal from C abort function.
-    Abort,
-    /// IOT trap. A synonym for SIGABRT.
-    IOT,
-    /// Bus error (bad memory access).
-    Bus,
-    /// Floating point exception.
-    FloatingPointException,
-    /// Kill signal.
-    Kill,
-    /// User-defined signal 1.
-    User1,
-    /// Invalid memory reference.
-    Segv,
-    /// User-defined signal 2.
-    User2,
-    /// Broken pipe: write to pipe with no readers.
-    Pipe,
-    /// Timer signal from C alarm function.
-    Alarm,
-    /// Termination signal.
-    Term,
-    /// Child stopped or terminated.
-    Child,
-    /// Continue if stopped.
-    Continue,
-    /// Stop process.
-    Stop,
-    /// Stop typed at terminal.
-    TSTP,
-    /// Terminal input for background process.
-    TTIN,
-    /// Terminal output for background process.
-    TTOU,
-    /// Urgent condition on socket.
-    Urgent,
-    /// CPU time limit exceeded.
-    XCPU,
-    /// File size limit exceeded.
-    XFSZ,
-    /// Virtual alarm clock.
-    VirtualAlarm,
-    /// Profiling time expired.
-    Profiling,
-    /// Windows resize signal.
-    Winch,
-    /// I/O now possible.
-    IO,
-    /// Pollable event (Sys V). Synonym for IO
-    Poll,
-    /// Power failure (System V).
-    ///
-    /// Doesn't exist on apple systems so will be ignored.
-    Power,
-    /// Bad argument to routine (SVr4).
-    Sys,
-}
-
-impl std::fmt::Display for Signal {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match *self {
-            Self::Hangup => "Hangup",
-            Self::Interrupt => "Interrupt",
-            Self::Quit => "Quit",
-            Self::Illegal => "Illegal",
-            Self::Trap => "Trap",
-            Self::Abort => "Abort",
-            Self::IOT => "IOT",
-            Self::Bus => "Bus",
-            Self::FloatingPointException => "FloatingPointException",
-            Self::Kill => "Kill",
-            Self::User1 => "User1",
-            Self::Segv => "Segv",
-            Self::User2 => "User2",
-            Self::Pipe => "Pipe",
-            Self::Alarm => "Alarm",
-            Self::Term => "Term",
-            Self::Child => "Child",
-            Self::Continue => "Continue",
-            Self::Stop => "Stop",
-            Self::TSTP => "TSTP",
-            Self::TTIN => "TTIN",
-            Self::TTOU => "TTOU",
-            Self::Urgent => "Urgent",
-            Self::XCPU => "XCPU",
-            Self::XFSZ => "XFSZ",
-            Self::VirtualAlarm => "VirtualAlarm",
-            Self::Profiling => "Profiling",
-            Self::Winch => "Winch",
-            Self::IO => "IO",
-            Self::Poll => "Poll",
-            Self::Power => "Power",
-            Self::Sys => "Sys",
-        };
-        f.write_str(s)
-    }
-}
-
-/// Contains memory limits for the current process.
-#[derive(Default, Debug, Clone)]
-pub struct CGroupLimits {
-    /// Total memory (in bytes) for the current cgroup.
-    pub total_memory: u64,
-    /// Free memory (in bytes) for the current cgroup.
-    pub free_memory: u64,
-    /// Free swap (in bytes) for the current cgroup.
-    pub free_swap: u64,
-}
-
-/// A struct representing system load average value.
-///
-/// It is returned by [`System::load_average`][crate::System::load_average].
-///
-/// ```no_run
-/// use sysinfo::System;
-///
-/// let load_avg = System::load_average();
-/// println!(
-///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
-///     load_avg.one,
-///     load_avg.five,
-///     load_avg.fifteen,
-/// );
-/// ```
-#[repr(C)]
-#[derive(Default, Debug, Clone)]
-pub struct LoadAvg {
-    /// Average load within one minute.
-    pub one: f64,
-    /// Average load within five minutes.
-    pub five: f64,
-    /// Average load within fifteen minutes.
-    pub fifteen: f64,
-}
-
-macro_rules! xid {
-    ($(#[$outer:meta])+ $name:ident, $type:ty $(, $trait:ty)?) => {
-        $(#[$outer])+
-        #[repr(transparent)]
-        #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-        pub struct $name(pub(crate) $type);
-
-        impl std::ops::Deref for $name {
-            type Target = $type;
-
-            fn deref(&self) -> &Self::Target {
-                &self.0
-            }
-        }
-
-        $(
-        impl TryFrom<usize> for $name {
-            type Error = <$type as TryFrom<usize>>::Error;
-
-            fn try_from(t: usize) -> Result<Self, <$type as TryFrom<usize>>::Error> {
-                Ok(Self(<$type>::try_from(t)?))
-            }
-        }
-
-        impl $trait for $name {
-            type Err = <$type as FromStr>::Err;
-
-            fn from_str(t: &str) -> Result<Self, <$type as FromStr>::Err> {
-                Ok(Self(<$type>::from_str(t)?))
-            }
-        }
-        )?
-    };
-}
-
-macro_rules! uid {
-    ($type:ty$(, $trait:ty)?) => {
-        xid!(
-            /// A user id wrapping a platform specific type.
-            Uid,
-            $type
-            $(, $trait)?
-        );
-    };
-}
-
-macro_rules! gid {
-    ($type:ty) => {
-        xid!(
-            /// A group id wrapping a platform specific type.
-            #[derive(Copy)]
-            Gid,
-            $type,
-            FromStr
-        );
-    };
-}
-
-cfg_if::cfg_if! {
-    if #[cfg(all(
-        not(feature = "unknown-ci"),
-        any(
-            target_os = "freebsd",
-            target_os = "linux",
-            target_os = "android",
-            target_os = "macos",
-            target_os = "ios",
-        )
-    ))] {
-        uid!(libc::uid_t, FromStr);
-        gid!(libc::gid_t);
-    } else if #[cfg(windows)] {
-        uid!(crate::windows::Sid);
-        gid!(u32);
-        // Manual implementation outside of the macro...
-        impl FromStr for Uid {
-            type Err = <crate::windows::Sid as FromStr>::Err;
-
-            fn from_str(t: &str) -> Result<Self, Self::Err> {
-                Ok(Self(t.parse()?))
-            }
-        }
-    } else {
-        uid!(u32, FromStr);
-        gid!(u32);
-    }
-}
-
-/// Type containing user information.
-///
-/// It is returned by [`Users`][crate::Users].
-///
-/// ```no_run
-/// use sysinfo::Users;
-///
-/// let users = Users::new_with_refreshed_list();
-/// for user in users.list() {
-///     println!("{:?}", user);
-/// }
-/// ```
-pub struct User {
-    pub(crate) inner: UserInner,
-}
-
-impl PartialEq for User {
-    fn eq(&self, other: &Self) -> bool {
-        self.id() == other.id()
-            && self.group_id() == other.group_id()
-            && self.name() == other.name()
-    }
-}
-
-impl Eq for User {}
-
-impl PartialOrd for User {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for User {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.name().cmp(other.name())
-    }
-}
-
-impl User {
-    /// Returns the ID of the user.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{:?}", *user.id());
-    /// }
-    /// ```
-    pub fn id(&self) -> &Uid {
-        self.inner.id()
-    }
-
-    /// Returns the group ID of the user.
-    ///
-    /// ⚠️ This information is not set on Windows.  Windows doesn't have a `username` specific
-    /// group assigned to the user. They do however have unique
-    /// [Security Identifiers](https://docs.microsoft.com/en-us/windows/win32/secauthz/security-identifiers)
-    /// made up of various [Components](https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-components).
-    /// Pieces of the SID may be a candidate for this field, but it doesn't map well to a single
-    /// group ID.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{}", *user.group_id());
-    /// }
-    /// ```
-    pub fn group_id(&self) -> Gid {
-        self.inner.group_id()
-    }
-
-    /// Returns the name of the user.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{}", user.name());
-    /// }
-    /// ```
-    pub fn name(&self) -> &str {
-        self.inner.name()
-    }
-
-    /// Returns the groups of the user.
-    ///
-    /// ⚠️ This is computed every time this method is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{} is in {:?}", user.name(), user.groups());
-    /// }
-    /// ```
-    pub fn groups(&self) -> Vec<Group> {
-        self.inner.groups()
-    }
-}
-
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub(crate) struct GroupInner {
-    pub(crate) id: Gid,
-    pub(crate) name: String,
-}
-
-/// Type containing group information.
-///
-/// It is returned by [`User::groups`] or [`Groups::list`].
-///
-/// ```no_run
-/// use sysinfo::Users;
-///
-/// let mut users = Users::new_with_refreshed_list();
-///
-/// for user in users.list() {
-///     println!(
-///         "user: (ID: {:?}, group ID: {:?}, name: {:?})",
-///         user.id(),
-///         user.group_id(),
-///         user.name(),
-///     );
-///     for group in user.groups() {
-///         println!("group: (ID: {:?}, name: {:?})", group.id(), group.name());
-///     }
-/// }
-/// ```
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct Group {
-    pub(crate) inner: GroupInner,
-}
-
-impl Group {
-    /// Returns the ID of the group.
-    ///
-    /// ⚠️ This information is not set on Windows.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let mut users = Users::new_with_refreshed_list();
-    ///
-    /// for user in users.list() {
-    ///     for group in user.groups() {
-    ///         println!("{:?}", group.id());
-    ///     }
-    /// }
-    /// ```
-    pub fn id(&self) -> &Gid {
-        self.inner.id()
-    }
-
-    /// Returns the name of the group.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// let mut users = Users::new_with_refreshed_list();
-    ///
-    /// for user in users.list() {
-    ///     for group in user.groups() {
-    ///         println!("{}", group.name());
-    ///     }
-    /// }
-    /// ```
-    pub fn name(&self) -> &str {
-        self.inner.name()
-    }
-}
-
-/// Type containing read and written bytes.
-///
-/// It is returned by [`Process::disk_usage`][crate::Process::disk_usage].
-///
-/// ```no_run
-/// use sysinfo::System;
-///
-/// let s = System::new_all();
-/// for (pid, process) in s.processes() {
-///     let disk_usage = process.disk_usage();
-///     println!("[{}] read bytes   : new/total => {}/{} B",
-///         pid,
-///         disk_usage.read_bytes,
-///         disk_usage.total_read_bytes,
-///     );
-///     println!("[{}] written bytes: new/total => {}/{} B",
-///         pid,
-///         disk_usage.written_bytes,
-///         disk_usage.total_written_bytes,
-///     );
-/// }
-/// ```
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd)]
-pub struct DiskUsage {
-    /// Total number of written bytes.
-    pub total_written_bytes: u64,
-    /// Number of written bytes since the last refresh.
-    pub written_bytes: u64,
-    /// Total number of read bytes.
-    pub total_read_bytes: u64,
-    /// Number of read bytes since the last refresh.
-    pub read_bytes: u64,
-}
-
-/// Enum describing the different status of a process.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ProcessStatus {
-    /// ## Linux
-    ///
-    /// Idle kernel thread.
-    ///
-    /// ## macOs/FreeBSD
-    ///
-    /// Process being created by fork.
-    ///
-    /// ## Other OS
-    ///
-    /// Not available.
-    Idle,
-    /// Running.
-    Run,
-    /// ## Linux
-    ///
-    /// Sleeping in an interruptible waiting.
-    ///
-    /// ## macOS/FreeBSD
-    ///
-    /// Sleeping on an address.
-    ///
-    /// ## Other OS
-    ///
-    /// Not available.
-    Sleep,
-    /// ## Linux
-    ///
-    /// Stopped (on a signal) or (before Linux 2.6.33) trace stopped.
-    ///
-    /// ## macOS/FreeBSD
-    ///
-    /// Process debugging or suspension.
-    ///
-    /// ## Other OS
-    ///
-    /// Not available.
-    Stop,
-    /// ## Linux/FreeBSD/macOS
-    ///
-    /// Zombie process. Terminated but not reaped by its parent.
-    ///
-    /// ## Other OS
-    ///
-    /// Not available.
-    Zombie,
-    /// ## Linux
-    ///
-    /// Tracing stop (Linux 2.6.33 onward). Stopped by debugger during the tracing.
-    ///
-    /// ## Other OS
-    ///
-    /// Not available.
-    Tracing,
-    /// ## Linux
-    ///
-    /// Dead/uninterruptible sleep (usually IO).
-    ///
-    /// ## FreeBSD
-    ///
-    /// A process should never end up in this state.
-    ///
-    /// ## Other OS
-    ///
-    /// Not available.
-    Dead,
-    /// ## Linux
-    ///
-    /// Wakekill (Linux 2.6.33 to 3.13 only).
-    ///
-    /// ## Other OS
-    ///
-    /// Not available.
-    Wakekill,
-    /// ## Linux
-    ///
-    /// Waking (Linux 2.6.33 to 3.13 only).
-    ///
-    /// ## Other OS
-    ///
-    /// Not available.
-    Waking,
-    /// ## Linux
-    ///
-    /// Parked (Linux 3.9 to 3.13 only).
-    ///
-    /// ## macOS
-    ///
-    /// Halted at a clean point.
-    ///
-    /// ## Other OS
-    ///
-    /// Not available.
-    Parked,
-    /// ## FreeBSD
-    ///
-    /// Blocked on a lock.
-    ///
-    /// ## Other OS
-    ///
-    /// Not available.
-    LockBlocked,
-    /// ## Linux
-    ///
-    /// Waiting in uninterruptible disk sleep.
-    ///
-    /// ## Other OS
-    ///
-    /// Not available.
-    UninterruptibleDiskSleep,
-    /// Unknown.
-    Unknown(u32),
-}
-
-/// Enum describing the different kind of threads.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ThreadKind {
-    /// Kernel thread.
-    Kernel,
-    /// User thread.
-    Userland,
-}
-
 /// Returns the pid for the current process.
 ///
 /// `Err` is returned in case the platform isn't supported.
@@ -3656,337 +2325,6 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
         }
     }
     inner()
-}
-
-/// MAC address for network interface.
-///
-/// It is returned by [`NetworkData::mac_address`][crate::NetworkData::mac_address].
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub struct MacAddr(pub [u8; 6]);
-
-impl MacAddr {
-    /// A `MacAddr` with all bytes set to `0`.
-    pub const UNSPECIFIED: Self = MacAddr([0; 6]);
-
-    /// Checks if this `MacAddr` has all bytes equal to `0`.
-    pub fn is_unspecified(&self) -> bool {
-        self == &MacAddr::UNSPECIFIED
-    }
-}
-
-impl fmt::Display for MacAddr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let data = &self.0;
-        write!(
-            f,
-            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-            data[0], data[1], data[2], data[3], data[4], data[5],
-        )
-    }
-}
-
-/// Ip networks address for network interface.
-///
-/// It is returned by [`NetworkData::ip_networks`][crate::NetworkData::ip_networks].
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct IpNetwork {
-    /// The ip of the network interface
-    pub addr: IpAddr,
-    /// The netmask, prefix of the ipaddress
-    pub prefix: u8,
-}
-
-impl fmt::Display for IpNetwork {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/{}", self.addr, self.prefix)
-    }
-}
-
-/// Interacting with components.
-///
-/// ```no_run
-/// use sysinfo::Components;
-///
-/// let components = Components::new_with_refreshed_list();
-/// for component in &components {
-///     println!("{component:?}");
-/// }
-/// ```
-pub struct Components {
-    pub(crate) inner: ComponentsInner,
-}
-
-impl Default for Components {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl From<Components> for Vec<Component> {
-    fn from(components: Components) -> Self {
-        components.inner.into_vec()
-    }
-}
-
-impl From<Vec<Component>> for Components {
-    fn from(components: Vec<Component>) -> Self {
-        Self {
-            inner: ComponentsInner::from_vec(components),
-        }
-    }
-}
-
-impl std::ops::Deref for Components {
-    type Target = [Component];
-
-    fn deref(&self) -> &Self::Target {
-        self.list()
-    }
-}
-
-impl std::ops::DerefMut for Components {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.list_mut()
-    }
-}
-
-impl<'a> IntoIterator for &'a Components {
-    type Item = &'a Component;
-    type IntoIter = std::slice::Iter<'a, Component>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.list().iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a mut Components {
-    type Item = &'a mut Component;
-    type IntoIter = std::slice::IterMut<'a, Component>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.list_mut().iter_mut()
-    }
-}
-
-impl Components {
-    /// Creates a new empty [`Components`][crate::Components] type.
-    ///
-    /// If you want it to be filled directly, take a look at
-    /// [`Components::new_with_refreshed_list`].
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// for component in &components {
-    ///     println!("{component:?}");
-    /// }
-    /// ```
-    pub fn new() -> Self {
-        Self {
-            inner: ComponentsInner::new(),
-        }
-    }
-
-    /// Creates a new [`Components`][crate::Components] type with the user list
-    /// loaded. It is a combination of [`Components::new`] and
-    /// [`Components::refresh_list`].
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let mut components = Components::new_with_refreshed_list();
-    /// for component in components.list() {
-    ///     println!("{component:?}");
-    /// }
-    /// ```
-    pub fn new_with_refreshed_list() -> Self {
-        let mut components = Self::new();
-        components.refresh_list();
-        components
-    }
-
-    /// Returns the components list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let components = Components::new_with_refreshed_list();
-    /// for component in components.list() {
-    ///     println!("{component:?}");
-    /// }
-    /// ```
-    pub fn list(&self) -> &[Component] {
-        self.inner.list()
-    }
-
-    /// Returns the components list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let mut components = Components::new_with_refreshed_list();
-    /// for component in components.list_mut() {
-    ///     component.refresh();
-    ///     println!("{component:?}");
-    /// }
-    /// ```
-    pub fn list_mut(&mut self) -> &mut [Component] {
-        self.inner.list_mut()
-    }
-
-    /// Refreshes the listed components' information.
-    ///
-    /// ⚠️ If a component is added or removed, this method won't take it into account. Use
-    /// [`Components::refresh_list`] instead.
-    ///
-    /// ⚠️ If you didn't call [`Components::refresh_list`] beforehand, this method will do
-    /// nothing as the component list will be empty.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let mut components = Components::new_with_refreshed_list();
-    /// // We wait some time...?
-    /// components.refresh();
-    /// ```
-    pub fn refresh(&mut self) {
-        #[cfg(all(
-            feature = "multithread",
-            not(feature = "unknown-ci"),
-            not(all(target_os = "macos", feature = "apple-sandbox")),
-        ))]
-        use rayon::iter::ParallelIterator;
-        into_iter_mut(self.list_mut()).for_each(|component| component.refresh());
-    }
-
-    /// The component list will be emptied then completely recomputed.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// ```
-    pub fn refresh_list(&mut self) {
-        self.inner.refresh_list()
-    }
-}
-
-/// Getting a component temperature information.
-///
-/// ```no_run
-/// use sysinfo::Components;
-///
-/// let components = Components::new_with_refreshed_list();
-/// for component in &components {
-///     println!("{} {}°C", component.label(), component.temperature());
-/// }
-/// ```
-pub struct Component {
-    pub(crate) inner: ComponentInner,
-}
-
-impl Component {
-    /// Returns the temperature of the component (in celsius degree).
-    ///
-    /// ## Linux
-    ///
-    /// Returns `f32::NAN` if it failed to retrieve it.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let components = Components::new_with_refreshed_list();
-    /// for component in &components {
-    ///     println!("{}°C", component.temperature());
-    /// }
-    /// ```
-    pub fn temperature(&self) -> f32 {
-        self.inner.temperature()
-    }
-
-    /// Returns the maximum temperature of the component (in celsius degree).
-    ///
-    /// Note: if `temperature` is higher than the current `max`,
-    /// `max` value will be updated on refresh.
-    ///
-    /// ## Linux
-    ///
-    /// May be computed by `sysinfo` from kernel.
-    /// Returns `f32::NAN` if it failed to retrieve it.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let components = Components::new_with_refreshed_list();
-    /// for component in &components {
-    ///     println!("{}°C", component.max());
-    /// }
-    /// ```
-    pub fn max(&self) -> f32 {
-        self.inner.max()
-    }
-
-    /// Returns the highest temperature before the component halts (in celsius degree).
-    ///
-    /// ## Linux
-    ///
-    /// Critical threshold defined by chip or kernel.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let components = Components::new_with_refreshed_list();
-    /// for component in &components {
-    ///     println!("{:?}°C", component.critical());
-    /// }
-    /// ```
-    pub fn critical(&self) -> Option<f32> {
-        self.inner.critical()
-    }
-
-    /// Returns the label of the component.
-    ///
-    /// ## Linux
-    ///
-    /// Since components information is retrieved thanks to `hwmon`,
-    /// the labels are generated as follows.
-    /// Note: it may change and it was inspired by `sensors` own formatting.
-    ///
-    /// | name | label | device_model | id_sensor | Computed label by `sysinfo` |
-    /// |---------|--------|------------|----------|----------------------|
-    /// | ✓    | ✓    | ✓  | ✓ | `"{name} {label} {device_model} temp{id}"` |
-    /// | ✓    | ✓    | ✗  | ✓ | `"{name} {label} {id}"` |
-    /// | ✓    | ✗    | ✓  | ✓ | `"{name} {device_model}"` |
-    /// | ✓    | ✗    | ✗  | ✓ | `"{name} temp{id}"` |
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let components = Components::new_with_refreshed_list();
-    /// for component in &components {
-    ///     println!("{}", component.label());
-    /// }
-    /// ```
-    pub fn label(&self) -> &str {
-        self.inner.label()
-    }
-
-    /// Refreshes component.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let mut components = Components::new_with_refreshed_list();
-    /// for component in components.iter_mut() {
-    ///     component.refresh();
-    /// }
-    /// ```
-    pub fn refresh(&mut self) {
-        self.inner.refresh()
-    }
 }
 
 /// Contains all the methods of the [`Cpu`][crate::Cpu] struct.

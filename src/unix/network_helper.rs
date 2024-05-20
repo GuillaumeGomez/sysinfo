@@ -11,7 +11,7 @@ use std::ptr::null_mut;
 use std::str::from_utf8_unchecked;
 use std::{io, mem};
 
-use crate::common::{IpNetwork, MacAddr};
+use crate::{IpNetwork, MacAddr};
 
 /// This iterator yields an interface name and address.
 pub(crate) struct InterfaceAddressIterator {

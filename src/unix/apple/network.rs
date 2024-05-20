@@ -5,10 +5,8 @@ use libc::{self, c_char, if_msghdr2, CTL_NET, NET_RT_IFLIST2, PF_ROUTE, RTM_IFIN
 use std::collections::{hash_map, HashMap};
 use std::ptr::null_mut;
 
-use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::IpNetwork;
-use crate::NetworkData;
+use crate::{IpNetwork, MacAddr, NetworkData};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $new_val:expr) => {{

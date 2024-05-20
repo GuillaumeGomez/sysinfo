@@ -5,9 +5,8 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-use crate::common::{IpNetwork, MacAddr};
 use crate::network::refresh_networks_addresses;
-use crate::NetworkData;
+use crate::{IpNetwork, MacAddr, NetworkData};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident) => {{
