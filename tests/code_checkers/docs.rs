@@ -98,10 +98,16 @@ pub fn check_docs(content: &str, p: &Path) -> TestResult {
         nb_errors: 0,
     };
 
-    // No need to check if we are in the `src` folder or if we are in a `ffi.rs` file.
-    if p.parent().unwrap().file_name().unwrap() == OsStr::new("src")
-        || p.file_name().unwrap() == OsStr::new("ffi.rs")
-    {
+    // No need to check if we are in the `src` or `src/common` folder or if we are in a `ffi.rs`
+    // file.
+    if p.file_name().unwrap() == OsStr::new("ffi.rs") {
+        return res;
+    }
+    let path = format!(
+        "/{}",
+        p.parent().unwrap().display().to_string().replace('\\', "/")
+    );
+    if path.ends_with("/src") || path.ends_with("src/common") {
         return res;
     }
     let lines = content.lines().collect::<Vec<_>>();
