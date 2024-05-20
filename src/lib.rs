@@ -51,13 +51,19 @@ cfg_if::cfg_if! {
 }
 
 pub use crate::common::{
-    get_current_pid, CGroupLimits, Component, Components, Cpu, CpuRefreshKind, Disk, DiskKind,
-    DiskUsage, Disks, Gid, Group, Groups, IpNetwork, LoadAvg, MacAddr, MemoryRefreshKind,
-    NetworkData, Networks, Pid, Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal,
-    System, ThreadKind, Uid, UpdateKind, User, Users,
+    component::{Component, Components},
+    disk::{Disk, DiskKind, Disks},
+    network::{IpNetwork, MacAddr, NetworkData, Networks},
+    system::{
+        get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, DiskUsage, LoadAvg, MemoryRefreshKind,
+        Pid, Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, ThreadKind,
+        UpdateKind,
+    },
+    user::{Group, Groups, User, Users},
+    Gid, Uid,
 };
 
-pub(crate) use crate::common::GroupInner;
+pub(crate) use crate::common::user::GroupInner;
 pub(crate) use crate::sys::{
     ComponentInner, ComponentsInner, CpuInner, DiskInner, DisksInner, NetworkDataInner,
     NetworksInner, ProcessInner, SystemInner, UserInner,

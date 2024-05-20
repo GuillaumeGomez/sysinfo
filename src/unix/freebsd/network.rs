@@ -4,10 +4,8 @@ use std::collections::{hash_map, HashMap};
 use std::mem::MaybeUninit;
 
 use super::utils;
-use crate::common::MacAddr;
 use crate::network::refresh_networks_addresses;
-use crate::IpNetwork;
-use crate::NetworkData;
+use crate::{IpNetwork, MacAddr, NetworkData};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $data:expr) => {{

@@ -1,11 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::to_utf8_str;
-use crate::{
-    common::{Gid, GroupInner},
-    windows::sid::Sid,
-    Group,
-};
+use crate::windows::sid::Sid;
+use crate::{Gid, Group, GroupInner};
 
 use std::ptr::null_mut;
 use windows::core::PCWSTR;

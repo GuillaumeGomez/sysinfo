@@ -13,7 +13,7 @@ use windows::Win32::Networking::WinSock::{
     AF_INET, AF_INET6, AF_UNSPEC, SOCKADDR, SOCKADDR_IN, SOCKADDR_IN6,
 };
 
-use crate::common::{IpNetwork, MacAddr};
+use crate::{IpNetwork, MacAddr};
 
 /// this iterator yields an interface name and address
 pub(crate) struct InterfaceAddressIterator {

@@ -1,9 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{
-    common::{Gid, GroupInner},
-    Group,
-};
+use crate::{Gid, Group, GroupInner};
 
 use libc::{endgrent, getgrent, setgrent};
 use std::collections::HashMap;
