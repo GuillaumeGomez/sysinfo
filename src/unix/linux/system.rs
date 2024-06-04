@@ -562,6 +562,12 @@ impl crate::CGroupLimits {
                 limits.free_swap = sys.swap_total.saturating_sub(swap_cur);
             }
 
+            read_table("/sys/fs/cgroup/memory.stat", ' ', |key, value| {
+                if key == "file" {
+                    limits.free_memory.saturating_add(value);
+                }
+            });
+
             Some(limits)
         } else if let (Some(mem_cur), Some(mem_max)) = (
             // cgroups v1
@@ -577,6 +583,11 @@ impl crate::CGroupLimits {
             limits.total_memory = min(mem_max, sys.mem_total);
             limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
 
+            read_table("/sys/fs/cgroup/memory/memory.stat", ' ', |key, value| {
+                if key == "cache" {
+                    limits.free_memory.saturating_add(value);
+                }
+            });
             Some(limits)
         } else {
             None
