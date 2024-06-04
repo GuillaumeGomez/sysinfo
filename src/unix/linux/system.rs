@@ -564,7 +564,7 @@ impl crate::CGroupLimits {
 
             read_table("/sys/fs/cgroup/memory.stat", ' ', |key, value| {
                 if key == "file" {
-                    limits.free_memory.saturating_add(value);
+                    limits.free_memory = limits.free_memory.saturating_add(value);
                 }
             });
 
@@ -585,7 +585,7 @@ impl crate::CGroupLimits {
 
             read_table("/sys/fs/cgroup/memory/memory.stat", ' ', |key, value| {
                 if key == "cache" {
-                    limits.free_memory.saturating_add(value);
+                    limits.free_memory = limits.free_memory.saturating_add(value);
                 }
             });
             Some(limits)
