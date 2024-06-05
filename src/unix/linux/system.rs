@@ -563,7 +563,7 @@ impl crate::CGroupLimits {
             }
 
             read_table("/sys/fs/cgroup/memory.stat", ' ', |key, value| {
-                if key == "file" {
+                if key == "file" || key == "slab_reclaimable" || key == "shmem" {
                     limits.free_memory = limits.free_memory.saturating_add(value);
                 }
             });
