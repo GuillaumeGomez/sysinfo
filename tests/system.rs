@@ -213,8 +213,12 @@ fn test_refresh_memory() {
     }
 
     s.refresh_memory_specifics(sysinfo::MemoryRefreshKind::new().with_swap());
-    assert_ne!(s.total_swap(), 0);
-    assert_ne!(s.free_swap(), 0);
+    // SWAP can be 0 on macOS so this test is disabled
+    #[cfg(not(target_os = "macos"))]
+    {
+        assert_ne!(s.total_swap(), 0);
+        assert_ne!(s.free_swap(), 0);
+    }
 
     if is_linux {
         assert_ne!(s.total_memory(), 0);
@@ -226,8 +230,12 @@ fn test_refresh_memory() {
 
     let mut s = System::new();
     s.refresh_memory();
-    assert_ne!(s.total_swap(), 0);
-    assert_ne!(s.free_swap(), 0);
+    // SWAP can be 0 on macOS so this test is disabled
+    #[cfg(not(target_os = "macos"))]
+    {
+        assert_ne!(s.total_swap(), 0);
+        assert_ne!(s.free_swap(), 0);
+    }
     assert_ne!(s.total_memory(), 0);
     assert_ne!(s.free_memory(), 0);
 }

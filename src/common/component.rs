@@ -170,6 +170,10 @@ impl Components {
     /// let mut components = Components::new();
     /// components.refresh_list();
     /// ```
+    ///
+    /// ⚠️ This function is currently useless on every call after the first one on
+    /// Apple Silicon macOS, as it crashes the process when called multiple times.
+    /// [See issue](https://github.com/GuillaumeGomez/sysinfo/issues/1279)
     pub fn refresh_list(&mut self) {
         self.inner.refresh_list()
     }
