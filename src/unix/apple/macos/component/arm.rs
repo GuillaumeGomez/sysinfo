@@ -21,7 +21,6 @@ use crate::Component;
 pub(crate) struct ComponentsInner {
     components: Vec<Component>,
     client: Option<CFReleaser<__IOHIDEventSystemClient>>,
-    has_been_called: bool,
 }
 
 impl ComponentsInner {
@@ -29,7 +28,6 @@ impl ComponentsInner {
         Self {
             components: vec![],
             client: None,
-            has_been_called: false,
         }
     }
 
@@ -37,7 +35,6 @@ impl ComponentsInner {
         Self {
             components,
             client: None,
-            has_been_called: false,
         }
     }
 
@@ -56,11 +53,7 @@ impl ComponentsInner {
     #[allow(unreachable_code)]
     pub(crate) fn refresh_list(&mut self) {
         // See issue https://github.com/GuillaumeGomez/sysinfo/issues/1279
-        if self.has_been_called {
-            return;
-        } else {
-            self.has_been_called = true;
-        }
+        return;
 
         self.components.clear();
 
