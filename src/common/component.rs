@@ -171,8 +171,8 @@ impl Components {
     /// components.refresh_list();
     /// ```
     ///
-    /// ⚠️ This function has been made useless on every call after the first one on
-    /// Apple Silicon macOS, as it used to crash when called multiple times multiple times.
+    /// ⚠️ This function has been made useless on
+    /// Apple Silicon macOS, as it has been crashing when called.
     /// [See issue](https://github.com/GuillaumeGomez/sysinfo/issues/1279)
     pub fn refresh_list(&mut self) {
         self.inner.refresh_list()
