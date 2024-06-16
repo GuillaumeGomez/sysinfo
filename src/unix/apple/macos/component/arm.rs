@@ -50,7 +50,11 @@ impl ComponentsInner {
         &mut self.components
     }
 
+    #[allow(unreachable_code)]
     pub(crate) fn refresh_list(&mut self) {
+        // See issue https://github.com/GuillaumeGomez/sysinfo/issues/1279
+        return;
+
         self.components.clear();
 
         unsafe {

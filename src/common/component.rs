@@ -170,6 +170,9 @@ impl Components {
     /// let mut components = Components::new();
     /// components.refresh_list();
     /// ```
+    ///
+    /// ⚠️ This function is not doing anything on macOS until
+    /// [this issue](https://github.com/GuillaumeGomez/sysinfo/issues/1279) is fixed.
     pub fn refresh_list(&mut self) {
         self.inner.refresh_list()
     }

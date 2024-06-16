@@ -421,6 +421,13 @@ mod test {
     }
 
     #[test]
+    fn test_components_mac_m1() {
+        let mut components = Components::new();
+        components.refresh_list();
+        components.refresh_list();
+    }
+
+    #[test]
     fn ensure_is_supported_is_set_correctly() {
         if MIN_USERS > 0 {
             assert!(IS_SUPPORTED_SYSTEM);
