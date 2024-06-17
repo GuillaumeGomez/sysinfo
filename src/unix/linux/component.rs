@@ -50,13 +50,15 @@ pub(crate) struct ComponentInner {
     ///
     /// Read in: `temp[1-*]_type` Sensor type selection.
     /// Values integer:
+    ///
     /// - 1: CPU embedded diode
     /// - 2: 3904 transistor
     /// - 3: thermal diode
     /// - 4: thermistor
     /// - 5: AMD AMDSI
     /// - 6: Intel PECI
-    /// Not all types are supported by all chips
+    ///
+    /// Not all types are supported by all chips.
     sensor_type: Option<ThermalSensorType>,
     /// Component Label
     ///
