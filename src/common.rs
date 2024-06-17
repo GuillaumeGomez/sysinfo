@@ -1167,6 +1167,9 @@ impl Process {
     /// information couldn't be retrieved. If you want to get the [`User`] from
     /// it, take a look at [`Users::get_user_by_id`].
     ///
+    /// [`User`]: crate::User
+    /// [`Users::get_user_by_id`]: crate::Users::get_user_by_id
+    ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
@@ -1189,6 +1192,9 @@ impl Process {
     /// user ID will be `0` (i-e root).
     ///
     /// ⚠️ It always returns `None` on Windows.
+    ///
+    /// [`User`]: crate::User
+    /// [`Users::get_user_by_id`]: crate::Users::get_user_by_id
     ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
