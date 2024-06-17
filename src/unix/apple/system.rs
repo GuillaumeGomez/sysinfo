@@ -231,10 +231,8 @@ impl SystemInner {
                         if !filter_callback(pid, filter) {
                             return None;
                         }
-                        match update_process(wrap, pid, time_interval, now, refresh_kind, false) {
-                            Ok(x) => x,
-                            _ => None,
-                        }
+                        update_process(wrap, pid, time_interval, now, refresh_kind, false)
+                            .unwrap_or_default()
                     })
                     .collect()
             };
