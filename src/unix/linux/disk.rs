@@ -4,6 +4,7 @@ use crate::sys::utils::{get_all_utf8_data, to_cpath};
 use crate::{Disk, DiskKind};
 
 use libc::statvfs;
+use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::mem;
@@ -78,10 +79,7 @@ impl crate::DisksInner {
     }
 
     pub(crate) fn refresh_list(&mut self) {
-        get_all_list(
-            &mut self.disks,
-            &get_all_utf8_data("/proc/mounts", 16_385).unwrap_or_default(),
-        )
+        get_all_list(&mut self.disks)
     }
 
     pub(crate) fn list(&self) -> &[Disk] {
@@ -104,17 +102,17 @@ fn new_disk(
     let mut total = 0;
     let mut available = 0;
     unsafe {
-        let mut stat: statvfs = mem::zeroed();
-        if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
-            let bsize = cast!(stat.f_bsize);
-            let blocks = cast!(stat.f_blocks);
-            let bavail = cast!(stat.f_bavail);
-            total = bsize.saturating_mul(blocks);
-            available = bsize.saturating_mul(bavail);
+        if !mount_point.as_os_str().is_empty() {
+            let mut stat: statvfs = mem::zeroed();
+            if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
+                let bsize = cast!(stat.f_bsize);
+                let blocks = cast!(stat.f_blocks);
+                let bavail = cast!(stat.f_bavail);
+                total = bsize.saturating_mul(blocks);
+                available = bsize.saturating_mul(bavail);
+            }
         }
-        if total == 0 {
-            return None;
-        }
+
         let mount_point = mount_point.to_owned();
         let is_removable = removable_entries
             .iter()
@@ -204,8 +202,63 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
     }
 }
 
-fn get_all_list(container: &mut Vec<Disk>, content: &str) {
+fn get_all_list(container: &mut Vec<Disk>) {
     container.clear();
+    let partitions = get_all_utf8_data("/proc/partitions", 16_385).unwrap_or_default();
+    let mut disks: HashMap<String, (String, String, String)> = HashMap::new();
+
+    for line in partitions.lines().skip(2) {
+        let line = line.trim();
+        let fields = line.split_whitespace();
+        let name = format!("/dev/{}", fields.last().unwrap_or_default());
+        disks.insert(name.clone(), (name, "".to_string(), "".to_string()));
+    }
+
+    let mounts = get_all_utf8_data("/proc/mounts", 16_385).unwrap_or_default();
+
+    for line in mounts.lines() {
+        let line = line.trim();
+        let mut fields = line.split_whitespace();
+        let fs_spec = fields.next().unwrap_or("");
+        let fs_file = fields
+            .next()
+            .unwrap_or("")
+            .replace("\\134", "\\")
+            .replace("\\040", " ")
+            .replace("\\011", "\t")
+            .replace("\\012", "\n");
+        let fs_vfstype = fields.next().unwrap_or("");
+
+        let filtered = match fs_vfstype {
+            "rootfs" | // https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt
+            "sysfs" | // pseudo file system for kernel objects
+            "proc" |  // another pseudo file system
+            "devtmpfs" |
+            "cgroup" |
+            "cgroup2" |
+            "pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
+            "squashfs" | // squashfs is a compressed read-only file system (for snaps)
+            "rpc_pipefs" | // The pipefs pseudo file system service
+            "iso9660" // optical media
+            => true,
+            "tmpfs" => !cfg!(feature = "linux-tmpfs"),
+            // calling statvfs on a mounted CIFS or NFS may hang, when they are mounted with option: hard
+            "cifs" | "nfs" | "nfs4" => !cfg!(feature = "linux-netdevs"),
+            _ => false,
+        };
+
+        if filtered {
+            continue;
+        }
+
+        if fs_spec.starts_with("/dev/") {
+            if let Some(disk) = disks.get_mut(fs_spec) {
+                disk.1 = fs_file.to_string();
+                disk.2 = fs_vfstype.to_string();
+            }
+        }
+    }
+
     // The goal of this array is to list all removable devices (the ones whose name starts with
     // "usb-").
     let removable_entries = match fs::read_dir("/dev/disk/by-id/") {
@@ -225,61 +278,15 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
         _ => Vec::new(),
     };
 
-    for disk in content
-        .lines()
-        .map(|line| {
-            let line = line.trim_start();
-            // mounts format
-            // http://man7.org/linux/man-pages/man5/fstab.5.html
-            // fs_spec<tab>fs_file<tab>fs_vfstype<tab>other fields
-            let mut fields = line.split_whitespace();
-            let fs_spec = fields.next().unwrap_or("");
-            let fs_file = fields
-                .next()
-                .unwrap_or("")
-                .replace("\\134", "\\")
-                .replace("\\040", " ")
-                .replace("\\011", "\t")
-                .replace("\\012", "\n");
-            let fs_vfstype = fields.next().unwrap_or("");
-            (fs_spec, fs_file, fs_vfstype)
-        })
-        .filter(|(fs_spec, fs_file, fs_vfstype)| {
-            // Check if fs_vfstype is one of our 'ignored' file systems.
-            let filtered = match *fs_vfstype {
-                "rootfs" | // https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt
-                "sysfs" | // pseudo file system for kernel objects
-                "proc" |  // another pseudo file system
-                "devtmpfs" |
-                "cgroup" |
-                "cgroup2" |
-                "pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
-                "squashfs" | // squashfs is a compressed read-only file system (for snaps)
-                "rpc_pipefs" | // The pipefs pseudo file system service
-                "iso9660" // optical media
-                => true,
-                "tmpfs" => !cfg!(feature = "linux-tmpfs"),
-                // calling statvfs on a mounted CIFS or NFS may hang, when they are mounted with option: hard
-                "cifs" | "nfs" | "nfs4" => !cfg!(feature = "linux-netdevs"),
-                _ => false,
-            };
-
-            !(filtered ||
-               fs_file.starts_with("/sys") || // check if fs_file is an 'ignored' mount point
-               fs_file.starts_with("/proc") ||
-               (fs_file.starts_with("/run") && !fs_file.starts_with("/run/media")) ||
-               fs_spec.starts_with("sunrpc"))
-        })
-        .filter_map(|(fs_spec, fs_file, fs_vfstype)| {
-            new_disk(
-                fs_spec.as_ref(),
-                Path::new(&fs_file),
-                fs_vfstype.as_ref(),
-                &removable_entries,
-            )
-        })
-    {
-        container.push(disk);
+    for (fs_spec, fs_file, fs_vfstype) in disks.values() {
+        if let Some(disk) = new_disk(
+            fs_spec.as_ref(),
+            Path::new(&fs_file),
+            fs_vfstype.as_ref(),
+            &removable_entries,
+        ) {
+            container.push(disk);
+        }
     }
 }
 
