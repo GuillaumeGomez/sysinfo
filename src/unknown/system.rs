@@ -3,6 +3,17 @@
 use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind};
 
 use std::collections::HashMap;
+use std::time::Duration;
+
+declare_signals! {
+    (),
+    _ => None,
+}
+
+#[doc = include_str!("../../md_doc/supported_signals.md")]
+pub const SUPPORTED_SIGNALS: &[crate::Signal] = supported_signals();
+#[doc = include_str!("../../md_doc/minimum_cpu_update_interval.md")]
+pub const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(0);
 
 pub(crate) struct SystemInner {
     processes_list: HashMap<Pid, Process>,

@@ -4,20 +4,20 @@ pub mod disk;
 pub mod ffi;
 pub(crate) mod utils;
 
-#[cfg(not(feature = "apple-sandbox"))]
+#[cfg(all(feature = "system", not(feature = "apple-sandbox")))]
 pub(crate) mod cpu;
 
-#[cfg(not(feature = "apple-sandbox"))]
+#[cfg(all(feature = "system", not(feature = "apple-sandbox")))]
 pub mod system;
 
 #[cfg(not(feature = "apple-sandbox"))]
 pub mod component;
 
-#[cfg(not(feature = "apple-sandbox"))]
+#[cfg(all(feature = "system", not(feature = "apple-sandbox")))]
 pub mod process;
 
 #[cfg(feature = "apple-sandbox")]
 pub use crate::sys::app_store::component;
 
-#[cfg(feature = "apple-sandbox")]
+#[cfg(all(feature = "system", feature = "apple-sandbox"))]
 pub use crate::sys::app_store::process;

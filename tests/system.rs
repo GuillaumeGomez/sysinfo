@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#![cfg(feature = "system")]
 #![allow(clippy::assertions_on_constants)]
 
 use sysinfo::System;

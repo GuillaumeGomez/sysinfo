@@ -1,7 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use core_foundation_sys::base::CFRelease;
-use libc::{c_void, sysctl, sysctlbyname};
 use std::ptr::NonNull;
 
 // A helper using to auto release the resource got from CoreFoundation.
@@ -44,8 +43,13 @@ pub(crate) fn vec_to_rust(buf: Vec<i8>) -> Option<String> {
     .ok()
 }
 
-pub(crate) unsafe fn get_sys_value(mut len: usize, value: *mut c_void, mib: &mut [i32]) -> bool {
-    sysctl(
+#[cfg(feature = "system")]
+pub(crate) unsafe fn get_sys_value(
+    mut len: usize,
+    value: *mut libc::c_void,
+    mib: &mut [i32],
+) -> bool {
+    libc::sysctl(
         mib.as_mut_ptr(),
         mib.len() as _,
         value,
@@ -55,12 +59,13 @@ pub(crate) unsafe fn get_sys_value(mut len: usize, value: *mut c_void, mib: &mut
     ) == 0
 }
 
+#[cfg(feature = "system")]
 pub(crate) unsafe fn get_sys_value_by_name(
     name: &[u8],
     len: &mut usize,
-    value: *mut c_void,
+    value: *mut libc::c_void,
 ) -> bool {
-    sysctlbyname(
+    libc::sysctlbyname(
         name.as_ptr() as *const _,
         value,
         len,

@@ -2449,6 +2449,7 @@ impl Cpu {
 #[cfg(test)]
 mod test {
     use crate::*;
+    use std::str::FromStr;
 
     // In case `Process::updated` is misused, `System::refresh_processes` might remove them
     // so this test ensures that it doesn't happen.
@@ -2680,4 +2681,76 @@ mod test {
     fn check_display_impl_process_status() {
         println!("{} {:?}", ProcessStatus::Parked, ProcessStatus::Idle);
     }
+
+    #[test]
+    #[allow(clippy::unnecessary_fallible_conversions)]
+    fn check_pid_from_impls() {
+        assert!(crate::Pid::try_from(0usize).is_ok());
+        // If it doesn't panic, it's fine.
+        let _ = crate::Pid::from(0);
+        assert!(crate::Pid::from_str("0").is_ok());
+    }
+
+    #[test]
+    #[allow(clippy::const_is_empty)]
+    fn check_nb_supported_signals() {
+        if IS_SUPPORTED_SYSTEM {
+            assert!(
+                !SUPPORTED_SIGNALS.is_empty(),
+                "SUPPORTED_SIGNALS shouldn't be empty on supported systems!"
+            );
+        } else {
+            assert!(
+                SUPPORTED_SIGNALS.is_empty(),
+                "SUPPORTED_SIGNALS should be empty on not support systems!"
+            );
+        }
+    }
+}
+
+#[cfg(doctest)]
+mod doctest {
+    // FIXME: Can be removed once negative trait bounds are supported.
+    /// Check that `Process` doesn't implement `Clone`.
+    ///
+    /// First we check that the "basic" code works:
+    ///
+    /// ```no_run
+    /// use sysinfo::{Process, System};
+    ///
+    /// let mut s = System::new_all();
+    /// let p: &Process = s.processes().values().next().unwrap();
+    /// ```
+    ///
+    /// And now we check if it fails when we try to clone it:
+    ///
+    /// ```compile_fail
+    /// use sysinfo::{Process, System};
+    ///
+    /// let mut s = System::new_all();
+    /// let p: &Process = s.processes().values().next().unwrap();
+    /// let p = (*p).clone();
+    /// ```
+    mod process_clone {}
+
+    // FIXME: Can be removed once negative trait bounds are supported.
+    /// Check that `System` doesn't implement `Clone`.
+    ///
+    /// First we check that the "basic" code works:
+    ///
+    /// ```no_run
+    /// use sysinfo::{Process, System};
+    ///
+    /// let s = System::new();
+    /// ```
+    ///
+    /// And now we check if it fails when we try to clone it:
+    ///
+    /// ```compile_fail
+    /// use sysinfo::{Process, System};
+    ///
+    /// let s = System::new();
+    /// let s = s.clone();
+    /// ```
+    mod system_clone {}
 }

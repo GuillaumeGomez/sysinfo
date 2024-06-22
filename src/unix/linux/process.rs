@@ -9,17 +9,20 @@ use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::str::{self, FromStr};
+use std::sync::atomic::Ordering;
 
 use bstr::ByteSlice;
 use libc::{c_ulong, gid_t, kill, uid_t};
 
 use crate::sys::system::SystemInfo;
 use crate::sys::utils::{
-    get_all_data_from_file, get_all_utf8_data, realpath, FileCounter, PathHandler, PathPush,
+    get_all_data_from_file, get_all_utf8_data, realpath, PathHandler, PathPush,
 };
 use crate::{
     DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, ThreadKind, Uid,
 };
+
+use crate::sys::system::remaining_files;
 
 #[doc(hidden)]
 impl From<char> for ProcessStatus {
@@ -115,7 +118,7 @@ pub(crate) struct ProcessInner {
     effective_group_id: Option<Gid>,
     pub(crate) status: ProcessStatus,
     pub(crate) tasks: Option<HashSet<Pid>>,
-    pub(crate) stat_file: Option<FileCounter>,
+    stat_file: Option<FileCounter>,
     old_read_bytes: u64,
     old_written_bytes: u64,
     read_bytes: u64,
@@ -163,7 +166,7 @@ impl ProcessInner {
     }
 
     pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
-        let c_signal = crate::sys::convert_signal(signal)?;
+        let c_signal = crate::sys::system::convert_signal(signal)?;
         unsafe { Some(kill(self.pid.0, c_signal) == 0) }
     }
 
@@ -891,4 +894,42 @@ fn parse_stat_file(data: &[u8]) -> Option<Parts<'_>> {
         str_parts,
         short_exe: short_exe.strip_prefix(&[b'(']).unwrap_or(short_exe),
     })
+}
+
+/// Type used to correctly handle the `REMAINING_FILES` global.
+struct FileCounter(File);
+
+impl FileCounter {
+    fn new(f: File) -> Option<Self> {
+        let any_remaining =
+            remaining_files().fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
+                if remaining > 0 {
+                    Some(remaining - 1)
+                } else {
+                    // All file descriptors we were allowed are being used.
+                    None
+                }
+            });
+
+        any_remaining.ok().map(|_| Self(f))
+    }
+}
+
+impl std::ops::Deref for FileCounter {
+    type Target = File;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl std::ops::DerefMut for FileCounter {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Drop for FileCounter {
+    fn drop(&mut self) {
+        remaining_files().fetch_add(1, Ordering::Relaxed);
+    }
 }

@@ -42,6 +42,7 @@ impl Serialize for crate::Uid {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::Pid {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -51,6 +52,7 @@ impl Serialize for crate::Pid {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::Process {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -82,6 +84,7 @@ impl Serialize for crate::Process {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::Cpu {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -100,6 +103,7 @@ impl Serialize for crate::Cpu {
     }
 }
 
+#[cfg(feature = "system")]
 impl serde::Serialize for crate::System {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

@@ -1,12 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{
-    Component, Components, Cpu, Disk, Disks, NetworkData, Networks, Process, System, User, Users,
-};
+use crate::{Component, Components, Disk, Disks, NetworkData, Networks, User, Users};
 
 use std::fmt;
 
-impl fmt::Debug for Cpu {
+#[cfg(feature = "system")]
+impl fmt::Debug for crate::Cpu {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Cpu")
             .field("name", &self.name())
@@ -18,7 +17,8 @@ impl fmt::Debug for Cpu {
     }
 }
 
-impl fmt::Debug for System {
+#[cfg(feature = "system")]
+impl fmt::Debug for crate::System {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("System")
             .field("global CPU usage", &self.global_cpu_usage())
@@ -49,7 +49,8 @@ impl fmt::Debug for Disk {
     }
 }
 
-impl fmt::Debug for Process {
+#[cfg(feature = "system")]
+impl fmt::Debug for crate::Process {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Process")
             .field("pid", &self.pid())

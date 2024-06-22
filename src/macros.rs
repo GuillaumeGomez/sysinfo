@@ -16,6 +16,7 @@ macro_rules! sysinfo_debug {
     ($($x:tt)*) => {{}};
 }
 
+#[cfg(feature = "system")]
 macro_rules! declare_signals {
     ($kind:ty, _ => None,) => (
         use crate::Signal;

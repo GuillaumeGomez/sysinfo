@@ -1,6 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::tools::KeyHandler;
 use crate::{Cpu, CpuRefreshKind, LoadAvg};
 
 use std::collections::HashMap;
@@ -604,5 +603,15 @@ fn init_cpus(refresh_kind: CpuRefreshKind) -> Vec<Cpu> {
             });
         }
         ret
+    }
+}
+
+pub(crate) struct KeyHandler {
+    pub unique_id: String,
+}
+
+impl KeyHandler {
+    pub fn new(unique_id: String) -> Self {
+        Self { unique_id }
     }
 }

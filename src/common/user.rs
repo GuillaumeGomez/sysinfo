@@ -333,7 +333,8 @@ impl Users {
     ///
     /// Full example:
     ///
-    /// ```no_run
+    #[cfg_attr(feature = "system", doc = "```no_run")]
+    #[cfg_attr(not(feature = "system"), doc = "```ignore")]
     /// use sysinfo::{Pid, System, Users};
     ///
     /// let mut s = System::new_all();
@@ -523,11 +524,6 @@ mod tests {
 
         assert!(crate::Gid::try_from(0usize).is_ok());
         assert!(crate::Gid::from_str("0").is_ok());
-
-        assert!(crate::Pid::try_from(0usize).is_ok());
-        // If it doesn't panic, it's fine.
-        let _ = crate::Pid::from(0);
-        assert!(crate::Pid::from_str("0").is_ok());
     }
 
     #[test]
