@@ -2,8 +2,7 @@
 
 extern crate test;
 
-use sysinfo::get_current_pid;
-
+#[cfg(feature = "system")]
 #[bench]
 fn bench_new(b: &mut test::Bencher) {
     b.iter(|| {
@@ -11,6 +10,7 @@ fn bench_new(b: &mut test::Bencher) {
     });
 }
 
+#[cfg(feature = "system")]
 #[bench]
 fn bench_new_all(b: &mut test::Bencher) {
     b.iter(|| {
@@ -18,6 +18,7 @@ fn bench_new_all(b: &mut test::Bencher) {
     });
 }
 
+#[cfg(feature = "system")]
 #[bench]
 fn bench_refresh_all(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new_all();
@@ -27,6 +28,7 @@ fn bench_refresh_all(b: &mut test::Bencher) {
     });
 }
 
+#[cfg(feature = "system")]
 #[bench]
 fn bench_refresh_processes(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
@@ -37,6 +39,7 @@ fn bench_refresh_processes(b: &mut test::Bencher) {
     });
 }
 
+#[cfg(feature = "system")]
 #[bench]
 fn bench_first_refresh_processes(b: &mut test::Bencher) {
     b.iter(move || {
@@ -45,13 +48,14 @@ fn bench_first_refresh_processes(b: &mut test::Bencher) {
     });
 }
 
+#[cfg(feature = "system")]
 #[bench]
 fn bench_refresh_process(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
 
     s.refresh_all();
     // to be sure it'll exist for at least as long as we run
-    let pid = get_current_pid().expect("failed to get current pid");
+    let pid = sysinfo::get_current_pid().expect("failed to get current pid");
     b.iter(move || {
         s.refresh_process(pid);
     });
@@ -104,6 +108,7 @@ fn bench_refresh_networks_list(b: &mut test::Bencher) {
     });
 }
 
+#[cfg(feature = "system")]
 #[bench]
 fn bench_refresh_memory(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
@@ -113,6 +118,7 @@ fn bench_refresh_memory(b: &mut test::Bencher) {
     });
 }
 
+#[cfg(feature = "system")]
 #[bench]
 fn bench_refresh_cpu_usage(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();

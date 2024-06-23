@@ -2,4 +2,5 @@
 
 pub mod ffi {}
 pub use crate::sys::app_store::component;
+#[cfg(feature = "system")]
 pub use crate::sys::app_store::process;

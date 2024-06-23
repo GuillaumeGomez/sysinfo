@@ -15,10 +15,27 @@ edition = "2021"
 name = "sysinfo"
 
 [features]
-default = ["multithread"]
+default = ["system", "multithread"]
+system = [
+    "windows/Wdk_System_SystemInformation",
+    "windows/Wdk_System_SystemServices",
+    "windows/Wdk_System_Threading",
+    "windows/Win32_System_Diagnostics_Debug",
+    "windows/Win32_System_Kernel",
+    "windows/Win32_System_Memory",
+    "windows/Win32_System_Performance",
+    "windows/Win32_System_Power",
+    "windows/Win32_System_ProcessStatus",
+    "windows/Win32_System_Registry",
+    "windows/Win32_System_RemoteDesktop",
+    "windows/Win32_System_SystemInformation",
+    "windows/Win32_System_SystemServices",
+    "windows/Win32_System_Threading",
+    "windows/Win32_UI_Shell",
+]
 apple-sandbox = []
 apple-app-store = ["apple-sandbox"]
-c-interface = []
+c-interface = ["default"]
 multithread = ["dep:rayon"]
 linux-netdevs = []
 linux-tmpfs = []
@@ -50,9 +67,6 @@ serde = { version = "^1.0.190", optional = true }
 [target.'cfg(windows)'.dependencies]
 ntapi = "0.4"
 windows = { version = "0.56", features = [
-    "Wdk_System_SystemInformation",
-    "Wdk_System_SystemServices",
-    "Wdk_System_Threading",
     "Win32_Foundation",
     "Win32_NetworkManagement_IpHelper",
     "Win32_NetworkManagement_NetManagement",
@@ -63,26 +77,12 @@ windows = { version = "0.56", features = [
     "Win32_Security_Authorization",
     "Win32_Storage_FileSystem",
     "Win32_System_Com",
-    "Win32_System_Diagnostics_Debug",
     "Win32_System_IO",
     "Win32_System_Ioctl",
-    "Win32_System_LibraryLoader",
-    "Win32_System_Kernel",
-    "Win32_System_Memory",
-    "Win32_System_Ole",
-    "Win32_System_Performance",
-    "Win32_System_Power",
-    "Win32_System_ProcessStatus",
-    "Win32_System_Registry",
-    "Win32_System_RemoteDesktop",
     "Win32_System_Rpc",
-    "Win32_System_SystemInformation",
-    "Win32_System_SystemServices",
-    "Win32_System_Threading",
     "Win32_System_Variant",
     "Win32_System_WindowsProgramming",
     "Win32_System_Wmi",
-    "Win32_UI_Shell",
 ]}
 
 [target.'cfg(not(any(target_os = "unknown", target_arch = "wasm32")))'.dependencies]
@@ -96,3 +96,8 @@ tempfile = "3.9"
 
 [dev-dependencies]
 serde_json = "1.0" # Used in documentation tests.
+
+[[example]]
+name = "simple"
+path = "examples/simple.rs"
+required-features = ["default"]

@@ -1,7 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-// This test is used to ensure that the CPUs are not loaded by default.
+#![cfg(feature = "system")]
 
+// This test is used to ensure that the CPUs are not loaded by default.
 #[test]
 fn test_cpu() {
     let mut s = sysinfo::System::new();

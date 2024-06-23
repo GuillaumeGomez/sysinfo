@@ -11,11 +11,12 @@ task:
   test_script:
     - . $HOME/.cargo/env
     - cargo check
-    - cargo check --no-default-features
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
     - cargo clippy -- -D warnings
     - cargo check --example simple
-    - FREEBSD_CI=1 cargo test -j1
-    - FREEBSD_CI=1 cargo test --lib -j1 -- --ignored
+    - FREEBSD_CI=1 cargo test -- --test-threads=1
+    - FREEBSD_CI=1 cargo test --lib -- --ignored --test-threads=1
 
 task:
   name: rust nightly on freebsd 13
@@ -30,11 +31,12 @@ task:
   test_script:
     - . $HOME/.cargo/env
     - cargo check
-    - cargo check --no-default-features
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
     - cargo clippy -- -D warnings
     - cargo check --example simple
-    - FREEBSD_CI=1 cargo test -j1
-    - FREEBSD_CI=1 cargo test --lib -j1 -- --ignored
+    - FREEBSD_CI=1 cargo test -- --test-threads=1
+    - FREEBSD_CI=1 cargo test --lib -- --test-threads=1
 
 task:
   name: rust 1.74 on mac m1
@@ -51,9 +53,10 @@ task:
   test_script:
     - source $HOME/.cargo/env
     - cargo check
-    - cargo check --no-default-features
-    - cargo check --no-default-features --features apple-sandbox
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features apple-sandbox
     - cargo clippy -- -D warnings
     - cargo check --example simple
-    - APPLE_CI=1 cargo test -j1
-    - APPLE_CI=1 cargo test --lib -j1 -- --ignored
+    - APPLE_CI=1 cargo test -- --test-threads=1
+    - APPLE_CI=1 cargo test --lib -- --ignored --test-threads=1

@@ -2,6 +2,7 @@
 
 #[test]
 #[allow(clippy::extra_unused_type_parameters)]
+#[cfg(feature = "system")]
 fn test_send_sync() {
     fn is_send<T: Send>() {}
     fn is_sync<T: Sync>() {}

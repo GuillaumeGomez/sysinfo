@@ -1,79 +1,32 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Pid, Process};
-use libc::{c_char, c_int, timeval};
-use std::cell::UnsafeCell;
-use std::collections::HashMap;
+use libc::{c_char, c_int};
+#[cfg(feature = "system")]
 use std::ffi::{CStr, OsStr, OsString};
 use std::mem;
+#[cfg(feature = "system")]
 use std::os::unix::ffi::OsStrExt;
-use std::time::SystemTime;
 
-/// This struct is used to switch between the "old" and "new" every time you use "get_mut".
-#[derive(Debug)]
-pub(crate) struct VecSwitcher<T> {
-    v1: Vec<T>,
-    v2: Vec<T>,
-    first: bool,
-}
-
-impl<T: Clone> VecSwitcher<T> {
-    pub fn new(v1: Vec<T>) -> Self {
-        let v2 = v1.clone();
-
-        Self {
-            v1,
-            v2,
-            first: true,
-        }
-    }
-
-    pub fn get_mut(&mut self) -> &mut [T] {
-        self.first = !self.first;
-        if self.first {
-            // It means that `v2` will be the "new".
-            &mut self.v2
-        } else {
-            // It means that `v1` will be the "new".
-            &mut self.v1
-        }
-    }
-
-    pub fn get_old(&self) -> &[T] {
-        if self.first {
-            &self.v1
-        } else {
-            &self.v2
-        }
-    }
-
-    pub fn get_new(&self) -> &[T] {
-        if self.first {
-            &self.v2
-        } else {
-            &self.v1
-        }
-    }
-}
-
+#[cfg(feature = "system")]
 #[inline]
 pub unsafe fn init_mib(name: &[u8], mib: &mut [c_int]) {
     let mut len = mib.len();
     libc::sysctlnametomib(name.as_ptr() as _, mib.as_mut_ptr(), &mut len);
 }
 
+#[cfg(feature = "system")]
 pub(crate) fn boot_time() -> u64 {
-    let mut boot_time = timeval {
+    let mut boot_time = libc::timeval {
         tv_sec: 0,
         tv_usec: 0,
     };
-    let mut len = std::mem::size_of::<timeval>();
+    let mut len = std::mem::size_of::<libc::timeval>();
     let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
     unsafe {
         if libc::sysctl(
             mib.as_mut_ptr(),
             mib.len() as _,
-            &mut boot_time as *mut timeval as *mut _,
+            &mut boot_time as *mut libc::timeval as *mut _,
             &mut len,
             std::ptr::null_mut(),
             0,
@@ -98,6 +51,7 @@ pub(crate) unsafe fn get_sys_value<T: Sized>(mib: &[c_int], value: &mut T) -> bo
     ) == 0
 }
 
+#[cfg(feature = "system")]
 pub(crate) unsafe fn get_sys_value_array<T: Sized>(mib: &[c_int], value: &mut [T]) -> bool {
     let mut len = mem::size_of_val(value) as libc::size_t;
     libc::sysctl(
@@ -127,6 +81,7 @@ pub(crate) fn c_buf_to_utf8_string(buf: &[libc::c_char]) -> Option<String> {
     c_buf_to_utf8_str(buf).map(|s| s.to_owned())
 }
 
+#[cfg(feature = "system")]
 pub(crate) fn c_buf_to_os_str(buf: &[libc::c_char]) -> &OsStr {
     unsafe {
         let buf: &[u8] = std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
@@ -139,10 +94,12 @@ pub(crate) fn c_buf_to_os_str(buf: &[libc::c_char]) -> &OsStr {
     }
 }
 
+#[cfg(feature = "system")]
 pub(crate) fn c_buf_to_os_string(buf: &[libc::c_char]) -> OsString {
     c_buf_to_os_str(buf).to_owned()
 }
 
+#[cfg(feature = "system")]
 pub(crate) unsafe fn get_sys_value_str(
     mib: &[c_int],
     buf: &mut [libc::c_char],
@@ -178,6 +135,7 @@ pub(crate) unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T)
         && original == len
 }
 
+#[cfg(feature = "system")]
 pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
     let mut size = 0;
 
@@ -214,45 +172,7 @@ pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
     }
 }
 
-pub(crate) fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
-    let mut size = 0;
-
-    unsafe {
-        // Call first to get size
-        libc::sysctl(
-            mib.as_ptr(),
-            mib.len() as _,
-            std::ptr::null_mut(),
-            &mut size,
-            std::ptr::null_mut(),
-            0,
-        );
-
-        // exit early if we did not update the size
-        if size == 0 {
-            default.map(|s| s.to_owned())
-        } else {
-            // set the buffer to the correct size
-            let mut buf: Vec<libc::c_char> = vec![0; size as _];
-
-            if libc::sysctl(
-                mib.as_ptr(),
-                mib.len() as _,
-                buf.as_mut_ptr() as _,
-                &mut size,
-                std::ptr::null_mut(),
-                0,
-            ) == -1
-            {
-                // If command fails return default
-                default.map(|s| s.to_owned())
-            } else {
-                c_buf_to_utf8_string(&buf)
-            }
-        }
-    }
-}
-
+#[cfg(feature = "system")]
 pub(crate) unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<OsString> {
     if ptr.is_null() {
         return Vec::new();
@@ -277,24 +197,43 @@ pub(crate) unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<OsString>
     ret
 }
 
-pub(crate) fn get_now() -> u64 {
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map(|n| n.as_secs())
-        .unwrap_or(0)
+pub(crate) unsafe fn get_nb_cpus() -> usize {
+    let mut smp: c_int = 0;
+    let mut nb_cpus: c_int = 1;
+
+    if !get_sys_value_by_name(b"kern.smp.active\0", &mut smp) {
+        smp = 0;
+    }
+    #[allow(clippy::collapsible_if)] // I keep as is for readability reasons.
+    if smp != 0 {
+        if !get_sys_value_by_name(b"kern.smp.cpus\0", &mut nb_cpus) || nb_cpus < 1 {
+            nb_cpus = 1;
+        }
+    }
+    nb_cpus as usize
 }
 
 // All this is needed because `kinfo_proc` doesn't implement `Send` (because it contains pointers).
-pub(crate) struct WrapMap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
+#[cfg(feature = "system")]
+pub(crate) struct WrapMap<'a>(
+    pub std::cell::UnsafeCell<&'a mut std::collections::HashMap<crate::Pid, crate::Process>>,
+);
 
+#[cfg(feature = "system")]
 unsafe impl<'a> Send for WrapMap<'a> {}
+#[cfg(feature = "system")]
 unsafe impl<'a> Sync for WrapMap<'a> {}
 
+#[cfg(feature = "system")]
 #[repr(transparent)]
 pub(crate) struct KInfoProc(libc::kinfo_proc);
+
+#[cfg(feature = "system")]
 unsafe impl Send for KInfoProc {}
+#[cfg(feature = "system")]
 unsafe impl Sync for KInfoProc {}
 
+#[cfg(feature = "system")]
 impl std::ops::Deref for KInfoProc {
     type Target = libc::kinfo_proc;
 

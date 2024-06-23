@@ -10,15 +10,56 @@ use std::ffi::CStr;
 use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
+use std::time::{Duration, SystemTime};
 
 use crate::sys::cpu::{physical_core_count, CpusWrapper};
 use crate::sys::process::get_exe;
 use crate::sys::utils::{
-    self, boot_time, c_buf_to_os_string, from_cstr_array, get_sys_value, get_sys_value_by_name,
-    get_system_info, init_mib,
+    self, boot_time, c_buf_to_os_string, c_buf_to_utf8_string, from_cstr_array, get_sys_value,
+    get_sys_value_by_name, init_mib,
 };
 
 use libc::c_int;
+
+declare_signals! {
+    c_int,
+    Signal::Hangup => libc::SIGHUP,
+    Signal::Interrupt => libc::SIGINT,
+    Signal::Quit => libc::SIGQUIT,
+    Signal::Illegal => libc::SIGILL,
+    Signal::Trap => libc::SIGTRAP,
+    Signal::Abort => libc::SIGABRT,
+    Signal::IOT => libc::SIGIOT,
+    Signal::Bus => libc::SIGBUS,
+    Signal::FloatingPointException => libc::SIGFPE,
+    Signal::Kill => libc::SIGKILL,
+    Signal::User1 => libc::SIGUSR1,
+    Signal::Segv => libc::SIGSEGV,
+    Signal::User2 => libc::SIGUSR2,
+    Signal::Pipe => libc::SIGPIPE,
+    Signal::Alarm => libc::SIGALRM,
+    Signal::Term => libc::SIGTERM,
+    Signal::Child => libc::SIGCHLD,
+    Signal::Continue => libc::SIGCONT,
+    Signal::Stop => libc::SIGSTOP,
+    Signal::TSTP => libc::SIGTSTP,
+    Signal::TTIN => libc::SIGTTIN,
+    Signal::TTOU => libc::SIGTTOU,
+    Signal::Urgent => libc::SIGURG,
+    Signal::XCPU => libc::SIGXCPU,
+    Signal::XFSZ => libc::SIGXFSZ,
+    Signal::VirtualAlarm => libc::SIGVTALRM,
+    Signal::Profiling => libc::SIGPROF,
+    Signal::Winch => libc::SIGWINCH,
+    Signal::IO => libc::SIGIO,
+    Signal::Sys => libc::SIGSYS,
+    _ => None,
+}
+
+#[doc = include_str!("../../../md_doc/supported_signals.md")]
+pub const SUPPORTED_SIGNALS: &[crate::Signal] = supported_signals();
+#[doc = include_str!("../../../md_doc/minimum_cpu_update_interval.md")]
+pub const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(100);
 
 pub(crate) struct SystemInner {
     process_list: HashMap<Pid, Process>,
@@ -94,7 +135,7 @@ impl SystemInner {
                 sysinfo_debug!("kvm_getprocs returned nothing...");
                 return false;
             }
-            let now = super::utils::get_now();
+            let now = get_now();
 
             let fscale = self.system_info.fscale;
             let page_size = self.system_info.page_size as isize;
@@ -329,7 +370,7 @@ impl SystemInner {
 
             let fscale = self.system_info.fscale;
             let page_size = self.system_info.page_size as isize;
-            let now = super::utils::get_now();
+            let now = get_now();
             let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
 
             IterTrait::filter_map(crate::utils::into_iter(kvm_procs), |kproc| {
@@ -679,4 +720,50 @@ impl Drop for SystemInfo {
             }
         }
     }
+}
+
+fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
+    let mut size = 0;
+
+    unsafe {
+        // Call first to get size
+        libc::sysctl(
+            mib.as_ptr(),
+            mib.len() as _,
+            std::ptr::null_mut(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        );
+
+        // exit early if we did not update the size
+        if size == 0 {
+            default.map(|s| s.to_owned())
+        } else {
+            // set the buffer to the correct size
+            let mut buf: Vec<libc::c_char> = vec![0; size as _];
+
+            if libc::sysctl(
+                mib.as_ptr(),
+                mib.len() as _,
+                buf.as_mut_ptr() as _,
+                &mut size,
+                std::ptr::null_mut(),
+                0,
+            ) == -1
+            {
+                // If command fails return default
+                default.map(|s| s.to_owned())
+            } else {
+                c_buf_to_utf8_string(&buf)
+            }
+        }
+    }
+}
+
+fn get_now() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|n| n.as_secs())
+        .unwrap_or(0)
 }

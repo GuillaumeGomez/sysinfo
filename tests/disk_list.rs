@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 #[test]
+#[cfg(feature = "system")]
 fn test_disks() {
     if sysinfo::IS_SUPPORTED_SYSTEM {
         let s = sysinfo::System::new_all();

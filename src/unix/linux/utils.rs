@@ -2,11 +2,9 @@
 
 use std::fs::File;
 use std::io::{self, Read, Seek};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::Ordering;
+use std::path::Path;
 
-use crate::sys::system::remaining_files;
-
+#[cfg(feature = "system")]
 pub(crate) fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<Vec<u8>> {
     let mut buf = Vec::with_capacity(size);
     file.rewind()?;
@@ -26,6 +24,7 @@ pub(crate) fn get_all_utf8_data<P: AsRef<Path>>(file_path: P, size: usize) -> io
     get_all_utf8_data_from_file(&mut file, size)
 }
 
+#[cfg(feature = "system")]
 #[allow(clippy::useless_conversion)]
 pub(crate) fn realpath(path: &Path) -> Option<std::path::PathBuf> {
     match std::fs::read_link(path) {
@@ -37,48 +36,12 @@ pub(crate) fn realpath(path: &Path) -> Option<std::path::PathBuf> {
     }
 }
 
-/// Type used to correctly handle the `REMAINING_FILES` global.
-pub(crate) struct FileCounter(File);
-
-impl FileCounter {
-    pub(crate) fn new(f: File) -> Option<Self> {
-        let any_remaining =
-            remaining_files().fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
-                if remaining > 0 {
-                    Some(remaining - 1)
-                } else {
-                    // All file descriptors we were allowed are being used.
-                    None
-                }
-            });
-
-        any_remaining.ok().map(|_| Self(f))
-    }
-}
-
-impl std::ops::Deref for FileCounter {
-    type Target = File;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl std::ops::DerefMut for FileCounter {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl Drop for FileCounter {
-    fn drop(&mut self) {
-        remaining_files().fetch_add(1, Ordering::Relaxed);
-    }
-}
-
 /// This type is used in `retrieve_all_new_process_info` because we have a "parent" path and
 /// from it, we `pop`/`join` every time because it's more memory efficient than using `Path::join`.
-pub(crate) struct PathHandler(PathBuf);
+#[cfg(feature = "system")]
+pub(crate) struct PathHandler(std::path::PathBuf);
 
+#[cfg(feature = "system")]
 impl PathHandler {
     pub(crate) fn new(path: &Path) -> Self {
         // `path` is the "parent" for all paths which will follow so we add a fake element at
@@ -87,10 +50,12 @@ impl PathHandler {
     }
 }
 
+#[cfg(feature = "system")]
 pub(crate) trait PathPush {
     fn join(&mut self, p: &str) -> &Path;
 }
 
+#[cfg(feature = "system")]
 impl PathPush for PathHandler {
     fn join(&mut self, p: &str) -> &Path {
         self.0.pop();
@@ -100,13 +65,15 @@ impl PathPush for PathHandler {
 }
 
 // This implementation allows to skip one allocation that is done in `PathHandler`.
-impl PathPush for PathBuf {
+#[cfg(feature = "system")]
+impl PathPush for std::path::PathBuf {
     fn join(&mut self, p: &str) -> &Path {
         self.push(p);
         self.as_path()
     }
 }
 
+#[cfg(feature = "system")]
 pub(crate) fn to_u64(v: &[u8]) -> u64 {
     let mut x = 0;
 

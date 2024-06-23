@@ -1,27 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::{
-    get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name, init_mib, VecSwitcher,
+    get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name, init_mib,
 };
 use crate::{Cpu, CpuRefreshKind};
 
 use libc::{c_int, c_ulong};
-
-pub(crate) unsafe fn get_nb_cpus() -> usize {
-    let mut smp: c_int = 0;
-    let mut nb_cpus: c_int = 1;
-
-    if !get_sys_value_by_name(b"kern.smp.active\0", &mut smp) {
-        smp = 0;
-    }
-    #[allow(clippy::collapsible_if)] // I keep as is for readability reasons.
-    if smp != 0 {
-        if !get_sys_value_by_name(b"kern.smp.cpus\0", &mut nb_cpus) || nb_cpus < 1 {
-            nb_cpus = 1;
-        }
-    }
-    nb_cpus as usize
-}
 
 pub(crate) struct CpusWrapper {
     pub(crate) global_cpu_usage: f32,
@@ -42,7 +26,7 @@ impl CpusWrapper {
         let mut mib_cp_times = [0; 2];
 
         unsafe {
-            let nb_cpus = get_nb_cpus();
+            let nb_cpus = super::utils::get_nb_cpus();
             init_mib(b"kern.cp_time\0", &mut mib_cp_time);
             init_mib(b"kern.cp_times\0", &mut mib_cp_times);
             Self {
@@ -191,4 +175,51 @@ unsafe fn get_frequency_for_cpu(cpu_nb: usize) -> u64 {
         frequency = 0;
     }
     frequency as _
+}
+
+/// This struct is used to switch between the "old" and "new" every time you use "get_mut".
+#[derive(Debug)]
+pub(crate) struct VecSwitcher<T> {
+    v1: Vec<T>,
+    v2: Vec<T>,
+    first: bool,
+}
+
+impl<T: Clone> VecSwitcher<T> {
+    pub fn new(v1: Vec<T>) -> Self {
+        let v2 = v1.clone();
+
+        Self {
+            v1,
+            v2,
+            first: true,
+        }
+    }
+
+    pub fn get_mut(&mut self) -> &mut [T] {
+        self.first = !self.first;
+        if self.first {
+            // It means that `v2` will be the "new".
+            &mut self.v2
+        } else {
+            // It means that `v1` will be the "new".
+            &mut self.v1
+        }
+    }
+
+    pub fn get_old(&self) -> &[T] {
+        if self.first {
+            &self.v1
+        } else {
+            &self.v2
+        }
+    }
+
+    pub fn get_new(&self) -> &[T] {
+        if self.first {
+            &self.v2
+        } else {
+            &self.v1
+        }
+    }
 }

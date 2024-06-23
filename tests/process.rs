@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#![cfg(feature = "system")]
+
 use bstr::ByteSlice;
 use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
 

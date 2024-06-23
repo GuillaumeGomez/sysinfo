@@ -1,6 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#![doc = include_str!("../README.md")]
+#![cfg_attr(feature = "system", doc = include_str!("../README.md"))]
+#![cfg_attr(
+    not(feature = "system"),
+    doc = "For crate-level documentation, all features need to be enabled."
+)]
 #![cfg_attr(feature = "serde", doc = include_str!("../md_doc/serde.md"))]
 #![allow(unknown_lints)]
 #![deny(missing_docs)]
@@ -54,21 +58,27 @@ pub use crate::common::{
     component::{Component, Components},
     disk::{Disk, DiskKind, Disks},
     network::{IpNetwork, MacAddr, NetworkData, Networks},
-    system::{
-        get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, DiskUsage, LoadAvg, MemoryRefreshKind,
-        Pid, Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, ThreadKind,
-        UpdateKind,
-    },
     user::{Group, Groups, User, Users},
     Gid, Uid,
 };
 
-pub(crate) use crate::common::user::GroupInner;
-pub(crate) use crate::sys::{
-    ComponentInner, ComponentsInner, CpuInner, DiskInner, DisksInner, NetworkDataInner,
-    NetworksInner, ProcessInner, SystemInner, UserInner,
+#[cfg(feature = "system")]
+pub use crate::common::system::{
+    get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, DiskUsage, LoadAvg, MemoryRefreshKind, Pid,
+    Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, ThreadKind,
+    UpdateKind,
 };
-pub use crate::sys::{IS_SUPPORTED_SYSTEM, MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
+
+pub(crate) use crate::common::user::GroupInner;
+pub use crate::sys::IS_SUPPORTED_SYSTEM;
+pub(crate) use crate::sys::{
+    ComponentInner, ComponentsInner, DiskInner, DisksInner, NetworkDataInner, NetworksInner,
+    UserInner,
+};
+#[cfg(feature = "system")]
+pub(crate) use crate::sys::{CpuInner, ProcessInner, SystemInner};
+#[cfg(feature = "system")]
+pub use crate::sys::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
 
 #[cfg(feature = "c-interface")]
 pub use crate::c_interface::*;
@@ -81,8 +91,8 @@ mod debug;
 mod serde;
 pub(crate) mod utils;
 
-/// This function is only used on Linux targets, on the other platforms it does nothing and returns
-/// `false`.
+/// This function is only used on Linux targets, when the `system` feature is enabled. In other
+/// cases, it does nothing and returns `false`.
 ///
 /// On Linux, to improve performance, we keep a `/proc` file open for each process we index with
 /// a maximum number of files open equivalent to half of the system limit.
@@ -94,7 +104,8 @@ pub(crate) mod utils;
 ///
 /// Returns `true` if the new value has been set.
 ///
-/// ```no_run
+#[cfg_attr(feature = "system", doc = "```no_run")]
+#[cfg_attr(not(feature = "system"), doc = "```ignore")]
 /// use sysinfo::{System, set_open_files_limit};
 ///
 /// // We call the function before any call to the processes update.
@@ -106,7 +117,7 @@ pub(crate) mod utils;
 /// ```
 pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
     cfg_if::cfg_if! {
-        if #[cfg(all(not(feature = "unknown-ci"), any(target_os = "linux", target_os = "android")))]
+        if #[cfg(all(feature = "system", not(feature = "unknown-ci"), any(target_os = "linux", target_os = "android")))]
         {
             use crate::sys::system::remaining_files;
             use std::sync::atomic::Ordering;
@@ -128,57 +139,44 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
             }).unwrap();
 
             true
-
         } else {
             false
         }
     }
 }
 
-// FIXME: Can be removed once negative trait bounds are supported.
 #[cfg(doctest)]
 mod doctest {
-    /// Check that `Process` doesn't implement `Clone`.
-    ///
-    /// First we check that the "basic" code works:
-    ///
-    /// ```no_run
-    /// use sysinfo::{Process, System};
-    ///
-    /// let mut s = System::new_all();
-    /// let p: &Process = s.processes().values().next().unwrap();
-    /// ```
-    ///
-    /// And now we check if it fails when we try to clone it:
-    ///
-    /// ```compile_fail
-    /// use sysinfo::{Process, System};
-    ///
-    /// let mut s = System::new_all();
-    /// let p: &Process = s.processes().values().next().unwrap();
-    /// let p = (*p).clone();
-    /// ```
-    mod process_clone {}
+    macro_rules! compile_fail_import {
+        ($mod_name:ident => $($imports:ident),+ $(,)?) => {
+            $(#[doc = concat!(r"```compile_fail
+use sysinfo::", stringify!($imports), r";
+```
+")])+
+            mod $mod_name {}
+        };
+    }
 
-    /// Check that `System` doesn't implement `Clone`.
-    ///
-    /// First we check that the "basic" code works:
-    ///
-    /// ```no_run
-    /// use sysinfo::{Process, System};
-    ///
-    /// let s = System::new();
-    /// ```
-    ///
-    /// And now we check if it fails when we try to clone it:
-    ///
-    /// ```compile_fail
-    /// use sysinfo::{Process, System};
-    ///
-    /// let s = System::new();
-    /// let s = s.clone();
-    /// ```
-    mod system_clone {}
+    #[cfg(not(feature = "system"))]
+    compile_fail_import!(
+        no_system_feature =>
+        get_current_pid,
+        CGroupLimits,
+        Cpu,
+        CpuRefreshKind,
+        DiskUsage,
+        LoadAvg,
+        MemoryRefreshKind,
+        Pid,
+        Process,
+        ProcessRefreshKind,
+        ProcessStatus,
+        RefreshKind,
+        Signal,
+        System,
+        ThreadKind,
+        UpdateKind,
+    );
 }
 
 #[cfg(test)]
@@ -195,10 +193,17 @@ mod test {
     #[test]
     fn check_macro_types() {
         fn check_is_supported(_: bool) {}
+
+        check_is_supported(IS_SUPPORTED_SYSTEM);
+    }
+
+    // If this test doesn't compile, it means the current OS doesn't implement them correctly.
+    #[cfg(feature = "system")]
+    #[test]
+    fn check_macro_types2() {
         fn check_supported_signals(_: &'static [Signal]) {}
         fn check_minimum_cpu_update_interval(_: std::time::Duration) {}
 
-        check_is_supported(IS_SUPPORTED_SYSTEM);
         check_supported_signals(SUPPORTED_SIGNALS);
         check_minimum_cpu_update_interval(MINIMUM_CPU_UPDATE_INTERVAL);
     }
@@ -227,19 +232,23 @@ mod test {
                 assert!(user_list.iter().filter(|u| **u.id() > 0).count() > 0);
             }
 
-            // And now check that our `get_user_by_id` method works.
-            let s = System::new_with_specifics(
-                RefreshKind::new()
-                    .with_processes(ProcessRefreshKind::new().with_user(UpdateKind::Always)),
-            );
-            assert!(s
-                .processes()
-                .iter()
-                .filter_map(|(_, p)| p.user_id())
-                .any(|uid| users.get_user_by_id(uid).is_some()));
+            #[cfg(feature = "system")]
+            {
+                // And now check that our `get_user_by_id` method works.
+                let s = System::new_with_specifics(
+                    RefreshKind::new()
+                        .with_processes(ProcessRefreshKind::new().with_user(UpdateKind::Always)),
+                );
+                assert!(s
+                    .processes()
+                    .iter()
+                    .filter_map(|(_, p)| p.user_id())
+                    .any(|uid| users.get_user_by_id(uid).is_some()));
+            }
         }
     }
 
+    #[cfg(feature = "system")]
     #[test]
     fn check_all_process_uids_resolvable() {
         // On linux, some user IDs don't have an associated user (no idea why though).
@@ -271,22 +280,6 @@ mod test {
             assert!(IS_SUPPORTED_SYSTEM);
         } else {
             assert!(!IS_SUPPORTED_SYSTEM);
-        }
-    }
-
-    #[test]
-    #[allow(clippy::const_is_empty)]
-    fn check_nb_supported_signals() {
-        if IS_SUPPORTED_SYSTEM {
-            assert!(
-                !SUPPORTED_SIGNALS.is_empty(),
-                "SUPPORTED_SIGNALS shouldn't be empty on supported systems!"
-            );
-        } else {
-            assert!(
-                SUPPORTED_SIGNALS.is_empty(),
-                "SUPPORTED_SIGNALS should be empty on not support systems!"
-            );
         }
     }
 }

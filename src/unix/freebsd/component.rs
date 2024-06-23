@@ -56,7 +56,7 @@ pub(crate) struct ComponentsInner {
 
 impl ComponentsInner {
     pub(crate) fn new() -> Self {
-        let nb_cpus = unsafe { super::cpu::get_nb_cpus() };
+        let nb_cpus = unsafe { super::utils::get_nb_cpus() };
         Self {
             nb_cpus,
             components: Vec::with_capacity(nb_cpus),
@@ -65,7 +65,7 @@ impl ComponentsInner {
 
     pub(crate) fn from_vec(components: Vec<Component>) -> Self {
         Self {
-            nb_cpus: unsafe { super::cpu::get_nb_cpus() },
+            nb_cpus: unsafe { super::utils::get_nb_cpus() },
             components,
         }
     }

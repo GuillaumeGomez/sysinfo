@@ -440,7 +440,7 @@ impl ProcessInner {
     }
 
     pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
-        crate::sys::convert_signal(signal)?;
+        crate::sys::system::convert_signal(signal)?;
         let mut kill = process::Command::new("taskkill.exe");
         kill.arg("/PID").arg(self.pid.to_string()).arg("/F");
         kill.creation_flags(CREATE_NO_WINDOW.0);
@@ -573,7 +573,7 @@ unsafe fn get_process_times(handle: HANDLE) -> u64 {
         &mut x as *mut FILETIME,
         &mut x as *mut FILETIME,
     );
-    super::utils::filetime_to_u64(fstart)
+    filetime_to_u64(fstart)
 }
 
 // On Windows, the root folder is always the current drive. So we get it from its `cwd`.
@@ -1139,5 +1139,5 @@ pub(crate) fn update_memory(p: &mut ProcessInner) {
 
 #[inline(always)]
 const fn filetime_to_u64(ft: FILETIME) -> u64 {
-    ((ft.dwHighDateTime as u64) << 32) + ft.dwLowDateTime as u64
+    (ft.dwHighDateTime as u64) << 32 | (ft.dwLowDateTime as u64)
 }

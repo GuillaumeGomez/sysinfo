@@ -3,6 +3,7 @@
 pub(crate) mod component;
 pub(crate) mod disk;
 pub(crate) mod network;
+#[cfg(feature = "system")]
 pub(crate) mod system;
 pub(crate) mod user;
 
