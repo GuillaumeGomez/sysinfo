@@ -11,7 +11,7 @@ pub mod network;
 pub mod users;
 mod utils;
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(target_os = "macos")] {
         pub(crate) mod macos;
         pub(crate) use self::macos as inner;
@@ -21,7 +21,7 @@ cfg_if::cfg_if! {
     }
 }
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(feature = "system")] {
         pub mod cpu;
         pub mod process;

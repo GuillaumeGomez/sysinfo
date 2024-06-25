@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(any(target_os = "macos", target_os = "ios"))] {
         pub(crate) mod apple;
         pub(crate) use apple as sys;

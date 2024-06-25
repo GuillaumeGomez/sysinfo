@@ -5,7 +5,7 @@ pub mod disk;
 pub mod network;
 pub(crate) mod utils;
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(feature = "system")] {
         pub mod cpu;
         pub mod process;

@@ -17,7 +17,7 @@
 #[macro_use]
 mod macros;
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(feature = "unknown-ci")] {
         // This is used in CI to check that the build for unknown targets is compiling fine.
         mod unknown;
@@ -116,7 +116,7 @@ pub(crate) mod utils;
 /// let s = System::new_all();
 /// ```
 pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
-    cfg_if::cfg_if! {
+    cfg_if! {
         if #[cfg(all(feature = "system", not(feature = "unknown-ci"), any(target_os = "linux", target_os = "android")))]
         {
             use crate::sys::system::remaining_files;

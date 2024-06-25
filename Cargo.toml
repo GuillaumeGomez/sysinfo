@@ -59,7 +59,6 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [dependencies]
 bstr = "1.9.0"
-cfg-if = "1.0"
 memchr = "2.7.1"
 rayon = { version = "^1.8", optional = true }
 serde = { version = "^1.0.190", optional = true }

@@ -65,7 +65,7 @@ macro_rules! gid {
     };
 }
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(all(
         not(feature = "unknown-ci"),
         any(

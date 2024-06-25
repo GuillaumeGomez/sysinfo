@@ -6,7 +6,7 @@ mod groups;
 mod network;
 pub(crate) mod network_helper;
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(feature = "system")] {
         mod process;
         mod cpu;
