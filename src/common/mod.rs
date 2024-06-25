@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 pub(crate) mod component;
+#[cfg(feature = "disk")]
 pub(crate) mod disk;
 pub(crate) mod network;
 #[cfg(feature = "system")]

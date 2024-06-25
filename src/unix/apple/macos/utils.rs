@@ -11,6 +11,7 @@ impl IOReleaser {
         IoObject::new(obj).map(Self)
     }
 
+    #[cfg(feature = "disk")]
     pub(crate) unsafe fn new_unchecked(obj: u32) -> Self {
         // Chance at catching in-development mistakes
         debug_assert_ne!(obj, 0);

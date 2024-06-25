@@ -1,31 +1,35 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use core_foundation_sys::{
-    array::CFArrayRef, dictionary::CFDictionaryRef, error::CFErrorRef, string::CFStringRef,
-    url::CFURLRef,
-};
-
 // Reexport items defined in either macos or ios ffi module.
 #[cfg(not(target_os = "ios"))]
 pub use crate::sys::inner::ffi::*;
 
-#[link(name = "CoreFoundation", kind = "framework")]
-extern "C" {
-    pub fn CFURLCopyResourcePropertiesForKeys(
-        url: CFURLRef,
-        keys: CFArrayRef,
-        error: *mut CFErrorRef,
-    ) -> CFDictionaryRef;
+cfg_if! {
+    if #[cfg(feature = "disk")] {
+        use core_foundation_sys::{
+            array::CFArrayRef, dictionary::CFDictionaryRef, error::CFErrorRef, string::CFStringRef,
+            url::CFURLRef,
+        };
 
-    pub static kCFURLVolumeIsEjectableKey: CFStringRef;
-    pub static kCFURLVolumeIsRemovableKey: CFStringRef;
-    pub static kCFURLVolumeAvailableCapacityKey: CFStringRef;
-    pub static kCFURLVolumeAvailableCapacityForImportantUsageKey: CFStringRef;
-    pub static kCFURLVolumeTotalCapacityKey: CFStringRef;
-    pub static kCFURLVolumeNameKey: CFStringRef;
-    pub static kCFURLVolumeIsLocalKey: CFStringRef;
-    pub static kCFURLVolumeIsInternalKey: CFStringRef;
-    pub static kCFURLVolumeIsBrowsableKey: CFStringRef;
+        #[link(name = "CoreFoundation", kind = "framework")]
+        extern "C" {
+            pub fn CFURLCopyResourcePropertiesForKeys(
+                url: CFURLRef,
+                keys: CFArrayRef,
+                error: *mut CFErrorRef,
+            ) -> CFDictionaryRef;
+
+            pub static kCFURLVolumeIsEjectableKey: CFStringRef;
+            pub static kCFURLVolumeIsRemovableKey: CFStringRef;
+            pub static kCFURLVolumeAvailableCapacityKey: CFStringRef;
+            pub static kCFURLVolumeAvailableCapacityForImportantUsageKey: CFStringRef;
+            pub static kCFURLVolumeTotalCapacityKey: CFStringRef;
+            pub static kCFURLVolumeNameKey: CFStringRef;
+            pub static kCFURLVolumeIsLocalKey: CFStringRef;
+            pub static kCFURLVolumeIsInternalKey: CFStringRef;
+            pub static kCFURLVolumeIsBrowsableKey: CFStringRef;
+        }
+    }
 }
 
 #[cfg_attr(feature = "debug", derive(Eq, Hash, PartialEq))]

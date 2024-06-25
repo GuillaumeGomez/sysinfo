@@ -22,23 +22,25 @@ cfg_if! {
     } else {
         compile_error!("Invalid cfg!");
     }
+
+    if #[cfg(feature = "disk")] {
+        pub(crate) struct DisksInner {
+            pub(crate) disks: Vec<crate::Disk>,
+        }
+
+        impl DisksInner {
+            pub(crate) fn from_vec(disks: Vec<crate::Disk>) -> Self {
+                Self { disks }
+            }
+
+            pub(crate) fn into_vec(self) -> Vec<crate::Disk> {
+                self.disks
+            }
+        }
+    }
 }
 
 pub(crate) mod groups;
 pub(crate) mod network_helper;
 pub(crate) mod users;
 pub(crate) mod utils;
-
-pub(crate) struct DisksInner {
-    pub(crate) disks: Vec<crate::Disk>,
-}
-
-impl DisksInner {
-    pub(crate) fn from_vec(disks: Vec<crate::Disk>) -> Self {
-        Self { disks }
-    }
-
-    pub(crate) fn into_vec(self) -> Vec<crate::Disk> {
-        self.disks
-    }
-}

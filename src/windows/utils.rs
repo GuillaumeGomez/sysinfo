@@ -1,8 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::ops::Deref;
-use windows::core::{PCWSTR, PWSTR};
+use windows::core::PWSTR;
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
+#[cfg(feature = "disk")]
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_ACCESS_RIGHTS, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
@@ -30,11 +31,12 @@ impl HandleWrapper {
         }
     }
 
+    #[cfg(feature = "disk")]
     pub(crate) unsafe fn new_from_file(
         drive_name: &[u16],
         open_rights: FILE_ACCESS_RIGHTS,
     ) -> Option<Self> {
-        let lpfilename = PCWSTR::from_raw(drive_name.as_ptr());
+        let lpfilename = windows::core::PCWSTR::from_raw(drive_name.as_ptr());
         let handle = CreateFileW(
             lpfilename,
             open_rights.0,

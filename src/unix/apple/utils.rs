@@ -7,8 +7,10 @@ use std::ptr::NonNull;
 // More information about the ownership policy for CoreFoundation pelease refer the link below:
 // https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFMemoryMgmt/Concepts/Ownership.html#//apple_ref/doc/uid/20001148-CJBEJBHH
 #[repr(transparent)]
+#[allow(dead_code)]
 pub(crate) struct CFReleaser<T>(NonNull<T>);
 
+#[allow(dead_code)]
 impl<T> CFReleaser<T> {
     pub(crate) fn new(ptr: *const T) -> Option<Self> {
         // This cast is OK because `NonNull` is a transparent wrapper
@@ -34,6 +36,7 @@ impl<T> Drop for CFReleaser<T> {
 unsafe impl<T> Send for CFReleaser<T> {}
 unsafe impl<T> Sync for CFReleaser<T> {}
 
+#[cfg(feature = "disk")]
 pub(crate) fn vec_to_rust(buf: Vec<i8>) -> Option<String> {
     String::from_utf8(
         buf.into_iter()
