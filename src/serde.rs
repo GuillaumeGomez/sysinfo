@@ -169,6 +169,7 @@ impl serde::Serialize for crate::System {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::CGroupLimits {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -212,6 +213,7 @@ impl Serialize for crate::Users {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::ThreadKind {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -226,6 +228,7 @@ impl Serialize for crate::ThreadKind {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::Signal {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -270,6 +273,7 @@ impl Serialize for crate::Signal {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::LoadAvg {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -367,6 +371,7 @@ impl Serialize for crate::Group {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::ProcessStatus {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -396,6 +401,7 @@ impl Serialize for crate::ProcessStatus {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::DiskUsage {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
