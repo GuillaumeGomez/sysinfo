@@ -1,23 +1,34 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-pub mod disk;
 pub mod ffi;
-pub(crate) mod utils;
 
-#[cfg(all(feature = "system", not(feature = "apple-sandbox")))]
-pub(crate) mod cpu;
+cfg_if! {
+    if #[cfg(all(feature = "system", not(feature = "apple-sandbox")))] {
+        pub(crate) mod cpu;
+        pub mod system;
+        pub mod process;
+    }
+    if #[cfg(all(feature = "system", feature = "apple-sandbox"))] {
+        pub use crate::sys::app_store::process;
+    }
 
-#[cfg(all(feature = "system", not(feature = "apple-sandbox")))]
-pub mod system;
+    if #[cfg(any(
+            feature = "system",
+            feature = "disk",
+            target_arch = "x86",
+            target_arch = "x86_64",
+        ))]
+    {
+        pub(crate) mod utils;
+    }
 
-#[cfg(not(feature = "apple-sandbox"))]
-pub mod component;
+    if #[cfg(feature = "disk")] {
+        pub mod disk;
+    }
 
-#[cfg(all(feature = "system", not(feature = "apple-sandbox")))]
-pub mod process;
-
-#[cfg(feature = "apple-sandbox")]
-pub use crate::sys::app_store::component;
-
-#[cfg(all(feature = "system", feature = "apple-sandbox"))]
-pub use crate::sys::app_store::process;
+    if #[cfg(feature = "apple-sandbox")] {
+        pub use crate::sys::app_store::component;
+    } else {
+        pub mod component;
+    }
+}

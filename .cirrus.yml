@@ -13,6 +13,9 @@ task:
     - cargo check
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,system
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features disk
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,disk
     - cargo clippy -- -D warnings
     - cargo check --example simple
     - FREEBSD_CI=1 cargo test -- --test-threads=1
@@ -33,6 +36,9 @@ task:
     - cargo check
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,system
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features disk
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,disk
     - cargo clippy -- -D warnings
     - cargo check --example simple
     - FREEBSD_CI=1 cargo test -- --test-threads=1
@@ -55,6 +61,9 @@ task:
     - cargo check
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,system
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features disk
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,disk
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features apple-sandbox
     - cargo clippy -- -D warnings
     - cargo check --example simple

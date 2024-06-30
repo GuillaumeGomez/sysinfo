@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#![cfg_attr(feature = "system", doc = include_str!("../README.md"))]
+#![cfg_attr(any(feature = "system", feature = "disk"), doc = include_str!("../README.md"))]
 #![cfg_attr(
-    not(feature = "system"),
+    not(any(feature = "system", feature = "disk")),
     doc = "For crate-level documentation, all features need to be enabled."
 )]
 #![cfg_attr(feature = "serde", doc = include_str!("../md_doc/serde.md"))]
@@ -17,7 +17,7 @@
 #[macro_use]
 mod macros;
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(feature = "unknown-ci")] {
         // This is used in CI to check that the build for unknown targets is compiling fine.
         mod unknown;
@@ -56,29 +56,31 @@ cfg_if::cfg_if! {
 
 pub use crate::common::{
     component::{Component, Components},
-    disk::{Disk, DiskKind, Disks},
     network::{IpNetwork, MacAddr, NetworkData, Networks},
     user::{Group, Groups, User, Users},
     Gid, Uid,
 };
 
+#[cfg(feature = "disk")]
+pub use crate::common::disk::{Disk, DiskKind, Disks};
 #[cfg(feature = "system")]
 pub use crate::common::system::{
     get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, DiskUsage, LoadAvg, MemoryRefreshKind, Pid,
     Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, ThreadKind,
     UpdateKind,
 };
+#[cfg(feature = "system")]
+pub use crate::sys::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
 
 pub(crate) use crate::common::user::GroupInner;
 pub use crate::sys::IS_SUPPORTED_SYSTEM;
 pub(crate) use crate::sys::{
-    ComponentInner, ComponentsInner, DiskInner, DisksInner, NetworkDataInner, NetworksInner,
-    UserInner,
+    ComponentInner, ComponentsInner, NetworkDataInner, NetworksInner, UserInner,
 };
 #[cfg(feature = "system")]
 pub(crate) use crate::sys::{CpuInner, ProcessInner, SystemInner};
-#[cfg(feature = "system")]
-pub use crate::sys::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
+#[cfg(feature = "disk")]
+pub(crate) use crate::sys::{DiskInner, DisksInner};
 
 #[cfg(feature = "c-interface")]
 pub use crate::c_interface::*;
@@ -116,7 +118,7 @@ pub(crate) mod utils;
 /// let s = System::new_all();
 /// ```
 pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
-    cfg_if::cfg_if! {
+    cfg_if! {
         if #[cfg(all(feature = "system", not(feature = "unknown-ci"), any(target_os = "linux", target_os = "android")))]
         {
             use crate::sys::system::remaining_files;
@@ -176,6 +178,14 @@ use sysinfo::", stringify!($imports), r";
         System,
         ThreadKind,
         UpdateKind,
+    );
+
+    #[cfg(not(feature = "disk"))]
+    compile_fail_import!(
+        no_disk_feature =>
+        Disk,
+        Disks,
+        DiskKind,
     );
 }
 

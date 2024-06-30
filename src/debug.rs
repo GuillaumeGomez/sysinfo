@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Component, Components, Disk, Disks, NetworkData, Networks, User, Users};
+use crate::{Component, Components, NetworkData, Networks, User, Users};
 
 use std::fmt;
 
@@ -33,7 +33,8 @@ impl fmt::Debug for crate::System {
     }
 }
 
-impl fmt::Debug for Disk {
+#[cfg(feature = "disk")]
+impl fmt::Debug for crate::Disk {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             fmt,
@@ -46,6 +47,13 @@ impl fmt::Debug for Disk {
             self.available_space(),
             self.total_space(),
         )
+    }
+}
+
+#[cfg(feature = "disk")]
+impl fmt::Debug for crate::Disks {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 
@@ -123,12 +131,6 @@ impl fmt::Debug for NetworkData {
             .field("errors outcome", &self.errors_on_transmitted())
             .field("total errors outcome", &self.total_errors_on_transmitted())
             .finish()
-    }
-}
-
-impl fmt::Debug for Disks {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list().entries(self.iter()).finish()
     }
 }
 

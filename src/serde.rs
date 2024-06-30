@@ -2,6 +2,7 @@
 
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 
+#[cfg(feature = "disk")]
 impl Serialize for crate::Disk {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -21,6 +22,36 @@ impl Serialize for crate::Disk {
         state.serialize_field("is_removable", &self.is_removable())?;
 
         state.end()
+    }
+}
+
+#[cfg(feature = "disk")]
+impl Serialize for crate::Disks {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.iter())
+    }
+}
+
+#[cfg(feature = "disk")]
+impl Serialize for crate::DiskKind {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let (index, variant, maybe_value) = match *self {
+            Self::HDD => (0, "HDD", None),
+            Self::SSD => (1, "SSD", None),
+            Self::Unknown(ref s) => (2, "Unknown", Some(s)),
+        };
+
+        if let Some(ref value) = maybe_value {
+            serializer.serialize_newtype_variant("DiskKind", index, variant, value)
+        } else {
+            serializer.serialize_unit_variant("DiskKind", index, variant)
+        }
     }
 }
 
@@ -138,6 +169,7 @@ impl serde::Serialize for crate::System {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::CGroupLimits {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -155,15 +187,6 @@ impl Serialize for crate::CGroupLimits {
 }
 
 impl Serialize for crate::Networks {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_seq(self.iter())
-    }
-}
-
-impl Serialize for crate::Disks {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -190,6 +213,7 @@ impl Serialize for crate::Users {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::ThreadKind {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -204,6 +228,7 @@ impl Serialize for crate::ThreadKind {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::Signal {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -248,6 +273,7 @@ impl Serialize for crate::Signal {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::LoadAvg {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -345,25 +371,7 @@ impl Serialize for crate::Group {
     }
 }
 
-impl Serialize for crate::DiskKind {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let (index, variant, maybe_value) = match *self {
-            Self::HDD => (0, "HDD", None),
-            Self::SSD => (1, "SSD", None),
-            Self::Unknown(ref s) => (2, "Unknown", Some(s)),
-        };
-
-        if let Some(ref value) = maybe_value {
-            serializer.serialize_newtype_variant("DiskKind", index, variant, value)
-        } else {
-            serializer.serialize_unit_variant("DiskKind", index, variant)
-        }
-    }
-}
-
+#[cfg(feature = "system")]
 impl Serialize for crate::ProcessStatus {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -393,6 +401,7 @@ impl Serialize for crate::ProcessStatus {
     }
 }
 
+#[cfg(feature = "system")]
 impl Serialize for crate::DiskUsage {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

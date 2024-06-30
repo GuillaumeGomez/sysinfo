@@ -1644,7 +1644,7 @@ impl Process {
     /// }
     /// ```
     pub fn tasks(&self) -> Option<&HashSet<Pid>> {
-        cfg_if::cfg_if! {
+        cfg_if! {
             if #[cfg(all(
                 any(target_os = "linux", target_os = "android"),
                 not(feature = "unknown-ci")
@@ -1673,7 +1673,7 @@ impl Process {
     /// }
     /// ```
     pub fn thread_kind(&self) -> Option<ThreadKind> {
-        cfg_if::cfg_if! {
+        cfg_if! {
             if #[cfg(all(
                 any(target_os = "linux", target_os = "android"),
                 not(feature = "unknown-ci")
@@ -1740,7 +1740,7 @@ macro_rules! pid_decl {
     };
 }
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(all(
         not(feature = "unknown-ci"),
         any(
@@ -2303,7 +2303,7 @@ impl RefreshKind {
 /// ```
 #[allow(clippy::unnecessary_wraps)]
 pub fn get_current_pid() -> Result<Pid, &'static str> {
-    cfg_if::cfg_if! {
+    cfg_if! {
         if #[cfg(feature = "unknown-ci")] {
             fn inner() -> Result<Pid, &'static str> {
                 Err("Unknown platform (CI)")

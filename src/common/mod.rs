@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 pub(crate) mod component;
+#[cfg(feature = "disk")]
 pub(crate) mod disk;
 pub(crate) mod network;
 #[cfg(feature = "system")]
@@ -65,7 +66,7 @@ macro_rules! gid {
     };
 }
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(all(
         not(feature = "unknown-ci"),
         any(

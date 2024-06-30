@@ -15,7 +15,13 @@ edition = "2021"
 name = "sysinfo"
 
 [features]
-default = ["system", "multithread"]
+default = ["disk", "system", "multithread"]
+disk = [
+    "windows/Win32_Storage_FileSystem",
+    "windows/Win32_System_IO",
+    "windows/Win32_System_Ioctl",
+    "windows/Win32_System_WindowsProgramming",
+]
 system = [
     "windows/Wdk_System_SystemInformation",
     "windows/Wdk_System_SystemServices",
@@ -59,7 +65,6 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [dependencies]
 bstr = "1.9.0"
-cfg-if = "1.0"
 memchr = "2.7.1"
 rayon = { version = "^1.8", optional = true }
 serde = { version = "^1.0.190", optional = true }
@@ -75,13 +80,9 @@ windows = { version = "0.56", features = [
     "Win32_Security",
     "Win32_Security_Authentication_Identity",
     "Win32_Security_Authorization",
-    "Win32_Storage_FileSystem",
     "Win32_System_Com",
-    "Win32_System_IO",
-    "Win32_System_Ioctl",
     "Win32_System_Rpc",
     "Win32_System_Variant",
-    "Win32_System_WindowsProgramming",
     "Win32_System_Wmi",
 ]}
 

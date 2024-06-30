@@ -1,12 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 mod component;
-mod disk;
 mod groups;
 mod network;
 pub(crate) mod network_helper;
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(feature = "system")] {
         mod process;
         mod cpu;
@@ -17,6 +16,11 @@ cfg_if::cfg_if! {
         pub(crate) use self::system::SystemInner;
         pub use self::system::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
     }
+    if #[cfg(feature = "disk")] {
+        mod disk;
+
+        pub(crate) use self::disk::{DiskInner, DisksInner};
+    }
 }
 
 mod sid;
@@ -24,7 +28,6 @@ mod users;
 mod utils;
 
 pub(crate) use self::component::{ComponentInner, ComponentsInner};
-pub(crate) use self::disk::{DiskInner, DisksInner};
 pub(crate) use self::groups::get_groups;
 pub(crate) use self::network::{NetworkDataInner, NetworksInner};
 pub(crate) use self::sid::Sid;

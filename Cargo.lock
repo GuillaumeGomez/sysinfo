@@ -221,7 +221,6 @@ name = "sysinfo"
 version = "0.30.12"
 dependencies = [
  "bstr",
- "cfg-if",
  "core-foundation-sys",
  "libc",
  "memchr",
