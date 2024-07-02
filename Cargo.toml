@@ -38,6 +38,7 @@ system = [
     "windows/Win32_System_SystemServices",
     "windows/Win32_System_Threading",
     "windows/Win32_UI_Shell",
+    "ntapi",
 ]
 apple-sandbox = []
 apple-app-store = ["apple-sandbox"]
@@ -70,7 +71,7 @@ rayon = { version = "^1.8", optional = true }
 serde = { version = "^1.0.190", optional = true }
 
 [target.'cfg(windows)'.dependencies]
-ntapi = "0.4"
+ntapi = { version = "0.4", optional = true }
 windows = { version = "0.56", features = [
     "Win32_Foundation",
     "Win32_NetworkManagement_IpHelper",
