@@ -1,6 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-mod component;
 mod groups;
 mod network;
 pub(crate) mod network_helper;
@@ -21,13 +20,18 @@ cfg_if! {
 
         pub(crate) use self::disk::{DiskInner, DisksInner};
     }
+
+    if #[cfg(feature = "component")] {
+        pub mod component;
+
+        pub(crate) use self::component::{ComponentInner, ComponentsInner};
+    }
 }
 
 mod sid;
 mod users;
 mod utils;
 
-pub(crate) use self::component::{ComponentInner, ComponentsInner};
 pub(crate) use self::groups::get_groups;
 pub(crate) use self::network::{NetworkDataInner, NetworksInner};
 pub(crate) use self::sid::Sid;

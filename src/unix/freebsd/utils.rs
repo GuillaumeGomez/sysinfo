@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use libc::{c_char, c_int};
+use libc::c_int;
 #[cfg(feature = "system")]
 use std::ffi::{CStr, OsStr, OsString};
 use std::mem;
@@ -121,12 +121,13 @@ pub(crate) unsafe fn get_sys_value_str(
     ))
 }
 
+#[cfg(any(feature = "system", feature = "component"))]
 pub(crate) unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T) -> bool {
     let mut len = mem::size_of::<T>() as libc::size_t;
     let original = len;
 
     libc::sysctlbyname(
-        name.as_ptr() as *const c_char,
+        name.as_ptr() as *const libc::c_char,
         value as *mut _ as *mut _,
         &mut len,
         std::ptr::null_mut(),
@@ -141,7 +142,7 @@ pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
 
     unsafe {
         if libc::sysctlbyname(
-            name.as_ptr() as *const c_char,
+            name.as_ptr() as *const libc::c_char,
             std::ptr::null_mut(),
             &mut size,
             std::ptr::null_mut(),
@@ -153,7 +154,7 @@ pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
             let mut buf: Vec<libc::c_char> = vec![0; size as _];
 
             if libc::sysctlbyname(
-                name.as_ptr() as *const c_char,
+                name.as_ptr() as *const libc::c_char,
                 buf.as_mut_ptr() as *mut _,
                 &mut size,
                 std::ptr::null_mut(),
@@ -173,7 +174,7 @@ pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
 }
 
 #[cfg(feature = "system")]
-pub(crate) unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<OsString> {
+pub(crate) unsafe fn from_cstr_array(ptr: *const *const libc::c_char) -> Vec<OsString> {
     if ptr.is_null() {
         return Vec::new();
     }
@@ -197,6 +198,7 @@ pub(crate) unsafe fn from_cstr_array(ptr: *const *const c_char) -> Vec<OsString>
     ret
 }
 
+#[cfg(any(feature = "system", feature = "component"))]
 pub(crate) unsafe fn get_nb_cpus() -> usize {
     let mut smp: c_int = 0;
     let mut nb_cpus: c_int = 1;

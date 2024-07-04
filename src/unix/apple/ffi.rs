@@ -1,7 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 // Reexport items defined in either macos or ios ffi module.
-#[cfg(not(target_os = "ios"))]
+#[cfg(all(
+    not(target_os = "ios"),
+    any(feature = "component", feature = "disk", feature = "system"),
+))]
 pub use crate::sys::inner::ffi::*;
 
 cfg_if! {

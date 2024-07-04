@@ -1,25 +1,45 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use core_foundation_sys::base::CFAllocatorRef;
-#[cfg(any(feature = "system", feature = "disk", target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    feature = "system",
+    feature = "disk",
+    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+))]
 use core_foundation_sys::base::mach_port_t;
 #[cfg(any(feature = "system", feature = "disk"))]
 use core_foundation_sys::dictionary::CFDictionaryRef;
-#[cfg(any(feature = "system", feature = "disk", target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    feature = "system",
+    feature = "disk",
+    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+))]
 use core_foundation_sys::dictionary::CFMutableDictionaryRef;
 use core_foundation_sys::string::CFStringRef;
 
 use libc::c_char;
-#[cfg(any(feature = "system", feature = "disk", target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    feature = "system",
+    feature = "disk",
+    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+))]
 use libc::kern_return_t;
 
 // Note: IOKit is only available on MacOS up until very recent iOS versions: https://developer.apple.com/documentation/iokit
 
-#[cfg(any(feature = "system", feature = "disk", target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    feature = "system",
+    feature = "disk",
+    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+))]
 #[allow(non_camel_case_types)]
 pub type io_object_t = mach_port_t;
 
-#[cfg(any(feature = "system", feature = "disk", target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    feature = "system",
+    feature = "disk",
+    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+))]
 #[allow(non_camel_case_types)]
 pub type io_iterator_t = io_object_t;
 #[cfg(any(feature = "system", feature = "disk"))]
@@ -54,11 +74,19 @@ cfg_if! {
 // Based on https://github.com/libusb/libusb/blob/bed8d3034eac74a6e1ba123b5c270ea63cb6cf1a/libusb/os/darwin_usb.c#L54-L55,
 // we can simply set it to 0 (and is the same value as its replacement `kIOMainPortDefault`).
 #[allow(non_upper_case_globals)]
-#[cfg(any(feature = "system", feature = "disk", target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    feature = "system",
+    feature = "disk",
+    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+))]
 pub const kIOMasterPortDefault: mach_port_t = 0;
 
 // Note: Obtaining information about disks using IOKIt is allowed inside the default macOS App Sandbox.
-#[cfg(any(feature = "system", feature = "disk", target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    feature = "system",
+    feature = "disk",
+    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+))]
 #[link(name = "IOKit", kind = "framework")]
 extern "C" {
     pub fn IOServiceGetMatchingServices(
@@ -66,7 +94,10 @@ extern "C" {
         matching: CFMutableDictionaryRef,
         existing: *mut io_iterator_t,
     ) -> kern_return_t;
-    #[cfg(any(feature = "system", target_arch = "x86", target_arch = "x86_64"))]
+    #[cfg(any(
+        feature = "system",
+        all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+    ))]
     pub fn IOServiceMatching(a: *const c_char) -> CFMutableDictionaryRef;
 
     pub fn IOIteratorNext(iterator: io_iterator_t) -> io_object_t;
@@ -96,7 +127,10 @@ extern "C" {
     pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: io_name_t) -> kern_return_t;
 }
 
-#[cfg(any(feature = "system", target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    feature = "system",
+    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+))]
 pub const KIO_RETURN_SUCCESS: i32 = 0;
 
 extern "C" {
@@ -112,7 +146,10 @@ extern "C" {
 
 #[cfg(all(
     not(feature = "apple-sandbox"),
-    any(target_arch = "x86", target_arch = "x86_64")
+    all(
+        feature = "component",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ),
 ))]
 mod io_service {
     use super::{io_object_t, mach_port_t};
@@ -204,12 +241,13 @@ mod io_service {
 mod io_service {}
 
 #[cfg(all(
+    feature = "component",
     not(feature = "apple-sandbox"),
     any(target_arch = "x86", target_arch = "x86_64")
 ))]
 pub use io_service::*;
 
-#[cfg(all(not(feature = "apple-sandbox"), target_arch = "aarch64"))]
+#[cfg(all(feature = "component", not(feature = "apple-sandbox"), target_arch = "aarch64"))]
 mod io_service {
     use std::ptr::null;
 
@@ -329,5 +367,5 @@ mod io_service {
     }
 }
 
-#[cfg(all(not(feature = "apple-sandbox"), target_arch = "aarch64"))]
+#[cfg(all(feature = "component", not(feature = "apple-sandbox"), target_arch = "aarch64"))]
 pub use io_service::*;

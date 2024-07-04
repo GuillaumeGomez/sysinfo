@@ -129,6 +129,7 @@ fn bench_refresh_cpu_usage(b: &mut test::Bencher) {
     });
 }
 
+#[cfg(feature = "component")]
 #[bench]
 fn bench_refresh_components(b: &mut test::Bencher) {
     let mut c = sysinfo::Components::new_with_refreshed_list();
@@ -138,6 +139,7 @@ fn bench_refresh_components(b: &mut test::Bencher) {
     });
 }
 
+#[cfg(feature = "component")]
 #[bench]
 fn bench_refresh_components_list(b: &mut test::Bencher) {
     let mut c = sysinfo::Components::new_with_refreshed_list();
