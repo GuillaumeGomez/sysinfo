@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#[cfg(feature = "component")]
 #[test]
 fn test_components() {
     use std::env::var;

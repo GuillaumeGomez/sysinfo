@@ -15,7 +15,13 @@ edition = "2021"
 name = "sysinfo"
 
 [features]
-default = ["disk", "system", "multithread"]
+default = ["component", "disk", "system", "multithread"]
+component = [
+    "windows/Win32_System_Com",
+    "windows/Win32_System_Rpc",
+    "windows/Win32_System_Variant",
+    "windows/Win32_System_Wmi",
+]
 disk = [
     "windows/Win32_Storage_FileSystem",
     "windows/Win32_System_IO",
@@ -81,10 +87,6 @@ windows = { version = "0.56", features = [
     "Win32_Security",
     "Win32_Security_Authentication_Identity",
     "Win32_Security_Authorization",
-    "Win32_System_Com",
-    "Win32_System_Rpc",
-    "Win32_System_Variant",
-    "Win32_System_Wmi",
 ]}
 
 [target.'cfg(not(any(target_os = "unknown", target_arch = "wasm32")))'.dependencies]

@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#![cfg_attr(any(feature = "system", feature = "disk"), doc = include_str!("../README.md"))]
+#![cfg_attr(any(feature = "system", feature = "disk", feature = "component"), doc = include_str!("../README.md"))]
 #![cfg_attr(
-    not(any(feature = "system", feature = "disk")),
+    not(any(feature = "system", feature = "disk", feature = "component")),
     doc = "For crate-level documentation, all features need to be enabled."
 )]
 #![cfg_attr(feature = "serde", doc = include_str!("../md_doc/serde.md"))]
@@ -55,7 +55,6 @@ cfg_if! {
 }
 
 pub use crate::common::{
-    component::{Component, Components},
     network::{IpNetwork, MacAddr, NetworkData, Networks},
     user::{Group, Groups, User, Users},
     Gid, Uid,
@@ -63,6 +62,9 @@ pub use crate::common::{
 
 #[cfg(feature = "disk")]
 pub use crate::common::disk::{Disk, DiskKind, Disks};
+#[cfg(feature = "disk")]
+pub(crate) use crate::sys::{DiskInner, DisksInner};
+
 #[cfg(feature = "system")]
 pub use crate::common::system::{
     get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, DiskUsage, LoadAvg, MemoryRefreshKind, Pid,
@@ -70,17 +72,19 @@ pub use crate::common::system::{
     UpdateKind,
 };
 #[cfg(feature = "system")]
+pub(crate) use crate::sys::{CpuInner, ProcessInner, SystemInner};
+#[cfg(feature = "system")]
 pub use crate::sys::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
 
 pub(crate) use crate::common::user::GroupInner;
+
+#[cfg(feature = "component")]
+pub use crate::common::component::{Component, Components};
+#[cfg(feature = "component")]
+pub(crate) use crate::sys::{ComponentInner, ComponentsInner};
+
 pub use crate::sys::IS_SUPPORTED_SYSTEM;
-pub(crate) use crate::sys::{
-    ComponentInner, ComponentsInner, NetworkDataInner, NetworksInner, UserInner,
-};
-#[cfg(feature = "system")]
-pub(crate) use crate::sys::{CpuInner, ProcessInner, SystemInner};
-#[cfg(feature = "disk")]
-pub(crate) use crate::sys::{DiskInner, DisksInner};
+pub(crate) use crate::sys::{NetworkDataInner, NetworksInner, UserInner};
 
 #[cfg(feature = "c-interface")]
 pub use crate::c_interface::*;

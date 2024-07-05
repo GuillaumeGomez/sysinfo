@@ -98,18 +98,39 @@ jobs:
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug
           use-cross: ${{ matrix.triple.cross }}
 
-      - name: Check debug feature
+      - name: Check serde feature
+        uses: ClementTsang/cargo-action@v0.0.6
+        with:
+          command: rustc
+          args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --features=serde
+          use-cross: ${{ matrix.triple.cross }}
+
+      - name: Check serde feature
+        uses: ClementTsang/cargo-action@v0.0.6
+        with:
+          command: rustc
+          args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=serde
+          use-cross: ${{ matrix.triple.cross }}
+
+      - name: Check debug/serde feature (system)
         uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug,serde,system
           use-cross: ${{ matrix.triple.cross }}
 
-      - name: Check debug feature
+      - name: Check debug/serde feature (disk)
         uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug,serde,disk
+          use-cross: ${{ matrix.triple.cross }}
+
+      - name: Check debug/serde feature (component)
+        uses: ClementTsang/cargo-action@v0.0.6
+        with:
+          command: rustc
+          args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug,serde,component
           use-cross: ${{ matrix.triple.cross }}
 
       - name: Check without multithreading
@@ -131,6 +152,13 @@ jobs:
         with:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features disk
+          use-cross: ${{ matrix.triple.cross }}
+
+      - name: Check features
+        uses: ClementTsang/cargo-action@v0.0.6
+        with:
+          command: check
+          args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features component
           use-cross: ${{ matrix.triple.cross }}
 
       - name: Check example

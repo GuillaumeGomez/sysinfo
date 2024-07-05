@@ -195,12 +195,31 @@ impl Serialize for crate::Networks {
     }
 }
 
+#[cfg(feature = "component")]
 impl Serialize for crate::Components {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         serializer.collect_seq(self.iter())
+    }
+}
+
+#[cfg(feature = "component")]
+impl Serialize for crate::Component {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // `4` corresponds to the number of fields.
+        let mut state = serializer.serialize_struct("Component", 4)?;
+
+        state.serialize_field("temperature", &self.temperature())?;
+        state.serialize_field("max", &self.max())?;
+        state.serialize_field("critical", &self.critical())?;
+        state.serialize_field("label", &self.label())?;
+
+        state.end()
     }
 }
 
@@ -317,23 +336,6 @@ impl Serialize for crate::NetworkData {
         )?;
         state.serialize_field("mac_address", &self.mac_address())?;
         state.serialize_field("ip_networks", &self.ip_networks())?;
-
-        state.end()
-    }
-}
-
-impl Serialize for crate::Component {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // `4` corresponds to the number of fields.
-        let mut state = serializer.serialize_struct("Component", 4)?;
-
-        state.serialize_field("temperature", &self.temperature())?;
-        state.serialize_field("max", &self.max())?;
-        state.serialize_field("critical", &self.critical())?;
-        state.serialize_field("label", &self.label())?;
 
         state.end()
     }

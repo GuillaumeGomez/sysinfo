@@ -27,8 +27,9 @@ cfg_if! {
     }
 
     if #[cfg(feature = "apple-sandbox")] {
+        #[cfg(feature = "component")]
         pub use crate::sys::app_store::component;
-    } else {
+    } else if #[cfg(feature = "component")] {
         pub mod component;
     }
 }
