@@ -22,10 +22,10 @@ use windows::Win32::System::Performance::{
 use windows::Win32::System::Power::{
     CallNtPowerInformation, ProcessorInformation, PROCESSOR_POWER_INFORMATION,
 };
-use windows::Win32::System::SystemInformation;
+use windows::Win32::System::SystemInformation::{self, GetSystemInfo};
 use windows::Win32::System::SystemInformation::{
-    GetLogicalProcessorInformationEx, GetSystemInfo, RelationAll, RelationProcessorCore,
-    SYSTEM_INFO, SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
+    GetLogicalProcessorInformationEx, RelationAll, RelationProcessorCore, SYSTEM_INFO,
+    SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
 };
 use windows::Win32::System::Threading::{
     CreateEventA, RegisterWaitForSingleObject, INFINITE, WT_EXECUTEDEFAULT,

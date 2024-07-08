@@ -24,8 +24,8 @@ use windows::Win32::System::ProcessStatus::{K32GetPerformanceInfo, PERFORMANCE_I
 use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
 use windows::Win32::System::SystemInformation;
 use windows::Win32::System::SystemInformation::{
-    ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetTickCount64, GlobalMemoryStatusEx,
-    MEMORYSTATUSEX, SYSTEM_INFO,
+    ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetSystemInfo, GetTickCount64,
+    GlobalMemoryStatusEx, MEMORYSTATUSEX, SYSTEM_INFO,
 };
 use windows::Win32::System::Threading::GetExitCodeProcess;
 
@@ -476,7 +476,8 @@ impl SystemInner {
     pub(crate) fn cpu_arch() -> Option<String> {
         unsafe {
             // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
-            let info = SYSTEM_INFO::default();
+            let mut info = SYSTEM_INFO::default();
+            GetSystemInfo(&mut info);
             match info.Anonymous.Anonymous.wProcessorArchitecture {
                 SystemInformation::PROCESSOR_ARCHITECTURE_ALPHA => Some("alpha".to_string()),
                 SystemInformation::PROCESSOR_ARCHITECTURE_ALPHA64 => Some("alpha64".to_string()),

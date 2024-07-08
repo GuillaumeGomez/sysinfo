@@ -50,14 +50,16 @@ pub(crate) struct ComponentInner {
     ///
     /// Read in: `temp[1-*]_type` Sensor type selection.
     /// Values integer:
+    ///
     /// - 1: CPU embedded diode
     /// - 2: 3904 transistor
     /// - 3: thermal diode
     /// - 4: thermistor
     /// - 5: AMD AMDSI
     /// - 6: Intel PECI
-    /// Not all types are supported by all chips
-    sensor_type: Option<TermalSensorType>,
+    ///
+    /// Not all types are supported by all chips.
+    sensor_type: Option<ThermalSensorType>,
     /// Component Label
     ///
     /// For formatting detail see `Component::label` function docstring.
@@ -140,7 +142,7 @@ fn convert_temp_celsius(temp: Option<i32>) -> Option<f32> {
 
 /// Information about thermal sensor. It may be unavailable as it's
 /// kernel module and chip dependent.
-enum TermalSensorType {
+enum ThermalSensorType {
     /// 1: CPU embedded diode
     CPUEmbeddedDiode,
     /// 2: 3904 transistor
@@ -159,7 +161,7 @@ enum TermalSensorType {
     Unknown(u8),
 }
 
-impl From<u8> for TermalSensorType {
+impl From<u8> for ThermalSensorType {
     fn from(input: u8) -> Self {
         match input {
             0 => Self::CPUEmbeddedDiode,
@@ -180,7 +182,7 @@ fn fill_component(component: &mut ComponentInner, item: &str, folder: &Path, fil
     match item {
         "type" => {
             component.sensor_type =
-                read_number_from_file::<u8>(&hwmon_file).map(TermalSensorType::from)
+                read_number_from_file::<u8>(&hwmon_file).map(ThermalSensorType::from)
         }
         "input" => {
             let temperature = get_temperature_from_file(&hwmon_file);
@@ -276,7 +278,8 @@ impl ComponentInner {
                 c.inner.label = c.inner.format_label("temp", id);
                 c
             })
-            // Remove components without `tempN_input` file termal. `Component` doesn't support this kind of sensors yet
+            // Remove components without `tempN_input` file thermal. `Component` doesn't support
+            // this kind of sensors yet
             .filter(|c| c.inner.input_file.is_some());
 
         components.extend(compo);
