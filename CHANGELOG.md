@@ -1,3 +1,8 @@
+# 0.30.13
+
+ * macOS: Fix segfault when calling `Components::refresh_list` multiple times.
+ * Windows: Fix CPU arch retrieval.
+
 # 0.30.12
 
  * FreeBSD: Fix network interfaces retrieval (one was always missing).
