@@ -96,6 +96,8 @@ impl ComponentsInner {
             let count = CFArrayGetCount(services.inner());
 
             for i in 0..count {
+                // The 'service' should never be freed since it is returned by a 'Get' call.
+                // See issue https://github.com/GuillaumeGomez/sysinfo/issues/1279
                 let service = CFArrayGetValueAtIndex(services.inner(), i);
                 if service.is_null() {
                     continue;
