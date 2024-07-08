@@ -3,7 +3,7 @@
 use std::ffi::CStr;
 
 use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex};
-use core_foundation_sys::base::{kCFAllocatorDefault, CFRetain};
+use core_foundation_sys::base::kCFAllocatorDefault;
 use core_foundation_sys::string::{
     kCFStringEncodingUTF8, CFStringCreateWithBytes, CFStringGetCStringPtr,
 };
@@ -52,9 +52,6 @@ impl ComponentsInner {
 
     #[allow(unreachable_code)]
     pub(crate) fn refresh_list(&mut self) {
-        // See issue https://github.com/GuillaumeGomez/sysinfo/issues/1279
-        return;
-
         self.components.clear();
 
         unsafe {
@@ -72,8 +69,6 @@ impl ComponentsInner {
                         Some(c) => c,
                         None => return,
                     };
-                // Without this call, client is freed during the execution of the program. It must be kept!
-                CFRetain(client.inner() as _);
                 self.client = Some(client);
             }
 
@@ -101,26 +96,29 @@ impl ComponentsInner {
             let count = CFArrayGetCount(services.inner());
 
             for i in 0..count {
-                let service = match CFReleaser::new(
-                    CFArrayGetValueAtIndex(services.inner(), i) as *const _
-                ) {
-                    Some(s) => s,
-                    None => continue,
-                };
+                // The 'service' should never be freed since it is returned by a 'Get' call.
+                // See issue https://github.com/GuillaumeGomez/sysinfo/issues/1279
+                let service = CFArrayGetValueAtIndex(services.inner(), i);
+                if service.is_null() {
+                    continue;
+                }
 
                 let name = match CFReleaser::new(IOHIDServiceClientCopyProperty(
-                    service.inner(),
+                    service as *const _,
                     key_ref.inner(),
                 )) {
                     Some(n) => n,
                     None => continue,
                 };
 
-                let name_ptr =
-                    CFStringGetCStringPtr(name.inner() as *const _, kCFStringEncodingUTF8);
+                let name_ptr = CFStringGetCStringPtr(name.inner() as *const _, kCFStringEncodingUTF8);
+                if name_ptr.is_null() {
+                    continue;
+                }
+
                 let name_str = CStr::from_ptr(name_ptr).to_string_lossy().to_string();
 
-                let mut component = ComponentInner::new(name_str, None, None, service);
+                let mut component = ComponentInner::new(name_str, None, None, service as *mut _);
                 component.refresh();
 
                 self.components.push(Component { inner: component });
@@ -130,19 +128,22 @@ impl ComponentsInner {
 }
 
 pub(crate) struct ComponentInner {
-    service: CFReleaser<__IOHIDServiceClient>,
+    service: *mut __IOHIDServiceClient,
     temperature: f32,
     label: String,
     max: f32,
     critical: Option<f32>,
 }
 
+unsafe impl Send for ComponentInner{}
+unsafe impl Sync for ComponentInner{}
+
 impl ComponentInner {
     pub(crate) fn new(
         label: String,
         max: Option<f32>,
         critical: Option<f32>,
-        service: CFReleaser<__IOHIDServiceClient>,
+        service: *mut __IOHIDServiceClient,
     ) -> Self {
         Self {
             service,
@@ -172,7 +173,7 @@ impl ComponentInner {
     pub(crate) fn refresh(&mut self) {
         unsafe {
             let event = match CFReleaser::new(IOHIDServiceClientCopyEvent(
-                self.service.inner() as *const _,
+                self.service as *const _,
                 kIOHIDEventTypeTemperature,
                 0,
                 0,
