@@ -110,7 +110,8 @@ impl ComponentsInner {
                     None => continue,
                 };
 
-                let name_ptr = CFStringGetCStringPtr(name.inner() as *const _, kCFStringEncodingUTF8);
+                let name_ptr =
+                    CFStringGetCStringPtr(name.inner() as *const _, kCFStringEncodingUTF8);
                 if name_ptr.is_null() {
                     continue;
                 }
@@ -134,8 +135,8 @@ pub(crate) struct ComponentInner {
     critical: Option<f32>,
 }
 
-unsafe impl Send for ComponentInner{}
-unsafe impl Sync for ComponentInner{}
+unsafe impl Send for ComponentInner {}
+unsafe impl Sync for ComponentInner {}
 
 impl ComponentInner {
     pub(crate) fn new(
