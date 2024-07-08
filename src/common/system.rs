@@ -1242,6 +1242,13 @@ impl Process {
 
     /// Returns the command line.
     ///
+    ///  **⚠️ Important ⚠️**
+    /// 
+    /// On **Windows**, there is one thing to know about processes's command line:
+    /// 
+    /// - Remember to use `administrator` privileges to run your program.
+    /// Otherwise, your program will not be able to retrieve what is expected.
+    /// 
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
