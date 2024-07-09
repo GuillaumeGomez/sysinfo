@@ -587,13 +587,13 @@ fn read_table_key(filename: &str, target_key: &str, colsep: char) -> Option<u64>
             .find_map(|line| {
                 let mut split = line.split(colsep);
                 let key = split.next()?;
-                if key == target_key {
-                    let value = split.next()?;
-                    let value0 = value.trim_start().split(' ').next()?;
-                    return u64::from_str(value0).ok();
+                if key != target_key {
+                    return None;
                 }
 
-                None
+                let value = split.next()?;
+                let value0 = value.trim_start().split(' ').next()?;
+                u64::from_str(value0).ok()
             });
     }
 
