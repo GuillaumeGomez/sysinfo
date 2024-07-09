@@ -5,7 +5,6 @@ pub(crate) mod app_store;
 
 mod ffi;
 pub mod groups;
-pub mod network;
 pub mod users;
 mod utils;
 
@@ -42,9 +41,14 @@ cfg_if! {
 
         pub(crate) use self::component::{ComponentInner, ComponentsInner};
     }
+
+    if #[cfg(feature = "network")] {
+        pub mod network;
+
+        pub(crate) use self::network::{NetworkDataInner, NetworksInner};
+    }
 }
 
-pub(crate) use self::network::{NetworkDataInner, NetworksInner};
 pub(crate) use crate::unix::groups::get_groups;
 pub(crate) use crate::unix::users::{get_users, UserInner};
 

@@ -1,8 +1,16 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#![cfg_attr(any(feature = "system", feature = "disk", feature = "component"), doc = include_str!("../README.md"))]
 #![cfg_attr(
-    not(any(feature = "system", feature = "disk", feature = "component")),
+    all(feature = "system", feature = "disk", feature = "component", feature = "system"),
+    doc = include_str!("../README.md")
+)]
+#![cfg_attr(
+    not(all(
+        feature = "system",
+        feature = "disk",
+        feature = "component",
+        feature = "system"
+    )),
     doc = "For crate-level documentation, all features need to be enabled."
 )]
 #![cfg_attr(feature = "serde", doc = include_str!("../md_doc/serde.md"))]
@@ -31,8 +39,11 @@ cfg_if! {
         target_os = "freebsd"))]
     {
         mod unix;
-        mod network;
         use crate::unix::sys as sys;
+
+        #[cfg(feature = "network")]
+        mod network;
+        #[cfg(feature = "network")]
         use crate::unix::network_helper;
 
         #[cfg(test)]
@@ -40,8 +51,11 @@ cfg_if! {
     } else if #[cfg(windows)] {
         mod windows;
         use crate::windows as sys;
-        use crate::windows::network_helper;
+
+        #[cfg(feature = "network")]
         mod network;
+        #[cfg(feature = "network")]
+        use crate::windows::network_helper;
 
         #[cfg(test)]
         pub(crate) const MIN_USERS: usize = 1;
@@ -55,7 +69,6 @@ cfg_if! {
 }
 
 pub use crate::common::{
-    network::{IpNetwork, MacAddr, NetworkData, Networks},
     user::{Group, Groups, User, Users},
     Gid, Uid,
 };
@@ -65,26 +78,28 @@ pub use crate::common::disk::{Disk, DiskKind, Disks};
 #[cfg(feature = "disk")]
 pub(crate) use crate::sys::{DiskInner, DisksInner};
 
+#[cfg(feature = "component")]
+pub use crate::common::component::{Component, Components};
+#[cfg(feature = "network")]
+pub use crate::common::network::{IpNetwork, MacAddr, NetworkData, Networks};
 #[cfg(feature = "system")]
 pub use crate::common::system::{
     get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, DiskUsage, LoadAvg, MemoryRefreshKind, Pid,
     Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, ThreadKind,
     UpdateKind,
 };
+#[cfg(feature = "component")]
+pub(crate) use crate::sys::{ComponentInner, ComponentsInner};
 #[cfg(feature = "system")]
 pub(crate) use crate::sys::{CpuInner, ProcessInner, SystemInner};
+#[cfg(feature = "network")]
+pub(crate) use crate::sys::{NetworkDataInner, NetworksInner};
 #[cfg(feature = "system")]
 pub use crate::sys::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
 
 pub(crate) use crate::common::user::GroupInner;
-
-#[cfg(feature = "component")]
-pub use crate::common::component::{Component, Components};
-#[cfg(feature = "component")]
-pub(crate) use crate::sys::{ComponentInner, ComponentsInner};
-
+pub(crate) use crate::sys::UserInner;
 pub use crate::sys::IS_SUPPORTED_SYSTEM;
-pub(crate) use crate::sys::{NetworkDataInner, NetworksInner, UserInner};
 
 #[cfg(feature = "c-interface")]
 pub use crate::c_interface::*;
@@ -190,6 +205,22 @@ use sysinfo::", stringify!($imports), r";
         Disk,
         Disks,
         DiskKind,
+    );
+
+    #[cfg(not(feature = "component"))]
+    compile_fail_import!(
+        no_component_feature =>
+        Component,
+        Components,
+    );
+
+    #[cfg(not(feature = "network"))]
+    compile_fail_import!(
+        no_network_feature =>
+        IpNetwork,
+        MacAddr,
+        NetworkData,
+        Networks,
     );
 }
 

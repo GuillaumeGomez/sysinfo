@@ -133,6 +133,13 @@ jobs:
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug,serde,component
           use-cross: ${{ matrix.triple.cross }}
 
+      - name: Check debug/serde feature (network)
+        uses: ClementTsang/cargo-action@v0.0.6
+        with:
+          command: rustc
+          args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug,serde,network
+          use-cross: ${{ matrix.triple.cross }}
+
       - name: Check without multithreading
         uses: ClementTsang/cargo-action@v0.0.6
         with:
@@ -140,25 +147,32 @@ jobs:
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features
           use-cross: ${{ matrix.triple.cross }}
 
-      - name: Check features
+      - name: Check features (system)
         uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features system
           use-cross: ${{ matrix.triple.cross }}
 
-      - name: Check features
+      - name: Check features (disk)
         uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features disk
           use-cross: ${{ matrix.triple.cross }}
 
-      - name: Check features
+      - name: Check features (component)
         uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features component
+          use-cross: ${{ matrix.triple.cross }}
+
+      - name: Check features (network)
+        uses: ClementTsang/cargo-action@v0.0.6
+        with:
+          command: check
+          args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features network
           use-cross: ${{ matrix.triple.cross }}
 
       - name: Check example

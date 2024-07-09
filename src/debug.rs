@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{NetworkData, Networks, User, Users};
+use crate::{User, Users};
 
 use std::fmt;
 
@@ -111,13 +111,15 @@ impl fmt::Debug for crate::Component {
     }
 }
 
-impl fmt::Debug for Networks {
+#[cfg(feature = "network")]
+impl fmt::Debug for crate::Networks {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }
 }
 
-impl fmt::Debug for NetworkData {
+#[cfg(feature = "network")]
+impl fmt::Debug for crate::NetworkData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("NetworkData")
             .field("income", &self.received())

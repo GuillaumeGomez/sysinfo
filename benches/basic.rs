@@ -90,6 +90,7 @@ fn bench_refresh_disks_list(b: &mut test::Bencher) {
     });
 }
 
+#[cfg(feature = "network")]
 #[bench]
 fn bench_refresh_networks(b: &mut test::Bencher) {
     let mut n = sysinfo::Networks::new_with_refreshed_list();
@@ -99,6 +100,7 @@ fn bench_refresh_networks(b: &mut test::Bencher) {
     });
 }
 
+#[cfg(feature = "network")]
 #[bench]
 fn bench_refresh_networks_list(b: &mut test::Bencher) {
     let mut n = sysinfo::Networks::new_with_refreshed_list();

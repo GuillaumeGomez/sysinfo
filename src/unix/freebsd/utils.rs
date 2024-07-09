@@ -1,15 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use libc::c_int;
 #[cfg(feature = "system")]
 use std::ffi::{CStr, OsStr, OsString};
-use std::mem;
 #[cfg(feature = "system")]
 use std::os::unix::ffi::OsStrExt;
 
 #[cfg(feature = "system")]
 #[inline]
-pub unsafe fn init_mib(name: &[u8], mib: &mut [c_int]) {
+pub unsafe fn init_mib(name: &[u8], mib: &mut [libc::c_int]) {
     let mut len = mib.len();
     libc::sysctlnametomib(name.as_ptr() as _, mib.as_mut_ptr(), &mut len);
 }
@@ -21,7 +19,7 @@ pub(crate) fn boot_time() -> u64 {
         tv_usec: 0,
     };
     let mut len = std::mem::size_of::<libc::timeval>();
-    let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
+    let mut mib: [libc::c_int; 2] = [libc::CTL_KERN, libc::KERN_BOOTTIME];
     unsafe {
         if libc::sysctl(
             mib.as_mut_ptr(),
@@ -39,8 +37,9 @@ pub(crate) fn boot_time() -> u64 {
     }
 }
 
-pub(crate) unsafe fn get_sys_value<T: Sized>(mib: &[c_int], value: &mut T) -> bool {
-    let mut len = mem::size_of::<T>() as libc::size_t;
+#[cfg(any(feature = "system", feature = "network"))]
+pub(crate) unsafe fn get_sys_value<T: Sized>(mib: &[libc::c_int], value: &mut T) -> bool {
+    let mut len = std::mem::size_of::<T>() as libc::size_t;
     libc::sysctl(
         mib.as_ptr(),
         mib.len() as _,
@@ -52,8 +51,8 @@ pub(crate) unsafe fn get_sys_value<T: Sized>(mib: &[c_int], value: &mut T) -> bo
 }
 
 #[cfg(feature = "system")]
-pub(crate) unsafe fn get_sys_value_array<T: Sized>(mib: &[c_int], value: &mut [T]) -> bool {
-    let mut len = mem::size_of_val(value) as libc::size_t;
+pub(crate) unsafe fn get_sys_value_array<T: Sized>(mib: &[libc::c_int], value: &mut [T]) -> bool {
+    let mut len = std::mem::size_of_val(value) as libc::size_t;
     libc::sysctl(
         mib.as_ptr(),
         mib.len() as _,
@@ -64,6 +63,7 @@ pub(crate) unsafe fn get_sys_value_array<T: Sized>(mib: &[c_int], value: &mut [T
     ) == 0
 }
 
+#[cfg(any(feature = "disk", feature = "system", feature = "network"))]
 pub(crate) fn c_buf_to_utf8_str(buf: &[libc::c_char]) -> Option<&str> {
     unsafe {
         let buf: &[u8] = std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
@@ -77,6 +77,7 @@ pub(crate) fn c_buf_to_utf8_str(buf: &[libc::c_char]) -> Option<&str> {
     }
 }
 
+#[cfg(any(feature = "system", feature = "network"))]
 pub(crate) fn c_buf_to_utf8_string(buf: &[libc::c_char]) -> Option<String> {
     c_buf_to_utf8_str(buf).map(|s| s.to_owned())
 }
@@ -101,10 +102,10 @@ pub(crate) fn c_buf_to_os_string(buf: &[libc::c_char]) -> OsString {
 
 #[cfg(feature = "system")]
 pub(crate) unsafe fn get_sys_value_str(
-    mib: &[c_int],
+    mib: &[libc::c_int],
     buf: &mut [libc::c_char],
 ) -> Option<OsString> {
-    let mut len = mem::size_of_val(buf) as libc::size_t;
+    let mut len = std::mem::size_of_val(buf) as libc::size_t;
     if libc::sysctl(
         mib.as_ptr(),
         mib.len() as _,
@@ -117,13 +118,13 @@ pub(crate) unsafe fn get_sys_value_str(
         return None;
     }
     Some(c_buf_to_os_string(
-        &buf[..len / mem::size_of::<libc::c_char>()],
+        &buf[..len / std::mem::size_of::<libc::c_char>()],
     ))
 }
 
 #[cfg(any(feature = "system", feature = "component"))]
 pub(crate) unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T) -> bool {
-    let mut len = mem::size_of::<T>() as libc::size_t;
+    let mut len = std::mem::size_of::<T>() as libc::size_t;
     let original = len;
 
     libc::sysctlbyname(
@@ -200,8 +201,8 @@ pub(crate) unsafe fn from_cstr_array(ptr: *const *const libc::c_char) -> Vec<OsS
 
 #[cfg(any(feature = "system", feature = "component"))]
 pub(crate) unsafe fn get_nb_cpus() -> usize {
-    let mut smp: c_int = 0;
-    let mut nb_cpus: c_int = 1;
+    let mut smp: libc::c_int = 0;
+    let mut nb_cpus: libc::c_int = 1;
 
     if !get_sys_value_by_name(b"kern.smp.active\0", &mut smp) {
         smp = 0;
