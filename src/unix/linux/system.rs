@@ -580,22 +580,44 @@ where
     }
 }
 
+fn read_table_key<F>(filename: &str, target_key: &str, colsep: char, mut f: F) -> Option<u64>
+where
+    F: FnMut(&str, u64),
+{
+    if let Ok(content) = get_all_utf8_data(filename, 16_635) {
+        content
+            .split('\n')
+            .find(|line| {
+                let mut split = line.split(colsep);
+                let key = split.next()?;
+                if key == target_key {
+                    let value = split.next()?;
+                    let value0 = value.trim_start().split(' ').next()?;
+                    return u64::from_str(value0).ok();
+                }
+
+                None
+            })
+    }
+}
+
 impl crate::CGroupLimits {
     fn new(sys: &SystemInner) -> Option<Self> {
         assert!(
             sys.mem_total != 0,
             "You need to call System::refresh_memory before trying to get cgroup limits!",
         );
-        if let (Some(mem_cur), Some(mem_max)) = (
+        if let (Some(mem_cur), Some(mem_max), Some(mem_rss)) = (
+            // cgroups v2
             read_u64("/sys/fs/cgroup/memory.current"),
             read_u64("/sys/fs/cgroup/memory.max"),
+            read_table_key("/sys/fs/cgroup/memory.stat", "anon"," ")
         ) {
-            // cgroups v2
-
             let mut limits = Self {
                 total_memory: sys.mem_total,
                 free_memory: sys.mem_free,
                 free_swap: sys.swap_free,
+                rss: mem_rss
             };
 
             limits.total_memory = min(mem_max, sys.mem_total);
@@ -610,11 +632,13 @@ impl crate::CGroupLimits {
             // cgroups v1
             read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
             read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
+            read_table_key("/sys/fs/cgroup/memory/memory.stat", "rss"," ")
         ) {
             let mut limits = Self {
                 total_memory: sys.mem_total,
                 free_memory: sys.mem_free,
                 free_swap: sys.swap_free,
+                rss: mem_rss
             };
 
             limits.total_memory = min(mem_max, sys.mem_total);
