@@ -628,7 +628,7 @@ impl crate::CGroupLimits {
             }
 
             Some(limits)
-        } else if let (Some(mem_cur), Some(mem_max)) = (
+        } else if let (Some(mem_cur), Some(mem_max), Some(mem_rss)) = (
             // cgroups v1
             read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
             read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
