@@ -613,7 +613,7 @@ impl crate::CGroupLimits {
             // cgroups v2
             read_u64("/sys/fs/cgroup/memory.current"),
             read_u64("/sys/fs/cgroup/memory.max"),
-            read_table_key("/sys/fs/cgroup/memory.stat", "anon",' ')
+            read_table_key("/sys/fs/cgroup/memory.stat", "anon", ' ')
         ) {
             let mut limits = Self {
                 total_memory: sys.mem_total,
@@ -634,7 +634,7 @@ impl crate::CGroupLimits {
             // cgroups v1
             read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
             read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
-            read_table_key("/sys/fs/cgroup/memory/memory.stat", "rss",' ')
+            read_table_key("/sys/fs/cgroup/memory/memory.stat", "rss", ' ')
         ) {
             let mut limits = Self {
                 total_memory: sys.mem_total,
