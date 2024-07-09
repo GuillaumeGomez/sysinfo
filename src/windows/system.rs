@@ -339,7 +339,7 @@ impl SystemInner {
                         {
                             if refresh_kind.memory() {
                                 proc_.memory = pi.WorkingSetSize as _;
-                                proc_.virtual_memory = pi.VirtualSize as _;
+                                proc_.virtual_memory = pi.PrivatePageCount as _;
                             }
                             proc_.update(refresh_kind, nb_cpus, now, false);
                             // Update the parent in case it changed.
@@ -351,7 +351,7 @@ impl SystemInner {
                     }
                     let name = get_process_name(&pi, pid);
                     let (memory, virtual_memory) = if refresh_kind.memory() {
-                        (pi.WorkingSetSize as _, pi.VirtualSize as _)
+                        (pi.WorkingSetSize as _, pi.PrivatePageCount as _)
                     } else {
                         (0, 0)
                     };
