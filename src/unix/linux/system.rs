@@ -585,9 +585,9 @@ where
     F: FnMut(&str, u64),
 {
     if let Ok(content) = get_all_utf8_data(filename, 16_635) {
-        content
+        return content
             .split('\n')
-            .find(|line| {
+            .find_map(|line| {
                 let mut split = line.split(colsep);
                 let key = split.next()?;
                 if key == target_key {
@@ -597,8 +597,10 @@ where
                 }
 
                 None
-            })
+            });
     }
+
+    None
 }
 
 impl crate::CGroupLimits {
