@@ -988,7 +988,7 @@ pub struct CGroupLimits {
     /// Free swap (in bytes) for the current cgroup.
     pub free_swap: u64,
     /// Resident Set Size (RSS) (in bytes) for the current cgroup.
-    pub rss: u64
+    pub rss: u64,
 }
 
 /// Type containing read and written bytes.
