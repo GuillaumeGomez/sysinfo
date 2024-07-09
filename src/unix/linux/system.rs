@@ -580,10 +580,7 @@ where
     }
 }
 
-fn read_table_key<F>(filename: &str, target_key: &str, colsep: char) -> Option<u64>
-where
-    F: FnMut(&str, u64),
-{
+fn read_table_key(filename: &str, target_key: &str, colsep: char) -> Option<u64> {
     if let Ok(content) = get_all_utf8_data(filename, 16_635) {
         return content
             .split('\n')
