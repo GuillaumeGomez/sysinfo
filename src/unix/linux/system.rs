@@ -747,6 +747,43 @@ mod test {
     #[cfg(not(target_os = "android"))]
     use super::get_system_info_linux;
     use super::InfoType;
+    use super::read_table_key;
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_read_table_key() {
+        // Create a temporary file with test content
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "KEY1:100 kB").unwrap();
+        writeln!(file, "KEY2:200 kB").unwrap();
+        writeln!(file, "KEY3:300 kB").unwrap();
+
+        let file_path = file.path().to_str().unwrap();
+
+        // Test existing keys
+        assert_eq!(read_table_key(file_path, "KEY1", ':'), Some(100));
+        assert_eq!(read_table_key(file_path, "KEY2", ':'), Some(200));
+        assert_eq!(read_table_key(file_path, "KEY3", ':'), Some(300));
+
+        // Test non-existent key
+        assert_eq!(read_table_key(file_path, "KEY4", ':'), None);
+
+        // Test with different separator
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "KEY1 400 kB").unwrap();
+        writeln!(file, "KEY2 500 kB").unwrap();
+
+        let file_path = file.path().to_str().unwrap();
+
+        assert_eq!(read_table_key(file_path, "KEY1", ' '), Some(400));
+        assert_eq!(read_table_key(file_path, "KEY2", ' '), Some(500));
+
+        // Test with invalid file
+        assert_eq!(read_table_key("/nonexistent/file", "KEY1", ':'), None);
+    }
 
     #[test]
     #[cfg(target_os = "android")]
