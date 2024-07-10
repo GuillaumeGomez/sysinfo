@@ -754,7 +754,6 @@ mod test {
     use tempfile::NamedTempFile;
 
     #[test]
-    #[cfg(target_os = "linux")]
     fn test_read_table() {
         // Create a temporary file with test content
         let mut file = NamedTempFile::new().unwrap();
@@ -814,7 +813,6 @@ mod test {
     }
 
     #[test]
-    #[cfg(target_os = "linux")]
     fn test_read_table_key() {
         // Create a temporary file with test content
         let mut file = NamedTempFile::new().unwrap();
