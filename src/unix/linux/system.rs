@@ -748,9 +748,68 @@ mod test {
     use super::get_system_info_linux;
     use super::InfoType;
     use super::read_table_key;
-    use std::fs::File;
     use std::io::Write;
     use tempfile::NamedTempFile;
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn test_read_table() {
+        // Create a temporary file with test content
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "KEY1:100 kB").unwrap();
+        writeln!(file, "KEY2:200 kB").unwrap();
+        writeln!(file, "KEY3:300 kB").unwrap();
+        writeln!(file, "KEY4:invalid").unwrap();
+
+        let file_path = file.path().to_str().unwrap();
+
+        // Test reading the table
+        let mut result = HashMap::new();
+        read_table(file_path, ':', |key, value| {
+            result.insert(key.to_string(), value);
+        });
+
+        assert_eq!(result.get("KEY1"), Some(&100));
+        assert_eq!(result.get("KEY2"), Some(&200));
+        assert_eq!(result.get("KEY3"), Some(&300));
+        assert_eq!(result.get("KEY4"), None);
+
+        // Test with different separator and units
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "KEY1 400 MB").unwrap();
+        writeln!(file, "KEY2 500 GB").unwrap();
+        writeln!(file, "KEY3 600").unwrap();
+
+        let file_path = file.path().to_str().unwrap();
+
+        let mut result = HashMap::new();
+        read_table(file_path, ' ', |key, value| {
+            result.insert(key.to_string(), value);
+        });
+
+        assert_eq!(result.get("KEY1"), Some(&400));
+        assert_eq!(result.get("KEY2"), Some(&500));
+        assert_eq!(result.get("KEY3"), Some(&600));
+
+        // Test with empty file
+        let file = NamedTempFile::new().unwrap();
+        let file_path = file.path().to_str().unwrap();
+
+        let mut result = HashMap::new();
+        read_table(file_path, ':', |key, value| {
+            result.insert(key.to_string(), value);
+        });
+
+        assert!(result.is_empty());
+
+        // Test with non-existent file
+        let mut result = HashMap::new();
+        read_table("/nonexistent/file", ':', |key, value| {
+            result.insert(key.to_string(), value);
+        });
+
+        assert!(result.is_empty());
+    }
 
     #[test]
     #[cfg(target_os = "linux")]
