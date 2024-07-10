@@ -747,6 +747,7 @@ mod test {
     #[cfg(not(target_os = "android"))]
     use super::get_system_info_linux;
     use super::InfoType;
+    use super::read_table;
     use super::read_table_key;
     use std::io::Write;
     use tempfile::NamedTempFile;
