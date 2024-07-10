@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-mod utils;
+pub(crate) mod utils;
 
 cfg_if! {
     if #[cfg(feature = "system")] {
@@ -31,10 +31,12 @@ cfg_if! {
 
         pub(crate) use self::network::{NetworkDataInner, NetworksInner};
     }
-}
 
-pub(crate) use crate::unix::groups::get_groups;
-pub(crate) use crate::unix::users::{get_users, UserInner};
+    if #[cfg(feature = "user")] {
+        pub(crate) use crate::unix::groups::get_groups;
+        pub(crate) use crate::unix::users::{get_users, UserInner};
+    }
+}
 
 #[doc = include_str!("../../../md_doc/is_supported.md")]
 pub const IS_SUPPORTED_SYSTEM: bool = true;

@@ -1,12 +1,16 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use libc::c_char;
-
-pub(crate) fn cstr_to_rust(c: *const c_char) -> Option<String> {
+#[cfg(feature = "user")]
+pub(crate) fn cstr_to_rust(c: *const libc::c_char) -> Option<String> {
     cstr_to_rust_with_size(c, None)
 }
 
-pub(crate) fn cstr_to_rust_with_size(c: *const c_char, size: Option<usize>) -> Option<String> {
+#[cfg(any(feature = "disk", feature = "system", feature = "user"))]
+#[allow(dead_code)]
+pub(crate) fn cstr_to_rust_with_size(
+    c: *const libc::c_char,
+    size: Option<usize>,
+) -> Option<String> {
     if c.is_null() {
         return None;
     }
