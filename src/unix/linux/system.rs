@@ -749,6 +749,7 @@ mod test {
     use super::InfoType;
     use super::read_table;
     use super::read_table_key;
+    use std::collections::HashMap;
     use std::io::Write;
     use tempfile::NamedTempFile;
 
