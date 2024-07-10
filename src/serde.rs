@@ -4,6 +4,7 @@
     feature = "component",
     feature = "disk",
     feature = "network",
+    feature = "system",
     feature = "user"
 ))]
 use serde::{ser::SerializeStruct, Serialize, Serializer};
