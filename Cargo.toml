@@ -15,8 +15,9 @@ edition = "2021"
 name = "sysinfo"
 
 [features]
-default = ["component", "disk", "system", "multithread"]
+default = ["component", "disk", "network", "system", "multithread"]
 component = [
+    "windows/Win32_Security",
     "windows/Win32_System_Com",
     "windows/Win32_System_Rpc",
     "windows/Win32_System_Variant",
@@ -32,6 +33,7 @@ system = [
     "windows/Wdk_System_SystemInformation",
     "windows/Wdk_System_SystemServices",
     "windows/Wdk_System_Threading",
+    "windows/Win32_Security",
     "windows/Win32_System_Diagnostics_Debug",
     "windows/Win32_System_Kernel",
     "windows/Win32_System_Memory",
@@ -45,6 +47,11 @@ system = [
     "windows/Win32_System_Threading",
     "windows/Win32_UI_Shell",
     "ntapi",
+]
+network = [
+    "windows/Win32_NetworkManagement_IpHelper",
+    "windows/Win32_NetworkManagement_Ndis",
+    "windows/Win32_Networking_WinSock",
 ]
 apple-sandbox = []
 apple-app-store = ["apple-sandbox"]
@@ -80,10 +87,7 @@ serde = { version = "^1.0.190", optional = true }
 ntapi = { version = "0.4", optional = true }
 windows = { version = "0.56", features = [
     "Win32_Foundation",
-    "Win32_NetworkManagement_IpHelper",
     "Win32_NetworkManagement_NetManagement",
-    "Win32_NetworkManagement_Ndis",
-    "Win32_Networking_WinSock",
     "Win32_Security",
     "Win32_Security_Authentication_Identity",
     "Win32_Security_Authorization",

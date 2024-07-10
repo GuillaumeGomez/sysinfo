@@ -38,9 +38,12 @@ cfg_if! {
             }
         }
     }
+
+    if #[cfg(feature = "network")] {
+        pub(crate) mod network_helper;
+    }
 }
 
 pub(crate) mod groups;
-pub(crate) mod network_helper;
 pub(crate) mod users;
 pub(crate) mod utils;

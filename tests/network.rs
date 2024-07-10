@@ -2,6 +2,7 @@
 
 // This test is used to ensure that the networks are not loaded by default.
 
+#[cfg(feature = "network")]
 #[test]
 fn test_networks() {
     use sysinfo::Networks;
