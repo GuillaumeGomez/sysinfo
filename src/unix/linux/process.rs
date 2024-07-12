@@ -892,7 +892,7 @@ fn parse_stat_file(data: &[u8]) -> Option<Parts<'_>> {
     str_parts.extend(data.split_whitespace());
     Some(Parts {
         str_parts,
-        short_exe: short_exe.strip_prefix(&[b'(']).unwrap_or(short_exe),
+        short_exe: short_exe.strip_prefix(b"(").unwrap_or(short_exe),
     })
 }
 

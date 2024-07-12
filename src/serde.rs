@@ -1,5 +1,12 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#[cfg(any(
+    feature = "component",
+    feature = "disk",
+    feature = "network",
+    feature = "system",
+    feature = "user"
+))]
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 #[cfg(feature = "disk")]
@@ -52,24 +59,6 @@ impl Serialize for crate::DiskKind {
         } else {
             serializer.serialize_unit_variant("DiskKind", index, variant)
         }
-    }
-}
-
-impl Serialize for crate::Gid {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_newtype_struct("Gid", &self.to_string())
-    }
-}
-
-impl Serialize for crate::Uid {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_newtype_struct("Uid", &self.to_string())
     }
 }
 
@@ -211,15 +200,6 @@ impl Serialize for crate::Component {
         state.serialize_field("label", &self.label())?;
 
         state.end()
-    }
-}
-
-impl Serialize for crate::Users {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_seq(self.iter())
     }
 }
 
@@ -368,6 +348,17 @@ impl Serialize for crate::IpNetwork {
     }
 }
 
+#[cfg(feature = "user")]
+impl Serialize for crate::Users {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.iter())
+    }
+}
+
+#[cfg(feature = "user")]
 impl Serialize for crate::User {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -385,6 +376,7 @@ impl Serialize for crate::User {
     }
 }
 
+#[cfg(feature = "user")]
 impl Serialize for crate::Group {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -397,6 +389,26 @@ impl Serialize for crate::Group {
         state.serialize_field("name", &self.name())?;
 
         state.end()
+    }
+}
+
+#[cfg(any(feature = "user", feature = "system"))]
+impl Serialize for crate::Gid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_newtype_struct("Gid", &self.to_string())
+    }
+}
+
+#[cfg(any(feature = "user", feature = "system"))]
+impl Serialize for crate::Uid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_newtype_struct("Uid", &self.to_string())
     }
 }
 

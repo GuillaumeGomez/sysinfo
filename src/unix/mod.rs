@@ -5,19 +5,23 @@ cfg_if! {
         pub(crate) mod apple;
         pub(crate) use apple as sys;
 
+        #[allow(unused_imports)]
         pub(crate) use libc::__error as libc_errno;
     } else if #[cfg(any(target_os = "linux", target_os = "android"))] {
         pub(crate) mod linux;
         pub(crate) use linux as sys;
 
         #[cfg(target_os = "linux")]
+        #[allow(unused_imports)]
         pub(crate) use libc::__errno_location as libc_errno;
         #[cfg(target_os = "android")]
+        #[allow(unused_imports)]
         pub(crate) use libc::__errno as libc_errno;
     } else if #[cfg(target_os = "freebsd")] {
         pub(crate) mod freebsd;
         pub(crate) use freebsd as sys;
 
+        #[allow(unused_imports)]
         pub(crate) use libc::__error as libc_errno;
     } else {
         compile_error!("Invalid cfg!");
@@ -42,8 +46,11 @@ cfg_if! {
     if #[cfg(feature = "network")] {
         pub(crate) mod network_helper;
     }
+
+    if #[cfg(feature = "user")] {
+        pub(crate) mod users;
+        pub(crate) mod groups;
+    }
 }
 
-pub(crate) mod groups;
-pub(crate) mod users;
 pub(crate) mod utils;

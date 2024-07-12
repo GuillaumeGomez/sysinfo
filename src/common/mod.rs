@@ -8,15 +8,18 @@ pub(crate) mod disk;
 pub(crate) mod network;
 #[cfg(feature = "system")]
 pub(crate) mod system;
+#[cfg(feature = "user")]
 pub(crate) mod user;
 
 macro_rules! xid {
     ($(#[$outer:meta])+ $name:ident, $type:ty $(, $trait:ty)?) => {
+        #[cfg(any(feature = "system", feature = "user"))]
         $(#[$outer])+
         #[repr(transparent)]
         #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
         pub struct $name(pub(crate) $type);
 
+        #[cfg(any(feature = "system", feature = "user"))]
         impl std::ops::Deref for $name {
             type Target = $type;
 
@@ -26,6 +29,7 @@ macro_rules! xid {
         }
 
         $(
+        #[cfg(any(feature = "system", feature = "user"))]
         impl TryFrom<usize> for $name {
             type Error = <$type as TryFrom<usize>>::Error;
 
@@ -34,6 +38,7 @@ macro_rules! xid {
             }
         }
 
+        #[cfg(any(feature = "system", feature = "user"))]
         impl $trait for $name {
             type Err = <$type as $trait>::Err;
 
@@ -85,6 +90,7 @@ cfg_if! {
         uid!(crate::windows::Sid);
         gid!(u32);
         // Manual implementation outside of the macro...
+        #[cfg(any(feature = "system", feature = "user"))]
         impl std::str::FromStr for Uid {
             type Err = <crate::windows::Sid as std::str::FromStr>::Err;
 

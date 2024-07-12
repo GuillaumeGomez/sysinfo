@@ -68,18 +68,10 @@ cfg_if! {
     }
 }
 
-pub use crate::common::{
-    user::{Group, Groups, User, Users},
-    Gid, Uid,
-};
-
-#[cfg(feature = "disk")]
-pub use crate::common::disk::{Disk, DiskKind, Disks};
-#[cfg(feature = "disk")]
-pub(crate) use crate::sys::{DiskInner, DisksInner};
-
 #[cfg(feature = "component")]
 pub use crate::common::component::{Component, Components};
+#[cfg(feature = "disk")]
+pub use crate::common::disk::{Disk, DiskKind, Disks};
 #[cfg(feature = "network")]
 pub use crate::common::network::{IpNetwork, MacAddr, NetworkData, Networks};
 #[cfg(feature = "system")]
@@ -88,17 +80,26 @@ pub use crate::common::system::{
     Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, ThreadKind,
     UpdateKind,
 };
+#[cfg(feature = "user")]
+pub use crate::common::user::{Group, Groups, User, Users};
+#[cfg(any(feature = "user", feature = "system"))]
+pub use crate::common::{Gid, Uid};
+#[cfg(feature = "system")]
+pub use crate::sys::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
+
+#[cfg(feature = "user")]
+pub(crate) use crate::common::user::GroupInner;
+#[cfg(feature = "user")]
+pub(crate) use crate::sys::UserInner;
 #[cfg(feature = "component")]
 pub(crate) use crate::sys::{ComponentInner, ComponentsInner};
 #[cfg(feature = "system")]
 pub(crate) use crate::sys::{CpuInner, ProcessInner, SystemInner};
+#[cfg(feature = "disk")]
+pub(crate) use crate::sys::{DiskInner, DisksInner};
 #[cfg(feature = "network")]
 pub(crate) use crate::sys::{NetworkDataInner, NetworksInner};
-#[cfg(feature = "system")]
-pub use crate::sys::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
 
-pub(crate) use crate::common::user::GroupInner;
-pub(crate) use crate::sys::UserInner;
 pub use crate::sys::IS_SUPPORTED_SYSTEM;
 
 #[cfg(feature = "c-interface")]
@@ -222,6 +223,15 @@ use sysinfo::", stringify!($imports), r";
         NetworkData,
         Networks,
     );
+
+    #[cfg(not(feature = "user"))]
+    compile_fail_import!(
+        no_user_feature =>
+        Group,
+        Groups,
+        User,
+        Users,
+    );
 }
 
 #[cfg(test)]
@@ -253,6 +263,7 @@ mod test {
         check_minimum_cpu_update_interval(MINIMUM_CPU_UPDATE_INTERVAL);
     }
 
+    #[cfg(feature = "user")]
     #[test]
     fn check_uid_gid() {
         let mut users = Users::new();

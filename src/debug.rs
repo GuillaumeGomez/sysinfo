@@ -1,12 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{User, Users};
-
-use std::fmt;
-
 #[cfg(feature = "system")]
-impl fmt::Debug for crate::Cpu {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Debug for crate::Cpu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Cpu")
             .field("name", &self.name())
             .field("CPU usage", &self.cpu_usage())
@@ -18,8 +14,8 @@ impl fmt::Debug for crate::Cpu {
 }
 
 #[cfg(feature = "system")]
-impl fmt::Debug for crate::System {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Debug for crate::System {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("System")
             .field("global CPU usage", &self.global_cpu_usage())
             .field("load average", &Self::load_average())
@@ -34,8 +30,8 @@ impl fmt::Debug for crate::System {
 }
 
 #[cfg(feature = "disk")]
-impl fmt::Debug for crate::Disk {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Debug for crate::Disk {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             fmt,
             "Disk({:?})[FS: {:?}][Type: {:?}][removable: {}] mounted on {:?}: {}/{} B",
@@ -51,15 +47,15 @@ impl fmt::Debug for crate::Disk {
 }
 
 #[cfg(feature = "disk")]
-impl fmt::Debug for crate::Disks {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Debug for crate::Disks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }
 }
 
 #[cfg(feature = "system")]
-impl fmt::Debug for crate::Process {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Debug for crate::Process {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Process")
             .field("pid", &self.pid())
             .field("parent", &self.parent())
@@ -81,15 +77,15 @@ impl fmt::Debug for crate::Process {
 }
 
 #[cfg(feature = "component")]
-impl fmt::Debug for crate::Components {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Debug for crate::Components {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }
 }
 
 #[cfg(feature = "component")]
-impl fmt::Debug for crate::Component {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Debug for crate::Component {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(critical) = self.critical() {
             write!(
                 f,
@@ -112,15 +108,15 @@ impl fmt::Debug for crate::Component {
 }
 
 #[cfg(feature = "network")]
-impl fmt::Debug for crate::Networks {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Debug for crate::Networks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }
 }
 
 #[cfg(feature = "network")]
-impl fmt::Debug for crate::NetworkData {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Debug for crate::NetworkData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NetworkData")
             .field("income", &self.received())
             .field("total income", &self.total_received())
@@ -138,14 +134,16 @@ impl fmt::Debug for crate::NetworkData {
     }
 }
 
-impl fmt::Debug for Users {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+#[cfg(feature = "user")]
+impl std::fmt::Debug for crate::Users {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }
 }
 
-impl fmt::Debug for User {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+#[cfg(feature = "user")]
+impl std::fmt::Debug for crate::User {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("User")
             .field("uid", &self.id())
             .field("gid", &self.group_id())
