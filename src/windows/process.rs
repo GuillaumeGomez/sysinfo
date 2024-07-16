@@ -840,7 +840,7 @@ unsafe fn get_process_params(
     if pwow32info.is_null() {
         // target is a 64 bit process
 
-        let pinfo = pinfo.unwrap();
+        let Some(pinfo) = pinfo else { return };
 
         let mut peb = MaybeUninit::<PEB>::uninit();
         if ReadProcessMemory(
