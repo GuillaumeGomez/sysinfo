@@ -802,9 +802,9 @@ unsafe fn get_process_params(
     }
     let pwow32info = pwow32info.assume_init();
 
-    if pwow32info.is_null() {
-        // target is a 64 bit process
-
+    // Get parent and PEB64 from PROCESS_BASIC_INFORMATION
+    // PEB64 will only be used if the target is 64 bit process
+    let pinfo = if refresh_parent || pwow32info.is_null() {
         let mut pbasicinfo = MaybeUninit::<PROCESS_BASIC_INFORMATION>::uninit();
         if NtQueryInformationProcess(
             handle,
@@ -831,6 +831,16 @@ unsafe fn get_process_params(
         if !has_anything_to_update {
             return;
         }
+
+        Some(pinfo)
+    } else {
+        None
+    };
+
+    if pwow32info.is_null() {
+        // target is a 64 bit process
+
+        let pinfo = pinfo.unwrap();
 
         let mut peb = MaybeUninit::<PEB>::uninit();
         if ReadProcessMemory(
