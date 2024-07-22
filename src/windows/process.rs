@@ -19,11 +19,10 @@ use std::str;
 use std::sync::{Arc, OnceLock};
 
 use libc::c_void;
-use ntapi::ntexapi::{SystemProcessIdInformation, SYSTEM_PROCESS_ID_INFORMATION};
+use ntapi::ntexapi::SYSTEM_PROCESS_INFORMATION;
 use ntapi::ntrtl::RTL_USER_PROCESS_PARAMETERS;
 use ntapi::ntwow64::{PEB32, RTL_USER_PROCESS_PARAMETERS32};
 use windows::core::PCWSTR;
-use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SYSTEM_INFORMATION_CLASS};
 use windows::Wdk::System::SystemServices::RtlGetVersion;
 use windows::Wdk::System::Threading::{
     NtQueryInformationProcess, ProcessBasicInformation, ProcessCommandLineInformation,
@@ -36,12 +35,9 @@ use windows::Win32::Foundation::{
 use windows::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::Memory::{
-    GetProcessHeap, HeapAlloc, HeapFree, LocalAlloc, VirtualQueryEx, HEAP_ZERO_MEMORY, LMEM_FIXED,
-    LMEM_ZEROINIT, MEMORY_BASIC_INFORMATION,
+    GetProcessHeap, HeapAlloc, HeapFree, VirtualQueryEx, HEAP_ZERO_MEMORY, MEMORY_BASIC_INFORMATION,
 };
-use windows::Win32::System::ProcessStatus::{
-    GetModuleFileNameExW, GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS_EX,
-};
+use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
 use windows::Win32::System::RemoteDesktop::ProcessIdToSessionId;
 use windows::Win32::System::SystemInformation::OSVERSIONINFOEXW;
 use windows::Win32::System::Threading::{
@@ -240,81 +236,6 @@ unsafe fn display_ntstatus_error(ntstatus: windows::core::HRESULT) {
     );
 }
 
-// Take a look at https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/ex/sysinfo/query.htm
-// for explanations.
-unsafe fn get_process_name(pid: Pid) -> Option<OsString> {
-    let mut info = SYSTEM_PROCESS_ID_INFORMATION {
-        ProcessId: pid.0 as _,
-        ImageName: MaybeUninit::zeroed().assume_init(),
-    };
-    // `MaximumLength` MUST BE a power of 2: here 32768 because the the returned name may be a full
-    // UNC path (up to 32767).
-    info.ImageName.MaximumLength = 1 << 15;
-
-    for i in 0.. {
-        let local_alloc = LocalAlloc(
-            LMEM_FIXED | LMEM_ZEROINIT,
-            info.ImageName.MaximumLength as _,
-        );
-        match local_alloc {
-            Ok(buf) if !buf.0.is_null() => info.ImageName.Buffer = buf.0.cast(),
-            _ => {
-                sysinfo_debug!("Couldn't get process infos: LocalAlloc failed");
-                return None;
-            }
-        }
-        match NtQuerySystemInformation(
-            SYSTEM_INFORMATION_CLASS(SystemProcessIdInformation as _),
-            &mut info as *mut _ as *mut _,
-            size_of::<SYSTEM_PROCESS_ID_INFORMATION>() as _,
-            null_mut(),
-        )
-        .ok()
-        {
-            Ok(()) => break,
-            Err(err) if err.code() == STATUS_INFO_LENGTH_MISMATCH.to_hresult() => {
-                if !info.ImageName.Buffer.is_null() {
-                    let _err = LocalFree(HLOCAL(info.ImageName.Buffer.cast()));
-                }
-                if i > 2 {
-                    // Too many iterations, we should have the correct length at this point
-                    // normally, aborting name retrieval.
-                    sysinfo_debug!(
-                    "NtQuerySystemInformation returned `STATUS_INFO_LENGTH_MISMATCH` too many times"
-                );
-                    return None;
-                }
-                // New length has been set into `MaximumLength` so we just continue the loop.
-            }
-            Err(_err) => {
-                if !info.ImageName.Buffer.is_null() {
-                    let _err = LocalFree(HLOCAL(info.ImageName.Buffer.cast()));
-                }
-
-                #[cfg(feature = "debug")]
-                {
-                    display_ntstatus_error(_err.code());
-                }
-                return None;
-            }
-        }
-    }
-
-    if info.ImageName.Buffer.is_null() {
-        return None;
-    }
-
-    let s = std::slice::from_raw_parts(
-        info.ImageName.Buffer,
-        // The length is in bytes, not the length of string
-        info.ImageName.Length as usize / std::mem::size_of::<u16>(),
-    );
-    let os_str = OsString::from_wide(s);
-    let name = Path::new(&os_str).file_name().map(|s| s.to_os_string());
-    let _err = LocalFree(HLOCAL(info.ImageName.Buffer.cast()));
-    name
-}
-
 unsafe fn get_exe(process_handler: &HandleWrapper) -> Option<PathBuf> {
     let mut exe_buf = [0u16; MAX_PATH as usize + 1];
     GetModuleFileNameExW(
@@ -327,46 +248,7 @@ unsafe fn get_exe(process_handler: &HandleWrapper) -> Option<PathBuf> {
 }
 
 impl ProcessInner {
-    pub(crate) fn new_from_pid(pid: Pid, now: u64) -> Option<Self> {
-        unsafe {
-            let process_handler = get_process_handler(pid)?;
-            let name = get_process_name(pid).unwrap_or_default();
-            let (start_time, run_time) = get_start_and_run_time(*process_handler, now);
-            Some(Self {
-                handle: Some(Arc::new(process_handler)),
-                name,
-                pid,
-                parent: None,
-                user_id: None,
-                cmd: Vec::new(),
-                environ: Vec::new(),
-                exe: None,
-                cwd: None,
-                root: None,
-                status: ProcessStatus::Run,
-                memory: 0,
-                virtual_memory: 0,
-                cpu_usage: 0.,
-                cpu_calc_values: CPUsageCalculationValues::new(),
-                start_time,
-                run_time,
-                updated: true,
-                old_read_bytes: 0,
-                old_written_bytes: 0,
-                read_bytes: 0,
-                written_bytes: 0,
-            })
-        }
-    }
-
-    pub(crate) fn new_full(
-        pid: Pid,
-        parent: Option<Pid>,
-        memory: u64,
-        virtual_memory: u64,
-        name: OsString,
-        now: u64,
-    ) -> Self {
+    pub(crate) fn new(pid: Pid, parent: Option<Pid>, now: u64, name: OsString) -> Self {
         let (handle, start_time, run_time) = if let Some(handle) = get_process_handler(pid) {
             let (start_time, run_time) = get_start_and_run_time(*handle, now);
             (Some(Arc::new(handle)), start_time, run_time)
@@ -377,16 +259,16 @@ impl ProcessInner {
             handle,
             name,
             pid,
-            user_id: None,
             parent,
+            user_id: None,
             cmd: Vec::new(),
             environ: Vec::new(),
             exe: None,
             cwd: None,
             root: None,
             status: ProcessStatus::Run,
-            memory,
-            virtual_memory,
+            memory: 0,
+            virtual_memory: 0,
             cpu_usage: 0.,
             cpu_calc_values: CPUsageCalculationValues::new(),
             start_time,
@@ -405,6 +287,7 @@ impl ProcessInner {
         nb_cpus: u64,
         now: u64,
         refresh_parent: bool,
+        pi: &SYSTEM_PROCESS_INFORMATION,
     ) {
         if refresh_kind.cpu() {
             compute_cpu_usage(self, nb_cpus);
@@ -413,7 +296,8 @@ impl ProcessInner {
             update_disk_usage(self);
         }
         if refresh_kind.memory() {
-            update_memory(self);
+            self.memory = pi.WorkingSetSize as _;
+            self.virtual_memory = pi.VirtualSize as _;
         }
         unsafe {
             get_process_user_id(self, refresh_kind);
@@ -1124,24 +1008,6 @@ pub(crate) fn update_disk_usage(p: &mut ProcessInner) {
                 p.old_written_bytes = p.written_bytes;
                 p.read_bytes = counters.ReadTransferCount;
                 p.written_bytes = counters.WriteTransferCount;
-            }
-        }
-    }
-}
-
-pub(crate) fn update_memory(p: &mut ProcessInner) {
-    if let Some(handle) = p.get_handle() {
-        unsafe {
-            let mut pmc: PROCESS_MEMORY_COUNTERS_EX = zeroed();
-            if GetProcessMemoryInfo(
-                handle,
-                (&mut pmc as *mut PROCESS_MEMORY_COUNTERS_EX).cast(),
-                size_of::<PROCESS_MEMORY_COUNTERS_EX>() as _,
-            )
-            .is_ok()
-            {
-                p.memory = pmc.WorkingSetSize as _;
-                p.virtual_memory = pmc.PrivateUsage as _;
             }
         }
     }
