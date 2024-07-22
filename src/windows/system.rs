@@ -3,7 +3,6 @@
 use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessRefreshKind};
 
 use crate::sys::cpu::*;
-use crate::sys::process::get_start_time;
 use crate::{Process, ProcessInner};
 
 use crate::utils::into_iter;
@@ -11,9 +10,10 @@ use crate::utils::into_iter;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
-use std::mem::{size_of, zeroed};
+use std::mem::{replace, size_of, zeroed};
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::ptr;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
 use ntapi::ntexapi::SYSTEM_PROCESS_INFORMATION;
@@ -182,37 +182,34 @@ impl SystemInner {
         None
     }
 
-    #[allow(clippy::map_entry)]
     pub(crate) fn refresh_process_specifics(
         &mut self,
         pid: Pid,
         refresh_kind: ProcessRefreshKind,
     ) -> bool {
-        let now = get_now();
-        let nb_cpus = self.cpus.len() as u64;
-
-        if let Some(proc_) = self.process_list.get_mut(&pid) {
-            if let Some(ret) = refresh_existing_process(proc_, nb_cpus, now, refresh_kind) {
-                return ret;
-            }
-            // We need to re-make the process because the PID owner changed.
-        }
-        if let Some(mut p) = ProcessInner::new_from_pid(pid, now) {
-            p.update(refresh_kind, nb_cpus, now, true);
-            p.updated = false;
-            self.process_list.insert(pid, Process { inner: p });
-            true
-        } else {
-            false
-        }
+        self.refresh_processes_specifics_inner(Some(&[pid]), refresh_kind) != 0
     }
 
-    #[allow(clippy::cast_ptr_alignment)]
     pub(crate) fn refresh_processes_specifics(
         &mut self,
         filter: Option<&[Pid]>,
         refresh_kind: ProcessRefreshKind,
     ) {
+        self.refresh_processes_specifics_inner(filter, refresh_kind);
+    }
+
+    #[allow(clippy::cast_ptr_alignment)]
+    pub(crate) fn refresh_processes_specifics_inner(
+        &mut self,
+        filter: Option<&[Pid]>,
+        refresh_kind: ProcessRefreshKind,
+    ) -> usize {
+        if let Some(filter) = filter {
+            if filter.is_empty() {
+                return 0;
+            }
+        }
+
         // Windows 10 notebook requires at least 512KiB of memory to make it in one go
         let mut buffer_size = 512 * 1024;
         let mut process_information: Vec<u8> = Vec::with_capacity(buffer_size);
@@ -250,7 +247,7 @@ impl SystemInner {
                             "Couldn't get process infos: NtQuerySystemInformation returned {}",
                             _err,
                         );
-                        return;
+                        return 0;
                     }
                 }
             }
@@ -266,7 +263,7 @@ impl SystemInner {
             }
 
             #[allow(clippy::type_complexity)]
-            let (filter, filter_callback): (
+            let (filter_array, filter_callback): (
                 &[Pid],
                 &(dyn Fn(Pid, &[Pid]) -> bool + Sync + Send),
             ) = if let Some(filter) = filter {
@@ -278,6 +275,8 @@ impl SystemInner {
             // If we reach this point NtQuerySystemInformation succeeded
             // and the buffer contents are initialized
             process_information.set_len(buffer_size);
+
+            let nb_updated = AtomicUsize::new(0);
 
             // Parse the data block to get process information
             let mut process_ids = Vec::with_capacity(500);
@@ -293,7 +292,7 @@ impl SystemInner {
                 // under x86_64 wine (and possibly other systems)
                 let pi = ptr::read_unaligned(p);
 
-                if filter_callback(Pid(pi.UniqueProcessId as _), filter) {
+                if filter_callback(Pid(pi.UniqueProcessId as _), filter_array) {
                     process_ids.push(Wrap(p));
                 }
 
@@ -319,6 +318,7 @@ impl SystemInner {
             //       able to run it over `process_information` directly!
             let processes = into_iter(process_ids)
                 .filter_map(|pi| {
+                    nb_updated.fetch_add(1, Ordering::Relaxed);
                     // as above, read_unaligned is necessary
                     let pi = ptr::read_unaligned(pi.0);
                     let pid = Pid(pi.UniqueProcessId as _);
@@ -337,38 +337,29 @@ impl SystemInner {
                             .map(|start| start == proc_.start_time())
                             .unwrap_or(true)
                         {
-                            if refresh_kind.memory() {
-                                proc_.memory = pi.WorkingSetSize as _;
-                                proc_.virtual_memory = pi.VirtualSize as _;
-                            }
-                            proc_.update(refresh_kind, nb_cpus, now, false);
+                            proc_.update(refresh_kind, nb_cpus, now, false, &pi);
                             // Update the parent in case it changed.
                             proc_.parent = parent;
                             return None;
                         }
                         // If the PID owner changed, we need to recompute the whole process.
-                        sysinfo_debug!("owner changed for PID {}", proc_.pid());
+                        sysinfo_debug!("owner changed for PID {}", pid);
                     }
                     let name = get_process_name(&pi, pid);
-                    let (memory, virtual_memory) = if refresh_kind.memory() {
-                        (pi.WorkingSetSize as _, pi.VirtualSize as _)
-                    } else {
-                        (0, 0)
-                    };
-                    let mut p =
-                        ProcessInner::new_full(pid, parent, memory, virtual_memory, name, now);
-                    p.update(refresh_kind.without_memory(), nb_cpus, now, false);
+                    let mut p = ProcessInner::new(pid, parent, now, name);
+                    p.update(refresh_kind, nb_cpus, now, false, &pi);
                     Some(Process { inner: p })
                 })
                 .collect::<Vec<_>>();
             for p in processes.into_iter() {
                 self.process_list.insert(p.pid(), p);
             }
-            self.process_list.retain(|_, v| {
-                let x = v.inner.updated;
-                v.inner.updated = false;
-                x
-            });
+            if filter.is_none() {
+                // If it comes from `refresh_process` or `refresh_pids`, we don't remove
+                // dead processes.
+                self.process_list.retain(|_, v| replace(&mut v.inner.updated, false));
+            }
+            nb_updated.into_inner()
         }
     }
 
@@ -520,32 +511,6 @@ pub(crate) fn is_proc_running(handle: HANDLE) -> bool {
     let mut exit_code = 0;
     unsafe { GetExitCodeProcess(handle, &mut exit_code) }.is_ok()
         && exit_code == STILL_ACTIVE.0 as u32
-}
-
-/// If it returns `None`, it means that the PID owner changed and that the `Process` must be
-/// completely recomputed.
-fn refresh_existing_process(
-    proc_: &mut Process,
-    nb_cpus: u64,
-    now: u64,
-    refresh_kind: ProcessRefreshKind,
-) -> Option<bool> {
-    let proc_ = &mut proc_.inner;
-    if let Some(handle) = proc_.get_handle() {
-        if get_start_time(handle) != proc_.start_time() {
-            sysinfo_debug!("owner changed for PID {}", proc_.pid());
-            // PID owner changed!
-            return None;
-        }
-        if !is_proc_running(handle) {
-            return Some(false);
-        }
-    } else {
-        return Some(false);
-    }
-    proc_.update(refresh_kind, nb_cpus, now, false);
-    proc_.updated = false;
-    Some(true)
 }
 
 #[allow(clippy::size_of_in_element_count)]
