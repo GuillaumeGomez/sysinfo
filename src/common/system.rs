@@ -14,7 +14,7 @@ use crate::{CpuInner, Gid, ProcessInner, SystemInner, Uid};
 /// use sysinfo::System;
 ///
 /// if sysinfo::IS_SUPPORTED_SYSTEM {
-///     println!("System: {:?}", System::new_all());
+///     println!("System: {:?}", System::new());
 /// } else {
 ///     println!("This OS isn't supported (yet?).");
 /// }
@@ -44,21 +44,6 @@ impl System {
     /// ```
     pub fn new() -> Self {
         Self::new_with_specifics(RefreshKind::new())
-    }
-
-    /// Creates a new [`System`] instance with everything loaded.
-    ///
-    /// It is an equivalent of [`System::new_with_specifics`]`(`[`RefreshKind::everything`]`())`.
-    ///
-    /// [`System`]: crate::System
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// let s = System::new_all();
-    /// ```
-    pub fn new_all() -> Self {
-        Self::new_with_specifics(RefreshKind::everything())
     }
 
     /// Creates a new [`System`] instance and refresh the data corresponding to the
@@ -92,7 +77,7 @@ impl System {
     /// ```
     /// use sysinfo::{ProcessRefreshKind, RefreshKind, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     ///
     /// // Let's just update processes:
     /// s.refresh_specifics(
@@ -169,7 +154,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// // Wait a bit because CPU usage is based on diff.
     /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     /// // Refresh CPUs again.
@@ -189,7 +174,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// s.refresh_cpu_frequency();
     /// ```
     pub fn refresh_cpu_frequency(&mut self) {
@@ -208,7 +193,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::{CpuRefreshKind, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// // We already have the list of CPU filled, but we want to recompute it
     /// // in case new CPUs were added.
     /// s.refresh_cpu_list(CpuRefreshKind::everything());
@@ -232,7 +217,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// s.refresh_cpu_all();
     /// ```
     ///
@@ -246,7 +231,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::{System, CpuRefreshKind};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// s.refresh_cpu_specifics(CpuRefreshKind::everything());
     /// ```
     pub fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
@@ -277,7 +262,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// s.refresh_processes();
     /// ```
     pub fn refresh_processes(&mut self) {
@@ -298,7 +283,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::{ProcessRefreshKind, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// s.refresh_processes_specifics(ProcessRefreshKind::new());
     /// ```
     pub fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
@@ -330,7 +315,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// s.refresh_processes();
     /// ```
     pub fn refresh_pids(&mut self, pids: &[Pid]) {
@@ -352,7 +337,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessRefreshKind, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// s.refresh_pids_specifics(&[Pid::from(1), Pid::from(2)], ProcessRefreshKind::new());
     /// ```
     pub fn refresh_pids_specifics(&mut self, pids: &[Pid], refresh_kind: ProcessRefreshKind) {
@@ -391,7 +376,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// s.refresh_process(Pid::from(1337));
     /// ```
     pub fn refresh_process(&mut self, pid: Pid) -> bool {
@@ -415,7 +400,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessRefreshKind, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// s.refresh_process_specifics(Pid::from(1337), ProcessRefreshKind::new());
     /// ```
     pub fn refresh_process_specifics(
@@ -431,7 +416,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// for (pid, process) in s.processes() {
     ///     println!("{} {:?}", pid, process.name());
     /// }
@@ -445,7 +430,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.name());
     /// }
@@ -468,7 +453,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// for process in s.processes_by_name("htop".as_ref()) {
     ///     println!("{} {:?}", process.pid(), process.name());
     /// }
@@ -497,7 +482,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// for process in s.processes_by_exact_name("htop".as_ref()) {
     ///     println!("{} {:?}", process.pid(), process.name());
     /// }
@@ -576,7 +561,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// println!("{} bytes", s.total_memory());
     /// ```
     ///
@@ -597,7 +582,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// println!("{} bytes", s.free_memory());
     /// ```
     pub fn free_memory(&self) -> u64 {
@@ -615,7 +600,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// println!("{} bytes", s.available_memory());
     /// ```
     pub fn available_memory(&self) -> u64 {
@@ -627,7 +612,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// println!("{} bytes", s.used_memory());
     /// ```
     pub fn used_memory(&self) -> u64 {
@@ -639,7 +624,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// println!("{} bytes", s.total_swap());
     /// ```
     pub fn total_swap(&self) -> u64 {
@@ -651,7 +636,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// println!("{} bytes", s.free_swap());
     /// ```
     pub fn free_swap(&self) -> u64 {
@@ -663,7 +648,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// println!("{} bytes", s.used_swap());
     /// ```
     pub fn used_swap(&self) -> u64 {
@@ -683,7 +668,7 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// println!("limits: {:?}", s.cgroup_limits());
     /// ```
     pub fn cgroup_limits(&self) -> Option<CGroupLimits> {
@@ -996,7 +981,7 @@ pub struct CGroupLimits {
 /// ```no_run
 /// use sysinfo::System;
 ///
-/// let s = System::new_all();
+/// let s = System::new();
 /// for (pid, process) in s.processes() {
 ///     let disk_usage = process.disk_usage();
 ///     println!("[{}] read bytes   : new/total => {}/{} B",
@@ -1163,7 +1148,7 @@ pub enum ThreadKind {
 /// ```no_run
 /// use sysinfo::{Pid, System};
 ///
-/// let s = System::new_all();
+/// let s = System::new();
 /// if let Some(process) = s.process(Pid::from(1337)) {
 ///     println!("{:?}", process.name());
 /// }
@@ -1184,7 +1169,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     process.kill();
     /// }
@@ -1205,7 +1190,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, Signal, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     if process.kill_with(Signal::Kill).is_none() {
     ///         println!("This signal isn't supported on this platform");
@@ -1231,7 +1216,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.name());
     /// }
@@ -1244,13 +1229,13 @@ impl Process {
     ///
     ///  **⚠️ Important ⚠️**
     ///
-    /// On **Windows**, you might need to use `administrator` privileges when running your program  
-    /// to have access to this information.  
+    /// On **Windows**, you might need to use `administrator` privileges when running your program
+    /// to have access to this information.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.cmd());
     /// }
@@ -1264,7 +1249,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.exe());
     /// }
@@ -1290,7 +1275,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}", process.pid());
     /// }
@@ -1304,7 +1289,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.environ());
     /// }
@@ -1318,7 +1303,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.cwd());
     /// }
@@ -1332,7 +1317,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.root());
     /// }
@@ -1355,7 +1340,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{} bytes", process.memory());
     /// }
@@ -1383,7 +1368,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{} bytes", process.virtual_memory());
     /// }
@@ -1399,7 +1384,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.parent());
     /// }
@@ -1413,7 +1398,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{:?}", process.status());
     /// }
@@ -1427,7 +1412,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("Started at {} seconds", process.start_time());
     /// }
@@ -1441,7 +1426,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("Running since {} seconds", process.run_time());
     /// }
@@ -1469,7 +1454,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessRefreshKind, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// // Wait a bit because CPU usage is based on diff.
     /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     /// // Refresh CPU usage to get actual value.
@@ -1492,7 +1477,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     let disk_usage = process.disk_usage();
     ///     println!("read bytes   : new/total => {}/{}",
@@ -1519,7 +1504,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("User id for process 1337: {:?}", process.user_id());
@@ -1545,7 +1530,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("User id for process 1337: {:?}", process.effective_user_id());
@@ -1562,7 +1547,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("Group ID for process 1337: {:?}", process.group_id());
@@ -1583,7 +1568,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("User id for process 1337: {:?}", process.effective_group_id());
@@ -1598,7 +1583,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("Waiting for pid 1337");
@@ -1618,7 +1603,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("Session ID for process 1337: {:?}", process.session_id());
@@ -1635,7 +1620,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     if let Some(tasks) = process.tasks() {
@@ -1669,7 +1654,7 @@ impl Process {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let s = System::new();
     ///
     /// for (_, process) in s.processes() {
     ///     if let Some(thread_kind) = process.thread_kind() {
@@ -2463,7 +2448,7 @@ mod test {
         if !IS_SUPPORTED_SYSTEM {
             return;
         }
-        let mut s = System::new_all();
+        let mut s = System::new();
         let total = s.processes().len() as isize;
         s.refresh_processes();
         let new_total = s.processes().len() as isize;
@@ -2723,7 +2708,7 @@ mod doctest {
     /// ```no_run
     /// use sysinfo::{Process, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// let p: &Process = s.processes().values().next().unwrap();
     /// ```
     ///
@@ -2732,7 +2717,7 @@ mod doctest {
     /// ```compile_fail
     /// use sysinfo::{Process, System};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// let p: &Process = s.processes().values().next().unwrap();
     /// let p = (*p).clone();
     /// ```

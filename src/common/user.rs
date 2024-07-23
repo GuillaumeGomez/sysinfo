@@ -337,7 +337,7 @@ impl Users {
     #[cfg_attr(not(feature = "system"), doc = "```ignore")]
     /// use sysinfo::{Pid, System, Users};
     ///
-    /// let mut s = System::new_all();
+    /// let mut s = System::new();
     /// let users = Users::new_with_refreshed_list();
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {

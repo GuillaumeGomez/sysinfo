@@ -12,16 +12,8 @@ fn bench_new(b: &mut test::Bencher) {
 
 #[cfg(feature = "system")]
 #[bench]
-fn bench_new_all(b: &mut test::Bencher) {
-    b.iter(|| {
-        sysinfo::System::new_all();
-    });
-}
-
-#[cfg(feature = "system")]
-#[bench]
 fn bench_refresh_all(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new_all();
+    let mut s = sysinfo::System::new();
 
     b.iter(move || {
         s.refresh_all();

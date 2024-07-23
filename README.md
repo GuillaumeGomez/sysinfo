@@ -42,9 +42,7 @@ use sysinfo::{
     Components, Disks, Networks, System,
 };
 
-// Please note that we use "new_all" to ensure that all lists of
-// CPUs and processes are filled!
-let mut sys = System::new_all();
+let mut sys = System::new();
 
 // First we update all information of our `System` struct.
 sys.refresh_all();

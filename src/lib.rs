@@ -135,7 +135,7 @@ pub(crate) mod utils;
 ///     // It'll always return false on non-linux targets.
 ///     eprintln!("failed to update the open files limit...");
 /// }
-/// let s = System::new_all();
+/// let s = System::new();
 /// ```
 pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
     cfg_if! {
