@@ -132,7 +132,7 @@ fn test_consecutive_cpu_usage_update() {
         return;
     }
 
-    let mut sys = System::new();
+    let mut sys = System::new_with_specifics(sysinfo::RefreshKind::everything());
     assert!(!sys.cpus().is_empty());
     sys.refresh_processes_specifics(ProcessRefreshKind::new().with_cpu());
 

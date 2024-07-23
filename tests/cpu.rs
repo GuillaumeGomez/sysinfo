@@ -15,7 +15,7 @@ fn test_cpu() {
     s.refresh_cpu_all();
     assert!(!s.cpus().is_empty());
 
-    s.refresh_specifics(
+    let s = sysinfo::System::new_with_specifics(
         sysinfo::RefreshKind::new().with_cpu(sysinfo::CpuRefreshKind::everything()),
     );
     assert!(!s.cpus().is_empty());

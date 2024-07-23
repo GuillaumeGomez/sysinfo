@@ -2448,7 +2448,9 @@ mod test {
         if !IS_SUPPORTED_SYSTEM {
             return;
         }
-        let mut s = System::new();
+        let mut s = System::new_with_specifics(
+            RefreshKind::new().with_processes(ProcessRefreshKind::everything()),
+        );
         let total = s.processes().len() as isize;
         s.refresh_processes();
         let new_total = s.processes().len() as isize;
