@@ -3,28 +3,34 @@
 #![cfg(feature = "system")]
 
 use bstr::ByteSlice;
-use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
+use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System, UpdateKind};
+
+macro_rules! start_proc {
+    ($time:literal, $name:literal) => {
+        if cfg!(target_os = "windows") {
+            std::process::Command::new("waitfor")
+                .arg("/t")
+                .arg($time)
+                .arg($name)
+                .stdout(std::process::Stdio::null())
+                .spawn()
+                .unwrap()
+        } else {
+            std::process::Command::new("sleep")
+                .arg($time)
+                .stdout(std::process::Stdio::null())
+                .spawn()
+                .unwrap()
+        }
+    };
+}
 
 #[test]
 fn test_cwd() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
-    let mut p = if cfg!(target_os = "windows") {
-        std::process::Command::new("waitfor")
-            .arg("/t")
-            .arg("3")
-            .arg("CwdSignal")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    } else {
-        std::process::Command::new("sleep")
-            .arg("3")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    };
+    let mut p = start_proc!("3", "CwdSignal");
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -48,21 +54,7 @@ fn test_cmd() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
-    let mut p = if cfg!(target_os = "windows") {
-        std::process::Command::new("waitfor")
-            .arg("/t")
-            .arg("3")
-            .arg("CmdSignal")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    } else {
-        std::process::Command::new("sleep")
-            .arg("3")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    };
+    let mut p = start_proc!("3", "CmdSignal");
     std::thread::sleep(std::time::Duration::from_millis(500));
     let mut s = System::new();
     assert!(s.processes().is_empty());
@@ -278,21 +270,7 @@ fn test_process_times() {
     }
     let boot_time = System::boot_time();
     assert!(boot_time > 0);
-    let mut p = if cfg!(target_os = "windows") {
-        std::process::Command::new("waitfor")
-            .arg("/t")
-            .arg("3")
-            .arg("ProcessTimes")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    } else {
-        std::process::Command::new("sleep")
-            .arg("3")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    };
+    let mut p = start_proc!("3", "ProcessTimes");
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -337,21 +315,7 @@ fn test_refresh_processes() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
-    let mut p = if cfg!(target_os = "windows") {
-        std::process::Command::new("waitfor")
-            .arg("/t")
-            .arg("300")
-            .arg("RefreshProcesses")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    } else {
-        std::process::Command::new("sleep")
-            .arg("300")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    };
+    let mut p = start_proc!("300", "RefreshProcesses");
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -373,6 +337,44 @@ fn test_refresh_processes() {
     s.refresh_processes();
     // Checks that the process isn't listed anymore.
     assert!(s.process(pid).is_none());
+}
+
+// This test ensures that if we refresh only one process, then no process is removed.
+#[test]
+fn test_refresh_process_doesnt_remove() {
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let mut p1 = start_proc!("300", "RefreshProcessRemove1");
+    let mut p2 = start_proc!("300", "RefreshProcessRemove2");
+
+    let pid1 = Pid::from_u32(p1.id() as _);
+    let pid2 = Pid::from_u32(p2.id() as _);
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    // Checks that the process is listed as it should.
+    let mut s = System::new_with_specifics(
+        RefreshKind::new().with_processes(sysinfo::ProcessRefreshKind::new()),
+    );
+    s.refresh_processes();
+
+    assert!(s.process(pid1).is_some());
+    assert!(s.process(pid2).is_some());
+
+    p1.kill().expect("Unable to kill process.");
+    p2.kill().expect("Unable to kill process.");
+    // We need this, otherwise the process will still be around as a zombie on linux.
+    let _ = p1.wait();
+    let _ = p2.wait();
+
+    // Let's give some time to the system to clean up...
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    assert!(!s.refresh_process(pid1));
+
+    // We check that none of the two processes were removed.
+    assert!(s.process(pid1).is_some());
+    assert!(s.process(pid2).is_some());
 }
 
 // Checks that `refresh_processes` is adding and removing task.
@@ -439,21 +441,7 @@ fn test_refresh_process() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
-    let mut p = if cfg!(target_os = "windows") {
-        std::process::Command::new("waitfor")
-            .arg("/t")
-            .arg("300")
-            .arg("RefreshProcess")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    } else {
-        std::process::Command::new("sleep")
-            .arg("300")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    };
+    let mut p = start_proc!("300", "RefreshProcess");
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -482,21 +470,7 @@ fn test_wait_child() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
-    let p = if cfg!(target_os = "windows") {
-        std::process::Command::new("waitfor")
-            .arg("/t")
-            .arg("300")
-            .arg("WaitChild")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    } else {
-        std::process::Command::new("sleep")
-            .arg("300")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    };
+    let p = start_proc!("300", "WaitChild");
 
     let before = std::time::Instant::now();
     let pid = Pid::from_u32(p.id() as _);
@@ -757,21 +731,7 @@ fn test_refresh_pids() {
     let self_pid = sysinfo::get_current_pid().expect("failed to get current pid");
     let mut s = System::new();
 
-    let mut p = if cfg!(target_os = "windows") {
-        std::process::Command::new("waitfor")
-            .arg("/t")
-            .arg("3")
-            .arg("RefreshPids")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    } else {
-        std::process::Command::new("sleep")
-            .arg("3")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    };
+    let mut p = start_proc!("3", "RefreshPids");
 
     let child_pid = Pid::from_u32(p.id() as _);
     let pids = &[child_pid, self_pid];
