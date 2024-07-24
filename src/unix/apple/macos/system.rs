@@ -8,6 +8,7 @@ use libc::{
     processor_cpu_load_info_t, sysconf, vm_page_size, PROCESSOR_CPU_LOAD_INFO, _SC_CLK_TCK,
 };
 use std::ptr::null_mut;
+use std::time::Instant;
 
 struct ProcessorCpuLoadInfo {
     cpu_load: processor_cpu_load_info_t,
@@ -55,6 +56,8 @@ pub(crate) struct SystemTimeInfo {
     timebase_to_ns: f64,
     clock_per_sec: f64,
     old_cpu_info: ProcessorCpuLoadInfo,
+    last_update: Option<Instant>,
+    prev_time_interval: f64,
 }
 
 unsafe impl Send for SystemTimeInfo {}
@@ -97,40 +100,52 @@ impl SystemTimeInfo {
                 timebase_to_ns: info.numer as f64 / info.denom as f64,
                 clock_per_sec: nano_per_seconds / clock_ticks_per_sec as f64,
                 old_cpu_info,
+                last_update: None,
+                prev_time_interval: 0.,
             })
         }
     }
 
     pub fn get_time_interval(&mut self, port: mach_port_t) -> f64 {
-        let mut total = 0;
-        let new_cpu_info = match ProcessorCpuLoadInfo::new(port) {
-            Some(cpu_info) => cpu_info,
-            None => return 0.,
-        };
-        let cpu_count = std::cmp::min(self.old_cpu_info.cpu_count, new_cpu_info.cpu_count);
-        unsafe {
-            for i in 0..cpu_count {
-                let new_load: &processor_cpu_load_info = &*new_cpu_info.cpu_load.offset(i as _);
-                let old_load: &processor_cpu_load_info =
-                    &*self.old_cpu_info.cpu_load.offset(i as _);
-                for (new, old) in new_load.cpu_ticks.iter().zip(old_load.cpu_ticks.iter()) {
-                    if new > old {
-                        total += new.saturating_sub(*old);
+        let need_cpu_usage_update = self
+            .last_update
+            .map(|last_update| last_update.elapsed() > crate::MINIMUM_CPU_UPDATE_INTERVAL)
+            .unwrap_or(true);
+        if need_cpu_usage_update {
+            let mut total = 0;
+            let new_cpu_info = match ProcessorCpuLoadInfo::new(port) {
+                Some(cpu_info) => cpu_info,
+                None => return 0.,
+            };
+            let cpu_count = std::cmp::min(self.old_cpu_info.cpu_count, new_cpu_info.cpu_count);
+            unsafe {
+                for i in 0..cpu_count {
+                    let new_load: &processor_cpu_load_info = &*new_cpu_info.cpu_load.offset(i as _);
+                    let old_load: &processor_cpu_load_info =
+                        &*self.old_cpu_info.cpu_load.offset(i as _);
+                    for (new, old) in new_load.cpu_ticks.iter().zip(old_load.cpu_ticks.iter()) {
+                        if new > old {
+                            total += new.saturating_sub(*old);
+                        }
                     }
                 }
             }
 
             self.old_cpu_info = new_cpu_info;
+            self.last_update = Some(Instant::now());
 
             // Now we convert the ticks to nanoseconds (if the interval is less than
             // `MINIMUM_CPU_UPDATE_INTERVAL`, we replace it with it instead):
             let base_interval = total as f64 / cpu_count as f64 * self.clock_per_sec;
             let smallest = crate::MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64() * 1_000_000_000.0;
-            if base_interval < smallest {
+            self.prev_time_interval = if base_interval < smallest {
                 smallest
             } else {
                 base_interval / self.timebase_to_ns
-            }
+            };
+            self.prev_time_interval
+        } else {
+            self.prev_time_interval
         }
     }
 }

@@ -813,3 +813,47 @@ fn test_parent_change() {
     // We kill the child to clean up.
     child.kill();
 }
+
+// We want to ensure that if `System::refresh_process*` methods are called
+// one after the other, it won't impact the CPU usage computation badly.
+#[test]
+fn test_multiple_single_process_refresh() {
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") || cfg!(windows) {
+        // Windows never updates its parent PID so no need to check anything.
+        return;
+    }
+
+    let file_name = "target/test_binary3";
+    build_test_binary(file_name);
+    let mut p_a = std::process::Command::new(format!("./{file_name}"))
+        .arg("1")
+        .spawn()
+        .unwrap();
+    let mut p_b = std::process::Command::new(format!("./{file_name}"))
+        .arg("1")
+        .spawn()
+        .unwrap();
+
+    let pid_a = Pid::from_u32(p_a.id() as _);
+    let pid_b = Pid::from_u32(p_b.id() as _);
+
+    let mut s = System::new();
+    let process_refresh_kind = ProcessRefreshKind::new().with_cpu();
+    s.refresh_process_specifics(pid_a, process_refresh_kind);
+    s.refresh_process_specifics(pid_b, process_refresh_kind);
+
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    s.refresh_process_specifics(pid_a, process_refresh_kind);
+    s.refresh_process_specifics(pid_b, process_refresh_kind);
+
+    let cpu_a = s.process(pid_a).unwrap().cpu_usage();
+    let cpu_b = s.process(pid_b).unwrap().cpu_usage();
+
+    p_a.kill().expect("failed to kill process a");
+    p_b.kill().expect("failed to kill process b");
+
+    let _ = p_a.wait();
+    let _ = p_b.wait();
+
+    assert!(cpu_b - 5. < cpu_a && cpu_b + 5. > cpu_a);
+}
