@@ -55,8 +55,8 @@ impl Networks {
         }
     }
 
-    /// Creates a new [`Networks`][crate::Networks] type with the disk list
-    /// loaded. It is a combination of [`Networks::new`] and
+    /// Creates a new [`Networks`][crate::Networks] type with the network interfaces
+    /// list loaded. It is a combination of [`Networks::new`] and
     /// [`Networks::refresh_list`].
     ///
     /// ```no_run
