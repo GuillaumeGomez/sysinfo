@@ -367,6 +367,9 @@ impl System {
     /// exist (it will **NOT** be removed from the processes if it doesn't exist anymore). If it
     /// isn't listed yet, it'll be added.
     ///
+    /// ⚠️ If you need to refresh multiple processes at once, use [`refresh_pids`] instead! It has
+    /// much better performance.
+    ///
     /// It is the same as calling:
     ///
     /// ```no_run
@@ -394,6 +397,8 @@ impl System {
     /// let mut s = System::new_all();
     /// s.refresh_process(Pid::from(1337));
     /// ```
+    ///
+    /// [`refresh_pids`]: #method.refresh_pids
     pub fn refresh_process(&mut self, pid: Pid) -> bool {
         self.refresh_process_specifics(
             pid,
@@ -409,6 +414,9 @@ impl System {
     /// exist (it will **NOT** be removed from the processes if it doesn't exist anymore). If it
     /// isn't listed yet, it'll be added.
     ///
+    /// ⚠️ If you need to refresh multiple processes at once, use [`refresh_pids_specifics`]
+    /// instead! It has much better performance.
+    ///
     /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
     /// by using [`set_open_files_limit`][crate::set_open_files_limit].
     ///
@@ -418,6 +426,8 @@ impl System {
     /// let mut s = System::new_all();
     /// s.refresh_process_specifics(Pid::from(1337), ProcessRefreshKind::new());
     /// ```
+    ///
+    /// [`refresh_pids_specifics`]: #method.refresh_pids_specifics
     pub fn refresh_process_specifics(
         &mut self,
         pid: Pid,
