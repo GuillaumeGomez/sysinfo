@@ -567,7 +567,9 @@ fn test_process_cpu_usage() {
         return;
     }
 
-    let mut sys = System::new_all();
+    let mut sys = sysinfo::System::new_with_specifics(
+        sysinfo::RefreshKind::new().with_cpu(sysinfo::CpuRefreshKind::everything()),
+    );
     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     sys.refresh_all();
 
@@ -584,7 +586,7 @@ fn test_process_creds() {
         return;
     }
 
-    let mut sys = System::new_all();
+    let mut sys = System::new();
     sys.refresh_all();
 
     // Just ensure there is at least one process on the system whose credentials can be retrieved.

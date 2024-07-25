@@ -460,7 +460,7 @@ fn interpret_input(
 
 fn main() {
     println!("Getting system information...");
-    let mut system = System::new_all();
+    let mut system = System::new();
     let mut networks = Networks::new_with_refreshed_list();
     let mut disks = Disks::new_with_refreshed_list();
     let mut components = Components::new_with_refreshed_list();
