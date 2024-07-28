@@ -5,7 +5,7 @@ use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessRefreshKind};
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::cell::UnsafeCell;
@@ -227,23 +227,25 @@ impl SystemInner {
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
     pub(crate) fn refresh_processes_specifics(
         &mut self,
-        _filter: Option<&[Pid]>,
+        processes_to_update: ProcessesToUpdate<'_>,
         _refresh_kind: ProcessRefreshKind,
-    ) {
+    ) -> usize {
+        0
     }
 
     #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     pub(crate) fn refresh_processes_specifics(
         &mut self,
-        filter: Option<&[Pid]>,
+        processes_to_update: ProcessesToUpdate<'_>,
         refresh_kind: ProcessRefreshKind,
-    ) {
+    ) -> usize {
         use crate::utils::into_iter;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         unsafe {
             let count = libc::proc_listallpids(::std::ptr::null_mut(), 0);
             if count < 1 {
-                return;
+                return 0;
             }
         }
         if let Some(pids) = get_proc_list() {
@@ -258,15 +260,21 @@ impl SystemInner {
             }
 
             #[allow(clippy::type_complexity)]
-            let (filter, filter_callback): (
+            let (filter, filter_callback, remove_processes): (
                 &[Pid],
                 &(dyn Fn(Pid, &[Pid]) -> bool + Sync + Send),
-            ) = if let Some(filter) = filter {
-                (filter, &real_filter)
-            } else {
-                (&[], &empty_filter)
+                bool,
+            ) = match processes_to_update {
+                ProcessesToUpdate::All => (&[], &empty_filter, true),
+                ProcessesToUpdate::Some(pids) => {
+                    if pids.is_empty() {
+                        return 0;
+                    }
+                    (pids, &real_filter, false)
+                }
             };
 
+            let nb_updated = AtomicUsize::new(0);
             let now = get_now();
             let port = self.port;
             let time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
@@ -281,6 +289,7 @@ impl SystemInner {
                         if !filter_callback(pid, filter) {
                             return None;
                         }
+                        nb_updated.fetch_add(1, Ordering::Relaxed);
                         update_process(wrap, pid, time_interval, now, refresh_kind, false)
                             .unwrap_or_default()
                     })
@@ -289,41 +298,13 @@ impl SystemInner {
             entries.into_iter().for_each(|entry| {
                 self.process_list.insert(entry.pid(), entry);
             });
-            self.process_list
-                .retain(|_, proc_| std::mem::replace(&mut proc_.inner.updated, false));
-        }
-    }
-
-    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    pub(crate) fn refresh_process_specifics(
-        &mut self,
-        _pid: Pid,
-        _refresh_kind: ProcessRefreshKind,
-    ) -> bool {
-        false
-    }
-
-    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-    pub(crate) fn refresh_process_specifics(
-        &mut self,
-        pid: Pid,
-        refresh_kind: ProcessRefreshKind,
-    ) -> bool {
-        let mut time_interval = None;
-        let now = get_now();
-
-        if refresh_kind.cpu() {
-            let port = self.port;
-            time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
-        }
-        let wrap = Wrap(UnsafeCell::new(&mut self.process_list));
-        match update_process(&wrap, pid, time_interval, now, refresh_kind, true) {
-            Ok(Some(p)) => {
-                self.process_list.insert(p.pid(), p);
-                true
+            if remove_processes {
+                self.process_list
+                    .retain(|_, proc_| std::mem::replace(&mut proc_.inner.updated, false));
             }
-            Ok(_) => true,
-            Err(_) => false,
+            nb_updated.into_inner()
+        } else {
+            0
         }
     }
 

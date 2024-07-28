@@ -107,7 +107,7 @@ impl System {
             self.refresh_cpu_specifics(kind);
         }
         if let Some(kind) = refreshes.processes() {
-            self.refresh_processes_specifics(kind);
+            self.refresh_processes_specifics(ProcessesToUpdate::All, kind);
         }
     }
 
@@ -258,9 +258,10 @@ impl System {
     /// It does the same as:
     ///
     /// ```no_run
-    /// # use sysinfo::{ProcessRefreshKind, System, UpdateKind};
+    /// # use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System, UpdateKind};
     /// # let mut system = System::new();
     /// system.refresh_processes_specifics(
+    ///     ProcessesToUpdate::All,
     ///     ProcessRefreshKind::new()
     ///         .with_memory()
     ///         .with_cpu()
@@ -269,139 +270,23 @@ impl System {
     /// );
     /// ```
     ///
+    /// ⚠️ Unless `ProcessesToUpdate::All` is used, dead processes are not removed from
+    /// the set of processes kept in [`System`].
+    ///
     /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
     /// by using [`set_open_files_limit`][crate::set_open_files_limit].
     ///
     /// Example:
     ///
     /// ```no_run
-    /// use sysinfo::System;
+    /// use sysinfo::{ProcessesToUpdate, System};
     ///
     /// let mut s = System::new_all();
-    /// s.refresh_processes();
+    /// s.refresh_processes(ProcessesToUpdate::All);
     /// ```
-    pub fn refresh_processes(&mut self) {
+    pub fn refresh_processes(&mut self, processes_to_update: ProcessesToUpdate<'_>) -> usize {
         self.refresh_processes_specifics(
-            ProcessRefreshKind::new()
-                .with_memory()
-                .with_cpu()
-                .with_disk_usage()
-                .with_exe(UpdateKind::OnlyIfNotSet),
-        );
-    }
-
-    /// Gets all processes and updates the specified information.
-    ///
-    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
-    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
-    ///
-    /// ```no_run
-    /// use sysinfo::{ProcessRefreshKind, System};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_processes_specifics(ProcessRefreshKind::new());
-    /// ```
-    pub fn refresh_processes_specifics(&mut self, refresh_kind: ProcessRefreshKind) {
-        self.inner.refresh_processes_specifics(None, refresh_kind)
-    }
-
-    /// Gets specified processes and updates their information.
-    ///
-    /// It does the same as:
-    ///
-    /// ```no_run
-    /// # use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
-    /// # let mut system = System::new();
-    /// system.refresh_pids_specifics(
-    ///     &[Pid::from(1), Pid::from(2)],
-    ///     ProcessRefreshKind::new()
-    ///         .with_memory()
-    ///         .with_cpu()
-    ///         .with_disk_usage()
-    ///         .with_exe(UpdateKind::OnlyIfNotSet),
-    /// );
-    /// ```
-    ///
-    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
-    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
-    ///
-    /// Example:
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_processes();
-    /// ```
-    pub fn refresh_pids(&mut self, pids: &[Pid]) {
-        self.refresh_pids_specifics(
-            pids,
-            ProcessRefreshKind::new()
-                .with_memory()
-                .with_cpu()
-                .with_disk_usage()
-                .with_exe(UpdateKind::OnlyIfNotSet),
-        );
-    }
-
-    /// Gets specified processes and updates the specified information.
-    ///
-    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
-    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
-    ///
-    /// ```no_run
-    /// use sysinfo::{Pid, ProcessRefreshKind, System};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_pids_specifics(&[Pid::from(1), Pid::from(2)], ProcessRefreshKind::new());
-    /// ```
-    pub fn refresh_pids_specifics(&mut self, pids: &[Pid], refresh_kind: ProcessRefreshKind) {
-        if pids.is_empty() {
-            return;
-        }
-        self.inner
-            .refresh_processes_specifics(Some(pids), refresh_kind)
-    }
-
-    /// Refreshes *only* the process corresponding to `pid`. Returns `false` if the process doesn't
-    /// exist (it will **NOT** be removed from the processes if it doesn't exist anymore). If it
-    /// isn't listed yet, it'll be added.
-    ///
-    /// ⚠️ If you need to refresh multiple processes at once, use [`refresh_pids`] instead! It has
-    /// much better performance.
-    ///
-    /// It is the same as calling:
-    ///
-    /// ```no_run
-    /// # use sysinfo::{Pid, ProcessRefreshKind, System, UpdateKind};
-    /// # let mut system = System::new();
-    /// # let pid = Pid::from(0);
-    /// system.refresh_process_specifics(
-    ///     pid,
-    ///     ProcessRefreshKind::new()
-    ///         .with_memory()
-    ///         .with_cpu()
-    ///         .with_disk_usage()
-    ///         .with_exe(UpdateKind::OnlyIfNotSet),
-    /// );
-    /// ```
-    ///
-    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
-    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
-    ///
-    /// Example:
-    ///
-    /// ```no_run
-    /// use sysinfo::{Pid, System};
-    ///
-    /// let mut s = System::new_all();
-    /// s.refresh_process(Pid::from(1337));
-    /// ```
-    ///
-    /// [`refresh_pids`]: #method.refresh_pids
-    pub fn refresh_process(&mut self, pid: Pid) -> bool {
-        self.refresh_process_specifics(
-            pid,
+            processes_to_update,
             ProcessRefreshKind::new()
                 .with_memory()
                 .with_cpu()
@@ -410,30 +295,29 @@ impl System {
         )
     }
 
-    /// Refreshes *only* the process corresponding to `pid`. Returns `false` if the process doesn't
-    /// exist (it will **NOT** be removed from the processes if it doesn't exist anymore). If it
-    /// isn't listed yet, it'll be added.
+    /// Gets all processes and updates the specified information.
     ///
-    /// ⚠️ If you need to refresh multiple processes at once, use [`refresh_pids_specifics`]
-    /// instead! It has much better performance.
+    /// Returns the number of updated processes.
+    ///
+    /// ⚠️ Unless `ProcessesToUpdate::All` is used, dead processes are not removed from
+    /// the set of processes kept in [`System`].
     ///
     /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
     /// by using [`set_open_files_limit`][crate::set_open_files_limit].
     ///
     /// ```no_run
-    /// use sysinfo::{Pid, ProcessRefreshKind, System};
+    /// use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System};
     ///
     /// let mut s = System::new_all();
-    /// s.refresh_process_specifics(Pid::from(1337), ProcessRefreshKind::new());
+    /// s.refresh_processes_specifics(ProcessesToUpdate::All, ProcessRefreshKind::new());
     /// ```
-    ///
-    /// [`refresh_pids_specifics`]: #method.refresh_pids_specifics
-    pub fn refresh_process_specifics(
+    pub fn refresh_processes_specifics(
         &mut self,
-        pid: Pid,
+        processes_to_update: ProcessesToUpdate<'_>,
         refresh_kind: ProcessRefreshKind,
-    ) -> bool {
-        self.inner.refresh_process_specifics(pid, refresh_kind)
+    ) -> usize {
+        self.inner
+            .refresh_processes_specifics(processes_to_update, refresh_kind)
     }
 
     /// Returns the process list.
@@ -1479,13 +1363,14 @@ impl Process {
     /// more information).
     ///
     /// ```no_run
-    /// use sysinfo::{Pid, ProcessRefreshKind, System};
+    /// use sysinfo::{Pid, ProcessesToUpdate, ProcessRefreshKind, System};
     ///
     /// let mut s = System::new_all();
     /// // Wait a bit because CPU usage is based on diff.
     /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     /// // Refresh CPU usage to get actual value.
     /// s.refresh_processes_specifics(
+    ///     ProcessesToUpdate::All,
     ///     ProcessRefreshKind::new().with_cpu()
     /// );
     /// if let Some(process) = s.process(Pid::from(1337)) {
@@ -1954,10 +1839,11 @@ assert_eq!(r.", stringify!($name), "().is_some(), false);
 /// already set:
 ///
 /// ```no_run
-/// use sysinfo::{ProcessRefreshKind, System, UpdateKind};
+/// use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System, UpdateKind};
 ///
 /// let mut system = System::new();
 /// system.refresh_processes_specifics(
+///     ProcessesToUpdate::All,
 ///     ProcessRefreshKind::new().with_exe(UpdateKind::OnlyIfNotSet),
 /// );
 /// ```
@@ -1984,6 +1870,33 @@ impl UpdateKind {
     }
 }
 
+/// This enum allows you to specify if you want all processes to be updated or just
+/// some of them.
+///
+/// Example:
+///
+/// ```no_run
+/// use sysinfo::{ProcessesToUpdate, System, get_current_pid};
+///
+/// let mut system = System::new();
+/// // To refresh all processes:
+/// system.refresh_processes(ProcessesToUpdate::All);
+///
+/// // To refresh only the current one:
+/// system.refresh_processes(
+///     ProcessesToUpdate::Some(&[get_current_pid().unwrap()]),
+/// );
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProcessesToUpdate<'a> {
+    /// To refresh all processes.
+    All,
+    /// To refresh only the processes with the listed [`Pid`].
+    ///
+    /// [`Pid`]: crate::Pid
+    Some(&'a [Pid]),
+}
+
 /// Used to determine what you want to refresh specifically on the [`Process`] type.
 ///
 /// When all refresh are ruled out, a [`Process`] will still retrieve the following information:
@@ -1997,12 +1910,15 @@ impl UpdateKind {
 /// extra computation.
 ///
 /// ```
-/// use sysinfo::{ProcessRefreshKind, System};
+/// use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System};
 ///
 /// let mut system = System::new();
 ///
 /// // We don't want to update the CPU information.
-/// system.refresh_processes_specifics(ProcessRefreshKind::everything().without_cpu());
+/// system.refresh_processes_specifics(
+///     ProcessesToUpdate::All,
+///     ProcessRefreshKind::everything().without_cpu(),
+/// );
 ///
 /// for (_, proc_) in system.processes() {
 ///     // We use a `==` comparison on float only because we know it's set to 0 here.
@@ -2477,7 +2393,7 @@ mod test {
         }
         let mut s = System::new_all();
         let total = s.processes().len() as isize;
-        s.refresh_processes();
+        s.refresh_processes(ProcessesToUpdate::All);
         let new_total = s.processes().len() as isize;
         // There should be almost no difference in the processes count.
         assert!(
@@ -2499,7 +2415,7 @@ mod test {
             return;
         }
         let mut s = System::new();
-        s.refresh_processes();
+        s.refresh_processes(ProcessesToUpdate::All);
         for proc_ in s.cpus() {
             assert_eq!(proc_.frequency(), 0);
         }
@@ -2574,7 +2490,7 @@ mod test {
         }
         let mut s = System::new();
 
-        s.refresh_processes();
+        s.refresh_processes(ProcessesToUpdate::All);
         // All CPU usage will start at zero until the second refresh
         assert!(s
             .processes()
@@ -2583,7 +2499,7 @@ mod test {
 
         // Wait a bit to update CPU usage values
         std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL);
-        s.refresh_processes();
+        s.refresh_processes(ProcessesToUpdate::All);
         assert!(s
             .processes()
             .iter()
@@ -2655,9 +2571,9 @@ mod test {
             {
                 let mut s = System::new();
                 // First check what happens in case the process isn't already in our process list.
-                assert!(s.refresh_process(_pid));
-                // Then check that it still returns true if the process is already in our process list.
-                assert!(s.refresh_process(_pid));
+                assert_eq!(s.refresh_processes(ProcessesToUpdate::Some(&[_pid])), 1);
+                // Then check that it still returns 1 if the process is already in our process list.
+                assert_eq!(s.refresh_processes(ProcessesToUpdate::Some(&[_pid])), 1);
             }
         }
     }

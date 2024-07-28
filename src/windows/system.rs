@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessRefreshKind};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessesToUpdate, ProcessRefreshKind};
 
 use crate::sys::cpu::*;
 use crate::{Process, ProcessInner};
@@ -182,33 +182,36 @@ impl SystemInner {
         None
     }
 
-    pub(crate) fn refresh_process_specifics(
-        &mut self,
-        pid: Pid,
-        refresh_kind: ProcessRefreshKind,
-    ) -> bool {
-        self.refresh_processes_specifics_inner(Some(&[pid]), refresh_kind) != 0
-    }
-
+    #[allow(clippy::cast_ptr_alignment)]
     pub(crate) fn refresh_processes_specifics(
         &mut self,
-        filter: Option<&[Pid]>,
-        refresh_kind: ProcessRefreshKind,
-    ) {
-        self.refresh_processes_specifics_inner(filter, refresh_kind);
-    }
-
-    #[allow(clippy::cast_ptr_alignment)]
-    pub(crate) fn refresh_processes_specifics_inner(
-        &mut self,
-        filter: Option<&[Pid]>,
+        processes_to_update: ProcessesToUpdate<'_>,
         refresh_kind: ProcessRefreshKind,
     ) -> usize {
-        if let Some(filter) = filter {
-            if filter.is_empty() {
-                return 0;
-            }
+        #[inline(always)]
+        fn real_filter(e: Pid, filter: &[Pid]) -> bool {
+            filter.contains(&e)
         }
+
+        #[inline(always)]
+        fn empty_filter(_e: Pid, _filter: &[Pid]) -> bool {
+            true
+        }
+
+        #[allow(clippy::type_complexity)]
+        let (filter_array, filter_callback, remove_processes): (
+            &[Pid],
+            &(dyn Fn(Pid, &[Pid]) -> bool + Sync + Send),
+            bool,
+        ) = match processes_to_update {
+            ProcessesToUpdate::All => (&[], &empty_filter, true),
+            ProcessesToUpdate::Some(pids) => {
+                if pids.is_empty() {
+                    return 0;
+                }
+                (pids, &real_filter, false)
+            }
+        };
 
         // Windows 10 notebook requires at least 512KiB of memory to make it in one go
         let mut buffer_size = 512 * 1024;
@@ -251,26 +254,6 @@ impl SystemInner {
                     }
                 }
             }
-
-            #[inline(always)]
-            fn real_filter(e: Pid, filter: &[Pid]) -> bool {
-                filter.contains(&e)
-            }
-
-            #[inline(always)]
-            fn empty_filter(_e: Pid, _filter: &[Pid]) -> bool {
-                true
-            }
-
-            #[allow(clippy::type_complexity)]
-            let (filter_array, filter_callback): (
-                &[Pid],
-                &(dyn Fn(Pid, &[Pid]) -> bool + Sync + Send),
-            ) = if let Some(filter) = filter {
-                (filter, &real_filter)
-            } else {
-                (&[], &empty_filter)
-            };
 
             // If we reach this point NtQuerySystemInformation succeeded
             // and the buffer contents are initialized
@@ -354,7 +337,7 @@ impl SystemInner {
             for p in processes.into_iter() {
                 self.process_list.insert(p.pid(), p);
             }
-            if filter.is_none() {
+            if remove_processes {
                 // If it comes from `refresh_process` or `refresh_pids`, we don't remove
                 // dead processes.
                 self.process_list.retain(|_, v| replace(&mut v.inner.updated, false));

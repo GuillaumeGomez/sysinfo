@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessRefreshKind};
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -38,17 +38,10 @@ impl SystemInner {
 
     pub(crate) fn refresh_processes_specifics(
         &mut self,
-        _filter: Option<&[Pid]>,
+        _processes_to_update: ProcessesToUpdate<'_>,
         _refresh_kind: ProcessRefreshKind,
-    ) {
-    }
-
-    pub(crate) fn refresh_process_specifics(
-        &mut self,
-        _pid: Pid,
-        _refresh_kind: ProcessRefreshKind,
-    ) -> bool {
-        false
+    ) -> usize {
+        0
     }
 
     // COMMON PART
