@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disks, Networks, Pid, Process, System};
+use crate::{Disks, Networks, Pid, Process, ProcessesToUpdate, System};
 use libc::{self, c_char, c_float, c_uint, c_void, size_t};
 use std::borrow::BorrowMut;
 use std::ffi::CString;
@@ -86,7 +86,9 @@ pub extern "C" fn sysinfo_refresh_all(system: CSystem) {
     }
 }
 
-/// Equivalent of [`System::refresh_processes()`][crate::System#method.refresh_processes].
+/// Equivalent of [`System::refresh_processes(ProcessesToUpdate::All)`].
+///
+/// [`System::refresh_processes(ProcessesToUpdate::All)`]: crate::System#method.refresh_processes
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
     assert!(!system.is_null());
@@ -94,13 +96,15 @@ pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
         {
             let system: &mut System = system.borrow_mut();
-            system.refresh_processes();
+            system.refresh_processes(ProcessesToUpdate::All);
         }
         Box::into_raw(system);
     }
 }
 
-/// Equivalent of [`System::refresh_process()`][crate::System#method.refresh_process].
+/// Equivalent of [`System::refresh_processes(ProcessesToUpdate::Some(pid))`].
+///
+/// [`System::refresh_processes(ProcessesToUpdate::Some(pid))`]: crate::System#method.refresh_processes
 #[no_mangle]
 pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: PID) {
     assert!(!system.is_null());
@@ -108,7 +112,7 @@ pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: PID) {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
         {
             let system: &mut System = system.borrow_mut();
-            system.refresh_process(Pid(pid as _));
+            system.refresh_processes(ProcessesToUpdate::Some(&[Pid::from_u32(pid as _)]));
         }
         Box::into_raw(system);
     }

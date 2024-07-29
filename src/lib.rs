@@ -77,8 +77,8 @@ pub use crate::common::network::{IpNetwork, MacAddr, NetworkData, Networks};
 #[cfg(feature = "system")]
 pub use crate::common::system::{
     get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, DiskUsage, LoadAvg, MemoryRefreshKind, Pid,
-    Process, ProcessRefreshKind, ProcessStatus, RefreshKind, Signal, System, ThreadKind,
-    UpdateKind,
+    Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, RefreshKind, Signal, System,
+    ThreadKind, UpdateKind,
 };
 #[cfg(feature = "user")]
 pub use crate::common::user::{Group, Groups, User, Users};
@@ -191,6 +191,7 @@ use sysinfo::", stringify!($imports), r";
         MemoryRefreshKind,
         Pid,
         Process,
+        ProcessesToUpdate,
         ProcessRefreshKind,
         ProcessStatus,
         RefreshKind,

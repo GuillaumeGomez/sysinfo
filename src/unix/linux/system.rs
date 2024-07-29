@@ -1,9 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::cpu::{get_physical_core_count, CpusWrapper};
-use crate::sys::process::{_get_process_data, compute_cpu_usage, refresh_procs, unset_updated};
+use crate::sys::process::{compute_cpu_usage, refresh_procs, unset_updated};
 use crate::sys::utils::{get_all_utf8_data, to_u64};
-use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind};
+use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessRefreshKind};
 
 use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 
@@ -278,67 +278,23 @@ impl SystemInner {
 
     pub(crate) fn refresh_processes_specifics(
         &mut self,
-        filter: Option<&[Pid]>,
+        processes_to_update: ProcessesToUpdate<'_>,
         refresh_kind: ProcessRefreshKind,
-    ) {
+    ) -> usize {
         let uptime = Self::uptime();
-        refresh_procs(
+        let nb_updated = refresh_procs(
             &mut self.process_list,
             Path::new("/proc"),
             uptime,
             &self.info,
-            filter,
+            processes_to_update,
             refresh_kind,
         );
-        self.clear_procs(refresh_kind);
-        self.cpus.set_need_cpus_update();
-    }
-
-    pub(crate) fn refresh_process_specifics(
-        &mut self,
-        pid: Pid,
-        refresh_kind: ProcessRefreshKind,
-    ) -> bool {
-        let uptime = Self::uptime();
-        match _get_process_data(
-            &Path::new("/proc/").join(pid.to_string()),
-            &mut self.process_list,
-            pid,
-            None,
-            uptime,
-            &self.info,
-            refresh_kind,
-        ) {
-            Ok((Some(p), pid)) => {
-                self.process_list.insert(pid, p);
-            }
-            Ok(_) => {}
-            Err(_e) => {
-                sysinfo_debug!("Cannot get information for PID {:?}: {:?}", pid, _e);
-                return false;
-            }
-        };
-        if refresh_kind.cpu() {
-            self.refresh_cpus(true, CpuRefreshKind::new().with_cpu_usage());
-
-            if self.cpus.is_empty() {
-                eprintln!("Cannot compute process CPU usage: no cpus found...");
-                return true;
-            }
-            let (new, old) = self.cpus.get_global_raw_times();
-            let total_time = (if old >= new { 1 } else { new - old }) as f32;
-            let total_time = total_time / self.cpus.len() as f32;
-
-            let max_cpu_usage = self.get_max_process_cpu_usage();
-            if let Some(p) = self.process_list.get_mut(&pid) {
-                let p = &mut p.inner;
-                compute_cpu_usage(p, total_time, max_cpu_usage);
-                unset_updated(p);
-            }
-        } else if let Some(p) = self.process_list.get_mut(&pid) {
-            unset_updated(&mut p.inner);
+        if matches!(processes_to_update, ProcessesToUpdate::All) {
+            self.clear_procs(refresh_kind);
+            self.cpus.set_need_cpus_update();
         }
-        true
+        nb_updated
     }
 
     // COMMON PART

@@ -33,9 +33,9 @@ fn bench_refresh_all(b: &mut test::Bencher) {
 fn bench_refresh_processes(b: &mut test::Bencher) {
     let mut s = sysinfo::System::new();
 
-    s.refresh_processes(); // to load the whole processes list a first time.
+    s.refresh_processes(sysinfo::ProcessesToUpdate::All); // to load the whole processes list a first time.
     b.iter(move || {
-        s.refresh_processes();
+        s.refresh_processes(sysinfo::ProcessesToUpdate::All);
     });
 }
 
@@ -44,7 +44,7 @@ fn bench_refresh_processes(b: &mut test::Bencher) {
 fn bench_first_refresh_processes(b: &mut test::Bencher) {
     b.iter(move || {
         let mut s = sysinfo::System::new();
-        s.refresh_processes();
+        s.refresh_processes(sysinfo::ProcessesToUpdate::All);
     });
 }
 
@@ -57,7 +57,7 @@ fn bench_refresh_process(b: &mut test::Bencher) {
     // to be sure it'll exist for at least as long as we run
     let pid = sysinfo::get_current_pid().expect("failed to get current pid");
     b.iter(move || {
-        s.refresh_process(pid);
+        s.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]));
     });
 }
 

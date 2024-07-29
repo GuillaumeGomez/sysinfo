@@ -1,5 +1,36 @@
 # Migration guide
 
+## 0.30 to 0.31
+
+With this update, the minimum supported Rust version goes up to 1.74.
+
+### Major changes
+
+`System::refresh_process`, `System::refresh_process_specifics` and `System::refresh_pids`
+methods were removed. The `System::refresh_processes` and `System::refresh_processes_specifics`
+methods take a new argument of type `ProcessesToUpdate`.
+
+The equivalent of `System::refresh_process`, `System::refresh_process_specifics` and
+`System::refresh_pids` looks like this:
+
+```rust
+use sysinfo::{ProcessesToUpdate, System};
+
+let pid = 1337;
+let mut s = System::new();
+s.refresh_processes(ProcessesToUpdate::Some(&[pid.into()]));
+```
+
+The equivalent of `System::refresh_processes` and `System::refresh_processes_specifics` looks
+like this:
+
+```rust
+use sysinfo::{ProcessesToUpdate, System};
+
+let mut s = System::new();
+s.refresh_processes(ProcessesToUpdate::All);
+```
+
 ## 0.29 to 0.30
 
 With this update, the minimum supported Rust version goes up to 1.69.
@@ -16,7 +47,7 @@ So before you had:
 use sysinfo::{System, SystemExt};
 
 // `SystemExt` is needed for both `new` and `refresh_processes`.
-let s = System::new();
+let mut s = System::new();
 s.refresh_processes();
 ```
 

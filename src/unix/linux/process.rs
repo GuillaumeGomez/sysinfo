@@ -9,7 +9,7 @@ use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::str::{self, FromStr};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use bstr::ByteSlice;
 use libc::{c_ulong, gid_t, kill, uid_t};
@@ -19,7 +19,7 @@ use crate::sys::utils::{
     get_all_data_from_file, get_all_utf8_data, realpath, PathHandler, PathPush,
 };
 use crate::{
-    DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, ThreadKind, Uid,
+    DiskUsage, Gid, Pid, Process, ProcessesToUpdate, ProcessRefreshKind, ProcessStatus, Signal, ThreadKind, Uid,
 };
 
 use crate::sys::system::remaining_files;
@@ -725,9 +725,9 @@ pub(crate) fn refresh_procs(
     path: &Path,
     uptime: u64,
     info: &SystemInfo,
-    filter: Option<&[Pid]>,
+    processes_to_update: ProcessesToUpdate<'_>,
     refresh_kind: ProcessRefreshKind,
-) -> bool {
+) -> usize {
     #[cfg(feature = "multithread")]
     use rayon::iter::ParallelIterator;
 
@@ -745,18 +745,27 @@ pub(crate) fn refresh_procs(
     let (filter, filter_callback): (
         &[Pid],
         &(dyn Fn(&ProcAndTasks, &[Pid]) -> bool + Sync + Send),
-    ) = if let Some(filter) = filter {
-        (filter, &real_filter)
-    } else {
-        (&[], &empty_filter)
+    ) = match processes_to_update {
+        ProcessesToUpdate::All => (&[], &empty_filter),
+        ProcessesToUpdate::Some(pids) => {
+            if pids.is_empty() {
+                return 0;
+            }
+            (pids, &real_filter)
+        }
     };
+
+    let nb_updated = AtomicUsize::new(0);
 
     // FIXME: To prevent retrieving a task more than once (it can be listed in `/proc/[PID]/task`
     // subfolder and directly in `/proc` at the same time), might be interesting to use a `HashSet`.
     let procs = {
         let d = match fs::read_dir(path) {
             Ok(d) => d,
-            Err(_) => return false,
+            Err(_err) => {
+                sysinfo_debug!("Failed to read folder {path:?}: {_err:?}");
+                return 0
+            },
         };
         let proc_list = Wrap(UnsafeCell::new(proc_list));
 
@@ -780,6 +789,7 @@ pub(crate) fn refresh_procs(
                     refresh_kind,
                 )
                 .ok()?;
+                nb_updated.fetch_add(1, Ordering::Relaxed);
                 if let Some(ref mut p) = p {
                     p.inner.tasks = e.tasks;
                 }
@@ -790,7 +800,7 @@ pub(crate) fn refresh_procs(
     for proc_ in procs {
         proc_list.insert(proc_.pid(), proc_);
     }
-    true
+    nb_updated.into_inner()
 }
 
 fn copy_from_file(entry: &Path) -> Vec<OsString> {

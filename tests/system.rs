@@ -3,7 +3,7 @@
 #![cfg(feature = "system")]
 #![allow(clippy::assertions_on_constants)]
 
-use sysinfo::System;
+use sysinfo::{ProcessesToUpdate, System};
 
 #[test]
 fn test_refresh_system() {
@@ -27,8 +27,11 @@ fn test_refresh_process() {
 
     #[cfg(not(feature = "apple-sandbox"))]
     if sysinfo::IS_SUPPORTED_SYSTEM {
-        assert!(
-            sys.refresh_process(sysinfo::get_current_pid().expect("failed to get current pid")),
+        assert_eq!(
+            sys.refresh_processes(ProcessesToUpdate::Some(&[
+                sysinfo::get_current_pid().expect("failed to get current pid")
+            ])),
+            1,
             "process not listed",
         );
         // Ensure that the process was really added to the list!
@@ -41,7 +44,7 @@ fn test_refresh_process() {
 #[test]
 fn test_get_process() {
     let mut sys = System::new();
-    sys.refresh_processes();
+    sys.refresh_processes(ProcessesToUpdate::All);
     let current_pid = match sysinfo::get_current_pid() {
         Ok(pid) => pid,
         _ => {
@@ -73,7 +76,7 @@ fn check_if_send_and_sync() {
     impl<T> Bar for T where T: Sync {}
 
     let mut sys = System::new();
-    sys.refresh_processes();
+    sys.refresh_processes(ProcessesToUpdate::All);
     let current_pid = match sysinfo::get_current_pid() {
         Ok(pid) => pid,
         _ => {
@@ -134,7 +137,7 @@ fn test_consecutive_cpu_usage_update() {
 
     let mut sys = System::new_all();
     assert!(!sys.cpus().is_empty());
-    sys.refresh_processes_specifics(ProcessRefreshKind::new().with_cpu());
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, ProcessRefreshKind::new().with_cpu());
 
     let stop = Arc::new(AtomicBool::new(false));
     // Spawning a few threads to ensure that it will actually have an impact on the CPU usage.
@@ -163,7 +166,10 @@ fn test_consecutive_cpu_usage_update() {
     for it in 0..3 {
         std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL + Duration::from_millis(1));
         for pid in &pids {
-            sys.refresh_process_specifics(*pid, ProcessRefreshKind::new().with_cpu());
+            sys.refresh_processes_specifics(
+                ProcessesToUpdate::Some(&[*pid]),
+                ProcessRefreshKind::new().with_cpu(),
+            );
         }
         // To ensure that Linux doesn't give too high numbers.
         assert!(

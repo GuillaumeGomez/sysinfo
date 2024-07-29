@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessInner, ProcessRefreshKind,
+    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessInner, ProcessRefreshKind,
 };
 
 use std::cell::UnsafeCell;
@@ -10,6 +10,7 @@ use std::ffi::CStr;
 use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
 use crate::sys::cpu::{physical_core_count, CpusWrapper};
@@ -116,71 +117,10 @@ impl SystemInner {
 
     pub(crate) fn refresh_processes_specifics(
         &mut self,
-        filter: Option<&[Pid]>,
+        processes_to_update: ProcessesToUpdate<'_>,
         refresh_kind: ProcessRefreshKind,
-    ) {
-        unsafe { self.refresh_procs(filter, refresh_kind) }
-    }
-
-    pub(crate) fn refresh_process_specifics(
-        &mut self,
-        pid: Pid,
-        refresh_kind: ProcessRefreshKind,
-    ) -> bool {
-        unsafe {
-            let kd = self.system_info.kd.as_ptr();
-            let mut count = 0;
-            let procs = libc::kvm_getprocs(kd, libc::KERN_PROC_PROC, 0, &mut count);
-            if count < 1 {
-                sysinfo_debug!("kvm_getprocs returned nothing...");
-                return false;
-            }
-            let now = get_now();
-
-            let fscale = self.system_info.fscale;
-            let page_size = self.system_info.page_size as isize;
-            let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
-            let procs: &mut [utils::KInfoProc] =
-                std::slice::from_raw_parts_mut(procs as _, count as _);
-
-            #[cfg(feature = "multithread")]
-            use rayon::iter::ParallelIterator;
-
-            macro_rules! multi_iter {
-                ($name:ident, $($iter:tt)+) => {
-                    $name = crate::utils::into_iter(procs).$($iter)+;
-                }
-            }
-
-            let ret;
-            #[cfg(not(feature = "multithread"))]
-            multi_iter!(ret, find(|kproc| kproc.ki_pid == pid.0));
-            #[cfg(feature = "multithread")]
-            multi_iter!(ret, find_any(|kproc| kproc.ki_pid == pid.0));
-
-            let kproc = if let Some(kproc) = ret {
-                kproc
-            } else {
-                return false;
-            };
-            match super::process::get_process_data(
-                kproc,
-                &proc_list,
-                page_size,
-                fscale,
-                now,
-                refresh_kind,
-            ) {
-                Ok(Some(process)) => {
-                    self.process_list.insert(process.inner.pid, process);
-                }
-                Ok(None) => {}
-                Err(_) => return false,
-            }
-            let process = self.process_list.get_mut(&Pid(kproc.ki_pid)).unwrap();
-            add_missing_proc_info(&mut self.system_info, kproc, process, refresh_kind);
-            true
-        }
+    ) -> usize {
+        unsafe { self.refresh_procs(processes_to_update, refresh_kind) }
     }
 
     // COMMON PART
@@ -326,7 +266,11 @@ impl SystemInner {
 }
 
 impl SystemInner {
-    unsafe fn refresh_procs(&mut self, filter: Option<&[Pid]>, refresh_kind: ProcessRefreshKind) {
+    unsafe fn refresh_procs(
+        &mut self,
+        processes_to_update: ProcessesToUpdate<'_>,
+        refresh_kind: ProcessRefreshKind,
+    ) -> usize {
         let mut count = 0;
         let kvm_procs = libc::kvm_getprocs(
             self.system_info.kd.as_ptr(),
@@ -336,7 +280,7 @@ impl SystemInner {
         );
         if count < 1 {
             sysinfo_debug!("kvm_getprocs returned nothing...");
-            return;
+            return 0;
         }
 
         #[inline(always)]
@@ -350,14 +294,21 @@ impl SystemInner {
         }
 
         #[allow(clippy::type_complexity)]
-        let (filter, filter_callback): (
+        let (filter, filter_callback, remove_processes): (
             &[Pid],
             &(dyn Fn(&libc::kinfo_proc, &[Pid]) -> bool + Sync + Send),
-        ) = if let Some(filter) = filter {
-            (filter, &real_filter)
-        } else {
-            (&[], &empty_filter)
+            bool,
+        ) = match processes_to_update {
+            ProcessesToUpdate::All => (&[], &empty_filter, true),
+            ProcessesToUpdate::Some(pids) => {
+                if pids.is_empty() {
+                    return 0;
+                }
+                (pids, &real_filter, false)
+            }
         };
+
+        let nb_updated = AtomicUsize::new(0);
 
         let new_processes = {
             #[cfg(feature = "multithread")]
@@ -377,7 +328,7 @@ impl SystemInner {
                 if !filter_callback(kproc, filter) {
                     return None;
                 }
-                super::process::get_process_data(
+                let ret = super::process::get_process_data(
                     kproc,
                     &proc_list,
                     page_size,
@@ -385,14 +336,18 @@ impl SystemInner {
                     now,
                     refresh_kind,
                 )
-                .ok()?
+                .ok()?;
+                nb_updated.fetch_add(1, Ordering::Relaxed);
+                ret
             })
             .collect::<Vec<_>>()
         };
 
-        // We remove all processes that don't exist anymore.
-        self.process_list
-            .retain(|_, v| std::mem::replace(&mut v.inner.updated, false));
+        if remove_processes {
+            // We remove all processes that don't exist anymore.
+            self.process_list
+                .retain(|_, v| std::mem::replace(&mut v.inner.updated, false));
+        }
 
         for process in new_processes {
             self.process_list.insert(process.inner.pid, process);
@@ -405,6 +360,7 @@ impl SystemInner {
                 add_missing_proc_info(&mut self.system_info, kproc, process, refresh_kind);
             }
         }
+        nb_updated.into_inner()
     }
 }
 
