@@ -31,6 +31,25 @@ let mut s = System::new();
 s.refresh_processes(ProcessesToUpdate::All);
 ```
 
+#### Global CPU usage
+
+`System::global_cpu_usage` now returns an `f32` representing the global CPU usage and no
+other information.
+
+#### Features
+
+You can now enable/disable parts of `sysinfo` API through its cargo features to have
+smaller build (size and time). If you're only interested by network information, then
+you'll import `sysinfo` like this:
+
+```toml
+sysinfo = { version = "0.31", default-features = false, features = ["network"] }
+```
+
+#### Renaming
+
+The `TermalSensorType` type was renamed into `ThermalSensorType`.
+
 ## 0.29 to 0.30
 
 With this update, the minimum supported Rust version goes up to 1.69.
