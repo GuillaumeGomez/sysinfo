@@ -1,3 +1,19 @@
+# 0.31.0
+
+ * Split crate in features to only enable what you need.
+ * Remove `System::refresh_process`, `System::refresh_process_specifics` and `System::refresh_pids`
+methods.
+ * Add new argument of type `ProcessesToUpdate` to `System::refresh_processes` and `System::refresh_processes_specifics` methods.
+ * Add new `NetworkData::ip_networks` method.
+ * Add new `System::refresh_cpu_list` method.
+ * Global CPU now only contains CPU usage.
+ * Rename `TermalSensorType` to `ThermalSensorType`.
+ * Process names is now an `OsString`.
+ * macOS: Fix invalid CPU computation when single processes are refreshed one after the other.
+ * Windows: Fix virtual memory computation.
+ * Windows: Fix WoW64 parent process refresh.
+ * Linux: Retrieve RSS (Resident Set Size) memory for cgroups.
+
 # 0.30.13
 
  * macOS: Fix segfault when calling `Components::refresh_list` multiple times.
