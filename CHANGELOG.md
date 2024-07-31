@@ -9,6 +9,8 @@ methods.
  * Global CPU now only contains CPU usage.
  * Rename `TermalSensorType` to `ThermalSensorType`.
  * Process names is now an `OsString`.
+ * Remove `System::global_cpu_info`.
+ * Add `System::global_cpu_usage`.
  * macOS: Fix invalid CPU computation when single processes are refreshed one after the other.
  * Windows: Fix virtual memory computation.
  * Windows: Fix WoW64 parent process refresh.

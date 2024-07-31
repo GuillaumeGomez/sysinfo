@@ -33,8 +33,8 @@ s.refresh_processes(ProcessesToUpdate::All);
 
 #### Global CPU usage
 
-`System::global_cpu_usage` now returns an `f32` representing the global CPU usage and no
-other information.
+`System::global_cpu_info` was replaced with `System::global_cpu_usage` which returns an `f32`
+representing the global CPU usage and no other information.
 
 #### Features
 
