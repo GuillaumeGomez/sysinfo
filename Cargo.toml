@@ -97,7 +97,9 @@ serde = { version = "^1.0.190", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 ntapi = { version = "0.4", optional = true }
-windows = { version = "0.56", optional = true }
+# Support a range of versions in order to avoid duplication of this crate. Make sure to test all
+# versions when bumping to a new release, and only increase the minimum when absolutely necessary.
+windows = { version = ">=0.54, <=0.57", optional = true }
 
 [target.'cfg(any(windows, target_os = "linux", target_os = "android"))'.dependencies]
 bstr = "1.9.0"
