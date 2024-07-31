@@ -175,34 +175,6 @@ impl Serialize for crate::CGroupLimits {
     }
 }
 
-#[cfg(feature = "component")]
-impl Serialize for crate::Components {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_seq(self.iter())
-    }
-}
-
-#[cfg(feature = "component")]
-impl Serialize for crate::Component {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // `4` corresponds to the number of fields.
-        let mut state = serializer.serialize_struct("Component", 4)?;
-
-        state.serialize_field("temperature", &self.temperature())?;
-        state.serialize_field("max", &self.max())?;
-        state.serialize_field("critical", &self.critical())?;
-        state.serialize_field("label", &self.label())?;
-
-        state.end()
-    }
-}
-
 #[cfg(feature = "system")]
 impl Serialize for crate::ThreadKind {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -275,6 +247,82 @@ impl Serialize for crate::LoadAvg {
         state.serialize_field("one", &self.one)?;
         state.serialize_field("five", &self.five)?;
         state.serialize_field("fifteen", &self.fifteen)?;
+        state.end()
+    }
+}
+
+#[cfg(feature = "system")]
+impl Serialize for crate::ProcessStatus {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let (index, variant, maybe_value) = match *self {
+            Self::Idle => (0, "Idle", None),
+            Self::Run => (1, "Run", None),
+            Self::Sleep => (2, "Sleep", None),
+            Self::Stop => (3, "Stop", None),
+            Self::Zombie => (4, "Zombie", None),
+            Self::Tracing => (5, "Tracing", None),
+            Self::Dead => (6, "Dead", None),
+            Self::Wakekill => (7, "Wakekill", None),
+            Self::Waking => (8, "Waking", None),
+            Self::Parked => (9, "Parked", None),
+            Self::LockBlocked => (10, "LockBlocked", None),
+            Self::UninterruptibleDiskSleep => (11, "UninterruptibleDiskSleep", None),
+            Self::Unknown(n) => (12, "Unknown", Some(n)),
+        };
+
+        if let Some(ref value) = maybe_value {
+            serializer.serialize_newtype_variant("ProcessStatus", index, variant, value)
+        } else {
+            serializer.serialize_unit_variant("ProcessStatus", index, variant)
+        }
+    }
+}
+
+#[cfg(feature = "system")]
+impl Serialize for crate::DiskUsage {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // `4` corresponds to the number of fields.
+        let mut state = serializer.serialize_struct("DiskUsage", 4)?;
+
+        state.serialize_field("total_written_bytes", &self.total_written_bytes)?;
+        state.serialize_field("written_bytes", &self.written_bytes)?;
+        state.serialize_field("total_read_bytes", &self.total_read_bytes)?;
+        state.serialize_field("read_bytes", &self.read_bytes)?;
+
+        state.end()
+    }
+}
+
+#[cfg(feature = "component")]
+impl Serialize for crate::Components {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.iter())
+    }
+}
+
+#[cfg(feature = "component")]
+impl Serialize for crate::Component {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // `4` corresponds to the number of fields.
+        let mut state = serializer.serialize_struct("Component", 4)?;
+
+        state.serialize_field("temperature", &self.temperature())?;
+        state.serialize_field("max", &self.max())?;
+        state.serialize_field("critical", &self.critical())?;
+        state.serialize_field("label", &self.label())?;
+
         state.end()
     }
 }
@@ -409,53 +457,5 @@ impl Serialize for crate::Uid {
         S: Serializer,
     {
         serializer.serialize_newtype_struct("Uid", &self.to_string())
-    }
-}
-
-#[cfg(feature = "system")]
-impl Serialize for crate::ProcessStatus {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let (index, variant, maybe_value) = match *self {
-            Self::Idle => (0, "Idle", None),
-            Self::Run => (1, "Run", None),
-            Self::Sleep => (2, "Sleep", None),
-            Self::Stop => (3, "Stop", None),
-            Self::Zombie => (4, "Zombie", None),
-            Self::Tracing => (5, "Tracing", None),
-            Self::Dead => (6, "Dead", None),
-            Self::Wakekill => (7, "Wakekill", None),
-            Self::Waking => (8, "Waking", None),
-            Self::Parked => (9, "Parked", None),
-            Self::LockBlocked => (10, "LockBlocked", None),
-            Self::UninterruptibleDiskSleep => (11, "UninterruptibleDiskSleep", None),
-            Self::Unknown(n) => (12, "Unknown", Some(n)),
-        };
-
-        if let Some(ref value) = maybe_value {
-            serializer.serialize_newtype_variant("ProcessStatus", index, variant, value)
-        } else {
-            serializer.serialize_unit_variant("ProcessStatus", index, variant)
-        }
-    }
-}
-
-#[cfg(feature = "system")]
-impl Serialize for crate::DiskUsage {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // `4` corresponds to the number of fields.
-        let mut state = serializer.serialize_struct("DiskUsage", 4)?;
-
-        state.serialize_field("total_written_bytes", &self.total_written_bytes)?;
-        state.serialize_field("written_bytes", &self.written_bytes)?;
-        state.serialize_field("total_read_bytes", &self.total_read_bytes)?;
-        state.serialize_field("read_bytes", &self.read_bytes)?;
-
-        state.end()
     }
 }
