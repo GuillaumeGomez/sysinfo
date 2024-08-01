@@ -1,3 +1,7 @@
+# 0.31.1
+
+ * Downgrade version of `memchr` (needed for rustc development).
+
 # 0.31.0
 
  * Split crate in features to only enable what you need.
