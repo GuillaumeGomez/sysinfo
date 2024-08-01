@@ -11,7 +11,6 @@ use std::path::{Path, PathBuf};
 use std::str::{self, FromStr};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use bstr::ByteSlice;
 use libc::{c_ulong, gid_t, kill, uid_t};
 
 use crate::sys::system::SystemInfo;
@@ -815,7 +814,7 @@ fn copy_from_file(entry: &Path) -> Vec<OsString> {
                 let mut out = Vec::with_capacity(10);
                 let mut data = data.as_slice();
                 while let Some(pos) = data.iter().position(|c| *c == 0) {
-                    let s = &data[..pos].trim();
+                    let s = &data[..pos].trim_ascii();
                     if !s.is_empty() {
                         out.push(OsStr::from_bytes(s).to_os_string());
                     }
