@@ -11,7 +11,6 @@ use std::path::{Path, PathBuf};
 use std::str::{self, FromStr};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use bstr::ByteSlice;
 use libc::{c_ulong, gid_t, kill, uid_t};
 
 use crate::sys::system::SystemInfo;
@@ -803,6 +802,26 @@ pub(crate) fn refresh_procs(
     nb_updated.into_inner()
 }
 
+// FIXME: To be removed once MSRV for this crate is 1.80 nd use the `trim_ascii()` method instead.
+fn trim_ascii(mut bytes: &[u8]) -> &[u8] {
+    // Code from Rust code library.
+    while let [rest @ .., last] = bytes {
+        if last.is_ascii_whitespace() {
+            bytes = rest;
+        } else {
+            break;
+        }
+    }
+    while let [first, rest @ ..] = bytes {
+        if first.is_ascii_whitespace() {
+            bytes = rest;
+        } else {
+            break;
+        }
+    }
+    bytes
+}
+
 fn copy_from_file(entry: &Path) -> Vec<OsString> {
     match File::open(entry) {
         Ok(mut f) => {
@@ -815,7 +834,7 @@ fn copy_from_file(entry: &Path) -> Vec<OsString> {
                 let mut out = Vec::with_capacity(10);
                 let mut data = data.as_slice();
                 while let Some(pos) = data.iter().position(|c| *c == 0) {
-                    let s = &data[..pos].trim();
+                    let s = trim_ascii(&data[..pos]);
                     if !s.is_empty() {
                         out.push(OsStr::from_bytes(s).to_os_string());
                     }
