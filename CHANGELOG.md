@@ -1,3 +1,7 @@
+# 0.31.2
+
+ * Remove `bstr` dependency (needed for rustc development).
+
 # 0.31.1
 
  * Downgrade version of `memchr` (needed for rustc development).
