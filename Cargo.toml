@@ -91,7 +91,7 @@ cargo-args = ["-Zbuild-std"]
 rustdoc-args = ["--generate-link-to-definition"]
 
 [dependencies]
-memchr = { version = "2.7.1", optional = true }
+memchr = { version = "2.5", optional = true }
 rayon = { version = "^1.8", optional = true }
 serde = { version = "^1.0.190", optional = true }
 
