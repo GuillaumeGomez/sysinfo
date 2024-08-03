@@ -51,3 +51,14 @@ fn test_too_rapid_cpu_refresh() {
 
     assert!(s.cpus().iter().any(|c| !c.cpu_usage().is_nan()));
 }
+
+#[test]
+fn test_cpu_realtime_freq() {
+    use sysinfo::{CpuRefreshKind, RefreshKind, System};
+    let s = System::new_with_specifics(
+        RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    );
+    let freq = s.cpu_realtime_freq();
+    print!("{:.2}GHz", freq);
+    assert!(freq.is_sign_positive());
+}

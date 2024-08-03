@@ -1,12 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::cpu::{get_physical_core_count, CpusWrapper};
-use crate::sys::process::{compute_cpu_usage, refresh_procs, unset_updated};
-use crate::sys::utils::{get_all_utf8_data, to_u64};
-use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessRefreshKind};
-
-use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
-
 use std::cmp::min;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -16,6 +9,13 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::{atomic::AtomicIsize, OnceLock};
 use std::time::Duration;
+
+use libc::{self, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE, c_char, sysconf};
+
+use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessRefreshKind};
+use crate::sys::cpu::{CpusWrapper, get_physical_core_count};
+use crate::sys::process::{compute_cpu_usage, refresh_procs, unset_updated};
+use crate::sys::utils::{get_all_utf8_data, to_u64};
 
 // This whole thing is to prevent having too many files open at once. It could be problematic
 // for processes using a lot of files and using sysinfo at the same time.
@@ -315,6 +315,10 @@ impl SystemInner {
 
     pub(crate) fn cpus(&self) -> &[Cpu] {
         &self.cpus.cpus
+    }
+
+    pub(crate) fn cpu_realtime_freq(&self) -> f64 {
+        0.
     }
 
     pub(crate) fn physical_core_count(&self) -> Option<usize> {
@@ -698,16 +702,18 @@ fn get_system_info_android(info: InfoType) -> Option<String> {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
+    use std::io::Write;
+
+    use tempfile::NamedTempFile;
+
     #[cfg(target_os = "android")]
-    use super::get_system_info_android;
+        use super::get_system_info_android;
     #[cfg(not(target_os = "android"))]
     use super::get_system_info_linux;
     use super::InfoType;
     use super::read_table;
     use super::read_table_key;
-    use std::collections::HashMap;
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
     #[test]
     fn test_read_table() {

@@ -1,9 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{
-    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessInner, ProcessRefreshKind,
-};
-
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -13,14 +9,17 @@ use std::ptr::NonNull;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
-use crate::sys::cpu::{physical_core_count, CpusWrapper};
+use libc::c_int;
+
+use crate::{
+    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessInner, ProcessRefreshKind,
+};
+use crate::sys::cpu::{CpusWrapper, physical_core_count};
 use crate::sys::process::get_exe;
 use crate::sys::utils::{
     self, boot_time, c_buf_to_os_string, c_buf_to_utf8_string, from_cstr_array, get_sys_value,
     get_sys_value_by_name, init_mib,
 };
-
-use libc::c_int;
 
 declare_signals! {
     c_int,
@@ -141,6 +140,10 @@ impl SystemInner {
 
     pub(crate) fn cpus(&self) -> &[Cpu] {
         &self.cpus.cpus
+    }
+
+    pub(crate) fn cpu_realtime_freq(&self) -> f64 {
+        0.
     }
 
     pub(crate) fn physical_core_count(&self) -> Option<usize> {

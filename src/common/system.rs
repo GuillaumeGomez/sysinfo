@@ -449,6 +449,25 @@ impl System {
         self.inner.cpus()
     }
 
+    /// Returns the CPU realtime frequency, GHz
+    /// you should refresh CPU first
+    ///
+    /// ```no_run
+    /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
+    ///
+    /// let mut s = System::new_with_specifics(
+    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// print!("{:.2}GHz", s.cpu_realtime_freq());
+    /// ```
+    pub fn cpu_realtime_freq(&self) -> f64 {
+        match self.inner.cpus().iter().next() {
+            Some(cpu) => self.inner.cpu_realtime_freq() * cpu.frequency() as f64,
+            None => 0.
+        }
+    }
+
+
     /// Returns the number of physical cores on the CPU or `None` if it couldn't get it.
     ///
     /// In case there are multiple CPUs, it will combine the physical core count of all the CPUs.
@@ -2381,8 +2400,9 @@ impl Cpu {
 
 #[cfg(test)]
 mod test {
-    use crate::*;
     use std::str::FromStr;
+
+    use crate::*;
 
     // In case `Process::updated` is misused, `System::refresh_processes` might remove them
     // so this test ensures that it doesn't happen.

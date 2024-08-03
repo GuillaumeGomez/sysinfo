@@ -1,25 +1,24 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg};
-
+use std::{mem, thread};
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::io::Error;
-use std::mem;
 use std::ops::DerefMut;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock, RwLock};
+use std::time::Duration;
 
-use windows::core::{s, PCSTR, PCWSTR};
+use windows::core::{PCSTR, PCWSTR, s};
 use windows::Win32::Foundation::{
-    CloseHandle, BOOLEAN, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS, FALSE, HANDLE,
+    BOOLEAN, CloseHandle, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS, FALSE, HANDLE,
 };
 use windows::Win32::System::Performance::{
-    PdhAddEnglishCounterA, PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData,
-    PdhCollectQueryDataEx, PdhGetFormattedCounterValue, PdhOpenQueryA, PdhRemoveCounter,
-    PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE,
+    PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PdhAddEnglishCounterA, PdhAddEnglishCounterW,
+    PdhCloseQuery, PdhCollectQueryData, PdhCollectQueryDataEx, PdhGetFormattedCounterValue,
+    PdhOpenQueryA, PdhRemoveCounter,
 };
 use windows::Win32::System::Power::{
-    CallNtPowerInformation, ProcessorInformation, PROCESSOR_POWER_INFORMATION,
+    CallNtPowerInformation, PROCESSOR_POWER_INFORMATION, ProcessorInformation,
 };
 use windows::Win32::System::SystemInformation::{self, GetSystemInfo};
 use windows::Win32::System::SystemInformation::{
@@ -27,8 +26,10 @@ use windows::Win32::System::SystemInformation::{
     SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
 };
 use windows::Win32::System::Threading::{
-    CreateEventA, RegisterWaitForSingleObject, INFINITE, WT_EXECUTEDEFAULT,
+    CreateEventA, INFINITE, RegisterWaitForSingleObject, WT_EXECUTEDEFAULT,
 };
+
+use crate::{Cpu, CpuRefreshKind, LoadAvg};
 
 // This formula comes from Linux's include/linux/sched/loadavg.h
 // https://github.com/torvalds/linux/blob/345671ea0f9258f410eb057b9ced9cefbbe5dc78/include/linux/sched/loadavg.h#L20-L23
@@ -40,6 +41,9 @@ const LOADAVG_FACTOR_5F: f64 = 0.9834714538216174894737477501;
 const LOADAVG_FACTOR_15F: f64 = 0.9944598480048967508795473394;
 // The time interval in seconds between taking load counts, same as Linux
 const SAMPLING_INTERVAL: usize = 5;
+
+// The time interval in seconds between taking cpu frequency
+const CPU_FREQUENCY_SAMPLING_INTERVAL: usize = 1;
 
 // maybe use a read/write lock instead?
 fn load_avg() -> &'static Mutex<Option<LoadAvg>> {
@@ -501,6 +505,109 @@ pub(crate) fn get_frequencies(nb_cpus: usize) -> Vec<u64> {
     }
     sysinfo_debug!("get_frequencies: CallNtPowerInformation failed");
     vec![0; nb_cpus]
+}
+
+pub(crate) fn get_realtime_freq() -> f64{
+    if let Ok(avg) = realtime_freq().read() {
+        if let Some(avg) = *avg {
+            return avg;
+        }
+    }
+    0.0
+}
+
+fn realtime_freq() -> &'static RwLock<Option<f64>> {
+    static REALTIME_FREQUENCY: OnceLock<RwLock<Option<f64>>> = OnceLock::new();
+    REALTIME_FREQUENCY.get_or_init(|| unsafe { init_realtime_freq() })
+}
+
+unsafe extern "system" fn update_realtime_freq_callback(counter: *mut c_void, _: BOOLEAN) {
+    let val = parse_cpu_realtime_freq_counter(counter);
+    if let Ok(mut freq) = realtime_freq().write() {
+        if let Some(freq) = freq.deref_mut() {
+            *freq = val;
+        }
+    }
+}
+
+unsafe fn init_realtime_freq() -> RwLock<Option<f64>> {
+    let mut query = 0;
+
+    if PdhOpenQueryA(PCSTR::null(), 0, &mut query) != ERROR_SUCCESS.0 {
+        sysinfo_debug!("init_cpu_realtime_frequency: PdhOpenQueryA failed");
+        return RwLock::new(None);
+    }
+
+    let mut cpu_freq_counter = 0;
+    if PdhAddEnglishCounterA(
+        query,
+        s!("\\Processor Information(_Total)\\% Processor Performance"),
+        0,
+        &mut cpu_freq_counter,
+    ) != ERROR_SUCCESS.0
+    {
+        PdhCloseQuery(query);
+        sysinfo_debug!("init_cpu_realtime_frequency: failed to get CPU performance");
+        return RwLock::new(None);
+    }
+
+    // We want to be able to get the value directly by calling the function,
+    // so we collect it twice in this init function
+    PdhCollectQueryData(query);
+    thread::sleep(Duration::from_millis(100));
+    PdhCollectQueryData(query);
+    let preload_val = parse_cpu_realtime_freq_counter(cpu_freq_counter as *mut c_void);
+
+    let event = match CreateEventA(None, FALSE, FALSE, s!("LoadFrequencyEvent")) {
+        Ok(ev) => ev,
+        Err(_) => {
+            PdhRemoveCounter(cpu_freq_counter);
+            PdhCloseQuery(query);
+            sysinfo_debug!("init_cpu_realtime_frequency: failed to create event `LoadFrequencyEvent`");
+            return RwLock::new(None);
+        }
+    };
+
+    if PdhCollectQueryDataEx(query, CPU_FREQUENCY_SAMPLING_INTERVAL as _, event) != ERROR_SUCCESS.0 {
+        PdhRemoveCounter(cpu_freq_counter);
+        PdhCloseQuery(query);
+        sysinfo_debug!("init_cpu_realtime_frequency: PdhCollectQueryDataEx failed");
+        return RwLock::new(None);
+    }
+
+    let mut wait_handle = HANDLE::default();
+    if RegisterWaitForSingleObject(
+        &mut wait_handle,
+        event,
+        Some(update_realtime_freq_callback),
+        Some(cpu_freq_counter as *const c_void),
+        INFINITE,
+        WT_EXECUTEDEFAULT,
+    )
+        .is_ok()
+    {
+        sysinfo_debug!("init_cpu_realtime_frequency: RegisterWaitForSingleObject success");
+        return RwLock::new(Some(preload_val));
+    } else {
+        PdhRemoveCounter(cpu_freq_counter);
+        PdhCloseQuery(query);
+        sysinfo_debug!("init_cpu_realtime_frequency: RegisterWaitForSingleObject failed");
+        return RwLock::new(None);
+    }
+}
+
+unsafe fn parse_cpu_realtime_freq_counter(counter: *mut c_void) -> f64 {
+    let mut display_value = mem::MaybeUninit::<PDH_FMT_COUNTERVALUE>::uninit();
+    if PdhGetFormattedCounterValue(
+        counter as _,
+        PDH_FMT_DOUBLE,
+        None,
+        display_value.as_mut_ptr()
+    ) == ERROR_SUCCESS.0 {
+        // Percentages are converted to decimals, and also MHz is converted to GHz
+        return display_value.assume_init().Anonymous.doubleValue / 100_000.0;
+    }
+    0.0
 }
 
 pub(crate) fn get_physical_core_count() -> Option<usize> {
