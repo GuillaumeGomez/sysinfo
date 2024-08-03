@@ -1,12 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessesToUpdate, ProcessRefreshKind};
-
-use crate::sys::cpu::*;
-use crate::{Process, ProcessInner};
-
-use crate::utils::into_iter;
-
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
@@ -22,7 +15,7 @@ use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SystemPr
 use windows::Win32::Foundation::{self, HANDLE, STATUS_INFO_LENGTH_MISMATCH, STILL_ACTIVE};
 use windows::Win32::System::ProcessStatus::{K32GetPerformanceInfo, PERFORMANCE_INFORMATION};
 use windows::Win32::System::Registry::{
-    RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_LOCAL_MACHINE, KEY_READ, REG_NONE,
+    HKEY, HKEY_LOCAL_MACHINE, KEY_READ, REG_NONE, RegCloseKey, RegOpenKeyExW, RegQueryValueExW,
 };
 use windows::Win32::System::SystemInformation::{self, GetSystemInfo};
 use windows::Win32::System::SystemInformation::{
@@ -30,6 +23,11 @@ use windows::Win32::System::SystemInformation::{
     MEMORYSTATUSEX, SYSTEM_INFO,
 };
 use windows::Win32::System::Threading::GetExitCodeProcess;
+
+use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessesToUpdate, ProcessRefreshKind};
+use crate::{Process, ProcessInner};
+use crate::sys::cpu::*;
+use crate::utils::into_iter;
 
 declare_signals! {
     (),
@@ -360,6 +358,10 @@ impl SystemInner {
 
     pub(crate) fn cpus(&self) -> &[Cpu] {
         self.cpus.cpus()
+    }
+
+    pub(crate) fn cpu_realtime_freq(&self) -> f64 {
+        get_realtime_freq()
     }
 
     pub(crate) fn physical_core_count(&self) -> Option<usize> {

@@ -1,12 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::cpu::*;
-#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-use crate::sys::process::*;
-use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
-
-use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessRefreshKind};
-
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -17,9 +10,15 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use libc::{
-    c_int, c_void, host_statistics64, mach_port_t, sysconf, sysctl, timeval, vm_statistics64,
-    _SC_PAGESIZE,
+    _SC_PAGESIZE, c_int, c_void, host_statistics64, mach_port_t, sysconf, sysctl, timeval,
+    vm_statistics64,
 };
+
+use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessRefreshKind};
+use crate::sys::cpu::*;
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+use crate::sys::process::*;
+use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 declare_signals! {
@@ -326,6 +325,10 @@ impl SystemInner {
 
     pub(crate) fn cpus(&self) -> &[Cpu] {
         &self.cpus.cpus
+    }
+
+    pub(crate) fn cpu_realtime_freq(&self) -> f64 {
+        0.
     }
 
     pub(crate) fn physical_core_count(&self) -> Option<usize> {

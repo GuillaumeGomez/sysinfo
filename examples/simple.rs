@@ -6,6 +6,7 @@
 
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
+
 use sysinfo::{Components, Disks, Networks, Pid, Signal, System, Users};
 
 const signals: &[Signal] = &[
@@ -256,6 +257,13 @@ fn interpret_input(
                     cpu.frequency(),
                 );
             }
+        }
+        "rt_freq" => {
+           writeln!(
+               &mut io::stdout(),
+               "cpu realtime frequency: {:.2}GHz",
+               sys.cpu_realtime_freq()
+           );
         }
         "vendor_id" => {
             writeln!(
