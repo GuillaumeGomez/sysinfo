@@ -387,5 +387,16 @@ impl ComponentsInner {
                 }
             }
         }
+        if self.components.is_empty() {
+            // Specfic to raspberry pi.
+            let thermal_path = Path::new("/sys/class/thermal/thermal_zone0/");
+            if thermal_path.join("temp").exists() {
+                let mut component = ComponentInner::default();
+                fill_component(&mut component, "input", thermal_path, "temp");
+                let name = get_file_line(&thermal_path.join("type"), 16);
+                component.name = name.unwrap_or_default();
+                self.components.push(Component { inner: component });
+            }
+        }
     }
 }
