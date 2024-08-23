@@ -1,3 +1,7 @@
+# 0.31.3
+
+ * Raspberry Pi: Fix temperature retrieval.
+
 # 0.31.2
 
  * Remove `bstr` dependency (needed for rustc development).
