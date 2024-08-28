@@ -92,7 +92,11 @@ impl crate::DisksInner {
 
     pub(crate) fn refresh_list(&mut self) {
         unsafe {
-            get_list(&mut self.disks);
+            // SAFETY: We don't keep any Objective-C objects around because we 
+            // don't make any direct Objective-C calls in this code.
+            with_autorelease(|| {
+                get_list(&mut self.disks);
+            })
         }
     }
 
@@ -430,4 +434,36 @@ unsafe fn new_disk(
             is_removable,
         },
     })
+}
+
+
+/// Calls the provided closure in the context of a new autorelease pool that is drained
+/// before returning.
+/// 
+/// ## SAFETY:
+/// You must not return an Objective-C object that is autoreleased from this function since it
+/// will be freed before usable.
+unsafe fn with_autorelease<T, F: FnOnce() -> T>(call: F) -> T {
+    // NB: This struct exists to help prevent memory leaking if `call` were to panic.
+    // Otherwise, the call to `objc_autoreleasePoolPop` would never be made as the stack unwinds.
+    // `Drop` destructors for existing types on the stack are run during unwinding, so we can 
+    // ensure the autorelease pool is drained by using a RAII pattern here.
+    struct DrainPool {
+        ctx: *mut c_void,
+    }
+
+    impl Drop for DrainPool {
+        fn drop(&mut self) {
+            // SAFETY: We have not manipulated `pool_ctx` since it was received from a corresponding
+            // pool push call.
+            unsafe { ffi::objc_autoreleasePoolPop(self.ctx) }
+        }
+    }
+
+    // SAFETY: Creating a new pool is safe in any context. They can be arbitrarily nested
+    // as long as pool objects are not used in deeper layers, but we only have one and don't
+    // allow it to leave this scope.
+    let _pool_ctx = DrainPool { ctx: unsafe { ffi::objc_autoreleasePoolPush() } };
+    call()
+    // Pool is drained here before returning
 }

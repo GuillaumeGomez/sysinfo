@@ -13,6 +13,7 @@ cfg_if! {
             array::CFArrayRef, dictionary::CFDictionaryRef, error::CFErrorRef, string::CFStringRef,
             url::CFURLRef,
         };
+        use std::ffi::c_void;
 
         #[link(name = "CoreFoundation", kind = "framework")]
         extern "C" {
@@ -31,6 +32,12 @@ cfg_if! {
             pub static kCFURLVolumeIsLocalKey: CFStringRef;
             pub static kCFURLVolumeIsInternalKey: CFStringRef;
             pub static kCFURLVolumeIsBrowsableKey: CFStringRef;
+        }
+
+        #[link(name = "objc", kind = "dylib")]
+        extern "C" {
+            pub fn objc_autoreleasePoolPop(pool: *mut c_void);
+            pub fn objc_autoreleasePoolPush() -> *mut c_void;
         }
     }
 }
