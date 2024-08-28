@@ -1,3 +1,7 @@
+# 0.31.4
+
+ * macOS: Force memory cleanup in disk list retrieval.
+
 # 0.31.3
 
  * Raspberry Pi: Fix temperature retrieval.
