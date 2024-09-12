@@ -427,7 +427,7 @@ unsafe fn new_disk(
         )
     };
 
-    let is_read_only = (c_disk.f_flags & libc::MNT_RDONLY) != 0;
+    let is_read_only = (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0;
 
     Some(Disk {
         inner: DiskInner {
