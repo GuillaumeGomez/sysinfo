@@ -35,6 +35,10 @@ impl DiskInner {
         false
     }
 
+    pub(crate) fn is_read_only(&self) -> bool {
+        false
+    }
+
     pub(crate) fn refresh(&mut self) -> bool {
         true
     }

@@ -117,6 +117,20 @@ impl Disk {
         self.inner.is_removable()
     }
 
+    /// Returns `true` if the disk is read-only.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let disks = Disks::new_with_refreshed_list();
+    /// for disk in disks.list() {
+    ///     println!("[{:?}] is read-only: {}", disk.name(), disk.is_read_only());
+    /// }
+    /// ```
+    pub fn is_read_only(&self) -> bool {
+        self.inner.is_read_only()
+    }
+
     /// Updates the disk' information.
     ///
     /// ```no_run
