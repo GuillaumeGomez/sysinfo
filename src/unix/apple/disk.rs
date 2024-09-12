@@ -28,6 +28,7 @@ pub(crate) struct DiskInner {
     pub(crate) total_space: u64,
     pub(crate) available_space: u64,
     pub(crate) is_removable: bool,
+    pub(crate) is_read_only: bool,
 }
 
 impl DiskInner {
@@ -57,6 +58,10 @@ impl DiskInner {
 
     pub(crate) fn is_removable(&self) -> bool {
         self.is_removable
+    }
+
+    pub(crate) fn is_read_only(&self) -> bool {
+        self.is_read_only
     }
 
     pub(crate) fn refresh(&mut self) -> bool {
@@ -422,6 +427,8 @@ unsafe fn new_disk(
         )
     };
 
+    let is_read_only = (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0;
+
     Some(Disk {
         inner: DiskInner {
             type_,
@@ -432,6 +439,7 @@ unsafe fn new_disk(
             total_space,
             available_space,
             is_removable,
+            is_read_only,
         },
     })
 }

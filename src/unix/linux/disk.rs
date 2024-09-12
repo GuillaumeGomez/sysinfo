@@ -24,6 +24,7 @@ pub(crate) struct DiskInner {
     total_space: u64,
     available_space: u64,
     is_removable: bool,
+    is_read_only: bool,
 }
 
 impl DiskInner {
@@ -53,6 +54,10 @@ impl DiskInner {
 
     pub(crate) fn is_removable(&self) -> bool {
         self.is_removable
+    }
+
+    pub(crate) fn is_read_only(&self) -> bool {
+        self.is_read_only
     }
 
     pub(crate) fn refresh(&mut self) -> bool {
@@ -103,6 +108,7 @@ fn new_disk(
     let type_ = find_type_for_device_name(device_name);
     let mut total = 0;
     let mut available = 0;
+    let mut is_read_only = false;
     unsafe {
         let mut stat: statvfs = mem::zeroed();
         if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
@@ -111,6 +117,7 @@ fn new_disk(
             let bavail = cast!(stat.f_bavail);
             total = bsize.saturating_mul(blocks);
             available = bsize.saturating_mul(bavail);
+            is_read_only = (stat.f_flag & libc::ST_RDONLY) != 0;
         }
         if total == 0 {
             return None;
@@ -128,6 +135,7 @@ fn new_disk(
                 total_space: cast!(total),
                 available_space: cast!(available),
                 is_removable,
+                is_read_only,
             },
         })
     }

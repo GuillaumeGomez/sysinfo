@@ -14,6 +14,7 @@ use windows::Win32::Storage::FileSystem::{
     FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDiskFreeSpaceExW, GetDriveTypeW,
     GetVolumeInformationW, GetVolumePathNamesForVolumeNameW,
 };
+use windows::Win32::System::SystemServices::FILE_READ_ONLY_VOLUME;
 use windows::Win32::System::Ioctl::{
     PropertyStandardQuery, StorageDeviceSeekPenaltyProperty, DEVICE_SEEK_PENALTY_DESCRIPTOR,
     IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
@@ -125,6 +126,7 @@ pub(crate) struct DiskInner {
     total_space: u64,
     available_space: u64,
     is_removable: bool,
+    is_read_only: bool,
 }
 
 impl DiskInner {
@@ -154,6 +156,10 @@ impl DiskInner {
 
     pub(crate) fn is_removable(&self) -> bool {
         self.is_removable
+    }
+
+    pub(crate) fn is_read_only(&self) -> bool {
+        self.is_read_only
     }
 
     pub(crate) fn refresh(&mut self) -> bool {
@@ -239,12 +245,13 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             }
             let mut name = [0u16; MAX_PATH as usize + 1];
             let mut file_system = [0u16; 32];
+            let mut flags = 0;
             let volume_info_res = GetVolumeInformationW(
                 raw_volume_name,
                 Some(&mut name),
                 None,
                 None,
-                None,
+                Some(&mut flags),
                 Some(&mut file_system),
             )
             .is_ok();
@@ -255,6 +262,7 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
                 );
                 return Vec::new();
             }
+            let is_read_only = (flags & FILE_READ_ONLY_VOLUME) != 0;
 
             let mount_paths = get_volume_path_names_for_volume_name(&volume_name[..]);
             if mount_paths.is_empty() {
@@ -324,6 +332,7 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
                         total_space,
                         available_space,
                         is_removable,
+                        is_read_only,
                     },
                 })
                 .collect::<Vec<_>>()

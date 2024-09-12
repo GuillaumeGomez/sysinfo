@@ -16,6 +16,7 @@ pub(crate) struct DiskInner {
     available_space: u64,
     file_system: OsString,
     is_removable: bool,
+    is_read_only: bool,
 }
 
 impl DiskInner {
@@ -45,6 +46,10 @@ impl DiskInner {
 
     pub(crate) fn is_removable(&self) -> bool {
         self.is_removable
+    }
+
+    pub(crate) fn is_read_only(&self) -> bool {
+        self.is_read_only
     }
 
     pub(crate) fn refresh(&mut self) -> bool {
@@ -154,6 +159,8 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>) {
 
         let f_frsize: u64 = vfs.f_frsize as _;
 
+        let is_read_only = (vfs.f_flag & libc::ST_RDONLY) != 0;
+
         container.push(Disk {
             inner: DiskInner {
                 name,
@@ -163,6 +170,7 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>) {
                 available_space: vfs.f_favail.saturating_mul(f_frsize),
                 file_system: OsString::from_vec(fs_type),
                 is_removable,
+                is_read_only,
             },
         });
     }
