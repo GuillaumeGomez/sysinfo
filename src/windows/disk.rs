@@ -12,8 +12,9 @@ use windows::core::{Error, HRESULT, PCWSTR};
 use windows::Win32::Foundation::MAX_PATH;
 use windows::Win32::Storage::FileSystem::{
     FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDiskFreeSpaceExW, GetDriveTypeW,
-    GetVolumeInformationW, GetVolumePathNamesForVolumeNameW, FILE_READ_ONLY_VOLUME,
+    GetVolumeInformationW, GetVolumePathNamesForVolumeNameW,
 };
+use windows::Win32::System::SystemServices::FILE_READ_ONLY_VOLUME;
 use windows::Win32::System::Ioctl::{
     PropertyStandardQuery, StorageDeviceSeekPenaltyProperty, DEVICE_SEEK_PENALTY_DESCRIPTOR,
     IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
@@ -248,7 +249,6 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             let volume_info_res = GetVolumeInformationW(
                 raw_volume_name,
                 Some(&mut name),
-                None,
                 None,
                 None,
                 Some(&mut flags),
