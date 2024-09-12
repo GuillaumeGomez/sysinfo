@@ -30,6 +30,7 @@ disk = [
     "windows/Win32_Security", # For `windows::Win32::Storage::FileSystem::CreateFileW`.
     "windows/Win32_System_IO",
     "windows/Win32_System_Ioctl",
+    "windows/Win32_System_SystemServices",
     "windows/Win32_System_WindowsProgramming",
 ]
 system = [
