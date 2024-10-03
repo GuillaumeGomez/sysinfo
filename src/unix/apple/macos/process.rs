@@ -226,6 +226,10 @@ impl ProcessInner {
             }
         }
     }
+
+    pub(crate) fn switch_updated(&mut self) -> bool {
+         std::mem::replace(&mut self.updated, false)
+    }
 }
 
 #[allow(deprecated)] // Because of libc::mach_absolute_time.

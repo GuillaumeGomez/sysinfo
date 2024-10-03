@@ -54,7 +54,7 @@ pub extern "C" fn sysinfo_refresh_memory(system: CSystem) {
             let system: &mut System = system.borrow_mut();
             system.refresh_memory();
         }
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
     }
 }
 
@@ -68,7 +68,7 @@ pub extern "C" fn sysinfo_refresh_cpu(system: CSystem) {
             let system: &mut System = system.borrow_mut();
             system.refresh_cpu_usage();
         }
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
     }
 }
 
@@ -82,7 +82,7 @@ pub extern "C" fn sysinfo_refresh_all(system: CSystem) {
             let system: &mut System = system.borrow_mut();
             system.refresh_all();
         }
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
     }
 }
 
@@ -96,9 +96,9 @@ pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
         {
             let system: &mut System = system.borrow_mut();
-            system.refresh_processes(ProcessesToUpdate::All);
+            system.refresh_processes(ProcessesToUpdate::All, true);
         }
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
     }
 }
 
@@ -112,9 +112,9 @@ pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: PID) {
         let mut system: Box<System> = Box::from_raw(system as *mut System);
         {
             let system: &mut System = system.borrow_mut();
-            system.refresh_processes(ProcessesToUpdate::Some(&[Pid::from_u32(pid as _)]));
+            system.refresh_processes(ProcessesToUpdate::Some(&[Pid::from_u32(pid as _)]), true);
         }
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
     }
 }
 
@@ -144,7 +144,7 @@ pub extern "C" fn sysinfo_disks_refresh(disks: CDisks) {
             let disks: &mut Disks = disks.borrow_mut();
             disks.refresh();
         }
-        Box::into_raw(disks);
+        let _ = Box::into_raw(disks);
     }
 }
 
@@ -158,7 +158,7 @@ pub extern "C" fn sysinfo_disks_refresh_list(disks: CDisks) {
             let disks: &mut Disks = disks.borrow_mut();
             disks.refresh_list();
         }
-        Box::into_raw(disks);
+        let _ = Box::into_raw(disks);
     }
 }
 
@@ -169,7 +169,7 @@ pub extern "C" fn sysinfo_total_memory(system: CSystem) -> size_t {
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
         let ret = system.total_memory() as size_t;
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
         ret
     }
 }
@@ -181,7 +181,7 @@ pub extern "C" fn sysinfo_free_memory(system: CSystem) -> size_t {
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
         let ret = system.free_memory() as size_t;
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
         ret
     }
 }
@@ -192,7 +192,7 @@ pub extern "C" fn sysinfo_used_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
     let ret = system.used_memory() as size_t;
-    Box::into_raw(system);
+    let _ = Box::into_raw(system);
     ret
 }
 
@@ -203,7 +203,7 @@ pub extern "C" fn sysinfo_total_swap(system: CSystem) -> size_t {
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
         let ret = system.total_swap() as size_t;
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
         ret
     }
 }
@@ -215,7 +215,7 @@ pub extern "C" fn sysinfo_free_swap(system: CSystem) -> size_t {
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
         let ret = system.free_swap() as size_t;
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
         ret
     }
 }
@@ -227,7 +227,7 @@ pub extern "C" fn sysinfo_used_swap(system: CSystem) -> size_t {
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
         let ret = system.used_swap() as size_t;
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
         ret
     }
 }
@@ -258,7 +258,7 @@ pub extern "C" fn sysinfo_networks_refresh_list(networks: CNetworks) {
             let networks: &mut Networks = networks.borrow_mut();
             networks.refresh_list();
         }
-        Box::into_raw(networks);
+        let _ = Box::into_raw(networks);
     }
 }
 
@@ -272,7 +272,7 @@ pub extern "C" fn sysinfo_networks_refresh(networks: CNetworks) {
             let networks: &mut Networks = networks.borrow_mut();
             networks.refresh();
         }
-        Box::into_raw(networks);
+        let _ = Box::into_raw(networks);
     }
 }
 
@@ -286,7 +286,7 @@ pub extern "C" fn sysinfo_networks_received(networks: CNetworks) -> size_t {
         let ret = networks.iter().fold(0, |acc: size_t, (_, data)| {
             acc.saturating_add(data.received() as size_t)
         });
-        Box::into_raw(networks);
+        let _ = Box::into_raw(networks);
         ret
     }
 }
@@ -301,7 +301,7 @@ pub extern "C" fn sysinfo_networks_transmitted(networks: CNetworks) -> size_t {
         let ret = networks.iter().fold(0, |acc: size_t, (_, data)| {
             acc.saturating_add(data.transmitted() as size_t)
         });
-        Box::into_raw(networks);
+        let _ = Box::into_raw(networks);
         ret
     }
 }
@@ -333,7 +333,7 @@ pub extern "C" fn sysinfo_cpus_usage(
             }
             *length = cpus.len() as c_uint - 1;
         }
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
     }
 }
 
@@ -362,7 +362,7 @@ pub extern "C" fn sysinfo_processes(
                 }
                 entries.len() as size_t
             };
-            Box::into_raw(system);
+            let _ = Box::into_raw(system);
             len
         }
     } else {
@@ -386,7 +386,7 @@ pub extern "C" fn sysinfo_process_by_pid(system: CSystem, pid: PID) -> CProcess 
         } else {
             std::ptr::null()
         };
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
         ret
     }
 }
@@ -534,7 +534,7 @@ pub extern "C" fn sysinfo_cpu_vendor_id(system: CSystem) -> RString {
         } else {
             std::ptr::null()
         };
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
         c_string
     }
 }
@@ -554,7 +554,7 @@ pub extern "C" fn sysinfo_cpu_brand(system: CSystem) -> RString {
         } else {
             std::ptr::null()
         };
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
         c_string
     }
 }
@@ -566,7 +566,7 @@ pub extern "C" fn sysinfo_cpu_physical_cores(system: CSystem) -> u32 {
     unsafe {
         let system: Box<System> = Box::from_raw(system as *mut System);
         let count = system.physical_core_count().unwrap_or(0);
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
         count as u32
     }
 }
@@ -582,7 +582,7 @@ pub extern "C" fn sysinfo_cpu_frequency(system: CSystem) -> u64 {
             .first()
             .map(|cpu| cpu.frequency())
             .unwrap_or(0);
-        Box::into_raw(system);
+        let _ = Box::into_raw(system);
         freq
     }
 }

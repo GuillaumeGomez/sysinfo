@@ -408,7 +408,7 @@ fn interpret_input(
                     .take(1)
                     .next()
                 {
-                    if sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid])) != 0 {
+                    if sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true) != 0 {
                         writeln!(&mut io::stdout(), "Process `{pid}` updated successfully");
                     } else {
                         writeln!(&mut io::stdout(), "Process `{pid}` couldn't be updated...");

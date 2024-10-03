@@ -10,7 +10,7 @@ use crate::utils::into_iter;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
-use std::mem::{replace, size_of, zeroed};
+use std::mem::{size_of, zeroed};
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -199,17 +199,16 @@ impl SystemInner {
         }
 
         #[allow(clippy::type_complexity)]
-        let (filter_array, filter_callback, remove_processes): (
+        let (filter_array, filter_callback): (
             &[Pid],
             &(dyn Fn(Pid, &[Pid]) -> bool + Sync + Send),
-            bool,
         ) = match processes_to_update {
-            ProcessesToUpdate::All => (&[], &empty_filter, true),
+            ProcessesToUpdate::All => (&[], &empty_filter),
             ProcessesToUpdate::Some(pids) => {
                 if pids.is_empty() {
                     return 0;
                 }
-                (pids, &real_filter, false)
+                (pids, &real_filter)
             }
         };
 
@@ -337,17 +336,16 @@ impl SystemInner {
             for p in processes.into_iter() {
                 self.process_list.insert(p.pid(), p);
             }
-            if remove_processes {
-                // If it comes from `refresh_process` or `refresh_pids`, we don't remove
-                // dead processes.
-                self.process_list.retain(|_, v| replace(&mut v.inner.updated, false));
-            }
             nb_updated.into_inner()
         }
     }
 
     pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
+    }
+
+    pub(crate) fn processes_mut(&mut self) -> &mut HashMap<Pid, Process> {
+        &mut self.process_list
     }
 
     pub(crate) fn process(&self, pid: Pid) -> Option<&Process> {

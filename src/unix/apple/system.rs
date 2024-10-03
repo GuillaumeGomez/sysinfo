@@ -260,17 +260,16 @@ impl SystemInner {
             }
 
             #[allow(clippy::type_complexity)]
-            let (filter, filter_callback, remove_processes): (
+            let (filter, filter_callback): (
                 &[Pid],
                 &(dyn Fn(Pid, &[Pid]) -> bool + Sync + Send),
-                bool,
             ) = match processes_to_update {
-                ProcessesToUpdate::All => (&[], &empty_filter, true),
+                ProcessesToUpdate::All => (&[], &empty_filter),
                 ProcessesToUpdate::Some(pids) => {
                     if pids.is_empty() {
                         return 0;
                     }
-                    (pids, &real_filter, false)
+                    (pids, &real_filter)
                 }
             };
 
@@ -298,10 +297,6 @@ impl SystemInner {
             entries.into_iter().for_each(|entry| {
                 self.process_list.insert(entry.pid(), entry);
             });
-            if remove_processes {
-                self.process_list
-                    .retain(|_, proc_| std::mem::replace(&mut proc_.inner.updated, false));
-            }
             nb_updated.into_inner()
         } else {
             0
@@ -314,6 +309,10 @@ impl SystemInner {
 
     pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
+    }
+
+    pub(crate) fn processes_mut(&mut self) -> &mut HashMap<Pid, Process> {
+        &mut self.process_list
     }
 
     pub(crate) fn process(&self, pid: Pid) -> Option<&Process> {

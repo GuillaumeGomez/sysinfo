@@ -103,4 +103,8 @@ impl ProcessInner {
     pub(crate) fn session_id(&self) -> Option<Pid> {
         None
     }
+
+    pub(crate) fn switch_updated(&mut self) -> bool {
+        false
+    }
 }
