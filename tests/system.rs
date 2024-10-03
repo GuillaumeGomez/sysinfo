@@ -28,9 +28,12 @@ fn test_refresh_process() {
     #[cfg(not(feature = "apple-sandbox"))]
     if sysinfo::IS_SUPPORTED_SYSTEM {
         assert_eq!(
-            sys.refresh_processes(ProcessesToUpdate::Some(&[
-                sysinfo::get_current_pid().expect("failed to get current pid")
-            ])),
+            sys.refresh_processes(
+                ProcessesToUpdate::Some(&[
+                    sysinfo::get_current_pid().expect("failed to get current pid")
+                ]),
+                false
+            ),
             1,
             "process not listed",
         );
@@ -44,7 +47,7 @@ fn test_refresh_process() {
 #[test]
 fn test_get_process() {
     let mut sys = System::new();
-    sys.refresh_processes(ProcessesToUpdate::All);
+    sys.refresh_processes(ProcessesToUpdate::All, false);
     let current_pid = match sysinfo::get_current_pid() {
         Ok(pid) => pid,
         _ => {
@@ -76,7 +79,7 @@ fn check_if_send_and_sync() {
     impl<T> Bar for T where T: Sync {}
 
     let mut sys = System::new();
-    sys.refresh_processes(ProcessesToUpdate::All);
+    sys.refresh_processes(ProcessesToUpdate::All, false);
     let current_pid = match sysinfo::get_current_pid() {
         Ok(pid) => pid,
         _ => {
@@ -137,7 +140,11 @@ fn test_consecutive_cpu_usage_update() {
 
     let mut sys = System::new_all();
     assert!(!sys.cpus().is_empty());
-    sys.refresh_processes_specifics(ProcessesToUpdate::All, ProcessRefreshKind::new().with_cpu());
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::new().with_cpu(),
+    );
 
     let stop = Arc::new(AtomicBool::new(false));
     // Spawning a few threads to ensure that it will actually have an impact on the CPU usage.
@@ -168,6 +175,7 @@ fn test_consecutive_cpu_usage_update() {
         for pid in &pids {
             sys.refresh_processes_specifics(
                 ProcessesToUpdate::Some(&[*pid]),
+                true,
                 ProcessRefreshKind::new().with_cpu(),
             );
         }

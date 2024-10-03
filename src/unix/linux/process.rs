@@ -278,6 +278,10 @@ impl ProcessInner {
     pub(crate) fn thread_kind(&self) -> Option<ThreadKind> {
         self.thread_kind
     }
+
+    pub(crate) fn switch_updated(&mut self) -> bool {
+         std::mem::replace(&mut self.updated, false)
+    }
 }
 
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, total_time: f32, max_value: f32) {
@@ -295,10 +299,6 @@ pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, total_time: f32, max_value
         / total_time
         * 100.)
         .min(max_value);
-}
-
-pub(crate) fn unset_updated(p: &mut ProcessInner) {
-    p.updated = false;
 }
 
 pub(crate) fn set_time(p: &mut ProcessInner, utime: u64, stime: u64) {

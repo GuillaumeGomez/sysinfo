@@ -178,6 +178,10 @@ impl ProcessInner {
             }
         }
     }
+
+    pub(crate) fn switch_updated(&mut self) -> bool {
+         std::mem::replace(&mut self.updated, false)
+    }
 }
 
 pub(crate) unsafe fn get_process_data(
@@ -293,7 +297,7 @@ pub(crate) unsafe fn get_process_data(
             old_read_bytes: 0,
             written_bytes: kproc.ki_rusage.ru_oublock as _,
             old_written_bytes: 0,
-            updated: false,
+            updated: true,
         },
     }))
 }

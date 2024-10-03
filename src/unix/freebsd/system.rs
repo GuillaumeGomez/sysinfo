@@ -131,6 +131,10 @@ impl SystemInner {
         &self.process_list
     }
 
+    pub(crate) fn processes_mut(&mut self) -> &mut HashMap<Pid, Process> {
+        &mut self.process_list
+    }
+
     pub(crate) fn process(&self, pid: Pid) -> Option<&Process> {
         self.process_list.get(&pid)
     }
@@ -294,17 +298,16 @@ impl SystemInner {
         }
 
         #[allow(clippy::type_complexity)]
-        let (filter, filter_callback, remove_processes): (
+        let (filter, filter_callback): (
             &[Pid],
             &(dyn Fn(&libc::kinfo_proc, &[Pid]) -> bool + Sync + Send),
-            bool,
         ) = match processes_to_update {
-            ProcessesToUpdate::All => (&[], &empty_filter, true),
+            ProcessesToUpdate::All => (&[], &empty_filter),
             ProcessesToUpdate::Some(pids) => {
                 if pids.is_empty() {
                     return 0;
                 }
-                (pids, &real_filter, false)
+                (pids, &real_filter)
             }
         };
 
@@ -342,12 +345,6 @@ impl SystemInner {
             })
             .collect::<Vec<_>>()
         };
-
-        if remove_processes {
-            // We remove all processes that don't exist anymore.
-            self.process_list
-                .retain(|_, v| std::mem::replace(&mut v.inner.updated, false));
-        }
 
         for process in new_processes {
             self.process_list.insert(process.inner.pid, process);

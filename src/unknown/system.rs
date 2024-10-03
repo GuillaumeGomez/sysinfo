@@ -16,13 +16,13 @@ pub const SUPPORTED_SIGNALS: &[crate::Signal] = supported_signals();
 pub const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(0);
 
 pub(crate) struct SystemInner {
-    processes_list: HashMap<Pid, Process>,
+    process_list: HashMap<Pid, Process>,
 }
 
 impl SystemInner {
     pub(crate) fn new() -> Self {
         Self {
-            processes_list: Default::default(),
+            process_list: Default::default(),
         }
     }
 
@@ -49,7 +49,11 @@ impl SystemInner {
     // Need to be moved into a "common" file to avoid duplication.
 
     pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
-        &self.processes_list
+        &self.process_list
+    }
+
+    pub(crate) fn processes_mut(&mut self) -> &mut HashMap<Pid, Process> {
+        &mut self.process_list
     }
 
     pub(crate) fn process(&self, _pid: Pid) -> Option<&Process> {

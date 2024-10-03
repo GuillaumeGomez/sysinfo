@@ -443,6 +443,10 @@ impl ProcessInner {
             None
         }
     }
+
+    pub(crate) fn switch_updated(&mut self) -> bool {
+         std::mem::replace(&mut self.updated, false)
+    }
 }
 
 #[inline]

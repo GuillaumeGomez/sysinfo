@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::cpu::{get_physical_core_count, CpusWrapper};
-use crate::sys::process::{compute_cpu_usage, refresh_procs, unset_updated};
+use crate::sys::process::{compute_cpu_usage, refresh_procs};
 use crate::sys::utils::{get_all_utf8_data, to_u64};
 use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessRefreshKind};
 
@@ -173,38 +173,24 @@ impl SystemInner {
         self.cpus.len() as f32 * 100.
     }
 
-    fn clear_procs(&mut self, refresh_kind: ProcessRefreshKind) {
-        let (total_time, compute_cpu, max_value) = if refresh_kind.cpu() {
-            self.cpus
-                .refresh_if_needed(true, CpuRefreshKind::new().with_cpu_usage());
+    fn update_procs_cpu(&mut self, refresh_kind: ProcessRefreshKind) {
+        if !refresh_kind.cpu() {
+            return;
+        }
+        self.cpus.refresh_if_needed(true, CpuRefreshKind::new().with_cpu_usage());
 
-            if self.cpus.is_empty() {
-                sysinfo_debug!("cannot compute processes CPU usage: no CPU found...");
-                (0., false, 0.)
-            } else {
-                let (new, old) = self.cpus.get_global_raw_times();
-                let total_time = if old > new { 1 } else { new - old };
-                (
-                    total_time as f32 / self.cpus.len() as f32,
-                    true,
-                    self.get_max_process_cpu_usage(),
-                )
-            }
-        } else {
-            (0., false, 0.)
-        };
+        if self.cpus.is_empty() {
+            sysinfo_debug!("cannot compute processes CPU usage: no CPU found...");
+            return;
+        }
+        let (new, old) = self.cpus.get_global_raw_times();
+        let total_time = if old > new { 1 } else { new - old };
+        let total_time = total_time as f32 / self.cpus.len() as f32;
+        let max_value = self.get_max_process_cpu_usage();
 
-        self.process_list.retain(|_, proc_| {
-            let proc_ = &mut proc_.inner;
-            if !proc_.updated {
-                return false;
-            }
-            if compute_cpu {
-                compute_cpu_usage(proc_, total_time, max_value);
-            }
-            unset_updated(proc_);
-            true
-        });
+        for proc_ in self.process_list.values_mut() {
+            compute_cpu_usage(&mut proc_.inner, total_time, max_value);
+        }
     }
 
     fn refresh_cpus(&mut self, only_update_global_cpu: bool, refresh_kind: CpuRefreshKind) {
@@ -291,7 +277,7 @@ impl SystemInner {
             refresh_kind,
         );
         if matches!(processes_to_update, ProcessesToUpdate::All) {
-            self.clear_procs(refresh_kind);
+            self.update_procs_cpu(refresh_kind);
             self.cpus.set_need_cpus_update();
         }
         nb_updated
@@ -303,6 +289,10 @@ impl SystemInner {
 
     pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
         &self.process_list
+    }
+
+    pub(crate) fn processes_mut(&mut self) -> &mut HashMap<Pid, Process> {
+        &mut self.process_list
     }
 
     pub(crate) fn process(&self, pid: Pid) -> Option<&Process> {

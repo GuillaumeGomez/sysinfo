@@ -37,6 +37,7 @@ fn test_cwd() {
     let mut s = System::new();
     s.refresh_processes_specifics(
         ProcessesToUpdate::All,
+        false,
         ProcessRefreshKind::new().with_cwd(UpdateKind::Always),
     );
     p.kill().expect("Unable to kill process.");
@@ -63,6 +64,7 @@ fn test_cmd() {
     assert!(s.processes().is_empty());
     s.refresh_processes_specifics(
         ProcessesToUpdate::All,
+        false,
         ProcessRefreshKind::new().with_cmd(UpdateKind::Always),
     );
     p.kill().expect("Unable to kill process");
@@ -94,6 +96,7 @@ fn build_test_binary(file_name: &str) {
 }
 
 #[test]
+#[allow(clippy::zombie_processes)]
 fn test_environ() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
@@ -112,6 +115,7 @@ fn test_environ() {
 
     s.refresh_processes_specifics(
         ProcessesToUpdate::Some(&[pid]),
+        false,
         sysinfo::ProcessRefreshKind::everything(),
     );
     p.kill().expect("Unable to kill process.");
@@ -145,6 +149,7 @@ fn test_environ() {
 
     s.refresh_processes_specifics(
         ProcessesToUpdate::All,
+        false,
         ProcessRefreshKind::new().with_environ(UpdateKind::Always),
     );
 
@@ -169,9 +174,10 @@ fn test_process_refresh() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
-    s.refresh_processes(ProcessesToUpdate::Some(&[
-        sysinfo::get_current_pid().expect("failed to get current pid")
-    ]));
+    s.refresh_processes(
+        ProcessesToUpdate::Some(&[sysinfo::get_current_pid().expect("failed to get current pid")]),
+        false,
+    );
     assert!(s
         .process(sysinfo::get_current_pid().expect("failed to get current pid"))
         .is_some());
@@ -213,7 +219,7 @@ fn test_process_disk_usage() {
         std::thread::sleep(std::time::Duration::from_millis(250));
         let mut system = System::new();
         assert!(system.processes().is_empty());
-        system.refresh_processes(ProcessesToUpdate::All);
+        system.refresh_processes(ProcessesToUpdate::All, false);
         assert!(!system.processes().is_empty());
         system
     }
@@ -249,7 +255,7 @@ fn test_process_disk_usage() {
 #[test]
 fn cpu_usage_is_not_nan() {
     let mut system = System::new();
-    system.refresh_processes(ProcessesToUpdate::All);
+    system.refresh_processes(ProcessesToUpdate::All, false);
 
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
@@ -266,7 +272,7 @@ fn cpu_usage_is_not_nan() {
     let mut checked = 0;
 
     first_pids.into_iter().for_each(|pid| {
-        system.refresh_processes(ProcessesToUpdate::Some(&[pid]));
+        system.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
         if let Some(p) = system.process(pid) {
             assert!(!p.cpu_usage().is_nan());
             checked += 1;
@@ -289,7 +295,7 @@ fn test_process_times() {
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
     let mut s = System::new();
-    s.refresh_processes(ProcessesToUpdate::All);
+    s.refresh_processes(ProcessesToUpdate::All, false);
     p.kill().expect("Unable to kill process.");
 
     if let Some(p) = s.process(pid) {
@@ -319,7 +325,7 @@ fn test_process_session_id() {
         return;
     }
     let mut s = System::new();
-    s.refresh_processes(ProcessesToUpdate::All);
+    s.refresh_processes(ProcessesToUpdate::All, false);
     assert!(s.processes().values().any(|p| p.session_id().is_some()));
 }
 
@@ -336,7 +342,7 @@ fn test_refresh_processes() {
 
     // Checks that the process is listed as it should.
     let mut s = System::new();
-    s.refresh_processes(ProcessesToUpdate::All);
+    s.refresh_processes(ProcessesToUpdate::All, false);
     assert!(s.process(pid).is_some());
 
     // Check that the process name is not empty.
@@ -348,12 +354,12 @@ fn test_refresh_processes() {
     // Let's give some time to the system to clean up...
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    s.refresh_processes(ProcessesToUpdate::All);
+    s.refresh_processes(ProcessesToUpdate::All, true);
     // Checks that the process isn't listed anymore.
     assert!(s.process(pid).is_none());
 }
 
-// This test ensures that if we refresh only one process, then no process is removed.
+// This test ensures that if we refresh only one process, then only this process is removed.
 #[test]
 fn test_refresh_process_doesnt_remove() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
@@ -370,7 +376,7 @@ fn test_refresh_process_doesnt_remove() {
     let mut s = System::new_with_specifics(
         RefreshKind::new().with_processes(sysinfo::ProcessRefreshKind::new()),
     );
-    s.refresh_processes(ProcessesToUpdate::All);
+    s.refresh_processes(ProcessesToUpdate::All, false);
 
     assert!(s.process(pid1).is_some());
     assert!(s.process(pid2).is_some());
@@ -384,10 +390,22 @@ fn test_refresh_process_doesnt_remove() {
     // Let's give some time to the system to clean up...
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    assert_eq!(s.refresh_processes(ProcessesToUpdate::Some(&[pid1])), 0);
+    assert_eq!(
+        s.refresh_processes(ProcessesToUpdate::Some(&[pid1]), false),
+        0
+    );
 
     // We check that none of the two processes were removed.
     assert!(s.process(pid1).is_some());
+    assert!(s.process(pid2).is_some());
+
+    assert_eq!(
+        s.refresh_processes(ProcessesToUpdate::Some(&[pid1]), true),
+        0
+    );
+
+    // We check that only `pid1` was removed.
+    assert!(s.process(pid1).is_none());
     assert!(s.process(pid2).is_some());
 }
 
@@ -413,7 +431,7 @@ fn test_refresh_tasks() {
 
     // Checks that the task is listed as it should.
     let mut s = System::new();
-    s.refresh_processes(ProcessesToUpdate::All);
+    s.refresh_processes(ProcessesToUpdate::All, false);
 
     assert!(s
         .process(pid)
@@ -432,7 +450,7 @@ fn test_refresh_tasks() {
     // Let's give some time to the system to clean up...
     std::thread::sleep(std::time::Duration::from_secs(2));
 
-    s.refresh_processes(ProcessesToUpdate::All);
+    s.refresh_processes(ProcessesToUpdate::All, true);
 
     assert!(!s
         .process(pid)
@@ -449,7 +467,7 @@ fn test_refresh_tasks() {
         .is_none());
 }
 
-// Checks that `refresh_process` is NOT removing dead processes.
+// Checks that `refresh_process` is removing dead processes when asked.
 #[test]
 fn test_refresh_process() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
@@ -462,7 +480,7 @@ fn test_refresh_process() {
 
     // Checks that the process is listed as it should.
     let mut s = System::new();
-    s.refresh_processes(ProcessesToUpdate::Some(&[pid]));
+    s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     assert!(s.process(pid).is_some());
 
     // Check that the process name is not empty.
@@ -474,9 +492,19 @@ fn test_refresh_process() {
     // Let's give some time to the system to clean up...
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    assert_eq!(s.refresh_processes(ProcessesToUpdate::Some(&[pid])), 0);
+    assert_eq!(
+        s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false),
+        0
+    );
     // Checks that the process is still listed.
     assert!(s.process(pid).is_some());
+
+    assert_eq!(
+        s.refresh_processes(ProcessesToUpdate::Some(&[pid]), true),
+        0
+    );
+    // Checks that the process is not listed anymore.
+    assert!(s.process(pid).is_none());
 }
 
 #[test]
@@ -490,7 +518,7 @@ fn test_wait_child() {
     let pid = Pid::from_u32(p.id() as _);
 
     let mut s = System::new();
-    s.refresh_processes(ProcessesToUpdate::Some(&[pid]));
+    s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let process = s.process(pid).unwrap();
 
     // Kill the child process.
@@ -499,7 +527,10 @@ fn test_wait_child() {
     process.wait();
 
     // Child process should not be present.
-    assert_eq!(s.refresh_processes(ProcessesToUpdate::Some(&[pid])), 0);
+    assert_eq!(
+        s.refresh_processes(ProcessesToUpdate::Some(&[pid]), true),
+        0
+    );
     assert!(before.elapsed() < std::time::Duration::from_millis(1000));
 }
 
@@ -526,14 +557,17 @@ fn test_wait_non_child() {
     let pid = Pid::from_u32(p.id());
 
     let mut s = System::new();
-    s.refresh_processes(ProcessesToUpdate::Some(&[pid]));
+    s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let process = s.process(pid).expect("Process not found!");
 
     // Wait for a non child process.
     process.wait();
 
     // Child process should not be present.
-    assert_eq!(s.refresh_processes(ProcessesToUpdate::Some(&[pid])), 0);
+    assert_eq!(
+        s.refresh_processes(ProcessesToUpdate::Some(&[pid]), true),
+        0
+    );
 
     // should wait for 2s.
     assert!(
@@ -668,13 +702,13 @@ fn test_process_specific_refresh() {
 
     macro_rules! update_specific_and_check {
         (memory) => {
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), ProcessRefreshKind::new());
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new());
             {
                 let p = s.process(pid).unwrap();
                 assert_eq!(p.memory(), 0, "failed 0 check for memory");
                 assert_eq!(p.virtual_memory(), 0, "failed 0 check for virtual memory");
             }
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), ProcessRefreshKind::new().with_memory());
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new().with_memory());
             {
                 let p = s.process(pid).unwrap();
                 assert_ne!(p.memory(), 0, "failed non-0 check for memory");
@@ -682,7 +716,7 @@ fn test_process_specific_refresh() {
             }
             // And now we check that re-refreshing nothing won't remove the
             // information.
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), ProcessRefreshKind::new());
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new());
             {
                 let p = s.process(pid).unwrap();
                 assert_ne!(p.memory(), 0, "failed non-0 check (number 2) for memory");
@@ -690,7 +724,7 @@ fn test_process_specific_refresh() {
             }
         };
         ($name:ident, $method:ident, $($extra:tt)+) => {
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), ProcessRefreshKind::new());
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new());
             {
                 let p = s.process(pid).unwrap();
                 assert_eq!(
@@ -698,7 +732,7 @@ fn test_process_specific_refresh() {
                     concat!("failed 0 check check for ", stringify!($name)),
                 );
             }
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), ProcessRefreshKind::new().$method(UpdateKind::Always));
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new().$method(UpdateKind::Always));
             {
                 let p = s.process(pid).unwrap();
                 assert_ne!(
@@ -707,7 +741,7 @@ fn test_process_specific_refresh() {
             }
             // And now we check that re-refreshing nothing won't remove the
             // information.
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), ProcessRefreshKind::new());
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new());
             {
                 let p = s.process(pid).unwrap();
                 assert_ne!(
@@ -717,10 +751,18 @@ fn test_process_specific_refresh() {
         }
     }
 
-    s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), ProcessRefreshKind::new());
+    s.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid]),
+        false,
+        ProcessRefreshKind::new(),
+    );
     check_empty(&s, pid);
 
-    s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), ProcessRefreshKind::new());
+    s.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid]),
+        false,
+        ProcessRefreshKind::new(),
+    );
     check_empty(&s, pid);
 
     update_specific_and_check!(memory);
@@ -750,7 +792,7 @@ fn test_refresh_pids() {
     let child_pid = Pid::from_u32(p.id() as _);
     let pids = &[child_pid, self_pid];
     std::thread::sleep(std::time::Duration::from_millis(500));
-    s.refresh_processes(ProcessesToUpdate::Some(pids));
+    s.refresh_processes(ProcessesToUpdate::Some(pids), false);
     p.kill().expect("Unable to kill process.");
 
     assert_eq!(s.processes().len(), 2);
@@ -766,10 +808,10 @@ fn test_process_run_time() {
     }
     let mut s = System::new();
     let current_pid = sysinfo::get_current_pid().expect("failed to get current pid");
-    s.refresh_processes(ProcessesToUpdate::Some(&[current_pid]));
+    s.refresh_processes(ProcessesToUpdate::Some(&[current_pid]), false);
     let run_time = s.process(current_pid).expect("no process found").run_time();
     std::thread::sleep(std::time::Duration::from_secs(2));
-    s.refresh_processes(ProcessesToUpdate::Some(&[current_pid]));
+    s.refresh_processes(ProcessesToUpdate::Some(&[current_pid]), true);
     let new_run_time = s.process(current_pid).expect("no process found").run_time();
     assert!(
         new_run_time > run_time,
@@ -799,7 +841,7 @@ fn test_parent_change() {
 
     let pid = Pid::from_u32(p.id() as _);
     let mut s = System::new();
-    s.refresh_processes(ProcessesToUpdate::All);
+    s.refresh_processes(ProcessesToUpdate::All, false);
 
     assert_eq!(
         s.process(pid).expect("process was not created").parent(),
@@ -816,7 +858,7 @@ fn test_parent_change() {
     // Waiting for the parent process to stop.
     p.wait().expect("wait failed");
 
-    s.refresh_processes(ProcessesToUpdate::All);
+    s.refresh_processes(ProcessesToUpdate::All, true);
     // Parent should not be around anymore.
     assert!(s.process(pid).is_none());
 
@@ -829,7 +871,7 @@ fn test_parent_change() {
 }
 
 // We want to ensure that if `System::refresh_process*` methods are called
-// one after the other, it won't impact the CPU usage computation badly.
+// one after the other, it won't badly impact the CPU usage computation.
 #[test]
 fn test_multiple_single_process_refresh() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") || cfg!(windows) {
@@ -853,12 +895,28 @@ fn test_multiple_single_process_refresh() {
 
     let mut s = System::new();
     let process_refresh_kind = ProcessRefreshKind::new().with_cpu();
-    s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid_a]), process_refresh_kind);
-    s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid_b]), process_refresh_kind);
+    s.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid_a]),
+        false,
+        process_refresh_kind,
+    );
+    s.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid_b]),
+        false,
+        process_refresh_kind,
+    );
 
     std::thread::sleep(std::time::Duration::from_secs(1));
-    s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid_a]), process_refresh_kind);
-    s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid_b]), process_refresh_kind);
+    s.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid_a]),
+        true,
+        process_refresh_kind,
+    );
+    s.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid_b]),
+        true,
+        process_refresh_kind,
+    );
 
     let cpu_a = s.process(pid_a).unwrap().cpu_usage();
     let cpu_b = s.process(pid_b).unwrap().cpu_usage();
