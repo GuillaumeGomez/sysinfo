@@ -223,9 +223,9 @@ pub(crate) struct WrapMap<'a>(
 );
 
 #[cfg(feature = "system")]
-unsafe impl<'a> Send for WrapMap<'a> {}
+unsafe impl Send for WrapMap<'_> {}
 #[cfg(feature = "system")]
-unsafe impl<'a> Sync for WrapMap<'a> {}
+unsafe impl Sync for WrapMap<'_> {}
 
 #[cfg(feature = "system")]
 #[repr(transparent)]

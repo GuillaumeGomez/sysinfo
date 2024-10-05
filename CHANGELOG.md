@@ -1,3 +1,9 @@
+# 0.32.0
+
+ * Add new `Disk::is_read_only` API.
+ * Add new `remove_dead_processes` argument to `System::refresh_processes` and `System::refresh_processes_specifics`.
+ * macOS: Fix memory leak in disk refresh.
+
 # 0.31.4
 
  * macOS: Force memory cleanup in disk list retrieval.

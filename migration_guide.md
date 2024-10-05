@@ -1,5 +1,13 @@
 # Migration guide
 
+## 0.31 to 0.32
+
+### Major changes
+
+`System::refresh_process` and `System::refresh_process_specifics` methods now take
+an extra `remove_dead_processes` argument. When set to `true`, dead processes will
+be removed.
+
 ## 0.30 to 0.31
 
 With this update, the minimum supported Rust version goes up to 1.74.

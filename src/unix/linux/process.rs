@@ -351,8 +351,8 @@ impl<'a, T> Wrap<'a, T> {
 }
 
 #[allow(clippy::non_send_fields_in_send_ty)]
-unsafe impl<'a, T> Send for Wrap<'a, T> {}
-unsafe impl<'a, T> Sync for Wrap<'a, T> {}
+unsafe impl<T> Send for Wrap<'_, T> {}
+unsafe impl<T> Sync for Wrap<'_, T> {}
 
 #[inline(always)]
 fn compute_start_time_without_boot_time(parts: &Parts<'_>, info: &SystemInfo) -> u64 {
