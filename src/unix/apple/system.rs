@@ -89,9 +89,9 @@ pub(crate) struct SystemInner {
 pub(crate) struct Wrap<'a>(pub UnsafeCell<&'a mut HashMap<Pid, Process>>);
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-unsafe impl<'a> Send for Wrap<'a> {}
+unsafe impl Send for Wrap<'_> {}
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-unsafe impl<'a> Sync for Wrap<'a> {}
+unsafe impl Sync for Wrap<'_> {}
 
 fn boot_time() -> u64 {
     let mut boot_time = timeval {
