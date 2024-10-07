@@ -2462,7 +2462,7 @@ mod test {
 
     #[test]
     fn check_cpu_arch() {
-        assert_eq!(!System::cpu_arch().is_empty(), IS_SUPPORTED_SYSTEM);
+        assert!(!System::cpu_arch().is_empty());
     }
 
     // Ensure that the CPUs frequency isn't retrieved until we ask for it.
