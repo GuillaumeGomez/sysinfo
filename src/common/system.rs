@@ -777,8 +777,8 @@ impl System {
     ///
     /// println!("CPU Architecture: {:?}", System::cpu_arch());
     /// ```
-    pub fn cpu_arch() -> Option<String> {
-        SystemInner::cpu_arch()
+    pub fn cpu_arch() -> String {
+        SystemInner::cpu_arch().unwrap_or_else(|| std::env::consts::ARCH.to_owned())
     }
 }
 
@@ -2462,7 +2462,7 @@ mod test {
 
     #[test]
     fn check_cpu_arch() {
-        assert_eq!(System::cpu_arch().is_some(), IS_SUPPORTED_SYSTEM);
+        assert!(!System::cpu_arch().is_empty());
     }
 
     // Ensure that the CPUs frequency isn't retrieved until we ask for it.
