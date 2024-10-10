@@ -20,14 +20,14 @@ fn test_users() {
         users.refresh_list();
         assert!(users.iter().count() > 0);
         //my first gruoup is Administrator
-        let count = users.first().unwrap().groups().iter().count();
+        let count = users.first().unwrap().groups().iter().len();
         for _ in 1..10 {
             // println!(
             //     "user: {} group:{:?}",
             //     users.first().unwrap().name(),
             //     users.first().unwrap().groups()
             // );
-            assert!(users.first().unwrap().groups().iter().count() == count)
+            assert!(users.first().unwrap().groups().iter().len() == count)
         }
     }
 }
