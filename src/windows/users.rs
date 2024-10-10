@@ -16,6 +16,8 @@ use windows::Win32::Security::Authentication::Identity::{
     SECURITY_LOGON_SESSION_DATA, SECURITY_LOGON_TYPE,
 };
 
+use super::utils::to_pcwstr;
+
 pub(crate) struct UserInner {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,
@@ -54,7 +56,9 @@ impl UserInner {
 
     pub(crate) fn groups(&self) -> Vec<Group> {
         if let (Some(c_user_name), true) = (&self.c_user_name, self.is_local) {
-            unsafe { get_groups_for_user(PCWSTR(c_user_name.as_ptr())) }
+            // ⚠️ This function is not doing anything on macOS until
+            // [this issue](https://github.com/GuillaumeGomez/sysinfo/issues/2222) is fixed.
+            unsafe { get_groups_for_user(to_pcwstr(c_user_name.to_vec())) }
         } else {
             Vec::new()
         }
