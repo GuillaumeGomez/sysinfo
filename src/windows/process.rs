@@ -326,7 +326,7 @@ impl ProcessInner {
     pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
         crate::sys::system::convert_signal(signal)?;
         let mut kill = process::Command::new("taskkill.exe");
-        kill.arg("/PID").arg(self.pid.to_string()).arg("/F");
+        kill.arg("/PID").arg(self.pid.to_string()).arg("/F").arg("/T");
         kill.creation_flags(CREATE_NO_WINDOW.0);
         match kill.output() {
             Ok(o) => Some(o.status.success()),
