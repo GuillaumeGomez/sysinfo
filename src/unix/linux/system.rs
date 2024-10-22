@@ -537,60 +537,151 @@ where
     }
 }
 
+#[derive(Debug, PartialEq)]
+enum CgroupVersion {
+    V1,
+    V2,
+}
+
+impl CgroupVersion {
+    fn root_memory_path(&self) -> &'static Path {
+        match self {
+            CgroupVersion::V1 => Path::new("/sys/fs/cgroup/memory/"),
+            CgroupVersion::V2 => Path::new("/sys/fs/cgroup/"),
+        }
+    }
+
+    fn current_usage_filename(&self) -> &'static str {
+        match self {
+            CgroupVersion::V1 => "memory.usage_in_bytes",
+            CgroupVersion::V2 => "memory.current",
+        }
+    }
+
+    fn max_memory_filename(&self) -> &'static str {
+        match self {
+            CgroupVersion::V1 => "memory.limit_in_bytes",
+            CgroupVersion::V2 => "memory.max",
+        }
+    }
+}
+
 impl crate::CGroupLimits {
+    fn get_cgroup_path_version() -> Option<(String, CgroupVersion)> {
+        let self_cgroup = get_all_utf8_data("/proc/self/cgroup", 256).ok()?;
+        for line in self_cgroup.split('\n') {
+            let is_v1 = line.contains("memory");
+            let is_v2 = line.contains("0::");
+            if is_v1 || is_v2 {
+                let cgroup_path = line.split(':').last()?;
+                let non_absolute_path = if cgroup_path.starts_with("/") {
+                    cgroup_path.strip_prefix("/").unwrap()
+                } else {
+                    cgroup_path
+                };
+                let version = if is_v1 {
+                    CgroupVersion::V1
+                } else {
+                    CgroupVersion::V2
+                };
+                return Some((non_absolute_path.to_string(), version));
+            }
+        }
+        None
+    }
+
+    /// We might not have a max memory limit set in our cgroup. So we need to traverse the cgroup tree until we reach the root.
+    /// If it also doesn't have a max, we return none. The filename and the cgroup root are different between v1 and v2
+    fn get_memory_max(own_cgroup_path: &Path, cgroup_version: &CgroupVersion) -> Option<u64> {
+        let mut current_path = own_cgroup_path.components();
+        let mut end_path_components = cgroup_version.root_memory_path().components();
+        end_path_components.next_back();
+        let end_path = end_path_components.as_path();
+        while current_path.as_path() != end_path {
+            println!(
+                "Reading from {}",
+                current_path
+                    .as_path()
+                    .join(cgroup_version.max_memory_filename())
+                    .to_str()?
+            );
+            if let Some(mem_max) = read_u64(
+                current_path
+                    .as_path()
+                    .join(cgroup_version.max_memory_filename())
+                    .to_str()?,
+            ) {
+                return Some(mem_max);
+            }
+            // Safe since we know the path starts with /sys/fs/cgroup by construction
+            current_path.next_back();
+        }
+        None
+    }
+
     fn new(sys: &SystemInner) -> Option<Self> {
         assert!(
             sys.mem_total != 0,
             "You need to call System::refresh_memory before trying to get cgroup limits!",
         );
-        if let (Some(mem_cur), Some(mem_max)) = (
-            read_u64("/sys/fs/cgroup/memory.current"),
-            read_u64("/sys/fs/cgroup/memory.max"),
-        ) {
-            // cgroups v2
-
-            let mut limits = Self {
-                total_memory: sys.mem_total,
-                free_memory: sys.mem_free,
-                free_swap: sys.swap_free,
-            };
-
-            limits.total_memory = min(mem_max, sys.mem_total);
-            limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
-
-            if let Some(swap_cur) = read_u64("/sys/fs/cgroup/memory.swap.current") {
-                limits.free_swap = sys.swap_total.saturating_sub(swap_cur);
+        let (path, version) = Self::get_cgroup_path_version()?;
+        let mut cgroup_path = version.root_memory_path().join(&path);
+        // Note that in docker when using cgroup v1, by default the path in /proc/self/cgroup points inside the host cgrup directory,
+        // which of course the container can't access. To avoid that, as well as possible issues with cgroup v2 in the same setup(cgroupns=host in the docker config),
+        // we first check if the memory limits file exists. We do this depending on the version as it has a differnt name in each. If it doesn't we fallback
+        // to the root cgroup
+        let mem_cur = read_u64(
+            cgroup_path
+                .join(version.current_usage_filename())
+                .to_str()?,
+        );
+        let mem_cur = match mem_cur {
+            Some(mem_cur) => mem_cur,
+            None => {
+                cgroup_path = version.root_memory_path().into();
+                read_u64(
+                    cgroup_path
+                        .join(version.current_usage_filename())
+                        .to_str()?,
+                )?
             }
-
-            read_table("/sys/fs/cgroup/memory.stat", ' ', |key, value| {
-                if key == "file" || key == "slab_reclaimable" || key == "shmem" {
-                    limits.free_memory = limits.free_memory.saturating_add(value);
+        };
+        let mem_max = Self::get_memory_max(&cgroup_path, &version).unwrap_or(sys.mem_total);
+        let total_memory = min(mem_max, sys.mem_total);
+        let mut limits = Self {
+            total_memory,
+            free_memory: total_memory.saturating_sub(mem_cur),
+            free_swap: sys.swap_free,
+        };
+        match version {
+            CgroupVersion::V2 => {
+                if let Some(swap_cur) = read_u64(cgroup_path.join("memory.swap.current").to_str()?)
+                {
+                    limits.free_swap = sys.swap_total.saturating_sub(swap_cur);
                 }
-            });
-
-            Some(limits)
-        } else if let (Some(mem_cur), Some(mem_max)) = (
-            // cgroups v1
-            read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
-            read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
-        ) {
-            let mut limits = Self {
-                total_memory: sys.mem_total,
-                free_memory: sys.mem_free,
-                free_swap: sys.swap_free,
-            };
-
-            limits.total_memory = min(mem_max, sys.mem_total);
-            limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
-
-            read_table("/sys/fs/cgroup/memory/memory.stat", ' ', |key, value| {
-                if key == "cache" {
-                    limits.free_memory = limits.free_memory.saturating_add(value);
-                }
-            });
-            Some(limits)
-        } else {
-            None
+                read_table(
+                    cgroup_path.join("memory.stat").to_str()?,
+                    ' ',
+                    |key, value| {
+                        if key == "file" || key == "slab_reclaimable" || key == "shmem" {
+                            limits.free_memory = limits.free_memory.saturating_add(value);
+                        }
+                    },
+                );
+                Some(limits)
+            }
+            CgroupVersion::V1 => {
+                read_table(
+                    cgroup_path.join("memory.stat").to_str()?,
+                    ' ',
+                    |key, value| {
+                        if key == "cache" {
+                            limits.free_memory = limits.free_memory.saturating_add(value);
+                        }
+                    },
+                );
+                Some(limits)
+            }
         }
     }
 }
