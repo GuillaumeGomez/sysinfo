@@ -135,9 +135,9 @@ unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
 }
 
 struct InternalQuery {
-    query: HANDLE,
+    query: isize,
     event: HANDLE,
-    data: HashMap<String, HANDLE>,
+    data: HashMap<String, isize>,
 }
 
 unsafe impl Send for InternalQuery {}
@@ -147,15 +147,15 @@ impl Drop for InternalQuery {
     fn drop(&mut self) {
         unsafe {
             for (_, counter) in self.data.iter() {
-                PdhRemoveCounter(counter.0);
+                PdhRemoveCounter(*counter);
             }
 
             if !self.event.is_invalid() {
                 let _err = CloseHandle(self.event);
             }
 
-            if !self.query.is_invalid() {
-                PdhCloseQuery(self.query.0);
+            if !(self.query == -1 || self.query == 0) {
+                PdhCloseQuery(self.query);
             }
         }
     }
@@ -171,7 +171,7 @@ impl Query {
         unsafe {
             if PdhOpenQueryA(PCSTR::null(), 0, &mut query) == ERROR_SUCCESS.0 {
                 let q = InternalQuery {
-                    query: HANDLE(query),
+                    query,
                     event: HANDLE::default(),
                     data: HashMap::new(),
                 };
@@ -190,7 +190,7 @@ impl Query {
                 let mut display_value = mem::MaybeUninit::<PDH_FMT_COUNTERVALUE>::uninit();
 
                 return if PdhGetFormattedCounterValue(
-                    counter.0,
+                    *counter,
                     PDH_FMT_DOUBLE,
                     None,
                     display_value.as_mut_ptr(),
@@ -216,13 +216,13 @@ impl Query {
         unsafe {
             let mut counter = 0;
             let ret = PdhAddEnglishCounterW(
-                self.internal.query.0,
+                self.internal.query,
                 PCWSTR::from_raw(getter.as_ptr()),
                 0,
                 &mut counter,
             );
             if ret == ERROR_SUCCESS.0 {
-                self.internal.data.insert(name.clone(), HANDLE(counter));
+                self.internal.data.insert(name.clone(), counter);
             } else {
                 sysinfo_debug!(
                     "Query::add_english_counter: failed to add counter '{}': {:x}...",
@@ -237,7 +237,7 @@ impl Query {
 
     pub fn refresh(&self) {
         unsafe {
-            if PdhCollectQueryData(self.internal.query.0) != ERROR_SUCCESS.0 {
+            if PdhCollectQueryData(self.internal.query) != ERROR_SUCCESS.0 {
                 sysinfo_debug!("failed to refresh CPU data");
             }
         }

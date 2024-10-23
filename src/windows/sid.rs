@@ -3,10 +3,10 @@
 use std::{fmt::Display, str::FromStr};
 
 use windows::core::{PCWSTR, PWSTR};
-use windows::Win32::Foundation::{LocalFree, ERROR_INSUFFICIENT_BUFFER, HLOCAL, PSID};
+use windows::Win32::Foundation::{LocalFree, ERROR_INSUFFICIENT_BUFFER, HLOCAL};
 use windows::Win32::Security::Authorization::{ConvertSidToStringSidW, ConvertStringSidToSidW};
 use windows::Win32::Security::{
-    CopySid, GetLengthSid, IsValidSid, LookupAccountSidW, SidTypeUnknown,
+    CopySid, GetLengthSid, IsValidSid, LookupAccountSidW, SidTypeUnknown, PSID
 };
 
 use crate::sys::utils::to_utf8_str;
