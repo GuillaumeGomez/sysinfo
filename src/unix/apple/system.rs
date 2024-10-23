@@ -392,14 +392,11 @@ impl SystemInner {
     pub(crate) fn long_os_version() -> Option<String> {
         #[cfg(target_os = "macos")]
         let friendly_name = match Self::os_version().unwrap_or_default() {
-            f_n if f_n.starts_with("14.0") => "Sonoma",
-            f_n if f_n.starts_with("10.16")
-                | f_n.starts_with("11.0")
-                | f_n.starts_with("11.1")
-                | f_n.starts_with("11.2") =>
-            {
-                "Big Sur"
-            }
+            f_n if f_n.starts_with("15") => "Sequoia",
+            f_n if f_n.starts_with("14") => "Sonoma",
+            f_n if f_n.starts_with("13") => "Ventura",
+            f_n if f_n.starts_with("12") => "Monterey",
+            f_n if f_n.starts_with("11") | f_n.starts_with("10.16") => "Big Sur",
             f_n if f_n.starts_with("10.15") => "Catalina",
             f_n if f_n.starts_with("10.14") => "Mojave",
             f_n if f_n.starts_with("10.13") => "High Sierra",
