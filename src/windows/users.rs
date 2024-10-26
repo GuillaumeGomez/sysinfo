@@ -56,7 +56,6 @@ impl UserInner {
 
     pub(crate) fn groups(&self) -> Vec<Group> {
         if let (Some(c_user_name), true) = (&self.c_user_name, self.is_local) {
-            // [this issue](https://github.com/GuillaumeGomez/sysinfo/issues/2222) is fixed.
             unsafe { get_groups_for_user(to_pcwstr(c_user_name.to_vec())) }
         } else {
             Vec::new()
