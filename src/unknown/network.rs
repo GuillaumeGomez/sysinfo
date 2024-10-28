@@ -82,4 +82,8 @@ impl NetworkDataInner {
     pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
         &[]
     }
+
+    pub(crate) fn mtu(&self) -> u64 {
+        0
+    }
 }

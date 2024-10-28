@@ -94,6 +94,8 @@ impl NetworksInner {
                     Ok(s) => s,
                     _ => continue,
                 };
+
+                let mtu = ptr.Mtu as u64;
                 match self.interfaces.entry(interface_name) {
                     hash_map::Entry::Occupied(mut e) => {
                         let interface = e.get_mut();
@@ -114,6 +116,7 @@ impl NetworksInner {
                         );
                         old_and_new!(interface, errors_in, old_errors_in, ptr.InErrors);
                         old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
+                        if interface.mtu != mtu { interface.mtu = mtu }
                         interface.updated = true;
                     }
                     hash_map::Entry::Vacant(e) => {
@@ -137,6 +140,7 @@ impl NetworksInner {
                                 old_errors_out: ptr.OutErrors,
                                 mac_addr: MacAddr::UNSPECIFIED,
                                 ip_networks: vec![],
+                                mtu,
                                 updated: true,
                             },
                         });
@@ -179,6 +183,7 @@ impl NetworksInner {
                 );
                 old_and_new!(interface, errors_in, old_errors_in, entry.InErrors);
                 old_and_new!(interface, errors_out, old_errors_out, entry.OutErrors);
+                if interface.mtu != entry.Mtu as u64 { interface.mtu = entry.Mtu as u64 }
             }
         }
     }
@@ -201,6 +206,8 @@ pub(crate) struct NetworkDataInner {
     updated: bool,
     pub(crate) mac_addr: MacAddr,
     pub(crate) ip_networks: Vec<IpNetwork>,
+    /// Interface Maximum Transfer Unit (MTU)
+    mtu: u64,
 }
 
 impl NetworkDataInner {
@@ -258,5 +265,9 @@ impl NetworkDataInner {
 
     pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
         &self.ip_networks
+    }
+
+    pub(crate) fn mtu(&self) -> u64 {
+        self.mtu
     }
 }

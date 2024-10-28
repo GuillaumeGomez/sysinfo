@@ -96,6 +96,7 @@ impl NetworksInner {
                     }
                     name.set_len(libc::strlen(pname));
                     let name = String::from_utf8_unchecked(name);
+                    let mtu = (*if2m).ifm_data.ifi_mtu as u64;
                     match self.interfaces.entry(name) {
                         hash_map::Entry::Occupied(mut e) => {
                             let interface = e.get_mut();
@@ -137,6 +138,7 @@ impl NetworksInner {
                                 old_errors_out,
                                 (*if2m).ifm_data.ifi_oerrors
                             );
+                            if interface.mtu != mtu { interface.mtu = mtu }
                             interface.updated = true;
                         }
                         hash_map::Entry::Vacant(e) => {
@@ -167,6 +169,7 @@ impl NetworksInner {
                                     updated: true,
                                     mac_addr: MacAddr::UNSPECIFIED,
                                     ip_networks: vec![],
+                                    mtu,
                                 },
                             });
                         }
@@ -196,6 +199,8 @@ pub(crate) struct NetworkDataInner {
     pub(crate) mac_addr: MacAddr,
     /// IP networks
     pub(crate) ip_networks: Vec<IpNetwork>,
+    /// Interface Maximum Transfer Unit (MTU)
+    mtu: u64,
 }
 
 impl NetworkDataInner {
@@ -253,5 +258,9 @@ impl NetworkDataInner {
 
     pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
         &self.ip_networks
+    }
+
+    pub(crate) fn mtu(&self) -> u64 {
+        self.mtu
     }
 }
