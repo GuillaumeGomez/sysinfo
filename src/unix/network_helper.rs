@@ -151,7 +151,18 @@ pub(crate) unsafe fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNe
         let bytes = CStr::from_ptr(c_str).to_bytes();
 
         // Safety: Interfaces on unix must be valid UTF-8
-        let name = from_utf8_unchecked(bytes).to_owned();
+        let mut name = from_utf8_unchecked(bytes).to_owned();
+        // Interfaces names may be formatted as <interface name>:<sub-interface index>
+        if name.contains(':') {
+            if let Some(interface_name) = name.split(':').next() {
+                name = interface_name.to_string()
+            } else {
+                // The sub-interface is malformed, skipping to the next addr
+                addr = addr_ref.ifa_next;
+                continue;
+            }
+        }
+
         let ip = sockaddr_to_network_addr(addr_ref.ifa_addr as *const libc::sockaddr);
         let netmask = sockaddr_to_network_addr(addr_ref.ifa_netmask as *const libc::sockaddr);
         let prefix = netmask
