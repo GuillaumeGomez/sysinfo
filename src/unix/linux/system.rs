@@ -276,10 +276,7 @@ impl SystemInner {
             processes_to_update,
             refresh_kind,
         );
-        if matches!(processes_to_update, ProcessesToUpdate::All) {
-            self.update_procs_cpu(refresh_kind);
-            self.cpus.set_need_cpus_update();
-        }
+        self.update_procs_cpu(refresh_kind);
         nb_updated
     }
 

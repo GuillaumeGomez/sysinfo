@@ -19,11 +19,6 @@ macro_rules! to_str {
 pub(crate) struct CpusWrapper {
     pub(crate) global_cpu: CpuUsage,
     pub(crate) cpus: Vec<Cpu>,
-    /// Field set to `false` in `update_cpus` and to `true` in `refresh_processes_specifics`.
-    ///
-    /// The reason behind this is to avoid calling the `update_cpus` more than necessary.
-    /// For example when running `refresh_all` or `refresh_specifics`.
-    need_cpus_update: bool,
     got_cpu_frequency: bool,
     /// This field is needed to prevent updating when not enough time passed since last update.
     last_update: Option<Instant>,
@@ -34,7 +29,6 @@ impl CpusWrapper {
         Self {
             global_cpu: CpuUsage::default(),
             cpus: Vec::with_capacity(4),
-            need_cpus_update: true,
             got_cpu_frequency: false,
             last_update: None,
         }
@@ -45,9 +39,7 @@ impl CpusWrapper {
         only_update_global_cpu: bool,
         refresh_kind: CpuRefreshKind,
     ) {
-        if self.need_cpus_update {
-            self.refresh(only_update_global_cpu, refresh_kind);
-        }
+        self.refresh(only_update_global_cpu, refresh_kind);
     }
 
     pub(crate) fn refresh(&mut self, only_update_global_cpu: bool, refresh_kind: CpuRefreshKind) {
@@ -76,7 +68,6 @@ impl CpusWrapper {
             };
             let buf = BufReader::new(f);
 
-            self.need_cpus_update = false;
             let mut i: usize = 0;
             let mut it = buf.split(b'\n');
 
@@ -192,10 +183,6 @@ impl CpusWrapper {
 
     pub(crate) fn is_empty(&self) -> bool {
         self.cpus.is_empty()
-    }
-
-    pub(crate) fn set_need_cpus_update(&mut self) {
-        self.need_cpus_update = true;
     }
 }
 
