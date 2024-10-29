@@ -343,8 +343,8 @@ impl Serialize for crate::NetworkData {
     where
         S: Serializer,
     {
-        // `13` corresponds to the number of fields.
-        let mut state = serializer.serialize_struct("NetworkData", 13)?;
+        // `14` corresponds to the number of fields.
+        let mut state = serializer.serialize_struct("NetworkData", 14)?;
 
         state.serialize_field("received", &self.received())?;
         state.serialize_field("total_received", &self.total_received())?;
@@ -366,6 +366,7 @@ impl Serialize for crate::NetworkData {
         )?;
         state.serialize_field("mac_address", &self.mac_address())?;
         state.serialize_field("ip_networks", &self.ip_networks())?;
+        state.serialize_field("mtu", &self.mtu())?;
 
         state.end()
     }
