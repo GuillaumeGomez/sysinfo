@@ -130,6 +130,7 @@ impl std::fmt::Debug for crate::NetworkData {
             .field("total errors income", &self.total_errors_on_received())
             .field("errors outcome", &self.errors_on_transmitted())
             .field("total errors outcome", &self.total_errors_on_transmitted())
+            .field("maximum transfer unit", &self.mtu())
             .finish()
     }
 }
