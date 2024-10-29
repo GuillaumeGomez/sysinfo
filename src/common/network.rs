@@ -410,6 +410,20 @@ impl NetworkData {
     pub fn ip_networks(&self) -> &[IpNetwork] {
         self.inner.ip_networks()
     }
+
+    /// Returns the Maximum Transfer Unit (MTU) of the interface.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new_with_refreshed_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("mtu: {}", network.mtu());
+    /// }
+    /// ```
+    pub fn mtu(&self) -> u64 {
+        self.inner.mtu()
+    }
 }
 
 /// MAC address for network interface.

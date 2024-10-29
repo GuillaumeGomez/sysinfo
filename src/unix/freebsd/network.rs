@@ -80,6 +80,7 @@ impl NetworksInner {
             }
             if let Some(name) = utils::c_buf_to_utf8_string(&data.ifmd_name) {
                 let data = &data.ifmd_data;
+                let mtu = data.ifi_mtu as u64;
                 match self.interfaces.entry(name) {
                     hash_map::Entry::Occupied(mut e) => {
                         let interface = e.get_mut();
@@ -91,6 +92,7 @@ impl NetworksInner {
                         old_and_new!(interface, ifi_opackets, old_ifi_opackets, data);
                         old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
                         old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
+                        if interface.mtu != mtu { interface.mtu = mtu }
                         interface.updated = true;
                     }
                     hash_map::Entry::Vacant(e) => {
@@ -115,6 +117,7 @@ impl NetworksInner {
                                 updated: true,
                                 mac_addr: MacAddr::UNSPECIFIED,
                                 ip_networks: vec![],
+                                mtu,
                             },
                         });
                     }
@@ -151,6 +154,8 @@ pub(crate) struct NetworkDataInner {
     pub(crate) mac_addr: MacAddr,
     /// IP networks
     pub(crate) ip_networks: Vec<IpNetwork>,
+    /// Interface Maximum Transfer Unit (MTU)
+    mtu: u64,
 }
 
 impl NetworkDataInner {
@@ -208,5 +213,9 @@ impl NetworkDataInner {
 
     pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
         &self.ip_networks
+    }
+
+    pub(crate) fn mtu(&self) -> u64 {
+        self.mtu
     }
 }

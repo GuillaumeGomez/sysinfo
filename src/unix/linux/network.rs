@@ -51,6 +51,7 @@ fn refresh_networks_list_from_sysfs(
 
         for entry in dir.flatten() {
             let parent = &entry.path().join("statistics");
+            let entry_path = &entry.path();
             let entry = match entry.file_name().into_string() {
                 Ok(entry) => entry,
                 Err(_) => continue,
@@ -63,6 +64,8 @@ fn refresh_networks_list_from_sysfs(
             let tx_errors = read(parent, "tx_errors", &mut data);
             // let rx_compressed = read(parent, "rx_compressed", &mut data);
             // let tx_compressed = read(parent, "tx_compressed", &mut data);
+            let mtu = read(entry_path, "mtu", &mut data);
+
             match interfaces.entry(entry) {
                 hash_map::Entry::Occupied(mut e) => {
                     let interface = e.get_mut();
@@ -76,6 +79,7 @@ fn refresh_networks_list_from_sysfs(
                     old_and_new!(interface, tx_errors, old_tx_errors);
                     // old_and_new!(e, rx_compressed, old_rx_compressed);
                     // old_and_new!(e, tx_compressed, old_tx_compressed);
+                    if interface.mtu != mtu { interface.mtu = mtu }
                     interface.updated = true;
                 }
                 hash_map::Entry::Vacant(e) => {
@@ -99,6 +103,7 @@ fn refresh_networks_list_from_sysfs(
                             // old_rx_compressed: rx_compressed,
                             // tx_compressed,
                             // old_tx_compressed: tx_compressed,
+                            mtu,
                             updated: true,
                         },
                     });
@@ -164,6 +169,8 @@ pub(crate) struct NetworkDataInner {
     /// MAC address
     pub(crate) mac_addr: MacAddr,
     pub(crate) ip_networks: Vec<IpNetwork>,
+    /// Interface Maximum Transfer Unit (MTU)
+    mtu: u64,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
     // /// that support packet compression (e.g: PPP).
@@ -219,6 +226,9 @@ impl NetworkDataInner {
         //     old_tx_compressed,
         //     read(path, "tx_compressed", data)
         // );
+        let mtu_path = &Path::new("/sys/class/net/").join(path);
+        let mtu = read(mtu_path, "mtu", data);
+        if self.mtu != mtu { self.mtu = mtu }
     }
 
     pub(crate) fn received(&self) -> u64 {
@@ -276,6 +286,11 @@ impl NetworkDataInner {
     pub(crate) fn ip_networks(&self) -> &[IpNetwork] {
         &self.ip_networks
     }
+
+    pub(crate) fn mtu(&self) -> u64 {
+        self.mtu
+    }
+
 }
 
 #[cfg(test)]
