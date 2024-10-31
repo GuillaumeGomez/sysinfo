@@ -61,9 +61,20 @@ struct Wrap<T>(T);
 unsafe impl<T> Send for Wrap<T> {}
 unsafe impl<T> Sync for Wrap<T> {}
 
+/// Calculates system boot time in seconds with improved precision.
+/// Uses nanoseconds throughout to avoid rounding errors in uptime calculation,
+/// converting to seconds only at the end for stable results. Result is capped
+/// within u64 limits to handle edge cases.
 unsafe fn boot_time() -> u64 {
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_secs().saturating_sub(GetTickCount64() / 1_000),
+        Ok(n) => {
+            let system_time_ns = n.as_nanos();
+            // milliseconds to nanoseconds
+            let tick_count_ns = GetTickCount64() as u128 * 1_000_000;
+            // nanoseconds to seconds
+            let boot_time_sec = system_time_ns.saturating_sub(tick_count_ns) / 1_000_000_000;
+            boot_time_sec.try_into().unwrap_or(u64::MAX)
+        }
         Err(_e) => {
             sysinfo_debug!("Failed to compute boot time: {:?}", _e);
             0
