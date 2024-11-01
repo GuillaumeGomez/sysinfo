@@ -942,6 +942,10 @@ pub struct CGroupLimits {
 ///
 /// It is returned by [`Process::disk_usage`][crate::Process::disk_usage].
 ///
+/// ⚠️ Files might be cached in memory by your OS, meaning that reading/writing them might not
+/// increase the `read_bytes`/`written_bytes` values. You can find more information about it
+/// in the `proc_pid_io` manual (`man proc_pid_io` on unix platforms).
+///
 /// ```no_run
 /// use sysinfo::System;
 ///
@@ -1439,6 +1443,10 @@ impl Process {
     ///
     /// ⚠️ On Windows, this method actually returns **ALL** I/O read and
     /// written bytes.
+    ///
+    /// ⚠️ Files might be cached in memory by your OS, meaning that reading/writing them might not
+    /// increase the `read_bytes`/`written_bytes` values. You can find more information about it
+    /// in the `proc_pid_io` manual (`man proc_pid_io` on unix platforms).
     ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
