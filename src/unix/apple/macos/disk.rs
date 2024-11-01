@@ -2,40 +2,20 @@
 
 use crate::sys::ffi;
 use crate::sys::{
-    disk::{get_str_value, DictKey},
+    disk::{get_int_value, get_str_value, DictKey},
     macos::utils::IOReleaser,
     utils::CFReleaser,
 };
+use crate::unix::apple::disk::{RetainedCFDictionary, RetainedCFString};
 use crate::DiskKind;
 
 use core_foundation_sys::base::{kCFAllocatorDefault, kCFAllocatorNull};
-use core_foundation_sys::string as cfs;
+use core_foundation_sys::string::{self as cfs};
 
-use std::ffi::CStr;
-
-pub(crate) fn get_disk_type(disk: &libc::statfs) -> Option<DiskKind> {
-    let characteristics_string = unsafe {
-        CFReleaser::new(cfs::CFStringCreateWithBytesNoCopy(
-            kCFAllocatorDefault,
-            ffi::kIOPropertyDeviceCharacteristicsKey.as_ptr(),
-            ffi::kIOPropertyDeviceCharacteristicsKey.len() as _,
-            cfs::kCFStringEncodingUTF8,
-            false as _,
-            kCFAllocatorNull,
-        ))?
-    };
-
-    // Removes `/dev/` from the value.
-    let bsd_name = unsafe {
-        CStr::from_ptr(disk.f_mntfromname.as_ptr())
-            .to_bytes()
-            .strip_prefix(b"/dev/")
-            .or_else(|| {
-                sysinfo_debug!("unknown disk mount path format");
-                None
-            })?
-    };
-
+fn iterate_service_tree<T, F>(bsd_name: &[u8], key: RetainedCFString, eval: F) -> Option<T>
+where
+    F: Fn(ffi::io_registry_entry_t, &RetainedCFDictionary) -> Option<T>,
+{
     // We don't need to wrap this in an auto-releaser because the following call to `IOServiceGetMatchingServices`
     // will take ownership of one retain reference.
     let matching =
@@ -91,36 +71,95 @@ pub(crate) fn get_disk_type(disk: &libc::statfs) -> Option<DiskKind> {
             let properties_result = unsafe {
                 CFReleaser::new(ffi::IORegistryEntryCreateCFProperty(
                     current_service_entry.inner(),
-                    characteristics_string.inner(),
+                    key.inner(),
                     kCFAllocatorDefault,
                     0,
                 ))
             };
 
-            if let Some(device_properties) = properties_result {
-                let disk_type = unsafe {
-                    super::disk::get_str_value(
-                        device_properties.inner(),
-                        DictKey::Defined(ffi::kIOPropertyMediumTypeKey),
-                    )
-                };
-
-                if let Some(disk_type) = disk_type.and_then(|medium| match medium.as_str() {
-                    _ if medium == ffi::kIOPropertyMediumTypeSolidStateKey => Some(DiskKind::SSD),
-                    _ if medium == ffi::kIOPropertyMediumTypeRotationalKey => Some(DiskKind::HDD),
-                    _ => None,
-                }) {
-                    return Some(disk_type);
-                } else {
-                    // Many external drive vendors do not advertise their device's storage medium.
-                    //
-                    // In these cases, assuming that there were _any_ properties about them registered, we fallback
-                    // to `HDD` when no storage medium is provided by the device instead of `Unknown`.
-                    return Some(DiskKind::HDD);
-                }
+            if let Some(result) =
+                properties_result.and_then(|properties| eval(parent_entry, &properties))
+            {
+                return Some(result);
             }
         }
     }
 
     None
+}
+
+pub(crate) fn get_disk_type(bsd_name: &[u8]) -> Option<DiskKind> {
+    let characteristics_string = unsafe {
+        CFReleaser::new(cfs::CFStringCreateWithBytesNoCopy(
+            kCFAllocatorDefault,
+            ffi::kIOPropertyDeviceCharacteristicsKey.as_ptr(),
+            ffi::kIOPropertyDeviceCharacteristicsKey.len() as _,
+            cfs::kCFStringEncodingUTF8,
+            false as _,
+            kCFAllocatorNull,
+        ))?
+    };
+
+    iterate_service_tree(bsd_name, characteristics_string, |_, properties| {
+        let disk_type = unsafe {
+            super::disk::get_str_value(
+                properties.inner(),
+                DictKey::Defined(ffi::kIOPropertyMediumTypeKey),
+            )
+        };
+
+        if let Some(disk_type) = disk_type.and_then(|medium| match medium.as_str() {
+            _ if medium == ffi::kIOPropertyMediumTypeSolidStateKey => Some(DiskKind::SSD),
+            _ if medium == ffi::kIOPropertyMediumTypeRotationalKey => Some(DiskKind::HDD),
+            _ => None,
+        }) {
+            Some(disk_type)
+        } else {
+            // Many external drive vendors do not advertise their device's storage medium.
+            //
+            // In these cases, assuming that there were _any_ properties about them registered, we fallback
+            // to `HDD` when no storage medium is provided by the device instead of `Unknown`.
+            Some(DiskKind::HDD)
+        }
+    })
+}
+
+/// Returns a tuple consisting of the total number of bytes read and written by the specified disk
+pub(crate) fn get_disk_io(bsd_name: &[u8]) -> Option<(u64, u64)> {
+    let stat_string = unsafe {
+        CFReleaser::new(cfs::CFStringCreateWithBytesNoCopy(
+            kCFAllocatorDefault,
+            ffi::kIOBlockStorageDriverStatisticsKey.as_ptr(),
+            ffi::kIOBlockStorageDriverStatisticsKey.len() as _,
+            cfs::kCFStringEncodingUTF8,
+            false as _,
+            kCFAllocatorNull,
+        ))?
+    };
+
+    iterate_service_tree(bsd_name, stat_string, |parent_entry, properties| {
+        if unsafe {
+            ffi::IOObjectConformsTo(parent_entry, b"IOBlockStorageDriver\0".as_ptr() as *const _)
+        } == 0
+        {
+            return None;
+        }
+
+        unsafe {
+            super::disk::get_int_value(
+                properties.inner(),
+                DictKey::Defined(ffi::kIOBlockStorageDriverStatisticsBytesReadKey),
+            )
+            .zip(super::disk::get_int_value(
+                properties.inner(),
+                DictKey::Defined(ffi::kIOBlockStorageDriverStatisticsBytesWrittenKey),
+            ))
+        }
+        .and_then(|(read_bytes, written_bytes)| {
+            read_bytes
+                .try_into()
+                .ok()
+                .zip(written_bytes.try_into().ok())
+        })
+    })
 }

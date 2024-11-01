@@ -111,6 +111,9 @@ core-foundation-sys = "0.8"
 [target.'cfg(all(target_os = "linux", not(target_os = "android")))'.dev-dependencies]
 tempfile = "3.9"
 
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
+procfs = "0.17.0"
+
 [dev-dependencies]
 serde_json = "1.0" # Used in documentation tests.
 bstr = "1.9.0"

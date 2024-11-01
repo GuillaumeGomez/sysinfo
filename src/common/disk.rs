@@ -4,6 +4,8 @@ use std::ffi::OsStr;
 use std::fmt;
 use std::path::Path;
 
+use crate::DiskUsage;
+
 /// Struct containing a disk information.
 ///
 /// ```no_run
@@ -143,6 +145,20 @@ impl Disk {
     /// ```
     pub fn refresh(&mut self) -> bool {
         self.inner.refresh()
+    }
+
+    /// Returns number of bytes read and written by the disk
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// let disks = Disks::new_with_refreshed_list();
+    /// for disk in disks.list() {
+    ///     println!("[{:?}] disk usage: {:?}", disk.name(), disk.usage());
+    /// }
+    /// ```
+    pub fn usage(&self) -> DiskUsage {
+        self.inner.usage()
     }
 }
 
@@ -289,9 +305,7 @@ impl Disks {
     /// disks.refresh();
     /// ```
     pub fn refresh(&mut self) {
-        for disk in self.list_mut() {
-            disk.refresh();
-        }
+        self.inner.refresh();
     }
 
     /// The disk list will be emptied then completely recomputed.

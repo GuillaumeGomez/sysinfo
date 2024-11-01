@@ -1,8 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::{
-    ffi,
-    utils::{self, CFReleaser},
+use crate::{
+    sys::{
+        ffi,
+        utils::{self, CFReleaser},
+    },
+    DiskUsage,
 };
 use crate::{Disk, DiskKind};
 
@@ -22,6 +25,7 @@ use std::ptr;
 pub(crate) struct DiskInner {
     pub(crate) type_: DiskKind,
     pub(crate) name: OsString,
+    bsd_name: Option<Vec<u8>>,
     pub(crate) file_system: OsString,
     pub(crate) mount_point: PathBuf,
     volume_url: RetainedCFURL,
@@ -29,6 +33,10 @@ pub(crate) struct DiskInner {
     pub(crate) available_space: u64,
     pub(crate) is_removable: bool,
     pub(crate) is_read_only: bool,
+    pub(crate) old_written_bytes: u64,
+    pub(crate) old_read_bytes: u64,
+    pub(crate) written_bytes: u64,
+    pub(crate) read_bytes: u64,
 }
 
 impl DiskInner {
@@ -65,6 +73,17 @@ impl DiskInner {
     }
 
     pub(crate) fn refresh(&mut self) -> bool {
+        self.old_read_bytes = self.read_bytes;
+        self.old_written_bytes = self.written_bytes;
+
+        let (read_bytes, written_bytes) = self
+            .bsd_name
+            .as_ref()
+            .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
+            .unwrap_or_default();
+        self.read_bytes = read_bytes;
+        self.written_bytes = written_bytes;
+
         unsafe {
             if let Some(requested_properties) = build_requested_properties(&[
                 ffi::kCFURLVolumeAvailableCapacityKey,
@@ -86,6 +105,15 @@ impl DiskInner {
             }
         }
     }
+
+    pub(crate) fn usage(&self) -> DiskUsage {
+        DiskUsage {
+            read_bytes: self.read_bytes.saturating_sub(self.old_read_bytes),
+            total_read_bytes: self.read_bytes,
+            written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
+            total_written_bytes: self.written_bytes,
+        }
+    }
 }
 
 impl crate::DisksInner {
@@ -97,11 +125,17 @@ impl crate::DisksInner {
 
     pub(crate) fn refresh_list(&mut self) {
         unsafe {
-            // SAFETY: We don't keep any Objective-C objects around because we 
+            // SAFETY: We don't keep any Objective-C objects around because we
             // don't make any direct Objective-C calls in this code.
             with_autorelease(|| {
                 get_list(&mut self.disks);
             })
+        }
+    }
+
+    pub(crate) fn refresh(&mut self) {
+        for disk in self.list_mut() {
+            disk.refresh();
         }
     }
 
@@ -219,8 +253,9 @@ unsafe fn get_list(container: &mut Vec<Disk>) {
 }
 
 type RetainedCFArray = CFReleaser<core_foundation_sys::array::__CFArray>;
-type RetainedCFDictionary = CFReleaser<core_foundation_sys::dictionary::__CFDictionary>;
+pub(crate) type RetainedCFDictionary = CFReleaser<core_foundation_sys::dictionary::__CFDictionary>;
 type RetainedCFURL = CFReleaser<core_foundation_sys::url::__CFURL>;
+pub(crate) type RetainedCFString = CFReleaser<core_foundation_sys::string::__CFString>;
 
 unsafe fn build_requested_properties(properties: &[CFStringRef]) -> Option<RetainedCFArray> {
     CFReleaser::new(CFArrayCreate(
@@ -337,7 +372,7 @@ unsafe fn get_bool_value(dict: CFDictionaryRef, key: DictKey) -> Option<bool> {
     get_dict_value(dict, key, |v| Some(v as CFBooleanRef == kCFBooleanTrue))
 }
 
-unsafe fn get_int_value(dict: CFDictionaryRef, key: DictKey) -> Option<i64> {
+pub(super) unsafe fn get_int_value(dict: CFDictionaryRef, key: DictKey) -> Option<i64> {
     get_dict_value(dict, key, |v| {
         let mut val: i64 = 0;
         if CFNumberGetValue(
@@ -358,14 +393,28 @@ unsafe fn new_disk(
     c_disk: libc::statfs,
     disk_props: &RetainedCFDictionary,
 ) -> Option<Disk> {
+    let bsd_name = get_bsd_name(&c_disk);
+
     // IOKit is not available on any but the most recent (16+) iOS and iPadOS versions.
-    // Due to this, we can't query the medium type. All iOS devices use flash-based storage
-    // so we just assume the disk type is an SSD until Rust has a way to conditionally link to
+    // Due to this, we can't query the medium type and disk i/o stats. All iOS devices use flash-based storage
+    // so we just assume the disk type is an SSD and set disk i/o stats to 0 until Rust has a way to conditionally link to
     // IOKit in more recent deployment versions.
+
     #[cfg(target_os = "macos")]
-    let type_ = crate::sys::inner::disk::get_disk_type(&c_disk).unwrap_or(DiskKind::Unknown(-1));
+    let type_ = bsd_name
+        .as_ref()
+        .and_then(|name| crate::sys::inner::disk::get_disk_type(name))
+        .unwrap_or(DiskKind::Unknown(-1));
     #[cfg(not(target_os = "macos"))]
     let type_ = DiskKind::SSD;
+
+    #[cfg(target_os = "macos")]
+    let (read_bytes, written_bytes) = bsd_name
+        .as_ref()
+        .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
+        .unwrap_or_default();
+    #[cfg(not(target_os = "macos"))]
+    let (read_bytes, written_bytes) = (0, 0);
 
     // Note: Since we requested these properties from the system, we don't expect
     // these property retrievals to fail.
@@ -433,6 +482,7 @@ unsafe fn new_disk(
         inner: DiskInner {
             type_,
             name,
+            bsd_name,
             file_system,
             mount_point,
             volume_url,
@@ -440,21 +490,24 @@ unsafe fn new_disk(
             available_space,
             is_removable,
             is_read_only,
+            read_bytes,
+            written_bytes,
+            old_read_bytes: 0,
+            old_written_bytes: 0,
         },
     })
 }
 
-
 /// Calls the provided closure in the context of a new autorelease pool that is drained
 /// before returning.
-/// 
+///
 /// ## SAFETY:
 /// You must not return an Objective-C object that is autoreleased from this function since it
 /// will be freed before usable.
 unsafe fn with_autorelease<T, F: FnOnce() -> T>(call: F) -> T {
     // NB: This struct exists to help prevent memory leaking if `call` were to panic.
     // Otherwise, the call to `objc_autoreleasePoolPop` would never be made as the stack unwinds.
-    // `Drop` destructors for existing types on the stack are run during unwinding, so we can 
+    // `Drop` destructors for existing types on the stack are run during unwinding, so we can
     // ensure the autorelease pool is drained by using a RAII pattern here.
     struct DrainPool {
         ctx: *mut c_void,
@@ -471,7 +524,23 @@ unsafe fn with_autorelease<T, F: FnOnce() -> T>(call: F) -> T {
     // SAFETY: Creating a new pool is safe in any context. They can be arbitrarily nested
     // as long as pool objects are not used in deeper layers, but we only have one and don't
     // allow it to leave this scope.
-    let _pool_ctx = DrainPool { ctx: unsafe { ffi::objc_autoreleasePoolPush() } };
+    let _pool_ctx = DrainPool {
+        ctx: unsafe { ffi::objc_autoreleasePoolPush() },
+    };
     call()
     // Pool is drained here before returning
+}
+
+fn get_bsd_name(disk: &libc::statfs) -> Option<Vec<u8>> {
+    // Removes `/dev/` from the value.
+    unsafe {
+        CStr::from_ptr(disk.f_mntfromname.as_ptr())
+            .to_bytes()
+            .strip_prefix(b"/dev/")
+            .map(|slice| slice.to_vec())
+            .or_else(|| {
+                sysinfo_debug!("unknown disk mount path format");
+                None
+            })
+    }
 }

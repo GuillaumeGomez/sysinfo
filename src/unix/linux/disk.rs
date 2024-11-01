@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::{get_all_utf8_data, to_cpath};
-use crate::{Disk, DiskKind};
+use crate::{Disk, DiskKind, DiskUsage};
 
 use libc::statvfs;
 use std::ffi::{OsStr, OsString};
@@ -9,6 +9,22 @@ use std::fs;
 use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
+
+/// Copied from [`psutil`]:
+///
+/// "man iostat" states that sectors are equivalent with blocks and have
+/// a size of 512 bytes. Despite this value can be queried at runtime
+/// via /sys/block/{DISK}/queue/hw_sector_size and results may vary
+/// between 1k, 2k, or 4k... 512 appears to be a magic constant used
+/// throughout Linux source code:
+/// * <https://stackoverflow.com/a/38136179/376587>
+/// * <https://lists.gt.net/linux/kernel/2241060>
+/// * <https://github.com/giampaolo/psutil/issues/1305>
+/// * <https://github.com/torvalds/linux/blob/4f671fe2f9523a1ea206f63fe60a7c7b3a56d5c7/include/linux/bio.h#L99>
+/// * <https://lkml.org/lkml/2015/8/17/234>
+///
+/// [`psutil]: <https://github.com/giampaolo/psutil/blob/master/psutil/_pslinux.py#L103>
+const SECTOR_SIZE: u64 = 512;
 
 macro_rules! cast {
     ($x:expr) => {
@@ -19,12 +35,17 @@ macro_rules! cast {
 pub(crate) struct DiskInner {
     type_: DiskKind,
     device_name: OsString,
+    actual_device_name: String,
     file_system: OsString,
     mount_point: PathBuf,
     total_space: u64,
     available_space: u64,
     is_removable: bool,
     is_read_only: bool,
+    old_written_bytes: u64,
+    old_read_bytes: u64,
+    written_bytes: u64,
+    read_bytes: u64,
 }
 
 impl DiskInner {
@@ -61,6 +82,33 @@ impl DiskInner {
     }
 
     pub(crate) fn refresh(&mut self) -> bool {
+        self.efficient_refresh(None)
+    }
+
+    fn efficient_refresh(&mut self, procfs_disk_stats: Option<&[procfs::DiskStat]>) -> bool {
+        let Some((read_bytes, written_bytes)) = procfs_disk_stats
+            .or(procfs::diskstats().ok().as_deref())
+            .unwrap_or_default()
+            .iter()
+            .find_map(|stat| {
+                if stat.name != self.actual_device_name {
+                    return None;
+                }
+
+                Some((
+                    stat.sectors_read * SECTOR_SIZE,
+                    stat.sectors_written * SECTOR_SIZE,
+                ))
+            })
+        else {
+            return false;
+        };
+
+        self.old_read_bytes = self.read_bytes;
+        self.old_written_bytes = self.written_bytes;
+        self.read_bytes = read_bytes;
+        self.written_bytes = written_bytes;
+
         unsafe {
             let mut stat: statvfs = mem::zeroed();
             let mount_point_cpath = to_cpath(&self.mount_point);
@@ -71,6 +119,15 @@ impl DiskInner {
             } else {
                 false
             }
+        }
+    }
+
+    pub(crate) fn usage(&self) -> DiskUsage {
+        DiskUsage {
+            read_bytes: self.read_bytes.saturating_sub(self.old_read_bytes),
+            total_read_bytes: self.read_bytes,
+            written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
+            total_written_bytes: self.written_bytes,
         }
     }
 }
@@ -89,6 +146,13 @@ impl crate::DisksInner {
         )
     }
 
+    pub(crate) fn refresh(&mut self) {
+        let procfs_disk_stats = procfs::diskstats().ok();
+        for disk in self.list_mut() {
+            disk.inner.efficient_refresh(procfs_disk_stats.as_deref());
+        }
+    }
+
     pub(crate) fn list(&self) -> &[Disk] {
         &self.disks
     }
@@ -98,11 +162,31 @@ impl crate::DisksInner {
     }
 }
 
+/// Resolves the actual device name for a specified `device` from `/proc/mounts`
+///
+/// This function is inspired by the [`bottom`] crate implementation and essentially does the following:
+///     1. Canonicalizes the specified device path to its absolute form
+///     2. Strips the "/dev" prefix from the canonicalized path
+///
+/// [`bottom`]: <https://github.com/ClementTsang/bottom/blob/main/src/data_collection/disks/unix/linux/partition.rs#L44>
+fn get_actual_device_name(device: &OsStr) -> String {
+    let device_path = PathBuf::from(device);
+
+    std::fs::canonicalize(&device_path)
+        .ok()
+        .and_then(|path| path.strip_prefix("/dev").ok().map(Path::to_path_buf))
+        .unwrap_or(device_path)
+        .to_str()
+        .map(str::to_owned)
+        .unwrap_or_default()
+}
+
 fn new_disk(
     device_name: &OsStr,
     mount_point: &Path,
     file_system: &OsStr,
     removable_entries: &[PathBuf],
+    procfs_disk_stats: &[procfs::DiskStat],
 ) -> Option<Disk> {
     let mount_point_cpath = to_cpath(mount_point);
     let type_ = find_type_for_device_name(device_name);
@@ -126,16 +210,38 @@ fn new_disk(
         let is_removable = removable_entries
             .iter()
             .any(|e| e.as_os_str() == device_name);
+
+        let actual_device_name = get_actual_device_name(device_name);
+
+        let (read_bytes, written_bytes) = procfs_disk_stats
+            .iter()
+            .find_map(|stat| {
+                if stat.name != actual_device_name {
+                    return None;
+                }
+
+                Some((
+                    stat.sectors_read * SECTOR_SIZE,
+                    stat.sectors_written * SECTOR_SIZE,
+                ))
+            })
+            .unwrap_or_default();
+
         Some(Disk {
             inner: DiskInner {
                 type_,
                 device_name: device_name.to_owned(),
+                actual_device_name,
                 file_system: file_system.to_owned(),
                 mount_point,
                 total_space: cast!(total),
                 available_space: cast!(available),
                 is_removable,
                 is_read_only,
+                old_read_bytes: 0,
+                old_written_bytes: 0,
+                read_bytes,
+                written_bytes,
             },
         })
     }
@@ -233,6 +339,8 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
         _ => Vec::new(),
     };
 
+    let procfs_disk_stats = procfs::diskstats().unwrap_or_default();
+
     for disk in content
         .lines()
         .map(|line| {
@@ -284,6 +392,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
                 Path::new(&fs_file),
                 fs_vfstype.as_ref(),
                 &removable_entries,
+                &procfs_disk_stats,
             )
         })
     {
