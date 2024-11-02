@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::HandleWrapper;
-use crate::{Disk, DiskKind};
+use crate::{Disk, DiskKind, DiskUsage};
 
 use std::ffi::{c_void, OsStr, OsString};
 use std::mem::size_of;
@@ -14,11 +14,11 @@ use windows::Win32::Storage::FileSystem::{
     FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDiskFreeSpaceExW, GetDriveTypeW,
     GetVolumeInformationW, GetVolumePathNamesForVolumeNameW,
 };
-use windows::Win32::System::SystemServices::FILE_READ_ONLY_VOLUME;
 use windows::Win32::System::Ioctl::{
     PropertyStandardQuery, StorageDeviceSeekPenaltyProperty, DEVICE_SEEK_PENALTY_DESCRIPTOR,
-    IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
+    DISK_PERFORMANCE, IOCTL_DISK_PERFORMANCE, IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
 };
+use windows::Win32::System::SystemServices::FILE_READ_ONLY_VOLUME;
 use windows::Win32::System::WindowsProgramming::{DRIVE_FIXED, DRIVE_REMOVABLE};
 use windows::Win32::System::IO::DeviceIoControl;
 
@@ -127,6 +127,11 @@ pub(crate) struct DiskInner {
     available_space: u64,
     is_removable: bool,
     is_read_only: bool,
+    device_path: Vec<u16>,
+    old_written_bytes: u64,
+    old_read_bytes: u64,
+    written_bytes: u64,
+    read_bytes: u64,
 }
 
 impl DiskInner {
@@ -163,6 +168,15 @@ impl DiskInner {
     }
 
     pub(crate) fn refresh(&mut self) -> bool {
+        let Some((read_bytes, written_bytes)) = get_disk_io(&self.device_path, None) else {
+            return false;
+        };
+
+        self.old_read_bytes = self.read_bytes;
+        self.old_written_bytes = self.written_bytes;
+        self.read_bytes = read_bytes;
+        self.written_bytes = written_bytes;
+
         if self.total_space != 0 {
             unsafe {
                 let mut tmp = 0;
@@ -174,6 +188,15 @@ impl DiskInner {
             }
         }
         false
+    }
+
+    pub(crate) fn usage(&self) -> DiskUsage {
+        DiskUsage {
+            read_bytes: self.read_bytes.saturating_sub(self.old_read_bytes),
+            total_read_bytes: self.read_bytes,
+            written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
+            total_written_bytes: self.written_bytes,
+        }
     }
 }
 
@@ -199,6 +222,12 @@ impl DisksInner {
     pub(crate) fn refresh_list(&mut self) {
         unsafe {
             self.disks = get_list();
+        }
+    }
+
+    pub(crate) fn refresh(&mut self) {
+        for disk in self.list_mut() {
+            disk.refresh();
         }
     }
 
@@ -318,6 +347,9 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
                 }
             };
 
+            let (read_bytes, written_bytes) =
+                get_disk_io(&device_path, Some(handle)).unwrap_or_default();
+
             let name = os_string_from_zero_terminated(&name);
             let file_system = os_string_from_zero_terminated(&file_system);
             mount_paths
@@ -333,6 +365,11 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
                         available_space,
                         is_removable,
                         is_read_only,
+                        device_path: device_path.clone(),
+                        old_read_bytes: 0,
+                        old_written_bytes: 0,
+                        read_bytes,
+                        written_bytes,
                     },
                 })
                 .collect::<Vec<_>>()
@@ -343,4 +380,48 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
 fn os_string_from_zero_terminated(name: &[u16]) -> OsString {
     let len = name.iter().position(|&x| x == 0).unwrap_or(name.len());
     OsString::from_wide(&name[..len])
+}
+
+/// Returns a tuple consisting of the total number of bytes read and written by the volume with the specified device path
+fn get_disk_io(device_path: &[u16], handle: Option<HandleWrapper>) -> Option<(u64, u64)> {
+    let handle =
+        handle.or(unsafe { HandleWrapper::new_from_file(device_path, Default::default()) })?;
+
+    if handle.is_invalid() {
+        sysinfo_debug!(
+            "Expected handle to '{:?}' to be valid",
+            String::from_utf16_lossy(device_path)
+        );
+        return None;
+    }
+
+    let mut disk_perf = DISK_PERFORMANCE::default();
+    let mut bytes_returned = 0;
+
+    // SAFETY: the handle is checked for validity above
+    unsafe {
+        // See <https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ni-winioctl-ioctl_disk_performance> for reference
+        DeviceIoControl(
+            handle.0,
+            IOCTL_DISK_PERFORMANCE,
+            None, // Must be None as per docs
+            0,
+            Some(&mut disk_perf as *mut _ as _),
+            size_of::<DISK_PERFORMANCE>() as u32,
+            Some(&mut bytes_returned),
+            None,
+        )
+    }
+    .map_err(|err| {
+        sysinfo_debug!("Error: DeviceIoControl(IOCTL_DISK_PERFORMANCE) = {:?}", err);
+        err
+    })
+    .ok()
+    .and_then(|_| {
+        disk_perf
+            .BytesRead
+            .try_into()
+            .ok()
+            .zip(disk_perf.BytesWritten.try_into().ok())
+    })
 }
