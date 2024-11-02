@@ -58,6 +58,11 @@ impl DiskInner {
             refresh_disk(self, &mut vfs)
         }
     }
+
+    pub(crate) fn usage(&self) -> DiskUsage {
+        // TODO: Until disk i/o stats are added, return the default
+        DiskUsage::default()
+    }
 }
 
 impl crate::DisksInner {
@@ -77,6 +82,12 @@ impl crate::DisksInner {
 
     pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
+    }
+
+    pub(crate) fn refresh(&mut self) {
+        for disk in self.list_mut() {
+            disk.refresh();
+        }
     }
 }
 

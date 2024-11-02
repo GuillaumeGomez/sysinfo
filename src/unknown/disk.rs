@@ -42,6 +42,10 @@ impl DiskInner {
     pub(crate) fn refresh(&mut self) -> bool {
         true
     }
+
+    pub(crate) fn usage(&self) -> DiskUsage {
+        unreachable!()
+    }
 }
 
 pub(crate) struct DisksInner {
@@ -62,6 +66,10 @@ impl DisksInner {
     }
 
     pub(crate) fn refresh_list(&mut self) {
+        // Does nothing.
+    }
+
+    pub(crate) fn refresh(&mut self) {
         // Does nothing.
     }
 
