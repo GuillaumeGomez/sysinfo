@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 /// * <https://github.com/torvalds/linux/blob/4f671fe2f9523a1ea206f63fe60a7c7b3a56d5c7/include/linux/bio.h#L99>
 /// * <https://lkml.org/lkml/2015/8/17/234>
 ///
-/// [`psutil]: <https://github.com/giampaolo/psutil/blob/master/psutil/_pslinux.py#L103>
+/// [`psutil`]: <https://github.com/giampaolo/psutil/blob/master/psutil/_pslinux.py#L103>
 const SECTOR_SIZE: u64 = 512;
 
 macro_rules! cast {
