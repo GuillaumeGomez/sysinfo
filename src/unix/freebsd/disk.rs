@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, DiskKind};
+use crate::{Disk, DiskKind, DiskUsage};
 
 use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStringExt;

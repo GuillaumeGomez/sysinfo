@@ -73,6 +73,7 @@ impl DiskInner {
     }
 
     pub(crate) fn refresh(&mut self) -> bool {
+        #[cfg(target_os = "macos")]
         let Some((read_bytes, written_bytes)) = self
             .bsd_name
             .as_ref()
@@ -81,6 +82,8 @@ impl DiskInner {
             sysinfo_debug!("Failed to update disk i/o stats");
             return false;
         };
+        #[cfg(not(target_os = "macos"))]
+        let (read_bytes, written_bytes) = (0, 0);
 
         self.old_read_bytes = self.read_bytes;
         self.old_written_bytes = self.written_bytes;
