@@ -101,6 +101,7 @@ impl DiskInner {
                 ))
             })
         else {
+            sysinfo_debug!("Failed to update disk i/o stats");
             return false;
         };
 

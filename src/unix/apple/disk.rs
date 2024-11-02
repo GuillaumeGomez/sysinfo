@@ -73,14 +73,17 @@ impl DiskInner {
     }
 
     pub(crate) fn refresh(&mut self) -> bool {
-        self.old_read_bytes = self.read_bytes;
-        self.old_written_bytes = self.written_bytes;
-
-        let (read_bytes, written_bytes) = self
+        let Some((read_bytes, written_bytes)) = self
             .bsd_name
             .as_ref()
             .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
-            .unwrap_or_default();
+        else {
+            sysinfo_debug!("Failed to update disk i/o stats");
+            return false;
+        };
+
+        self.old_read_bytes = self.read_bytes;
+        self.old_written_bytes = self.written_bytes;
         self.read_bytes = read_bytes;
         self.written_bytes = written_bytes;
 

@@ -169,6 +169,7 @@ impl DiskInner {
 
     pub(crate) fn refresh(&mut self) -> bool {
         let Some((read_bytes, written_bytes)) = get_disk_io(&self.device_path, None) else {
+            sysinfo_debug!("Failed to update disk i/o stats");
             return false;
         };
 
