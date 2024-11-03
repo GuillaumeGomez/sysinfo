@@ -149,6 +149,8 @@ impl Disk {
 
     /// Returns number of bytes read and written by the disk
     ///
+    /// ⚠️ Note that FreeBSD is not yet supported
+    ///
     /// ```no_run
     /// use sysinfo::Disks;
     ///

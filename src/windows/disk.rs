@@ -417,12 +417,10 @@ fn get_disk_io(device_path: &[u16], handle: Option<HandleWrapper>) -> Option<(u6
         sysinfo_debug!("Error: DeviceIoControl(IOCTL_DISK_PERFORMANCE) = {:?}", err);
         err
     })
-    .ok()
-    .and_then(|_| {
-        disk_perf
-            .BytesRead
-            .try_into()
-            .ok()
-            .zip(disk_perf.BytesWritten.try_into().ok())
-    })
+    .ok()?;
+
+    Some((
+        disk_perf.BytesRead.try_into().ok()?,
+        disk_perf.BytesWritten.try_into().ok()?,
+    ))
 }

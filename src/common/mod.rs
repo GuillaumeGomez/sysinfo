@@ -39,6 +39,7 @@ pub(crate) mod user;
 ///     println!("[{:?}] disk usage: {:?}", disk.name(), disk.usage());
 /// }
 /// ```
+#[cfg(any(feature = "disk", feature = "system"))]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub struct DiskUsage {
     /// Total number of written bytes.

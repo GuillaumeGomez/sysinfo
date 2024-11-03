@@ -101,25 +101,17 @@ pub(crate) fn get_disk_type(bsd_name: &[u8]) -> Option<DiskKind> {
     };
 
     iterate_service_tree(bsd_name, characteristics_string, |_, properties| {
-        let disk_type = unsafe {
+        let medium = unsafe {
             super::disk::get_str_value(
                 properties.inner(),
                 DictKey::Defined(ffi::kIOPropertyMediumTypeKey),
             )
-        };
+        }?;
 
-        if let Some(disk_type) = disk_type.and_then(|medium| match medium.as_str() {
+        match medium.as_str() {
             _ if medium == ffi::kIOPropertyMediumTypeSolidStateKey => Some(DiskKind::SSD),
             _ if medium == ffi::kIOPropertyMediumTypeRotationalKey => Some(DiskKind::HDD),
-            _ => None,
-        }) {
-            Some(disk_type)
-        } else {
-            // Many external drive vendors do not advertise their device's storage medium.
-            //
-            // In these cases, assuming that there were _any_ properties about them registered, we fallback
-            // to `HDD` when no storage medium is provided by the device instead of `Unknown`.
-            Some(DiskKind::HDD)
+            _ => Some(DiskKind::Unknown(-1)),
         }
     })
 }
@@ -146,20 +138,16 @@ pub(crate) fn get_disk_io(bsd_name: &[u8]) -> Option<(u64, u64)> {
         }
 
         unsafe {
-            super::disk::get_int_value(
+            let read_bytes = super::disk::get_int_value(
                 properties.inner(),
                 DictKey::Defined(ffi::kIOBlockStorageDriverStatisticsBytesReadKey),
-            )
-            .zip(super::disk::get_int_value(
+            )?;
+            let written_bytes = super::disk::get_int_value(
                 properties.inner(),
                 DictKey::Defined(ffi::kIOBlockStorageDriverStatisticsBytesWrittenKey),
-            ))
+            )?;
+
+            Some((read_bytes.try_into().ok()?, written_bytes.try_into().ok()?))
         }
-        .and_then(|(read_bytes, written_bytes)| {
-            read_bytes
-                .try_into()
-                .ok()
-                .zip(written_bytes.try_into().ok())
-        })
     })
 }

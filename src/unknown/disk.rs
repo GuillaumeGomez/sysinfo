@@ -8,11 +8,11 @@ pub(crate) struct DiskInner;
 
 impl DiskInner {
     pub(crate) fn kind(&self) -> DiskKind {
-        unreachable!()
+        DiskKind::Unknown(-1)
     }
 
     pub(crate) fn name(&self) -> &OsStr {
-        unreachable!()
+        OsStr::new("")
     }
 
     pub(crate) fn file_system(&self) -> &OsStr {
@@ -44,7 +44,7 @@ impl DiskInner {
     }
 
     pub(crate) fn usage(&self) -> DiskUsage {
-        unreachable!()
+        DiskUsage::default()
     }
 }
 
