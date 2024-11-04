@@ -117,6 +117,7 @@ procfs = "0.17.0"
 [dev-dependencies]
 serde_json = "1.0" # Used in documentation tests.
 bstr = "1.9.0"
+tempfile = "3.9"
 
 [[example]]
 name = "simple"
