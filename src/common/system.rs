@@ -6,6 +6,7 @@ use std::fmt;
 use std::path::Path;
 use std::str::FromStr;
 
+use crate::common::DiskUsage;
 use crate::{CpuInner, Gid, ProcessInner, SystemInner, Uid};
 
 /// Structs containing system's information such as processes, memory and CPU.
@@ -936,44 +937,6 @@ pub struct CGroupLimits {
     pub free_swap: u64,
     /// Resident Set Size (RSS) (in bytes) for the current cgroup.
     pub rss: u64,
-}
-
-/// Type containing read and written bytes.
-///
-/// It is returned by [`Process::disk_usage`][crate::Process::disk_usage].
-///
-/// ⚠️ Files might be cached in memory by your OS, meaning that reading/writing them might not
-/// increase the `read_bytes`/`written_bytes` values. You can find more information about it
-/// in the `proc_pid_io` manual (`man proc_pid_io` on unix platforms).
-///
-/// ```no_run
-/// use sysinfo::System;
-///
-/// let s = System::new_all();
-/// for (pid, process) in s.processes() {
-///     let disk_usage = process.disk_usage();
-///     println!("[{}] read bytes   : new/total => {}/{} B",
-///         pid,
-///         disk_usage.read_bytes,
-///         disk_usage.total_read_bytes,
-///     );
-///     println!("[{}] written bytes: new/total => {}/{} B",
-///         pid,
-///         disk_usage.written_bytes,
-///         disk_usage.total_written_bytes,
-///     );
-/// }
-/// ```
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd)]
-pub struct DiskUsage {
-    /// Total number of written bytes.
-    pub total_written_bytes: u64,
-    /// Number of written bytes since the last refresh.
-    pub written_bytes: u64,
-    /// Total number of read bytes.
-    pub total_read_bytes: u64,
-    /// Number of read bytes since the last refresh.
-    pub read_bytes: u64,
 }
 
 /// Enum describing the different status of a process.

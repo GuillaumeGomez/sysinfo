@@ -76,9 +76,9 @@ pub use crate::common::disk::{Disk, DiskKind, Disks};
 pub use crate::common::network::{IpNetwork, MacAddr, NetworkData, Networks};
 #[cfg(feature = "system")]
 pub use crate::common::system::{
-    get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, DiskUsage, LoadAvg, MemoryRefreshKind, Pid,
-    Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, RefreshKind, Signal, System,
-    ThreadKind, UpdateKind,
+    get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process,
+    ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, RefreshKind, Signal, System, ThreadKind,
+    UpdateKind,
 };
 #[cfg(feature = "user")]
 pub use crate::common::user::{Group, Groups, User, Users};
@@ -86,6 +86,9 @@ pub use crate::common::user::{Group, Groups, User, Users};
 pub use crate::common::{Gid, Uid};
 #[cfg(feature = "system")]
 pub use crate::sys::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
+
+#[cfg(any(feature = "system", feature = "disk"))]
+pub use crate::common::DiskUsage;
 
 #[cfg(feature = "user")]
 pub(crate) use crate::common::user::GroupInner;

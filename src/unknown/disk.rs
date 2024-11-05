@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, DiskKind};
+use crate::{Disk, DiskKind, DiskUsage};
 
 use std::{ffi::OsStr, path::Path};
 
@@ -8,11 +8,11 @@ pub(crate) struct DiskInner;
 
 impl DiskInner {
     pub(crate) fn kind(&self) -> DiskKind {
-        unreachable!()
+        DiskKind::Unknown(-1)
     }
 
     pub(crate) fn name(&self) -> &OsStr {
-        unreachable!()
+        OsStr::new("")
     }
 
     pub(crate) fn file_system(&self) -> &OsStr {
@@ -42,6 +42,10 @@ impl DiskInner {
     pub(crate) fn refresh(&mut self) -> bool {
         true
     }
+
+    pub(crate) fn usage(&self) -> DiskUsage {
+        DiskUsage::default()
+    }
 }
 
 pub(crate) struct DisksInner {
@@ -62,6 +66,10 @@ impl DisksInner {
     }
 
     pub(crate) fn refresh_list(&mut self) {
+        // Does nothing.
+    }
+
+    pub(crate) fn refresh(&mut self) {
         // Does nothing.
     }
 

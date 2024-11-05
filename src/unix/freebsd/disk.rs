@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, DiskKind};
+use crate::{Disk, DiskKind, DiskUsage};
 
 use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStringExt;
@@ -58,6 +58,11 @@ impl DiskInner {
             refresh_disk(self, &mut vfs)
         }
     }
+
+    pub(crate) fn usage(&self) -> DiskUsage {
+        // TODO: Until disk i/o stats are added, return the default
+        DiskUsage::default()
+    }
 }
 
 impl crate::DisksInner {
@@ -77,6 +82,12 @@ impl crate::DisksInner {
 
     pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
+    }
+
+    pub(crate) fn refresh(&mut self) {
+        for disk in self.list_mut() {
+            disk.refresh();
+        }
     }
 }
 

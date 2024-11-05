@@ -68,6 +68,12 @@ cfg_if! {
         pub const kIOPropertyMediumTypeSolidStateKey: &str = "Solid State";
         #[allow(non_upper_case_globals)]
         pub const kIOPropertyMediumTypeRotationalKey: &str = "Rotational";
+        #[allow(non_upper_case_globals)]
+        pub const kIOBlockStorageDriverStatisticsKey: &str = "Statistics";
+        #[allow(non_upper_case_globals)]
+        pub const kIOBlockStorageDriverStatisticsBytesReadKey: &str = "Bytes (Read)";
+        #[allow(non_upper_case_globals)]
+        pub const kIOBlockStorageDriverStatisticsBytesWrittenKey: &str = "Bytes (Write)";
     }
 }
 
@@ -125,6 +131,11 @@ extern "C" {
     ) -> CFMutableDictionaryRef;
     #[cfg(feature = "system")]
     pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: io_name_t) -> kern_return_t;
+    #[cfg(feature = "disk")]
+    pub fn IOObjectConformsTo(
+        object: io_object_t,
+        className: *const c_char,
+    ) -> libc::boolean_t;
 }
 
 #[cfg(any(
