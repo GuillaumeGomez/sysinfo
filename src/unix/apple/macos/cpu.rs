@@ -10,6 +10,7 @@ pub(crate) unsafe fn get_cpu_frequency() -> u64 {
     use crate::sys::ffi;
     use crate::sys::macos::utils::IOReleaser;
     use crate::sys::utils::CFReleaser;
+    use core_foundation_sys::string::CFStringCreateWithCStringNoCopy;
 
     let matching = ffi::IOServiceMatching(b"AppleARMIODevice\0".as_ptr() as *const _);
     if matching.is_null() {
@@ -54,7 +55,7 @@ pub(crate) unsafe fn get_cpu_frequency() -> u64 {
         }
     };
 
-    let node_name = match CFReleaser::new(ffi::CFStringCreateWithCStringNoCopy(
+    let node_name = match CFReleaser::new(CFStringCreateWithCStringNoCopy(
         std::ptr::null(),
         b"voltage-states5-sram\0".as_ptr() as *const _,
         core_foundation_sys::string::kCFStringEncodingUTF8,

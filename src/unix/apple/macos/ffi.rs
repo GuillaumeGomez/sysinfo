@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#[cfg(any(feature = "system", feature = "disk"))]
 use core_foundation_sys::base::CFAllocatorRef;
 #[cfg(any(
     feature = "system",
@@ -15,6 +16,7 @@ use core_foundation_sys::dictionary::CFDictionaryRef;
     all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
 ))]
 use core_foundation_sys::dictionary::CFMutableDictionaryRef;
+#[cfg(any(feature = "system", feature = "disk"))]
 use core_foundation_sys::string::CFStringRef;
 
 use libc::c_char;
@@ -144,17 +146,6 @@ extern "C" {
 ))]
 pub const KIO_RETURN_SUCCESS: i32 = 0;
 
-extern "C" {
-    // FIXME: to be removed once higher version than core_foundation_sys 0.8.4 is released.
-    #[allow(dead_code)]
-    pub fn CFStringCreateWithCStringNoCopy(
-        alloc: CFAllocatorRef,
-        cStr: *const c_char,
-        encoding: core_foundation_sys::string::CFStringEncoding,
-        contentsDeallocator: CFAllocatorRef,
-    ) -> CFStringRef;
-}
-
 #[cfg(all(
     not(feature = "apple-sandbox"),
     all(
@@ -262,7 +253,6 @@ pub use io_service::*;
 mod io_service {
     use std::ptr::null;
 
-    use super::CFStringCreateWithCStringNoCopy;
     use core_foundation_sys::array::CFArrayRef;
     use core_foundation_sys::base::{CFAllocatorRef, CFRelease};
     use core_foundation_sys::dictionary::{
@@ -270,7 +260,7 @@ mod io_service {
         CFDictionaryRef,
     };
     use core_foundation_sys::number::{kCFNumberSInt32Type, CFNumberCreate};
-    use core_foundation_sys::string::CFStringRef;
+    use core_foundation_sys::string::{CFStringCreateWithCStringNoCopy, CFStringRef};
 
     #[repr(C)]
     pub struct __IOHIDServiceClient(libc::c_void);
