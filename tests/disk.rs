@@ -18,39 +18,48 @@ fn test_disks() {
 #[test]
 #[cfg(feature = "disk")]
 fn test_disks_usage() {
+    use std::fs::{remove_file, File};
     use std::io::Write;
-    use tempfile::NamedTempFile;
+    use std::path::{Path, PathBuf};
+    use std::thread::sleep;
 
-    let s = sysinfo::System::new_all();
+    use sysinfo::{CpuRefreshKind, Disks, RefreshKind, System};
+
+    let s = System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::new()));
 
     // Skip the tests on unsupported platforms and on systems with no physical cores (likely a VM)
     if !sysinfo::IS_SUPPORTED_SYSTEM || s.physical_core_count().unwrap_or_default() == 0 {
         return;
     }
 
-    // The test always fails in CI on Linux. For some unknown reason, /proc/diskstats just doesn't update, regardless
-    // of how long we wait. Until the root cause is discovered, skip the test in CI
+    // The test always fails in CI on Linux. For some unknown reason, /proc/diskstats just doesn't
+    // update, regardless of how long we wait. Until the root cause is discovered, skip the test
+    // in CI.
     if cfg!(target_os = "linux") && std::env::var("CI").is_ok() {
         return;
     }
 
-    let mut disks = sysinfo::Disks::new_with_refreshed_list();
+    let mut disks = Disks::new_with_refreshed_list();
 
-    let mut file = NamedTempFile::new().unwrap();
+    let path = match std::env::var("CARGO_TARGET_DIR") {
+        Ok(p) => Path::new(&p).join("data.tmp"),
+        _ => PathBuf::from("target/data.tmp"),
+    };
+    let mut file = File::create(&path).expect("failed to create temporary file");
 
     // Write 10mb worth of data to the temp file.
     let data = vec![1u8; 10 * 1024 * 1024];
     file.write_all(&data).unwrap();
     // The sync_all call is important to ensure all the data is persisted to disk. Without
     // the call, this test is flaky.
-    file.as_file().sync_all().unwrap();
+    file.sync_all().unwrap();
 
     // Wait a bit just in case
-    std::thread::sleep(std::time::Duration::from_millis(100));
+    sleep(std::time::Duration::from_millis(500));
     disks.refresh();
 
     // Depending on the OS and how disks are configured, the disk usage may be the exact same
-    // across multiple disks. To account for this, collect the disk usages and dedup
+    // across multiple disks. To account for this, collect the disk usages and dedup.
     let mut disk_usages = disks.list().iter().map(|d| d.usage()).collect::<Vec<_>>();
     disk_usages.dedup();
 
@@ -58,6 +67,8 @@ fn test_disks_usage() {
     for disk_usage in disk_usages {
         written_bytes += disk_usage.written_bytes;
     }
+
+    let _ = remove_file(path);
 
     // written_bytes should have increased by about 10mb, but this is not fully reliable in CI Linux. For now,
     // just verify the number is non-zero.
