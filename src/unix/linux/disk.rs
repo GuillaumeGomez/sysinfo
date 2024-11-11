@@ -4,11 +4,13 @@ use crate::sys::utils::{get_all_utf8_data, to_cpath};
 use crate::{Disk, DiskKind, DiskUsage};
 
 use libc::statvfs;
+use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 /// Copied from [`psutil`]:
 ///
@@ -82,24 +84,13 @@ impl DiskInner {
     }
 
     pub(crate) fn refresh(&mut self) -> bool {
-        self.efficient_refresh(None)
+        self.efficient_refresh(&disk_stats())
     }
 
-    fn efficient_refresh(&mut self, procfs_disk_stats: Option<&[procfs::DiskStat]>) -> bool {
+    fn efficient_refresh(&mut self, procfs_disk_stats: &HashMap<String, DiskStat>) -> bool {
         let Some((read_bytes, written_bytes)) = procfs_disk_stats
-            .or(procfs::diskstats().ok().as_deref())
-            .unwrap_or_default()
-            .iter()
-            .find_map(|stat| {
-                if stat.name != self.actual_device_name {
-                    return None;
-                }
-
-                Some((
-                    stat.sectors_read * SECTOR_SIZE,
-                    stat.sectors_written * SECTOR_SIZE,
-                ))
-            })
+            .get(&self.actual_device_name)
+            .map(|stat| (stat.sectors_read * SECTOR_SIZE, stat.sectors_written * SECTOR_SIZE))
         else {
             sysinfo_debug!("Failed to update disk i/o stats");
             return false;
@@ -148,9 +139,9 @@ impl crate::DisksInner {
     }
 
     pub(crate) fn refresh(&mut self) {
-        let procfs_disk_stats = procfs::diskstats().ok();
+        let procfs_disk_stats = disk_stats();
         for disk in self.list_mut() {
-            disk.inner.efficient_refresh(procfs_disk_stats.as_deref());
+            disk.inner.efficient_refresh(&procfs_disk_stats);
         }
     }
 
@@ -187,7 +178,7 @@ fn new_disk(
     mount_point: &Path,
     file_system: &OsStr,
     removable_entries: &[PathBuf],
-    procfs_disk_stats: &[procfs::DiskStat],
+    procfs_disk_stats: &HashMap<String, DiskStat>,
 ) -> Option<Disk> {
     let mount_point_cpath = to_cpath(mount_point);
     let type_ = find_type_for_device_name(device_name);
@@ -215,17 +206,8 @@ fn new_disk(
         let actual_device_name = get_actual_device_name(device_name);
 
         let (read_bytes, written_bytes) = procfs_disk_stats
-            .iter()
-            .find_map(|stat| {
-                if stat.name != actual_device_name {
-                    return None;
-                }
-
-                Some((
-                    stat.sectors_read * SECTOR_SIZE,
-                    stat.sectors_written * SECTOR_SIZE,
-                ))
-            })
+            .get(&actual_device_name)
+            .map(|stat| (stat.sectors_read * SECTOR_SIZE, stat.sectors_written * SECTOR_SIZE))
             .unwrap_or_default();
 
         Some(Disk {
@@ -340,7 +322,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
         _ => Vec::new(),
     };
 
-    let procfs_disk_stats = procfs::diskstats().unwrap_or_default();
+    let procfs_disk_stats = disk_stats();
 
     for disk in content
         .lines()
@@ -401,37 +383,133 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
     }
 }
 
-// #[test]
-// fn check_all_list() {
-//     let disks = get_all_disks_inner(
-//         r#"tmpfs /proc tmpfs rw,seclabel,relatime 0 0
-// proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
-// systemd-1 /proc/sys/fs/binfmt_misc autofs rw,relatime,fd=29,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=17771 0 0
-// tmpfs /sys tmpfs rw,seclabel,relatime 0 0
-// sysfs /sys sysfs rw,seclabel,nosuid,nodev,noexec,relatime 0 0
-// securityfs /sys/kernel/security securityfs rw,nosuid,nodev,noexec,relatime 0 0
-// cgroup2 /sys/fs/cgroup cgroup2 rw,seclabel,nosuid,nodev,noexec,relatime,nsdelegate 0 0
-// pstore /sys/fs/pstore pstore rw,seclabel,nosuid,nodev,noexec,relatime 0 0
-// none /sys/fs/bpf bpf rw,nosuid,nodev,noexec,relatime,mode=700 0 0
-// configfs /sys/kernel/config configfs rw,nosuid,nodev,noexec,relatime 0 0
-// selinuxfs /sys/fs/selinux selinuxfs rw,relatime 0 0
-// debugfs /sys/kernel/debug debugfs rw,seclabel,nosuid,nodev,noexec,relatime 0 0
-// tmpfs /dev/shm tmpfs rw,seclabel,relatime 0 0
-// devpts /dev/pts devpts rw,seclabel,relatime,gid=5,mode=620,ptmxmode=666 0 0
-// tmpfs /sys/fs/selinux tmpfs rw,seclabel,relatime 0 0
-// /dev/vda2 /proc/filesystems xfs rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0
-// "#,
-//     );
-//     assert_eq!(disks.len(), 1);
-//     assert_eq!(
-//         disks[0],
-//         Disk {
-//             type_: DiskType::Unknown(-1),
-//             name: OsString::from("devpts"),
-//             file_system: vec![100, 101, 118, 112, 116, 115],
-//             mount_point: PathBuf::from("/dev/pts"),
-//             total_space: 0,
-//             available_space: 0,
-//         }
-//     );
-// }
+/// Disk IO stat information from `/proc/diskstats` file.
+///
+/// To fully understand these fields, please see the
+/// [iostats.txt](https://www.kernel.org/doc/Documentation/iostats.txt) kernel documentation.
+///
+/// This type only contains the value `sysinfo` is interested into.
+///
+/// The fields of this file are:
+/// 1. major number
+/// 2. minor number
+/// 3. device name
+/// 4. reads completed successfully
+/// 5. reads merged
+/// 6. sectors read
+/// 7. time spent reading (ms)
+/// 8. writes completed
+/// 9. writes merged
+/// 10. sectors written
+/// 11. time spent writing (ms)
+/// 12. I/Os currently in progress
+/// 13. time spent doing I/Os (ms)
+/// 14. weighted time spent doing I/Os (ms)
+///
+/// Doc reference: https://www.kernel.org/doc/Documentation/ABI/testing/procfs-diskstats
+///
+/// Doc reference: https://www.kernel.org/doc/Documentation/iostats.txt
+#[derive(Debug, PartialEq)]
+struct DiskStat {
+    sectors_read: u64,
+    sectors_written: u64,
+}
+
+impl DiskStat {
+    /// Returns the name and the values we're interested into.
+    fn new_from_line(line: &str) -> Option<(String, Self)> {
+        let mut iter = line.split_whitespace();
+        // 3rd field
+        let name = iter.nth(2).map(ToString::to_string)?;
+        // 6th field
+        let sectors_read = iter.nth(2).and_then(|v| u64::from_str(v).ok())?;
+        // 10th field
+        let sectors_written = iter.nth(3).and_then(|v| u64::from_str(v).ok())?;
+        Some((name, Self {
+            sectors_read,
+            sectors_written,
+        }))
+    }
+}
+
+fn disk_stats() -> HashMap<String, DiskStat> {
+    let path = "/proc/diskstats";
+    match fs::read_to_string(path) {
+        Ok(content) => disk_stats_inner(&content),
+        Err(_error) => {
+            sysinfo_debug!("failed to read {path:?}: {_error:?}");
+            HashMap::new()
+        }
+    }
+}
+
+// We split this function out to make it possible to test it.
+fn disk_stats_inner(content: &str) -> HashMap<String, DiskStat> {
+    let mut data = HashMap::new();
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some((name, stats)) = DiskStat::new_from_line(line) {
+            data.insert(name, stats);
+        }
+    }
+    data
+}
+
+#[cfg(test)]
+mod test {
+    use super::{DiskStat, disk_stats_inner};
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_disk_stat_parsing() {
+        // Content of a (very nicely formatted) `/proc/diskstats` file.
+        let file_content = "\
+ 259       0 nvme0n1   571695 101559 38943220 165643 9824246  1076193 462375378 4140037  0  1038904 4740493  254020 0  1436922320 68519 306875 366293
+ 259       1 nvme0n1p1 240    2360   15468    48     2        0       2         0        0  21      50       8      0  2373552    2     0      0
+ 259       2 nvme0n1p2 243    10     11626    26     63       39      616       125      0  84      163      44     0  1075280    11    0      0
+ 259       3 nvme0n1p3 571069 99189  38910302 165547 9824180  1076154 462374760 4139911  0  1084855 4373964  253968 0  1433473488 68505 0      0
+ 253       0 dm-0      670206 0      38909056 259490 10900330 0       462374760 12906518 0  1177098 13195902 253968 0  1433473488 29894 0      0
+ 252       0 zram0     2382   0      20984    11     260261   0       2082088   2063     0  1964    2074     0      0  0          0     0      0
+ 1         2 bla       4      5      6        7      8        9       10        11       12 13      14       15     16 17         18    19     20
+";
+
+        let data = disk_stats_inner(file_content);
+        let expected_data: HashMap<String, DiskStat> = HashMap::from([
+            ("nvme0n1".to_string(), DiskStat {
+                sectors_read: 38943220,
+                sectors_written: 462375378,
+            }),
+            ("nvme0n1p1".to_string(), DiskStat {
+                sectors_read: 15468,
+                sectors_written: 2,
+            }),
+            ("nvme0n1p2".to_string(), DiskStat {
+                sectors_read: 11626,
+                sectors_written: 616,
+            }),
+            ("nvme0n1p3".to_string(), DiskStat {
+                sectors_read: 38910302,
+                sectors_written: 462374760,
+            }),
+            ("dm-0".to_string(),DiskStat {
+                sectors_read:  38909056,
+                sectors_written: 462374760,
+            }),
+            ("zram0".to_string(), DiskStat {
+                sectors_read: 20984,
+                sectors_written: 2082088,
+            }),
+            // This one ensures that we read the correct fields.
+            ("bla".to_string(), DiskStat {
+                sectors_read: 6,
+                sectors_written: 10,
+            }),
+        ]);
+
+        assert_eq!(data, expected_data);
+    }
+}
