@@ -120,3 +120,4 @@ tempfile = "3.9"
 name = "simple"
 path = "examples/simple.rs"
 required-features = ["default"]
+doc-scrape-examples = true
