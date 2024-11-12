@@ -105,25 +105,32 @@ impl SystemInner {
         }
     }
 
+    fn initialize_cpu_counters(&mut self, refresh_kind: CpuRefreshKind) {
+        if let Some(ref mut query) = self.query {
+            add_english_counter(
+                r"\Processor(_Total)\% Idle Time".to_string(),
+                query,
+                &mut self.cpus.global.key_used,
+                "tot_0".to_owned(),
+            );
+            for (pos, proc_) in self.cpus.iter_mut(refresh_kind).enumerate() {
+                add_english_counter(
+                    format!(r"\Processor({pos})\% Idle Time"),
+                    query,
+                    get_key_used(proc_),
+                    format!("{pos}_0"),
+                );
+            }
+        }
+    }
+
     pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         if self.query.is_none() {
-            self.query = Query::new();
-            if let Some(ref mut query) = self.query {
-                add_english_counter(
-                    r"\Processor(_Total)\% Idle Time".to_string(),
-                    query,
-                    &mut self.cpus.global.key_used,
-                    "tot_0".to_owned(),
-                );
-                for (pos, proc_) in self.cpus.iter_mut(refresh_kind).enumerate() {
-                    add_english_counter(
-                        format!(r"\Processor({pos})\% Idle Time"),
-                        query,
-                        get_key_used(proc_),
-                        format!("{pos}_0"),
-                    );
-                }
-            }
+            self.query = Query::new(false);
+            self.initialize_cpu_counters(refresh_kind);
+        } else if self.cpus.global.key_used.is_none() {
+            self.query = Query::new(true);
+            self.initialize_cpu_counters(refresh_kind);
         }
         if let Some(ref mut query) = self.query {
             query.refresh();

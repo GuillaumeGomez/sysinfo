@@ -9,14 +9,14 @@ use std::mem;
 use std::ops::DerefMut;
 use std::sync::{Mutex, OnceLock};
 
-use windows::core::{s, PCSTR, PCWSTR};
+use windows::core::{s, PCSTR, PCWSTR, PSTR};
 use windows::Win32::Foundation::{
-    CloseHandle, BOOLEAN, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS, FALSE, HANDLE,
+    CloseHandle, BOOLEAN, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS, FALSE, HANDLE, TRUE,
 };
 use windows::Win32::System::Performance::{
     PdhAddEnglishCounterA, PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData,
-    PdhCollectQueryDataEx, PdhGetFormattedCounterValue, PdhOpenQueryA, PdhRemoveCounter,
-    PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE,
+    PdhCollectQueryDataEx, PdhEnumObjectsA, PdhGetFormattedCounterValue, PdhOpenQueryA,
+    PdhRemoveCounter, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PERF_DETAIL_NOVICE,
 };
 use windows::Win32::System::Power::{
     CallNtPowerInformation, ProcessorInformation, PROCESSOR_POWER_INFORMATION,
@@ -166,9 +166,12 @@ pub(crate) struct Query {
 }
 
 impl Query {
-    pub fn new() -> Option<Query> {
+    pub fn new(force_reload: bool) -> Option<Query> {
         let mut query = 0;
         unsafe {
+            if force_reload {
+                PdhEnumObjectsA(PCSTR::null(), PCSTR::null(), PSTR::null(), &mut 0, PERF_DETAIL_NOVICE, TRUE);
+            }
             if PdhOpenQueryA(PCSTR::null(), 0, &mut query) == ERROR_SUCCESS.0 {
                 let q = InternalQuery {
                     query: HANDLE(query),
