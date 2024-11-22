@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
+
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::marker::PhantomData;
@@ -69,7 +71,7 @@ impl DiskInner {
         self.is_read_only
     }
 
-    pub(crate) fn refresh(&mut self) -> bool {
+    pub(crate) fn refresh_specifics(&mut self, _refreshes: DiskRefreshKind) -> bool {
         refresh_disk(self)
     }
 
@@ -90,10 +92,8 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh_list(&mut self) {
-        unsafe {
-            get_all_list(&mut self.disks, true);
-        }
+    pub(crate) fn refresh_list_specifics(&mut self, _refreshes: DiskRefreshKind) {
+        unsafe { get_all_list(&mut self.disks, true) }
     }
 
     pub(crate) fn list(&self) -> &[Disk] {
@@ -104,7 +104,7 @@ impl crate::DisksInner {
         &mut self.disks
     }
 
-    pub(crate) fn refresh(&mut self) {
+    pub(crate) fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) {
         unsafe {
             get_all_list(&mut self.disks, false);
         }

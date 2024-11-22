@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::HandleWrapper;
-use crate::{Disk, DiskKind, DiskUsage};
+use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
 
 use std::ffi::{c_void, OsStr, OsString};
 use std::mem::size_of;
@@ -167,7 +167,7 @@ impl DiskInner {
         self.is_read_only
     }
 
-    pub(crate) fn refresh(&mut self) -> bool {
+    pub(crate) fn refresh_specifics(&mut self, _refreshes: DiskRefreshKind) -> bool {
         let Some((read_bytes, written_bytes)) = get_disk_io(&self.device_path, None) else {
             sysinfo_debug!("Failed to update disk i/o stats");
             return false;
@@ -220,15 +220,15 @@ impl DisksInner {
         self.disks
     }
 
-    pub(crate) fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list_specifics(&mut self, _refreshes: DiskRefreshKind) {
         unsafe {
             self.disks = get_list();
         }
     }
 
-    pub(crate) fn refresh(&mut self) {
+    pub(crate) fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) {
         for disk in self.list_mut() {
-            disk.refresh();
+            disk.refresh_specifics(refreshes);
         }
     }
 

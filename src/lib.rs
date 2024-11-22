@@ -71,7 +71,7 @@ cfg_if! {
 #[cfg(feature = "component")]
 pub use crate::common::component::{Component, Components};
 #[cfg(feature = "disk")]
-pub use crate::common::disk::{Disk, DiskKind, Disks};
+pub use crate::common::disk::{Disk, DiskKind, DiskRefreshKind, Disks};
 #[cfg(feature = "network")]
 pub use crate::common::network::{IpNetwork, MacAddr, NetworkData, Networks};
 #[cfg(feature = "system")]

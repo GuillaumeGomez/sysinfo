@@ -7,7 +7,7 @@ use crate::{
     },
     DiskUsage,
 };
-use crate::{Disk, DiskKind};
+use crate::{Disk, DiskKind, DiskRefreshKind};
 
 use core_foundation_sys::array::CFArrayCreate;
 use core_foundation_sys::base::kCFAllocatorDefault;
@@ -72,7 +72,7 @@ impl DiskInner {
         self.is_read_only
     }
 
-    pub(crate) fn refresh(&mut self) -> bool {
+    pub(crate) fn refresh_specifics(&mut self, _refreshes: DiskRefreshKind) -> bool {
         #[cfg(target_os = "macos")]
         let Some((read_bytes, written_bytes)) = self
             .bsd_name
@@ -129,7 +129,7 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list_specifics(&mut self, _refreshes: DiskRefreshKind) {
         unsafe {
             // SAFETY: We don't keep any Objective-C objects around because we
             // don't make any direct Objective-C calls in this code.
@@ -139,9 +139,9 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh(&mut self) {
+    pub(crate) fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) {
         for disk in self.list_mut() {
-            disk.refresh();
+            disk.refresh_specifics(refreshes);
         }
     }
 
