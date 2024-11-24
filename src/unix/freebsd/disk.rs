@@ -1,27 +1,28 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, DiskKind, DiskUsage};
-
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
+use std::marker::PhantomData;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
-use std::ptr::null_mut;
+use std::ptr::{NonNull, null_mut};
+use std::sync::OnceLock;
 
+use libc::c_void;
+
+use crate::{Disk, DiskKind, DiskUsage};
 use super::ffi::{
-    devinfo,
     devstat,
-    devstat_compute_statistics,
-    devstat_getdevs,
     devstat_getversion,
-    statinfo,
-    DSM_NONE,
-    DSM_TOTAL_BYTES_READ,
-    DSM_TOTAL_BYTES_WRITE,
+    geom_stats_open,
+    geom_stats_snapshot_get,
+    geom_stats_snapshot_next,
+    geom_stats_snapshot_reset,
+    geom_stats_snapshot_free,
+    DEVSTAT_READ,
+    DEVSTAT_WRITE,
 };
-
-use super::utils::{c_buf_to_utf8_str, c_buf_to_utf8_string, get_sys_value_str_by_name};
+use super::utils::{c_buf_to_utf8_str, get_sys_value_str_by_name};
 
 #[derive(Debug)]
 pub(crate) struct DiskInner {
@@ -134,7 +135,7 @@ impl GetValues for crate::Disk {
     }
 }
 
-impl<'a> GetValues for &'a mut DiskInner {
+impl GetValues for &mut DiskInner {
     fn update_old(&mut self) {
         self.old_read_bytes = self.read_bytes;
         self.old_written_bytes = self.written_bytes;
@@ -180,81 +181,77 @@ fn refresh_disk(disk: &mut DiskInner) -> bool {
     }
 }
 
-struct DevInfoWrapper {
-    info: statinfo,
-}
-
-impl DevInfoWrapper {
-    fn new() -> Self {
-        Self {
-            info: unsafe { std::mem::zeroed() },
-        }
+unsafe fn initialize_geom() -> Result<(), ()> {
+    let version = devstat_getversion(null_mut());
+    if version != 6 {
+        // For now we only handle the devstat 6 version.
+        sysinfo_debug!("version {version} of devstat is not supported");
+        return Err(());
     }
-
-    unsafe fn get_devs(&mut self) -> Option<&statinfo> {
-        let version = devstat_getversion(null_mut());
-        if version != 6 {
-            // For now we only handle the devstat 6 version.
-            sysinfo_debug!("version {version} of devstat is not supported");
-            return None;
-        }
-        if self.info.dinfo.is_null() {
-            self.info.dinfo = libc::calloc(1, std::mem::size_of::<devinfo>()) as *mut _;
-            if self.info.dinfo.is_null() {
-                return None;
-            }
-        }
-        if devstat_getdevs(null_mut(), &mut self.info as *mut _) != -1 {
-            Some(&self.info)
-        } else {
-            None
-        }
-    }
-}
-
-impl Drop for DevInfoWrapper {
-    fn drop(&mut self) {
-        if !self.info.dinfo.is_null() {
-            unsafe { libc::free(self.info.dinfo as *mut _); }
-        }
+    let r = unsafe { geom_stats_open() };
+    if r != 0 {
+        sysinfo_debug!("`geom_stats_open` failed: {r}");
+        Err(())
+    } else {
+        Ok(())
     }
 }
 
 unsafe fn refresh_disk_io<T: GetValues>(disks: &mut [T]) {
-    thread_local! {
-        static DEV_INFO: RefCell<DevInfoWrapper> = RefCell::new(DevInfoWrapper::new());
+    static GEOM_STATS: OnceLock<Result<(), ()>> = OnceLock::new();
+
+    if GEOM_STATS.get_or_init(|| unsafe { initialize_geom() }).is_err() {
+        return;
+    }
+    let Some(mut snap) = GeomSnapshot::new() else { return };
+    for device in snap.iter() {
+        let device = device.devstat.as_ref();
+        let Some(device_name) = c_buf_to_utf8_str(&device.device_name) else { continue };
+        let dev_stat_name = format!("{device_name}{}", device.unit_number);
+
+        for disk in disks.iter_mut().filter(|d| d.dev_id().is_some_and(|id| *id == dev_stat_name)) {
+            disk.update_old();
+            *disk.get_read() = device.bytes[DEVSTAT_READ];
+            *disk.get_written() = device.bytes[DEVSTAT_WRITE];
+        }
     }
 
-    DEV_INFO.with_borrow_mut(|dev_info| {
-        let Some(stat_info) = dev_info.get_devs() else { return };
-        let dinfo = (*stat_info).dinfo;
+    // thread_local! {
+    //     static DEV_INFO: RefCell<DevInfoWrapper> = RefCell::new(DevInfoWrapper::new());
+    // }
 
-        let numdevs = (*dinfo).numdevs;
-        if numdevs < 0 {
-            return;
-        }
-        let devices: &mut [devstat] = std::slice::from_raw_parts_mut((*dinfo).devices, numdevs as _);
-        for device in devices {
-            let Some(device_name) = c_buf_to_utf8_str(&device.device_name) else { continue };
-            let dev_stat_name = format!("{device_name}{}", device.unit_number);
+    // DEV_INFO.with_borrow_mut(|dev_info| {
+    //     let Some(stat_info) = dev_info.get_devs() else { return };
+    //     let dinfo = (*stat_info).dinfo;
 
-            for disk in disks.iter_mut().filter(|d| d.dev_id().is_some_and(|id| *id == dev_stat_name)) {
-                disk.update_old();
-                let mut read = 0u64;
-                devstat_compute_statistics(
-                    device,
-                    null_mut(),
-                    0,
-                    DSM_TOTAL_BYTES_READ,
-                    &mut read,
-                    DSM_TOTAL_BYTES_WRITE,
-                    disk.get_written(),
-                    DSM_NONE,
-                );
-                *disk.get_read() = read;
-            }
-        }
-    });
+    //     let numdevs = (*dinfo).numdevs;
+    //     if numdevs < 0 {
+    //         return;
+    //     }
+    //     let devices: &mut [devstat] = std::slice::from_raw_parts_mut((*dinfo).devices, numdevs as _);
+    //     for device in devices {
+    //         let Some(device_name) = c_buf_to_utf8_str(&device.device_name) else { continue };
+    //         let dev_stat_name = format!("{device_name}{}", device.unit_number);
+
+    //         for disk in disks.iter_mut().filter(|d| d.dev_id().is_some_and(|id| *id == dev_stat_name)) {
+    //             disk.update_old();
+    //             let mut read = 0u64;
+    //             // This code cannot work because `devstat_compute_statistics` expects a
+    //             // `long double` as 3rd argument, making it impossible for rust to call it...
+    //             devstat_compute_statistics(
+    //                 device,
+    //                 null_mut(),
+    //                 0,
+    //                 DSM_TOTAL_BYTES_READ,
+    //                 &mut read,
+    //                 DSM_TOTAL_BYTES_WRITE,
+    //                 disk.get_written(),
+    //                 DSM_NONE,
+    //             );
+    //             *disk.get_read() = read;
+    //         }
+    //     }
+    // });
 }
 
 fn get_disks_mapping() -> HashMap<String, String> {
@@ -281,7 +278,7 @@ fn get_disks_mapping() -> HashMap<String, String> {
             }
         }
     }
-    return disk_mapping;
+    disk_mapping
 }
 
 pub unsafe fn get_all_list(container: &mut Vec<Disk>, add_new_disks: bool) {
@@ -393,9 +390,104 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>, add_new_disks: bool) {
             true
         });
     } else {
-        for c in container {
+        for c in container.iter_mut() {
             c.inner.updated = false;
         }
     }
-    refresh_disk_io(container);
+    refresh_disk_io(container.as_mut_slice());
+}
+
+// struct DevInfoWrapper {
+//     info: statinfo,
+// }
+
+// impl DevInfoWrapper {
+//     fn new() -> Self {
+//         Self {
+//             info: unsafe { std::mem::zeroed() },
+//         }
+//     }
+
+//     unsafe fn get_devs(&mut self) -> Option<&statinfo> {
+//         let version = devstat_getversion(null_mut());
+//         if version != 6 {
+//             // For now we only handle the devstat 6 version.
+//             sysinfo_debug!("version {version} of devstat is not supported");
+//             return None;
+//         }
+//         if self.info.dinfo.is_null() {
+//             self.info.dinfo = libc::calloc(1, std::mem::size_of::<devinfo>()) as *mut _;
+//             if self.info.dinfo.is_null() {
+//                 return None;
+//             }
+//         }
+//         if devstat_getdevs(null_mut(), &mut self.info as *mut _) != -1 {
+//             Some(&self.info)
+//         } else {
+//             None
+//         }
+//     }
+// }
+
+// impl Drop for DevInfoWrapper {
+//     fn drop(&mut self) {
+//         if !self.info.dinfo.is_null() {
+//             unsafe { libc::free(self.info.dinfo as *mut _); }
+//         }
+//     }
+// }
+
+// Most of this code was adapted from `gstat-rs` (https://github.com/asomers/gstat-rs).
+struct GeomSnapshot(NonNull<c_void>);
+
+impl GeomSnapshot {
+    unsafe fn new() -> Option<Self> {
+        match NonNull::new(geom_stats_snapshot_get()) {
+            Some(n) => Some(Self(n)),
+            None => {
+                sysinfo_debug!("geom_stats_snapshot_get failed");
+                None
+            }
+        }
+    }
+
+    fn iter(&mut self) -> GeomSnapshotIter {
+        GeomSnapshotIter(self)
+    }
+
+    fn reset(&mut self) {
+        unsafe { geom_stats_snapshot_reset(self.0.as_mut()) }
+    }
+}
+
+impl Drop for GeomSnapshot {
+    fn drop(&mut self) {
+        unsafe { geom_stats_snapshot_free(self.0.as_mut()) };
+    }
+}
+
+#[repr(transparent)]
+struct Devstat<'a> {
+    devstat: NonNull<devstat>,
+    phantom: PhantomData<&'a devstat>,
+}
+
+struct GeomSnapshotIter<'a>(&'a mut GeomSnapshot);
+
+impl<'a> Iterator for GeomSnapshotIter<'a> {
+    type Item = Devstat<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let raw = unsafe { geom_stats_snapshot_next(self.0.0.as_mut()) };
+        NonNull::new(raw).map(|devstat| Devstat {
+            devstat,
+            phantom: PhantomData,
+        })
+    }
+}
+
+impl Drop for GeomSnapshotIter<'_> {
+    fn drop(&mut self) {
+        self.0.reset();
+    }
 }
