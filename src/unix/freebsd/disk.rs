@@ -1,7 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
-
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::marker::PhantomData;
@@ -18,7 +16,7 @@ use super::ffi::{
     DEVSTAT_WRITE,
 };
 use super::utils::{c_buf_to_utf8_str, get_sys_value_str_by_name};
-use crate::{Disk, DiskKind, DiskUsage};
+use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
 
 #[derive(Debug)]
 pub(crate) struct DiskInner {
@@ -104,7 +102,7 @@ impl crate::DisksInner {
         &mut self.disks
     }
 
-    pub(crate) fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) {
+    pub(crate) fn refresh_specifics(&mut self, _refreshes: DiskRefreshKind) {
         unsafe {
             get_all_list(&mut self.disks, false);
         }

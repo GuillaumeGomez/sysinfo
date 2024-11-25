@@ -435,10 +435,6 @@ impl fmt::Display for DiskKind {
 
 /// Used to determine what you want to refresh specifically on the [`Disk`] type.
 ///
-/// ⚠️ Just like all other refresh types, ruling out a refresh doesn't assure you that
-/// the information won't be retrieved if the information is accessible without needing
-/// extra computation.
-///
 /// ```no_run
 /// use sysinfo::{Disks, DiskRefreshKind};
 ///
@@ -451,22 +447,16 @@ impl fmt::Display for DiskKind {
 #[derive(Clone, Copy, Debug)]
 pub struct DiskRefreshKind {
     kind: bool,
-    total_space: bool,
-    available_space: bool,
-    is_removable: bool,
-    is_read_only: bool,
-    usage: bool,
+    details: bool,
+    io_usage: bool,
 }
 
 impl Default for DiskRefreshKind {
     fn default() -> Self {
         Self {
             kind: true,
-            total_space: false,
-            available_space: false,
-            is_removable: false,
-            is_read_only: false,
-            usage: false,
+            details: false,
+            io_usage: false,
         }
     }
 }
@@ -480,10 +470,8 @@ impl DiskRefreshKind {
     /// let r = DiskRefreshKind::new();
     ///
     /// assert_eq!(r.kind(), true);
-    /// assert_eq!(r.total_space(), false);
-    /// assert_eq!(r.available_space(), false);
-    /// assert_eq!(r.is_removable(), false);
-    /// assert_eq!(r.is_read_only(), false);
+    /// assert_eq!(r.details(), false);
+    /// assert_eq!(r.io_usage(), false);
     /// ```
     pub fn new() -> Self {
         Self::default()
@@ -497,46 +485,18 @@ impl DiskRefreshKind {
     /// let r = DiskRefreshKind::everything();
     ///
     /// assert_eq!(r.kind(), true);
-    /// assert_eq!(r.total_space(), true);
-    /// assert_eq!(r.available_space(), true);
-    /// assert_eq!(r.is_removable(), true);
-    /// assert_eq!(r.is_read_only(), true);
+    /// assert_eq!(r.details(), true);
+    /// assert_eq!(r.io_usage(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
             kind: true,
-            total_space: true,
-            available_space: true,
-            is_removable: true,
-            is_read_only: true,
-            usage: true,
+            details: true,
+            io_usage: true,
         }
     }
 
     impl_get_set!(DiskRefreshKind, kind, with_kind, without_kind);
-    impl_get_set!(
-        DiskRefreshKind,
-        total_space,
-        with_total_space,
-        without_total_space
-    );
-    impl_get_set!(
-        DiskRefreshKind,
-        available_space,
-        with_available_space,
-        without_available_space
-    );
-    impl_get_set!(
-        DiskRefreshKind,
-        is_removable,
-        with_is_removable,
-        without_is_removable
-    );
-    impl_get_set!(
-        DiskRefreshKind,
-        is_read_only,
-        with_is_read_only,
-        without_is_read_only
-    );
-    impl_get_set!(DiskRefreshKind, usage, with_usage, without_usage);
+    impl_get_set!(DiskRefreshKind, details, with_details, without_details,);
+    impl_get_set!(DiskRefreshKind, io_usage, with_io_usage, without_io_usage);
 }
