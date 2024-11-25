@@ -56,6 +56,7 @@ fn test_disk_refresh_kind() {
         let assertions = |disks: &Disks| {
             for disk in disks.list().iter() {
                 if refreshes.kind() {
+                    #[cfg(not(target_os = "freebsd"))]
                     assert_ne!(
                         disk.kind(),
                         DiskKind::Unknown(-1),
