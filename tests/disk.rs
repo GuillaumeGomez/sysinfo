@@ -72,9 +72,5 @@ fn test_disks_usage() {
 
     // written_bytes should have increased by about 10mb, but this is not fully reliable in CI Linux. For now,
     // just verify the number is non-zero.
-    #[cfg(not(target_os = "freebsd"))]
     assert!(written_bytes > 0);
-    // Disk usage is not yet supported on freebsd
-    #[cfg(target_os = "freebsd")]
-    assert_eq!(written_bytes, 0);
 }

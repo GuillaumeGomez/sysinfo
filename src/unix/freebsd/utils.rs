@@ -77,7 +77,7 @@ pub(crate) fn c_buf_to_utf8_str(buf: &[libc::c_char]) -> Option<&str> {
     }
 }
 
-#[cfg(any(feature = "system", feature = "network"))]
+#[cfg(any(feature = "disk", feature = "system", feature = "network"))]
 pub(crate) fn c_buf_to_utf8_string(buf: &[libc::c_char]) -> Option<String> {
     c_buf_to_utf8_str(buf).map(|s| s.to_owned())
 }
@@ -137,7 +137,7 @@ pub(crate) unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T)
         && original == len
 }
 
-#[cfg(feature = "system")]
+#[cfg(any(feature = "system", feature = "disk"))]
 pub(crate) fn get_sys_value_str_by_name(name: &[u8]) -> Option<String> {
     let mut size = 0;
 
