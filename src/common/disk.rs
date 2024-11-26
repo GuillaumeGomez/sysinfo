@@ -438,38 +438,28 @@ impl fmt::Display for DiskKind {
 /// ```no_run
 /// use sysinfo::{Disks, DiskRefreshKind};
 ///
-/// let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::new());
+/// let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::everything());
 ///
 /// for disk in disks.list() {
 ///     assert_eq!(disk.total_space(), 0);
 /// }
 /// ```
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct DiskRefreshKind {
     kind: bool,
     details: bool,
     io_usage: bool,
 }
 
-impl Default for DiskRefreshKind {
-    fn default() -> Self {
-        Self {
-            kind: true,
-            details: false,
-            io_usage: false,
-        }
-    }
-}
-
 impl DiskRefreshKind {
-    /// Creates a new `DiskRefreshKind` with every refresh *except kind* set to false.
+    /// Creates a new `DiskRefreshKind` with every refresh set to false.
     ///
     /// ```
     /// use sysinfo::DiskRefreshKind;
     ///
     /// let r = DiskRefreshKind::new();
     ///
-    /// assert_eq!(r.kind(), true);
+    /// assert_eq!(r.kind(), false);
     /// assert_eq!(r.details(), false);
     /// assert_eq!(r.io_usage(), false);
     /// ```
