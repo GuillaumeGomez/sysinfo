@@ -3,7 +3,9 @@
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 use crate::{Cpu, CpuRefreshKind};
 
-use libc::{c_char, c_void, host_processor_info, mach_port_t, mach_task_self};
+#[allow(deprecated)]
+use libc::mach_task_self;
+use libc::{c_char, c_void, host_processor_info, mach_port_t};
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -97,6 +99,7 @@ impl Drop for CpuData {
             let prev_cpu_info_size = std::mem::size_of::<i32>() as u32 * self.num_cpu_info;
             unsafe {
                 libc::vm_deallocate(
+                    #[allow(deprecated)]
                     mach_task_self(),
                     self.cpu_info.0 as _,
                     prev_cpu_info_size as _,

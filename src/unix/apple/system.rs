@@ -129,6 +129,7 @@ fn get_now() -> u64 {
 impl SystemInner {
     pub(crate) fn new() -> Self {
         unsafe {
+            #[allow(deprecated)]
             let port = libc::mach_host_self();
 
             Self {
