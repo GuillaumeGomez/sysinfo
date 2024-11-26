@@ -92,7 +92,9 @@ impl NetworksInner {
                         old_and_new!(interface, ifi_opackets, old_ifi_opackets, data);
                         old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
                         old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
-                        if interface.mtu != mtu { interface.mtu = mtu }
+                        if interface.mtu != mtu {
+                            interface.mtu = mtu;
+                        }
                         interface.updated = true;
                     }
                     hash_map::Entry::Vacant(e) => {

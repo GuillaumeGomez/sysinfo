@@ -54,3 +54,17 @@ cfg_if! {
 }
 
 pub(crate) mod utils;
+
+// Make formattable by rustfmt.
+#[cfg(any())]
+mod apple;
+#[cfg(any())]
+mod freebsd;
+#[cfg(any())]
+mod groups;
+#[cfg(any())]
+mod linux;
+#[cfg(any())]
+mod network_helper;
+#[cfg(any())]
+mod users;

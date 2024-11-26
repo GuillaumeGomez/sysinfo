@@ -116,7 +116,9 @@ impl NetworksInner {
                         );
                         old_and_new!(interface, errors_in, old_errors_in, ptr.InErrors);
                         old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
-                        if interface.mtu != mtu { interface.mtu = mtu }
+                        if interface.mtu != mtu {
+                            interface.mtu = mtu;
+                        }
                         interface.updated = true;
                     }
                     hash_map::Entry::Vacant(e) => {
@@ -183,7 +185,9 @@ impl NetworksInner {
                 );
                 old_and_new!(interface, errors_in, old_errors_in, entry.InErrors);
                 old_and_new!(interface, errors_out, old_errors_out, entry.OutErrors);
-                if interface.mtu != entry.Mtu as u64 { interface.mtu = entry.Mtu as u64 }
+                if interface.mtu != entry.Mtu as u64 {
+                    interface.mtu = entry.Mtu as u64
+                }
             }
         }
     }

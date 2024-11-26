@@ -1,6 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessesToUpdate, ProcessRefreshKind};
+use crate::{
+    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate,
+};
 
 use crate::sys::cpu::*;
 use crate::{Process, ProcessInner};

@@ -2,7 +2,7 @@
 
 #![allow(non_camel_case_types)]
 
-use libc::{c_char, c_int, c_uint, c_void, bintime, kvm_t};
+use libc::{bintime, c_char, c_int, c_uint, c_void, kvm_t};
 
 // definitions come from:
 // https://github.com/freebsd/freebsd-src/blob/main/lib/libdevstat/devstat.h

@@ -33,3 +33,17 @@ cfg_if! {
         pub mod component;
     }
 }
+
+// Make formattable by rustfmt.
+#[cfg(any())]
+mod component;
+#[cfg(any())]
+mod cpu;
+#[cfg(any())]
+mod disk;
+#[cfg(any())]
+mod process;
+#[cfg(any())]
+mod system;
+#[cfg(any())]
+mod utils;

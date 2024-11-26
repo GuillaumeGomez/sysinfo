@@ -18,7 +18,8 @@ use crate::sys::utils::{
     get_all_data_from_file, get_all_utf8_data, realpath, PathHandler, PathPush,
 };
 use crate::{
-    DiskUsage, Gid, Pid, Process, ProcessesToUpdate, ProcessRefreshKind, ProcessStatus, Signal, ThreadKind, Uid,
+    DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, Signal,
+    ThreadKind, Uid,
 };
 
 use crate::sys::system::remaining_files;
@@ -280,7 +281,7 @@ impl ProcessInner {
     }
 
     pub(crate) fn switch_updated(&mut self) -> bool {
-         std::mem::replace(&mut self.updated, false)
+        std::mem::replace(&mut self.updated, false)
     }
 }
 
@@ -763,8 +764,8 @@ pub(crate) fn refresh_procs(
             Ok(d) => d,
             Err(_err) => {
                 sysinfo_debug!("Failed to read folder {path:?}: {_err:?}");
-                return 0
-            },
+                return 0;
+            }
         };
         let proc_list = Wrap(UnsafeCell::new(proc_list));
 

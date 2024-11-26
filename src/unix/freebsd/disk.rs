@@ -5,24 +5,18 @@ use std::ffi::{OsStr, OsString};
 use std::marker::PhantomData;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
-use std::ptr::{NonNull, null_mut};
+use std::ptr::{null_mut, NonNull};
 use std::sync::OnceLock;
 
 use libc::c_void;
 
-use crate::{Disk, DiskKind, DiskUsage};
 use super::ffi::{
-    devstat,
-    devstat_getversion,
-    geom_stats_open,
-    geom_stats_snapshot_get,
-    geom_stats_snapshot_next,
-    geom_stats_snapshot_reset,
-    geom_stats_snapshot_free,
-    DEVSTAT_READ,
+    devstat, devstat_getversion, geom_stats_open, geom_stats_snapshot_free,
+    geom_stats_snapshot_get, geom_stats_snapshot_next, geom_stats_snapshot_reset, DEVSTAT_READ,
     DEVSTAT_WRITE,
 };
 use super::utils::{c_buf_to_utf8_str, get_sys_value_str_by_name};
+use crate::{Disk, DiskKind, DiskUsage};
 
 #[derive(Debug)]
 pub(crate) struct DiskInner {
@@ -97,7 +91,9 @@ impl crate::DisksInner {
     }
 
     pub(crate) fn refresh_list(&mut self) {
-        unsafe { get_all_list(&mut self.disks, true); }
+        unsafe {
+            get_all_list(&mut self.disks, true);
+        }
     }
 
     pub(crate) fn list(&self) -> &[Disk] {
@@ -109,7 +105,9 @@ impl crate::DisksInner {
     }
 
     pub(crate) fn refresh(&mut self) {
-        unsafe { get_all_list(&mut self.disks, false); }
+        unsafe {
+            get_all_list(&mut self.disks, false);
+        }
     }
 }
 
@@ -200,16 +198,26 @@ unsafe fn initialize_geom() -> Result<(), ()> {
 unsafe fn refresh_disk_io<T: GetValues>(disks: &mut [T]) {
     static GEOM_STATS: OnceLock<Result<(), ()>> = OnceLock::new();
 
-    if GEOM_STATS.get_or_init(|| unsafe { initialize_geom() }).is_err() {
+    if GEOM_STATS
+        .get_or_init(|| unsafe { initialize_geom() })
+        .is_err()
+    {
         return;
     }
-    let Some(mut snap) = GeomSnapshot::new() else { return };
+    let Some(mut snap) = GeomSnapshot::new() else {
+        return;
+    };
     for device in snap.iter() {
         let device = device.devstat.as_ref();
-        let Some(device_name) = c_buf_to_utf8_str(&device.device_name) else { continue };
+        let Some(device_name) = c_buf_to_utf8_str(&device.device_name) else {
+            continue;
+        };
         let dev_stat_name = format!("{device_name}{}", device.unit_number);
 
-        for disk in disks.iter_mut().filter(|d| d.dev_id().is_some_and(|id| *id == dev_stat_name)) {
+        for disk in disks
+            .iter_mut()
+            .filter(|d| d.dev_id().is_some_and(|id| *id == dev_stat_name))
+        {
             disk.update_old();
             *disk.get_read() = device.bytes[DEVSTAT_READ];
             *disk.get_written() = device.bytes[DEVSTAT_WRITE];
@@ -256,7 +264,9 @@ unsafe fn refresh_disk_io<T: GetValues>(disks: &mut [T]) {
 
 fn get_disks_mapping() -> HashMap<String, String> {
     let mut disk_mapping = HashMap::new();
-    let Some(mapping) = get_sys_value_str_by_name(b"kern.geom.conftxt\0") else { return disk_mapping };
+    let Some(mapping) = get_sys_value_str_by_name(b"kern.geom.conftxt\0") else {
+        return disk_mapping;
+    };
 
     let mut last_id = String::new();
 
@@ -357,8 +367,8 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>, add_new_disks: bool) {
             let dev_mount_point = c_buf_to_utf8_str(&fs_info.f_mntfromname).unwrap_or("");
 
             // USB keys and CDs are removable.
-            let is_removable =
-                [b"USB", b"usb"].iter().any(|b| *b == &fs_type[..]) || fs_type.starts_with(b"/dev/cd");
+            let is_removable = [b"USB", b"usb"].iter().any(|b| *b == &fs_type[..])
+                || fs_type.starts_with(b"/dev/cd");
 
             container.push(Disk {
                 inner: DiskInner {
@@ -478,7 +488,7 @@ impl<'a> Iterator for GeomSnapshotIter<'a> {
     type Item = Devstat<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let raw = unsafe { geom_stats_snapshot_next(self.0.0.as_mut()) };
+        let raw = unsafe { geom_stats_snapshot_next(self.0 .0.as_mut()) };
         NonNull::new(raw).map(|devstat| Devstat {
             devstat,
             phantom: PhantomData,
