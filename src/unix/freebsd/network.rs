@@ -93,7 +93,7 @@ impl NetworksInner {
                         old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
                         old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
                         if interface.mtu != mtu {
-                            interface.mtu = mtu
+                            interface.mtu = mtu;
                         }
                         interface.updated = true;
                     }

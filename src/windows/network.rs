@@ -117,7 +117,7 @@ impl NetworksInner {
                         old_and_new!(interface, errors_in, old_errors_in, ptr.InErrors);
                         old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
                         if interface.mtu != mtu {
-                            interface.mtu = mtu
+                            interface.mtu = mtu;
                         }
                         interface.updated = true;
                     }

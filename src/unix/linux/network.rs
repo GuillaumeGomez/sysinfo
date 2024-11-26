@@ -80,7 +80,7 @@ fn refresh_networks_list_from_sysfs(
                     // old_and_new!(e, rx_compressed, old_rx_compressed);
                     // old_and_new!(e, tx_compressed, old_tx_compressed);
                     if interface.mtu != mtu {
-                        interface.mtu = mtu
+                        interface.mtu = mtu;
                     }
                     interface.updated = true;
                 }
@@ -231,7 +231,7 @@ impl NetworkDataInner {
         let mtu_path = &Path::new("/sys/class/net/").join(path);
         let mtu = read(mtu_path, "mtu", data);
         if self.mtu != mtu {
-            self.mtu = mtu
+            self.mtu = mtu;
         }
     }
 
