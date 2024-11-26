@@ -321,7 +321,13 @@ impl IoService {
             };
 
             let mut conn = 0;
-            let result = ffi::IOServiceOpen(device.inner(), libc::mach_task_self(), 0, &mut conn);
+            let result = ffi::IOServiceOpen(
+                device.inner(),
+                #[allow(deprecated)]
+                libc::mach_task_self(),
+                0,
+                &mut conn,
+            );
             if result != ffi::KIO_RETURN_SUCCESS {
                 sysinfo_debug!("Error: IOServiceOpen() = {}", result);
                 return None;

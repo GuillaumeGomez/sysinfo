@@ -162,6 +162,7 @@ mod test {
             return;
         }
 
+        #[allow(deprecated)]
         let port = unsafe { libc::mach_host_self() };
         let mut info = SystemTimeInfo::new(port).unwrap();
         info.get_time_interval(port);
