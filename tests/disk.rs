@@ -96,12 +96,12 @@ fn test_disk_refresh_kind() {
                     );
                     assert_eq!(
                         disk.is_read_only(),
-                        Default::default(),
+                        <bool as Default>::default(),
                         "disk.is_read_only should not be refreshed"
                     );
                     assert_eq!(
                         disk.is_removable(),
-                        Default::default(),
+                        <bool as Default>::default(),
                         "disk.is_removable should not be refreshed"
                     );
                 }
