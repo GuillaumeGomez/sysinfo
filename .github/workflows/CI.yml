@@ -18,6 +18,11 @@ jobs:
           toolchain: stable
           components: rustfmt
       - run: cargo fmt -- --check
+      - name: test that all source files are covered by rustfmt
+        run: |
+          for f in $(find src/ -name '*.rs'); do echo -e '\n\n\n\n\n' >> $f; done
+          cargo fmt
+          git diff --exit-code  # expect all changes from above wiped away
 
   clippy:
     runs-on: ${{ matrix.os }}
