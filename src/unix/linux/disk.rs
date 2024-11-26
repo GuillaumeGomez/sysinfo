@@ -37,9 +37,7 @@ macro_rules! cast {
 pub(crate) struct DiskInner {
     type_: DiskKind,
     device_name: OsString,
-    // Potential future surprise: right now, this field is only needed by usage-related code,
-    // so it is only populated if DiskRefreshKind::usage() is true.
-    actual_device_name: String,
+    actual_device_name: Option<String>,
     file_system: OsString,
     mount_point: PathBuf,
     total_space: u64,
@@ -99,13 +97,18 @@ impl DiskInner {
         }
 
         if refresh_kind.io_usage() {
+            if self.actual_device_name.is_none() {
+                self.actual_device_name = Some(get_actual_device_name(&self.device_name));
+            }
             let (read_bytes, written_bytes) = if let Some((read_bytes, written_bytes)) =
-                procfs_disk_stats.get(&self.actual_device_name).map(|stat| {
-                    (
-                        stat.sectors_read * SECTOR_SIZE,
-                        stat.sectors_written * SECTOR_SIZE,
-                    )
-                }) {
+                procfs_disk_stats
+                    .get(self.actual_device_name.as_ref().unwrap())
+                    .map(|stat| {
+                        (
+                            stat.sectors_read * SECTOR_SIZE,
+                            stat.sectors_written * SECTOR_SIZE,
+                        )
+                    }) {
                 (read_bytes, written_bytes)
             } else {
                 sysinfo_debug!("Failed to update disk i/o stats");
@@ -252,14 +255,9 @@ fn new_disk(
         false
     };
 
-    let actual_device_name = if refresh_kind.io_usage() {
-        get_actual_device_name(device_name)
-    } else {
-        String::new()
-    };
-
-    let (read_bytes, written_bytes) = if refresh_kind.io_usage() {
-        procfs_disk_stats
+    let (actual_device_name, read_bytes, written_bytes) = if refresh_kind.io_usage() {
+        let actual_device_name = get_actual_device_name(device_name);
+        let (read_bytes, written_bytes) = procfs_disk_stats
             .get(&actual_device_name)
             .map(|stat| {
                 (
@@ -267,9 +265,10 @@ fn new_disk(
                     stat.sectors_written * SECTOR_SIZE,
                 )
             })
-            .unwrap_or_default()
+            .unwrap_or_default();
+        (Some(actual_device_name), read_bytes, written_bytes)
     } else {
-        (0, 0)
+        (None, 0, 0)
     };
 
     Disk {

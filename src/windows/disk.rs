@@ -169,7 +169,7 @@ impl DiskInner {
 
     pub(crate) fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) -> bool {
         if refreshes.kind() && self.type_ == DiskKind::Unknown(-1) {
-            self.type_ = get_disk_kind(&self.device_path, &None);
+            self.type_ = get_disk_kind(&self.device_path, None);
         }
 
         if refreshes.io_usage() {
@@ -331,7 +331,7 @@ pub(crate) unsafe fn get_list(refreshes: DiskRefreshKind) -> Vec<Disk> {
             };
 
             let type_ = if refreshes.kind() {
-                get_disk_kind(&device_path, &handle)
+                get_disk_kind(&device_path, handle.as_ref())
             } else {
                 DiskKind::Unknown(-1)
             };
@@ -374,7 +374,7 @@ fn os_string_from_zero_terminated(name: &[u16]) -> OsString {
     OsString::from_wide(&name[..len])
 }
 
-fn get_disk_kind(device_path: &[u16], borrowed_handle: &Option<HandleWrapper>) -> DiskKind {
+fn get_disk_kind(device_path: &[u16], borrowed_handle: Option<&HandleWrapper>) -> DiskKind {
     let binding = (
         borrowed_handle,
         if borrowed_handle.is_none() {
@@ -384,14 +384,14 @@ fn get_disk_kind(device_path: &[u16], borrowed_handle: &Option<HandleWrapper>) -
         },
     );
     let handle = match binding {
-        (Some(ref handle), _) => handle,
+        (Some(handle), _) => handle,
         (_, Some(ref handle)) => handle,
         (None, None) => return DiskKind::Unknown(-1),
     };
 
     if handle.is_invalid() {
         sysinfo_debug!(
-            "Expected handle to '{:?}' to be valid",
+            "Expected handle to {:?} to be valid",
             String::from_utf16_lossy(device_path)
         );
         return DiskKind::Unknown(-1);
@@ -438,7 +438,7 @@ fn get_disk_io(device_path: &[u16], handle: Option<HandleWrapper>) -> Option<(u6
 
     if handle.is_invalid() {
         sysinfo_debug!(
-            "Expected handle to '{:?}' to be valid",
+            "Expected handle to {:?} to be valid",
             String::from_utf16_lossy(device_path)
         );
         return None;
