@@ -94,41 +94,37 @@ impl DiskInner {
         refresh_kind: DiskRefreshKind,
         procfs_disk_stats: &HashMap<String, DiskStat>,
     ) -> bool {
-        let (read_bytes, written_bytes) = if refresh_kind.io_usage() {
-            if let Some((read_bytes, written_bytes)) =
+        if refresh_kind.io_usage() {
+            let (read_bytes, written_bytes) = if let Some((read_bytes, written_bytes)) =
                 procfs_disk_stats.get(&self.actual_device_name).map(|stat| {
                     (
                         stat.sectors_read * SECTOR_SIZE,
                         stat.sectors_written * SECTOR_SIZE,
                     )
-                })
-            {
+                }) {
                 (read_bytes, written_bytes)
             } else {
                 sysinfo_debug!("Failed to update disk i/o stats");
                 (0, 0)
-            }
-        } else {
-            (0, 0)
-        };
+            };
 
-        self.old_read_bytes = self.read_bytes;
-        self.old_written_bytes = self.written_bytes;
-        self.read_bytes = read_bytes;
-        self.written_bytes = written_bytes;
+            self.old_read_bytes = self.read_bytes;
+            self.old_written_bytes = self.written_bytes;
+            self.read_bytes = read_bytes;
+            self.written_bytes = written_bytes;
+        }
 
-        let (total_space, available_space, is_read_only) = if refresh_kind.details() {
-            match unsafe { load_statvfs_values(&self.mount_point, refresh_kind) } {
-                Some((total, available, is_read_only)) => (total, available, is_read_only),
-                None => (0, 0, false),
-            }
-        } else {
-            (0, 0, false)
-        };
+        if refresh_kind.details() {
+            let (total_space, available_space, is_read_only) =
+                match unsafe { load_statvfs_values(&self.mount_point, refresh_kind) } {
+                    Some((total, available, is_read_only)) => (total, available, is_read_only),
+                    None => (0, 0, false),
+                };
 
-        self.total_space = total_space;
-        self.available_space = available_space;
-        self.is_read_only = is_read_only;
+            self.total_space = total_space;
+            self.available_space = available_space;
+            self.is_read_only = is_read_only;
+        }
 
         true
     }

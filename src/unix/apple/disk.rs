@@ -73,46 +73,46 @@ impl DiskInner {
     }
 
     pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) -> bool {
-        let type_ = if refresh_kind.kind() {
-            #[cfg(target_os = "macos")]
-            {
-                self.bsd_name
-                    .as_ref()
-                    .and_then(|name| crate::sys::inner::disk::get_disk_type(name))
-                    .unwrap_or(DiskKind::Unknown(-1))
-            }
-            #[cfg(not(target_os = "macos"))]
-            DiskKind::SSD
-        } else {
-            DiskKind::Unknown(-1)
-        };
+        if refresh_kind.kind() {
+            let type_ = {
+                #[cfg(target_os = "macos")]
+                {
+                    self.bsd_name
+                        .as_ref()
+                        .and_then(|name| crate::sys::inner::disk::get_disk_type(name))
+                        .unwrap_or(DiskKind::Unknown(-1))
+                }
+                #[cfg(not(target_os = "macos"))]
+                DiskKind::SSD
+            };
 
-        self.type_ = type_;
+            self.type_ = type_;
+        }
 
-        let (read_bytes, written_bytes) = if refresh_kind.io_usage() {
-            #[cfg(target_os = "macos")]
-            {
-                self.bsd_name
-                    .as_ref()
-                    .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
-                    .unwrap_or_else(|| {
-                        sysinfo_debug!("Failed to update disk i/o stats");
-                        (0, 0)
-                    })
-            }
-            #[cfg(not(target_os = "macos"))]
-            (0, 0)
-        } else {
-            (0, 0)
-        };
+        if refresh_kind.io_usage() {
+            let (read_bytes, written_bytes) = {
+                #[cfg(target_os = "macos")]
+                {
+                    self.bsd_name
+                        .as_ref()
+                        .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
+                        .unwrap_or_else(|| {
+                            sysinfo_debug!("Failed to update disk i/o stats");
+                            (0, 0)
+                        })
+                }
+                #[cfg(not(target_os = "macos"))]
+                (0, 0)
+            };
 
-        self.old_read_bytes = self.read_bytes;
-        self.old_written_bytes = self.written_bytes;
-        self.read_bytes = read_bytes;
-        self.written_bytes = written_bytes;
+            self.old_read_bytes = self.read_bytes;
+            self.old_written_bytes = self.written_bytes;
+            self.read_bytes = read_bytes;
+            self.written_bytes = written_bytes;
+        }
 
-        let (total_space, available_space) = if refresh_kind.details() {
-            unsafe {
+        if refresh_kind.details() {
+            let (total_space, available_space) = unsafe {
                 if let Some(requested_properties) = build_requested_properties(&[
                     ffi::kCFURLVolumeTotalCapacityKey,
                     ffi::kCFURLVolumeAvailableCapacityKey,
@@ -136,13 +136,12 @@ impl DiskInner {
                     sysinfo_debug!("failed to create volume key list, skipping refresh");
                     (0, 0)
                 }
-            }
-        } else {
-            (0, 0)
-        };
+            };
 
-        self.total_space = total_space;
-        self.available_space = available_space;
+            self.total_space = total_space;
+            self.available_space = available_space;
+        }
+
         true
     }
 
