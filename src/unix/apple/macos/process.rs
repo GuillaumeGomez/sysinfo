@@ -433,7 +433,7 @@ unsafe fn convert_node_path_info(node: &libc::vnode_info_path) -> Option<PathBuf
     }
     cstr_to_rust_with_size(
         node.vip_path.as_ptr() as _,
-        Some(node.vip_path.len() * node.vip_path[0].len()),
+        Some(mem::size_of_val(&node.vip_path)),
     )
     .map(PathBuf::from)
 }
