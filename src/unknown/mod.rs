@@ -41,3 +41,21 @@ cfg_if! {
 
 #[doc = include_str!("../../md_doc/is_supported.md")]
 pub const IS_SUPPORTED_SYSTEM: bool = false;
+
+// Make formattable by rustfmt.
+#[cfg(any())]
+mod component;
+#[cfg(any())]
+mod cpu;
+#[cfg(any())]
+mod disk;
+#[cfg(any())]
+mod groups;
+#[cfg(any())]
+mod network;
+#[cfg(any())]
+mod process;
+#[cfg(any())]
+mod system;
+#[cfg(any())]
+mod users;

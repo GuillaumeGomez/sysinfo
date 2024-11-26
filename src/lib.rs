@@ -116,6 +116,16 @@ mod debug;
 mod serde;
 pub(crate) mod utils;
 
+// Make formattable by rustfmt.
+#[cfg(any())]
+mod network;
+#[cfg(any())]
+mod unix;
+#[cfg(any())]
+mod unknown;
+#[cfg(any())]
+mod windows;
+
 /// This function is only used on Linux targets, when the `system` feature is enabled. In other
 /// cases, it does nothing and returns `false`.
 ///
