@@ -239,13 +239,16 @@ fn new_disk(
         DiskKind::Unknown(-1)
     };
 
-    let (total_space, available_space, is_read_only) =
+    let (total_space, available_space, is_read_only) = if refresh_kind.details() {
         match unsafe { load_statvfs_values(mount_point, refresh_kind) } {
             Some((total_space, available_space, is_read_only)) => {
                 (total_space, available_space, is_read_only)
             }
             None => (0, 0, false),
-        };
+        }
+    } else {
+        (0, 0, false)
+    };
 
     let is_removable = if refresh_kind.details() {
         removable_entries

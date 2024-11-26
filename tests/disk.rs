@@ -53,71 +53,81 @@ fn test_disk_refresh_kind() {
         }
 
         let assertions = |name: &'static str, disks: &Disks| {
-            for disk in disks.list().iter() {
-                if refreshes.kind() {
-                    #[cfg(not(target_os = "freebsd"))]
-                    assert_ne!(
-                        disk.kind(),
-                        DiskKind::Unknown(-1),
-                        "{name}: disk.kind should be refreshed"
-                    );
-                } else {
-                    assert_eq!(
-                        disk.kind(),
-                        DiskKind::Unknown(-1),
-                        "{name}: disk.kind should not be refreshed"
-                    );
-                }
+            if refreshes.kind() {
+                // This would ideally assert that *all* are refreshed, but we settle for a weaker
+                // assertion because failures can't be distinguished from "not refreshed" values.
+                #[cfg(not(target_os = "freebsd"))]
+                assert!(
+                    disks
+                        .iter()
+                        .any(|disk| disk.kind() != DiskKind::Unknown(-1)),
+                    "{name}: disk.kind should be refreshed"
+                );
+            } else {
+                assert!(
+                    disks
+                        .iter()
+                        .all(|disk| disk.kind() == DiskKind::Unknown(-1)),
+                    "{name}: disk.kind should not be refreshed"
+                );
+            }
 
-                if refreshes.details() {
-                    assert_ne!(
-                        disk.available_space(),
-                        Default::default(),
-                        "{name}: disk.available_space should be refreshed"
-                    );
-                    assert_ne!(
-                        disk.total_space(),
-                        Default::default(),
-                        "{name}: disk.total_space should be refreshed"
-                    );
-                    // We can't assert anything about booleans, since false is indistinguishable from
-                    // not-refreshed
-                } else {
-                    assert_eq!(
-                        disk.available_space(),
-                        Default::default(),
-                        "{name}: disk.available_space should not be refreshed"
-                    );
-                    assert_eq!(
-                        disk.total_space(),
-                        Default::default(),
-                        "{name}: disk.total_space should not be refreshed"
-                    );
-                    assert_eq!(
-                        disk.is_read_only(),
-                        <bool as Default>::default(),
-                        "{name}: disk.is_read_only should not be refreshed"
-                    );
-                    assert_eq!(
-                        disk.is_removable(),
-                        <bool as Default>::default(),
-                        "{name}: disk.is_removable should not be refreshed"
-                    );
-                }
+            if refreshes.details() {
+                // These would ideally assert that *all* are refreshed, but we settle for a weaker
+                // assertion because failures can't be distinguished from "not refreshed" values.
+                assert!(
+                    disks
+                        .iter()
+                        .any(|disk| disk.available_space() != Default::default()),
+                    "{name}: disk.available_space should be refreshed"
+                );
+                assert!(
+                    disks
+                        .iter()
+                        .any(|disk| disk.total_space() != Default::default()),
+                    "{name}: disk.total_space should be refreshed"
+                );
+                // We can't assert anything about booleans, since false is indistinguishable from
+                // not-refreshed
+            } else {
+                assert!(
+                    disks
+                        .iter()
+                        .all(|disk| disk.available_space() == Default::default()),
+                    "{name}: disk.available_space should not be refreshed"
+                );
+                assert!(
+                    disks
+                        .iter()
+                        .all(|disk| disk.total_space() == Default::default()),
+                    "{name}: disk.total_space should not be refreshed"
+                );
+                assert!(
+                    disks
+                        .iter()
+                        .all(|disk| disk.is_read_only() == <bool as Default>::default()),
+                    "{name}: disk.is_read_only should not be refreshed"
+                );
+                assert!(
+                    disks
+                        .iter()
+                        .all(|disk| disk.is_removable() == <bool as Default>::default()),
+                    "{name}: disk.is_removable should not be refreshed"
+                );
+            }
 
-                if refreshes.io_usage() {
-                    assert_ne!(
-                        disk.usage(),
-                        Default::default(),
-                        "{name}: disk.usage should be refreshed"
-                    );
-                } else {
-                    assert_eq!(
-                        disk.usage(),
-                        Default::default(),
-                        "{name}: disk.usage should not be refreshed"
-                    );
-                }
+            if refreshes.io_usage() {
+                // This would ideally assert that *all* are refreshed, but we settle for a weaker
+                // assertion because failures can't be distinguished from "not refreshed" values.
+                assert!(
+                    disks.iter().any(|disk| disk.usage() != Default::default()),
+                    "{name}: disk.usage should be refreshed"
+                );
+            } else {
+                assert!(
+                    disks.iter().all(|disk| disk.usage() == Default::default()),
+                    "{name}: disk.usage should not be refreshed"
+                );
             }
         };
 
