@@ -1,3 +1,7 @@
+# 0.32.1
+
+ * Fix compilation error due to `libc` update.
+
 # 0.32.0
 
  * Add new `Disk::is_read_only` API.
