@@ -162,7 +162,9 @@ unsafe fn initialize_security() -> Result<(), ()> {
         None,
         EOAC_NONE,
         None,
-    ).is_err() {
+    )
+    .is_err()
+    {
         sysinfo_debug!("Failed to initialize security");
         Err(())
     } else {
@@ -173,8 +175,12 @@ unsafe fn initialize_security() -> Result<(), ()> {
 impl Connection {
     #[allow(clippy::unnecessary_wraps)]
     fn new() -> Option<Connection> {
-        if CONNECTION.with(|x| *x.get_or_init(|| unsafe { initialize_connection() })).is_err()
-            || SECURITY.get_or_init(|| unsafe { initialize_security() }).is_err()
+        if CONNECTION
+            .with(|x| *x.get_or_init(|| unsafe { initialize_connection() }))
+            .is_err()
+            || SECURITY
+                .get_or_init(|| unsafe { initialize_security() })
+                .is_err()
         {
             return None;
         }

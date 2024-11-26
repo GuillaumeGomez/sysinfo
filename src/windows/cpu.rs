@@ -170,7 +170,14 @@ impl Query {
         let mut query = 0;
         unsafe {
             if force_reload {
-                PdhEnumObjectsA(PCSTR::null(), PCSTR::null(), PSTR::null(), &mut 0, PERF_DETAIL_NOVICE, TRUE);
+                PdhEnumObjectsA(
+                    PCSTR::null(),
+                    PCSTR::null(),
+                    PSTR::null(),
+                    &mut 0,
+                    PERF_DETAIL_NOVICE,
+                    TRUE,
+                );
             }
             if PdhOpenQueryA(PCSTR::null(), 0, &mut query) == ERROR_SUCCESS.0 {
                 let q = InternalQuery {

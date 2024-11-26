@@ -1,19 +1,25 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#[cfg(any(feature = "system", feature = "disk"))]
-use core_foundation_sys::base::CFAllocatorRef;
 #[cfg(any(
     feature = "system",
     feature = "disk",
-    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+    all(
+        feature = "component",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ),
 ))]
 use core_foundation_sys::base::mach_port_t;
+#[cfg(any(feature = "system", feature = "disk"))]
+use core_foundation_sys::base::CFAllocatorRef;
 #[cfg(any(feature = "system", feature = "disk"))]
 use core_foundation_sys::dictionary::CFDictionaryRef;
 #[cfg(any(
     feature = "system",
     feature = "disk",
-    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+    all(
+        feature = "component",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ),
 ))]
 use core_foundation_sys::dictionary::CFMutableDictionaryRef;
 #[cfg(any(feature = "system", feature = "disk"))]
@@ -23,7 +29,10 @@ use libc::c_char;
 #[cfg(any(
     feature = "system",
     feature = "disk",
-    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+    all(
+        feature = "component",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ),
 ))]
 use libc::kern_return_t;
 
@@ -32,7 +41,10 @@ use libc::kern_return_t;
 #[cfg(any(
     feature = "system",
     feature = "disk",
-    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+    all(
+        feature = "component",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ),
 ))]
 #[allow(non_camel_case_types)]
 pub type io_object_t = mach_port_t;
@@ -40,7 +52,10 @@ pub type io_object_t = mach_port_t;
 #[cfg(any(
     feature = "system",
     feature = "disk",
-    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+    all(
+        feature = "component",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ),
 ))]
 #[allow(non_camel_case_types)]
 pub type io_iterator_t = io_object_t;
@@ -85,7 +100,10 @@ cfg_if! {
 #[cfg(any(
     feature = "system",
     feature = "disk",
-    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+    all(
+        feature = "component",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ),
 ))]
 pub const kIOMasterPortDefault: mach_port_t = 0;
 
@@ -93,7 +111,10 @@ pub const kIOMasterPortDefault: mach_port_t = 0;
 #[cfg(any(
     feature = "system",
     feature = "disk",
-    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+    all(
+        feature = "component",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ),
 ))]
 #[link(name = "IOKit", kind = "framework")]
 extern "C" {
@@ -104,7 +125,10 @@ extern "C" {
     ) -> kern_return_t;
     #[cfg(any(
         feature = "system",
-        all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+        all(
+            feature = "component",
+            any(target_arch = "x86", target_arch = "x86_64")
+        ),
     ))]
     pub fn IOServiceMatching(a: *const c_char) -> CFMutableDictionaryRef;
 
@@ -134,15 +158,15 @@ extern "C" {
     #[cfg(feature = "system")]
     pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: io_name_t) -> kern_return_t;
     #[cfg(feature = "disk")]
-    pub fn IOObjectConformsTo(
-        object: io_object_t,
-        className: *const c_char,
-    ) -> libc::boolean_t;
+    pub fn IOObjectConformsTo(object: io_object_t, className: *const c_char) -> libc::boolean_t;
 }
 
 #[cfg(any(
     feature = "system",
-    all(feature = "component", any(target_arch = "x86", target_arch = "x86_64")),
+    all(
+        feature = "component",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ),
 ))]
 pub const KIO_RETURN_SUCCESS: i32 = 0;
 
@@ -249,7 +273,11 @@ mod io_service {}
 ))]
 pub use io_service::*;
 
-#[cfg(all(feature = "component", not(feature = "apple-sandbox"), target_arch = "aarch64"))]
+#[cfg(all(
+    feature = "component",
+    not(feature = "apple-sandbox"),
+    target_arch = "aarch64"
+))]
 mod io_service {
     use std::ptr::null;
 
@@ -368,5 +396,9 @@ mod io_service {
     }
 }
 
-#[cfg(all(feature = "component", not(feature = "apple-sandbox"), target_arch = "aarch64"))]
+#[cfg(all(
+    feature = "component",
+    not(feature = "apple-sandbox"),
+    target_arch = "aarch64"
+))]
 pub use io_service::*;

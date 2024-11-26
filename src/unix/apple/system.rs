@@ -5,7 +5,10 @@ use crate::sys::cpu::*;
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessRefreshKind};
+use crate::{
+    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
+    ProcessesToUpdate,
+};
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use std::cell::UnsafeCell;

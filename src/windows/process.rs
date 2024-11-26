@@ -445,7 +445,7 @@ impl ProcessInner {
     }
 
     pub(crate) fn switch_updated(&mut self) -> bool {
-         std::mem::replace(&mut self.updated, false)
+        std::mem::replace(&mut self.updated, false)
     }
 }
 

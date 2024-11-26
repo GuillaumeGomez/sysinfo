@@ -88,9 +88,13 @@ impl DiskInner {
     }
 
     fn efficient_refresh(&mut self, procfs_disk_stats: &HashMap<String, DiskStat>) -> bool {
-        let Some((read_bytes, written_bytes)) = procfs_disk_stats
-            .get(&self.actual_device_name)
-            .map(|stat| (stat.sectors_read * SECTOR_SIZE, stat.sectors_written * SECTOR_SIZE))
+        let Some((read_bytes, written_bytes)) =
+            procfs_disk_stats.get(&self.actual_device_name).map(|stat| {
+                (
+                    stat.sectors_read * SECTOR_SIZE,
+                    stat.sectors_written * SECTOR_SIZE,
+                )
+            })
         else {
             sysinfo_debug!("Failed to update disk i/o stats");
             return false;
@@ -207,7 +211,12 @@ fn new_disk(
 
         let (read_bytes, written_bytes) = procfs_disk_stats
             .get(&actual_device_name)
-            .map(|stat| (stat.sectors_read * SECTOR_SIZE, stat.sectors_written * SECTOR_SIZE))
+            .map(|stat| {
+                (
+                    stat.sectors_read * SECTOR_SIZE,
+                    stat.sectors_written * SECTOR_SIZE,
+                )
+            })
             .unwrap_or_default();
 
         Some(Disk {
@@ -425,10 +434,13 @@ impl DiskStat {
         let sectors_read = iter.nth(2).and_then(|v| u64::from_str(v).ok())?;
         // 10th field
         let sectors_written = iter.nth(3).and_then(|v| u64::from_str(v).ok())?;
-        Some((name, Self {
-            sectors_read,
-            sectors_written,
-        }))
+        Some((
+            name,
+            Self {
+                sectors_read,
+                sectors_written,
+            },
+        ))
     }
 }
 
@@ -461,7 +473,7 @@ fn disk_stats_inner(content: &str) -> HashMap<String, DiskStat> {
 
 #[cfg(test)]
 mod test {
-    use super::{DiskStat, disk_stats_inner};
+    use super::{disk_stats_inner, DiskStat};
     use std::collections::HashMap;
 
     #[test]
@@ -479,35 +491,56 @@ mod test {
 
         let data = disk_stats_inner(file_content);
         let expected_data: HashMap<String, DiskStat> = HashMap::from([
-            ("nvme0n1".to_string(), DiskStat {
-                sectors_read: 38943220,
-                sectors_written: 462375378,
-            }),
-            ("nvme0n1p1".to_string(), DiskStat {
-                sectors_read: 15468,
-                sectors_written: 2,
-            }),
-            ("nvme0n1p2".to_string(), DiskStat {
-                sectors_read: 11626,
-                sectors_written: 616,
-            }),
-            ("nvme0n1p3".to_string(), DiskStat {
-                sectors_read: 38910302,
-                sectors_written: 462374760,
-            }),
-            ("dm-0".to_string(),DiskStat {
-                sectors_read:  38909056,
-                sectors_written: 462374760,
-            }),
-            ("zram0".to_string(), DiskStat {
-                sectors_read: 20984,
-                sectors_written: 2082088,
-            }),
+            (
+                "nvme0n1".to_string(),
+                DiskStat {
+                    sectors_read: 38943220,
+                    sectors_written: 462375378,
+                },
+            ),
+            (
+                "nvme0n1p1".to_string(),
+                DiskStat {
+                    sectors_read: 15468,
+                    sectors_written: 2,
+                },
+            ),
+            (
+                "nvme0n1p2".to_string(),
+                DiskStat {
+                    sectors_read: 11626,
+                    sectors_written: 616,
+                },
+            ),
+            (
+                "nvme0n1p3".to_string(),
+                DiskStat {
+                    sectors_read: 38910302,
+                    sectors_written: 462374760,
+                },
+            ),
+            (
+                "dm-0".to_string(),
+                DiskStat {
+                    sectors_read: 38909056,
+                    sectors_written: 462374760,
+                },
+            ),
+            (
+                "zram0".to_string(),
+                DiskStat {
+                    sectors_read: 20984,
+                    sectors_written: 2082088,
+                },
+            ),
             // This one ensures that we read the correct fields.
-            ("bla".to_string(), DiskStat {
-                sectors_read: 6,
-                sectors_written: 10,
-            }),
+            (
+                "bla".to_string(),
+                DiskStat {
+                    sectors_read: 6,
+                    sectors_written: 10,
+                },
+            ),
         ]);
 
         assert_eq!(data, expected_data);

@@ -1,6 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessRefreshKind};
+use crate::{
+    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
+    ProcessesToUpdate,
+};
 
 use std::collections::HashMap;
 use std::time::Duration;

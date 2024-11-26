@@ -1,9 +1,12 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use libc::{self, c_char, c_int, c_uint, if_data64, if_msghdr2, sysctl, CTL_NET, IFNAMSIZ, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2};
+use libc::{
+    self, c_char, c_int, c_uint, if_data64, if_msghdr2, sysctl, CTL_NET, IFNAMSIZ, NET_RT_IFLIST2,
+    PF_ROUTE, RTM_IFINFO2,
+};
 
 use std::collections::{hash_map, HashMap};
-use std::mem::{MaybeUninit, size_of};
+use std::mem::{size_of, MaybeUninit};
 use std::ptr::null_mut;
 
 use crate::network::refresh_networks_addresses;
@@ -38,11 +41,27 @@ fn update_network_data(inner: &mut NetworkDataInner, data: &if_data64) {
     update_field(&mut inner.old_out, &mut inner.current_out, data.ifi_obytes);
     update_field(&mut inner.old_in, &mut inner.current_in, data.ifi_ibytes);
 
-    update_field(&mut inner.old_packets_out, &mut inner.packets_out, data.ifi_opackets);
-    update_field(&mut inner.old_packets_in, &mut inner.packets_in, data.ifi_ipackets);
+    update_field(
+        &mut inner.old_packets_out,
+        &mut inner.packets_out,
+        data.ifi_opackets,
+    );
+    update_field(
+        &mut inner.old_packets_in,
+        &mut inner.packets_in,
+        data.ifi_ipackets,
+    );
 
-    update_field(&mut inner.old_errors_in, &mut inner.errors_in, data.ifi_ierrors);
-    update_field(&mut inner.old_errors_out, &mut inner.errors_out, data.ifi_oerrors);
+    update_field(
+        &mut inner.old_errors_in,
+        &mut inner.errors_in,
+        data.ifi_ierrors,
+    );
+    update_field(
+        &mut inner.old_errors_out,
+        &mut inner.errors_out,
+        data.ifi_oerrors,
+    );
 }
 
 pub(crate) struct NetworksInner {
@@ -83,7 +102,7 @@ impl NetworksInner {
             NETLINK_GENERIC,
             IFMIB_IFDATA,
             0,
-            IFDATA_GENERAL
+            IFDATA_GENERAL,
         ];
 
         let mut len = 0;
@@ -146,7 +165,14 @@ impl NetworksInner {
                     let mut mib_data: MaybeUninit<ifmibdata> = MaybeUninit::uninit();
 
                     mib2[4] = (*if2m).ifm_index as _;
-                    let ret = sysctl(mib2.as_mut_ptr(), mib2.len() as _, mib_data.as_mut_ptr() as *mut _, &mut size_of::<ifmibdata>(), null_mut(), 0);
+                    let ret = sysctl(
+                        mib2.as_mut_ptr(),
+                        mib2.len() as _,
+                        mib_data.as_mut_ptr() as *mut _,
+                        &mut size_of::<ifmibdata>(),
+                        null_mut(),
+                        0,
+                    );
 
                     match self.interfaces.entry(name) {
                         hash_map::Entry::Occupied(mut e) => {
@@ -198,7 +224,7 @@ impl NetworksInner {
                                 packets_out = data.ifi_opackets;
                                 errors_in = data.ifi_ierrors;
                                 errors_out = data.ifi_oerrors;
-                             }
+                            }
 
                             e.insert(NetworkData {
                                 inner: NetworkDataInner {

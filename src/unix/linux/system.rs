@@ -3,7 +3,10 @@
 use crate::sys::cpu::{get_physical_core_count, CpusWrapper};
 use crate::sys::process::{compute_cpu_usage, refresh_procs};
 use crate::sys::utils::{get_all_utf8_data, to_u64};
-use crate::{Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessesToUpdate, ProcessRefreshKind};
+use crate::{
+    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
+    ProcessesToUpdate,
+};
 
 use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 
@@ -177,7 +180,8 @@ impl SystemInner {
         if !refresh_kind.cpu() {
             return;
         }
-        self.cpus.refresh_if_needed(true, CpuRefreshKind::new().with_cpu_usage());
+        self.cpus
+            .refresh_if_needed(true, CpuRefreshKind::new().with_cpu_usage());
 
         if self.cpus.is_empty() {
             sysinfo_debug!("cannot compute processes CPU usage: no CPU found...");
@@ -525,19 +529,17 @@ where
 
 fn read_table_key(filename: &str, target_key: &str, colsep: char) -> Option<u64> {
     if let Ok(content) = get_all_utf8_data(filename, 16_635) {
-        return content
-            .split('\n')
-            .find_map(|line| {
-                let mut split = line.split(colsep);
-                let key = split.next()?;
-                if key != target_key {
-                    return None;
-                }
+        return content.split('\n').find_map(|line| {
+            let mut split = line.split(colsep);
+            let key = split.next()?;
+            if key != target_key {
+                return None;
+            }
 
-                let value = split.next()?;
-                let value0 = value.trim_start().split(' ').next()?;
-                u64::from_str(value0).ok()
-            });
+            let value = split.next()?;
+            let value0 = value.trim_start().split(' ').next()?;
+            u64::from_str(value0).ok()
+        });
     }
 
     None
@@ -553,13 +555,13 @@ impl crate::CGroupLimits {
             // cgroups v2
             read_u64("/sys/fs/cgroup/memory.current"),
             read_u64("/sys/fs/cgroup/memory.max"),
-            read_table_key("/sys/fs/cgroup/memory.stat", "anon", ' ')
+            read_table_key("/sys/fs/cgroup/memory.stat", "anon", ' '),
         ) {
             let mut limits = Self {
                 total_memory: sys.mem_total,
                 free_memory: sys.mem_free,
                 free_swap: sys.swap_free,
-                rss: mem_rss
+                rss: mem_rss,
             };
 
             limits.total_memory = min(mem_max, sys.mem_total);
@@ -574,13 +576,13 @@ impl crate::CGroupLimits {
             // cgroups v1
             read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
             read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
-            read_table_key("/sys/fs/cgroup/memory/memory.stat", "total_rss", ' ')
+            read_table_key("/sys/fs/cgroup/memory/memory.stat", "total_rss", ' '),
         ) {
             let mut limits = Self {
                 total_memory: sys.mem_total,
                 free_memory: sys.mem_free,
                 free_swap: sys.swap_free,
-                rss: mem_rss
+                rss: mem_rss,
             };
 
             limits.total_memory = min(mem_max, sys.mem_total);
@@ -689,9 +691,9 @@ mod test {
     use super::get_system_info_android;
     #[cfg(not(target_os = "android"))]
     use super::get_system_info_linux;
-    use super::InfoType;
     use super::read_table;
     use super::read_table_key;
+    use super::InfoType;
     use std::collections::HashMap;
     use std::io::Write;
     use tempfile::NamedTempFile;
