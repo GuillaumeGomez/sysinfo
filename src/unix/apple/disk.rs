@@ -73,7 +73,7 @@ impl DiskInner {
     }
 
     pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) -> bool {
-        if refresh_kind.kind() {
+        if refresh_kind.kind() && self.type_ == DiskKind::Unknown(-1) {
             let type_ = {
                 #[cfg(target_os = "macos")]
                 {

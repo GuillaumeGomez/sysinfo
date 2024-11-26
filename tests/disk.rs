@@ -53,20 +53,20 @@ fn test_disk_refresh_kind() {
             refreshes = f(refreshes);
         }
 
-        let assertions = |disks: &Disks| {
+        let assertions = |name: &'static str, disks: &Disks| {
             for disk in disks.list().iter() {
                 if refreshes.kind() {
                     #[cfg(not(target_os = "freebsd"))]
                     assert_ne!(
                         disk.kind(),
                         DiskKind::Unknown(-1),
-                        "disk.kind should be refreshed"
+                        "{name}: disk.kind should be refreshed"
                     );
                 } else {
                     assert_eq!(
                         disk.kind(),
                         DiskKind::Unknown(-1),
-                        "disk.kind should not be refreshed"
+                        "{name}: disk.kind should not be refreshed"
                     );
                 }
 
@@ -74,12 +74,12 @@ fn test_disk_refresh_kind() {
                     assert_ne!(
                         disk.available_space(),
                         Default::default(),
-                        "disk.available_space should be refreshed"
+                        "{name}: disk.available_space should be refreshed"
                     );
                     assert_ne!(
                         disk.total_space(),
                         Default::default(),
-                        "disk.total_space should be refreshed"
+                        "{name}: disk.total_space should be refreshed"
                     );
                     // We can't assert anything about booleans, since false is indistinguishable from
                     // not-refreshed
@@ -87,22 +87,22 @@ fn test_disk_refresh_kind() {
                     assert_eq!(
                         disk.available_space(),
                         Default::default(),
-                        "disk.available_space should not be refreshed"
+                        "{name}: disk.available_space should not be refreshed"
                     );
                     assert_eq!(
                         disk.total_space(),
                         Default::default(),
-                        "disk.total_space should not be refreshed"
+                        "{name}: disk.total_space should not be refreshed"
                     );
                     assert_eq!(
                         disk.is_read_only(),
                         <bool as Default>::default(),
-                        "disk.is_read_only should not be refreshed"
+                        "{name}: disk.is_read_only should not be refreshed"
                     );
                     assert_eq!(
                         disk.is_removable(),
                         <bool as Default>::default(),
-                        "disk.is_removable should not be refreshed"
+                        "{name}: disk.is_removable should not be refreshed"
                     );
                 }
 
@@ -110,13 +110,13 @@ fn test_disk_refresh_kind() {
                     assert_ne!(
                         disk.usage(),
                         Default::default(),
-                        "disk.usage should be refreshed"
+                        "{name}: disk.usage should be refreshed"
                     );
                 } else {
                     assert_eq!(
                         disk.usage(),
                         Default::default(),
-                        "disk.usage should not be refreshed"
+                        "{name}: disk.usage should not be refreshed"
                     );
                 }
             }
@@ -124,12 +124,12 @@ fn test_disk_refresh_kind() {
 
         // load and refresh with the desired details should work
         let disks = Disks::new_with_refreshed_list_specifics(refreshes);
-        assertions(&disks);
+        assertions("full", &disks);
 
         // load with minimal `DiskRefreshKind`, then refresh for added detail should also work!
         let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::new());
         disks.refresh_specifics(refreshes);
-        assertions(&disks);
+        assertions("incremental", &disks);
     }
 }
 

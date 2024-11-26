@@ -167,26 +167,35 @@ impl DiskInner {
         self.is_read_only
     }
 
-    pub(crate) fn refresh_specifics(&mut self, _refreshes: DiskRefreshKind) -> bool {
-        let Some((read_bytes, written_bytes)) = get_disk_io(&self.device_path, None) else {
-            sysinfo_debug!("Failed to update disk i/o stats");
-            return false;
-        };
+    pub(crate) fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) -> bool {
+        if refreshes.kind() && self.type_ == DiskKind::Unknown(-1) {
+            self.type_ = get_disk_kind(&self.device_path, &None);
+        }
 
-        self.old_read_bytes = self.read_bytes;
-        self.old_written_bytes = self.written_bytes;
-        self.read_bytes = read_bytes;
-        self.written_bytes = written_bytes;
+        if refreshes.io_usage() {
+            let Some((read_bytes, written_bytes)) = get_disk_io(&self.device_path, None) else {
+                sysinfo_debug!("Failed to update disk i/o stats");
+                return false;
+            };
 
-        if self.total_space != 0 {
-            unsafe {
+            self.old_read_bytes = self.read_bytes;
+            self.old_written_bytes = self.written_bytes;
+            self.read_bytes = read_bytes;
+            self.written_bytes = written_bytes;
+        }
+
+        if refreshes.details() && self.total_space != 0 {
+            let available_space = unsafe {
                 let mut tmp = 0;
                 let lpdirectoryname = PCWSTR::from_raw(self.mount_point.as_ptr());
                 if GetDiskFreeSpaceExW(lpdirectoryname, None, None, Some(&mut tmp)).is_ok() {
-                    self.available_space = tmp;
-                    return true;
+                    tmp
+                } else {
+                    0
                 }
-            }
+            };
+
+            self.available_space = available_space;
         }
         false
     }
@@ -220,9 +229,9 @@ impl DisksInner {
         self.disks
     }
 
-    pub(crate) fn refresh_list_specifics(&mut self, _refreshes: DiskRefreshKind) {
+    pub(crate) fn refresh_list_specifics(&mut self, refreshes: DiskRefreshKind) {
         unsafe {
-            self.disks = get_list();
+            self.disks = get_list(refreshes);
         }
     }
 
@@ -259,7 +268,7 @@ unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {
     }
 }
 
-pub(crate) unsafe fn get_list() -> Vec<Disk> {
+pub(crate) unsafe fn get_list(refreshes: DiskRefreshKind) -> Vec<Disk> {
     #[cfg(feature = "multithread")]
     use rayon::iter::ParallelIterator;
 
@@ -268,7 +277,11 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
             let raw_volume_name = PCWSTR::from_raw(volume_name.as_ptr());
             let drive_type = GetDriveTypeW(raw_volume_name);
 
-            let is_removable = drive_type == DRIVE_REMOVABLE;
+            let is_removable = if refreshes.details() {
+                drive_type == DRIVE_REMOVABLE
+            } else {
+                false
+            };
 
             if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
                 return Vec::new();
@@ -292,7 +305,11 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
                 );
                 return Vec::new();
             }
-            let is_read_only = (flags & FILE_READ_ONLY_VOLUME) != 0;
+            let is_read_only = if refreshes.details() {
+                (flags & FILE_READ_ONLY_VOLUME) != 0
+            } else {
+                false
+            };
 
             let mount_paths = get_volume_path_names_for_volume_name(&volume_name[..]);
             if mount_paths.is_empty() {
@@ -305,51 +322,25 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
                 .copied()
                 .chain([0])
                 .collect::<Vec<_>>();
-            let Some(handle) = HandleWrapper::new_from_file(&device_path[..], Default::default())
-            else {
-                return Vec::new();
-            };
-            let Some((total_space, available_space)) = get_drive_size(&mount_paths[0][..]) else {
-                return Vec::new();
-            };
-            if total_space == 0 {
-                sysinfo_debug!("total_space == 0");
-                return Vec::new();
-            }
-            let spq_trim = STORAGE_PROPERTY_QUERY {
-                PropertyId: StorageDeviceSeekPenaltyProperty,
-                QueryType: PropertyStandardQuery,
-                AdditionalParameters: [0],
-            };
-            let mut result: DEVICE_SEEK_PENALTY_DESCRIPTOR = std::mem::zeroed();
+            let handle = HandleWrapper::new_from_file(&device_path[..], Default::default());
 
-            let mut dw_size = 0;
-            let device_io_control = DeviceIoControl(
-                handle.0,
-                IOCTL_STORAGE_QUERY_PROPERTY,
-                Some(&spq_trim as *const STORAGE_PROPERTY_QUERY as *const c_void),
-                size_of::<STORAGE_PROPERTY_QUERY>() as u32,
-                Some(&mut result as *mut DEVICE_SEEK_PENALTY_DESCRIPTOR as *mut c_void),
-                size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as u32,
-                Some(&mut dw_size),
-                None,
-            )
-            .is_ok();
-            let type_ = if !device_io_control
-                || dw_size != size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as u32
-            {
-                DiskKind::Unknown(-1)
+            let (total_space, available_space) = if refreshes.details() {
+                get_drive_size(&mount_paths[0][..]).unwrap_or_default()
             } else {
-                let is_hdd = result.IncursSeekPenalty.as_bool();
-                if is_hdd {
-                    DiskKind::HDD
-                } else {
-                    DiskKind::SSD
-                }
+                (0, 0)
             };
 
-            let (read_bytes, written_bytes) =
-                get_disk_io(&device_path, Some(handle)).unwrap_or_default();
+            let type_ = if refreshes.kind() {
+                get_disk_kind(&device_path, &handle)
+            } else {
+                DiskKind::Unknown(-1)
+            };
+
+            let (read_bytes, written_bytes) = if refreshes.io_usage() {
+                get_disk_io(&device_path, handle).unwrap_or_default()
+            } else {
+                (0, 0)
+            };
 
             let name = os_string_from_zero_terminated(&name);
             let file_system = os_string_from_zero_terminated(&file_system);
@@ -381,6 +372,63 @@ pub(crate) unsafe fn get_list() -> Vec<Disk> {
 fn os_string_from_zero_terminated(name: &[u16]) -> OsString {
     let len = name.iter().position(|&x| x == 0).unwrap_or(name.len());
     OsString::from_wide(&name[..len])
+}
+
+fn get_disk_kind(device_path: &[u16], borrowed_handle: &Option<HandleWrapper>) -> DiskKind {
+    let binding = (
+        borrowed_handle,
+        if borrowed_handle.is_none() {
+            unsafe { HandleWrapper::new_from_file(device_path, Default::default()) }
+        } else {
+            None
+        },
+    );
+    let handle = match binding {
+        (Some(ref handle), _) => handle,
+        (_, Some(ref handle)) => handle,
+        (None, None) => return DiskKind::Unknown(-1),
+    };
+
+    if handle.is_invalid() {
+        sysinfo_debug!(
+            "Expected handle to '{:?}' to be valid",
+            String::from_utf16_lossy(device_path)
+        );
+        return DiskKind::Unknown(-1);
+    }
+
+    let spq_trim = STORAGE_PROPERTY_QUERY {
+        PropertyId: StorageDeviceSeekPenaltyProperty,
+        QueryType: PropertyStandardQuery,
+        AdditionalParameters: [0],
+    };
+    let mut result: DEVICE_SEEK_PENALTY_DESCRIPTOR = unsafe { std::mem::zeroed() };
+
+    let mut dw_size = 0;
+    let device_io_control = unsafe {
+        DeviceIoControl(
+            handle.0,
+            IOCTL_STORAGE_QUERY_PROPERTY,
+            Some(&spq_trim as *const STORAGE_PROPERTY_QUERY as *const c_void),
+            size_of::<STORAGE_PROPERTY_QUERY>() as u32,
+            Some(&mut result as *mut DEVICE_SEEK_PENALTY_DESCRIPTOR as *mut c_void),
+            size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as u32,
+            Some(&mut dw_size),
+            None,
+        )
+        .is_ok()
+    };
+
+    if !device_io_control || dw_size != size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as u32 {
+        DiskKind::Unknown(-1)
+    } else {
+        let is_hdd = result.IncursSeekPenalty.as_bool();
+        if is_hdd {
+            DiskKind::HDD
+        } else {
+            DiskKind::SSD
+        }
+    }
 }
 
 /// Returns a tuple consisting of the total number of bytes read and written by the volume with the specified device path

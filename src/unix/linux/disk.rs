@@ -94,6 +94,10 @@ impl DiskInner {
         refresh_kind: DiskRefreshKind,
         procfs_disk_stats: &HashMap<String, DiskStat>,
     ) -> bool {
+        if refresh_kind.kind() && self.type_ == DiskKind::Unknown(-1) {
+            self.type_ = find_type_for_device_name(&self.device_name);
+        }
+
         if refresh_kind.io_usage() {
             let (read_bytes, written_bytes) = if let Some((read_bytes, written_bytes)) =
                 procfs_disk_stats.get(&self.actual_device_name).map(|stat| {
