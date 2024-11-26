@@ -177,7 +177,7 @@ fn refresh_disk(disk: &mut DiskInner, refresh_kind: DiskRefreshKind) -> bool {
             )
         }
     } else {
-        Default::default()
+        (0, 0)
     };
 
     disk.total_space = total_space;
@@ -189,8 +189,8 @@ fn refresh_disk(disk: &mut DiskInner, refresh_kind: DiskRefreshKind) -> bool {
         }
     } else {
         disk.update_old();
-        *disk.get_read() = Default::default();
-        *disk.get_written() = Default::default();
+        *disk.get_read() = 0;
+        *disk.get_written() = 0;
     }
 
     true
@@ -372,7 +372,7 @@ pub unsafe fn get_all_list(
 
         let (is_read_only, total_space, available_space) = if refresh_kind.details() {
             if libc::statvfs(fs_info.f_mntonname.as_ptr(), &mut vfs) != 0 {
-                Default::default()
+                (false, 0, 0)
             } else {
                 let f_frsize: u64 = vfs.f_frsize as _;
 
@@ -383,7 +383,7 @@ pub unsafe fn get_all_list(
                 )
             }
         } else {
-            Default::default()
+            (false, 0, 0)
         };
 
         if let Some(disk) = container.iter_mut().find(|d| d.inner.name == name) {
@@ -398,7 +398,7 @@ pub unsafe fn get_all_list(
                 [b"USB", b"usb"].iter().any(|b| *b == &fs_type[..])
                     || fs_type.starts_with(b"/dev/cd")
             } else {
-                Default::default()
+                false
             };
 
             container.push(Disk {

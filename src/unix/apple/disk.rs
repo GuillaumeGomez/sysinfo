@@ -103,7 +103,7 @@ impl DiskInner {
             #[cfg(not(target_os = "macos"))]
             (0, 0)
         } else {
-            Default::default()
+            (0, 0)
         };
 
         self.old_read_bytes = self.read_bytes;
@@ -129,16 +129,16 @@ impl DiskInner {
                         ),
                         None => {
                             sysinfo_debug!("Failed to get disk properties");
-                            Default::default()
+                            (0, 0)
                         }
                     }
                 } else {
                     sysinfo_debug!("failed to create volume key list, skipping refresh");
-                    Default::default()
+                    (0, 0)
                 }
             }
         } else {
-            Default::default()
+            (0, 0)
         };
 
         self.total_space = total_space;
@@ -507,7 +507,7 @@ unsafe fn new_disk(
             !internal
         }
     } else {
-        Default::default()
+        false
     };
 
     let total_space = if refresh_kind.details() {
@@ -516,13 +516,13 @@ unsafe fn new_disk(
             DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
         )? as u64
     } else {
-        Default::default()
+        0
     };
 
     let available_space = if refresh_kind.details() {
         get_available_volume_space(disk_props)
     } else {
-        Default::default()
+        0
     };
 
     let file_system = {
@@ -542,7 +542,7 @@ unsafe fn new_disk(
     let is_read_only = if refresh_kind.details() {
         (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0
     } else {
-        Default::default()
+        false
     };
 
     Some(Disk {

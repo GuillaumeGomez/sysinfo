@@ -106,10 +106,10 @@ impl DiskInner {
                 (read_bytes, written_bytes)
             } else {
                 sysinfo_debug!("Failed to update disk i/o stats");
-                Default::default()
+                (0, 0)
             }
         } else {
-            Default::default()
+            (0, 0)
         };
 
         self.old_read_bytes = self.read_bytes;
@@ -120,10 +120,10 @@ impl DiskInner {
         let (total_space, available_space, is_read_only) = if refresh_kind.details() {
             match unsafe { load_statvfs_values(&self.mount_point, refresh_kind) } {
                 Some((total, available, is_read_only)) => (total, available, is_read_only),
-                None => Default::default(),
+                None => (0, 0, false),
             }
         } else {
-            Default::default()
+            (0, 0, false)
         };
 
         self.total_space = total_space;
@@ -218,7 +218,7 @@ unsafe fn load_statvfs_values(
             None
         }
     } else {
-        Some((Default::default(), Default::default(), Default::default()))
+        Some((0, 0, false))
     }
 }
 
@@ -241,7 +241,7 @@ fn new_disk(
             Some((total_space, available_space, is_read_only)) => {
                 (total_space, available_space, is_read_only)
             }
-            None => (Default::default(), Default::default(), Default::default()),
+            None => (0, 0, false),
         };
 
     let is_removable = if refresh_kind.details() {
@@ -249,13 +249,13 @@ fn new_disk(
             .iter()
             .any(|e| e.as_os_str() == device_name)
     } else {
-        Default::default()
+        false
     };
 
     let actual_device_name = if refresh_kind.io_usage() {
         get_actual_device_name(device_name)
     } else {
-        Default::default()
+        String::new()
     };
 
     let (read_bytes, written_bytes) = if refresh_kind.io_usage() {
@@ -269,7 +269,7 @@ fn new_disk(
             })
             .unwrap_or_default()
     } else {
-        (Default::default(), Default::default())
+        (0, 0)
     };
 
     Disk {
