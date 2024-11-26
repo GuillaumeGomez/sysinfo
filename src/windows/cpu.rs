@@ -250,7 +250,6 @@ impl Query {
 pub(crate) struct CpusWrapper {
     pub(crate) global: CpuUsage,
     cpus: Vec<Cpu>,
-    got_cpu_frequency: bool,
 }
 
 impl CpusWrapper {
@@ -261,7 +260,6 @@ impl CpusWrapper {
                 key_used: None,
             },
             cpus: Vec::new(),
-            got_cpu_frequency: false,
         }
     }
 
@@ -276,7 +274,6 @@ impl CpusWrapper {
     fn init_if_needed(&mut self, refresh_kind: CpuRefreshKind) {
         if self.cpus.is_empty() {
             self.cpus = init_cpus(refresh_kind);
-            self.got_cpu_frequency = refresh_kind.frequency();
         }
     }
 
@@ -291,15 +288,11 @@ impl CpusWrapper {
     }
 
     pub fn get_frequencies(&mut self) {
-        if self.got_cpu_frequency {
-            return;
-        }
         let frequencies = get_frequencies(self.cpus.len());
 
         for (cpu, frequency) in self.cpus.iter_mut().zip(frequencies) {
             cpu.inner.set_frequency(frequency);
         }
-        self.got_cpu_frequency = true;
     }
 }
 
