@@ -136,7 +136,7 @@ impl Disk {
 
     /// Updates the disk' information with everything loaded.
     ///
-    /// Equivalent to [`Disk::refresh_specifics`]`(`[`DiskRefreshKind::everything`]`())`.
+    /// Equivalent to <code>[Disk::refresh_specifics]\([DiskRefreshKind::everything]\())</code>.
     ///
     /// ```no_run
     /// use sysinfo::Disks;
@@ -262,7 +262,7 @@ impl Disks {
 
     /// Creates a new [`Disks`][crate::Disks] type with the disk list loaded.
     ///
-    /// Equivalent to [`Disks::new_with_refreshed_list_specifics`]`(`[`DiskRefreshKind::everything`]`())`.
+    /// Equivalent to <code>[Disks::new_with_refreshed_list_specifics]\([DiskRefreshKind::everything]\())</code>.
     ///
     /// ```no_run
     /// use sysinfo::Disks;
@@ -325,7 +325,7 @@ impl Disks {
 
     /// Refreshes the listed disks' information.
     ///
-    /// Equivalent to [`Disks::refresh_specifics`]`(`[`DiskRefreshKind::everything`]`())`.
+    /// Equivalent to <code>[Disks::refresh_specifics]\([DiskRefreshKind::everything]\())</code>.
     pub fn refresh(&mut self) {
         self.refresh_specifics(DiskRefreshKind::everything());
     }
@@ -351,7 +351,7 @@ impl Disks {
 
     /// The disk list will be emptied then completely recomputed.
     ///
-    /// Equivalent to [`Disks::refresh_list_specifics`]`(`[`DiskRefreshKind::everything`]`())`.
+    /// Equivalent to <code>[Disks::refresh_list_specifics]\([DiskRefreshKind::everything]\())</code>.
     ///
     /// ```no_run
     /// use sysinfo::Disks;
