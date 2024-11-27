@@ -538,11 +538,7 @@ unsafe fn new_disk(
         )
     };
 
-    let is_read_only = if refresh_kind.details() {
-        (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0
-    } else {
-        false
-    };
+    let is_read_only = refresh_kind.details() && (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0;
 
     Some(Disk {
         inner: DiskInner {

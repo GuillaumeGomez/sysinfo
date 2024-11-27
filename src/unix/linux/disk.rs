@@ -100,25 +100,22 @@ impl DiskInner {
             if self.actual_device_name.is_none() {
                 self.actual_device_name = Some(get_actual_device_name(&self.device_name));
             }
-            let (read_bytes, written_bytes) = if let Some((read_bytes, written_bytes)) =
-                procfs_disk_stats
-                    .get(self.actual_device_name.as_ref().unwrap())
-                    .map(|stat| {
-                        (
-                            stat.sectors_read * SECTOR_SIZE,
-                            stat.sectors_written * SECTOR_SIZE,
-                        )
-                    }) {
-                (read_bytes, written_bytes)
+            if let Some((read_bytes, written_bytes)) = procfs_disk_stats
+                .get(self.actual_device_name.as_ref().unwrap())
+                .map(|stat| {
+                    (
+                        stat.sectors_read * SECTOR_SIZE,
+                        stat.sectors_written * SECTOR_SIZE,
+                    )
+                })
+            {
+                self.old_read_bytes = self.read_bytes;
+                self.old_written_bytes = self.written_bytes;
+                self.read_bytes = read_bytes;
+                self.written_bytes = written_bytes;
             } else {
                 sysinfo_debug!("Failed to update disk i/o stats");
-                (0, 0)
-            };
-
-            self.old_read_bytes = self.read_bytes;
-            self.old_written_bytes = self.written_bytes;
-            self.read_bytes = read_bytes;
-            self.written_bytes = written_bytes;
+            }
         }
 
         if refresh_kind.details() {
