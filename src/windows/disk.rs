@@ -184,17 +184,14 @@ impl DiskInner {
             self.written_bytes = written_bytes;
         }
 
-        if refreshes.details() && self.total_space != 0 {
-            let available_space = unsafe {
-                let mut tmp = 0;
-                let lpdirectoryname = PCWSTR::from_raw(self.mount_point.as_ptr());
-                if GetDiskFreeSpaceExW(lpdirectoryname, None, None, Some(&mut tmp)).is_ok() {
-                    tmp
-                } else {
-                    0
-                }
+        if refreshes.details() {
+            let (total_space, available_space) = if refreshes.details() {
+                unsafe { get_drive_size(&self.mount_point).unwrap_or_default() }
+            } else {
+                (0, 0)
             };
 
+            self.total_space = total_space;
             self.available_space = available_space;
         }
         false

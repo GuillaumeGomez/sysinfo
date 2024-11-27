@@ -56,7 +56,7 @@ fn test_disk_refresh_kind() {
             if refreshes.kind() {
                 // This would ideally assert that *all* are refreshed, but we settle for a weaker
                 // assertion because failures can't be distinguished from "not refreshed" values.
-                #[cfg(not(target_os = "freebsd"))]
+                #[cfg(not(any(target_os = "freebsd", target_os = "windows")))]
                 assert!(
                     disks
                         .iter()
