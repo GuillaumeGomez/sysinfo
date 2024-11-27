@@ -122,15 +122,13 @@ impl DiskInner {
         }
 
         if refresh_kind.details() {
-            let (total_space, available_space, is_read_only) =
-                match unsafe { load_statvfs_values(&self.mount_point, refresh_kind) } {
-                    Some((total, available, is_read_only)) => (total, available, is_read_only),
-                    None => (0, 0, false),
-                };
-
-            self.total_space = total_space;
-            self.available_space = available_space;
-            self.is_read_only = is_read_only;
+            if let Some((total_space, available_space, is_read_only)) =
+                unsafe { load_statvfs_values(&self.mount_point) }
+            {
+                self.total_space = total_space;
+                self.available_space = available_space;
+                self.is_read_only = is_read_only;
+            }
         }
 
         true
@@ -197,14 +195,7 @@ fn get_actual_device_name(device: &OsStr) -> String {
         .unwrap_or_default()
 }
 
-unsafe fn load_statvfs_values(
-    mount_point: &Path,
-    refresh_kind: DiskRefreshKind,
-) -> Option<(u64, u64, bool)> {
-    if !refresh_kind.details() {
-        return Some((0, 0, false));
-    }
-
+unsafe fn load_statvfs_values(mount_point: &Path) -> Option<(u64, u64, bool)> {
     let mount_point_cpath = to_cpath(mount_point);
     let mut stat: statvfs = mem::zeroed();
     if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
@@ -240,23 +231,15 @@ fn new_disk(
     };
 
     let (total_space, available_space, is_read_only) = if refresh_kind.details() {
-        match unsafe { load_statvfs_values(mount_point, refresh_kind) } {
-            Some((total_space, available_space, is_read_only)) => {
-                (total_space, available_space, is_read_only)
-            }
-            None => (0, 0, false),
-        }
+        unsafe { load_statvfs_values(mount_point).unwrap_or((0, 0, false)) }
     } else {
         (0, 0, false)
     };
 
-    let is_removable = if refresh_kind.details() {
-        removable_entries
+    let is_removable = refresh_kind.details()
+        && removable_entries
             .iter()
-            .any(|e| e.as_os_str() == device_name)
-    } else {
-        false
-    };
+            .any(|e| e.as_os_str() == device_name);
 
     let (actual_device_name, read_bytes, written_bytes) = if refresh_kind.io_usage() {
         let actual_device_name = get_actual_device_name(device_name);

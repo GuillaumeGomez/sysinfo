@@ -173,26 +173,23 @@ impl DiskInner {
         }
 
         if refreshes.io_usage() {
-            let Some((read_bytes, written_bytes)) = get_disk_io(&self.device_path, None) else {
+            if let Some((read_bytes, written_bytes)) = get_disk_io(&self.device_path, None) {
+                self.old_read_bytes = self.read_bytes;
+                self.old_written_bytes = self.written_bytes;
+                self.read_bytes = read_bytes;
+                self.written_bytes = written_bytes;
+            } else {
                 sysinfo_debug!("Failed to update disk i/o stats");
-                return false;
-            };
-
-            self.old_read_bytes = self.read_bytes;
-            self.old_written_bytes = self.written_bytes;
-            self.read_bytes = read_bytes;
-            self.written_bytes = written_bytes;
+            }
         }
 
         if refreshes.details() {
-            let (total_space, available_space) = if refreshes.details() {
-                unsafe { get_drive_size(&self.mount_point).unwrap_or_default() }
-            } else {
-                (0, 0)
-            };
-
-            self.total_space = total_space;
-            self.available_space = available_space;
+            if let Some((total_space, available_space)) =
+                unsafe { get_drive_size(&self.mount_point) }
+            {
+                self.total_space = total_space;
+                self.available_space = available_space;
+            }
         }
         false
     }
@@ -274,11 +271,7 @@ pub(crate) unsafe fn get_list(refreshes: DiskRefreshKind) -> Vec<Disk> {
             let raw_volume_name = PCWSTR::from_raw(volume_name.as_ptr());
             let drive_type = GetDriveTypeW(raw_volume_name);
 
-            let is_removable = if refreshes.details() {
-                drive_type == DRIVE_REMOVABLE
-            } else {
-                false
-            };
+            let is_removable = refreshes.details() && drive_type == DRIVE_REMOVABLE;
 
             if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
                 return Vec::new();
@@ -302,11 +295,7 @@ pub(crate) unsafe fn get_list(refreshes: DiskRefreshKind) -> Vec<Disk> {
                 );
                 return Vec::new();
             }
-            let is_read_only = if refreshes.details() {
-                (flags & FILE_READ_ONLY_VOLUME) != 0
-            } else {
-                false
-            };
+            let is_read_only = refreshes.details() && (flags & FILE_READ_ONLY_VOLUME) != 0;
 
             let mount_paths = get_volume_path_names_for_volume_name(&volume_name[..]);
             if mount_paths.is_empty() {
