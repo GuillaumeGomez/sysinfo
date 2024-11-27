@@ -90,56 +90,49 @@ impl DiskInner {
         }
 
         if refresh_kind.io_usage() {
-            let (read_bytes, written_bytes) = {
-                #[cfg(target_os = "macos")]
-                {
-                    self.bsd_name
-                        .as_ref()
-                        .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
-                        .unwrap_or_else(|| {
-                            sysinfo_debug!("Failed to update disk i/o stats");
-                            (0, 0)
-                        })
+            #[cfg(target_os = "macos")]
+            match self
+                .bsd_name
+                .as_ref()
+                .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
+            {
+                Some((read_bytes, written_bytes)) => {
+                    self.old_read_bytes = self.read_bytes;
+                    self.old_written_bytes = self.written_bytes;
+                    self.read_bytes = read_bytes;
+                    self.written_bytes = written_bytes;
                 }
-                #[cfg(not(target_os = "macos"))]
-                (0, 0)
-            };
-
-            self.old_read_bytes = self.read_bytes;
-            self.old_written_bytes = self.written_bytes;
-            self.read_bytes = read_bytes;
-            self.written_bytes = written_bytes;
+                None => {
+                    sysinfo_debug!("Failed to update disk i/o stats");
+                }
+            }
         }
 
         if refresh_kind.details() {
-            let (total_space, available_space) = unsafe {
+            unsafe {
                 if let Some(requested_properties) = build_requested_properties(&[
                     ffi::kCFURLVolumeTotalCapacityKey,
                     ffi::kCFURLVolumeAvailableCapacityKey,
                     ffi::kCFURLVolumeAvailableCapacityForImportantUsageKey,
                 ]) {
                     match get_disk_properties(&self.volume_url, &requested_properties) {
-                        Some(disk_props) => (
-                            get_int_value(
+                        Some(disk_props) => {
+                            self.total_space = get_int_value(
                                 disk_props.inner(),
                                 DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
                             )
-                            .unwrap_or_default() as u64,
-                            get_available_volume_space(&disk_props),
-                        ),
+                            .unwrap_or_default()
+                                as u64;
+                            self.available_space = get_available_volume_space(&disk_props);
+                        }
                         None => {
                             sysinfo_debug!("Failed to get disk properties");
-                            (0, 0)
                         }
                     }
                 } else {
                     sysinfo_debug!("failed to create volume key list, skipping refresh");
-                    (0, 0)
                 }
-            };
-
-            self.total_space = total_space;
-            self.available_space = available_space;
+            }
         }
 
         true
@@ -513,7 +506,8 @@ unsafe fn new_disk(
         get_int_value(
             disk_props.inner(),
             DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
-        )? as u64
+        )
+        .unwrap_or_default() as u64
     } else {
         0
     };

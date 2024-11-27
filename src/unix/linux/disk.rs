@@ -200,14 +200,13 @@ unsafe fn load_statvfs_values(mount_point: &Path) -> Option<(u64, u64, bool)> {
         let blocks = cast!(stat.f_blocks);
         let bavail = cast!(stat.f_bavail);
         let total = bsize.saturating_mul(blocks);
+        if total == 0 {
+            return None;
+        }
         let available = bsize.saturating_mul(bavail);
         let is_read_only = (stat.f_flag & libc::ST_RDONLY) != 0;
 
-        if total == 0 {
-            None
-        } else {
-            Some((total, available, is_read_only))
-        }
+        Some((total, available, is_read_only))
     } else {
         None
     }

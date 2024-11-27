@@ -164,23 +164,16 @@ impl GetValues for DiskInner {
 
 fn refresh_disk(disk: &mut DiskInner, refresh_kind: DiskRefreshKind) -> bool {
     if refresh_kind.details() {
-        let (total_space, available_space) = unsafe {
+        unsafe {
             let mut vfs: libc::statvfs = std::mem::zeroed();
             if libc::statvfs(disk.c_mount_point.as_ptr() as *const _, &mut vfs as *mut _) < 0 {
                 sysinfo_debug!("statvfs failed");
-                (0, 0)
             } else {
                 let block_size: u64 = vfs.f_frsize as _;
-
-                (
-                    vfs.f_blocks.saturating_mul(block_size),
-                    vfs.f_favail.saturating_mul(block_size),
-                )
+                disk.total_space = vfs.f_blocks.saturating_mul(block_size);
+                disk.available_space = vfs.f_favail.saturating_mul(block_size);
             }
-        };
-
-        disk.total_space = total_space;
-        disk.available_space = available_space;
+        }
     }
 
     if refresh_kind.io_usage() {
