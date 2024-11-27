@@ -201,27 +201,27 @@ unsafe fn load_statvfs_values(
     mount_point: &Path,
     refresh_kind: DiskRefreshKind,
 ) -> Option<(u64, u64, bool)> {
-    if refresh_kind.details() {
-        let mount_point_cpath = to_cpath(mount_point);
-        let mut stat: statvfs = mem::zeroed();
-        if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
-            let bsize = cast!(stat.f_bsize);
-            let blocks = cast!(stat.f_blocks);
-            let bavail = cast!(stat.f_bavail);
-            let total = bsize.saturating_mul(blocks);
-            let available = bsize.saturating_mul(bavail);
-            let is_read_only = (stat.f_flag & libc::ST_RDONLY) != 0;
+    if !refresh_kind.details() {
+        return Some((0, 0, false));
+    }
 
-            if total == 0 {
-                None
-            } else {
-                Some((total, available, is_read_only))
-            }
-        } else {
+    let mount_point_cpath = to_cpath(mount_point);
+    let mut stat: statvfs = mem::zeroed();
+    if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
+        let bsize = cast!(stat.f_bsize);
+        let blocks = cast!(stat.f_blocks);
+        let bavail = cast!(stat.f_bavail);
+        let total = bsize.saturating_mul(blocks);
+        let available = bsize.saturating_mul(bavail);
+        let is_read_only = (stat.f_flag & libc::ST_RDONLY) != 0;
+
+        if total == 0 {
             None
+        } else {
+            Some((total, available, is_read_only))
         }
     } else {
-        Some((0, 0, false))
+        None
     }
 }
 
