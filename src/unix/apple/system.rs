@@ -396,40 +396,49 @@ impl SystemInner {
     pub(crate) fn long_os_version() -> Option<String> {
         #[cfg(target_os = "macos")]
         {
-            let friendly_name = match Self::os_version().unwrap_or_default() {
-                f_n if f_n.starts_with("15") => "Sequoia",
-                f_n if f_n.starts_with("14") => "Sonoma",
-                f_n if f_n.starts_with("13") => "Ventura",
-                f_n if f_n.starts_with("12") => "Monterey",
-                f_n if f_n.starts_with("11") | f_n.starts_with("10.16") => "Big Sur",
-                f_n if f_n.starts_with("10.15") => "Catalina",
-                f_n if f_n.starts_with("10.14") => "Mojave",
-                f_n if f_n.starts_with("10.13") => "High Sierra",
-                f_n if f_n.starts_with("10.12") => "Sierra",
-                f_n if f_n.starts_with("10.11") => "El Capitan",
-                f_n if f_n.starts_with("10.10") => "Yosemite",
-                f_n if f_n.starts_with("10.9") => "Mavericks",
-                f_n if f_n.starts_with("10.8") => "Mountain Lion",
-                f_n if f_n.starts_with("10.7") => "Lion",
-                f_n if f_n.starts_with("10.6") => "Snow Leopard",
-                f_n if f_n.starts_with("10.5") => "Leopard",
-                f_n if f_n.starts_with("10.4") => "Tiger",
-                f_n if f_n.starts_with("10.3") => "Panther",
-                f_n if f_n.starts_with("10.2") => "Jaguar",
-                f_n if f_n.starts_with("10.1") => "Puma",
-                f_n if f_n.starts_with("10.0") => "Cheetah",
-                _ => "",
-            };
-            Some(format!(
-                "MacOS {} {}",
-                Self::os_version().unwrap_or_default(),
-                friendly_name
-            ))
+            let mut long_name = "MacOS".to_owned();
+            if let Some(os_version) = Self::os_version() {
+                long_name.push(' ');
+                long_name.push_str(&os_version);
+                if let Some(friendly_name) = match os_version.as_str() {
+                    f_n if f_n.starts_with("15") => Some("Sequoia"),
+                    f_n if f_n.starts_with("14") => Some("Sonoma"),
+                    f_n if f_n.starts_with("13") => Some("Ventura"),
+                    f_n if f_n.starts_with("12") => Some("Monterey"),
+                    f_n if f_n.starts_with("11") | f_n.starts_with("10.16") => Some("Big Sur"),
+                    f_n if f_n.starts_with("10.15") => Some("Catalina"),
+                    f_n if f_n.starts_with("10.14") => Some("Mojave"),
+                    f_n if f_n.starts_with("10.13") => Some("High Sierra"),
+                    f_n if f_n.starts_with("10.12") => Some("Sierra"),
+                    f_n if f_n.starts_with("10.11") => Some("El Capitan"),
+                    f_n if f_n.starts_with("10.10") => Some("Yosemite"),
+                    f_n if f_n.starts_with("10.9") => Some("Mavericks"),
+                    f_n if f_n.starts_with("10.8") => Some("Mountain Lion"),
+                    f_n if f_n.starts_with("10.7") => Some("Lion"),
+                    f_n if f_n.starts_with("10.6") => Some("Snow Leopard"),
+                    f_n if f_n.starts_with("10.5") => Some("Leopard"),
+                    f_n if f_n.starts_with("10.4") => Some("Tiger"),
+                    f_n if f_n.starts_with("10.3") => Some("Panther"),
+                    f_n if f_n.starts_with("10.2") => Some("Jaguar"),
+                    f_n if f_n.starts_with("10.1") => Some("Puma"),
+                    f_n if f_n.starts_with("10.0") => Some("Cheetah"),
+                    _ => None,
+                } {
+                    long_name.push(' ');
+                    long_name.push_str(friendly_name);
+                }
+            }
+            Some(long_name)
         }
 
         #[cfg(target_os = "ios")]
         {
-            Some(format!("iOS {}", Self::os_version().unwrap_or_default()))
+            let mut long_name = "iOS".to_owned();
+            if let Some(os_version) = Self::os_version() {
+                long_name.push(' ');
+                long_name.push_str(&os_version);
+            }
+            Some(long_name)
         }
     }
 
