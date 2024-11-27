@@ -395,42 +395,42 @@ impl SystemInner {
 
     pub(crate) fn long_os_version() -> Option<String> {
         #[cfg(target_os = "macos")]
-        let friendly_name = match Self::os_version().unwrap_or_default() {
-            f_n if f_n.starts_with("15") => "Sequoia",
-            f_n if f_n.starts_with("14") => "Sonoma",
-            f_n if f_n.starts_with("13") => "Ventura",
-            f_n if f_n.starts_with("12") => "Monterey",
-            f_n if f_n.starts_with("11") | f_n.starts_with("10.16") => "Big Sur",
-            f_n if f_n.starts_with("10.15") => "Catalina",
-            f_n if f_n.starts_with("10.14") => "Mojave",
-            f_n if f_n.starts_with("10.13") => "High Sierra",
-            f_n if f_n.starts_with("10.12") => "Sierra",
-            f_n if f_n.starts_with("10.11") => "El Capitan",
-            f_n if f_n.starts_with("10.10") => "Yosemite",
-            f_n if f_n.starts_with("10.9") => "Mavericks",
-            f_n if f_n.starts_with("10.8") => "Mountain Lion",
-            f_n if f_n.starts_with("10.7") => "Lion",
-            f_n if f_n.starts_with("10.6") => "Snow Leopard",
-            f_n if f_n.starts_with("10.5") => "Leopard",
-            f_n if f_n.starts_with("10.4") => "Tiger",
-            f_n if f_n.starts_with("10.3") => "Panther",
-            f_n if f_n.starts_with("10.2") => "Jaguar",
-            f_n if f_n.starts_with("10.1") => "Puma",
-            f_n if f_n.starts_with("10.0") => "Cheetah",
-            _ => "",
-        };
-
-        #[cfg(target_os = "macos")]
-        let long_name = Some(format!(
-            "MacOS {} {}",
-            Self::os_version().unwrap_or_default(),
-            friendly_name
-        ));
+        {
+            let friendly_name = match Self::os_version().unwrap_or_default() {
+                f_n if f_n.starts_with("15") => "Sequoia",
+                f_n if f_n.starts_with("14") => "Sonoma",
+                f_n if f_n.starts_with("13") => "Ventura",
+                f_n if f_n.starts_with("12") => "Monterey",
+                f_n if f_n.starts_with("11") | f_n.starts_with("10.16") => "Big Sur",
+                f_n if f_n.starts_with("10.15") => "Catalina",
+                f_n if f_n.starts_with("10.14") => "Mojave",
+                f_n if f_n.starts_with("10.13") => "High Sierra",
+                f_n if f_n.starts_with("10.12") => "Sierra",
+                f_n if f_n.starts_with("10.11") => "El Capitan",
+                f_n if f_n.starts_with("10.10") => "Yosemite",
+                f_n if f_n.starts_with("10.9") => "Mavericks",
+                f_n if f_n.starts_with("10.8") => "Mountain Lion",
+                f_n if f_n.starts_with("10.7") => "Lion",
+                f_n if f_n.starts_with("10.6") => "Snow Leopard",
+                f_n if f_n.starts_with("10.5") => "Leopard",
+                f_n if f_n.starts_with("10.4") => "Tiger",
+                f_n if f_n.starts_with("10.3") => "Panther",
+                f_n if f_n.starts_with("10.2") => "Jaguar",
+                f_n if f_n.starts_with("10.1") => "Puma",
+                f_n if f_n.starts_with("10.0") => "Cheetah",
+                _ => "",
+            };
+            Some(format!(
+                "MacOS {} {}",
+                Self::os_version().unwrap_or_default(),
+                friendly_name
+            ))
+        }
 
         #[cfg(target_os = "ios")]
-        let long_name = Some(format!("iOS {}", Self::os_version().unwrap_or_default()));
-
-        long_name
+        {
+            Some(format!("iOS {}", Self::os_version().unwrap_or_default()))
+        }
     }
 
     pub(crate) fn host_name() -> Option<String> {
