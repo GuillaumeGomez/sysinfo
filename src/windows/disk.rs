@@ -3,7 +3,7 @@
 use crate::sys::utils::HandleWrapper;
 use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
 
-use std::ffi::{c_void, OsStr, OsString};
+use std::ffi::{OsStr, OsString};
 use std::mem::size_of;
 use std::os::windows::ffi::OsStringExt;
 use std::path::Path;
@@ -169,7 +169,7 @@ impl DiskInner {
 
     pub(crate) fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) -> bool {
         if refreshes.kind() && self.type_ == DiskKind::Unknown(-1) {
-            self.type_ = get_disk_kind(&self.device_path, None);
+            self.type_ = unsafe { get_disk_kind(&self.device_path, None) };
         }
 
         if refreshes.io_usage() {
@@ -360,19 +360,17 @@ fn os_string_from_zero_terminated(name: &[u16]) -> OsString {
     OsString::from_wide(&name[..len])
 }
 
-fn get_disk_kind(device_path: &[u16], borrowed_handle: Option<&HandleWrapper>) -> DiskKind {
-    let binding = (
-        borrowed_handle,
-        if borrowed_handle.is_none() {
-            unsafe { HandleWrapper::new_from_file(device_path, Default::default()) }
-        } else {
-            None
-        },
-    );
-    let handle = match binding {
-        (Some(handle), _) => handle,
-        (_, Some(ref handle)) => handle,
-        (None, None) => return DiskKind::Unknown(-1),
+unsafe fn get_disk_kind(device_path: &[u16], borrowed_handle: Option<&HandleWrapper>) -> DiskKind {
+    let handle_data;
+    let borrowed_handle = if borrowed_handle.is_none() {
+        handle_data = HandleWrapper::new_from_file(device_path, Default::default());
+        handle_data.as_ref()
+    } else {
+        borrowed_handle
+    };
+    let Some(handle) = borrowed_handle else {
+        sysinfo_debug!("Coudn't get a Handle to retrieve `DiskKind`");
+        return DiskKind::Unknown(-1);
     };
 
     if handle.is_invalid() {
@@ -395,17 +393,17 @@ fn get_disk_kind(device_path: &[u16], borrowed_handle: Option<&HandleWrapper>) -
         DeviceIoControl(
             handle.0,
             IOCTL_STORAGE_QUERY_PROPERTY,
-            Some(&spq_trim as *const STORAGE_PROPERTY_QUERY as *const c_void),
-            size_of::<STORAGE_PROPERTY_QUERY>() as u32,
-            Some(&mut result as *mut DEVICE_SEEK_PENALTY_DESCRIPTOR as *mut c_void),
-            size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as u32,
+            Some(&spq_trim as *const STORAGE_PROPERTY_QUERY as *const _),
+            size_of::<STORAGE_PROPERTY_QUERY>() as _,
+            Some(&mut result as *mut DEVICE_SEEK_PENALTY_DESCRIPTOR as *mut _),
+            size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as _,
             Some(&mut dw_size),
             None,
         )
         .is_ok()
     };
 
-    if !device_io_control || dw_size != size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as u32 {
+    if !device_io_control || dw_size != size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as _ {
         DiskKind::Unknown(-1)
     } else {
         let is_hdd = result.IncursSeekPenalty.as_bool();

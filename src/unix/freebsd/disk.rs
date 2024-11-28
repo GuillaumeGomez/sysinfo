@@ -162,16 +162,31 @@ impl GetValues for DiskInner {
     }
 }
 
+/// Returns `(total_space, available_space)`.
+unsafe fn get_statvfs(
+    c_mount_point: &[libc::c_char],
+    vfs: &mut libc::statvfs,
+) -> Option<(u64, u64)> {
+    if libc::statvfs(c_mount_point.as_ptr() as *const _, vfs as *mut _) < 0 {
+        sysinfo_debug!("statvfs failed");
+        None
+    } else {
+        let block_size: u64 = vfs.f_frsize as _;
+        Some((
+            vfs.f_blocks.saturating_mul(block_size),
+            vfs.f_favail.saturating_mul(block_size),
+        ))
+    }
+}
+
 fn refresh_disk(disk: &mut DiskInner, refresh_kind: DiskRefreshKind) -> bool {
     if refresh_kind.details() {
         unsafe {
             let mut vfs: libc::statvfs = std::mem::zeroed();
-            if libc::statvfs(disk.c_mount_point.as_ptr() as *const _, &mut vfs as *mut _) < 0 {
-                sysinfo_debug!("statvfs failed");
-            } else {
-                let block_size: u64 = vfs.f_frsize as _;
-                disk.total_space = vfs.f_blocks.saturating_mul(block_size);
-                disk.available_space = vfs.f_favail.saturating_mul(block_size);
+            if let Some((total_space, available_space)) = get_statvfs(&disk.c_mount_point, &mut vfs)
+            {
+                disk.total_space = total_space;
+                disk.available_space = available_space;
             }
         }
     }
@@ -360,16 +375,16 @@ pub unsafe fn get_all_list(
         };
 
         let (is_read_only, total_space, available_space) = if refresh_kind.details() {
-            if libc::statvfs(fs_info.f_mntonname.as_ptr(), &mut vfs) != 0 {
-                (false, 0, 0)
-            } else {
-                let f_frsize: u64 = vfs.f_frsize as _;
-
+            if let Some((total_space, available_space)) =
+                get_statvfs(&fs_info.f_mntonname, &mut vfs)
+            {
                 (
                     ((vfs.f_flag & libc::ST_RDONLY) != 0),
-                    vfs.f_blocks.saturating_mul(f_frsize),
-                    vfs.f_favail.saturating_mul(f_frsize),
+                    available_space,
+                    total_space,
                 )
+            } else {
+                (false, 0, 0)
             }
         } else {
             (false, 0, 0)
