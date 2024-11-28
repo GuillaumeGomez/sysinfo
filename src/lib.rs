@@ -305,10 +305,10 @@ mod test {
             #[cfg(feature = "system")]
             {
                 // And now check that our `get_user_by_id` method works.
-                let s = System::new_with_specifics(
-                    RefreshKind::new()
-                        .with_processes(ProcessRefreshKind::new().with_user(UpdateKind::Always)),
-                );
+                let s =
+                    System::new_with_specifics(RefreshKind::nothing().with_processes(
+                        ProcessRefreshKind::nothing().with_user(UpdateKind::Always),
+                    ));
                 assert!(s
                     .processes()
                     .iter()
@@ -325,8 +325,8 @@ mod test {
         // If `getent` doesn't find them, we can assume it's a dark secret from the linux land.
         if IS_SUPPORTED_SYSTEM && cfg!(not(target_os = "linux")) {
             let s = System::new_with_specifics(
-                RefreshKind::new()
-                    .with_processes(ProcessRefreshKind::new().with_user(UpdateKind::Always)),
+                RefreshKind::nothing()
+                    .with_processes(ProcessRefreshKind::nothing().with_user(UpdateKind::Always)),
             );
             let users = Users::new_with_refreshed_list();
 

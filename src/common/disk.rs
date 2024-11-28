@@ -157,7 +157,7 @@ impl Disk {
     ///
     /// let mut disks = Disks::new_with_refreshed_list();
     /// for disk in disks.list_mut() {
-    ///     disk.refresh_specifics(DiskRefreshKind::new());
+    ///     disk.refresh_specifics(DiskRefreshKind::nothing());
     /// }
     /// ```
     pub fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) -> bool {
@@ -283,7 +283,7 @@ impl Disks {
     /// ```no_run
     /// use sysinfo::{Disks, DiskRefreshKind};
     ///
-    /// let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::new());
+    /// let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing());
     /// for disk in disks.list() {
     ///     println!("{disk:?}");
     /// }
@@ -380,7 +380,7 @@ impl Disks {
     /// use sysinfo::{Disks, DiskRefreshKind};
     ///
     /// let mut disks = Disks::new();
-    /// disks.refresh_list_specifics(true, DiskRefreshKind::new());
+    /// disks.refresh_list_specifics(true, DiskRefreshKind::nothing());
     /// ```
     pub fn refresh_list_specifics(
         &mut self,
@@ -466,13 +466,13 @@ impl DiskRefreshKind {
     /// ```
     /// use sysinfo::DiskRefreshKind;
     ///
-    /// let r = DiskRefreshKind::new();
+    /// let r = DiskRefreshKind::nothing();
     ///
     /// assert_eq!(r.kind(), false);
     /// assert_eq!(r.storage(), false);
     /// assert_eq!(r.io_usage(), false);
     /// ```
-    pub fn new() -> Self {
+    pub fn nothing() -> Self {
         Self::default()
     }
 

@@ -45,7 +45,7 @@ impl System {
     /// let s = System::new();
     /// ```
     pub fn new() -> Self {
-        Self::new_with_specifics(RefreshKind::new())
+        Self::new_with_specifics(RefreshKind::nothing())
     }
 
     /// Creates a new [`System`] instance with everything loaded.
@@ -73,7 +73,7 @@ impl System {
     ///
     /// // We want to only refresh processes.
     /// let mut system = System::new_with_specifics(
-    ///      RefreshKind::new().with_processes(ProcessRefreshKind::everything()),
+    ///      RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
     /// );
     ///
     /// # if sysinfo::IS_SUPPORTED_SYSTEM && !cfg!(feature = "apple-sandbox") {
@@ -98,7 +98,7 @@ impl System {
     ///
     /// // Let's just update processes:
     /// s.refresh_specifics(
-    ///     RefreshKind::new().with_processes(ProcessRefreshKind::everything()),
+    ///     RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
     /// );
     /// ```
     pub fn refresh_specifics(&mut self, refreshes: RefreshKind) {
@@ -152,7 +152,7 @@ impl System {
     /// use sysinfo::{MemoryRefreshKind, System};
     ///
     /// let mut s = System::new();
-    /// s.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
+    /// s.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
     /// ```
     pub fn refresh_memory_specifics(&mut self, refresh_kind: MemoryRefreshKind) {
         self.inner.refresh_memory_specifics(refresh_kind)
@@ -166,7 +166,7 @@ impl System {
     /// to get accurate value as it uses previous results to compute the next value.
     ///
     /// Calling this method is the same as calling
-    /// `system.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())`.
+    /// `system.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage())`.
     ///
     /// ```no_run
     /// use sysinfo::System;
@@ -180,13 +180,13 @@ impl System {
     ///
     /// [`MINIMUM_CPU_UPDATE_INTERVAL`]: crate::MINIMUM_CPU_UPDATE_INTERVAL
     pub fn refresh_cpu_usage(&mut self) {
-        self.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage())
+        self.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage())
     }
 
     /// Refreshes CPUs frequency information.
     ///
     /// Calling this method is the same as calling
-    /// `system.refresh_cpu_specifics(CpuRefreshKind::new().with_frequency())`.
+    /// `system.refresh_cpu_specifics(CpuRefreshKind::nothing().with_frequency())`.
     ///
     /// ```no_run
     /// use sysinfo::System;
@@ -195,7 +195,7 @@ impl System {
     /// s.refresh_cpu_frequency();
     /// ```
     pub fn refresh_cpu_frequency(&mut self) {
-        self.refresh_cpu_specifics(CpuRefreshKind::new().with_frequency())
+        self.refresh_cpu_specifics(CpuRefreshKind::nothing().with_frequency())
     }
 
     /// Refreshes the list of CPU.
@@ -265,7 +265,7 @@ impl System {
     /// system.refresh_processes_specifics(
     ///     ProcessesToUpdate::All,
     ///     true,
-    ///     ProcessRefreshKind::new()
+    ///     ProcessRefreshKind::nothing()
     ///         .with_memory()
     ///         .with_cpu()
     ///         .with_disk_usage()
@@ -296,7 +296,7 @@ impl System {
         self.refresh_processes_specifics(
             processes_to_update,
             remove_dead_processes,
-            ProcessRefreshKind::new()
+            ProcessRefreshKind::nothing()
                 .with_memory()
                 .with_cpu()
                 .with_disk_usage()
@@ -469,7 +469,7 @@ impl System {
     /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
     ///
     /// let mut s = System::new_with_specifics(
-    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
     /// );
     /// // Wait a bit because CPU usage is based on diff.
     /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
@@ -490,7 +490,7 @@ impl System {
     /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
     ///
     /// let mut s = System::new_with_specifics(
-    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
     /// );
     /// // Wait a bit because CPU usage is based on diff.
     /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
@@ -1393,7 +1393,7 @@ impl Process {
     /// s.refresh_processes_specifics(
     ///     ProcessesToUpdate::All,
     ///     true,
-    ///     ProcessRefreshKind::new().with_cpu()
+    ///     ProcessRefreshKind::nothing().with_cpu()
     /// );
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("{}%", process.cpu_usage());
@@ -1699,7 +1699,7 @@ cfg_if! {
 /// system.refresh_processes_specifics(
 ///     ProcessesToUpdate::All,
 ///     true,
-///     ProcessRefreshKind::new().with_exe(UpdateKind::OnlyIfNotSet),
+///     ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
 /// );
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1803,12 +1803,12 @@ impl ProcessRefreshKind {
     /// ```
     /// use sysinfo::{ProcessRefreshKind, UpdateKind};
     ///
-    /// let r = ProcessRefreshKind::new();
+    /// let r = ProcessRefreshKind::nothing();
     ///
     /// assert_eq!(r.cpu(), false);
     /// assert_eq!(r.user(), UpdateKind::Never);
     /// ```
-    pub fn new() -> Self {
+    pub fn nothing() -> Self {
         Self::default()
     }
 
@@ -1910,12 +1910,12 @@ impl CpuRefreshKind {
     /// ```
     /// use sysinfo::CpuRefreshKind;
     ///
-    /// let r = CpuRefreshKind::new();
+    /// let r = CpuRefreshKind::nothing();
     ///
     /// assert_eq!(r.frequency(), false);
     /// assert_eq!(r.cpu_usage(), false);
     /// ```
-    pub fn new() -> Self {
+    pub fn nothing() -> Self {
         Self::default()
     }
 
@@ -1952,7 +1952,7 @@ impl CpuRefreshKind {
 /// let mut system = System::new();
 ///
 /// // We don't want to update all memories information.
-/// system.refresh_memory_specifics(MemoryRefreshKind::new().with_ram());
+/// system.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
 ///
 /// println!("total RAM: {}", system.total_memory());
 /// println!("free RAM:  {}", system.free_memory());
@@ -1969,12 +1969,12 @@ impl MemoryRefreshKind {
     /// ```
     /// use sysinfo::MemoryRefreshKind;
     ///
-    /// let r = MemoryRefreshKind::new();
+    /// let r = MemoryRefreshKind::nothing();
     ///
     /// assert_eq!(r.ram(), false);
     /// assert_eq!(r.swap(), false);
     /// ```
-    pub fn new() -> Self {
+    pub fn nothing() -> Self {
         Self::default()
     }
 
@@ -2029,13 +2029,13 @@ impl RefreshKind {
     /// ```
     /// use sysinfo::RefreshKind;
     ///
-    /// let r = RefreshKind::new();
+    /// let r = RefreshKind::nothing();
     ///
     /// assert_eq!(r.processes().is_some(), false);
     /// assert_eq!(r.memory().is_some(), false);
     /// assert_eq!(r.cpu().is_some(), false);
     /// ```
-    pub fn new() -> Self {
+    pub fn nothing() -> Self {
         Self::default()
     }
 
@@ -2129,7 +2129,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
 ///
 /// let mut s = System::new_with_specifics(
-///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
 /// );
 ///
 /// // Wait a bit because CPU usage is based on diff.
@@ -2155,7 +2155,7 @@ impl Cpu {
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
     /// let mut s = System::new_with_specifics(
-    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
     /// );
     ///
     /// // Wait a bit because CPU usage is based on diff.
@@ -2177,7 +2177,7 @@ impl Cpu {
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
     /// let s = System::new_with_specifics(
-    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
     /// );
     /// for cpu in s.cpus() {
     ///     println!("{}", cpu.name());
@@ -2193,7 +2193,7 @@ impl Cpu {
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
     /// let s = System::new_with_specifics(
-    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
     /// );
     /// for cpu in s.cpus() {
     ///     println!("{}", cpu.vendor_id());
@@ -2209,7 +2209,7 @@ impl Cpu {
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
     /// let s = System::new_with_specifics(
-    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
     /// );
     /// for cpu in s.cpus() {
     ///     println!("{}", cpu.brand());
@@ -2225,7 +2225,7 @@ impl Cpu {
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
     /// let s = System::new_with_specifics(
-    ///     RefreshKind::new().with_cpu(CpuRefreshKind::everything()),
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
     /// );
     /// for cpu in s.cpus() {
     ///     println!("{}", cpu.frequency());

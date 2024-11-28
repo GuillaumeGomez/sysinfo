@@ -181,7 +181,7 @@ impl SystemInner {
             return;
         }
         self.cpus
-            .refresh_if_needed(true, CpuRefreshKind::new().with_cpu_usage());
+            .refresh_if_needed(true, CpuRefreshKind::nothing().with_cpu_usage());
 
         if self.cpus.is_empty() {
             sysinfo_debug!("cannot compute processes CPU usage: no CPU found...");
