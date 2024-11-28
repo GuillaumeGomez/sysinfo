@@ -4,6 +4,7 @@ use std::ffi::OsStr;
 use std::fmt;
 use std::path::Path;
 
+use crate::common::impl_get_set::impl_get_set;
 use crate::DiskUsage;
 
 /// Struct containing a disk information.
@@ -133,7 +134,9 @@ impl Disk {
         self.inner.is_read_only()
     }
 
-    /// Updates the disk' information.
+    /// Updates the disk' information with everything loaded.
+    ///
+    /// Equivalent to <code>[Disk::refresh_specifics]\([DiskRefreshKind::everything]\())</code>.
     ///
     /// ```no_run
     /// use sysinfo::Disks;
@@ -144,7 +147,21 @@ impl Disk {
     /// }
     /// ```
     pub fn refresh(&mut self) -> bool {
-        self.inner.refresh()
+        self.refresh_specifics(DiskRefreshKind::everything())
+    }
+
+    /// Updates the disk's information corresponding to the given [`DiskRefreshKind`].
+    ///
+    /// ```no_run
+    /// use sysinfo::{Disks, DiskRefreshKind};
+    ///
+    /// let mut disks = Disks::new_with_refreshed_list();
+    /// for disk in disks.list_mut() {
+    ///     disk.refresh_specifics(DiskRefreshKind::new());
+    /// }
+    /// ```
+    pub fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) -> bool {
+        self.inner.refresh_specifics(refreshes)
     }
 
     /// Returns number of bytes read and written by the disk
@@ -244,7 +261,8 @@ impl Disks {
     }
 
     /// Creates a new [`Disks`][crate::Disks] type with the disk list loaded.
-    /// It is a combination of [`Disks::new`] and [`Disks::refresh_list`].
+    ///
+    /// Equivalent to <code>[Disks::new_with_refreshed_list_specifics]\([DiskRefreshKind::everything]\())</code>.
     ///
     /// ```no_run
     /// use sysinfo::Disks;
@@ -255,8 +273,24 @@ impl Disks {
     /// }
     /// ```
     pub fn new_with_refreshed_list() -> Self {
+        Self::new_with_refreshed_list_specifics(DiskRefreshKind::everything())
+    }
+
+    /// Creates a new [`Disks`][crate::Disks] type with the disk list loaded
+    /// and refreshed according to the given [`DiskRefreshKind`]. It is a combination of
+    /// [`Disks::new`] and [`Disks::refresh_list_specifics`].
+    ///
+    /// ```no_run
+    /// use sysinfo::{Disks, DiskRefreshKind};
+    ///
+    /// let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::new());
+    /// for disk in disks.list() {
+    ///     println!("{disk:?}");
+    /// }
+    /// ```
+    pub fn new_with_refreshed_list_specifics(refreshes: DiskRefreshKind) -> Self {
         let mut disks = Self::new();
-        disks.refresh_list();
+        disks.refresh_list_specifics(refreshes);
         disks
     }
 
@@ -291,6 +325,13 @@ impl Disks {
 
     /// Refreshes the listed disks' information.
     ///
+    /// Equivalent to <code>[Disks::refresh_specifics]\([DiskRefreshKind::everything]\())</code>.
+    pub fn refresh(&mut self) {
+        self.refresh_specifics(DiskRefreshKind::everything());
+    }
+
+    /// Refreshes the listed disks' information according to the given [`DiskRefreshKind`].
+    ///
     /// ⚠️ If a disk is added or removed, this method won't take it into account. Use
     /// [`Disks::refresh_list`] instead.
     ///
@@ -304,21 +345,13 @@ impl Disks {
     /// // We wait some time...?
     /// disks.refresh();
     /// ```
-    pub fn refresh(&mut self) {
-        self.inner.refresh();
+    pub fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) {
+        self.inner.refresh_specifics(refreshes);
     }
 
     /// The disk list will be emptied then completely recomputed.
     ///
-    /// ## Linux
-    ///
-    /// ⚠️ On Linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
-    /// systems are ignored and the information of a mounted NFS **cannot** be obtained
-    /// via [`Disks::refresh_list`]. This is due to the fact that I/O function
-    /// `statvfs` used by [`Disks::refresh_list`] is blocking and
-    /// [may hang](https://github.com/GuillaumeGomez/sysinfo/pull/876) in some cases,
-    /// requiring to call `systemctl stop` to terminate the NFS service from the remote
-    /// server in some cases.
+    /// Equivalent to <code>[Disks::refresh_list_specifics]\([DiskRefreshKind::everything]\())</code>.
     ///
     /// ```no_run
     /// use sysinfo::Disks;
@@ -327,7 +360,30 @@ impl Disks {
     /// disks.refresh_list();
     /// ```
     pub fn refresh_list(&mut self) {
-        self.inner.refresh_list();
+        self.refresh_list_specifics(DiskRefreshKind::everything());
+    }
+
+    /// The disk list will be emptied then completely recomputed according to the given
+    /// [`DiskRefreshKind`].
+    ///
+    /// ## Linux
+    ///
+    /// ⚠️ On Linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
+    /// systems are ignored and the information of a mounted NFS **cannot** be obtained
+    /// via [`Disks::refresh_list_specifics`]. This is due to the fact that I/O function
+    /// `statvfs` used by [`Disks::refresh_list_specifics`] is blocking and
+    /// [may hang](https://github.com/GuillaumeGomez/sysinfo/pull/876) in some cases,
+    /// requiring to call `systemctl stop` to terminate the NFS service from the remote
+    /// server in some cases.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Disks, DiskRefreshKind};
+    ///
+    /// let mut disks = Disks::new();
+    /// disks.refresh_list_specifics(DiskRefreshKind::new());
+    /// ```
+    pub fn refresh_list_specifics(&mut self, refreshes: DiskRefreshKind) {
+        self.inner.refresh_list_specifics(refreshes);
     }
 }
 
@@ -375,4 +431,62 @@ impl fmt::Display for DiskKind {
             _ => "Unknown",
         })
     }
+}
+
+/// Used to determine what you want to refresh specifically on the [`Disk`] type.
+///
+/// ```no_run
+/// use sysinfo::{Disks, DiskRefreshKind};
+///
+/// let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::everything());
+///
+/// for disk in disks.list() {
+///     assert_eq!(disk.total_space(), 0);
+/// }
+/// ```
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DiskRefreshKind {
+    kind: bool,
+    details: bool,
+    io_usage: bool,
+}
+
+impl DiskRefreshKind {
+    /// Creates a new `DiskRefreshKind` with every refresh set to false.
+    ///
+    /// ```
+    /// use sysinfo::DiskRefreshKind;
+    ///
+    /// let r = DiskRefreshKind::new();
+    ///
+    /// assert_eq!(r.kind(), false);
+    /// assert_eq!(r.details(), false);
+    /// assert_eq!(r.io_usage(), false);
+    /// ```
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates a new `DiskRefreshKind` with every refresh set to true.
+    ///
+    /// ```
+    /// use sysinfo::DiskRefreshKind;
+    ///
+    /// let r = DiskRefreshKind::everything();
+    ///
+    /// assert_eq!(r.kind(), true);
+    /// assert_eq!(r.details(), true);
+    /// assert_eq!(r.io_usage(), true);
+    /// ```
+    pub fn everything() -> Self {
+        Self {
+            kind: true,
+            details: true,
+            io_usage: true,
+        }
+    }
+
+    impl_get_set!(DiskRefreshKind, kind, with_kind, without_kind);
+    impl_get_set!(DiskRefreshKind, details, with_details, without_details,);
+    impl_get_set!(DiskRefreshKind, io_usage, with_io_usage, without_io_usage);
 }

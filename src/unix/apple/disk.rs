@@ -7,7 +7,7 @@ use crate::{
     },
     DiskUsage,
 };
-use crate::{Disk, DiskKind};
+use crate::{Disk, DiskKind, DiskRefreshKind};
 
 use core_foundation_sys::array::CFArrayCreate;
 use core_foundation_sys::base::kCFAllocatorDefault;
@@ -72,44 +72,70 @@ impl DiskInner {
         self.is_read_only
     }
 
-    pub(crate) fn refresh(&mut self) -> bool {
-        #[cfg(target_os = "macos")]
-        let Some((read_bytes, written_bytes)) = self
-            .bsd_name
-            .as_ref()
-            .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
-        else {
-            sysinfo_debug!("Failed to update disk i/o stats");
-            return false;
-        };
-        #[cfg(not(target_os = "macos"))]
-        let (read_bytes, written_bytes) = (0, 0);
-
-        self.old_read_bytes = self.read_bytes;
-        self.old_written_bytes = self.written_bytes;
-        self.read_bytes = read_bytes;
-        self.written_bytes = written_bytes;
-
-        unsafe {
-            if let Some(requested_properties) = build_requested_properties(&[
-                ffi::kCFURLVolumeAvailableCapacityKey,
-                ffi::kCFURLVolumeAvailableCapacityForImportantUsageKey,
-            ]) {
-                match get_disk_properties(&self.volume_url, &requested_properties) {
-                    Some(disk_props) => {
-                        self.available_space = get_available_volume_space(&disk_props);
-                        true
-                    }
-                    None => {
-                        sysinfo_debug!("Failed to get disk properties");
-                        false
-                    }
+    pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) -> bool {
+        if refresh_kind.kind() && self.type_ == DiskKind::Unknown(-1) {
+            let type_ = {
+                #[cfg(target_os = "macos")]
+                {
+                    self.bsd_name
+                        .as_ref()
+                        .and_then(|name| crate::sys::inner::disk::get_disk_type(name))
+                        .unwrap_or(DiskKind::Unknown(-1))
                 }
-            } else {
-                sysinfo_debug!("failed to create volume key list, skipping refresh");
-                false
+                #[cfg(not(target_os = "macos"))]
+                DiskKind::SSD
+            };
+
+            self.type_ = type_;
+        }
+
+        if refresh_kind.io_usage() {
+            #[cfg(target_os = "macos")]
+            match self
+                .bsd_name
+                .as_ref()
+                .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
+            {
+                Some((read_bytes, written_bytes)) => {
+                    self.old_read_bytes = self.read_bytes;
+                    self.old_written_bytes = self.written_bytes;
+                    self.read_bytes = read_bytes;
+                    self.written_bytes = written_bytes;
+                }
+                None => {
+                    sysinfo_debug!("Failed to update disk i/o stats");
+                }
             }
         }
+
+        if refresh_kind.details() {
+            unsafe {
+                if let Some(requested_properties) = build_requested_properties(&[
+                    ffi::kCFURLVolumeTotalCapacityKey,
+                    ffi::kCFURLVolumeAvailableCapacityKey,
+                    ffi::kCFURLVolumeAvailableCapacityForImportantUsageKey,
+                ]) {
+                    match get_disk_properties(&self.volume_url, &requested_properties) {
+                        Some(disk_props) => {
+                            self.total_space = get_int_value(
+                                disk_props.inner(),
+                                DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
+                            )
+                            .unwrap_or_default()
+                                as u64;
+                            self.available_space = get_available_volume_space(&disk_props);
+                        }
+                        None => {
+                            sysinfo_debug!("Failed to get disk properties");
+                        }
+                    }
+                } else {
+                    sysinfo_debug!("failed to create volume key list, skipping refresh");
+                }
+            }
+        }
+
+        true
     }
 
     pub(crate) fn usage(&self) -> DiskUsage {
@@ -129,19 +155,19 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list_specifics(&mut self, refresh_kind: DiskRefreshKind) {
         unsafe {
             // SAFETY: We don't keep any Objective-C objects around because we
             // don't make any direct Objective-C calls in this code.
             with_autorelease(|| {
-                get_list(&mut self.disks);
+                get_list(&mut self.disks, refresh_kind);
             })
         }
     }
 
-    pub(crate) fn refresh(&mut self) {
+    pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) {
         for disk in self.list_mut() {
-            disk.refresh();
+            disk.refresh_specifics(refresh_kind);
         }
     }
 
@@ -154,7 +180,7 @@ impl crate::DisksInner {
     }
 }
 
-unsafe fn get_list(container: &mut Vec<Disk>) {
+unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
     container.clear();
 
     let raw_disks = {
@@ -252,7 +278,7 @@ unsafe fn get_list(container: &mut Vec<Disk>) {
             CStr::from_ptr(c_disk.f_mntonname.as_ptr()).to_bytes(),
         ));
 
-        if let Some(disk) = new_disk(mount_point, volume_url, c_disk, &prop_dict) {
+        if let Some(disk) = new_disk(mount_point, volume_url, c_disk, &prop_dict, refresh_kind) {
             container.push(disk);
         }
     }
@@ -398,6 +424,7 @@ unsafe fn new_disk(
     volume_url: RetainedCFURL,
     c_disk: libc::statfs,
     disk_props: &RetainedCFDictionary,
+    refresh_kind: DiskRefreshKind,
 ) -> Option<Disk> {
     let bsd_name = get_bsd_name(&c_disk);
 
@@ -406,21 +433,33 @@ unsafe fn new_disk(
     // so we just assume the disk type is an SSD and set disk i/o stats to 0 until Rust has a way to conditionally link to
     // IOKit in more recent deployment versions.
 
-    #[cfg(target_os = "macos")]
-    let type_ = bsd_name
-        .as_ref()
-        .and_then(|name| crate::sys::inner::disk::get_disk_type(name))
-        .unwrap_or(DiskKind::Unknown(-1));
-    #[cfg(not(target_os = "macos"))]
-    let type_ = DiskKind::SSD;
+    let type_ = if refresh_kind.kind() {
+        #[cfg(target_os = "macos")]
+        {
+            bsd_name
+                .as_ref()
+                .and_then(|name| crate::sys::inner::disk::get_disk_type(name))
+                .unwrap_or(DiskKind::Unknown(-1))
+        }
+        #[cfg(not(target_os = "macos"))]
+        DiskKind::SSD
+    } else {
+        DiskKind::Unknown(-1)
+    };
 
-    #[cfg(target_os = "macos")]
-    let (read_bytes, written_bytes) = bsd_name
-        .as_ref()
-        .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
-        .unwrap_or_default();
-    #[cfg(not(target_os = "macos"))]
-    let (read_bytes, written_bytes) = (0, 0);
+    let (read_bytes, written_bytes) = if refresh_kind.io_usage() {
+        #[cfg(target_os = "macos")]
+        {
+            bsd_name
+                .as_ref()
+                .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
+                .unwrap_or_default()
+        }
+        #[cfg(not(target_os = "macos"))]
+        (0, 0)
+    } else {
+        (0, 0)
+    };
 
     // Note: Since we requested these properties from the system, we don't expect
     // these property retrievals to fail.
@@ -431,7 +470,7 @@ unsafe fn new_disk(
     )
     .map(OsString::from)?;
 
-    let is_removable = {
+    let is_removable = if refresh_kind.details() {
         let ejectable = get_bool_value(
             disk_props.inner(),
             DictKey::Extern(ffi::kCFURLVolumeIsEjectableKey),
@@ -459,14 +498,25 @@ unsafe fn new_disk(
 
             !internal
         }
+    } else {
+        false
     };
 
-    let total_space = get_int_value(
-        disk_props.inner(),
-        DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
-    )? as u64;
+    let total_space = if refresh_kind.details() {
+        get_int_value(
+            disk_props.inner(),
+            DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
+        )
+        .unwrap_or_default() as u64
+    } else {
+        0
+    };
 
-    let available_space = get_available_volume_space(disk_props);
+    let available_space = if refresh_kind.details() {
+        get_available_volume_space(disk_props)
+    } else {
+        0
+    };
 
     let file_system = {
         let len = c_disk
@@ -482,7 +532,7 @@ unsafe fn new_disk(
         )
     };
 
-    let is_read_only = (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0;
+    let is_read_only = refresh_kind.details() && (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0;
 
     Some(Disk {
         inner: DiskInner {

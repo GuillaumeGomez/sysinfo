@@ -1,34 +1,158 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#[cfg(all(feature = "system", feature = "disk"))]
+fn should_skip() -> bool {
+    if !sysinfo::IS_SUPPORTED_SYSTEM {
+        return true;
+    }
+
+    let s = sysinfo::System::new_all();
+
+    // If we don't have any physical core present, it's very likely that we're inside a VM...
+    s.physical_core_count().unwrap_or_default() == 0
+}
+
 #[test]
 #[cfg(all(feature = "system", feature = "disk"))]
 fn test_disks() {
-    if sysinfo::IS_SUPPORTED_SYSTEM {
-        let s = sysinfo::System::new_all();
-        // If we don't have any physical core present, it's very likely that we're inside a VM...
-        if s.physical_core_count().unwrap_or_default() > 0 {
-            let mut disks = sysinfo::Disks::new();
-            assert!(disks.list().is_empty());
-            disks.refresh_list();
-            assert!(!disks.list().is_empty());
+    if should_skip() {
+        return;
+    }
+
+    let mut disks = sysinfo::Disks::new();
+    assert!(disks.list().is_empty());
+    disks.refresh_list();
+    assert!(!disks.list().is_empty());
+}
+
+#[test]
+#[cfg(all(feature = "system", feature = "disk"))]
+fn test_disk_refresh_kind() {
+    use itertools::Itertools;
+
+    use sysinfo::{DiskKind, DiskRefreshKind, Disks};
+
+    if should_skip() {
+        return;
+    }
+
+    for fs in [
+        DiskRefreshKind::with_kind,
+        DiskRefreshKind::without_kind,
+        DiskRefreshKind::with_details,
+        DiskRefreshKind::without_details,
+        DiskRefreshKind::with_io_usage,
+        DiskRefreshKind::without_io_usage,
+    ]
+    .iter()
+    .powerset()
+    {
+        let mut refreshes = DiskRefreshKind::new();
+        for f in fs {
+            refreshes = f(refreshes);
         }
+
+        let assertions = |name: &'static str, disks: &Disks| {
+            if refreshes.kind() {
+                // This would ideally assert that *all* are refreshed, but we settle for a weaker
+                // assertion because failures can't be distinguished from "not refreshed" values.
+                #[cfg(not(any(target_os = "freebsd", target_os = "windows")))]
+                assert!(
+                    disks
+                        .iter()
+                        .any(|disk| disk.kind() != DiskKind::Unknown(-1)),
+                    "{name}: disk.kind should be refreshed"
+                );
+            } else {
+                assert!(
+                    disks
+                        .iter()
+                        .all(|disk| disk.kind() == DiskKind::Unknown(-1)),
+                    "{name}: disk.kind should not be refreshed"
+                );
+            }
+
+            if refreshes.details() {
+                // These would ideally assert that *all* are refreshed, but we settle for a weaker
+                // assertion because failures can't be distinguished from "not refreshed" values.
+                assert!(
+                    disks
+                        .iter()
+                        .any(|disk| disk.available_space() != Default::default()),
+                    "{name}: disk.available_space should be refreshed"
+                );
+                assert!(
+                    disks
+                        .iter()
+                        .any(|disk| disk.total_space() != Default::default()),
+                    "{name}: disk.total_space should be refreshed"
+                );
+                // We can't assert anything about booleans, since false is indistinguishable from
+                // not-refreshed
+            } else {
+                assert!(
+                    disks
+                        .iter()
+                        .all(|disk| disk.available_space() == Default::default()),
+                    "{name}: disk.available_space should not be refreshed"
+                );
+                assert!(
+                    disks
+                        .iter()
+                        .all(|disk| disk.total_space() == Default::default()),
+                    "{name}: disk.total_space should not be refreshed"
+                );
+                assert!(
+                    disks
+                        .iter()
+                        .all(|disk| disk.is_read_only() == <bool as Default>::default()),
+                    "{name}: disk.is_read_only should not be refreshed"
+                );
+                assert!(
+                    disks
+                        .iter()
+                        .all(|disk| disk.is_removable() == <bool as Default>::default()),
+                    "{name}: disk.is_removable should not be refreshed"
+                );
+            }
+
+            if refreshes.io_usage() {
+                // This would ideally assert that *all* are refreshed, but we settle for a weaker
+                // assertion because failures can't be distinguished from "not refreshed" values.
+                assert!(
+                    disks.iter().any(|disk| disk.usage() != Default::default()),
+                    "{name}: disk.usage should be refreshed"
+                );
+            } else {
+                assert!(
+                    disks.iter().all(|disk| disk.usage() == Default::default()),
+                    "{name}: disk.usage should not be refreshed"
+                );
+            }
+        };
+
+        // load and refresh with the desired details should work
+        let disks = Disks::new_with_refreshed_list_specifics(refreshes);
+        assertions("full", &disks);
+
+        // load with minimal `DiskRefreshKind`, then refresh for added detail should also work!
+        let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::new());
+        disks.refresh_specifics(refreshes);
+        assertions("incremental", &disks);
     }
 }
 
 #[test]
-#[cfg(feature = "disk")]
+#[cfg(all(feature = "system", feature = "disk"))]
 fn test_disks_usage() {
     use std::fs::{remove_file, File};
     use std::io::Write;
     use std::path::{Path, PathBuf};
     use std::thread::sleep;
 
-    use sysinfo::{CpuRefreshKind, Disks, RefreshKind, System};
+    use sysinfo::Disks;
 
-    let s = System::new_with_specifics(RefreshKind::new().with_cpu(CpuRefreshKind::new()));
-
-    // Skip the tests on unsupported platforms and on systems with no physical cores (likely a VM)
-    if !sysinfo::IS_SUPPORTED_SYSTEM || s.physical_core_count().unwrap_or_default() == 0 {
+    if should_skip() {
         return;
     }
 

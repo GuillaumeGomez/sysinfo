@@ -16,7 +16,7 @@ use super::ffi::{
     DEVSTAT_WRITE,
 };
 use super::utils::{c_buf_to_utf8_str, get_sys_value_str_by_name};
-use crate::{Disk, DiskKind, DiskUsage};
+use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
 
 #[derive(Debug)]
 pub(crate) struct DiskInner {
@@ -69,8 +69,8 @@ impl DiskInner {
         self.is_read_only
     }
 
-    pub(crate) fn refresh(&mut self) -> bool {
-        refresh_disk(self)
+    pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) -> bool {
+        refresh_disk(self, refresh_kind)
     }
 
     pub(crate) fn usage(&self) -> DiskUsage {
@@ -90,10 +90,8 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh_list(&mut self) {
-        unsafe {
-            get_all_list(&mut self.disks, true);
-        }
+    pub(crate) fn refresh_list_specifics(&mut self, refresh_kind: DiskRefreshKind) {
+        unsafe { get_all_list(&mut self.disks, true, refresh_kind) }
     }
 
     pub(crate) fn list(&self) -> &[Disk] {
@@ -104,9 +102,9 @@ impl crate::DisksInner {
         &mut self.disks
     }
 
-    pub(crate) fn refresh(&mut self) {
+    pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) {
         unsafe {
-            get_all_list(&mut self.disks, false);
+            get_all_list(&mut self.disks, false, refresh_kind);
         }
     }
 }
@@ -164,19 +162,27 @@ impl GetValues for DiskInner {
     }
 }
 
-fn refresh_disk(disk: &mut DiskInner) -> bool {
-    unsafe {
-        let mut vfs: libc::statvfs = std::mem::zeroed();
-        if libc::statvfs(disk.c_mount_point.as_ptr() as *const _, &mut vfs as *mut _) < 0 {
-            return false;
+fn refresh_disk(disk: &mut DiskInner, refresh_kind: DiskRefreshKind) -> bool {
+    if refresh_kind.details() {
+        unsafe {
+            let mut vfs: libc::statvfs = std::mem::zeroed();
+            if libc::statvfs(disk.c_mount_point.as_ptr() as *const _, &mut vfs as *mut _) < 0 {
+                sysinfo_debug!("statvfs failed");
+            } else {
+                let block_size: u64 = vfs.f_frsize as _;
+                disk.total_space = vfs.f_blocks.saturating_mul(block_size);
+                disk.available_space = vfs.f_favail.saturating_mul(block_size);
+            }
         }
-        let block_size: u64 = vfs.f_frsize as _;
-
-        disk.total_space = vfs.f_blocks.saturating_mul(block_size);
-        disk.available_space = vfs.f_favail.saturating_mul(block_size);
-        refresh_disk_io(&mut [disk]);
-        true
     }
+
+    if refresh_kind.io_usage() {
+        unsafe {
+            refresh_disk_io(&mut [disk]);
+        }
+    }
+
+    true
 }
 
 unsafe fn initialize_geom() -> Result<(), ()> {
@@ -291,7 +297,11 @@ fn get_disks_mapping() -> HashMap<String, String> {
     disk_mapping
 }
 
-pub unsafe fn get_all_list(container: &mut Vec<Disk>, add_new_disks: bool) {
+pub unsafe fn get_all_list(
+    container: &mut Vec<Disk>,
+    add_new_disks: bool,
+    refresh_kind: DiskRefreshKind,
+) {
     let mut fs_infos: *mut libc::statfs = null_mut();
 
     let count = libc::getmntinfo(&mut fs_infos, libc::MNT_WAIT);
@@ -349,15 +359,21 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>, add_new_disks: bool) {
             OsString::from(mount_point)
         };
 
-        if libc::statvfs(fs_info.f_mntonname.as_ptr(), &mut vfs) != 0 {
-            continue;
-        }
+        let (is_read_only, total_space, available_space) = if refresh_kind.details() {
+            if libc::statvfs(fs_info.f_mntonname.as_ptr(), &mut vfs) != 0 {
+                (false, 0, 0)
+            } else {
+                let f_frsize: u64 = vfs.f_frsize as _;
 
-        let f_frsize: u64 = vfs.f_frsize as _;
-
-        let is_read_only = (vfs.f_flag & libc::ST_RDONLY) != 0;
-        let total_space = vfs.f_blocks.saturating_mul(f_frsize);
-        let available_space = vfs.f_favail.saturating_mul(f_frsize);
+                (
+                    ((vfs.f_flag & libc::ST_RDONLY) != 0),
+                    vfs.f_blocks.saturating_mul(f_frsize),
+                    vfs.f_favail.saturating_mul(f_frsize),
+                )
+            }
+        } else {
+            (false, 0, 0)
+        };
 
         if let Some(disk) = container.iter_mut().find(|d| d.inner.name == name) {
             disk.inner.updated = true;
@@ -367,8 +383,12 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>, add_new_disks: bool) {
             let dev_mount_point = c_buf_to_utf8_str(&fs_info.f_mntfromname).unwrap_or("");
 
             // USB keys and CDs are removable.
-            let is_removable = [b"USB", b"usb"].iter().any(|b| *b == &fs_type[..])
-                || fs_type.starts_with(b"/dev/cd");
+            let is_removable = if refresh_kind.details() {
+                [b"USB", b"usb"].iter().any(|b| *b == &fs_type[..])
+                    || fs_type.starts_with(b"/dev/cd")
+            } else {
+                false
+            };
 
             container.push(Disk {
                 inner: DiskInner {
@@ -376,8 +396,8 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>, add_new_disks: bool) {
                     c_mount_point: fs_info.f_mntonname.to_vec(),
                     mount_point: PathBuf::from(mount_point),
                     dev_id: disk_mapping.get(dev_mount_point).map(ToString::to_string),
-                    total_space: vfs.f_blocks.saturating_mul(f_frsize),
-                    available_space: vfs.f_favail.saturating_mul(f_frsize),
+                    total_space,
+                    available_space,
                     file_system: OsString::from_vec(fs_type),
                     is_removable,
                     is_read_only,
@@ -404,7 +424,9 @@ pub unsafe fn get_all_list(container: &mut Vec<Disk>, add_new_disks: bool) {
             c.inner.updated = false;
         }
     }
-    refresh_disk_io(container.as_mut_slice());
+    if refresh_kind.io_usage() {
+        refresh_disk_io(container.as_mut_slice());
+    }
 }
 
 // struct DevInfoWrapper {

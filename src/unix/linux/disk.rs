@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::{get_all_utf8_data, to_cpath};
-use crate::{Disk, DiskKind, DiskUsage};
+use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
 
 use libc::statvfs;
 use std::collections::HashMap;
@@ -37,7 +37,7 @@ macro_rules! cast {
 pub(crate) struct DiskInner {
     type_: DiskKind,
     device_name: OsString,
-    actual_device_name: String,
+    actual_device_name: Option<String>,
     file_system: OsString,
     mount_point: PathBuf,
     total_space: u64,
@@ -83,39 +83,52 @@ impl DiskInner {
         self.is_read_only
     }
 
-    pub(crate) fn refresh(&mut self) -> bool {
-        self.efficient_refresh(&disk_stats())
+    pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) -> bool {
+        self.efficient_refresh(refresh_kind, &disk_stats(&refresh_kind))
     }
 
-    fn efficient_refresh(&mut self, procfs_disk_stats: &HashMap<String, DiskStat>) -> bool {
-        let Some((read_bytes, written_bytes)) =
-            procfs_disk_stats.get(&self.actual_device_name).map(|stat| {
-                (
-                    stat.sectors_read * SECTOR_SIZE,
-                    stat.sectors_written * SECTOR_SIZE,
-                )
-            })
-        else {
-            sysinfo_debug!("Failed to update disk i/o stats");
-            return false;
-        };
+    fn efficient_refresh(
+        &mut self,
+        refresh_kind: DiskRefreshKind,
+        procfs_disk_stats: &HashMap<String, DiskStat>,
+    ) -> bool {
+        if refresh_kind.kind() && self.type_ == DiskKind::Unknown(-1) {
+            self.type_ = find_type_for_device_name(&self.device_name);
+        }
 
-        self.old_read_bytes = self.read_bytes;
-        self.old_written_bytes = self.written_bytes;
-        self.read_bytes = read_bytes;
-        self.written_bytes = written_bytes;
-
-        unsafe {
-            let mut stat: statvfs = mem::zeroed();
-            let mount_point_cpath = to_cpath(&self.mount_point);
-            if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
-                let tmp = cast!(stat.f_bsize).saturating_mul(cast!(stat.f_bavail));
-                self.available_space = cast!(tmp);
-                true
+        if refresh_kind.io_usage() {
+            if self.actual_device_name.is_none() {
+                self.actual_device_name = Some(get_actual_device_name(&self.device_name));
+            }
+            if let Some((read_bytes, written_bytes)) = procfs_disk_stats
+                .get(self.actual_device_name.as_ref().unwrap())
+                .map(|stat| {
+                    (
+                        stat.sectors_read * SECTOR_SIZE,
+                        stat.sectors_written * SECTOR_SIZE,
+                    )
+                })
+            {
+                self.old_read_bytes = self.read_bytes;
+                self.old_written_bytes = self.written_bytes;
+                self.read_bytes = read_bytes;
+                self.written_bytes = written_bytes;
             } else {
-                false
+                sysinfo_debug!("Failed to update disk i/o stats");
             }
         }
+
+        if refresh_kind.details() {
+            if let Some((total_space, available_space, is_read_only)) =
+                unsafe { load_statvfs_values(&self.mount_point) }
+            {
+                self.total_space = total_space;
+                self.available_space = available_space;
+                self.is_read_only = is_read_only;
+            }
+        }
+
+        true
     }
 
     pub(crate) fn usage(&self) -> DiskUsage {
@@ -135,17 +148,19 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh_list(&mut self) {
+    pub(crate) fn refresh_list_specifics(&mut self, refresh_kind: DiskRefreshKind) {
         get_all_list(
             &mut self.disks,
             &get_all_utf8_data("/proc/mounts", 16_385).unwrap_or_default(),
+            refresh_kind,
         )
     }
 
-    pub(crate) fn refresh(&mut self) {
-        let procfs_disk_stats = disk_stats();
+    pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) {
+        let procfs_disk_stats = disk_stats(&refresh_kind);
         for disk in self.list_mut() {
-            disk.inner.efficient_refresh(&procfs_disk_stats);
+            disk.inner
+                .efficient_refresh(refresh_kind, &procfs_disk_stats);
         }
     }
 
@@ -177,38 +192,53 @@ fn get_actual_device_name(device: &OsStr) -> String {
         .unwrap_or_default()
 }
 
+unsafe fn load_statvfs_values(mount_point: &Path) -> Option<(u64, u64, bool)> {
+    let mount_point_cpath = to_cpath(mount_point);
+    let mut stat: statvfs = mem::zeroed();
+    if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
+        let bsize = cast!(stat.f_bsize);
+        let blocks = cast!(stat.f_blocks);
+        let bavail = cast!(stat.f_bavail);
+        let total = bsize.saturating_mul(blocks);
+        if total == 0 {
+            return None;
+        }
+        let available = bsize.saturating_mul(bavail);
+        let is_read_only = (stat.f_flag & libc::ST_RDONLY) != 0;
+
+        Some((total, available, is_read_only))
+    } else {
+        None
+    }
+}
+
 fn new_disk(
     device_name: &OsStr,
     mount_point: &Path,
     file_system: &OsStr,
     removable_entries: &[PathBuf],
     procfs_disk_stats: &HashMap<String, DiskStat>,
-) -> Option<Disk> {
-    let mount_point_cpath = to_cpath(mount_point);
-    let type_ = find_type_for_device_name(device_name);
-    let mut total = 0;
-    let mut available = 0;
-    let mut is_read_only = false;
-    unsafe {
-        let mut stat: statvfs = mem::zeroed();
-        if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
-            let bsize = cast!(stat.f_bsize);
-            let blocks = cast!(stat.f_blocks);
-            let bavail = cast!(stat.f_bavail);
-            total = bsize.saturating_mul(blocks);
-            available = bsize.saturating_mul(bavail);
-            is_read_only = (stat.f_flag & libc::ST_RDONLY) != 0;
-        }
-        if total == 0 {
-            return None;
-        }
-        let mount_point = mount_point.to_owned();
-        let is_removable = removable_entries
+    refresh_kind: DiskRefreshKind,
+) -> Disk {
+    let type_ = if refresh_kind.kind() {
+        find_type_for_device_name(device_name)
+    } else {
+        DiskKind::Unknown(-1)
+    };
+
+    let (total_space, available_space, is_read_only) = if refresh_kind.details() {
+        unsafe { load_statvfs_values(mount_point).unwrap_or((0, 0, false)) }
+    } else {
+        (0, 0, false)
+    };
+
+    let is_removable = refresh_kind.details()
+        && removable_entries
             .iter()
             .any(|e| e.as_os_str() == device_name);
 
+    let (actual_device_name, read_bytes, written_bytes) = if refresh_kind.io_usage() {
         let actual_device_name = get_actual_device_name(device_name);
-
         let (read_bytes, written_bytes) = procfs_disk_stats
             .get(&actual_device_name)
             .map(|stat| {
@@ -218,24 +248,27 @@ fn new_disk(
                 )
             })
             .unwrap_or_default();
+        (Some(actual_device_name), read_bytes, written_bytes)
+    } else {
+        (None, 0, 0)
+    };
 
-        Some(Disk {
-            inner: DiskInner {
-                type_,
-                device_name: device_name.to_owned(),
-                actual_device_name,
-                file_system: file_system.to_owned(),
-                mount_point,
-                total_space: cast!(total),
-                available_space: cast!(available),
-                is_removable,
-                is_read_only,
-                old_read_bytes: 0,
-                old_written_bytes: 0,
-                read_bytes,
-                written_bytes,
-            },
-        })
+    Disk {
+        inner: DiskInner {
+            type_,
+            device_name: device_name.to_owned(),
+            actual_device_name,
+            file_system: file_system.to_owned(),
+            mount_point: mount_point.to_owned(),
+            total_space,
+            available_space,
+            is_removable,
+            is_read_only,
+            old_read_bytes: 0,
+            old_written_bytes: 0,
+            read_bytes,
+            written_bytes,
+        },
     }
 }
 
@@ -310,7 +343,7 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
     }
 }
 
-fn get_all_list(container: &mut Vec<Disk>, content: &str) {
+fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefreshKind) {
     container.clear();
     // The goal of this array is to list all removable devices (the ones whose name starts with
     // "usb-").
@@ -331,7 +364,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
         _ => Vec::new(),
     };
 
-    let procfs_disk_stats = disk_stats();
+    let procfs_disk_stats = disk_stats(&refresh_kind);
 
     for disk in content
         .lines()
@@ -378,13 +411,14 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str) {
                (fs_file.starts_with("/run") && !fs_file.starts_with("/run/media")) ||
                fs_spec.starts_with("sunrpc"))
         })
-        .filter_map(|(fs_spec, fs_file, fs_vfstype)| {
+        .map(|(fs_spec, fs_file, fs_vfstype)| {
             new_disk(
                 fs_spec.as_ref(),
                 Path::new(&fs_file),
                 fs_vfstype.as_ref(),
                 &removable_entries,
                 &procfs_disk_stats,
+                refresh_kind,
             )
         })
     {
@@ -444,14 +478,18 @@ impl DiskStat {
     }
 }
 
-fn disk_stats() -> HashMap<String, DiskStat> {
-    let path = "/proc/diskstats";
-    match fs::read_to_string(path) {
-        Ok(content) => disk_stats_inner(&content),
-        Err(_error) => {
-            sysinfo_debug!("failed to read {path:?}: {_error:?}");
-            HashMap::new()
+fn disk_stats(refresh_kind: &DiskRefreshKind) -> HashMap<String, DiskStat> {
+    if refresh_kind.io_usage() {
+        let path = "/proc/diskstats";
+        match fs::read_to_string(path) {
+            Ok(content) => disk_stats_inner(&content),
+            Err(_error) => {
+                sysinfo_debug!("failed to read {path:?}: {_error:?}");
+                HashMap::new()
+            }
         }
+    } else {
+        Default::default()
     }
 }
 
