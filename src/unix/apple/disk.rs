@@ -74,19 +74,23 @@ impl DiskInner {
 
     pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) -> bool {
         if refresh_kind.kind() && self.type_ == DiskKind::Unknown(-1) {
-            let type_ = {
-                #[cfg(target_os = "macos")]
+            #[cfg(target_os = "macos")]
+            {
+                match self
+                    .bsd_name
+                    .as_ref()
+                    .and_then(|name| crate::sys::inner::disk::get_disk_type(name))
                 {
-                    self.bsd_name
-                        .as_ref()
-                        .and_then(|name| crate::sys::inner::disk::get_disk_type(name))
-                        .unwrap_or(DiskKind::Unknown(-1))
+                    Some(type_) => self.type_ = type_,
+                    None => {
+                        sysinfo_debug!("Failed to retrieve `DiskKind`");
+                    }
                 }
-                #[cfg(not(target_os = "macos"))]
-                DiskKind::SSD
-            };
-
-            self.type_ = type_;
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                self.type_ = DiskKind::SSD;
+            }
         }
 
         if refresh_kind.io_usage() {
@@ -117,13 +121,21 @@ impl DiskInner {
                 ]) {
                     match get_disk_properties(&self.volume_url, &requested_properties) {
                         Some(disk_props) => {
-                            self.total_space = get_int_value(
+                            match get_int_value(
                                 disk_props.inner(),
                                 DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
-                            )
-                            .unwrap_or_default()
-                                as u64;
-                            self.available_space = get_available_volume_space(&disk_props);
+                            ) {
+                                Some(total_space) => self.total_space = total_space,
+                                None => {
+                                    sysinfo_debug!("Failed to get disk total space");
+                                }
+                            }
+                            match get_available_volume_space(&disk_props) {
+                                Some(available_space) => self.available_space = available_space,
+                                None => {
+                                    sysinfo_debug!("Failed to get disk available space");
+                                }
+                            }
                         }
                         None => {
                             sysinfo_debug!("Failed to get disk properties");
@@ -311,7 +323,7 @@ fn get_disk_properties(
     })
 }
 
-fn get_available_volume_space(disk_props: &RetainedCFDictionary) -> u64 {
+fn get_available_volume_space(disk_props: &RetainedCFDictionary) -> Option<u64> {
     // We prefer `AvailableCapacityForImportantUsage` over `AvailableCapacity` because
     // it takes more of the system's properties into account, like the trash, system-managed caches,
     // etc. It generally also returns higher values too, because of the above, so it's a more
@@ -329,7 +341,6 @@ fn get_available_volume_space(disk_props: &RetainedCFDictionary) -> u64 {
             )
         })
     }
-    .unwrap_or_default() as u64
 }
 
 pub(super) enum DictKey {
@@ -404,15 +415,15 @@ unsafe fn get_bool_value(dict: CFDictionaryRef, key: DictKey) -> Option<bool> {
     get_dict_value(dict, key, |v| Some(v as CFBooleanRef == kCFBooleanTrue))
 }
 
-pub(super) unsafe fn get_int_value(dict: CFDictionaryRef, key: DictKey) -> Option<i64> {
+pub(super) unsafe fn get_int_value(dict: CFDictionaryRef, key: DictKey) -> Option<u64> {
     get_dict_value(dict, key, |v| {
         let mut val: i64 = 0;
         if CFNumberGetValue(
             v.cast(),
             core_foundation_sys::number::kCFNumberSInt64Type,
-            &mut val as *mut i64 as *mut c_void,
+            &mut val as *mut _ as *mut _,
         ) {
-            Some(val)
+            Some(val as _)
         } else {
             None
         }
@@ -502,20 +513,17 @@ unsafe fn new_disk(
         false
     };
 
-    let total_space = if refresh_kind.details() {
-        get_int_value(
-            disk_props.inner(),
-            DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
+    let (total_space, available_space) = if refresh_kind.details() {
+        (
+            get_int_value(
+                disk_props.inner(),
+                DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
+            )
+            .unwrap_or(0),
+            get_available_volume_space(disk_props).unwrap_or(0),
         )
-        .unwrap_or_default() as u64
     } else {
-        0
-    };
-
-    let available_space = if refresh_kind.details() {
-        get_available_volume_space(disk_props)
-    } else {
-        0
+        (0, 0)
     };
 
     let file_system = {

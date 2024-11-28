@@ -147,7 +147,7 @@ pub(crate) fn get_disk_io(bsd_name: &[u8]) -> Option<(u64, u64)> {
                 DictKey::Defined(ffi::kIOBlockStorageDriverStatisticsBytesWrittenKey),
             )?;
 
-            Some((read_bytes.try_into().ok()?, written_bytes.try_into().ok()?))
+            Some((read_bytes, written_bytes))
         }
     })
 }
