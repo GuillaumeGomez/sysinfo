@@ -132,6 +132,7 @@ pub(crate) struct DiskInner {
     old_read_bytes: u64,
     written_bytes: u64,
     read_bytes: u64,
+    updated: bool,
 }
 
 impl DiskInner {
@@ -168,22 +169,30 @@ impl DiskInner {
     }
 
     pub(crate) fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) -> bool {
-        if refreshes.kind() && self.type_ == DiskKind::Unknown(-1) {
-            self.type_ = unsafe { get_disk_kind(&self.device_path, None) };
-        }
+        if refreshes.kind() || refreshes.io_usage() {
+            unsafe {
+                if let Some(handle) =
+                    HandleWrapper::new_from_file(&self.device_path, Default::default())
+                {
+                    if refreshes.kind() && self.type_ == DiskKind::Unknown(-1) {
+                        self.type_ = get_disk_kind(&handle);
+                    }
 
-        if refreshes.io_usage() {
-            if let Some((read_bytes, written_bytes)) = get_disk_io(&self.device_path, None) {
-                self.old_read_bytes = self.read_bytes;
-                self.old_written_bytes = self.written_bytes;
-                self.read_bytes = read_bytes;
-                self.written_bytes = written_bytes;
-            } else {
-                sysinfo_debug!("Failed to update disk i/o stats");
+                    if refreshes.io_usage() {
+                        if let Some((read_bytes, written_bytes)) = get_disk_io(handle) {
+                            self.old_read_bytes = self.read_bytes;
+                            self.old_written_bytes = self.written_bytes;
+                            self.read_bytes = read_bytes;
+                            self.written_bytes = written_bytes;
+                        } else {
+                            sysinfo_debug!("Failed to update disk i/o stats");
+                        }
+                    }
+                }
             }
         }
 
-        if refreshes.details() {
+        if refreshes.storage() {
             if let Some((total_space, available_space)) =
                 unsafe { get_drive_size(&self.mount_point) }
             {
@@ -191,7 +200,7 @@ impl DiskInner {
                 self.available_space = available_space;
             }
         }
-        false
+        true
     }
 
     pub(crate) fn usage(&self) -> DiskUsage {
@@ -223,9 +232,13 @@ impl DisksInner {
         self.disks
     }
 
-    pub(crate) fn refresh_list_specifics(&mut self, refreshes: DiskRefreshKind) {
+    pub(crate) fn refresh_list_specifics(
+        &mut self,
+        remove_not_listed_disks: bool,
+        refreshes: DiskRefreshKind,
+    ) {
         unsafe {
-            self.disks = get_list(refreshes);
+            get_list(&mut self.disks, remove_not_listed_disks, refreshes);
         }
     }
 
@@ -262,97 +275,97 @@ unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {
     }
 }
 
-pub(crate) unsafe fn get_list(refreshes: DiskRefreshKind) -> Vec<Disk> {
-    #[cfg(feature = "multithread")]
-    use rayon::iter::ParallelIterator;
+pub(crate) unsafe fn get_list(
+    disks: &mut Vec<Disk>,
+    remove_not_listed_disks: bool,
+    refreshes: DiskRefreshKind,
+) {
+    for volume_name in get_volume_guid_paths() {
+        let mount_paths = get_volume_path_names_for_volume_name(&volume_name[..]);
+        if mount_paths.is_empty() {
+            continue;
+        }
 
-    crate::utils::into_iter(get_volume_guid_paths())
-        .flat_map(|volume_name| {
-            let raw_volume_name = PCWSTR::from_raw(volume_name.as_ptr());
-            let drive_type = GetDriveTypeW(raw_volume_name);
+        let raw_volume_name = PCWSTR::from_raw(volume_name.as_ptr());
+        let drive_type = GetDriveTypeW(raw_volume_name);
 
-            let is_removable = refreshes.details() && drive_type == DRIVE_REMOVABLE;
+        if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
+            continue;
+        }
 
-            if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
-                return Vec::new();
+        let is_removable = drive_type == DRIVE_REMOVABLE;
+
+        let mut name = [0u16; MAX_PATH as usize + 1];
+        let mut file_system = [0u16; 32];
+        let mut flags = 0;
+        let volume_info_res = GetVolumeInformationW(
+            raw_volume_name,
+            Some(&mut name),
+            None,
+            None,
+            Some(&mut flags),
+            Some(&mut file_system),
+        )
+        .is_ok();
+        if !volume_info_res {
+            sysinfo_debug!(
+                "Error: GetVolumeInformationW = {:?}",
+                Error::from_win32().code()
+            );
+            continue;
+        }
+        let is_read_only = (flags & FILE_READ_ONLY_VOLUME) != 0;
+
+        // The device path is the volume name without the trailing backslash.
+        let device_path = volume_name[..(volume_name.len() - 2)]
+            .iter()
+            .copied()
+            .chain([0])
+            .collect::<Vec<_>>();
+
+        let name = os_string_from_zero_terminated(&name);
+        let file_system = os_string_from_zero_terminated(&file_system);
+        for mount_path in mount_paths {
+            if let Some(disk) = disks.iter_mut().find(|d| d.inner.mount_point == mount_path) {
+                disk.refresh_specifics(refreshes);
+                disk.inner.updated = true;
+                continue;
             }
-            let mut name = [0u16; MAX_PATH as usize + 1];
-            let mut file_system = [0u16; 32];
-            let mut flags = 0;
-            let volume_info_res = GetVolumeInformationW(
-                raw_volume_name,
-                Some(&mut name),
-                None,
-                None,
-                Some(&mut flags),
-                Some(&mut file_system),
-            )
-            .is_ok();
-            if !volume_info_res {
-                sysinfo_debug!(
-                    "Error: GetVolumeInformationW = {:?}",
-                    Error::from_win32().code()
-                );
-                return Vec::new();
+            let mut disk = DiskInner {
+                type_: DiskKind::Unknown(-1),
+                name: name.clone(),
+                file_system: file_system.clone(),
+                s_mount_point: OsString::from_wide(&mount_path[..mount_path.len() - 1]),
+                mount_point: mount_path,
+                total_space: 0,
+                available_space: 0,
+                is_removable,
+                is_read_only,
+                device_path: device_path.clone(),
+                old_read_bytes: 0,
+                old_written_bytes: 0,
+                read_bytes: 0,
+                written_bytes: 0,
+                updated: true,
+            };
+            disk.refresh_specifics(refreshes);
+            disks.push(Disk { inner: disk });
+        }
+    }
+
+    if remove_not_listed_disks {
+        disks.retain_mut(|disk| {
+            if !disk.inner.updated {
+                return false;
             }
-            let is_read_only = refreshes.details() && (flags & FILE_READ_ONLY_VOLUME) != 0;
-
-            let mount_paths = get_volume_path_names_for_volume_name(&volume_name[..]);
-            if mount_paths.is_empty() {
-                return Vec::new();
-            }
-
-            // The device path is the volume name without the trailing backslash.
-            let device_path = volume_name[..(volume_name.len() - 2)]
-                .iter()
-                .copied()
-                .chain([0])
-                .collect::<Vec<_>>();
-            let handle = HandleWrapper::new_from_file(&device_path[..], Default::default());
-
-            let (total_space, available_space) = if refreshes.details() {
-                get_drive_size(&mount_paths[0][..]).unwrap_or_default()
-            } else {
-                (0, 0)
-            };
-
-            let type_ = if refreshes.kind() {
-                get_disk_kind(&device_path, handle.as_ref())
-            } else {
-                DiskKind::Unknown(-1)
-            };
-
-            let (read_bytes, written_bytes) = if refreshes.io_usage() {
-                get_disk_io(&device_path, handle).unwrap_or_default()
-            } else {
-                (0, 0)
-            };
-
-            let name = os_string_from_zero_terminated(&name);
-            let file_system = os_string_from_zero_terminated(&file_system);
-            mount_paths
-                .into_iter()
-                .map(move |mount_path| Disk {
-                    inner: DiskInner {
-                        type_,
-                        name: name.clone(),
-                        file_system: file_system.clone(),
-                        s_mount_point: OsString::from_wide(&mount_path[..mount_path.len() - 1]),
-                        mount_point: mount_path,
-                        total_space,
-                        available_space,
-                        is_removable,
-                        is_read_only,
-                        device_path: device_path.clone(),
-                        old_read_bytes: 0,
-                        old_written_bytes: 0,
-                        read_bytes,
-                        written_bytes,
-                    },
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>()
+            disk.inner.updated = false;
+            true
+        });
+    } else {
+        for c in disks.iter_mut() {
+            c.inner.updated = false;
+        }
+    }
 }
 
 fn os_string_from_zero_terminated(name: &[u16]) -> OsString {
@@ -360,27 +373,7 @@ fn os_string_from_zero_terminated(name: &[u16]) -> OsString {
     OsString::from_wide(&name[..len])
 }
 
-unsafe fn get_disk_kind(device_path: &[u16], borrowed_handle: Option<&HandleWrapper>) -> DiskKind {
-    let handle_data;
-    let borrowed_handle = if borrowed_handle.is_none() {
-        handle_data = HandleWrapper::new_from_file(device_path, Default::default());
-        handle_data.as_ref()
-    } else {
-        borrowed_handle
-    };
-    let Some(handle) = borrowed_handle else {
-        sysinfo_debug!("Coudn't get a Handle to retrieve `DiskKind`");
-        return DiskKind::Unknown(-1);
-    };
-
-    if handle.is_invalid() {
-        sysinfo_debug!(
-            "Expected handle to {:?} to be valid",
-            String::from_utf16_lossy(device_path)
-        );
-        return DiskKind::Unknown(-1);
-    }
-
+unsafe fn get_disk_kind(handle: &HandleWrapper) -> DiskKind {
     let spq_trim = STORAGE_PROPERTY_QUERY {
         PropertyId: StorageDeviceSeekPenaltyProperty,
         QueryType: PropertyStandardQuery,
@@ -415,19 +408,9 @@ unsafe fn get_disk_kind(device_path: &[u16], borrowed_handle: Option<&HandleWrap
     }
 }
 
-/// Returns a tuple consisting of the total number of bytes read and written by the volume with the specified device path
-fn get_disk_io(device_path: &[u16], handle: Option<HandleWrapper>) -> Option<(u64, u64)> {
-    let handle =
-        handle.or(unsafe { HandleWrapper::new_from_file(device_path, Default::default()) })?;
-
-    if handle.is_invalid() {
-        sysinfo_debug!(
-            "Expected handle to {:?} to be valid",
-            String::from_utf16_lossy(device_path)
-        );
-        return None;
-    }
-
+/// Returns a tuple consisting of the total number of bytes read and written by the volume with the
+/// specified device path
+fn get_disk_io(handle: HandleWrapper) -> Option<(u64, u64)> {
     let mut disk_perf = DISK_PERFORMANCE::default();
     let mut bytes_returned = 0;
 

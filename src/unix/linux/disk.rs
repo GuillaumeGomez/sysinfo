@@ -7,7 +7,7 @@ use libc::statvfs;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fs;
-use std::mem;
+use std::mem::MaybeUninit;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -48,6 +48,7 @@ pub(crate) struct DiskInner {
     old_read_bytes: u64,
     written_bytes: u64,
     read_bytes: u64,
+    updated: bool,
 }
 
 impl DiskInner {
@@ -84,18 +85,15 @@ impl DiskInner {
     }
 
     pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) -> bool {
-        self.efficient_refresh(refresh_kind, &disk_stats(&refresh_kind))
+        self.efficient_refresh(refresh_kind, &disk_stats(&refresh_kind), false)
     }
 
     fn efficient_refresh(
         &mut self,
         refresh_kind: DiskRefreshKind,
         procfs_disk_stats: &HashMap<String, DiskStat>,
+        first: bool,
     ) -> bool {
-        if refresh_kind.kind() && self.type_ == DiskKind::Unknown(-1) {
-            self.type_ = find_type_for_device_name(&self.device_name);
-        }
-
         if refresh_kind.io_usage() {
             if self.actual_device_name.is_none() {
                 self.actual_device_name = Some(get_actual_device_name(&self.device_name));
@@ -114,13 +112,19 @@ impl DiskInner {
             }
         }
 
-        if refresh_kind.details() {
+        if refresh_kind.kind() && self.type_ == DiskKind::Unknown(-1) {
+            self.type_ = find_type_for_device_name(&self.device_name);
+        }
+
+        if refresh_kind.storage() {
             if let Some((total_space, available_space, is_read_only)) =
                 unsafe { load_statvfs_values(&self.mount_point) }
             {
                 self.total_space = total_space;
                 self.available_space = available_space;
-                self.is_read_only = is_read_only;
+                if first {
+                    self.is_read_only = is_read_only;
+                }
             }
         }
 
@@ -144,9 +148,14 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh_list_specifics(&mut self, refresh_kind: DiskRefreshKind) {
+    pub(crate) fn refresh_list_specifics(
+        &mut self,
+        remove_not_listed_disks: bool,
+        refresh_kind: DiskRefreshKind,
+    ) {
         get_all_list(
             &mut self.disks,
+            remove_not_listed_disks,
             &get_all_utf8_data("/proc/mounts", 16_385).unwrap_or_default(),
             refresh_kind,
         )
@@ -156,7 +165,7 @@ impl crate::DisksInner {
         let procfs_disk_stats = disk_stats(&refresh_kind);
         for disk in self.list_mut() {
             disk.inner
-                .efficient_refresh(refresh_kind, &procfs_disk_stats);
+                .efficient_refresh(refresh_kind, &procfs_disk_stats, false);
         }
     }
 
@@ -190,8 +199,14 @@ fn get_actual_device_name(device: &OsStr) -> String {
 
 unsafe fn load_statvfs_values(mount_point: &Path) -> Option<(u64, u64, bool)> {
     let mount_point_cpath = to_cpath(mount_point);
-    let mut stat: statvfs = mem::zeroed();
-    if retry_eintr!(statvfs(mount_point_cpath.as_ptr() as *const _, &mut stat)) == 0 {
+    let mut stat: MaybeUninit<statvfs> = MaybeUninit::uninit();
+    if retry_eintr!(statvfs(
+        mount_point_cpath.as_ptr() as *const _,
+        stat.as_mut_ptr()
+    )) == 0
+    {
+        let stat = stat.assume_init();
+
         let bsize = cast!(stat.f_bsize);
         let blocks = cast!(stat.f_blocks);
         let bavail = cast!(stat.f_bavail);
@@ -216,56 +231,31 @@ fn new_disk(
     procfs_disk_stats: &HashMap<String, DiskStat>,
     refresh_kind: DiskRefreshKind,
 ) -> Disk {
-    let type_ = if refresh_kind.kind() {
-        find_type_for_device_name(device_name)
-    } else {
-        DiskKind::Unknown(-1)
-    };
+    let is_removable = removable_entries
+        .iter()
+        .any(|e| e.as_os_str() == device_name);
 
-    let (total_space, available_space, is_read_only) = if refresh_kind.details() {
-        unsafe { load_statvfs_values(mount_point).unwrap_or((0, 0, false)) }
-    } else {
-        (0, 0, false)
-    };
-
-    let is_removable = refresh_kind.details()
-        && removable_entries
-            .iter()
-            .any(|e| e.as_os_str() == device_name);
-
-    let (actual_device_name, read_bytes, written_bytes) = if refresh_kind.io_usage() {
-        let actual_device_name = get_actual_device_name(device_name);
-        let (read_bytes, written_bytes) = procfs_disk_stats
-            .get(&actual_device_name)
-            .map(|stat| {
-                (
-                    stat.sectors_read * SECTOR_SIZE,
-                    stat.sectors_written * SECTOR_SIZE,
-                )
-            })
-            .unwrap_or_default();
-        (Some(actual_device_name), read_bytes, written_bytes)
-    } else {
-        (None, 0, 0)
-    };
-
-    Disk {
+    let mut disk = Disk {
         inner: DiskInner {
-            type_,
+            type_: DiskKind::Unknown(-1),
             device_name: device_name.to_owned(),
-            actual_device_name,
+            actual_device_name: None,
             file_system: file_system.to_owned(),
             mount_point: mount_point.to_owned(),
-            total_space,
-            available_space,
+            total_space: 0,
+            available_space: 0,
             is_removable,
-            is_read_only,
+            is_read_only: false,
             old_read_bytes: 0,
             old_written_bytes: 0,
-            read_bytes,
-            written_bytes,
+            read_bytes: 0,
+            written_bytes: 0,
+            updated: true,
         },
-    }
+    };
+    disk.inner
+        .efficient_refresh(refresh_kind, procfs_disk_stats, true);
+    disk
 }
 
 #[allow(clippy::manual_range_contains)]
@@ -339,8 +329,12 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
     }
 }
 
-fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefreshKind) {
-    container.clear();
+fn get_all_list(
+    container: &mut Vec<Disk>,
+    remove_not_listed_disks: bool,
+    content: &str,
+    refresh_kind: DiskRefreshKind,
+) {
     // The goal of this array is to list all removable devices (the ones whose name starts with
     // "usb-").
     let removable_entries = match fs::read_dir("/dev/disk/by-id/") {
@@ -362,7 +356,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
 
     let procfs_disk_stats = disk_stats(&refresh_kind);
 
-    for disk in content
+    for (fs_spec, fs_file, fs_vfstype) in content
         .lines()
         .map(|line| {
             let line = line.trim_start();
@@ -407,18 +401,39 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
                (fs_file.starts_with("/run") && !fs_file.starts_with("/run/media")) ||
                fs_spec.starts_with("sunrpc"))
         })
-        .map(|(fs_spec, fs_file, fs_vfstype)| {
-            new_disk(
-                fs_spec.as_ref(),
-                Path::new(&fs_file),
-                fs_vfstype.as_ref(),
-                &removable_entries,
-                &procfs_disk_stats,
-                refresh_kind,
-            )
-        })
     {
-        container.push(disk);
+        let mount_point = Path::new(&fs_file);
+        if let Some(disk) = container
+            .iter_mut()
+            .find(|d| d.inner.mount_point == mount_point)
+        {
+            disk.inner
+                .efficient_refresh(refresh_kind, &procfs_disk_stats, false);
+            disk.inner.updated = true;
+            continue;
+        }
+        container.push(new_disk(
+            fs_spec.as_ref(),
+            mount_point,
+            fs_vfstype.as_ref(),
+            &removable_entries,
+            &procfs_disk_stats,
+            refresh_kind,
+        ));
+    }
+
+    if remove_not_listed_disks {
+        container.retain_mut(|disk| {
+            if !disk.inner.updated {
+                return false;
+            }
+            disk.inner.updated = false;
+            true
+        });
+    } else {
+        for c in container.iter_mut() {
+            c.inner.updated = false;
+        }
     }
 }
 

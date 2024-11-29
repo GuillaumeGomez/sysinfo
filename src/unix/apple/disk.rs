@@ -37,6 +37,7 @@ pub(crate) struct DiskInner {
     pub(crate) old_read_bytes: u64,
     pub(crate) written_bytes: u64,
     pub(crate) read_bytes: u64,
+    updated: bool,
 }
 
 impl DiskInner {
@@ -73,46 +74,10 @@ impl DiskInner {
     }
 
     pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) -> bool {
-        if refresh_kind.kind() && self.type_ == DiskKind::Unknown(-1) {
-            #[cfg(target_os = "macos")]
-            {
-                match self
-                    .bsd_name
-                    .as_ref()
-                    .and_then(|name| crate::sys::inner::disk::get_disk_type(name))
-                {
-                    Some(type_) => self.type_ = type_,
-                    None => {
-                        sysinfo_debug!("Failed to retrieve `DiskKind`");
-                    }
-                }
-            }
-            #[cfg(not(target_os = "macos"))]
-            {
-                self.type_ = DiskKind::SSD;
-            }
-        }
+        self.refresh_kind(refresh_kind);
+        self.refresh_io(refresh_kind);
 
-        if refresh_kind.io_usage() {
-            #[cfg(target_os = "macos")]
-            match self
-                .bsd_name
-                .as_ref()
-                .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
-            {
-                Some((read_bytes, written_bytes)) => {
-                    self.old_read_bytes = self.read_bytes;
-                    self.old_written_bytes = self.written_bytes;
-                    self.read_bytes = read_bytes;
-                    self.written_bytes = written_bytes;
-                }
-                None => {
-                    sysinfo_debug!("Failed to update disk i/o stats");
-                }
-            }
-        }
-
-        if refresh_kind.details() {
+        if refresh_kind.storage() {
             unsafe {
                 if let Some(requested_properties) = build_requested_properties(&[
                     ffi::kCFURLVolumeTotalCapacityKey,
@@ -158,6 +123,52 @@ impl DiskInner {
             total_written_bytes: self.written_bytes,
         }
     }
+
+    fn refresh_kind(&mut self, refresh_kind: DiskRefreshKind) {
+        if refresh_kind.kind() && self.type_ == DiskKind::Unknown(-1) {
+            #[cfg(target_os = "macos")]
+            {
+                match self
+                    .bsd_name
+                    .as_ref()
+                    .and_then(|name| crate::sys::inner::disk::get_disk_type(name))
+                {
+                    Some(type_) => self.type_ = type_,
+                    None => {
+                        sysinfo_debug!("Failed to retrieve `DiskKind`");
+                    }
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                self.type_ = DiskKind::SSD;
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn refresh_io(&mut self, refresh_kind: DiskRefreshKind) {
+        if refresh_kind.io_usage() {
+            match self
+                .bsd_name
+                .as_ref()
+                .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
+            {
+                Some((read_bytes, written_bytes)) => {
+                    self.old_read_bytes = self.read_bytes;
+                    self.old_written_bytes = self.written_bytes;
+                    self.read_bytes = read_bytes;
+                    self.written_bytes = written_bytes;
+                }
+                None => {
+                    sysinfo_debug!("Failed to update disk i/o stats");
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn refresh_io(&mut self, _refresh_kind: DiskRefreshKind) {}
 }
 
 impl crate::DisksInner {
@@ -167,12 +178,16 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh_list_specifics(&mut self, refresh_kind: DiskRefreshKind) {
+    pub(crate) fn refresh_list_specifics(
+        &mut self,
+        remove_not_listed_disks: bool,
+        refresh_kind: DiskRefreshKind,
+    ) {
         unsafe {
             // SAFETY: We don't keep any Objective-C objects around because we
             // don't make any direct Objective-C calls in this code.
             with_autorelease(|| {
-                get_list(&mut self.disks, refresh_kind);
+                get_list(&mut self.disks, remove_not_listed_disks, refresh_kind);
             })
         }
     }
@@ -192,9 +207,11 @@ impl crate::DisksInner {
     }
 }
 
-unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
-    container.clear();
-
+unsafe fn get_list(
+    container: &mut Vec<Disk>,
+    remove_not_listed_disks: bool,
+    refresh_kind: DiskRefreshKind,
+) {
     let raw_disks = {
         let count = libc::getfsstat(ptr::null_mut(), 0, libc::MNT_NOWAIT);
         if count < 1 {
@@ -213,18 +230,26 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
         disks
     };
 
+    // Currently we query maximum 9 properties.
+    let mut properties = Vec::with_capacity(9);
+    // "mandatory" information
+    properties.push(ffi::kCFURLVolumeNameKey);
+    properties.push(ffi::kCFURLVolumeIsBrowsableKey);
+    properties.push(ffi::kCFURLVolumeIsLocalKey);
+
+    // is_removable
+    properties.push(ffi::kCFURLVolumeIsEjectableKey);
+    properties.push(ffi::kCFURLVolumeIsRemovableKey);
+    properties.push(ffi::kCFURLVolumeIsInternalKey);
+
+    if refresh_kind.storage() {
+        properties.push(ffi::kCFURLVolumeTotalCapacityKey);
+        properties.push(ffi::kCFURLVolumeAvailableCapacityForImportantUsageKey);
+        properties.push(ffi::kCFURLVolumeAvailableCapacityKey);
+    }
+
     // Create a list of properties about the disk that we want to fetch.
-    let requested_properties = match build_requested_properties(&[
-        ffi::kCFURLVolumeIsEjectableKey,
-        ffi::kCFURLVolumeIsRemovableKey,
-        ffi::kCFURLVolumeIsInternalKey,
-        ffi::kCFURLVolumeTotalCapacityKey,
-        ffi::kCFURLVolumeAvailableCapacityForImportantUsageKey,
-        ffi::kCFURLVolumeAvailableCapacityKey,
-        ffi::kCFURLVolumeNameKey,
-        ffi::kCFURLVolumeIsBrowsableKey,
-        ffi::kCFURLVolumeIsLocalKey,
-    ]) {
+    let requested_properties = match build_requested_properties(&properties) {
         Some(properties) => properties,
         None => {
             sysinfo_debug!("failed to create volume key list");
@@ -290,8 +315,32 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
             CStr::from_ptr(c_disk.f_mntonname.as_ptr()).to_bytes(),
         ));
 
-        if let Some(disk) = new_disk(mount_point, volume_url, c_disk, &prop_dict, refresh_kind) {
+        let disk = container
+            .iter_mut()
+            .find(|d| d.inner.mount_point == mount_point);
+        if let Some(disk) = new_disk(
+            disk,
+            mount_point,
+            volume_url,
+            c_disk,
+            &prop_dict,
+            refresh_kind,
+        ) {
             container.push(disk);
+        }
+    }
+
+    if remove_not_listed_disks {
+        container.retain_mut(|disk| {
+            if !disk.inner.updated {
+                return false;
+            }
+            disk.inner.updated = false;
+            true
+        });
+    } else {
+        for c in container.iter_mut() {
+            c.inner.updated = false;
         }
     }
 }
@@ -431,46 +480,37 @@ pub(super) unsafe fn get_int_value(dict: CFDictionaryRef, key: DictKey) -> Optio
 }
 
 unsafe fn new_disk(
+    disk: Option<&mut Disk>,
     mount_point: PathBuf,
     volume_url: RetainedCFURL,
     c_disk: libc::statfs,
     disk_props: &RetainedCFDictionary,
     refresh_kind: DiskRefreshKind,
 ) -> Option<Disk> {
-    let bsd_name = get_bsd_name(&c_disk);
-
-    // IOKit is not available on any but the most recent (16+) iOS and iPadOS versions.
-    // Due to this, we can't query the medium type and disk i/o stats. All iOS devices use flash-based storage
-    // so we just assume the disk type is an SSD and set disk i/o stats to 0 until Rust has a way to conditionally link to
-    // IOKit in more recent deployment versions.
-
-    let type_ = if refresh_kind.kind() {
-        #[cfg(target_os = "macos")]
-        {
-            bsd_name
-                .as_ref()
-                .and_then(|name| crate::sys::inner::disk::get_disk_type(name))
-                .unwrap_or(DiskKind::Unknown(-1))
-        }
-        #[cfg(not(target_os = "macos"))]
-        DiskKind::SSD
+    let (total_space, available_space) = if refresh_kind.storage() {
+        (
+            get_int_value(
+                disk_props.inner(),
+                DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
+            ),
+            get_available_volume_space(disk_props),
+        )
     } else {
-        DiskKind::Unknown(-1)
+        (None, None)
     };
 
-    let (read_bytes, written_bytes) = if refresh_kind.io_usage() {
-        #[cfg(target_os = "macos")]
-        {
-            bsd_name
-                .as_ref()
-                .and_then(|name| crate::sys::inner::disk::get_disk_io(name))
-                .unwrap_or_default()
+    if let Some(disk) = disk {
+        let disk = &mut disk.inner;
+        if let Some(total_space) = total_space {
+            disk.total_space = total_space;
         }
-        #[cfg(not(target_os = "macos"))]
-        (0, 0)
-    } else {
-        (0, 0)
-    };
+        if let Some(available_space) = available_space {
+            disk.available_space = available_space;
+        }
+        disk.refresh_io(refresh_kind);
+        disk.updated = true;
+        return None;
+    }
 
     // Note: Since we requested these properties from the system, we don't expect
     // these property retrievals to fail.
@@ -480,51 +520,6 @@ unsafe fn new_disk(
         DictKey::Extern(ffi::kCFURLVolumeNameKey),
     )
     .map(OsString::from)?;
-
-    let is_removable = if refresh_kind.details() {
-        let ejectable = get_bool_value(
-            disk_props.inner(),
-            DictKey::Extern(ffi::kCFURLVolumeIsEjectableKey),
-        )
-        .unwrap_or_default();
-
-        let removable = get_bool_value(
-            disk_props.inner(),
-            DictKey::Extern(ffi::kCFURLVolumeIsRemovableKey),
-        )
-        .unwrap_or_default();
-
-        let is_removable = ejectable || removable;
-
-        if is_removable {
-            is_removable
-        } else {
-            // If neither `ejectable` or `removable` return `true`, fallback to checking
-            // if the disk is attached to the internal system.
-            let internal = get_bool_value(
-                disk_props.inner(),
-                DictKey::Extern(ffi::kCFURLVolumeIsInternalKey),
-            )
-            .unwrap_or_default();
-
-            !internal
-        }
-    } else {
-        false
-    };
-
-    let (total_space, available_space) = if refresh_kind.details() {
-        (
-            get_int_value(
-                disk_props.inner(),
-                DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
-            )
-            .unwrap_or(0),
-            get_available_volume_space(disk_props).unwrap_or(0),
-        )
-    } else {
-        (0, 0)
-    };
 
     let file_system = {
         let len = c_disk
@@ -540,26 +535,63 @@ unsafe fn new_disk(
         )
     };
 
-    let is_read_only = refresh_kind.details() && (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0;
+    let bsd_name = get_bsd_name(&c_disk);
 
-    Some(Disk {
-        inner: DiskInner {
-            type_,
-            name,
-            bsd_name,
-            file_system,
-            mount_point,
-            volume_url,
-            total_space,
-            available_space,
-            is_removable,
-            is_read_only,
-            read_bytes,
-            written_bytes,
-            old_read_bytes: 0,
-            old_written_bytes: 0,
-        },
-    })
+    // IOKit is not available on any but the most recent (16+) iOS and iPadOS versions.
+    // Due to this, we can't query the medium type and disk i/o stats. All iOS devices use flash-based storage
+    // so we just assume the disk type is an SSD and set disk i/o stats to 0 until Rust has a way to conditionally link to
+    // IOKit in more recent deployment versions.
+
+    let ejectable = get_bool_value(
+        disk_props.inner(),
+        DictKey::Extern(ffi::kCFURLVolumeIsEjectableKey),
+    )
+    .unwrap_or(false);
+
+    let removable = get_bool_value(
+        disk_props.inner(),
+        DictKey::Extern(ffi::kCFURLVolumeIsRemovableKey),
+    )
+    .unwrap_or(false);
+
+    let is_removable = if ejectable || removable {
+        true
+    } else {
+        // If neither `ejectable` or `removable` return `true`, fallback to checking
+        // if the disk is attached to the internal system.
+        let internal = get_bool_value(
+            disk_props.inner(),
+            DictKey::Extern(ffi::kCFURLVolumeIsInternalKey),
+        )
+        .unwrap_or_default();
+
+        !internal
+    };
+
+    let is_read_only = (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0;
+
+    let mut disk = DiskInner {
+        type_: DiskKind::Unknown(-1),
+        name,
+        bsd_name,
+        file_system,
+        mount_point,
+        volume_url,
+        total_space: total_space.unwrap_or(0),
+        available_space: available_space.unwrap_or(0),
+        is_removable,
+        is_read_only,
+        read_bytes: 0,
+        written_bytes: 0,
+        old_read_bytes: 0,
+        old_written_bytes: 0,
+        updated: true,
+    };
+
+    disk.refresh_kind(refresh_kind);
+    disk.refresh_io(refresh_kind);
+
+    Some(Disk { inner: disk })
 }
 
 /// Calls the provided closure in the context of a new autorelease pool that is drained
@@ -599,7 +631,7 @@ fn get_bsd_name(disk: &libc::statfs) -> Option<Vec<u8>> {
     // Removes `/dev/` from the value.
     unsafe {
         CStr::from_ptr(disk.f_mntfromname.as_ptr())
-            .to_bytes()
+            .to_bytes_with_nul()
             .strip_prefix(b"/dev/")
             .map(|slice| slice.to_vec())
             .or_else(|| {

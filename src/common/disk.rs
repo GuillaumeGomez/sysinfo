@@ -249,7 +249,7 @@ impl Disks {
     /// use sysinfo::Disks;
     ///
     /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// disks.refresh_list(false);
     /// for disk in disks.list() {
     ///     println!("{disk:?}");
     /// }
@@ -290,7 +290,7 @@ impl Disks {
     /// ```
     pub fn new_with_refreshed_list_specifics(refreshes: DiskRefreshKind) -> Self {
         let mut disks = Self::new();
-        disks.refresh_list_specifics(refreshes);
+        disks.refresh_list_specifics(false, refreshes);
         disks
     }
 
@@ -357,10 +357,10 @@ impl Disks {
     /// use sysinfo::Disks;
     ///
     /// let mut disks = Disks::new();
-    /// disks.refresh_list();
+    /// disks.refresh_list(true);
     /// ```
-    pub fn refresh_list(&mut self) {
-        self.refresh_list_specifics(DiskRefreshKind::everything());
+    pub fn refresh_list(&mut self, remove_not_listed_disks: bool) {
+        self.refresh_list_specifics(remove_not_listed_disks, DiskRefreshKind::everything());
     }
 
     /// The disk list will be emptied then completely recomputed according to the given
@@ -380,10 +380,15 @@ impl Disks {
     /// use sysinfo::{Disks, DiskRefreshKind};
     ///
     /// let mut disks = Disks::new();
-    /// disks.refresh_list_specifics(DiskRefreshKind::new());
+    /// disks.refresh_list_specifics(true, DiskRefreshKind::new());
     /// ```
-    pub fn refresh_list_specifics(&mut self, refreshes: DiskRefreshKind) {
-        self.inner.refresh_list_specifics(refreshes);
+    pub fn refresh_list_specifics(
+        &mut self,
+        remove_not_listed_disks: bool,
+        refreshes: DiskRefreshKind,
+    ) {
+        self.inner
+            .refresh_list_specifics(remove_not_listed_disks, refreshes);
     }
 }
 
@@ -435,19 +440,23 @@ impl fmt::Display for DiskKind {
 
 /// Used to determine what you want to refresh specifically on the [`Disk`] type.
 ///
+/// * `kind` is about refreshing the [`Disk::kind`] information.
+/// * `storage` is about refreshing the [`Disk::available_space`] and [`Disk::total_space`] information.
+/// * `io_usage` is about refreshing the [`Disk::usage`] information.
+///
 /// ```no_run
 /// use sysinfo::{Disks, DiskRefreshKind};
 ///
 /// let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::everything());
 ///
 /// for disk in disks.list() {
-///     assert_eq!(disk.total_space(), 0);
+///     assert!(disk.total_space() != 0);
 /// }
 /// ```
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DiskRefreshKind {
     kind: bool,
-    details: bool,
+    storage: bool,
     io_usage: bool,
 }
 
@@ -460,7 +469,7 @@ impl DiskRefreshKind {
     /// let r = DiskRefreshKind::new();
     ///
     /// assert_eq!(r.kind(), false);
-    /// assert_eq!(r.details(), false);
+    /// assert_eq!(r.storage(), false);
     /// assert_eq!(r.io_usage(), false);
     /// ```
     pub fn new() -> Self {
@@ -475,18 +484,18 @@ impl DiskRefreshKind {
     /// let r = DiskRefreshKind::everything();
     ///
     /// assert_eq!(r.kind(), true);
-    /// assert_eq!(r.details(), true);
+    /// assert_eq!(r.storage(), true);
     /// assert_eq!(r.io_usage(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
             kind: true,
-            details: true,
+            storage: true,
             io_usage: true,
         }
     }
 
     impl_get_set!(DiskRefreshKind, kind, with_kind, without_kind);
-    impl_get_set!(DiskRefreshKind, details, with_details, without_details,);
+    impl_get_set!(DiskRefreshKind, storage, with_storage, without_storage);
     impl_get_set!(DiskRefreshKind, io_usage, with_io_usage, without_io_usage);
 }

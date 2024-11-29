@@ -59,7 +59,15 @@ cfg_if! {
                     HANDLE::default(),
                 )
                 .ok()?;
-                Some(Self(handle))
+                if handle.is_invalid() {
+                    sysinfo_debug!(
+                        "Expected handle to {:?} to be valid",
+                        String::from_utf16_lossy(drive_name)
+                    );
+                    None
+                } else {
+                    Some(Self(handle))
+                }
             }
         }
 
