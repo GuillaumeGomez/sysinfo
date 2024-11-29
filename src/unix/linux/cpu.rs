@@ -530,7 +530,7 @@ fn get_arm_implementer(implementer: u32) -> Option<&'static str> {
 /// Obtain the part of this CPU core.
 ///
 /// This has been obtained from util-linux's lscpu implementation, see
-/// https://github.com/util-linux/util-linux/blob/7076703b529d255600631306419cca1b48ab850a/sys-utils/lscpu-arm.c#L34
+/// https://github.com/util-linux/util-linux/blob/eb788e20b82d0e1001a30867c71c8bfb2bb86819/sys-utils/lscpu-arm.c#L25
 ///
 /// This list will have to be updated every time a new core appears, please keep it synchronized
 /// with util-linux and update the link above with the commit you have used.
@@ -583,8 +583,12 @@ fn get_arm_part(implementer: u32, part: u32) -> Option<&'static str> {
         (0x41, 0xd0d) => "Cortex-A77",
         (0x41, 0xd0e) => "Cortex-A76AE",
         (0x41, 0xd13) => "Cortex-R52",
+        (0x41, 0xd15) => "Cortex-R82",
+        (0x41, 0xd16) => "Cortex-R52+",
         (0x41, 0xd20) => "Cortex-M23",
         (0x41, 0xd21) => "Cortex-M33",
+        (0x41, 0xd22) => "Cortex-R55",
+        (0x41, 0xd23) => "Cortex-R85",
         (0x41, 0xd40) => "Neoverse-V1",
         (0x41, 0xd41) => "Cortex-A78",
         (0x41, 0xd42) => "Cortex-A78AE",
@@ -599,6 +603,14 @@ fn get_arm_part(implementer: u32, part: u32) -> Option<&'static str> {
         (0x41, 0xd4c) => "Cortex-X1C",
         (0x41, 0xd4d) => "Cortex-A715",
         (0x41, 0xd4e) => "Cortex-X3",
+        (0x41, 0xd4f) => "Neoverse-V2",
+        (0x41, 0xd80) => "Cortex-A520",
+        (0x41, 0xd81) => "Cortex-A720",
+        (0x41, 0xd82) => "Cortex-X4",
+        (0x41, 0xd84) => "Neoverse-V3",
+        (0x41, 0xd85) => "Cortex-X925",
+        (0x41, 0xd87) => "Cortex-A725",
+        (0x41, 0xd8e) => "Neoverse-N3",
 
         // Broadcom
         (0x42, 0x00f) => "Brahma-B15",
