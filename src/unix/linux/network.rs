@@ -40,6 +40,7 @@ fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
 
 fn refresh_networks_list_from_sysfs(
     interfaces: &mut HashMap<String, NetworkData>,
+    remove_not_listed_interfaces: bool,
     sysfs_net: &Path,
 ) {
     if let Ok(dir) = std::fs::read_dir(sysfs_net) {
@@ -112,9 +113,18 @@ fn refresh_networks_list_from_sysfs(
                 }
             };
         }
-
+    }
+    // We do this here because `refresh_networks_list_remove_interface` test is checking that
+    // this is working as expected.
+    if remove_not_listed_interfaces {
         // Remove interfaces which are gone.
-        interfaces.retain(|_, d| d.inner.updated);
+        interfaces.retain(|_, i| {
+            if !i.inner.updated {
+                return false;
+            }
+            i.inner.updated = false;
+            true
+        });
     }
 }
 
@@ -133,16 +143,12 @@ impl NetworksInner {
         &self.interfaces
     }
 
-    pub(crate) fn refresh(&mut self) {
-        let mut v = vec![0; 30];
-
-        for (interface_name, data) in self.interfaces.iter_mut() {
-            data.inner.update(interface_name, &mut v);
-        }
-    }
-
-    pub(crate) fn refresh_list(&mut self) {
-        refresh_networks_list_from_sysfs(&mut self.interfaces, Path::new("/sys/class/net/"));
+    pub(crate) fn refresh(&mut self, remove_not_listed_interfaces: bool) {
+        refresh_networks_list_from_sysfs(
+            &mut self.interfaces,
+            remove_not_listed_interfaces,
+            Path::new("/sys/class/net/"),
+        );
         refresh_networks_addresses(&mut self.interfaces);
     }
 }
@@ -188,53 +194,6 @@ pub(crate) struct NetworkDataInner {
 }
 
 impl NetworkDataInner {
-    fn update(&mut self, path: &str, data: &mut Vec<u8>) {
-        let path = &Path::new("/sys/class/net/").join(path).join("statistics");
-        old_and_new!(self, rx_bytes, old_rx_bytes, read(path, "rx_bytes", data));
-        old_and_new!(self, tx_bytes, old_tx_bytes, read(path, "tx_bytes", data));
-        old_and_new!(
-            self,
-            rx_packets,
-            old_rx_packets,
-            read(path, "rx_packets", data)
-        );
-        old_and_new!(
-            self,
-            tx_packets,
-            old_tx_packets,
-            read(path, "tx_packets", data)
-        );
-        old_and_new!(
-            self,
-            rx_errors,
-            old_rx_errors,
-            read(path, "rx_errors", data)
-        );
-        old_and_new!(
-            self,
-            tx_errors,
-            old_tx_errors,
-            read(path, "tx_errors", data)
-        );
-        // old_and_new!(
-        //     self,
-        //     rx_compressed,
-        //     old_rx_compressed,
-        //     read(path, "rx_compressed", data)
-        // );
-        // old_and_new!(
-        //     self,
-        //     tx_compressed,
-        //     old_tx_compressed,
-        //     read(path, "tx_compressed", data)
-        // );
-        let mtu_path = &Path::new("/sys/class/net/").join(path);
-        let mtu = read(mtu_path, "mtu", data);
-        if self.mtu != mtu {
-            self.mtu = mtu;
-        }
-    }
-
     pub(crate) fn received(&self) -> u64 {
         self.rx_bytes.saturating_sub(self.old_rx_bytes)
     }
@@ -310,12 +269,12 @@ mod test {
 
         let mut interfaces = HashMap::new();
 
-        refresh_networks_list_from_sysfs(&mut interfaces, sys_net_dir.path());
+        refresh_networks_list_from_sysfs(&mut interfaces, false, sys_net_dir.path());
         assert_eq!(interfaces.keys().collect::<Vec<_>>(), ["itf1"]);
 
         fs::create_dir(sys_net_dir.path().join("itf2")).expect("failed to create subdirectory");
 
-        refresh_networks_list_from_sysfs(&mut interfaces, sys_net_dir.path());
+        refresh_networks_list_from_sysfs(&mut interfaces, false, sys_net_dir.path());
         let mut itf_names: Vec<String> = interfaces.keys().map(|n| n.to_owned()).collect();
         itf_names.sort();
         assert_eq!(itf_names, ["itf1", "itf2"]);
@@ -332,14 +291,14 @@ mod test {
 
         let mut interfaces = HashMap::new();
 
-        refresh_networks_list_from_sysfs(&mut interfaces, sys_net_dir.path());
+        refresh_networks_list_from_sysfs(&mut interfaces, false, sys_net_dir.path());
         let mut itf_names: Vec<String> = interfaces.keys().map(|n| n.to_owned()).collect();
         itf_names.sort();
         assert_eq!(itf_names, ["itf1", "itf2"]);
 
         fs::remove_dir(&itf1_dir).expect("failed to remove subdirectory");
 
-        refresh_networks_list_from_sysfs(&mut interfaces, sys_net_dir.path());
+        refresh_networks_list_from_sysfs(&mut interfaces, true, sys_net_dir.path());
         assert_eq!(interfaces.keys().collect::<Vec<_>>(), ["itf2"]);
     }
 }

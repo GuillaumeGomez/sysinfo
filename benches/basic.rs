@@ -86,7 +86,7 @@ fn bench_refresh_disks_list(b: &mut test::Bencher) {
     let mut disks = sysinfo::Disks::new_with_refreshed_list();
 
     b.iter(move || {
-        disks.refresh_list(false);
+        disks.refresh_list(true);
     });
 }
 
@@ -96,17 +96,7 @@ fn bench_refresh_networks(b: &mut test::Bencher) {
     let mut n = sysinfo::Networks::new_with_refreshed_list();
 
     b.iter(move || {
-        n.refresh();
-    });
-}
-
-#[cfg(feature = "network")]
-#[bench]
-fn bench_refresh_networks_list(b: &mut test::Bencher) {
-    let mut n = sysinfo::Networks::new_with_refreshed_list();
-
-    b.iter(move || {
-        n.refresh_list();
+        n.refresh(true);
     });
 }
 

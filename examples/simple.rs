@@ -168,7 +168,7 @@ fn interpret_input(
         }
         "refresh_networks" => {
             writeln!(&mut io::stdout(), "Refreshing network list...");
-            networks.refresh_list();
+            networks.refresh(true);
             writeln!(&mut io::stdout(), "Done.");
         }
         "refresh_components" => {

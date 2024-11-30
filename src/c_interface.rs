@@ -248,20 +248,6 @@ pub extern "C" fn sysinfo_networks_destroy(networks: CNetworks) {
     }
 }
 
-/// Equivalent of [`Networks::refresh_list()`][crate::Networks#method.refresh_list].
-#[no_mangle]
-pub extern "C" fn sysinfo_networks_refresh_list(networks: CNetworks) {
-    assert!(!networks.is_null());
-    unsafe {
-        let mut networks: Box<Networks> = Box::from_raw(networks as *mut Networks);
-        {
-            let networks: &mut Networks = networks.borrow_mut();
-            networks.refresh_list();
-        }
-        let _ = Box::into_raw(networks);
-    }
-}
-
 /// Equivalent of [`Networks::refresh()`][crate::Networks#method.refresh].
 #[no_mangle]
 pub extern "C" fn sysinfo_networks_refresh(networks: CNetworks) {
@@ -270,7 +256,7 @@ pub extern "C" fn sysinfo_networks_refresh(networks: CNetworks) {
         let mut networks: Box<Networks> = Box::from_raw(networks as *mut Networks);
         {
             let networks: &mut Networks = networks.borrow_mut();
-            networks.refresh();
+            networks.refresh(true);
         }
         let _ = Box::into_raw(networks);
     }

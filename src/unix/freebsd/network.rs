@@ -29,19 +29,21 @@ impl NetworksInner {
         &self.interfaces
     }
 
-    pub(crate) fn refresh_list(&mut self) {
+    pub(crate) fn refresh(&mut self, remove_not_listed_interfaces: bool) {
         unsafe {
             self.refresh_interfaces(true);
         }
-        // Remove interfaces which are gone.
-        self.interfaces.retain(|_, n| n.inner.updated);
-        refresh_networks_addresses(&mut self.interfaces);
-    }
-
-    pub(crate) fn refresh(&mut self) {
-        unsafe {
-            self.refresh_interfaces(false);
+        if remove_not_listed_interfaces {
+            // Remove interfaces which are gone.
+            self.interfaces.retain(|_, i| {
+                if !i.inner.updated {
+                    return false;
+                }
+                i.inner.updated = false;
+                true
+            });
         }
+        refresh_networks_addresses(&mut self.interfaces);
     }
 
     unsafe fn refresh_interfaces(&mut self, refresh_all: bool) {
