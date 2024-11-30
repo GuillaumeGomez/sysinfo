@@ -10,7 +10,7 @@ macro_rules! impl_get_set {
 ```
 use sysinfo::", stringify!($ty_name), ";
 
-let r = ", stringify!($ty_name), "::new();
+let r = ", stringify!($ty_name), "::nothing();
 
 let r = r.with_", stringify!($name), "();
 assert_eq!(r.", stringify!($name), "(), true);
@@ -27,7 +27,7 @@ assert_eq!(r.", stringify!($name), "(), false);
 ```
 use sysinfo::", stringify!($ty_name), ";
 
-let r = ", stringify!($ty_name), "::new();
+let r = ", stringify!($ty_name), "::nothing();
 
 let r = r.with_", stringify!($name), "();
 assert_eq!(r.", stringify!($name), "(), true);
@@ -66,7 +66,7 @@ assert_eq!(r.", stringify!($name), "(), false);
 ```
 use sysinfo::{", stringify!($ty_name), ", UpdateKind};
 
-let r = ", stringify!($ty_name), "::new();
+let r = ", stringify!($ty_name), "::nothing();
 assert_eq!(r.", stringify!($name), "(), UpdateKind::Never);
 
 let r = r.with_", stringify!($name), "(UpdateKind::OnlyIfNotSet);
@@ -84,7 +84,7 @@ assert_eq!(r.", stringify!($name), "(), UpdateKind::Never);
 ```
 use sysinfo::{", stringify!($ty_name), ", UpdateKind};
 
-let r = ", stringify!($ty_name), "::new();
+let r = ", stringify!($ty_name), "::nothing();
 assert_eq!(r.", stringify!($name), "(), UpdateKind::Never);
 
 let r = r.with_", stringify!($name), "(UpdateKind::OnlyIfNotSet);
@@ -121,7 +121,7 @@ assert_eq!(r.", stringify!($name), "(), UpdateKind::Never);
 ```
 use sysinfo::{", stringify!($ty_name), ", ", stringify!($typ), "};
 
-let r = ", stringify!($ty_name), "::new();
+let r = ", stringify!($ty_name), "::nothing();
 assert_eq!(r.", stringify!($name), "().is_some(), false);
 
 let r = r.with_", stringify!($name), "(", stringify!($typ), "::everything());
@@ -139,7 +139,7 @@ assert_eq!(r.", stringify!($name), "().is_some(), false);
 ```
 use sysinfo::{", stringify!($ty_name), ", ", stringify!($typ), "};
 
-let r = ", stringify!($ty_name), "::new();
+let r = ", stringify!($ty_name), "::nothing();
 assert_eq!(r.", stringify!($name), "().is_some(), false);
 
 let r = r.with_", stringify!($name), "(", stringify!($typ), "::everything());

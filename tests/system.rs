@@ -143,7 +143,7 @@ fn test_consecutive_cpu_usage_update() {
     sys.refresh_processes_specifics(
         ProcessesToUpdate::All,
         true,
-        ProcessRefreshKind::new().with_cpu(),
+        ProcessRefreshKind::nothing().with_cpu(),
     );
 
     let stop = Arc::new(AtomicBool::new(false));
@@ -176,7 +176,7 @@ fn test_consecutive_cpu_usage_update() {
             sys.refresh_processes_specifics(
                 ProcessesToUpdate::Some(&[*pid]),
                 true,
-                ProcessRefreshKind::new().with_cpu(),
+                ProcessRefreshKind::nothing().with_cpu(),
             );
         }
         // To ensure that Linux doesn't give too high numbers.
@@ -206,7 +206,7 @@ fn test_refresh_memory() {
     assert_eq!(s.total_memory(), 0);
     assert_eq!(s.free_memory(), 0);
 
-    s.refresh_memory_specifics(sysinfo::MemoryRefreshKind::new().with_ram());
+    s.refresh_memory_specifics(sysinfo::MemoryRefreshKind::nothing().with_ram());
     assert_ne!(s.total_memory(), 0);
     assert_ne!(s.free_memory(), 0);
 
@@ -227,7 +227,7 @@ fn test_refresh_memory() {
         return;
     }
 
-    s.refresh_memory_specifics(sysinfo::MemoryRefreshKind::new().with_swap());
+    s.refresh_memory_specifics(sysinfo::MemoryRefreshKind::nothing().with_swap());
     // SWAP can be 0 on macOS so this test is disabled
     #[cfg(not(target_os = "macos"))]
     {

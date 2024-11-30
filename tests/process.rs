@@ -38,7 +38,7 @@ fn test_cwd() {
     s.refresh_processes_specifics(
         ProcessesToUpdate::All,
         false,
-        ProcessRefreshKind::new().with_cwd(UpdateKind::Always),
+        ProcessRefreshKind::nothing().with_cwd(UpdateKind::Always),
     );
     p.kill().expect("Unable to kill process.");
 
@@ -65,7 +65,7 @@ fn test_cmd() {
     s.refresh_processes_specifics(
         ProcessesToUpdate::All,
         false,
-        ProcessRefreshKind::new().with_cmd(UpdateKind::Always),
+        ProcessRefreshKind::nothing().with_cmd(UpdateKind::Always),
     );
     p.kill().expect("Unable to kill process");
     assert!(!s.processes().is_empty());
@@ -150,7 +150,7 @@ fn test_environ() {
     s.refresh_processes_specifics(
         ProcessesToUpdate::All,
         false,
-        ProcessRefreshKind::new().with_environ(UpdateKind::Always),
+        ProcessRefreshKind::nothing().with_environ(UpdateKind::Always),
     );
 
     let processes = s.processes();
@@ -374,7 +374,7 @@ fn test_refresh_process_doesnt_remove() {
 
     // Checks that the process is listed as it should.
     let mut s = System::new_with_specifics(
-        RefreshKind::new().with_processes(sysinfo::ProcessRefreshKind::new()),
+        RefreshKind::nothing().with_processes(sysinfo::ProcessRefreshKind::nothing()),
     );
     s.refresh_processes(ProcessesToUpdate::All, false);
 
@@ -589,7 +589,7 @@ fn test_process_iterator_lifetimes() {
     }
 
     let s = System::new_with_specifics(
-        sysinfo::RefreshKind::new().with_processes(sysinfo::ProcessRefreshKind::new()),
+        sysinfo::RefreshKind::nothing().with_processes(sysinfo::ProcessRefreshKind::nothing()),
     );
 
     let process: Option<&sysinfo::Process>;
@@ -702,13 +702,13 @@ fn test_process_specific_refresh() {
 
     macro_rules! update_specific_and_check {
         (memory) => {
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new());
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::nothing());
             {
                 let p = s.process(pid).unwrap();
                 assert_eq!(p.memory(), 0, "failed 0 check for memory");
                 assert_eq!(p.virtual_memory(), 0, "failed 0 check for virtual memory");
             }
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new().with_memory());
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::nothing().with_memory());
             {
                 let p = s.process(pid).unwrap();
                 assert_ne!(p.memory(), 0, "failed non-0 check for memory");
@@ -716,7 +716,7 @@ fn test_process_specific_refresh() {
             }
             // And now we check that re-refreshing nothing won't remove the
             // information.
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new());
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::nothing());
             {
                 let p = s.process(pid).unwrap();
                 assert_ne!(p.memory(), 0, "failed non-0 check (number 2) for memory");
@@ -724,7 +724,7 @@ fn test_process_specific_refresh() {
             }
         };
         ($name:ident, $method:ident, $($extra:tt)+) => {
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new());
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::nothing());
             {
                 let p = s.process(pid).unwrap();
                 assert_eq!(
@@ -732,7 +732,7 @@ fn test_process_specific_refresh() {
                     concat!("failed 0 check check for ", stringify!($name)),
                 );
             }
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new().$method(UpdateKind::Always));
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::nothing().$method(UpdateKind::Always));
             {
                 let p = s.process(pid).unwrap();
                 assert_ne!(
@@ -741,7 +741,7 @@ fn test_process_specific_refresh() {
             }
             // And now we check that re-refreshing nothing won't remove the
             // information.
-            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::new());
+            s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, ProcessRefreshKind::nothing());
             {
                 let p = s.process(pid).unwrap();
                 assert_ne!(
@@ -754,14 +754,14 @@ fn test_process_specific_refresh() {
     s.refresh_processes_specifics(
         ProcessesToUpdate::Some(&[pid]),
         false,
-        ProcessRefreshKind::new(),
+        ProcessRefreshKind::nothing(),
     );
     check_empty(&s, pid);
 
     s.refresh_processes_specifics(
         ProcessesToUpdate::Some(&[pid]),
         false,
-        ProcessRefreshKind::new(),
+        ProcessRefreshKind::nothing(),
     );
     check_empty(&s, pid);
 
@@ -894,7 +894,7 @@ fn test_multiple_single_process_refresh() {
     let pid_b = Pid::from_u32(p_b.id() as _);
 
     let mut s = System::new();
-    let process_refresh_kind = ProcessRefreshKind::new().with_cpu();
+    let process_refresh_kind = ProcessRefreshKind::nothing().with_cpu();
     s.refresh_processes_specifics(
         ProcessesToUpdate::Some(&[pid_a]),
         false,

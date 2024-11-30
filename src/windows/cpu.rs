@@ -285,7 +285,7 @@ impl CpusWrapper {
     }
 
     pub fn len(&mut self) -> usize {
-        self.init_if_needed(CpuRefreshKind::new());
+        self.init_if_needed(CpuRefreshKind::nothing());
         self.cpus.len()
     }
 

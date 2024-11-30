@@ -47,7 +47,7 @@ fn test_disk_refresh_kind() {
     .iter()
     .powerset()
     {
-        let mut refreshes = DiskRefreshKind::new();
+        let mut refreshes = DiskRefreshKind::nothing();
         for f in fs {
             refreshes = f(refreshes);
         }
@@ -124,7 +124,7 @@ fn test_disk_refresh_kind() {
         assertions("full", &disks);
 
         // load with minimal `DiskRefreshKind`, then refresh for added detail should also work!
-        let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::new());
+        let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing());
         disks.refresh_specifics(refreshes);
         assertions("incremental", &disks);
     }

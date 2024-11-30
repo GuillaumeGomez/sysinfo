@@ -426,7 +426,7 @@ mod test {
         let stdout = String::from_utf8(child.stdout).expect("Not valid UTF8");
 
         let sys = System::new_with_specifics(
-            crate::RefreshKind::new().with_cpu(CpuRefreshKind::new().with_cpu_usage()),
+            crate::RefreshKind::nothing().with_cpu(CpuRefreshKind::nothing().with_cpu_usage()),
         );
         let cpus = sys.cpus();
         assert!(!cpus.is_empty(), "no CPU found");
