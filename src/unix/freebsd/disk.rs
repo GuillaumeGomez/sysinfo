@@ -38,6 +38,7 @@ pub(crate) struct DiskInner {
 
 impl DiskInner {
     pub(crate) fn kind(&self) -> DiskKind {
+        // Currently don't know how to retrieve this information on FreeBSD.
         DiskKind::Unknown(-1)
     }
 
@@ -90,8 +91,12 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh_list_specifics(&mut self, refresh_kind: DiskRefreshKind) {
-        unsafe { get_all_list(&mut self.disks, true, refresh_kind) }
+    pub(crate) fn refresh_list_specifics(
+        &mut self,
+        remove_not_listed_disks: bool,
+        refresh_kind: DiskRefreshKind,
+    ) {
+        unsafe { get_all_list(&mut self.disks, true, remove_not_listed_disks, refresh_kind) }
     }
 
     pub(crate) fn list(&self) -> &[Disk] {
@@ -104,7 +109,7 @@ impl crate::DisksInner {
 
     pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) {
         unsafe {
-            get_all_list(&mut self.disks, false, refresh_kind);
+            get_all_list(&mut self.disks, false, false, refresh_kind);
         }
     }
 }
@@ -162,11 +167,11 @@ impl GetValues for DiskInner {
     }
 }
 
-/// Returns `(total_space, available_space)`.
+/// Returns `(total_space, available_space, is_read_only)`.
 unsafe fn get_statvfs(
     c_mount_point: &[libc::c_char],
     vfs: &mut libc::statvfs,
-) -> Option<(u64, u64)> {
+) -> Option<(u64, u64, bool)> {
     if libc::statvfs(c_mount_point.as_ptr() as *const _, vfs as *mut _) < 0 {
         sysinfo_debug!("statvfs failed");
         None
@@ -175,18 +180,21 @@ unsafe fn get_statvfs(
         Some((
             vfs.f_blocks.saturating_mul(block_size),
             vfs.f_favail.saturating_mul(block_size),
+            (vfs.f_flag & libc::ST_RDONLY) != 0,
         ))
     }
 }
 
 fn refresh_disk(disk: &mut DiskInner, refresh_kind: DiskRefreshKind) -> bool {
-    if refresh_kind.details() {
+    if refresh_kind.storage() {
         unsafe {
             let mut vfs: libc::statvfs = std::mem::zeroed();
-            if let Some((total_space, available_space)) = get_statvfs(&disk.c_mount_point, &mut vfs)
+            if let Some((total_space, available_space, is_read_only)) =
+                get_statvfs(&disk.c_mount_point, &mut vfs)
             {
                 disk.total_space = total_space;
                 disk.available_space = available_space;
+                disk.is_read_only = is_read_only;
             }
         }
     }
@@ -315,6 +323,7 @@ fn get_disks_mapping() -> HashMap<String, String> {
 pub unsafe fn get_all_list(
     container: &mut Vec<Disk>,
     add_new_disks: bool,
+    remove_not_listed_disks: bool,
     refresh_kind: DiskRefreshKind,
 ) {
     let mut fs_infos: *mut libc::statfs = null_mut();
@@ -326,7 +335,6 @@ pub unsafe fn get_all_list(
     }
     let disk_mapping = get_disks_mapping();
 
-    let mut vfs: libc::statvfs = std::mem::zeroed();
     let fs_infos: &[libc::statfs] = std::slice::from_raw_parts(fs_infos as _, count as _);
 
     for fs_info in fs_infos {
@@ -374,59 +382,44 @@ pub unsafe fn get_all_list(
             OsString::from(mount_point)
         };
 
-        let (is_read_only, total_space, available_space) = if refresh_kind.details() {
-            if let Some((total_space, available_space)) =
-                get_statvfs(&fs_info.f_mntonname, &mut vfs)
-            {
-                (
-                    ((vfs.f_flag & libc::ST_RDONLY) != 0),
-                    available_space,
-                    total_space,
-                )
-            } else {
-                (false, 0, 0)
-            }
-        } else {
-            (false, 0, 0)
-        };
-
         if let Some(disk) = container.iter_mut().find(|d| d.inner.name == name) {
+            // I/O usage is updated for all disks at once at the end.
+            refresh_disk(&mut disk.inner, refresh_kind.without_io_usage());
             disk.inner.updated = true;
-            disk.inner.total_space = total_space;
-            disk.inner.available_space = available_space;
         } else if add_new_disks {
             let dev_mount_point = c_buf_to_utf8_str(&fs_info.f_mntfromname).unwrap_or("");
 
             // USB keys and CDs are removable.
-            let is_removable = if refresh_kind.details() {
+            let is_removable = if refresh_kind.storage() {
                 [b"USB", b"usb"].iter().any(|b| *b == &fs_type[..])
                     || fs_type.starts_with(b"/dev/cd")
             } else {
                 false
             };
 
-            container.push(Disk {
-                inner: DiskInner {
-                    name,
-                    c_mount_point: fs_info.f_mntonname.to_vec(),
-                    mount_point: PathBuf::from(mount_point),
-                    dev_id: disk_mapping.get(dev_mount_point).map(ToString::to_string),
-                    total_space,
-                    available_space,
-                    file_system: OsString::from_vec(fs_type),
-                    is_removable,
-                    is_read_only,
-                    read_bytes: 0,
-                    old_read_bytes: 0,
-                    written_bytes: 0,
-                    old_written_bytes: 0,
-                    updated: true,
-                },
-            });
+            let mut disk = DiskInner {
+                name,
+                c_mount_point: fs_info.f_mntonname.to_vec(),
+                mount_point: PathBuf::from(mount_point),
+                dev_id: disk_mapping.get(dev_mount_point).map(ToString::to_string),
+                total_space: 0,
+                available_space: 0,
+                file_system: OsString::from_vec(fs_type),
+                is_removable,
+                is_read_only: false,
+                read_bytes: 0,
+                old_read_bytes: 0,
+                written_bytes: 0,
+                old_written_bytes: 0,
+                updated: true,
+            };
+            // I/O usage is updated for all disks at once at the end.
+            refresh_disk(&mut disk, refresh_kind.without_io_usage());
+            container.push(Disk { inner: disk });
         }
     }
 
-    if add_new_disks {
+    if remove_not_listed_disks {
         container.retain_mut(|disk| {
             if !disk.inner.updated {
                 return false;

@@ -65,7 +65,11 @@ impl DisksInner {
         self.disks
     }
 
-    pub(crate) fn refresh_list_specifics(&mut self, _refreshes: DiskRefreshKind) {
+    pub(crate) fn refresh_list_specifics(
+        &mut self,
+        _remove_not_listed_disks: bool,
+        _refreshes: DiskRefreshKind,
+    ) {
         // Does nothing.
     }
 

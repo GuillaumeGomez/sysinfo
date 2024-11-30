@@ -156,7 +156,7 @@ pub extern "C" fn sysinfo_disks_refresh_list(disks: CDisks) {
         let mut disks: Box<Disks> = Box::from_raw(disks as *mut Disks);
         {
             let disks: &mut Disks = disks.borrow_mut();
-            disks.refresh_list();
+            disks.refresh_list(true);
         }
         let _ = Box::into_raw(disks);
     }

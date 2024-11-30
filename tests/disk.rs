@@ -21,7 +21,7 @@ fn test_disks() {
 
     let mut disks = sysinfo::Disks::new();
     assert!(disks.list().is_empty());
-    disks.refresh_list();
+    disks.refresh_list(false);
     assert!(!disks.list().is_empty());
 }
 
@@ -39,8 +39,8 @@ fn test_disk_refresh_kind() {
     for fs in [
         DiskRefreshKind::with_kind,
         DiskRefreshKind::without_kind,
-        DiskRefreshKind::with_details,
-        DiskRefreshKind::without_details,
+        DiskRefreshKind::with_storage,
+        DiskRefreshKind::without_storage,
         DiskRefreshKind::with_io_usage,
         DiskRefreshKind::without_io_usage,
     ]
@@ -72,7 +72,7 @@ fn test_disk_refresh_kind() {
                 );
             }
 
-            if refreshes.details() {
+            if refreshes.storage() {
                 // These would ideally assert that *all* are refreshed, but we settle for a weaker
                 // assertion because failures can't be distinguished from "not refreshed" values.
                 assert!(
@@ -101,18 +101,6 @@ fn test_disk_refresh_kind() {
                         .iter()
                         .all(|disk| disk.total_space() == Default::default()),
                     "{name}: disk.total_space should not be refreshed"
-                );
-                assert!(
-                    disks
-                        .iter()
-                        .all(|disk| disk.is_read_only() == <bool as Default>::default()),
-                    "{name}: disk.is_read_only should not be refreshed"
-                );
-                assert!(
-                    disks
-                        .iter()
-                        .all(|disk| disk.is_removable() == <bool as Default>::default()),
-                    "{name}: disk.is_removable should not be refreshed"
                 );
             }
 
