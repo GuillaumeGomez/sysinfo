@@ -77,16 +77,7 @@ fn bench_refresh_disks(b: &mut test::Bencher) {
     let mut disks = sysinfo::Disks::new_with_refreshed_list();
 
     b.iter(move || {
-        disks.refresh();
-    });
-}
-
-#[bench]
-fn bench_refresh_disks_list(b: &mut test::Bencher) {
-    let mut disks = sysinfo::Disks::new_with_refreshed_list();
-
-    b.iter(move || {
-        disks.refresh_list(true);
+        disks.refresh(true);
     });
 }
 

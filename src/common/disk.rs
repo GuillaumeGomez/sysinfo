@@ -249,7 +249,7 @@ impl Disks {
     /// use sysinfo::Disks;
     ///
     /// let mut disks = Disks::new();
-    /// disks.refresh_list(false);
+    /// disks.refresh(false);
     /// for disk in disks.list() {
     ///     println!("{disk:?}");
     /// }
@@ -277,8 +277,7 @@ impl Disks {
     }
 
     /// Creates a new [`Disks`][crate::Disks] type with the disk list loaded
-    /// and refreshed according to the given [`DiskRefreshKind`]. It is a combination of
-    /// [`Disks::new`] and [`Disks::refresh_list_specifics`].
+    /// and refreshed according to the given [`DiskRefreshKind`].
     ///
     /// ```no_run
     /// use sysinfo::{Disks, DiskRefreshKind};
@@ -290,7 +289,7 @@ impl Disks {
     /// ```
     pub fn new_with_refreshed_list_specifics(refreshes: DiskRefreshKind) -> Self {
         let mut disks = Self::new();
-        disks.refresh_list_specifics(false, refreshes);
+        disks.refresh_specifics(false, refreshes);
         disks
     }
 
@@ -326,69 +325,23 @@ impl Disks {
     /// Refreshes the listed disks' information.
     ///
     /// Equivalent to <code>[Disks::refresh_specifics]\([DiskRefreshKind::everything]\())</code>.
-    pub fn refresh(&mut self) {
-        self.refresh_specifics(DiskRefreshKind::everything());
+    pub fn refresh(&mut self, remove_not_listed_disks: bool) {
+        self.inner
+            .refresh_specifics(remove_not_listed_disks, DiskRefreshKind::everything());
     }
 
-    /// Refreshes the listed disks' information according to the given [`DiskRefreshKind`].
-    ///
-    /// ⚠️ If a disk is added or removed, this method won't take it into account. Use
-    /// [`Disks::refresh_list`] instead.
-    ///
-    /// ⚠️ If you didn't call [`Disks::refresh_list`] beforehand, this method will do nothing as
-    /// the disk list will be empty.
+    /// Refreshes the disks' information according to the given [`DiskRefreshKind`].
     ///
     /// ```no_run
     /// use sysinfo::Disks;
     ///
     /// let mut disks = Disks::new_with_refreshed_list();
     /// // We wait some time...?
-    /// disks.refresh();
+    /// disks.refresh(true);
     /// ```
-    pub fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) {
-        self.inner.refresh_specifics(refreshes);
-    }
-
-    /// The disk list will be emptied then completely recomputed.
-    ///
-    /// Equivalent to <code>[Disks::refresh_list_specifics]\([DiskRefreshKind::everything]\())</code>.
-    ///
-    /// ```no_run
-    /// use sysinfo::Disks;
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list(true);
-    /// ```
-    pub fn refresh_list(&mut self, remove_not_listed_disks: bool) {
-        self.refresh_list_specifics(remove_not_listed_disks, DiskRefreshKind::everything());
-    }
-
-    /// The disk list will be emptied then completely recomputed according to the given
-    /// [`DiskRefreshKind`].
-    ///
-    /// ## Linux
-    ///
-    /// ⚠️ On Linux, the [NFS](https://en.wikipedia.org/wiki/Network_File_System) file
-    /// systems are ignored and the information of a mounted NFS **cannot** be obtained
-    /// via [`Disks::refresh_list_specifics`]. This is due to the fact that I/O function
-    /// `statvfs` used by [`Disks::refresh_list_specifics`] is blocking and
-    /// [may hang](https://github.com/GuillaumeGomez/sysinfo/pull/876) in some cases,
-    /// requiring to call `systemctl stop` to terminate the NFS service from the remote
-    /// server in some cases.
-    ///
-    /// ```no_run
-    /// use sysinfo::{Disks, DiskRefreshKind};
-    ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh_list_specifics(true, DiskRefreshKind::nothing());
-    /// ```
-    pub fn refresh_list_specifics(
-        &mut self,
-        remove_not_listed_disks: bool,
-        refreshes: DiskRefreshKind,
-    ) {
+    pub fn refresh_specifics(&mut self, remove_not_listed_disks: bool, refreshes: DiskRefreshKind) {
         self.inner
-            .refresh_list_specifics(remove_not_listed_disks, refreshes);
+            .refresh_specifics(remove_not_listed_disks, refreshes);
     }
 }
 

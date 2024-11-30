@@ -91,12 +91,12 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh_list_specifics(
+    pub(crate) fn refresh_specifics(
         &mut self,
         remove_not_listed_disks: bool,
         refresh_kind: DiskRefreshKind,
     ) {
-        unsafe { get_all_list(&mut self.disks, true, remove_not_listed_disks, refresh_kind) }
+        unsafe { get_all_list(&mut self.disks, remove_not_listed_disks, refresh_kind) }
     }
 
     pub(crate) fn list(&self) -> &[Disk] {
@@ -105,12 +105,6 @@ impl crate::DisksInner {
 
     pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
-    }
-
-    pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) {
-        unsafe {
-            get_all_list(&mut self.disks, false, false, refresh_kind);
-        }
     }
 }
 
@@ -322,7 +316,6 @@ fn get_disks_mapping() -> HashMap<String, String> {
 
 pub unsafe fn get_all_list(
     container: &mut Vec<Disk>,
-    add_new_disks: bool,
     remove_not_listed_disks: bool,
     refresh_kind: DiskRefreshKind,
 ) {
@@ -386,7 +379,7 @@ pub unsafe fn get_all_list(
             // I/O usage is updated for all disks at once at the end.
             refresh_disk(&mut disk.inner, refresh_kind.without_io_usage());
             disk.inner.updated = true;
-        } else if add_new_disks {
+        } else {
             let dev_mount_point = c_buf_to_utf8_str(&fs_info.f_mntfromname).unwrap_or("");
 
             // USB keys and CDs are removable.

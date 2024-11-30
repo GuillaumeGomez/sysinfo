@@ -158,7 +158,7 @@ fn interpret_input(
         "help" => print_help(),
         "refresh_disks" => {
             writeln!(&mut io::stdout(), "Refreshing disk list...");
-            disks.refresh_list(true);
+            disks.refresh(true);
             writeln!(&mut io::stdout(), "Done.");
         }
         "refresh_users" => {

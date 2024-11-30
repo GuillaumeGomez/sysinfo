@@ -178,7 +178,7 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh_list_specifics(
+    pub(crate) fn refresh_specifics(
         &mut self,
         remove_not_listed_disks: bool,
         refresh_kind: DiskRefreshKind,
@@ -187,14 +187,22 @@ impl crate::DisksInner {
             // SAFETY: We don't keep any Objective-C objects around because we
             // don't make any direct Objective-C calls in this code.
             with_autorelease(|| {
-                get_list(&mut self.disks, remove_not_listed_disks, refresh_kind);
+                get_list(&mut self.disks, refresh_kind);
             })
         }
-    }
 
-    pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) {
-        for disk in self.list_mut() {
-            disk.refresh_specifics(refresh_kind);
+        if remove_not_listed_disks {
+            self.disks.retain_mut(|disk| {
+                if !disk.inner.updated {
+                    return false;
+                }
+                disk.inner.updated = false;
+                true
+            });
+        } else {
+            for c in self.disks.iter_mut() {
+                c.inner.updated = false;
+            }
         }
     }
 
@@ -207,11 +215,7 @@ impl crate::DisksInner {
     }
 }
 
-unsafe fn get_list(
-    container: &mut Vec<Disk>,
-    remove_not_listed_disks: bool,
-    refresh_kind: DiskRefreshKind,
-) {
+unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
     let raw_disks = {
         let count = libc::getfsstat(ptr::null_mut(), 0, libc::MNT_NOWAIT);
         if count < 1 {
@@ -327,20 +331,6 @@ unsafe fn get_list(
             refresh_kind,
         ) {
             container.push(disk);
-        }
-    }
-
-    if remove_not_listed_disks {
-        container.retain_mut(|disk| {
-            if !disk.inner.updated {
-                return false;
-            }
-            disk.inner.updated = false;
-            true
-        });
-    } else {
-        for c in container.iter_mut() {
-            c.inner.updated = false;
         }
     }
 }
@@ -499,6 +489,7 @@ unsafe fn new_disk(
         (None, None)
     };
 
+    // We update the existing disk here to prevent having another call to get `storage` info.
     if let Some(disk) = disk {
         let disk = &mut disk.inner;
         if let Some(total_space) = total_space {
@@ -508,6 +499,7 @@ unsafe fn new_disk(
             disk.available_space = available_space;
         }
         disk.refresh_io(refresh_kind);
+        disk.refresh_kind(refresh_kind);
         disk.updated = true;
         return None;
     }

@@ -232,19 +232,13 @@ impl DisksInner {
         self.disks
     }
 
-    pub(crate) fn refresh_list_specifics(
+    pub(crate) fn refresh_specifics(
         &mut self,
         remove_not_listed_disks: bool,
         refreshes: DiskRefreshKind,
     ) {
         unsafe {
             get_list(&mut self.disks, remove_not_listed_disks, refreshes);
-        }
-    }
-
-    pub(crate) fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) {
-        for disk in self.list_mut() {
-            disk.refresh_specifics(refreshes);
         }
     }
 

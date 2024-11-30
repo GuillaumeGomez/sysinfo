@@ -142,21 +142,7 @@ pub extern "C" fn sysinfo_disks_refresh(disks: CDisks) {
         let mut disks: Box<Disks> = Box::from_raw(disks as *mut Disks);
         {
             let disks: &mut Disks = disks.borrow_mut();
-            disks.refresh();
-        }
-        let _ = Box::into_raw(disks);
-    }
-}
-
-/// Equivalent of [`Disks::refresh_list()`][crate::Disks#method.refresh_list].
-#[no_mangle]
-pub extern "C" fn sysinfo_disks_refresh_list(disks: CDisks) {
-    assert!(!disks.is_null());
-    unsafe {
-        let mut disks: Box<Disks> = Box::from_raw(disks as *mut Disks);
-        {
-            let disks: &mut Disks = disks.borrow_mut();
-            disks.refresh_list(true);
+            disks.refresh(true);
         }
         let _ = Box::into_raw(disks);
     }

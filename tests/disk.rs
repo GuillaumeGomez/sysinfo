@@ -21,7 +21,7 @@ fn test_disks() {
 
     let mut disks = sysinfo::Disks::new();
     assert!(disks.list().is_empty());
-    disks.refresh_list(false);
+    disks.refresh(false);
     assert!(!disks.list().is_empty());
 }
 
@@ -125,7 +125,7 @@ fn test_disk_refresh_kind() {
 
         // load with minimal `DiskRefreshKind`, then refresh for added detail should also work!
         let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing());
-        disks.refresh_specifics(refreshes);
+        disks.refresh_specifics(false, refreshes);
         assertions("incremental", &disks);
     }
 }
@@ -168,7 +168,7 @@ fn test_disks_usage() {
 
     // Wait a bit just in case
     sleep(std::time::Duration::from_millis(500));
-    disks.refresh();
+    disks.refresh(false);
 
     // Depending on the OS and how disks are configured, the disk usage may be the exact same
     // across multiple disks. To account for this, collect the disk usages and dedup.
