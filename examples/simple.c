@@ -61,7 +61,7 @@ int main() {
     CNetworks networks = sysinfo_networks_init();
 
     sysinfo_refresh_all(system);
-    sysinfo_networks_refresh_list(networks);
+    sysinfo_networks_refresh(networks);
 
     printf("os name:              %s\n", sysinfo_system_name(system));
     printf("os version:           %s\n", sysinfo_system_version(system));

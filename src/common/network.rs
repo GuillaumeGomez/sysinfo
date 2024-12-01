@@ -44,7 +44,7 @@ impl Networks {
     /// use sysinfo::Networks;
     ///
     /// let mut networks = Networks::new();
-    /// networks.refresh_list();
+    /// networks.refresh(true);
     /// for (interface_name, network) in &networks {
     ///     println!("[{interface_name}]: {network:?}");
     /// }
@@ -56,8 +56,7 @@ impl Networks {
     }
 
     /// Creates a new [`Networks`][crate::Networks] type with the network interfaces
-    /// list loaded. It is a combination of [`Networks::new`] and
-    /// [`Networks::refresh_list`].
+    /// list loaded.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
@@ -69,7 +68,7 @@ impl Networks {
     /// ```
     pub fn new_with_refreshed_list() -> Self {
         let mut networks = Self::new();
-        networks.refresh_list();
+        networks.refresh(false);
         networks
     }
 
@@ -87,36 +86,17 @@ impl Networks {
         self.inner.list()
     }
 
-    /// Refreshes the network interfaces list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh_list();
-    /// ```
-    pub fn refresh_list(&mut self) {
-        self.inner.refresh_list()
-    }
-
-    /// Refreshes the network interfaces' content. If you didn't run [`Networks::refresh_list`]
-    /// before, calling this method won't do anything as no interfaces are present.
-    ///
-    /// ⚠️ If a network interface is added or removed, this method won't take it into account. Use
-    /// [`Networks::refresh_list`] instead.
-    ///
-    /// ⚠️ If you didn't call [`Networks::refresh_list`] beforehand, this method will do nothing
-    /// as the network list will be empty.
+    /// Refreshes the network interfaces.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
     ///
     /// let mut networks = Networks::new_with_refreshed_list();
     /// // Wait some time...? Then refresh the data of each network.
-    /// networks.refresh();
+    /// networks.refresh(true);
     /// ```
-    pub fn refresh(&mut self) {
-        self.inner.refresh()
+    pub fn refresh(&mut self, remove_not_listed_interfaces: bool) {
+        self.inner.refresh(remove_not_listed_interfaces)
     }
 }
 
@@ -156,7 +136,7 @@ impl NetworkData {
     /// // Waiting a bit to get data from network...
     /// thread::sleep(time::Duration::from_millis(10));
     /// // Refreshing again to generate diff.
-    /// networks.refresh();
+    /// networks.refresh(true);
     ///
     /// for (interface_name, network) in &networks {
     ///     println!("in: {} B", network.received());
@@ -196,7 +176,7 @@ impl NetworkData {
     /// // Waiting a bit to get data from network...
     /// thread::sleep(time::Duration::from_millis(10));
     /// // Refreshing again to generate diff.
-    /// networks.refresh();
+    /// networks.refresh(true);
     ///
     /// for (interface_name, network) in &networks {
     ///     println!("out: {} B", network.transmitted());
@@ -236,7 +216,7 @@ impl NetworkData {
     /// // Waiting a bit to get data from network...
     /// thread::sleep(time::Duration::from_millis(10));
     /// // Refreshing again to generate diff.
-    /// networks.refresh();
+    /// networks.refresh(true);
     ///
     /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.packets_received());
@@ -276,7 +256,7 @@ impl NetworkData {
     /// // Waiting a bit to get data from network...
     /// thread::sleep(time::Duration::from_millis(10));
     /// // Refreshing again to generate diff.
-    /// networks.refresh();
+    /// networks.refresh(true);
     ///
     /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.packets_transmitted());
@@ -316,7 +296,7 @@ impl NetworkData {
     /// // Waiting a bit to get data from network...
     /// thread::sleep(time::Duration::from_millis(10));
     /// // Refreshing again to generate diff.
-    /// networks.refresh();
+    /// networks.refresh(true);
     ///
     /// for (interface_name, network) in &networks {
     ///     println!("in: {}", network.errors_on_received());
@@ -356,7 +336,7 @@ impl NetworkData {
     /// // Waiting a bit to get data from network...
     /// thread::sleep(time::Duration::from_millis(10));
     /// // Refreshing again to generate diff.
-    /// networks.refresh();
+    /// networks.refresh(true);
     ///
     /// for (interface_name, network) in &networks {
     ///     println!("out: {}", network.errors_on_transmitted());

@@ -10,9 +10,7 @@ fn test_networks() {
     if sysinfo::IS_SUPPORTED_SYSTEM {
         let mut n = Networks::new();
         assert_eq!(n.iter().count(), 0);
-        n.refresh();
-        assert_eq!(n.iter().count(), 0);
-        n.refresh_list();
+        n.refresh(false);
         assert!(n.iter().count() > 0);
     }
 }

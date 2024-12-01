@@ -148,24 +148,29 @@ impl crate::DisksInner {
         }
     }
 
-    pub(crate) fn refresh_list_specifics(
+    pub(crate) fn refresh_specifics(
         &mut self,
         remove_not_listed_disks: bool,
         refresh_kind: DiskRefreshKind,
     ) {
         get_all_list(
             &mut self.disks,
-            remove_not_listed_disks,
             &get_all_utf8_data("/proc/mounts", 16_385).unwrap_or_default(),
             refresh_kind,
-        )
-    }
+        );
 
-    pub(crate) fn refresh_specifics(&mut self, refresh_kind: DiskRefreshKind) {
-        let procfs_disk_stats = disk_stats(&refresh_kind);
-        for disk in self.list_mut() {
-            disk.inner
-                .efficient_refresh(refresh_kind, &procfs_disk_stats, false);
+        if remove_not_listed_disks {
+            self.disks.retain_mut(|disk| {
+                if !disk.inner.updated {
+                    return false;
+                }
+                disk.inner.updated = false;
+                true
+            });
+        } else {
+            for c in self.disks.iter_mut() {
+                c.inner.updated = false;
+            }
         }
     }
 
@@ -329,12 +334,7 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
     }
 }
 
-fn get_all_list(
-    container: &mut Vec<Disk>,
-    remove_not_listed_disks: bool,
-    content: &str,
-    refresh_kind: DiskRefreshKind,
-) {
+fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefreshKind) {
     // The goal of this array is to list all removable devices (the ones whose name starts with
     // "usb-").
     let removable_entries = match fs::read_dir("/dev/disk/by-id/") {
@@ -420,20 +420,6 @@ fn get_all_list(
             &procfs_disk_stats,
             refresh_kind,
         ));
-    }
-
-    if remove_not_listed_disks {
-        container.retain_mut(|disk| {
-            if !disk.inner.updated {
-                return false;
-            }
-            disk.inner.updated = false;
-            true
-        });
-    } else {
-        for c in container.iter_mut() {
-            c.inner.updated = false;
-        }
     }
 }
 

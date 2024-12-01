@@ -79,22 +79,23 @@ impl NetworksInner {
         &self.interfaces
     }
 
-    pub(crate) fn refresh_list(&mut self) {
-        for (_, data) in self.interfaces.iter_mut() {
-            data.inner.updated = false;
+    pub(crate) fn refresh(&mut self, remove_not_listed_interfaces: bool) {
+        self.update_networks();
+        if remove_not_listed_interfaces {
+            self.interfaces.retain(|_, i| {
+                if !i.inner.updated {
+                    return false;
+                }
+                i.inner.updated = false;
+                true
+            });
         }
-        self.update_networks(true);
-        self.interfaces.retain(|_, data| data.inner.updated);
         refresh_networks_addresses(&mut self.interfaces);
-    }
-
-    pub(crate) fn refresh(&mut self) {
-        self.update_networks(false);
     }
 
     #[allow(clippy::cast_ptr_alignment)]
     #[allow(clippy::uninit_vec)]
-    fn update_networks(&mut self, insert: bool) {
+    fn update_networks(&mut self) {
         let mib = &mut [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0];
         let mib2 = &mut [
             CTL_NET,
@@ -193,9 +194,6 @@ impl NetworksInner {
                             interface.updated = true;
                         }
                         hash_map::Entry::Vacant(e) => {
-                            if !insert {
-                                continue;
-                            }
                             let current_in;
                             let current_out;
                             let packets_in;

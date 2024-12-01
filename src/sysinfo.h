@@ -33,7 +33,6 @@ void        sysinfo_refresh_process(CSystem system, PID pid);
 CDisks      sysinfo_disks_init(void);
 void        sysinfo_disks_destroy(CDisks disks);
 void        sysinfo_disks_refresh(CDisks disks);
-void        sysinfo_disks_refresh_list(CDisks disks);
 
 size_t      sysinfo_total_memory(CSystem system);
 size_t      sysinfo_free_memory(CSystem system);
@@ -57,7 +56,6 @@ size_t      sysinfo_process_virtual_memory(CProcess process);
 RString     sysinfo_process_executable_path(CProcess process);
 RString     sysinfo_process_root_directory(CProcess process);
 RString     sysinfo_process_current_directory(CProcess process);
-void        sysinfo_networks_refresh_list(CNetworks networks);
 void        sysinfo_networks_refresh(CNetworks networks);
 size_t      sysinfo_networks_received(CNetworks networks);
 size_t      sysinfo_networks_transmitted(CNetworks networks);
