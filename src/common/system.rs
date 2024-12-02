@@ -1093,6 +1093,14 @@ impl Process {
     /// Sends [`Signal::Kill`] to the process (which is the only signal supported on all supported
     /// platforms by this crate).
     ///
+    /// Returns `true` if the signal was sent successfully.
+    ///
+    /// ⚠️ Even if this function returns `true`, it doesn't necessarily mean that the process will
+    /// be killed. It just means that the signal was sent successfully.
+    ///
+    /// ⚠️ Please note that some processes might not be "killable", like if they run with higher
+    /// levels than the current process for example.
+    ///
     /// If you want to send another signal, take a look at [`Process::kill_with`].
     ///
     /// To get the list of the supported signals on this system, use
@@ -1111,10 +1119,13 @@ impl Process {
     }
 
     /// Sends the given `signal` to the process. If the signal doesn't exist on this platform,
-    /// it'll do nothing and will return `None`. Otherwise it'll return if the signal was sent
-    /// successfully.
+    /// it'll do nothing and will return `None`. Otherwise it'll return `Some(bool)`. The boolean
+    /// value will depend on whether or not the signal was sent successfully.
     ///
     /// If you just want to kill the process, use [`Process::kill`] directly.
+    ///
+    /// ⚠️ Please note that some processes might not be "killable", like if they run with higher
+    /// levels than the current process for example.
     ///
     /// To get the list of the supported signals on this system, use
     /// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
