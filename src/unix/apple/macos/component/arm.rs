@@ -19,7 +19,7 @@ use crate::sys::utils::CFReleaser;
 use crate::Component;
 
 pub(crate) struct ComponentsInner {
-    components: Vec<Component>,
+    pub(crate) components: Vec<Component>,
     client: Option<CFReleaser<__IOHIDEventSystemClient>>,
 }
 
@@ -51,9 +51,7 @@ impl ComponentsInner {
     }
 
     #[allow(unreachable_code)]
-    pub(crate) fn refresh_list(&mut self) {
-        self.components.clear();
-
+    pub(crate) fn refresh(&mut self) {
         unsafe {
             let matches = match CFReleaser::new(matching(
                 kHIDPage_AppleVendor,
@@ -103,12 +101,11 @@ impl ComponentsInner {
                     continue;
                 }
 
-                let name = match CFReleaser::new(IOHIDServiceClientCopyProperty(
+                let Some(name) = CFReleaser::new(IOHIDServiceClientCopyProperty(
                     service as *const _,
                     key_ref.inner(),
-                )) {
-                    Some(n) => n,
-                    None => continue,
+                )) else {
+                    continue;
                 };
 
                 let name_ptr =
@@ -118,6 +115,16 @@ impl ComponentsInner {
                 }
 
                 let name_str = CStr::from_ptr(name_ptr).to_string_lossy().to_string();
+
+                if let Some(c) = self
+                    .components
+                    .iter_mut()
+                    .find(|c| c.inner.label == name_str)
+                {
+                    c.refresh();
+                    c.inner.updated = true;
+                    continue;
+                }
 
                 let mut component = ComponentInner::new(name_str, None, None, service as *mut _);
                 component.refresh();
@@ -134,6 +141,7 @@ pub(crate) struct ComponentInner {
     label: String,
     max: f32,
     critical: Option<f32>,
+    pub(crate) updated: bool,
 }
 
 unsafe impl Send for ComponentInner {}
@@ -152,6 +160,7 @@ impl ComponentInner {
             max: max.unwrap_or(0.),
             critical,
             temperature: 0.,
+            updated: true,
         }
     }
 

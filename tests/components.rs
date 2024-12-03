@@ -13,6 +13,6 @@ fn test_components() {
         return;
     }
 
-    c.refresh_list();
+    c.refresh(false);
     assert!(!c.is_empty());
 }

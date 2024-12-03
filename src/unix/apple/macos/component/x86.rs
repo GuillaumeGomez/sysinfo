@@ -46,7 +46,7 @@ impl ComponentFFI {
 
 // Used to get CPU information, not supported on iOS, or inside the default macOS sandbox.
 pub(crate) struct ComponentsInner {
-    components: Vec<Component>,
+    pub(crate) components: Vec<Component>,
     connection: Option<IoService>,
 }
 
@@ -77,20 +77,24 @@ impl ComponentsInner {
         &mut self.components
     }
 
-    pub(crate) fn refresh_list(&mut self) {
-        if let Some(ref connection) = self.connection {
-            let connection = connection.inner();
-            self.components.clear();
-            // getting CPU critical temperature
-            let critical_temp =
-                get_temperature(connection, &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0]);
+    pub(crate) fn refresh(&mut self) {
+        let Some(ref connection) = self.connection else {
+            sysinfo_debug!("No connection to IoService, skipping components refresh");
+            return;
+        };
+        let connection = connection.inner();
+        // getting CPU critical temperature
+        let critical_temp =
+            get_temperature(connection, &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0]);
 
-            for (id, v) in COMPONENTS_TEMPERATURE_IDS.iter() {
-                if let Some(c) =
-                    ComponentInner::new((*id).to_owned(), None, critical_temp, v, connection)
-                {
-                    self.components.push(Component { inner: c });
-                }
+        for (id, v) in COMPONENTS_TEMPERATURE_IDS.iter() {
+            if let Some(c) = self.components.iter_mut().find(|c| c.inner.label == *id) {
+                c.refresh();
+                c.inner.updated = true;
+            } else if let Some(c) =
+                ComponentInner::new((*id).to_owned(), None, critical_temp, v, connection)
+            {
+                self.components.push(Component { inner: c });
             }
         }
     }
@@ -102,6 +106,7 @@ pub(crate) struct ComponentInner {
     critical: Option<f32>,
     label: String,
     ffi_part: ComponentFFI,
+    pub(crate) updated: bool,
 }
 
 impl ComponentInner {
@@ -120,6 +125,7 @@ impl ComponentInner {
             max: max.unwrap_or(temperature),
             critical,
             ffi_part,
+            updated: true,
         })
     }
 

@@ -1,6 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::utils::into_iter_mut;
 use crate::{ComponentInner, ComponentsInner};
 
 /// Interacting with components.
@@ -79,7 +78,7 @@ impl Components {
     /// use sysinfo::Components;
     ///
     /// let mut components = Components::new();
-    /// components.refresh_list();
+    /// components.refresh(false);
     /// for component in &components {
     ///     println!("{component:?}");
     /// }
@@ -90,9 +89,8 @@ impl Components {
         }
     }
 
-    /// Creates a new [`Components`][crate::Components] type with the user list
-    /// loaded. It is a combination of [`Components::new`] and
-    /// [`Components::refresh_list`].
+    /// Creates a new [`Components`][crate::Components] type with the components list
+    /// loaded.
     ///
     /// ```no_run
     /// use sysinfo::Components;
@@ -104,7 +102,7 @@ impl Components {
     /// ```
     pub fn new_with_refreshed_list() -> Self {
         let mut components = Self::new();
-        components.refresh_list();
+        components.refresh(true);
         components
     }
 
@@ -137,44 +135,27 @@ impl Components {
         self.inner.list_mut()
     }
 
-    /// Refreshes the listed components' information.
-    ///
-    /// ⚠️ If a component is added or removed, this method won't take it into account. Use
-    /// [`Components::refresh_list`] instead.
-    ///
-    /// ⚠️ If you didn't call [`Components::refresh_list`] beforehand, this method will do
-    /// nothing as the component list will be empty.
+    /// Refreshes the components list.
     ///
     /// ```no_run
     /// use sysinfo::Components;
     ///
     /// let mut components = Components::new_with_refreshed_list();
     /// // We wait some time...?
-    /// components.refresh();
+    /// components.refresh(false);
     /// ```
-    pub fn refresh(&mut self) {
-        #[cfg(all(
-            feature = "multithread",
-            not(feature = "unknown-ci"),
-            not(all(target_os = "macos", feature = "apple-sandbox")),
-        ))]
-        use rayon::iter::ParallelIterator;
-        into_iter_mut(self.list_mut()).for_each(|component| component.refresh());
-    }
-
-    /// The component list will be emptied then completely recomputed.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// let mut components = Components::new();
-    /// components.refresh_list();
-    /// ```
-    ///
-    /// ⚠️ This function is not doing anything on macOS until
-    /// [this issue](https://github.com/GuillaumeGomez/sysinfo/issues/1279) is fixed.
-    pub fn refresh_list(&mut self) {
-        self.inner.refresh_list()
+    pub fn refresh(&mut self, remove_not_listed_components: bool) {
+        self.inner.refresh();
+        if remove_not_listed_components {
+            // Remove interfaces which are gone.
+            self.inner.components.retain_mut(|c| {
+                if !c.inner.updated {
+                    return false;
+                }
+                c.inner.updated = false;
+                true
+            });
+        }
     }
 }
 
@@ -300,7 +281,7 @@ mod tests {
     #[test]
     fn test_components_mac_m1() {
         let mut components = Components::new();
-        components.refresh_list();
-        components.refresh_list();
+        components.refresh(false);
+        components.refresh(false);
     }
 }

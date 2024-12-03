@@ -33,14 +33,14 @@ pub(crate) struct ComponentInner {
     temperature: Option<f32>,
     /// Maximum value computed by `sysinfo`.
     max: Option<f32>,
-    /// Max threshold provided by the chip/kernel
-    /// - Read in:`temp[1-*]_max`
-    /// - Unit: read as millidegree Celsius converted to Celsius.
-    threshold_max: Option<f32>,
-    /// Min threshold provided by the chip/kernel.
-    /// - Read in:`temp[1-*]_min`
-    /// - Unit: read as millidegree Celsius converted to Celsius.
-    threshold_min: Option<f32>,
+    // /// Max threshold provided by the chip/kernel
+    // /// - Read in:`temp[1-*]_max`
+    // /// - Unit: read as millidegree Celsius converted to Celsius.
+    // threshold_max: Option<f32>,
+    // /// Min threshold provided by the chip/kernel.
+    // /// - Read in:`temp[1-*]_min`
+    // /// - Unit: read as millidegree Celsius converted to Celsius.
+    // threshold_min: Option<f32>,
     /// Critical threshold provided by the chip/kernel previous user write.
     /// Read in `temp[1-*]_crit`:
     /// Typically greater than corresponding temp_max values.
@@ -62,8 +62,6 @@ pub(crate) struct ComponentInner {
     sensor_type: Option<ThermalSensorType>,
     /// Component Label
     ///
-    /// For formatting detail see `Component::label` function docstring.
-    ///
     /// ## Linux implementation details
     ///
     /// read n: `temp[1-*]_label` Suggested temperature channel label.
@@ -73,7 +71,6 @@ pub(crate) struct ComponentInner {
     /// this temperature channel is being used for, and user-space
     /// doesn't. In all other cases, the label is provided by user-space.
     label: String,
-    // TODO: not used now.
     // Historical minimum temperature
     // - Read in:`temp[1-*]_lowest
     // - Unit: millidegree Celsius
@@ -93,6 +90,39 @@ pub(crate) struct ComponentInner {
     input_file: Option<PathBuf>,
     /// `temp[1-*]_highest file` to read if available highest value.
     highest_file: Option<PathBuf>,
+    pub(crate) updated: bool,
+}
+
+impl ComponentInner {
+    fn update_from(
+        &mut self,
+        Component {
+            inner:
+                ComponentInner {
+                    temperature,
+                    max,
+                    input_file,
+                    highest_file,
+                    ..
+                },
+        }: Component,
+    ) {
+        if let Some(temp) = temperature {
+            self.temperature = Some(temp);
+        }
+        match (max, self.max) {
+            (Some(new_max), Some(old_max)) => self.max = Some(new_max.max(old_max)),
+            (Some(max), None) => self.max = Some(max),
+            _ => {}
+        }
+        if input_file.is_some() && input_file != self.input_file {
+            self.input_file = input_file;
+        }
+        if highest_file.is_some() && highest_file != self.highest_file {
+            self.highest_file = highest_file;
+        }
+        self.updated = true;
+    }
 }
 
 // Read arbitrary data from sysfs.
@@ -155,8 +185,7 @@ enum ThermalSensorType {
     AMDAMDSI,
     /// 6: Intel PECI
     IntelPECI,
-    /// Not all types are supported by all chips so we keep space for
-    /// unknown sensors.
+    /// Not all types are supported by all chips so we keep space for unknown sensors.
     #[allow(dead_code)]
     Unknown(u8),
 }
@@ -199,8 +228,8 @@ fn fill_component(component: &mut ComponentInner, item: &str, folder: &Path, fil
             component.max = get_temperature_from_file(&hwmon_file).or(component.temperature);
             component.highest_file = Some(hwmon_file);
         }
-        "max" => component.threshold_max = get_temperature_from_file(&hwmon_file),
-        "min" => component.threshold_min = get_temperature_from_file(&hwmon_file),
+        // "max" => component.threshold_max = get_temperature_from_file(&hwmon_file),
+        // "min" => component.threshold_min = get_temperature_from_file(&hwmon_file),
         "crit" => component.threshold_critical = get_temperature_from_file(&hwmon_file),
         _ => {
             sysinfo_debug!(
@@ -242,21 +271,19 @@ impl ComponentInner {
         let dir = read_dir(folder).ok()?;
         let mut matchings: HashMap<u32, Component> = HashMap::with_capacity(10);
         for entry in dir.flatten() {
-            let Ok(file_type) = entry.file_type() else {
-                continue;
-            };
-            if file_type.is_dir() {
+            if !entry.file_type().is_ok_and(|file_type| file_type.is_dir()) {
                 continue;
             }
 
             let entry = entry.path();
             let filename = entry.file_name().and_then(|x| x.to_str()).unwrap_or("");
-            if !filename.starts_with("temp") {
+            let Some((id, item)) = filename
+                .strip_prefix("temp")
+                .and_then(|f| f.split_once('_'))
+                .and_then(|(id, item)| Some((id.parse::<u32>().ok()?, item)))
+            else {
                 continue;
-            }
-
-            let (id, item) = filename.split_once('_')?;
-            let id = id.get(4..)?.parse::<u32>().ok()?;
+            };
 
             let component = matchings.entry(id).or_insert_with(|| Component {
                 inner: ComponentInner::default(),
@@ -268,20 +295,31 @@ impl ComponentInner {
             component.device_model = device_model;
             fill_component(component, item, folder, filename);
         }
-        let compo = matchings
+        for (id, mut new_comp) in matchings
             .into_iter()
-            .map(|(id, mut c)| {
+            // Remove components without `tempN_input` file termal. `Component` doesn't support this
+            // kind of sensors yet
+            .filter(|(_, c)| c.inner.input_file.is_some())
+        {
+            if new_comp.inner.label.is_empty() {
                 // sysinfo expose a generic interface with a `label`.
                 // Problem: a lot of sensors don't have a label or a device model! ¯\_(ツ)_/¯
                 // So let's pretend we have a unique label!
                 // See the table in `Component::label` documentation for the table detail.
-                c.inner.label = c.inner.format_label("temp", id);
-                c
-            })
-            // Remove components without `tempN_input` file termal. `Component` doesn't support this kind of sensors yet
-            .filter(|c| c.inner.input_file.is_some());
+                new_comp.inner.label = new_comp.inner.format_label("temp", id);
+            }
 
-        components.extend(compo);
+            if let Some(comp) = components
+                .iter_mut()
+                .find(|comp| comp.inner.label == new_comp.inner.label)
+            {
+                comp.inner.update_from(new_comp);
+            } else {
+                new_comp.inner.updated = true;
+                components.push(new_comp);
+            }
+        }
+
         Some(())
     }
 
@@ -342,7 +380,7 @@ impl ComponentInner {
 }
 
 pub(crate) struct ComponentsInner {
-    components: Vec<Component>,
+    pub(crate) components: Vec<Component>,
 }
 
 impl ComponentsInner {
@@ -368,8 +406,7 @@ impl ComponentsInner {
         &mut self.components
     }
 
-    pub(crate) fn refresh_list(&mut self) {
-        self.components.clear();
+    pub(crate) fn refresh(&mut self) {
         if let Ok(dir) = read_dir(Path::new("/sys/class/hwmon/")) {
             for entry in dir.flatten() {
                 let Ok(file_type) = entry.file_type() else {
