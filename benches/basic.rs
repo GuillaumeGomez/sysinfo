@@ -118,17 +118,7 @@ fn bench_refresh_components(b: &mut test::Bencher) {
     let mut c = sysinfo::Components::new_with_refreshed_list();
 
     b.iter(move || {
-        c.refresh();
-    });
-}
-
-#[cfg(feature = "component")]
-#[bench]
-fn bench_refresh_components_list(b: &mut test::Bencher) {
-    let mut c = sysinfo::Components::new_with_refreshed_list();
-
-    b.iter(move || {
-        c.refresh_list();
+        c.refresh(false);
     });
 }
 

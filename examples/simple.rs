@@ -173,7 +173,7 @@ fn interpret_input(
         }
         "refresh_components" => {
             writeln!(&mut io::stdout(), "Refreshing component list...");
-            components.refresh_list();
+            components.refresh(true);
             writeln!(&mut io::stdout(), "Done.");
         }
         "refresh_cpu" => {

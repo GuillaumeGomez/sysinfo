@@ -26,6 +26,7 @@ pub(crate) struct ComponentInner {
     critical: Option<f32>,
     label: String,
     connection: Option<Connection>,
+    pub(crate) updated: bool,
 }
 
 impl ComponentInner {
@@ -44,6 +45,7 @@ impl ComponentInner {
                 max: temperature,
                 critical,
                 connection: Some(c),
+                updated: true,
             })
     }
 
@@ -87,7 +89,7 @@ impl ComponentInner {
 }
 
 pub(crate) struct ComponentsInner {
-    components: Vec<Component>,
+    pub(crate) components: Vec<Component>,
 }
 
 impl ComponentsInner {
@@ -113,11 +115,19 @@ impl ComponentsInner {
         &mut self.components
     }
 
-    pub(crate) fn refresh_list(&mut self) {
-        self.components = match ComponentInner::new() {
-            Some(c) => vec![Component { inner: c }],
-            None => Vec::new(),
-        };
+    pub(crate) fn refresh(&mut self) {
+        if self.components.is_empty() {
+            self.components = match ComponentInner::new() {
+                Some(c) => vec![Component { inner: c }],
+                None => Vec::new(),
+            };
+        } else {
+            // There should always be only one here but just in case...
+            for c in self.components.iter_mut() {
+                c.refresh();
+                c.inner.updated = true;
+            }
+        }
     }
 }
 
