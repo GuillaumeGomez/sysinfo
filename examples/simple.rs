@@ -163,7 +163,7 @@ fn interpret_input(
         }
         "refresh_users" => {
             writeln!(&mut io::stdout(), "Refreshing user list...");
-            users.refresh_list();
+            users.refresh();
             writeln!(&mut io::stdout(), "Done.");
         }
         "refresh_networks" => {

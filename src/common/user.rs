@@ -252,7 +252,7 @@ impl Users {
     /// use sysinfo::Users;
     ///
     /// let mut users = Users::new();
-    /// users.refresh_list();
+    /// users.refresh();
     /// for user in users.list() {
     ///     println!("{user:?}");
     /// }
@@ -262,7 +262,6 @@ impl Users {
     }
 
     /// Creates a new [`Users`][crate::Users] type with the user list loaded.
-    /// It is a combination of [`Users::new`] and [`Users::refresh_list`].
     ///
     /// ```no_run
     /// use sysinfo::Users;
@@ -274,7 +273,7 @@ impl Users {
     /// ```
     pub fn new_with_refreshed_list() -> Self {
         let mut users = Self::new();
-        users.refresh_list();
+        users.refresh();
         users
     }
 
@@ -312,9 +311,9 @@ impl Users {
     /// use sysinfo::Users;
     ///
     /// let mut users = Users::new();
-    /// users.refresh_list();
+    /// users.refresh();
     /// ```
-    pub fn refresh_list(&mut self) {
+    pub fn refresh(&mut self) {
         crate::sys::get_users(&mut self.users);
     }
 
@@ -424,7 +423,7 @@ impl Groups {
     /// use sysinfo::Groups;
     ///
     /// let mut groups = Groups::new();
-    /// groups.refresh_list();
+    /// groups.refresh();
     /// for group in groups.list() {
     ///     println!("{group:?}");
     /// }
@@ -434,7 +433,6 @@ impl Groups {
     }
 
     /// Creates a new [`Groups`][crate::Groups] type with the user list loaded.
-    /// It is a combination of [`Groups::new`] and [`Groups::refresh_list`].
     ///
     /// ```no_run
     /// use sysinfo::Groups;
@@ -446,7 +444,7 @@ impl Groups {
     /// ```
     pub fn new_with_refreshed_list() -> Self {
         let mut groups = Self::new();
-        groups.refresh_list();
+        groups.refresh();
         groups
     }
 
@@ -481,12 +479,12 @@ impl Groups {
     /// The group list will be emptied then completely recomputed.
     ///
     /// ```no_run
-    /// use sysinfo::Users;
+    /// use sysinfo::Groups;
     ///
-    /// let mut users = Users::new();
-    /// users.refresh_list();
+    /// let mut groups = Groups::new();
+    /// groups.refresh();
     /// ```
-    pub fn refresh_list(&mut self) {
+    pub fn refresh(&mut self) {
         crate::sys::get_groups(&mut self.groups);
     }
 }
@@ -499,7 +497,7 @@ mod tests {
     fn check_list() {
         let mut users = Users::new();
         assert!(users.list().is_empty());
-        users.refresh_list();
+        users.refresh();
         assert!(users.list().len() >= MIN_USERS);
     }
 

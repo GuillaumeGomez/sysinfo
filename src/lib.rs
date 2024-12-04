@@ -282,7 +282,7 @@ mod test {
     fn check_uid_gid() {
         let mut users = Users::new();
         assert!(users.list().is_empty());
-        users.refresh_list();
+        users.refresh();
         let user_list = users.list();
         assert!(user_list.len() >= MIN_USERS);
 
