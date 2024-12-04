@@ -1,3 +1,24 @@
+# 0.33.0
+
+ * Linux: Add more ARM vendor IDs.
+ * Linux: Improve CPU computation when refreshing a single process CPU usage.
+ * Windows: Fix CPU frequency not being refreshed.
+ * Windows: Improved components retrieval.
+ * Windows: Fix inconsistent `boot_time` information.
+ * Windows: Fix `User::groups`.
+ * macOS: Fix network data information being limited to 32 bits.
+ * macOS: Add newer macOS version for `System::long_os_version`.
+ * unix: Add support for network sub-interfaces.
+ * Use `std::env::consts::ARCH` as fallback for `System::cpu_arch`.
+ * Add disk I/O support provided through `Disk::usage`.
+ * Add `NetworkData::mtu`.
+ * Add `DiskRefreshKind` to have finer-grained disks refreshes.
+ * `Component::temperature` and `Component::max` now returns `Option<f32>`.
+ * `Users::refresh_list`, `Groups::refresh_list`, `Components::refresh_list`, `Networks::refresh_list` and `Disks::refresh_list` methods were renamed `refresh`.
+ * `*RefreshKind::new` methods were renamed `nothing`.
+ * Improve documentation for `DiskUsage::read_bytes`.
+ * Improve documentation for `Process::kill`.
+
 # 0.32.1
 
  * Fix compilation error due to `libc` update.
