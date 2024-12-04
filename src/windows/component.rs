@@ -49,12 +49,12 @@ impl ComponentInner {
             })
     }
 
-    pub(crate) fn temperature(&self) -> f32 {
-        self.temperature
+    pub(crate) fn temperature(&self) -> Option<f32> {
+        Some(self.temperature)
     }
 
-    pub(crate) fn max(&self) -> f32 {
-        self.max
+    pub(crate) fn max(&self) -> Option<f32> {
+        Some(self.max)
     }
 
     pub(crate) fn critical(&self) -> Option<f32> {

@@ -87,23 +87,21 @@ impl std::fmt::Debug for crate::Components {
 #[cfg(feature = "component")]
 impl std::fmt::Debug for crate::Component {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(critical) = self.critical() {
-            write!(
-                f,
-                "{}: {}°C (max: {}°C / critical: {}°C)",
-                self.label(),
-                self.temperature(),
-                self.max(),
-                critical
-            )
+        write!(f, "{} ", self.label())?;
+        if let Some(temperature) = self.temperature() {
+            write!(f, "temperature: {temperature}°C (")?;
         } else {
-            write!(
-                f,
-                "{}: {}°C (max: {}°C)",
-                self.label(),
-                self.temperature(),
-                self.max()
-            )
+            f.write_str("temperature: unknown (")?;
+        }
+        if let Some(max) = self.max() {
+            write!(f, "max: {max}°C / ")?;
+        } else {
+            f.write_str("max: unknown / ")?;
+        }
+        if let Some(critical) = self.critical() {
+            write!(f, "critical: {critical}°C)")
+        } else {
+            f.write_str("critical: unknown)")
         }
     }
 }

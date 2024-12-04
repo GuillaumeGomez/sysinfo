@@ -7,12 +7,12 @@ pub(crate) struct ComponentInner {
 }
 
 impl ComponentInner {
-    pub(crate) fn temperature(&self) -> f32 {
-        0.0
+    pub(crate) fn temperature(&self) -> Option<f32> {
+        None
     }
 
-    pub(crate) fn max(&self) -> f32 {
-        0.0
+    pub(crate) fn max(&self) -> Option<f32> {
+        None
     }
 
     pub(crate) fn critical(&self) -> Option<f32> {

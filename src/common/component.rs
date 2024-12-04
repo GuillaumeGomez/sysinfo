@@ -166,7 +166,11 @@ impl Components {
 ///
 /// let components = Components::new_with_refreshed_list();
 /// for component in &components {
-///     println!("{} {}°C", component.label(), component.temperature());
+///     if let Some(temperature) = component.temperature() {
+///         println!("{} {temperature}°C", component.label());
+///     } else {
+///         println!("{} (unknown temperature)", component.label());
+///     }
 /// }
 /// ```
 pub struct Component {
@@ -185,10 +189,12 @@ impl Component {
     ///
     /// let components = Components::new_with_refreshed_list();
     /// for component in &components {
-    ///     println!("{}°C", component.temperature());
+    ///     if let Some(temperature) = component.temperature() {
+    ///         println!("{temperature}°C");
+    ///     }
     /// }
     /// ```
-    pub fn temperature(&self) -> f32 {
+    pub fn temperature(&self) -> Option<f32> {
         self.inner.temperature()
     }
 
@@ -207,10 +213,12 @@ impl Component {
     ///
     /// let components = Components::new_with_refreshed_list();
     /// for component in &components {
-    ///     println!("{}°C", component.max());
+    ///     if let Some(max) = component.max() {
+    ///         println!("{max}°C");
+    ///     }
     /// }
     /// ```
-    pub fn max(&self) -> f32 {
+    pub fn max(&self) -> Option<f32> {
         self.inner.max()
     }
 
@@ -225,7 +233,9 @@ impl Component {
     ///
     /// let components = Components::new_with_refreshed_list();
     /// for component in &components {
-    ///     println!("{:?}°C", component.critical());
+    ///     if let Some(critical) = component.critical() {
+    ///         println!("{critical}°C");
+    ///     }
     /// }
     /// ```
     pub fn critical(&self) -> Option<f32> {
