@@ -101,7 +101,7 @@ impl ComponentsInner {
 }
 
 pub(crate) struct ComponentInner {
-    temperature: f32,
+    temperature: Option<f32>,
     max: f32,
     critical: Option<f32>,
     label: String,
@@ -120,7 +120,7 @@ impl ComponentInner {
     ) -> Option<Self> {
         let ffi_part = ComponentFFI::new(key, connection)?;
         ffi_part.temperature().map(|temperature| Self {
-            temperature,
+            temperature: Some(temperature),
             label,
             max: max.unwrap_or(temperature),
             critical,
@@ -129,12 +129,12 @@ impl ComponentInner {
         })
     }
 
-    pub(crate) fn temperature(&self) -> f32 {
+    pub(crate) fn temperature(&self) -> Option<f32> {
         self.temperature
     }
 
-    pub(crate) fn max(&self) -> f32 {
-        self.max
+    pub(crate) fn max(&self) -> Option<f32> {
+        Some(self.max)
     }
 
     pub(crate) fn critical(&self) -> Option<f32> {
@@ -146,10 +146,10 @@ impl ComponentInner {
     }
 
     pub(crate) fn refresh(&mut self) {
-        if let Some(temp) = self.ffi_part.temperature() {
-            self.temperature = temp;
-            if self.temperature > self.max {
-                self.max = self.temperature;
+        self.temperature = self.ffi_part.temperature();
+        if let Some(temperature) = self.temperature {
+            if temperature > self.max {
+                self.max = temperature;
             }
         }
     }

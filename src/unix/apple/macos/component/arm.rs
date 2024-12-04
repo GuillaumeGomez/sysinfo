@@ -137,7 +137,7 @@ impl ComponentsInner {
 
 pub(crate) struct ComponentInner {
     service: *mut __IOHIDServiceClient,
-    temperature: f32,
+    temperature: Option<f32>,
     label: String,
     max: f32,
     critical: Option<f32>,
@@ -159,17 +159,17 @@ impl ComponentInner {
             label,
             max: max.unwrap_or(0.),
             critical,
-            temperature: 0.,
+            temperature: None,
             updated: true,
         }
     }
 
-    pub(crate) fn temperature(&self) -> f32 {
+    pub(crate) fn temperature(&self) -> Option<f32> {
         self.temperature
     }
 
-    pub(crate) fn max(&self) -> f32 {
-        self.max
+    pub(crate) fn max(&self) -> Option<f32> {
+        Some(self.max)
     }
 
     pub(crate) fn critical(&self) -> Option<f32> {
@@ -182,22 +182,23 @@ impl ComponentInner {
 
     pub(crate) fn refresh(&mut self) {
         unsafe {
-            let event = match CFReleaser::new(IOHIDServiceClientCopyEvent(
+            let Some(event) = CFReleaser::new(IOHIDServiceClientCopyEvent(
                 self.service as *const _,
                 kIOHIDEventTypeTemperature,
                 0,
                 0,
-            )) {
-                Some(e) => e,
-                None => return,
+            )) else {
+                self.temperature = None;
+                return;
             };
 
-            self.temperature = IOHIDEventGetFloatValue(
+            let temperature = IOHIDEventGetFloatValue(
                 event.inner(),
                 IOHIDEventFieldBase(kIOHIDEventTypeTemperature),
             ) as _;
-            if self.temperature > self.max {
-                self.max = self.temperature;
+            self.temperature = Some(temperature);
+            if temperature > self.max {
+                self.max = temperature;
             }
         }
     }

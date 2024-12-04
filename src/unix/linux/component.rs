@@ -343,12 +343,12 @@ impl ComponentInner {
         }
     }
 
-    pub(crate) fn temperature(&self) -> f32 {
-        self.temperature.unwrap_or(f32::NAN)
+    pub(crate) fn temperature(&self) -> Option<f32> {
+        self.temperature
     }
 
-    pub(crate) fn max(&self) -> f32 {
-        self.max.unwrap_or(f32::NAN)
+    pub(crate) fn max(&self) -> Option<f32> {
+        self.max
     }
 
     pub(crate) fn critical(&self) -> Option<f32> {

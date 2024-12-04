@@ -6,18 +6,18 @@ use crate::Component;
 pub(crate) struct ComponentInner {
     id: Vec<u8>,
     label: String,
-    temperature: f32,
+    temperature: Option<f32>,
     max: f32,
     pub(crate) updated: bool,
 }
 
 impl ComponentInner {
-    pub(crate) fn temperature(&self) -> f32 {
+    pub(crate) fn temperature(&self) -> Option<f32> {
         self.temperature
     }
 
-    pub(crate) fn max(&self) -> f32 {
-        self.max
+    pub(crate) fn max(&self) -> Option<f32> {
+        Some(self.max)
     }
 
     pub(crate) fn critical(&self) -> Option<f32> {
@@ -30,10 +30,10 @@ impl ComponentInner {
 
     pub(crate) fn refresh(&mut self) {
         unsafe {
-            if let Some(temperature) = refresh_component(&self.id) {
-                self.temperature = temperature;
-                if self.temperature > self.max {
-                    self.max = self.temperature;
+            self.temperature = refresh_component(&self.id);
+            if let Some(temperature) = self.temperature {
+                if temperature > self.max {
+                    self.max = temperature;
                 }
             }
         }
@@ -93,7 +93,7 @@ impl ComponentsInner {
                             inner: ComponentInner {
                                 id,
                                 label: format!("CPU {}", core + 1),
-                                temperature,
+                                temperature: Some(temperature),
                                 max: temperature,
                                 updated: true,
                             },
