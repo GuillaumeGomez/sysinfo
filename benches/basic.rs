@@ -127,6 +127,6 @@ fn bench_refresh_users_list(b: &mut test::Bencher) {
     let mut users = sysinfo::Users::new_with_refreshed_list();
 
     b.iter(move || {
-        users.refresh_list();
+        users.refresh();
     });
 }

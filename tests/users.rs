@@ -17,7 +17,7 @@ fn test_users() {
     if sysinfo::IS_SUPPORTED_SYSTEM {
         let mut users = Users::new();
         assert_eq!(users.iter().count(), 0);
-        users.refresh_list();
+        users.refresh();
         assert!(users.iter().count() > 0);
         let count = users.first().unwrap().groups().iter().len();
         for _ in 1..10 {
