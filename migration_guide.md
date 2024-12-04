@@ -1,5 +1,21 @@
 # Migration guide
 
+## 0.32 to 0.33
+
+### Major changes
+
+`Users::refresh_list`, `Groups::refresh_list`, `Components::refresh_list`, `Networks::refresh_list` and `Disks::refresh_list` methods were renamed into `refresh`. All of them except for `Users::refresh` and `Groups::refresh` expect a boolean to tell whether or not `sysinfo` should keep removed items.
+
+`Component::temperature` and `Component::max` now returns `Option<f32>` instead of returning `f32::NaN` in case the information isn't available.
+
+`*RefreshKind::new` methods were renamed `nothing` to better the match the `*RefreshKind::everything` method.
+
+### New APIs
+
+`Disks` now has a new `refresh_specifics` method expecting a `DiskRefreshKind` argument to allow you finer-grained refreshes.
+
+The `NetworkData` type now has a new `mtu` method to retrieve the Maximum Transfer Unit.
+
 ## 0.31 to 0.32
 
 ### Major changes
