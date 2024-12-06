@@ -17,15 +17,6 @@ pub(crate) unsafe fn to_utf8_str(p: windows::core::PWSTR) -> String {
     })
 }
 
-#[cfg(any(feature = "user", feature = "system"))]
-pub(crate) unsafe fn to_pcwstr(v: Vec<u16>) -> windows::core::PCWSTR {
-    if v.is_empty() {
-        return windows::core::PCWSTR::null();
-    }
-    let string = String::from_utf16(&v).unwrap_or_default();
-    windows::core::PCWSTR(windows::core::HSTRING::from(&format!("{}\0", string)).as_ptr())
-}
-
 cfg_if! {
     if #[cfg(any(feature = "disk", feature = "system"))] {
         use windows::Win32::Foundation::{CloseHandle, HANDLE};
