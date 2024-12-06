@@ -4,7 +4,7 @@ use crate::sys::utils::to_utf8_str;
 use crate::{windows::sid::Sid, Gid, Group, GroupInner, Uid, User};
 
 use std::ptr::null_mut;
-use windows::core::{w, PCWSTR};
+use windows::core::PCWSTR;
 use windows::Win32::Foundation::{ERROR_MORE_DATA, LUID};
 use windows::Win32::NetworkManagement::NetManagement::{
     NERR_Success, NetApiBufferFree, NetUserEnum, NetUserGetInfo, NetUserGetLocalGroups,
@@ -15,8 +15,6 @@ use windows::Win32::Security::Authentication::Identity::{
     LsaEnumerateLogonSessions, LsaFreeReturnBuffer, LsaGetLogonSessionData,
     SECURITY_LOGON_SESSION_DATA, SECURITY_LOGON_TYPE,
 };
-
-use super::utils::to_pcwstr;
 
 pub(crate) struct UserInner {
     pub(crate) uid: Uid,
@@ -56,7 +54,16 @@ impl UserInner {
 
     pub(crate) fn groups(&self) -> Vec<Group> {
         if let (Some(c_user_name), true) = (&self.c_user_name, self.is_local) {
-            unsafe { get_groups_for_user(to_pcwstr(c_user_name.to_vec())) }
+            // Convert the wide string to a PCWSTR, and ensure it has a null terminator.
+            // Since the Vec is created here, we can ensure it will not be dropped prematurely.
+            let username = {
+                let mut null_terminated = c_user_name.to_vec();
+                if null_terminated.last().is_some_and(|v| *v != 0) {
+                    null_terminated.push(0);
+                }
+                null_terminated
+            };
+            unsafe { get_groups_for_user(PCWSTR::from_raw(username.as_ptr())) }
         } else {
             Vec::new()
         }
@@ -115,14 +122,18 @@ impl<T> LsaBuffer<T> {
     }
 }
 
+/// Get the groups for a user.
+///
+/// # Safety
+/// The caller must ensure that the `username` is a valid wide Unicode string with a null terminator.
 unsafe fn get_groups_for_user(username: PCWSTR) -> Vec<Group> {
     let mut buf: NetApiBuffer<LOCALGROUP_USERS_INFO_0> = Default::default();
     let mut nb_entries = 0;
     let mut total_entries = 0;
-    let mut groups;
+    let mut groups: Vec<Group>;
 
     let status = NetUserGetLocalGroups(
-        w!(""),
+        PCWSTR::null(),
         username,
         0,
         LG_INCLUDE_INDIRECT,
