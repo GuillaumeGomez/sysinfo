@@ -688,6 +688,13 @@ impl System {
 
     /// Returns the system name.
     ///
+    /// | example platform | value of `System::name()` |
+    /// |---|---|
+    /// | linux laptop | "Ubuntu" |
+    /// | android phone | "Pixel 9 Pro" |
+    /// | apple laptop | "Darwin" |
+    /// | windows server | "Windows" |
+    ///
     /// **Important**: this information is computed every time this function is called.
     ///
     /// ```no_run
@@ -701,6 +708,13 @@ impl System {
 
     /// Returns the system's kernel version.
     ///
+    /// | example platform | value of `System::kernel_version()` |
+    /// |---|---|
+    /// | linux laptop | "6.8.0-48-generic" |
+    /// | android phone | "6.1.84-android14-11" |
+    /// | apple laptop | "24.1.0" |
+    /// | windows server | "20348" |
+    ///
     /// **Important**: this information is computed every time this function is called.
     ///
     /// ```no_run
@@ -712,8 +726,15 @@ impl System {
         SystemInner::kernel_version()
     }
 
-    /// Returns the system version (e.g. for MacOS this will return 11.1 rather than the kernel
+    /// Returns the system version (e.g. for MacOS this will return 15.1 rather than the kernel
     /// version).
+    ///
+    /// | example platform | value of `System::os_version()` |
+    /// |---|---|
+    /// | linux laptop | "24.04" |
+    /// | android phone | "15" |
+    /// | apple laptop | "15.1.1" |
+    /// | windows server | "10 (20348)" |
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
@@ -726,7 +747,14 @@ impl System {
         SystemInner::os_version()
     }
 
-    /// Returns the system long os version (e.g "MacOS 11.2 BigSur").
+    /// Returns the system long os version.
+    ///
+    /// | example platform | value of `System::long_os_version()` |
+    /// |---|---|
+    /// | linux laptop | "Linux 24.04 Ubuntu" |
+    /// | android phone | "Android 15 Pixel 9 Pro" |
+    /// | apple laptop | "MacOS 15.1.1 Sequoia" |
+    /// | windows server | "Windows Server 2022 Datacenter" |
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
@@ -745,6 +773,13 @@ impl System {
     /// See also
     /// - <https://www.freedesktop.org/software/systemd/man/os-release.html#ID=>
     /// - <https://doc.rust-lang.org/std/env/consts/constant.OS.html>
+    ///
+    /// | example platform | value of `System::distribution_id()` |
+    /// |---|---|
+    /// | linux laptop | "ubuntu" |
+    /// | android phone | "android" |
+    /// | apple laptop | "macos" |
+    /// | windows server | "windows" |
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
@@ -1172,8 +1207,8 @@ impl Process {
     ///
     ///  **⚠️ Important ⚠️**
     ///
-    /// On **Windows**, you might need to use `administrator` privileges when running your program  
-    /// to have access to this information.  
+    /// On **Windows**, you might need to use `administrator` privileges when running your program
+    /// to have access to this information.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
