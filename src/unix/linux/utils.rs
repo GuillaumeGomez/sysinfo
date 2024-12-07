@@ -1,7 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#[cfg(any(feature = "disk", feature = "system"))]
 use std::fs::File;
+#[cfg(any(feature = "disk", feature = "system"))]
 use std::io::{self, Read, Seek};
+#[cfg(any(feature = "disk", feature = "system"))]
 use std::path::Path;
 
 #[cfg(feature = "system")]
@@ -12,6 +15,7 @@ pub(crate) fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result
     Ok(buf)
 }
 
+#[cfg(any(feature = "disk", feature = "system"))]
 pub(crate) fn get_all_utf8_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
     let mut buf = String::with_capacity(size);
     file.rewind()?;
@@ -19,6 +23,7 @@ pub(crate) fn get_all_utf8_data_from_file(file: &mut File, size: usize) -> io::R
     Ok(buf)
 }
 
+#[cfg(any(feature = "disk", feature = "system"))]
 pub(crate) fn get_all_utf8_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
     let mut file = File::open(file_path.as_ref())?;
     get_all_utf8_data_from_file(&mut file, size)
@@ -85,6 +90,7 @@ pub(crate) fn to_u64(v: &[u8]) -> u64 {
 }
 
 /// Converts a path to a NUL-terminated `Vec<u8>` suitable for use with C functions.
+#[cfg(feature = "disk")]
 pub(crate) fn to_cpath(path: &std::path::Path) -> Vec<u8> {
     use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
 
