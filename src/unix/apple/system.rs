@@ -231,7 +231,7 @@ impl SystemInner {
     #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
     pub(crate) fn refresh_processes_specifics(
         &mut self,
-        processes_to_update: ProcessesToUpdate<'_>,
+        _processes_to_update: ProcessesToUpdate<'_>,
         _refresh_kind: ProcessRefreshKind,
     ) -> usize {
         0

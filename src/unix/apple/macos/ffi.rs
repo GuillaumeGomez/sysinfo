@@ -123,11 +123,14 @@ extern "C" {
         matching: CFMutableDictionaryRef,
         existing: *mut io_iterator_t,
     ) -> kern_return_t;
-    #[cfg(any(
-        feature = "system",
-        all(
-            feature = "component",
-            any(target_arch = "x86", target_arch = "x86_64")
+    #[cfg(all(
+        not(feature = "apple-sandbox"),
+        any(
+            feature = "system",
+            all(
+                feature = "component",
+                any(target_arch = "x86", target_arch = "x86_64")
+            ),
         ),
     ))]
     pub fn IOServiceMatching(a: *const c_char) -> CFMutableDictionaryRef;
@@ -155,17 +158,20 @@ extern "C" {
         options: u32,
         bsdName: *const c_char,
     ) -> CFMutableDictionaryRef;
-    #[cfg(feature = "system")]
+    #[cfg(all(feature = "system", not(feature = "apple-sandbox")))]
     pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: io_name_t) -> kern_return_t;
     #[cfg(feature = "disk")]
     pub fn IOObjectConformsTo(object: io_object_t, className: *const c_char) -> libc::boolean_t;
 }
 
-#[cfg(any(
-    feature = "system",
-    all(
-        feature = "component",
-        any(target_arch = "x86", target_arch = "x86_64")
+#[cfg(all(
+    not(feature = "apple-sandbox"),
+    any(
+        feature = "system",
+        all(
+            feature = "component",
+            any(target_arch = "x86", target_arch = "x86_64")
+        ),
     ),
 ))]
 pub const KIO_RETURN_SUCCESS: i32 = 0;
