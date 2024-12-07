@@ -396,12 +396,19 @@ impl SystemInner {
         #[cfg(not(target_os = "android"))]
         let system_name = "Linux";
 
-        Some(format!(
-            "{} {} {}",
-            system_name,
-            Self::os_version().unwrap_or_default(),
-            Self::name().unwrap_or_default()
-        ))
+        let mut long_name = system_name.to_owned();
+
+        if let Some(os_version) = Self::os_version() {
+            long_name.push(' ');
+            long_name.push_str(&os_version);
+        }
+
+        if let Some(short_name) = Self::name() {
+            long_name.push(' ');
+            long_name.push_str(&short_name);
+        }
+
+        Some(long_name)
     }
 
     pub(crate) fn host_name() -> Option<String> {
