@@ -225,17 +225,6 @@ fn windows_8_1_or_newer() -> &'static bool {
     })
 }
 
-#[cfg(feature = "debug")]
-unsafe fn display_ntstatus_error(ntstatus: windows::core::HRESULT) {
-    let code = ntstatus.0;
-    let message = ntstatus.message();
-    sysinfo_debug!(
-        "Couldn't get process infos: NtQuerySystemInformation returned {}: {}",
-        code,
-        message
-    );
-}
-
 unsafe fn get_exe(process_handler: &HandleWrapper) -> Option<PathBuf> {
     let mut exe_buf = [0u16; MAX_PATH as usize + 1];
     GetModuleFileNameExW(
