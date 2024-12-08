@@ -148,10 +148,6 @@ impl SystemInner {
         &self.cpus.cpus
     }
 
-    pub(crate) fn physical_core_count(&self) -> Option<usize> {
-        physical_core_count()
-    }
-
     pub(crate) fn total_memory(&self) -> u64 {
         self.mem_total
     }
@@ -267,6 +263,10 @@ impl SystemInner {
                 None
             }
         }
+    }
+
+    pub(crate) fn physical_core_count() -> Option<usize> {
+        physical_core_count()
     }
 }
 
