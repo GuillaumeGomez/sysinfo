@@ -504,22 +504,6 @@ impl System {
         self.inner.cpus()
     }
 
-    /// Returns the number of physical cores on the CPU or `None` if it couldn't get it.
-    ///
-    /// In case there are multiple CPUs, it will combine the physical core count of all the CPUs.
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// let s = System::new();
-    /// println!("{:?}", s.physical_core_count());
-    /// ```
-    pub fn physical_core_count(&self) -> Option<usize> {
-        self.inner.physical_core_count()
-    }
-
     /// Returns the RAM size in bytes.
     ///
     /// ```no_run
@@ -816,6 +800,22 @@ impl System {
     /// ```
     pub fn cpu_arch() -> String {
         SystemInner::cpu_arch().unwrap_or_else(|| std::env::consts::ARCH.to_owned())
+    }
+
+    /// Returns the number of physical cores on the CPU or `None` if it couldn't get it.
+    ///
+    /// In case there are multiple CPUs, it will combine the physical core count of all the CPUs.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new();
+    /// println!("{:?}", System::physical_core_count());
+    /// ```
+    pub fn physical_core_count() -> Option<usize> {
+        SystemInner::physical_core_count()
     }
 }
 
@@ -2496,9 +2496,8 @@ mod test {
         if IS_SUPPORTED_SYSTEM {
             // The physical cores count is recomputed every time the function is called, so the
             // information must be relevant even with nothing initialized.
-            let physical_cores_count = s
-                .physical_core_count()
-                .expect("failed to get number of physical cores");
+            let physical_cores_count =
+                System::physical_core_count().expect("failed to get number of physical cores");
 
             s.refresh_cpu_usage();
             // The cpus shouldn't be empty anymore.
@@ -2506,15 +2505,14 @@ mod test {
 
             // In case we are running inside a VM, it's possible to not have a physical core, only
             // logical ones, which is why we don't test `physical_cores_count > 0`.
-            let physical_cores_count2 = s
-                .physical_core_count()
-                .expect("failed to get number of physical cores");
+            let physical_cores_count2 =
+                System::physical_core_count().expect("failed to get number of physical cores");
             assert!(physical_cores_count2 <= s.cpus().len());
             assert_eq!(physical_cores_count, physical_cores_count2);
         } else {
-            assert_eq!(s.physical_core_count(), None);
+            assert_eq!(System::physical_core_count(), None);
         }
-        assert!(s.physical_core_count().unwrap_or(0) <= s.cpus().len());
+        assert!(System::physical_core_count().unwrap_or(0) <= s.cpus().len());
     }
 
     // This test only exists to ensure that the `Display` and `Debug` traits are implemented on the
