@@ -753,7 +753,7 @@ impl System {
     /// |---|---|
     /// | linux laptop | "Linux 24.04 Ubuntu" |
     /// | android phone | "Android 15 Pixel 9 Pro" |
-    /// | apple laptop | "MacOS 15.1.1 Sequoia" |
+    /// | apple laptop | "macOS 15.1.1 Sequoia" |
     /// | windows server | "Windows Server 2022 Datacenter" |
     ///
     /// **Important**: this information is computed every time this function is called.
