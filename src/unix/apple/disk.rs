@@ -25,6 +25,7 @@ use std::ptr;
 pub(crate) struct DiskInner {
     pub(crate) type_: DiskKind,
     pub(crate) name: OsString,
+    #[cfg(target_os = "macos")]
     bsd_name: Option<Vec<u8>>,
     pub(crate) file_system: OsString,
     pub(crate) mount_point: PathBuf,
@@ -338,6 +339,7 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
 type RetainedCFArray = CFReleaser<core_foundation_sys::array::__CFArray>;
 pub(crate) type RetainedCFDictionary = CFReleaser<core_foundation_sys::dictionary::__CFDictionary>;
 type RetainedCFURL = CFReleaser<core_foundation_sys::url::__CFURL>;
+#[cfg(target_os = "macos")]
 pub(crate) type RetainedCFString = CFReleaser<core_foundation_sys::string::__CFString>;
 
 unsafe fn build_requested_properties(properties: &[CFStringRef]) -> Option<RetainedCFArray> {
@@ -527,6 +529,7 @@ unsafe fn new_disk(
         )
     };
 
+    #[cfg(target_os = "macos")]
     let bsd_name = get_bsd_name(&c_disk);
 
     // IOKit is not available on any but the most recent (16+) iOS and iPadOS versions.
@@ -565,6 +568,7 @@ unsafe fn new_disk(
     let mut disk = DiskInner {
         type_: DiskKind::Unknown(-1),
         name,
+        #[cfg(target_os = "macos")]
         bsd_name,
         file_system,
         mount_point,
@@ -619,6 +623,7 @@ unsafe fn with_autorelease<T, F: FnOnce() -> T>(call: F) -> T {
     // Pool is drained here before returning
 }
 
+#[cfg(target_os = "macos")]
 fn get_bsd_name(disk: &libc::statfs) -> Option<Vec<u8>> {
     // Removes `/dev/` from the value.
     unsafe {

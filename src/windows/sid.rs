@@ -3,11 +3,13 @@
 use std::{fmt::Display, str::FromStr};
 
 use windows::core::{PCWSTR, PWSTR};
-use windows::Win32::Foundation::{LocalFree, ERROR_INSUFFICIENT_BUFFER, HLOCAL, PSID};
+#[cfg(feature = "user")]
+use windows::Win32::Foundation::ERROR_INSUFFICIENT_BUFFER;
+use windows::Win32::Foundation::{LocalFree, HLOCAL, PSID};
 use windows::Win32::Security::Authorization::{ConvertSidToStringSidW, ConvertStringSidToSidW};
-use windows::Win32::Security::{
-    CopySid, GetLengthSid, IsValidSid, LookupAccountSidW, SidTypeUnknown,
-};
+use windows::Win32::Security::{CopySid, GetLengthSid, IsValidSid};
+#[cfg(feature = "user")]
+use windows::Win32::Security::{LookupAccountSidW, SidTypeUnknown};
 
 use crate::sys::utils::to_utf8_str;
 
@@ -56,6 +58,7 @@ impl Sid {
     }
 
     /// Retrieves the account name of this SID.
+    #[cfg(feature = "user")]
     pub(crate) fn account_name(&self) -> Option<String> {
         unsafe {
             let mut name_len = 0;
