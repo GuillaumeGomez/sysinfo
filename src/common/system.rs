@@ -726,7 +726,7 @@ impl System {
         SystemInner::kernel_version()
     }
 
-    /// Returns the system version (e.g. for MacOS this will return 15.1 rather than the kernel
+    /// Returns the system version (e.g. for macOS this will return 15.1 rather than the kernel
     /// version).
     ///
     /// | example platform | value of `System::os_version()` |
@@ -753,7 +753,7 @@ impl System {
     /// |---|---|
     /// | linux laptop | "Linux 24.04 Ubuntu" |
     /// | android phone | "Android 15 Pixel 9 Pro" |
-    /// | apple laptop | "MacOS 15.1.1 Sequoia" |
+    /// | apple laptop | "macOS 15.1.1 Sequoia" |
     /// | windows server | "Windows Server 2022 Datacenter" |
     ///
     /// **Important**: this information is computed every time this function is called.
@@ -1338,7 +1338,7 @@ impl Process {
     ///
     /// This value has limitations though. Depending on the operating system and type of process,
     /// this value might be a good indicator of the total memory that the process will be using over
-    /// its lifetime. However, for example, in the version 14 of MacOS this value is in the order of
+    /// its lifetime. However, for example, in the version 14 of macOS this value is in the order of
     /// the hundreds of gigabytes for every process, and thus not very informative. Moreover, if a
     /// process maps into memory a very large file, this value will increase accordingly, even if
     /// the process is not actively using the memory.

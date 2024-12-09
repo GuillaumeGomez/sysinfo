@@ -396,39 +396,41 @@ impl SystemInner {
     pub(crate) fn long_os_version() -> Option<String> {
         #[cfg(target_os = "macos")]
         {
-            let mut long_name = "MacOS".to_owned();
-            if let Some(os_version) = Self::os_version() {
-                long_name.push(' ');
-                long_name.push_str(&os_version);
-                if let Some(friendly_name) = match os_version.as_str() {
-                    f_n if f_n.starts_with("15") => Some("Sequoia"),
-                    f_n if f_n.starts_with("14") => Some("Sonoma"),
-                    f_n if f_n.starts_with("13") => Some("Ventura"),
-                    f_n if f_n.starts_with("12") => Some("Monterey"),
-                    f_n if f_n.starts_with("11") | f_n.starts_with("10.16") => Some("Big Sur"),
-                    f_n if f_n.starts_with("10.15") => Some("Catalina"),
-                    f_n if f_n.starts_with("10.14") => Some("Mojave"),
-                    f_n if f_n.starts_with("10.13") => Some("High Sierra"),
-                    f_n if f_n.starts_with("10.12") => Some("Sierra"),
-                    f_n if f_n.starts_with("10.11") => Some("El Capitan"),
-                    f_n if f_n.starts_with("10.10") => Some("Yosemite"),
-                    f_n if f_n.starts_with("10.9") => Some("Mavericks"),
-                    f_n if f_n.starts_with("10.8") => Some("Mountain Lion"),
-                    f_n if f_n.starts_with("10.7") => Some("Lion"),
-                    f_n if f_n.starts_with("10.6") => Some("Snow Leopard"),
-                    f_n if f_n.starts_with("10.5") => Some("Leopard"),
-                    f_n if f_n.starts_with("10.4") => Some("Tiger"),
-                    f_n if f_n.starts_with("10.3") => Some("Panther"),
-                    f_n if f_n.starts_with("10.2") => Some("Jaguar"),
-                    f_n if f_n.starts_with("10.1") => Some("Puma"),
-                    f_n if f_n.starts_with("10.0") => Some("Cheetah"),
-                    _ => None,
-                } {
-                    long_name.push(' ');
-                    long_name.push_str(friendly_name);
+            let Some(os_version) = Self::os_version() else {
+                return Some("macOS".to_owned());
+            };
+            // https://en.wikipedia.org/wiki/MacOS_version_history
+            for (version_prefix, macos_spelling, friendly_name) in [
+                ("15", "macOS", "Sequoia"),
+                ("14", "macOS", "Sonoma"),
+                ("13", "macOS", "Ventura"),
+                ("12", "macOS", "Monterey"),
+                ("11", "macOS", "Big Sur"),
+                // Big Sur identifies itself as 10.16 in some situations.
+                // https://en.wikipedia.org/wiki/MacOS_Big_Sur#Development_history
+                ("10.16", "macOS", "Big Sur"),
+                ("10.15", "macOS", "Catalina"),
+                ("10.14", "macOS", "Mojave"),
+                ("10.13", "macOS", "High Sierra"),
+                ("10.12", "macOS", "Sierra"),
+                ("10.11", "OS X", "El Capitan"),
+                ("10.10", "OS X", "Yosemite"),
+                ("10.9", "OS X", "Mavericks"),
+                ("10.8", "OS X", "Mountain Lion"),
+                ("10.7", "Mac OS X", "Lion"),
+                ("10.6", "Mac OS X", "Snow Leopard"),
+                ("10.5", "Mac OS X", "Leopard"),
+                ("10.4", "Mac OS X", "Tiger"),
+                ("10.3", "Mac OS X", "Panther"),
+                ("10.2", "Mac OS X", "Jaguar"),
+                ("10.1", "Mac OS X", "Puma"),
+                ("10.0", "Mac OS X", "Cheetah"),
+            ] {
+                if os_version.starts_with(version_prefix) {
+                    return Some(format!("{macos_spelling} {os_version} {friendly_name}"));
                 }
             }
-            Some(long_name)
+            Some(format!("macOS {os_version}"))
         }
 
         #[cfg(target_os = "ios")]

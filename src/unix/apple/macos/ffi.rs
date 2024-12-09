@@ -36,7 +36,7 @@ use libc::c_char;
 ))]
 use libc::kern_return_t;
 
-// Note: IOKit is only available on MacOS up until very recent iOS versions: https://developer.apple.com/documentation/iokit
+// Note: IOKit is only available on macOS up until very recent iOS versions: https://developer.apple.com/documentation/iokit
 
 #[cfg(any(
     feature = "system",
