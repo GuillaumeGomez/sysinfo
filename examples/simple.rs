@@ -195,7 +195,7 @@ fn interpret_input(
             writeln!(
                 &mut io::stdout(),
                 "number of physical cores: {}",
-                sys.physical_core_count()
+                System::physical_core_count()
                     .map(|c| c.to_string())
                     .unwrap_or_else(|| "Unknown".to_owned()),
             );

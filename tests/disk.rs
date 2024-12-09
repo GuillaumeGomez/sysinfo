@@ -6,10 +6,8 @@ fn should_skip() -> bool {
         return true;
     }
 
-    let s = sysinfo::System::new_all();
-
     // If we don't have any physical core present, it's very likely that we're inside a VM...
-    s.physical_core_count().unwrap_or_default() == 0
+    sysinfo::System::physical_core_count().unwrap_or_default() == 0
 }
 
 #[test]

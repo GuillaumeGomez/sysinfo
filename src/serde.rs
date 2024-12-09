@@ -135,7 +135,7 @@ impl serde::Serialize for crate::System {
         state.serialize_field("global_cpu_usage", &self.global_cpu_usage())?;
         state.serialize_field("cpus", &self.cpus())?;
 
-        state.serialize_field("physical_core_count", &self.physical_core_count())?;
+        state.serialize_field("physical_core_count", &Self::physical_core_count())?;
         state.serialize_field("total_memory", &self.total_memory())?;
         state.serialize_field("free_memory", &self.free_memory())?;
         state.serialize_field("available_memory", &self.available_memory())?;
