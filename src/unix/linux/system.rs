@@ -398,14 +398,14 @@ impl SystemInner {
 
         let mut long_name = system_name.to_owned();
 
-        if let Some(os_version) = Self::os_version() {
-            long_name.push(' ');
-            long_name.push_str(&os_version);
-        }
-
         if let Some(short_name) = Self::name() {
             long_name.push(' ');
             long_name.push_str(&short_name);
+        }
+
+        if let Some(os_version) = Self::os_version() {
+            long_name.push(' ');
+            long_name.push_str(&os_version);
         }
 
         Some(long_name)
