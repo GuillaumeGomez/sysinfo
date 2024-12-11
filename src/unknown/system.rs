@@ -71,10 +71,6 @@ impl SystemInner {
         &[]
     }
 
-    pub(crate) fn physical_core_count(&self) -> Option<usize> {
-        None
-    }
-
     pub(crate) fn total_memory(&self) -> u64 {
         0
     }
@@ -143,6 +139,10 @@ impl SystemInner {
         None
     }
     pub(crate) fn cpu_arch() -> Option<String> {
+        None
+    }
+
+    pub(crate) fn physical_core_count() -> Option<usize> {
         None
     }
 }

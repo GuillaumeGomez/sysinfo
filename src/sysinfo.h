@@ -63,12 +63,12 @@ size_t      sysinfo_networks_transmitted(CNetworks networks);
 RString     sysinfo_cpu_vendor_id(CSystem system);
 RString     sysinfo_cpu_brand(CSystem system);
 uint64_t    sysinfo_cpu_frequency(CSystem system);
-uint32_t    sysinfo_cpu_physical_cores(CSystem system);
 
 RString     sysinfo_system_name();
 RString     sysinfo_system_kernel_version();
 RString     sysinfo_system_version();
 RString     sysinfo_system_host_name();
 RString     sysinfo_system_long_version();
+uint32_t    sysinfo_cpu_physical_cores();
 
 void        sysinfo_rstring_free(RString str);
