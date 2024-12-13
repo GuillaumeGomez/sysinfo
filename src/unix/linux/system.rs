@@ -389,14 +389,19 @@ impl SystemInner {
     pub(crate) fn long_os_version() -> Option<String> {
         let mut long_name = "Linux".to_owned();
 
-        if let Some(os_version) = Self::os_version() {
+        let distro_name = Self::name();
+        let distro_version = Self::os_version();
+        if let (Some(distro_name), Some(distro_version)) = (&distro_name, &distro_version) {
+            // "Linux (Ubuntu 24.04)"
+            long_name.push_str(" (");
+            long_name.push_str(distro_name);
             long_name.push(' ');
-            long_name.push_str(&os_version);
-        }
-
-        if let Some(short_name) = Self::name() {
-            long_name.push(' ');
-            long_name.push_str(&short_name);
+            long_name.push_str(distro_version);
+            long_name.push(')');
+        } else if let Some(distro_or_version) = distro_name.or(distro_version) {
+            long_name.push_str(" (");
+            long_name.push_str(&distro_or_version);
+            long_name.push(')');
         }
 
         Some(long_name)

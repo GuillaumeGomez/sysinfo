@@ -735,7 +735,7 @@ impl System {
     ///
     /// | example platform | value of `System::long_os_version()` |
     /// |---|---|
-    /// | linux laptop | "Linux 24.04 Ubuntu" |
+    /// | linux laptop | "Linux (Ubuntu 24.04)" |
     /// | android phone | "Android 15 on Pixel 9 Pro" |
     /// | apple laptop | "macOS 15.1.1 Sequoia" |
     /// | windows server | "Windows Server 2022 Datacenter" |
