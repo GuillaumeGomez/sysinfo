@@ -415,9 +415,12 @@ impl SystemInner {
             long_name.push_str(&os_version);
         }
 
-        if let Some(short_name) = Self::name() {
-            long_name.push(' ');
-            long_name.push_str(&short_name);
+        // Android's name() is extracted from the system property "ro.product.model"
+        // which is documented as "The end-user-visible name for the end product."
+        // So this produces a long_os_version like "Android 15 on Pixel 9 Pro".
+        if let Some(product_name) = Self::name() {
+            long_name.push_str(" on ");
+            long_name.push_str(&product_name);
         }
 
         Some(long_name)
