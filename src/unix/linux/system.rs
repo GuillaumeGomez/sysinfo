@@ -389,14 +389,26 @@ impl SystemInner {
         get_system_info_android(InfoType::Name)
     }
 
+    #[cfg(not(target_os = "android"))]
     pub(crate) fn long_os_version() -> Option<String> {
-        #[cfg(target_os = "android")]
-        let system_name = "Android";
+        let mut long_name = "Linux".to_owned();
 
-        #[cfg(not(target_os = "android"))]
-        let system_name = "Linux";
+        if let Some(os_version) = Self::os_version() {
+            long_name.push(' ');
+            long_name.push_str(&os_version);
+        }
 
-        let mut long_name = system_name.to_owned();
+        if let Some(short_name) = Self::name() {
+            long_name.push(' ');
+            long_name.push_str(&short_name);
+        }
+
+        Some(long_name)
+    }
+
+    #[cfg(target_os = "android")]
+    pub(crate) fn long_os_version() -> Option<String> {
+        let mut long_name = "Android".to_owned();
 
         if let Some(os_version) = Self::os_version() {
             long_name.push(' ');
