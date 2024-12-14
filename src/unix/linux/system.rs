@@ -391,16 +391,17 @@ impl SystemInner {
 
         let distro_name = Self::name();
         let distro_version = Self::os_version();
-        if let (Some(distro_name), Some(distro_version)) = (&distro_name, &distro_version) {
+        if let Some(distro_version) = &distro_version {
             // "Linux (Ubuntu 24.04)"
             long_name.push_str(" (");
-            long_name.push_str(distro_name);
+            long_name.push_str(distro_name.as_deref().unwrap_or("unknown"));
             long_name.push(' ');
             long_name.push_str(distro_version);
             long_name.push(')');
-        } else if let Some(distro_or_version) = distro_name.or(distro_version) {
+        } else if let Some(distro_name) = &distro_name {
+            // "Linux (Ubuntu)"
             long_name.push_str(" (");
-            long_name.push_str(&distro_or_version);
+            long_name.push_str(distro_name);
             long_name.push(')');
         }
 
