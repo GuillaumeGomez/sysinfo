@@ -385,23 +385,44 @@ impl SystemInner {
         get_system_info_android(InfoType::Name)
     }
 
+    #[cfg(not(target_os = "android"))]
     pub(crate) fn long_os_version() -> Option<String> {
-        #[cfg(target_os = "android")]
-        let system_name = "Android";
+        let mut long_name = "Linux".to_owned();
 
-        #[cfg(not(target_os = "android"))]
-        let system_name = "Linux";
+        let distro_name = Self::name();
+        let distro_version = Self::os_version();
+        if let Some(distro_version) = &distro_version {
+            // "Linux (Ubuntu 24.04)"
+            long_name.push_str(" (");
+            long_name.push_str(distro_name.as_deref().unwrap_or("unknown"));
+            long_name.push(' ');
+            long_name.push_str(distro_version);
+            long_name.push(')');
+        } else if let Some(distro_name) = &distro_name {
+            // "Linux (Ubuntu)"
+            long_name.push_str(" (");
+            long_name.push_str(distro_name);
+            long_name.push(')');
+        }
 
-        let mut long_name = system_name.to_owned();
+        Some(long_name)
+    }
+
+    #[cfg(target_os = "android")]
+    pub(crate) fn long_os_version() -> Option<String> {
+        let mut long_name = "Android".to_owned();
 
         if let Some(os_version) = Self::os_version() {
             long_name.push(' ');
             long_name.push_str(&os_version);
         }
 
-        if let Some(short_name) = Self::name() {
-            long_name.push(' ');
-            long_name.push_str(&short_name);
+        // Android's name() is extracted from the system property "ro.product.model"
+        // which is documented as "The end-user-visible name for the end product."
+        // So this produces a long_os_version like "Android 15 on Pixel 9 Pro".
+        if let Some(product_name) = Self::name() {
+            long_name.push_str(" on ");
+            long_name.push_str(&product_name);
         }
 
         Some(long_name)
