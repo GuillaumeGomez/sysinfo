@@ -413,24 +413,28 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
     }
     let full_brand = get_sysctl_str(b"hw.machine\0");
     // This is a fallback when the `sysctl` to get the CPU brand returns an empty string.
+    // Note that iPhoneX,Y does not correspond to iPhone X. These are internal identifiers.
     // FIXME: This list is incomplete!
-    let brand = match full_brand.split(',').next().unwrap() {
-        "iPhone16" => "A18 Bionic",
-        "iPhone14" => "A16 Bionic",
-        "iPhone13" => "A15 Bionic",
-        "iPhone12" | "iPad10" => "A14 Bionic",
-        "iPhone11" | "iPad9" => "A13 Bionic",
-        "iPad8" => "A12 Bionic",
-        "iPhone8" => "A11 Bionic",
-        "iPhone7" => "A10 Fusion",
-        "iPad13" => "M1",
-        "iPad5" => "A9",
-        "iPhone6" => "A8",
-        "iPad4" => "A6X",
-        "iPhone5" => "A6",
-        "iPad3" => "A5X",
-        "iPad2" => "A5",
-        "iPad1" | "iPhone4" => "A4",
+    let brand = match full_brand.as_str() {
+        "iPhone17,1" | "iPhone17,2" => "A18 Pro",
+        "iPhone17,3" | "iPhone17,4" => "A18",
+        "iPhone16,1" | "iPhone16,2" => "A17 Pro",
+        "iPhone15,4" | "iPhone15,5" => "A16 Bionic",
+        "iPhone15,2" | "iPhone15,3" => "A16 Bionic",
+        "iPhone14,7" | "iPhone14,8" => "A15 Bionic",
+        "iPhone14,6" => "A15 Bionic",
+        "iPhone14,2" | "iPhone14,3" => "A15 Bionic",
+        "iPhone14,4" | "iPhone14,5" => "A15 Bionic",
+        "iPhone13,1" | "iPhone13,2" => "A14 Bionic",
+        "iPhone13,3" | "iPhone13,4" => "A14 Bionic",
+        "iPhone12,8" => "A13 Bionic",
+        "iPhone12,1" => "A13 Bionic",
+        "iPhone12,3" | "iPhone12,5" => "A13 Bionic",
+        "iPhone11,8" => "A12 Bionic",
+        "iPhone11,2" | "iPhone11,4" | "iPhone11,6" => "A12 Bionic",
+        "iPhone10,3" | "iPhone10,6" => "A11 Bionic",
+        "iPhone10,1" | "iPhone10,4" => "A11 Bionic",
+        "iPhone10,2" | "iPhone10,5" => "A11 Bionic",
         _ => "unknown",
     };
     (vendor, brand.to_string())
