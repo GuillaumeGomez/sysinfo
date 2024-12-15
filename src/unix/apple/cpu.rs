@@ -407,7 +407,33 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
         vendor = "Apple".to_string();
     }
 
-    (vendor, get_sysctl_str(b"machdep.cpu.brand_string\0"))
+    let brand = get_sysctl_str(b"machdep.cpu.brand_string\0");
+    if !brand.is_empty() {
+        return (vendor, brand);
+    }
+    let full_brand = get_sysctl_str(b"hw.machine\0");
+    // This is a fallback when the `sysctl` to get the CPU brand returns an empty string.
+    // FIXME: This list is incomplete!
+    let brand = match full_brand.split(',').next().unwrap() {
+        "iPhone16" => "A18 Bionic",
+        "iPhone14" => "A16 Bionic",
+        "iPhone13" => "A15 Bionic",
+        "iPhone12" | "iPad10" => "A14 Bionic",
+        "iPhone11" | "iPad9" => "A13 Bionic",
+        "iPad8" => "A12 Bionic",
+        "iPhone8" => "A11 Bionic",
+        "iPhone7" => "A10 Fusion",
+        "iPad13" => "M1",
+        "iPad5" => "A9",
+        "iPhone6" => "A8",
+        "iPad4" => "A6X",
+        "iPhone5" => "A6",
+        "iPad3" => "A5X",
+        "iPad2" => "A5",
+        "iPad1" | "iPhone4" => "A4",
+        _ => "unknown",
+    };
+    (vendor, brand.to_string())
 }
 
 #[cfg(test)]
