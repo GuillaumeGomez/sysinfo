@@ -91,6 +91,10 @@ impl System {
     /// Refreshes according to the given [`RefreshKind`]. It calls the corresponding
     /// "refresh_" methods.
     ///
+    /// It will remove dead processes if [`RefreshKind::processes`] returns `Some`.
+    /// If you want to keep dead processes, use [`System::refresh_processes_specifics`]
+    /// directly.
+    ///
     /// ```
     /// use sysinfo::{ProcessRefreshKind, RefreshKind, System};
     ///
@@ -109,7 +113,7 @@ impl System {
             self.refresh_cpu_specifics(kind);
         }
         if let Some(kind) = refreshes.processes() {
-            self.refresh_processes_specifics(ProcessesToUpdate::All, false, kind);
+            self.refresh_processes_specifics(ProcessesToUpdate::All, true, kind);
         }
     }
 
@@ -119,6 +123,9 @@ impl System {
     ///
     /// Don't forget to take a look at [`ProcessRefreshKind::everything`] method to see what it
     /// will update for processes more in details.
+    ///
+    /// It will remove dead processes. If you want to keep dead processes, use
+    /// [`System::refresh_processes_specifics`] directly.
     ///
     /// ```no_run
     /// use sysinfo::System;
