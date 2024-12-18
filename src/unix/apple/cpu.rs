@@ -413,7 +413,6 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
     }
     let full_brand = get_sysctl_str(b"hw.machine\0");
     // This is a fallback when the `sysctl` to get the CPU brand returns an empty string.
-    // Note that iPhoneX,Y does not correspond to iPhone X. These are internal identifiers.
     let mut iter = full_brand.split(',');
     let brand = match (iter.next().unwrap_or(""), iter.next()) {
         ("iPhone1", Some("1" | "2")) => "S5L8900",
