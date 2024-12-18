@@ -416,7 +416,6 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
     // Note that iPhoneX,Y does not correspond to iPhone X. These are internal identifiers.
     let mut iter = full_brand.split(',');
     let brand = match (iter.next().unwrap_or(""), iter.next()) {
-        // iPhones
         ("iPhone1", Some("1" | "2")) => "S5L8900",
         ("iPhone2", Some("1")) => "S5L8920",
         ("iPhone3", Some("1" | "2" | "3")) => "A4",
@@ -436,8 +435,6 @@ pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
         ("iPhone16", Some("1" | "2")) => "A17 Pro",
         ("iPhone17", Some("1" | "2")) => "A18 Pro",
         ("iPhone17", Some("3" | "4")) => "A18",
-
-        // iPads
         ("iPad1", Some("1" | "2")) => "A4",
         ("iPad2", Some("1" | "2" | "3" | "4" | "5" | "6" | "7")) => "A5",
         ("iPad3", Some("1" | "2" | "3")) => "A5X",
