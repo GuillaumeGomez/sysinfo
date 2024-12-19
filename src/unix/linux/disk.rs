@@ -387,7 +387,10 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
                 "pstore" | // https://www.kernel.org/doc/Documentation/ABI/testing/pstore
                 "squashfs" | // squashfs is a compressed read-only file system (for snaps)
                 "rpc_pipefs" | // The pipefs pseudo file system service
-                "iso9660" // optical media
+                "iso9660" | // optical media
+                "devpts" | // https://www.kernel.org/doc/Documentation/filesystems/devpts.txt
+                "hugetlbfs" | // https://www.kernel.org/doc/Documentation/vm/hugetlbfs_reserv.txt
+                "mqueue" // https://man7.org/linux/man-pages/man7/mq_overview.7.html
                 => true,
                 "tmpfs" => !cfg!(feature = "linux-tmpfs"),
                 // calling statvfs on a mounted CIFS or NFS may hang, when they are mounted with option: hard
