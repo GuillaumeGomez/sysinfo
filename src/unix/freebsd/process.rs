@@ -4,7 +4,9 @@ use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Sig
 
 use std::ffi::{OsStr, OsString};
 use std::fmt;
+use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
+use std::process::ExitStatus;
 
 use libc::kill;
 
@@ -154,7 +156,7 @@ impl ProcessInner {
         Some(self.effective_group_id)
     }
 
-    pub(crate) fn wait(&self) {
+    pub(crate) fn wait(&self) -> Option<ExitStatus> {
         let mut status = 0;
         // attempt waiting
         unsafe {
@@ -165,6 +167,7 @@ impl ProcessInner {
                     std::thread::sleep(duration);
                 }
             }
+            Some(ExitStatus::from_raw(status))
         }
     }
 

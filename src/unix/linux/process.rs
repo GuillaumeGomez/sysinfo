@@ -7,7 +7,9 @@ use std::fmt;
 use std::fs::{self, DirEntry, File};
 use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
+use std::process::ExitStatus;
 use std::str::{self, FromStr};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -251,7 +253,7 @@ impl ProcessInner {
         self.effective_group_id
     }
 
-    pub(crate) fn wait(&self) {
+    pub(crate) fn wait(&self) -> Option<ExitStatus> {
         let mut status = 0;
         // attempt waiting
         unsafe {
@@ -262,6 +264,7 @@ impl ProcessInner {
                     std::thread::sleep(duration);
                 }
             }
+            Some(ExitStatus::from_raw(status))
         }
     }
 

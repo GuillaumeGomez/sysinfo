@@ -11,9 +11,9 @@ use std::fmt;
 use std::io;
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::os::windows::ffi::OsStringExt;
-use std::os::windows::process::CommandExt;
+use std::os::windows::process::{CommandExt, ExitStatusExt};
 use std::path::{Path, PathBuf};
-use std::process;
+use std::process::{self, ExitStatus};
 use std::ptr::null_mut;
 use std::str;
 use std::sync::{Arc, OnceLock};
@@ -41,9 +41,9 @@ use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
 use windows::Win32::System::RemoteDesktop::ProcessIdToSessionId;
 use windows::Win32::System::SystemInformation::OSVERSIONINFOEXW;
 use windows::Win32::System::Threading::{
-    GetProcessIoCounters, GetProcessTimes, GetSystemTimes, OpenProcess, OpenProcessToken,
-    CREATE_NO_WINDOW, IO_COUNTERS, PEB, PROCESS_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION,
-    PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
+    GetExitCodeProcess, GetProcessIoCounters, GetProcessTimes, GetSystemTimes, OpenProcess,
+    OpenProcessToken, CREATE_NO_WINDOW, IO_COUNTERS, PEB, PROCESS_BASIC_INFORMATION,
+    PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
 };
 use windows::Win32::UI::Shell::CommandLineToArgvW;
 
@@ -404,18 +404,28 @@ impl ProcessInner {
         None
     }
 
-    pub(crate) fn wait(&self) {
+    pub(crate) fn wait(&self) -> Option<ExitStatus> {
         if let Some(handle) = self.get_handle() {
             while is_proc_running(handle) {
                 if get_start_time(handle) != self.start_time() {
                     // PID owner changed so the previous process was finished!
-                    return;
+                    sysinfo_debug!("PID owner changed so cannot get old process exit status");
+                    return None;
                 }
                 std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            let mut exit_status = 0;
+            match GetExitCodeProcess(handle, &mut exit_status) {
+                Ok(_) => Some(ExitStatus::from_raw(exit_status)),
+                Err(_error) => {
+                    sysinfo_debug!("failed to retrieve process exit status: {_error:?}");
+                    None
+                }
             }
         } else {
             // In this case, we can't do anything so we just return.
             sysinfo_debug!("can't wait on this process so returning");
+            None
         }
     }
 
