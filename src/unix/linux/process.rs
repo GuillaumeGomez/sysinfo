@@ -8,10 +8,11 @@ use std::fs::{self, DirEntry, File};
 use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
+use std::process::ExitStatus;
 use std::str::{self, FromStr};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use libc::{c_ulong, gid_t, kill, uid_t};
+use libc::{c_ulong, gid_t, uid_t};
 
 use crate::sys::system::SystemInfo;
 use crate::sys::utils::{
@@ -167,7 +168,7 @@ impl ProcessInner {
 
     pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
         let c_signal = crate::sys::system::convert_signal(signal)?;
-        unsafe { Some(kill(self.pid.0, c_signal) == 0) }
+        unsafe { Some(libc::kill(self.pid.0, c_signal) == 0) }
     }
 
     pub(crate) fn name(&self) -> &OsStr {
@@ -251,18 +252,8 @@ impl ProcessInner {
         self.effective_group_id
     }
 
-    pub(crate) fn wait(&self) {
-        let mut status = 0;
-        // attempt waiting
-        unsafe {
-            if retry_eintr!(libc::waitpid(self.pid.0, &mut status, 0)) < 0 {
-                // attempt failed (non-child process) so loop until process ends
-                let duration = std::time::Duration::from_millis(10);
-                while kill(self.pid.0, 0) == 0 {
-                    std::thread::sleep(duration);
-                }
-            }
-        }
+    pub(crate) fn wait(&self) -> Option<ExitStatus> {
+        crate::unix::utils::wait_process(self.pid)
     }
 
     pub(crate) fn session_id(&self) -> Option<Pid> {

@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::path::Path;
+use std::process::ExitStatus;
 use std::str::FromStr;
 
 use crate::common::impl_get_set::impl_get_set;
@@ -1188,7 +1189,8 @@ impl Process {
         self.inner.kill_with(signal)
     }
 
-    /// Wait for process termination.
+    /// Wait for process termination and returns its [`ExitStatus`] if it could be retrieved,
+    /// returns `None` otherwise.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
@@ -1197,11 +1199,11 @@ impl Process {
     ///
     /// if let Some(process) = s.process(Pid::from(1337)) {
     ///     println!("Waiting for pid 1337");
-    ///     process.wait();
-    ///     println!("Pid 1337 exited");
+    ///     let exit_status = process.wait();
+    ///     println!("Pid 1337 exited with: {exit_status:?}");
     /// }
     /// ```
-    pub fn wait(&self) {
+    pub fn wait(&self) -> Option<ExitStatus> {
         self.inner.wait()
     }
 
