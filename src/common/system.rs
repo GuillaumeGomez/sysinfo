@@ -1128,7 +1128,8 @@ impl Process {
     /// Sends [`Signal::Kill`] to the process (which is the only signal supported on all supported
     /// platforms by this crate).
     ///
-    /// Returns `true` if the signal was sent successfully.
+    /// Returns `true` if the signal was sent successfully. If you want to wait for this process
+    /// to end, you can use [`Process::wait`].
     ///
     /// ⚠️ Even if this function returns `true`, it doesn't necessarily mean that the process will
     /// be killed. It just means that the signal was sent successfully.
@@ -1136,7 +1137,7 @@ impl Process {
     /// ⚠️ Please note that some processes might not be "killable", like if they run with higher
     /// levels than the current process for example.
     ///
-    /// If you want to send another signal, take a look at [`Process::kill_with`].
+    /// If you want to use another signal, take a look at [`Process::kill_with`].
     ///
     /// To get the list of the supported signals on this system, use
     /// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
@@ -1157,7 +1158,8 @@ impl Process {
     /// it'll do nothing and will return `None`. Otherwise it'll return `Some(bool)`. The boolean
     /// value will depend on whether or not the signal was sent successfully.
     ///
-    /// If you just want to kill the process, use [`Process::kill`] directly.
+    /// If you just want to kill the process, use [`Process::kill`] directly. If you want to wait
+    /// for this process to end, you can use [`Process::wait`].
     ///
     /// ⚠️ Please note that some processes might not be "killable", like if they run with higher
     /// levels than the current process for example.
@@ -1177,6 +1179,23 @@ impl Process {
     /// ```
     pub fn kill_with(&self, signal: Signal) -> Option<bool> {
         self.inner.kill_with(signal)
+    }
+
+    /// Wait for process termination.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("Waiting for pid 1337");
+    ///     process.wait();
+    ///     println!("Pid 1337 exited");
+    /// }
+    /// ```
+    pub fn wait(&self) {
+        self.inner.wait()
     }
 
     /// Returns the name of the process.
@@ -1560,23 +1579,6 @@ impl Process {
     /// ```
     pub fn effective_group_id(&self) -> Option<Gid> {
         self.inner.effective_group_id()
-    }
-
-    /// Wait for process termination.
-    ///
-    /// ```no_run
-    /// use sysinfo::{Pid, System};
-    ///
-    /// let mut s = System::new_all();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("Waiting for pid 1337");
-    ///     process.wait();
-    ///     println!("Pid 1337 exited");
-    /// }
-    /// ```
-    pub fn wait(&self) {
-        self.inner.wait()
     }
 
     /// Returns the session ID for the current process or `None` if it couldn't
