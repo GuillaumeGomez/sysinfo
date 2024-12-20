@@ -415,11 +415,13 @@ impl ProcessInner {
                 std::thread::sleep(std::time::Duration::from_millis(10));
             }
             let mut exit_status = 0;
-            match GetExitCodeProcess(handle, &mut exit_status) {
-                Ok(_) => Some(ExitStatus::from_raw(exit_status)),
-                Err(_error) => {
-                    sysinfo_debug!("failed to retrieve process exit status: {_error:?}");
-                    None
+            unsafe {
+                match GetExitCodeProcess(handle, &mut exit_status) {
+                    Ok(_) => Some(ExitStatus::from_raw(exit_status)),
+                    Err(_error) => {
+                        sysinfo_debug!("failed to retrieve process exit status: {_error:?}");
+                        None
+                    }
                 }
             }
         } else {

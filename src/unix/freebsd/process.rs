@@ -4,11 +4,8 @@ use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Sig
 
 use std::ffi::{OsStr, OsString};
 use std::fmt;
-use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
-
-use libc::kill;
 
 use super::utils::{get_sys_value_str, WrapMap};
 
@@ -157,18 +154,7 @@ impl ProcessInner {
     }
 
     pub(crate) fn wait(&self) -> Option<ExitStatus> {
-        let mut status = 0;
-        // attempt waiting
-        unsafe {
-            if retry_eintr!(libc::waitpid(self.pid.0, &mut status, 0)) < 0 {
-                // attempt failed (non-child process) so loop until process ends
-                let duration = std::time::Duration::from_millis(10);
-                while kill(self.pid.0, 0) == 0 {
-                    std::thread::sleep(duration);
-                }
-            }
-            Some(ExitStatus::from_raw(status))
-        }
+        crate::unix::utils::wait_process(self.pid)
     }
 
     pub(crate) fn session_id(&self) -> Option<Pid> {
