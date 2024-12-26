@@ -271,7 +271,7 @@ impl ComponentInner {
         let dir = read_dir(folder).ok()?;
         let mut matchings: HashMap<u32, Component> = HashMap::with_capacity(10);
         for entry in dir.flatten() {
-            if !entry.file_type().is_ok_and(|file_type| file_type.is_dir()) {
+            if !entry.file_type().is_ok_and(|file_type| !file_type.is_dir()) {
                 continue;
             }
 
