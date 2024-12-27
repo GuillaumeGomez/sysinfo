@@ -1852,6 +1852,7 @@ pub struct ProcessRefreshKind {
     environ: UpdateKind,
     cmd: UpdateKind,
     exe: UpdateKind,
+    thread: bool,
 }
 
 impl ProcessRefreshKind {
@@ -1891,6 +1892,7 @@ impl ProcessRefreshKind {
             environ: UpdateKind::OnlyIfNotSet,
             cmd: UpdateKind::OnlyIfNotSet,
             exe: UpdateKind::OnlyIfNotSet,
+            thread: false,
         }
     }
 
@@ -1933,6 +1935,7 @@ It will retrieve the following information:
     );
     impl_get_set!(ProcessRefreshKind, cmd, with_cmd, without_cmd, UpdateKind);
     impl_get_set!(ProcessRefreshKind, exe, with_exe, without_exe, UpdateKind);
+    impl_get_set!(ProcessRefreshKind, thread, with_thread, without_thread);
 }
 
 /// Used to determine what you want to refresh specifically on the [`Cpu`] type.
