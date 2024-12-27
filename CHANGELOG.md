@@ -1,3 +1,14 @@
+# 0.33.1
+
+ * Linux: Fix components retrieval.
+ * Linux: Filter out more virtual file systems for `Disk` API.
+ * Linux/Android: Improve `System::long_os_version()`.
+ * Apple: Add missing CPU brands for iPhone and iPads.
+ * macOS: Improve system name retrieval in `System::long_os_version()`.
+ * Linux/macOS: Avoid trailing whitespace and consecutive whitespace in `System::long_os_version()`.
+ * Windows: Fix `User::groups`.
+ * Improve documentation for `System::name`, `System::kernel_version`, `System::os_version`, `System::long_os_version` and `System::distribution_id`.
+
 # 0.33.0
 
  * Linux: Add more ARM vendor IDs.
