@@ -355,6 +355,12 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
     };
 
     let procfs_disk_stats = disk_stats(&refresh_kind);
+    
+    // The list of unmounted disks, initially it include all disks
+    let mut unmounted = procfs_disk_stats
+        .keys()
+        .map(|disk| "/dev/".to_owned() + disk)
+        .collect::<Vec<String>>();
 
     for (fs_spec, fs_file, fs_vfstype) in content
         .lines()
@@ -423,7 +429,40 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
             &procfs_disk_stats,
             refresh_kind,
         ));
+        
+        // If the disk is mounted, remove it from the list
+        unmounted.retain(|disk| disk != fs_spec);
     }
+    
+    // Process the unmounted disks
+    for disk in unmounted {
+        
+        // The mount point should be left empty unless it is ZRAM
+        let mount_point = match disk.contains("zram") {
+            true => "[SWAP]",
+            _ => "",
+        };
+        let mount_point = Path::new(mount_point);
+        
+        // File system is Unknown or swap
+        // TODO: Find a way to figure out the file system (like lsblk)
+        let file_system = match disk.contains("zram") {
+            true => "swap",
+            _ => "Unknown"
+        };
+
+        container.push(new_disk(
+            disk.as_ref(),
+            mount_point,
+            file_system.as_ref(),
+            &removable_entries,
+            &procfs_disk_stats,
+            refresh_kind,
+        ));
+    }
+    
+    // Sort the container to make the output looks better
+    container.sort_by(|a, b| a.name().cmp(b.name()));
 }
 
 /// Disk IO stat information from `/proc/diskstats` file.
