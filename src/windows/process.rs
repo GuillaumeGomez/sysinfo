@@ -992,6 +992,7 @@ pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
             user = filetime_to_u64(fuser);
             global_kernel_time = filetime_to_u64(fglobal_kernel_time);
             global_user_time = filetime_to_u64(fglobal_user_time);
+            p.cpu_calc_values.last_update = Instant::now();
         }
 
         let delta_global_kernel_time =
@@ -1005,7 +1006,6 @@ pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
         p.cpu_calc_values.old_process_sys_cpu = sys;
         p.cpu_calc_values.old_system_user_cpu = global_user_time;
         p.cpu_calc_values.old_system_sys_cpu = global_kernel_time;
-        p.cpu_calc_values.last_update = Instant::now();
 
         let denominator = delta_global_user_time.saturating_add(delta_global_kernel_time) as f32;
 
