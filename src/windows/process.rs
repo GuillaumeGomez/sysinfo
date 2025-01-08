@@ -968,32 +968,25 @@ pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
             let _err = GetProcessTimes(handle, &mut ftime, &mut ftime, &mut fsys, &mut fuser);
         }
 
-        // by default, use previous values
-        let mut global_kernel_time: u64 = p.cpu_calc_values.old_system_sys_cpu;
-        let mut global_user_time: u64 = p.cpu_calc_values.old_system_user_cpu;
-        let mut sys: u64 = p.cpu_calc_values.old_process_sys_cpu;
-        let mut user: u64 = p.cpu_calc_values.old_process_user_cpu;
-
-        // check if the time since we last updated these previous values
-        // exceeds MINIMUM_CPU_UPDATE_INTERVAL. If so, these values may have
-        // update, so we need to get the most recent values
-        if p.cpu_calc_values.last_update.elapsed() > MINIMUM_CPU_UPDATE_INTERVAL {
-            // system times have changed, we need to get most recent system times
-            // and update the cpu times cache, as well as global_kernel_time and global_user_time
-
-            let _err = GetSystemTimes(
-                Some(&mut fglobal_idle_time),
-                Some(&mut fglobal_kernel_time),
-                Some(&mut fglobal_user_time),
-            );
-
-            // set the times to most recent
-            sys = filetime_to_u64(fsys);
-            user = filetime_to_u64(fuser);
-            global_kernel_time = filetime_to_u64(fglobal_kernel_time);
-            global_user_time = filetime_to_u64(fglobal_user_time);
-            p.cpu_calc_values.last_update = Instant::now();
+        if p.cpu_calc_values.last_update.elapsed() <= MINIMUM_CPU_UPDATE_INTERVAL {
+            // cpu usage hasn't updated. p.cpu_usage remains the same
+            return;
         }
+
+        // system times have changed, we need to get most recent system times
+        // and update the cpu times cache, as well as global_kernel_time and global_user_time
+        let _err = GetSystemTimes(
+            Some(&mut fglobal_idle_time),
+            Some(&mut fglobal_kernel_time),
+            Some(&mut fglobal_user_time),
+        );
+
+        p.cpu_calc_values.last_update = Instant::now();
+
+        let sys = filetime_to_u64(fsys);
+        let user = filetime_to_u64(fuser);
+        let global_kernel_time = filetime_to_u64(fglobal_kernel_time);
+        let global_user_time = filetime_to_u64(fglobal_user_time);
 
         let delta_global_kernel_time =
             check_sub(global_kernel_time, p.cpu_calc_values.old_system_sys_cpu);
