@@ -956,6 +956,11 @@ fn check_sub(a: u64, b: u64) -> u64 {
 /// Before changing this function, you must consider the following:
 /// <https://github.com/GuillaumeGomez/sysinfo/issues/459>
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
+    if p.cpu_calc_values.last_update.elapsed() <= MINIMUM_CPU_UPDATE_INTERVAL {
+        // cpu usage hasn't updated. p.cpu_usage remains the same
+        return;
+    }
+
     unsafe {
         let mut ftime: FILETIME = zeroed();
         let mut fsys: FILETIME = zeroed();
@@ -966,11 +971,6 @@ pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
 
         if let Some(handle) = p.get_handle() {
             let _err = GetProcessTimes(handle, &mut ftime, &mut ftime, &mut fsys, &mut fuser);
-        }
-
-        if p.cpu_calc_values.last_update.elapsed() <= MINIMUM_CPU_UPDATE_INTERVAL {
-            // cpu usage hasn't updated. p.cpu_usage remains the same
-            return;
         }
 
         // system times have changed, we need to get most recent system times
