@@ -17,6 +17,7 @@ use std::process::{self, ExitStatus};
 use std::ptr::null_mut;
 use std::str;
 use std::sync::{Arc, OnceLock};
+use std::time::Instant;
 
 use libc::c_void;
 use ntapi::ntexapi::SYSTEM_PROCESS_INFORMATION;
@@ -46,6 +47,8 @@ use windows::Win32::System::Threading::{
     PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
 };
 use windows::Win32::UI::Shell::CommandLineToArgvW;
+
+use super::MINIMUM_CPU_UPDATE_INTERVAL;
 
 impl fmt::Display for ProcessStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -196,6 +199,7 @@ struct CPUsageCalculationValues {
     old_process_user_cpu: u64,
     old_system_sys_cpu: u64,
     old_system_user_cpu: u64,
+    last_update: Instant,
 }
 
 impl CPUsageCalculationValues {
@@ -205,6 +209,7 @@ impl CPUsageCalculationValues {
             old_process_user_cpu: 0,
             old_system_sys_cpu: 0,
             old_system_user_cpu: 0,
+            last_update: Instant::now(),
         }
     }
 }
@@ -951,6 +956,11 @@ fn check_sub(a: u64, b: u64) -> u64 {
 /// Before changing this function, you must consider the following:
 /// <https://github.com/GuillaumeGomez/sysinfo/issues/459>
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
+    if p.cpu_calc_values.last_update.elapsed() <= MINIMUM_CPU_UPDATE_INTERVAL {
+        // cpu usage hasn't updated. p.cpu_usage remains the same
+        return;
+    }
+
     unsafe {
         let mut ftime: FILETIME = zeroed();
         let mut fsys: FILETIME = zeroed();
@@ -962,13 +972,16 @@ pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
         if let Some(handle) = p.get_handle() {
             let _err = GetProcessTimes(handle, &mut ftime, &mut ftime, &mut fsys, &mut fuser);
         }
-        // FIXME: should these values be stored in one place to make use of
-        // `MINIMUM_CPU_UPDATE_INTERVAL`?
+
+        // system times have changed, we need to get most recent system times
+        // and update the cpu times cache, as well as global_kernel_time and global_user_time
         let _err = GetSystemTimes(
             Some(&mut fglobal_idle_time),
             Some(&mut fglobal_kernel_time),
             Some(&mut fglobal_user_time),
         );
+
+        p.cpu_calc_values.last_update = Instant::now();
 
         let sys = filetime_to_u64(fsys);
         let user = filetime_to_u64(fuser);
