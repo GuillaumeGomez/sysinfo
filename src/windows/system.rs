@@ -7,21 +7,17 @@ use crate::{
 use crate::sys::cpu::*;
 use crate::{Process, ProcessInner};
 
-use crate::utils::into_iter;
-
-use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
-use std::os::windows::ffi::{OsStrExt, OsStringExt};
-use std::ptr;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::os::windows::ffi::OsStrExt;
 use std::time::{Duration, SystemTime};
 
-use ntapi::ntexapi::SYSTEM_PROCESS_INFORMATION;
 use windows::core::{PCWSTR, PWSTR};
-use windows::Wdk::System::SystemInformation::{NtQuerySystemInformation, SystemProcessInformation};
-use windows::Win32::Foundation::{self, HANDLE, STATUS_INFO_LENGTH_MISMATCH, STILL_ACTIVE};
+use windows::Win32::Foundation::{self, HANDLE, STILL_ACTIVE};
+use windows::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+};
 use windows::Win32::System::ProcessStatus::{K32GetPerformanceInfo, PERFORMANCE_INFORMATION};
 use windows::Win32::System::Registry::{
     RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_LOCAL_MACHINE, KEY_READ, REG_NONE,
@@ -55,13 +51,6 @@ impl SystemInner {
                 .unwrap_or(0)
     }
 }
-
-// Useful for parallel iterations.
-struct Wrap<T>(T);
-
-#[allow(clippy::non_send_fields_in_send_ty)]
-unsafe impl<T> Send for Wrap<T> {}
-unsafe impl<T> Sync for Wrap<T> {}
 
 /// Calculates system boot time in seconds with improved precision.
 /// Uses nanoseconds throughout to avoid rounding errors in uptime calculation,
@@ -232,132 +221,81 @@ impl SystemInner {
             }
         };
 
-        // Windows 10 notebook requires at least 512KiB of memory to make it in one go
-        let mut buffer_size = 512 * 1024;
-        let mut process_information: Vec<u8> = Vec::with_capacity(buffer_size);
+        let now = get_now();
 
-        unsafe {
-            loop {
-                let mut cb_needed = 0;
-                // reserve(n) ensures the Vec has capacity for n elements on top of len
-                // so we should reserve buffer_size - len. len will always be zero at this point
-                // this is a no-op on the first call as buffer_size == capacity
-                process_information.reserve(buffer_size);
+        let nb_cpus = if refresh_kind.cpu() {
+            self.cpus.len() as u64
+        } else {
+            0
+        };
 
-                match NtQuerySystemInformation(
-                    SystemProcessInformation,
-                    process_information.as_mut_ptr() as *mut _,
-                    buffer_size as _,
-                    &mut cb_needed,
-                )
-                .ok()
-                {
-                    Ok(()) => break,
-                    Err(err) if err.code() == STATUS_INFO_LENGTH_MISMATCH.to_hresult() => {
-                        // GetNewBufferSize
-                        if cb_needed == 0 {
-                            buffer_size *= 2;
-                            continue;
-                        }
-                        // allocating a few more kilo bytes just in case there are some new process
-                        // kicked in since new call to NtQuerySystemInformation
-                        buffer_size = (cb_needed + (1024 * 10)) as usize;
-                        continue;
-                    }
-                    Err(_err) => {
-                        sysinfo_debug!(
-                            "Couldn't get process infos: NtQuerySystemInformation returned {}",
-                            _err,
-                        );
-                        return 0;
-                    }
-                }
+        // Use the amazing and cool CreateToolhelp32Snapshot function.
+        // Take a snapshot of all running processes. Match the result to an error
+        let snapshot = match unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) } {
+            Ok(handle) => handle,
+            Err(_err) => {
+                sysinfo_debug!(
+                    "Error capturing process snapshot: CreateToolhelp32Snapshot returned {}",
+                    _err
+                );
+                return 0;
             }
+        };
 
-            // If we reach this point NtQuerySystemInformation succeeded
-            // and the buffer contents are initialized
-            process_information.set_len(buffer_size);
+        // https://learn.microsoft.com/en-us/windows/win32/api/tlhelp32/ns-tlhelp32-processentry32w
+        // Microsoft documentation states that for PROCESSENTRY32W, before calling Process32FirstW,
+        // the 'dwSize' field MUST be set to the size of the PROCESSENTRY32W. Otherwise, Process32FirstW fails.
+        let mut process_entry = PROCESSENTRY32W {
+            dwSize: size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
 
-            let nb_updated = AtomicUsize::new(0);
+        let mut num_procs = 0; // keep track of the number of updated processes
+        let process_list = &mut self.process_list;
 
-            // Parse the data block to get process information
-            let mut process_ids = Vec::with_capacity(500);
-            let mut process_information_offset = 0;
-            loop {
-                let p = process_information
-                    .as_ptr()
-                    .offset(process_information_offset)
-                    as *const SYSTEM_PROCESS_INFORMATION;
-
-                // read_unaligned is necessary to avoid
-                // misaligned pointer dereference: address must be a multiple of 0x8 but is 0x...
-                // under x86_64 wine (and possibly other systems)
-                let pi = ptr::read_unaligned(p);
-
-                if filter_callback(Pid(pi.UniqueProcessId as _), filter_array) {
-                    process_ids.push(Wrap(p));
-                }
-
-                if pi.NextEntryOffset == 0 {
-                    break;
-                }
-
-                process_information_offset += pi.NextEntryOffset as isize;
-            }
-            let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
-            let nb_cpus = if refresh_kind.cpu() {
-                self.cpus.len() as u64
-            } else {
-                0
-            };
-
-            let now = get_now();
-
-            #[cfg(feature = "multithread")]
-            use rayon::iter::ParallelIterator;
-
-            // TODO: instead of using parallel iterator only here, would be better to be
-            //       able to run it over `process_information` directly!
-            let processes = into_iter(process_ids)
-                .filter_map(|pi| {
-                    nb_updated.fetch_add(1, Ordering::Relaxed);
-                    // as above, read_unaligned is necessary
-                    let pi = ptr::read_unaligned(pi.0);
-                    let pid = Pid(pi.UniqueProcessId as _);
-                    let ppid: usize = pi.InheritedFromUniqueProcessId as _;
-                    let parent = if ppid != 0 {
-                        Some(Pid(pi.InheritedFromUniqueProcessId as _))
-                    } else {
-                        None
-                    };
-                    // Not sure why we need to make this
-                    let process_list: &Wrap<UnsafeCell<&mut HashMap<Pid, Process>>> = &process_list;
-                    if let Some(proc_) = (*process_list.0.get()).get_mut(&pid) {
-                        let proc_ = &mut proc_.inner;
-                        if proc_
-                            .get_start_time()
-                            .map(|start| start == proc_.start_time())
-                            .unwrap_or(true)
-                        {
-                            proc_.update(refresh_kind, nb_cpus, now, false, &pi);
-                            // Update the parent in case it changed.
-                            proc_.parent = parent;
-                            return None;
-                        }
-                        // If the PID owner changed, we need to recompute the whole process.
-                        sysinfo_debug!("owner changed for PID {}", pid);
-                    }
-                    let name = get_process_name(&pi, pid);
-                    let mut p = ProcessInner::new(pid, parent, now, name);
-                    p.update(refresh_kind, nb_cpus, now, false, &pi);
-                    Some(Process { inner: p })
-                })
-                .collect::<Vec<_>>();
-            for p in processes.into_iter() {
-                self.process_list.insert(p.pid(), p);
-            }
-            nb_updated.into_inner()
+        // process the first process
+        if unsafe { Process32FirstW(snapshot, &mut process_entry).is_err() } {
+            // Error with Process32FirstW
+            sysinfo_debug!("Process32FirstW has failed :(");
         }
+
+        // Iterate over processes in the snapshot.
+        // Use Process32NextW to process the next PROCESSENTRY32W in the snapshot
+        loop {
+            let proc_id = Pid::from_u32(process_entry.th32ProcessID);
+
+            if filter_callback(proc_id, filter_array) {
+                // exists already
+                if let Some(p) = process_list.get_mut(&proc_id) {
+                    // Update with the most recent information
+                    let p = &mut p.inner;
+                    p.update(refresh_kind, nb_cpus, now, false);
+
+                    // Update parent process
+                    let parent = if process_entry.th32ParentProcessID == 0 {
+                        None
+                    } else {
+                        Some(Pid::from_u32(process_entry.th32ParentProcessID))
+                    };
+
+                    p.parent = parent;
+                } else {
+                    // Make a new 'ProcessInner' using the Windows PROCESSENTRY32W struct.
+                    let mut p = ProcessInner::from_process_entry(&process_entry, now);
+                    p.update(refresh_kind, nb_cpus, now, false);
+                    process_list.insert(proc_id, Process { inner: p });
+                }
+
+                num_procs += 1;
+            }
+
+            // nothing else to process
+            if unsafe { Process32NextW(snapshot, &mut process_entry).is_err() } {
+                break;
+            }
+        }
+
+        num_procs
     }
 
     pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
@@ -512,30 +450,6 @@ pub(crate) fn is_proc_running(handle: HANDLE) -> bool {
     let mut exit_code = 0;
     unsafe { GetExitCodeProcess(handle, &mut exit_code) }.is_ok()
         && exit_code == STILL_ACTIVE.0 as u32
-}
-
-#[allow(clippy::size_of_in_element_count)]
-//^ needed for "name.Length as usize / std::mem::size_of::<u16>()"
-pub(crate) fn get_process_name(process: &SYSTEM_PROCESS_INFORMATION, process_id: Pid) -> OsString {
-    let name = &process.ImageName;
-    if name.Buffer.is_null() {
-        match process_id.0 {
-            0 => "Idle".to_owned(),
-            4 => "System".to_owned(),
-            _ => format!("<no name> Process {process_id}"),
-        }
-        .into()
-    } else {
-        unsafe {
-            let slice = std::slice::from_raw_parts(
-                name.Buffer,
-                // The length is in bytes, not the length of string
-                name.Length as usize / std::mem::size_of::<u16>(),
-            );
-
-            OsString::from_wide(slice)
-        }
-    }
 }
 
 fn get_dns_hostname() -> Option<String> {
