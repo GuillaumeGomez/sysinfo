@@ -298,7 +298,7 @@ impl ProcessInner {
                 GetProcessMemoryInfo(
                     handle,
                     &mut mem_info as *mut _ as *mut _,
-                    size_of_val::<PROCESS_MEMORY_COUNTERS_EX>(&mem_info) as u32,
+                    std::mem::size_of_val::<PROCESS_MEMORY_COUNTERS_EX>(&mem_info) as u32,
                 )
             };
 
