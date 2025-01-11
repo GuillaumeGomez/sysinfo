@@ -983,7 +983,9 @@ fn check_sub(a: u64, b: u64) -> u64 {
 /// Before changing this function, you must consider the following:
 /// <https://github.com/GuillaumeGomez/sysinfo/issues/459>
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
-    if p.cpu_calc_values.last_update.elapsed() <= MINIMUM_CPU_UPDATE_INTERVAL {
+    // check if last time cpu values were calculated haven't update
+    // if so, check if cpu usage is 0, we should recalculate
+    if p.cpu_calc_values.last_update.elapsed() <= MINIMUM_CPU_UPDATE_INTERVAL && p.cpu_usage != 0.0 {
         // cpu usage hasn't updated. p.cpu_usage remains the same
         return;
     }
