@@ -7,7 +7,6 @@ use crate::{
 use crate::sys::cpu::*;
 use crate::{Process, ProcessInner};
 
-use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::mem::{size_of, zeroed};
@@ -52,13 +51,6 @@ impl SystemInner {
                 .unwrap_or(0)
     }
 }
-
-// Useful for parallel iterations.
-struct Wrap<T>(T);
-
-#[allow(clippy::non_send_fields_in_send_ty)]
-unsafe impl<T> Send for Wrap<T> {}
-unsafe impl<T> Sync for Wrap<T> {}
 
 /// Calculates system boot time in seconds with improved precision.
 /// Uses nanoseconds throughout to avoid rounding errors in uptime calculation,
