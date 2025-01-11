@@ -259,7 +259,7 @@ impl SystemInner {
         };
 
         let mut num_procs = 0; // keep track of the number of updated processes
-        let process_list = Wrap(UnsafeCell::new(&mut self.process_list));
+        let process_list = &mut self.process_list;
 
         // process the first process
         if unsafe { Process32FirstW(snapshot, &mut process_entry).is_err() } {
@@ -274,7 +274,7 @@ impl SystemInner {
 
             if filter_callback(proc_id, filter_array) {
                 // exists already
-                if let Some(p) = unsafe { &mut *process_list.0.get() }.get_mut(&proc_id) {
+                if let Some(p) = process_list.get_mut(&proc_id) {
                     // Update with the most recent information
                     let p = &mut p.inner;
                     p.update(refresh_kind, nb_cpus, now, false);
@@ -291,7 +291,7 @@ impl SystemInner {
                     // Make a new 'ProcessInner' using the Windows PROCESSENTRY32W struct.
                     let mut p = ProcessInner::from_process_entry(&process_entry, now);
                     p.update(refresh_kind, nb_cpus, now, false);
-                    unsafe { &mut *process_list.0.get() }.insert(proc_id, Process { inner: p });
+                    process_list.insert(proc_id, Process { inner: p });
                 }
 
                 num_procs += 1;
