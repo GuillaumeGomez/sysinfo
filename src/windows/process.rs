@@ -15,12 +15,11 @@ use std::os::windows::process::{CommandExt, ExitStatusExt};
 use std::path::{Path, PathBuf};
 use std::process::{self, ExitStatus};
 use std::ptr::null_mut;
-use std::str;
+use std::str::{self, FromStr};
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use libc::c_void;
-use ntapi::ntexapi::SYSTEM_PROCESS_INFORMATION;
 use ntapi::ntrtl::RTL_USER_PROCESS_PARAMETERS;
 use ntapi::ntwow64::{PEB32, RTL_USER_PROCESS_PARAMETERS32};
 use windows::core::PCWSTR;
@@ -35,10 +34,13 @@ use windows::Win32::Foundation::{
 };
 use windows::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
+use windows::Win32::System::Diagnostics::ToolHelp::PROCESSENTRY32W;
 use windows::Win32::System::Memory::{
     GetProcessHeap, HeapAlloc, HeapFree, VirtualQueryEx, HEAP_ZERO_MEMORY, MEMORY_BASIC_INFORMATION,
 };
-use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
+use windows::Win32::System::ProcessStatus::{
+    GetModuleFileNameExW, GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS_EX,
+};
 use windows::Win32::System::RemoteDesktop::ProcessIdToSessionId;
 use windows::Win32::System::SystemInformation::OSVERSIONINFOEXW;
 use windows::Win32::System::Threading::{
@@ -281,7 +283,6 @@ impl ProcessInner {
         nb_cpus: u64,
         now: u64,
         refresh_parent: bool,
-        pi: &SYSTEM_PROCESS_INFORMATION,
     ) {
         if refresh_kind.cpu() {
             compute_cpu_usage(self, nb_cpus);
@@ -290,8 +291,21 @@ impl ProcessInner {
             update_disk_usage(self);
         }
         if refresh_kind.memory() {
-            self.memory = pi.WorkingSetSize as _;
-            self.virtual_memory = pi.VirtualSize as _;
+            let mut mem_info = PROCESS_MEMORY_COUNTERS_EX::default();
+            let handle = self.get_handle().unwrap_or_default();
+
+            let result = unsafe {
+                GetProcessMemoryInfo(
+                    handle,
+                    &mut mem_info as *mut _ as *mut _,
+                    std::mem::size_of_val::<PROCESS_MEMORY_COUNTERS_EX>(&mem_info) as u32,
+                )
+            };
+
+            if result.is_ok() {
+                self.memory = mem_info.WorkingSetSize as _;
+                self.virtual_memory = mem_info.PrivateUsage as _;
+            }
         }
         unsafe {
             get_process_user_id(self, refresh_kind);
@@ -309,12 +323,25 @@ impl ProcessInner {
         self.updated = true;
     }
 
-    pub(crate) fn get_handle(&self) -> Option<HANDLE> {
-        self.handle.as_ref().map(|h| ***h)
+    pub(crate) fn from_process_entry(entry: &PROCESSENTRY32W, now: u64) -> Self {
+        let name =
+            OsString::from_str(String::from_utf16_lossy(&entry.szExeFile).trim_end_matches('\0'))
+                .unwrap_or(OsString::from_str("<noname>").unwrap());
+        let pid = Pid::from_u32(entry.th32ProcessID);
+        let ppid = {
+            if entry.th32ParentProcessID == 0 {
+                // no parent pid
+                None
+            } else {
+                Some(Pid::from_u32(entry.th32ParentProcessID))
+            }
+        };
+
+        Self::new(pid, ppid, now, name)
     }
 
-    pub(crate) fn get_start_time(&self) -> Option<u64> {
-        self.handle.as_ref().map(|handle| get_start_time(***handle))
+    pub(crate) fn get_handle(&self) -> Option<HANDLE> {
+        self.handle.as_ref().map(|h| ***h)
     }
 
     pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
@@ -956,7 +983,10 @@ fn check_sub(a: u64, b: u64) -> u64 {
 /// Before changing this function, you must consider the following:
 /// <https://github.com/GuillaumeGomez/sysinfo/issues/459>
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
-    if p.cpu_calc_values.last_update.elapsed() <= MINIMUM_CPU_UPDATE_INTERVAL {
+    // check if last time cpu values were calculated haven't update
+    // if so, check if cpu usage is 0, we should recalculate
+    if p.cpu_calc_values.last_update.elapsed() <= MINIMUM_CPU_UPDATE_INTERVAL && p.cpu_usage != 0.0
+    {
         // cpu usage hasn't updated. p.cpu_usage remains the same
         return;
     }
