@@ -433,7 +433,7 @@ pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
             || line.starts_with("bogomips per cpu")
     });
     find_cpu_mhz
-        .and_then(|line| line.split(':').last())
+        .and_then(|line| line.split(':').next_back())
         .and_then(|val| val.replace("MHz", "").trim().parse::<f64>().ok())
         .map(|speed| speed as u64)
         .unwrap_or_default()
@@ -730,14 +730,14 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
 
     fn get_value(s: &str) -> String {
         s.split(':')
-            .last()
+            .next_back()
             .map(|x| x.trim().to_owned())
             .unwrap_or_default()
     }
 
     fn get_hex_value(s: &str) -> u32 {
         s.split(':')
-            .last()
+            .next_back()
             .map(|x| x.trim())
             .filter(|x| x.starts_with("0x"))
             .map(|x| u32::from_str_radix(&x[2..], 16).unwrap())
