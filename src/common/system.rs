@@ -860,7 +860,7 @@ pub struct LoadAvg {
 ///
 /// If you want the list of the supported signals on the current system, use
 /// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Signal {
     /// Hangup detected on controlling terminal or death of controlling process.
     Hangup,
@@ -984,7 +984,7 @@ pub struct CGroupLimits {
 }
 
 /// Enum describing the different status of a process.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProcessStatus {
     /// ## Linux
     ///

@@ -371,7 +371,7 @@ impl std::ops::DerefMut for Disks {
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DiskKind {
     /// HDD type.
     HDD,
