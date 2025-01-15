@@ -409,7 +409,7 @@ impl NetworkData {
 /// MAC address for network interface.
 ///
 /// It is returned by [`NetworkData::mac_address`][crate::NetworkData::mac_address].
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MacAddr(pub [u8; 6]);
 
 impl MacAddr {
