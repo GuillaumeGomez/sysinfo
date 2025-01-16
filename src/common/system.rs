@@ -861,6 +861,7 @@ pub struct LoadAvg {
 /// If you want the list of the supported signals on the current system, use
 /// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub enum Signal {
     /// Hangup detected on controlling terminal or death of controlling process.
     Hangup,
@@ -985,6 +986,7 @@ pub struct CGroupLimits {
 
 /// Enum describing the different status of a process.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub enum ProcessStatus {
     /// ## Linux
     ///
@@ -1102,6 +1104,7 @@ pub enum ProcessStatus {
 
 /// Enum describing the different kind of threads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub enum ThreadKind {
     /// Kernel thread.
     Kernel,

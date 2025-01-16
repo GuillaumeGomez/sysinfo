@@ -94,7 +94,7 @@ rustdoc-args = ["--generate-link-to-definition"]
 [dependencies]
 memchr = { version = "2.5", optional = true }
 rayon = { version = "^1.8", optional = true }
-serde = { version = "^1.0.190", optional = true }
+serde = { version = "^1.0.190", optional = true, features = ["derive"] }
 
 [target.'cfg(windows)'.dependencies]
 ntapi = { version = "0.4", optional = true }
