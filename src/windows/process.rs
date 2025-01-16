@@ -292,19 +292,19 @@ impl ProcessInner {
         }
         if refresh_kind.memory() {
             let mut mem_info = PROCESS_MEMORY_COUNTERS_EX::default();
-            let handle = self.get_handle().unwrap_or_default();
-
-            let result = unsafe {
-                GetProcessMemoryInfo(
-                    handle,
-                    &mut mem_info as *mut _ as *mut _,
-                    std::mem::size_of_val::<PROCESS_MEMORY_COUNTERS_EX>(&mem_info) as u32,
-                )
-            };
-
-            if result.is_ok() {
-                self.memory = mem_info.WorkingSetSize as _;
-                self.virtual_memory = mem_info.PrivateUsage as _;
+            if let Some(handle) = self.get_handle() {
+                if let Err(_error) = unsafe {
+                    GetProcessMemoryInfo(
+                        handle,
+                        &mut mem_info as *mut _ as *mut _,
+                        std::mem::size_of_val::<PROCESS_MEMORY_COUNTERS_EX>(&mem_info) as _,
+                    )
+                } {
+                    sysinfo_debug!("GetProcessMemoryInfo failed: {_error:?}");
+                } else {
+                    self.memory = mem_info.WorkingSetSize as _;
+                    self.virtual_memory = mem_info.PrivateUsage as _;
+                }
             }
         }
         unsafe {
@@ -983,10 +983,7 @@ fn check_sub(a: u64, b: u64) -> u64 {
 /// Before changing this function, you must consider the following:
 /// <https://github.com/GuillaumeGomez/sysinfo/issues/459>
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
-    // check if last time cpu values were calculated haven't update
-    // if so, check if cpu usage is 0, we should recalculate
-    if p.cpu_calc_values.last_update.elapsed() <= MINIMUM_CPU_UPDATE_INTERVAL && p.cpu_usage != 0.0
-    {
+    if p.cpu_calc_values.last_update.elapsed() <= MINIMUM_CPU_UPDATE_INTERVAL {
         // cpu usage hasn't updated. p.cpu_usage remains the same
         return;
     }
