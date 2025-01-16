@@ -412,6 +412,7 @@ impl NetworkData {
 ///
 /// It is returned by [`NetworkData::mac_address`][crate::NetworkData::mac_address].
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct MacAddr(pub [u8; 6]);
 
 impl MacAddr {
@@ -483,6 +484,7 @@ impl FromStr for MacAddr {
 ///
 /// It is returned by [`NetworkData::ip_networks`][crate::NetworkData::ip_networks].
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct IpNetwork {
     /// The IP of the network interface.
     pub addr: IpAddr,
