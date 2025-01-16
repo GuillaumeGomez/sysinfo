@@ -73,7 +73,9 @@ pub use crate::common::component::{Component, Components};
 #[cfg(feature = "disk")]
 pub use crate::common::disk::{Disk, DiskKind, DiskRefreshKind, Disks};
 #[cfg(feature = "network")]
-pub use crate::common::network::{IpNetwork, MacAddr, NetworkData, Networks};
+pub use crate::common::network::{
+    IpNetwork, IpNetworkFromStrError, MacAddr, MacAddrFromStrError, NetworkData, Networks,
+};
 #[cfg(feature = "system")]
 pub use crate::common::system::{
     get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process,
