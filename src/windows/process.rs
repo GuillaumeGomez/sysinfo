@@ -325,7 +325,9 @@ impl ProcessInner {
 
     pub(crate) fn from_process_entry(entry: &PROCESSENTRY32W, now: u64) -> Self {
         let pid = Pid::from_u32(entry.th32ProcessID);
-        let name = match OsString::from_str(String::from_utf16_lossy(&entry.szExeFile).trim_end_matches('\0')) {
+        let name = match OsString::from_str(
+            String::from_utf16_lossy(&entry.szExeFile).trim_end_matches('\0'),
+        ) {
             Ok(name) => name,
             Err(_) => format!("<no name> Process {pid}").into(),
         };
