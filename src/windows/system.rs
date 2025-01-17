@@ -254,9 +254,11 @@ impl SystemInner {
         let process_list = &mut self.process_list;
 
         // process the first process
-        if unsafe { Process32FirstW(snapshot, &mut process_entry).is_err() } {
-            // Error with Process32FirstW
-            sysinfo_debug!("Process32FirstW has failed :(");
+        unsafe {
+            if let Err(_error) = Process32FirstW(snapshot, &mut process_entry) {
+                sysinfo_debug!("Process32FirstW has failed: {_error:?}");
+                return 0;
+            }
         }
 
         // Iterate over processes in the snapshot.
