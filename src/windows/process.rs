@@ -324,10 +324,15 @@ impl ProcessInner {
     }
 
     pub(crate) fn from_process_entry(entry: &PROCESSENTRY32W, now: u64) -> Self {
-        let name =
-            OsString::from_str(String::from_utf16_lossy(&entry.szExeFile).trim_end_matches('\0'))
-                .unwrap_or(OsString::from_str("<noname>").unwrap());
         let pid = Pid::from_u32(entry.th32ProcessID);
+        let name = match OsString::from_str(String::from_utf16_lossy(&entry.szExeFile).trim_end_matches('\0')) {
+            Some(name) => name,
+            None => match pid.0 {
+                0 => OsString::from_str("Idle"),
+                4 => OsString::from_str("System"),
+                _ => format!("<no name> Process {process_id}").into(),
+            },
+        };
         let ppid = {
             if entry.th32ParentProcessID == 0 {
                 // no parent pid
