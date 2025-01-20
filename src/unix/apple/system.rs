@@ -281,6 +281,11 @@ impl SystemInner {
             let now = get_now();
             let port = self.port;
             let time_interval = self.clock_info.as_mut().map(|c| c.get_time_interval(port));
+            let timebase_to_ms = self
+                .clock_info
+                .as_ref()
+                .map(|c| c.timebase_to_ms)
+                .unwrap_or_default();
             let entries: Vec<Process> = {
                 let wrap = &Wrap(UnsafeCell::new(&mut self.process_list));
 
@@ -293,8 +298,16 @@ impl SystemInner {
                             return None;
                         }
                         nb_updated.fetch_add(1, Ordering::Relaxed);
-                        update_process(wrap, pid, time_interval, now, refresh_kind, false)
-                            .unwrap_or_default()
+                        update_process(
+                            wrap,
+                            pid,
+                            time_interval,
+                            now,
+                            refresh_kind,
+                            false,
+                            timebase_to_ms,
+                        )
+                        .unwrap_or_default()
                     })
                     .collect()
             };

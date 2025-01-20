@@ -79,6 +79,10 @@ impl ProcessInner {
         0.0
     }
 
+    pub(crate) fn accumulated_cpu_time(&self) -> u64 {
+        0
+    }
+
     pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage::default()
     }

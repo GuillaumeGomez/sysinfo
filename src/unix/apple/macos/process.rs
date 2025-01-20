@@ -45,6 +45,7 @@ pub(crate) struct ProcessInner {
     pub(crate) old_written_bytes: u64,
     pub(crate) read_bytes: u64,
     pub(crate) written_bytes: u64,
+    accumulated_cpu_time: u64,
 }
 
 impl ProcessInner {
@@ -76,6 +77,7 @@ impl ProcessInner {
             old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
+            accumulated_cpu_time: 0,
         }
     }
 
@@ -107,6 +109,7 @@ impl ProcessInner {
             old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
+            accumulated_cpu_time: 0,
         }
     }
 
@@ -176,6 +179,10 @@ impl ProcessInner {
 
     pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
+    }
+
+    pub(crate) fn accumulated_cpu_time(&self) -> u64 {
+        self.accumulated_cpu_time
     }
 
     pub(crate) fn disk_usage(&self) -> DiskUsage {
@@ -342,6 +349,7 @@ unsafe fn create_new_process(
     now: u64,
     refresh_kind: ProcessRefreshKind,
     info: Option<libc::proc_bsdinfo>,
+    timebase_to_ms: f64,
 ) -> Result<Option<Process>, ()> {
     let info = match info {
         Some(info) => info,
@@ -368,10 +376,20 @@ unsafe fn create_new_process(
     }
     get_cwd_root(&mut p, refresh_kind);
 
-    if refresh_kind.memory() {
+    if refresh_kind.cpu() || refresh_kind.memory() {
         let task_info = get_task_info(pid);
-        p.memory = task_info.pti_resident_size;
-        p.virtual_memory = task_info.pti_virtual_size;
+
+        if refresh_kind.cpu() {
+            p.accumulated_cpu_time = (task_info
+                .pti_total_user
+                .saturating_add(task_info.pti_total_system)
+                as f64
+                * timebase_to_ms) as u64;
+        }
+        if refresh_kind.memory() {
+            p.memory = task_info.pti_resident_size;
+            p.virtual_memory = task_info.pti_virtual_size;
+        }
     }
 
     p.user_id = Some(Uid(info.pbi_ruid));
@@ -630,6 +648,7 @@ pub(crate) fn update_process(
     now: u64,
     refresh_kind: ProcessRefreshKind,
     check_if_alive: bool,
+    timebase_to_ms: f64,
 ) -> Result<Option<Process>, ()> {
     unsafe {
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
@@ -640,7 +659,7 @@ pub(crate) fn update_process(
                     // We don't it to be removed, just replaced.
                     p.updated = true;
                     // The owner of this PID changed.
-                    return create_new_process(pid, now, refresh_kind, Some(info));
+                    return create_new_process(pid, now, refresh_kind, Some(info), timebase_to_ms);
                 }
                 let parent = get_parent(&info);
                 // Update the parent if it changed.
@@ -688,6 +707,11 @@ pub(crate) fn update_process(
 
                 if refresh_kind.cpu() {
                     compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
+                    p.accumulated_cpu_time = (task_info
+                        .pti_total_user
+                        .saturating_add(task_info.pti_total_system)
+                        as f64
+                        * timebase_to_ms) as u64;
                 }
                 if refresh_kind.memory() {
                     p.memory = task_info.pti_resident_size;
@@ -697,7 +721,7 @@ pub(crate) fn update_process(
             p.updated = true;
             Ok(None)
         } else {
-            create_new_process(pid, now, refresh_kind, get_bsd_info(pid))
+            create_new_process(pid, now, refresh_kind, get_bsd_info(pid), timebase_to_ms)
         }
     }
 }

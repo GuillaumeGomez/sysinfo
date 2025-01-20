@@ -1480,6 +1480,22 @@ impl Process {
         self.inner.cpu_usage()
     }
 
+    /// Returns the total accumulated CPU usage (in CPU-milliseconds). Note
+    /// that it might be bigger than the total clock run time of a process if
+    /// run on a multi-core machine.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{}", process.accumulated_cpu_time());
+    /// }
+    /// ```
+    pub fn accumulated_cpu_time(&self) -> u64 {
+        self.inner.accumulated_cpu_time()
+    }
+
     /// Returns number of bytes read and written to disk.
     ///
     /// ⚠️ On Windows, this method actually returns **ALL** I/O read and
@@ -1897,7 +1913,14 @@ impl ProcessRefreshKind {
         }
     }
 
-    impl_get_set!(ProcessRefreshKind, cpu, with_cpu, without_cpu);
+    impl_get_set!(
+        ProcessRefreshKind,
+        cpu,
+        with_cpu,
+        without_cpu,
+        "\
+It will retrieve both CPU usage and CPU accumulated time,"
+    );
     impl_get_set!(
         ProcessRefreshKind,
         disk_usage,

@@ -929,3 +929,48 @@ fn test_multiple_single_process_refresh() {
 
     assert!(cpu_b - 5. < cpu_a && cpu_b + 5. > cpu_a);
 }
+
+#[test]
+fn accumulated_cpu_time() {
+    fn generate_cpu_usage() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let atomic = std::sync::Arc::new(AtomicBool::new(false));
+        let thread_atomic = atomic.clone();
+        std::thread::spawn(move || {
+            while !thread_atomic.load(Ordering::Relaxed) {
+                System::new_all();
+            }
+        });
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        atomic.store(true, Ordering::Relaxed);
+    }
+
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+
+    let mut s = System::new();
+    let current_pid = sysinfo::get_current_pid().expect("failed to get current pid");
+    let refresh_kind = ProcessRefreshKind::nothing().with_cpu();
+    generate_cpu_usage();
+    s.refresh_processes_specifics(ProcessesToUpdate::Some(&[current_pid]), false, refresh_kind);
+    let acc_time = s
+        .process(current_pid)
+        .expect("no process found")
+        .accumulated_cpu_time();
+    assert_ne!(acc_time, 0);
+
+    generate_cpu_usage();
+    s.refresh_processes_specifics(ProcessesToUpdate::Some(&[current_pid]), true, refresh_kind);
+    let new_acc_time = s
+        .process(current_pid)
+        .expect("no process found")
+        .accumulated_cpu_time();
+    assert!(
+        new_acc_time > acc_time,
+        "{} not superior to {}",
+        new_acc_time,
+        acc_time
+    );
+}

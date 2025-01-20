@@ -54,6 +54,7 @@ impl Drop for ProcessorCpuLoadInfo {
 
 pub(crate) struct SystemTimeInfo {
     timebase_to_ns: f64,
+    pub(crate) timebase_to_ms: f64,
     clock_per_sec: f64,
     old_cpu_info: ProcessorCpuLoadInfo,
     last_update: Option<Instant>,
@@ -95,9 +96,12 @@ impl SystemTimeInfo {
             };
 
             let nano_per_seconds = 1_000_000_000.;
+            let timebase_to_ns = info.numer as f64 / info.denom as f64;
             sysinfo_debug!("");
             Some(Self {
-                timebase_to_ns: info.numer as f64 / info.denom as f64,
+                timebase_to_ns,
+                // We convert from nano (10^-9) to ms (10^3).
+                timebase_to_ms: timebase_to_ns / 1_000_000.,
                 clock_per_sec: nano_per_seconds / clock_ticks_per_sec as f64,
                 old_cpu_info,
                 last_update: None,
