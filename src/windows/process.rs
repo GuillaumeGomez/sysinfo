@@ -52,6 +52,8 @@ use windows::Win32::UI::Shell::CommandLineToArgvW;
 
 use super::MINIMUM_CPU_UPDATE_INTERVAL;
 
+const FILETIMES_PER_MILLISECONDS: u64 = 10_000; // 100 nanosecond units
+
 impl fmt::Display for ProcessStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(match *self {
@@ -194,6 +196,7 @@ pub(crate) struct ProcessInner {
     old_written_bytes: u64,
     read_bytes: u64,
     written_bytes: u64,
+    accumulated_cpu_time: u64,
 }
 
 struct CPUsageCalculationValues {
@@ -274,6 +277,7 @@ impl ProcessInner {
             old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
+            accumulated_cpu_time: 0,
         }
     }
 
@@ -412,6 +416,10 @@ impl ProcessInner {
 
     pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
+    }
+
+    pub(crate) fn accumulated_cpu_time(&self) -> u64 {
+        self.accumulated_cpu_time
     }
 
     pub(crate) fn disk_usage(&self) -> DiskUsage {
@@ -986,10 +994,7 @@ fn check_sub(a: u64, b: u64) -> u64 {
 /// Before changing this function, you must consider the following:
 /// <https://github.com/GuillaumeGomez/sysinfo/issues/459>
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
-    if p.cpu_calc_values.last_update.elapsed() <= MINIMUM_CPU_UPDATE_INTERVAL {
-        // cpu usage hasn't updated. p.cpu_usage remains the same
-        return;
-    }
+    let need_update = p.cpu_calc_values.last_update.elapsed() > MINIMUM_CPU_UPDATE_INTERVAL;
 
     unsafe {
         let mut ftime: FILETIME = zeroed();
@@ -1018,6 +1023,10 @@ pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
         let global_kernel_time = filetime_to_u64(fglobal_kernel_time);
         let global_user_time = filetime_to_u64(fglobal_user_time);
 
+        p.accumulated_cpu_time = user.saturating_add(sys) / FILETIMES_PER_MILLISECONDS;
+        if !need_update {
+            return;
+        }
         let delta_global_kernel_time =
             check_sub(global_kernel_time, p.cpu_calc_values.old_system_sys_cpu);
         let delta_global_user_time =

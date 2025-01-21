@@ -126,6 +126,7 @@ pub(crate) struct ProcessInner {
     written_bytes: u64,
     thread_kind: Option<ThreadKind>,
     proc_path: PathBuf,
+    accumulated_cpu_time: u64,
 }
 
 impl ProcessInner {
@@ -163,6 +164,7 @@ impl ProcessInner {
             written_bytes: 0,
             thread_kind: None,
             proc_path,
+            accumulated_cpu_time: 0,
         }
     }
 
@@ -225,6 +227,10 @@ impl ProcessInner {
 
     pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
+    }
+
+    pub(crate) fn accumulated_cpu_time(&self) -> u64 {
+        self.accumulated_cpu_time
     }
 
     pub(crate) fn disk_usage(&self) -> DiskUsage {
@@ -425,6 +431,13 @@ fn update_proc_info(
     update_time_and_memory(proc_path, p, str_parts, uptime, info, refresh_kind);
     if refresh_kind.disk_usage() {
         update_process_disk_activity(p, proc_path);
+    }
+    // Needs to be after `update_time_and_memory`.
+    if refresh_kind.cpu() {
+        // The external values for CPU times are in "ticks", which are
+        // scaled by "HZ", which is pegged externally at 100 ticks/second.
+        p.accumulated_cpu_time =
+            p.utime.saturating_add(p.stime).saturating_mul(1_000) / info.clock_cycle;
     }
 }
 
