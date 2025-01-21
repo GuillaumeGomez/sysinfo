@@ -946,7 +946,10 @@ fn accumulated_cpu_time() {
         atomic.store(true, Ordering::Relaxed);
     }
 
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED_SYSTEM
+        || cfg!(feature = "apple-sandbox")
+        || cfg!(target_os = "freebsd")
+    {
         return;
     }
 
