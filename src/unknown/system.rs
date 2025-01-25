@@ -135,6 +135,10 @@ impl SystemInner {
         std::env::consts::OS.to_owned()
     }
 
+    pub(crate) fn distribution_id_like() -> Vec<String> {
+        Vec::new()
+    }
+
     pub(crate) fn host_name() -> Option<String> {
         None
     }

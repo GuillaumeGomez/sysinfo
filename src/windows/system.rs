@@ -418,6 +418,11 @@ impl SystemInner {
     pub(crate) fn distribution_id() -> String {
         std::env::consts::OS.to_owned()
     }
+
+    pub(crate) fn distribution_id_like() -> Vec<String> {
+        Vec::new()
+    }
+
     pub(crate) fn cpu_arch() -> Option<String> {
         unsafe {
             // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info

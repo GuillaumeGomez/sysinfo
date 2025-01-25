@@ -499,6 +499,23 @@ impl SystemInner {
             .unwrap_or_else(|| std::env::consts::OS.to_owned())
     }
 
+    #[cfg(not(target_os = "android"))]
+    pub(crate) fn distribution_id_like() -> Vec<String> {
+        system_info_as_list(get_system_info_linux(
+            InfoType::DistributionIDLike,
+            Path::new("/etc/os-release"),
+            Path::new(""),
+        ))
+    }
+
+    #[cfg(target_os = "android")]
+    pub(crate) fn distribution_id_like() -> Vec<String> {
+        // Currently get_system_info_android doesn't support InfoType::DistributionIDLike and always
+        // returns None. This call is done anyway for consistency with non-Android implementation
+        // and to suppress dead-code warning for DistributionIDLike on Android.
+        system_info_as_list(get_system_info_android(InfoType::DistributionIDLike))
+    }
+
     pub(crate) fn cpu_arch() -> Option<String> {
         let mut raw = std::mem::MaybeUninit::<libc::utsname>::uninit();
 
@@ -633,6 +650,9 @@ enum InfoType {
     /// Machine-parseable ID of a distribution, see
     /// https://www.freedesktop.org/software/systemd/man/os-release.html#ID=
     DistributionID,
+    /// Machine-parseable ID_LIKE of related distributions, see
+    /// <https://www.freedesktop.org/software/systemd/man/latest/os-release.html#ID_LIKE=>
+    DistributionIDLike,
 }
 
 #[cfg(not(target_os = "android"))]
@@ -646,6 +666,7 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
             InfoType::Name => "NAME=",
             InfoType::OsVersion => "VERSION_ID=",
             InfoType::DistributionID => "ID=",
+            InfoType::DistributionIDLike => "ID_LIKE=",
         };
 
         for line in buf.lines() {
@@ -674,6 +695,10 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
             // lsb-release is inconsistent with os-release and unsupported.
             return None;
         }
+        InfoType::DistributionIDLike => {
+            // lsb-release doesn't support ID_LIKE.
+            return None;
+        }
     };
     for line in buf.lines() {
         if let Some(stripped) = line.strip_prefix(info_str) {
@@ -683,6 +708,16 @@ fn get_system_info_linux(info: InfoType, path: &Path, fallback_path: &Path) -> O
     None
 }
 
+/// Returns a system info value as a list of strings.
+/// Absence of a value is treated as an empty list.
+fn system_info_as_list(sysinfo: Option<String>) -> Vec<String> {
+    match sysinfo {
+        Some(value) => value.split_ascii_whitespace().map(String::from).collect(),
+        // For list fields absence of a field is equivalent to an empty list.
+        None => Vec::new(),
+    }
+}
+
 #[cfg(target_os = "android")]
 fn get_system_info_android(info: InfoType) -> Option<String> {
     // https://android.googlesource.com/platform/frameworks/base/+/refs/heads/master/core/java/android/os/Build.java#58
@@ -690,6 +725,10 @@ fn get_system_info_android(info: InfoType) -> Option<String> {
         InfoType::Name => b"ro.product.model\0",
         InfoType::OsVersion => b"ro.build.version.release\0",
         InfoType::DistributionID => {
+            // Not supported.
+            return None;
+        }
+        InfoType::DistributionIDLike => {
             // Not supported.
             return None;
         }
@@ -721,6 +760,7 @@ mod test {
     use super::get_system_info_linux;
     use super::read_table;
     use super::read_table_key;
+    use super::system_info_as_list;
     use super::InfoType;
     use std::collections::HashMap;
     use std::io::Write;
@@ -823,6 +863,7 @@ mod test {
         assert!(get_system_info_android(InfoType::OsVersion).is_some());
         assert!(get_system_info_android(InfoType::Name).is_some());
         assert!(get_system_info_android(InfoType::DistributionID).is_none());
+        assert!(get_system_info_android(InfoType::DistributionIDLike).is_none());
     }
 
     #[test]
@@ -873,6 +914,10 @@ DISTRIB_DESCRIPTION="Ubuntu 20.10"
             get_system_info_linux(InfoType::DistributionID, &tmp1, Path::new("")),
             Some("ubuntu".to_owned())
         );
+        assert_eq!(
+            get_system_info_linux(InfoType::DistributionIDLike, &tmp1, Path::new("")),
+            Some("debian".to_owned())
+        );
 
         // Check for the "fallback" path: "/etc/lsb-release"
         assert_eq!(
@@ -886,6 +931,41 @@ DISTRIB_DESCRIPTION="Ubuntu 20.10"
         assert_eq!(
             get_system_info_linux(InfoType::DistributionID, Path::new(""), &tmp2),
             None
+        );
+        assert_eq!(
+            get_system_info_linux(InfoType::DistributionIDLike, Path::new(""), &tmp2),
+            None
+        );
+    }
+
+    #[test]
+    fn test_system_info_as_list() {
+        // No value.
+        assert_eq!(system_info_as_list(None), Vec::<String>::new());
+        // Empty value.
+        assert_eq!(
+            system_info_as_list(Some("".to_string())),
+            Vec::<String>::new(),
+        );
+        // Whitespaces only.
+        assert_eq!(
+            system_info_as_list(Some(" ".to_string())),
+            Vec::<String>::new(),
+        );
+        // Single value.
+        assert_eq!(
+            system_info_as_list(Some("debian".to_string())),
+            vec!["debian".to_string()],
+        );
+        // Multiple values.
+        assert_eq!(
+            system_info_as_list(Some("rhel fedora".to_string())),
+            vec!["rhel".to_string(), "fedora".to_string()],
+        );
+        // Multiple spaces.
+        assert_eq!(
+            system_info_as_list(Some("rhel        fedora".to_string())),
+            vec!["rhel".to_string(), "fedora".to_string()],
         );
     }
 }
