@@ -784,6 +784,33 @@ impl System {
         SystemInner::distribution_id()
     }
 
+    /// Returns the distribution ids of operating systems that are closely
+    /// related to the local operating system in regards to packaging and
+    /// programming interfaces, for example listing one or more OS identifiers
+    /// the local OS is a derivative from.
+    ///
+    /// See also
+    /// - <https://www.freedesktop.org/software/systemd/man/latest/os-release.html#ID_LIKE=>
+    ///
+    /// | example platform | value of `System::distribution_id_like()` |
+    /// |---|---|
+    /// | android phone | [] |
+    /// | archlinux laptop | [] |
+    /// | centos server | ["rhel", "fedora"] |
+    /// | ubuntu laptop | ["debian"] |
+    /// | windows laptop | [] |
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Distribution ID_LIKE: {:?}", System::distribution_id_like());
+    /// ```
+    pub fn distribution_id_like() -> Vec<String> {
+        SystemInner::distribution_id_like()
+    }
+
     /// Returns the system hostname based off DNS.
     ///
     /// **Important**: this information is computed every time this function is called.

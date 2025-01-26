@@ -497,6 +497,10 @@ impl SystemInner {
         std::env::consts::OS.to_owned()
     }
 
+    pub(crate) fn distribution_id_like() -> Vec<String> {
+        Vec::new()
+    }
+
     pub(crate) fn cpu_arch() -> Option<String> {
         let mut arch_str: [u8; 32] = [0; 32];
         let mut mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
