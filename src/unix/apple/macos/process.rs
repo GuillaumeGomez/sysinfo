@@ -329,7 +329,7 @@ unsafe fn get_bsd_info(pid: Pid) -> Option<libc::proc_bsdinfo> {
         0,
         &mut info as *mut _ as *mut _,
         mem::size_of::<libc::proc_bsdinfo>() as _,
-    ) != mem::size_of::<libc::proc_bsdinfo>() as _
+    ) != mem::size_of::<libc::proc_bsdinfo>() as c_int
     {
         None
     } else {

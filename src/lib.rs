@@ -320,7 +320,7 @@ mod test {
         }
     }
 
-    #[cfg(feature = "system")]
+    #[cfg(all(feature = "system", feature = "user"))]
     #[test]
     fn check_all_process_uids_resolvable() {
         // On linux, some user IDs don't have an associated user (no idea why though).
