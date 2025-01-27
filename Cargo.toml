@@ -23,6 +23,11 @@ component = [
     "windows/Win32_System_Rpc",
     "windows/Win32_System_Variant",
     "windows/Win32_System_Wmi",
+    "objc2-core-foundation/CFArray",
+    "objc2-core-foundation/CFBase",
+    "objc2-core-foundation/CFDictionary",
+    "objc2-core-foundation/CFNumber",
+    "objc2-core-foundation/CFString",
 ]
 disk = [
     "windows/Win32_Foundation",
@@ -32,6 +37,13 @@ disk = [
     "windows/Win32_System_Ioctl",
     "windows/Win32_System_SystemServices",
     "windows/Win32_System_WindowsProgramming",
+    "objc2-core-foundation/CFArray",
+    "objc2-core-foundation/CFBase",
+    "objc2-core-foundation/CFDictionary",
+    "objc2-core-foundation/CFError",
+    "objc2-core-foundation/CFNumber",
+    "objc2-core-foundation/CFString",
+    "objc2-core-foundation/CFURL",
 ]
 system = [
     "windows/Win32_Foundation",
@@ -54,6 +66,10 @@ system = [
     "windows/Win32_UI_Shell",
     "dep:ntapi",
     "dep:memchr",
+    "objc2-core-foundation/CFBase",
+    "objc2-core-foundation/CFData",
+    "objc2-core-foundation/CFDictionary",
+    "objc2-core-foundation/CFString",
 ]
 network = [
     "windows/Win32_Foundation",
@@ -107,7 +123,9 @@ windows = { version = ">=0.54, <=0.57", optional = true }
 libc = "^0.2.164"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-core-foundation-sys = "0.8.7"
+objc2-core-foundation = { version = "0.3.0", optional = true, default-features = false, features = [
+    "std",
+] }
 
 [target.'cfg(all(target_os = "linux", not(target_os = "android")))'.dev-dependencies]
 tempfile = "3.9"

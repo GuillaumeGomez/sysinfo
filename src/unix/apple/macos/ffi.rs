@@ -8,11 +8,9 @@
         any(target_arch = "x86", target_arch = "x86_64")
     ),
 ))]
-use core_foundation_sys::base::mach_port_t;
+use libc::mach_port_t;
 #[cfg(any(feature = "system", feature = "disk"))]
-use core_foundation_sys::base::CFAllocatorRef;
-#[cfg(any(feature = "system", feature = "disk"))]
-use core_foundation_sys::dictionary::CFDictionaryRef;
+use objc2_core_foundation::CFAllocator;
 #[cfg(any(
     feature = "system",
     feature = "disk",
@@ -21,9 +19,20 @@ use core_foundation_sys::dictionary::CFDictionaryRef;
         any(target_arch = "x86", target_arch = "x86_64")
     ),
 ))]
-use core_foundation_sys::dictionary::CFMutableDictionaryRef;
+use objc2_core_foundation::CFMutableDictionary;
 #[cfg(any(feature = "system", feature = "disk"))]
-use core_foundation_sys::string::CFStringRef;
+use objc2_core_foundation::CFString;
+#[cfg(any(feature = "system", feature = "disk"))]
+use objc2_core_foundation::CFType;
+#[cfg(any(
+    feature = "system",
+    feature = "disk",
+    all(
+        feature = "component",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ),
+))]
+use std::ptr::NonNull;
 
 use libc::c_char;
 #[cfg(any(
@@ -120,7 +129,7 @@ pub const kIOMasterPortDefault: mach_port_t = 0;
 extern "C" {
     pub fn IOServiceGetMatchingServices(
         mainPort: mach_port_t,
-        matching: CFMutableDictionaryRef,
+        matching: NonNull<CFMutableDictionary>, // CF_RELEASES_ARGUMENT
         existing: *mut io_iterator_t,
     ) -> kern_return_t;
     #[cfg(all(
@@ -133,7 +142,7 @@ extern "C" {
             ),
         ),
     ))]
-    pub fn IOServiceMatching(a: *const c_char) -> CFMutableDictionaryRef;
+    pub fn IOServiceMatching(a: *const c_char) -> Option<NonNull<CFMutableDictionary>>; // CF_RETURNS_RETAINED
 
     pub fn IOIteratorNext(iterator: io_iterator_t) -> io_object_t;
 
@@ -142,10 +151,10 @@ extern "C" {
     #[cfg(any(feature = "system", feature = "disk"))]
     pub fn IORegistryEntryCreateCFProperty(
         entry: io_registry_entry_t,
-        key: CFStringRef,
-        allocator: CFAllocatorRef,
+        key: &CFString,
+        allocator: Option<&CFAllocator>,
         options: IOOptionBits,
-    ) -> CFDictionaryRef;
+    ) -> Option<NonNull<CFType>>;
     #[cfg(feature = "disk")]
     pub fn IORegistryEntryGetParentEntry(
         entry: io_registry_entry_t,
@@ -157,7 +166,7 @@ extern "C" {
         mainPort: mach_port_t,
         options: u32,
         bsdName: *const c_char,
-    ) -> CFMutableDictionaryRef;
+    ) -> Option<NonNull<CFMutableDictionary>>; // CF_RETURNS_RETAINED
     #[cfg(all(feature = "system", not(feature = "apple-sandbox")))]
     pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: io_name_t) -> kern_return_t;
     #[cfg(feature = "disk")]
@@ -285,31 +294,36 @@ pub use io_service::*;
     target_arch = "aarch64"
 ))]
 mod io_service {
-    use std::ptr::null;
+    use std::ptr::NonNull;
 
-    use core_foundation_sys::array::CFArrayRef;
-    use core_foundation_sys::base::{CFAllocatorRef, CFRelease};
-    use core_foundation_sys::dictionary::{
-        kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks, CFDictionaryCreate,
-        CFDictionaryRef,
+    use objc2_core_foundation::{
+        cf_type, kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks, CFAllocator,
+        CFArray, CFDictionary, CFDictionaryCreate, CFNumber, CFRetained, CFString,
     };
-    use core_foundation_sys::number::{kCFNumberSInt32Type, CFNumberCreate};
-    use core_foundation_sys::string::{CFStringCreateWithCStringNoCopy, CFStringRef};
 
     #[repr(C)]
-    pub struct __IOHIDServiceClient(libc::c_void);
+    pub struct IOHIDServiceClient(libc::c_void);
 
-    pub type IOHIDServiceClientRef = *const __IOHIDServiceClient;
-
-    #[repr(C)]
-    pub struct __IOHIDEventSystemClient(libc::c_void);
-
-    pub type IOHIDEventSystemClientRef = *const __IOHIDEventSystemClient;
+    cf_type!(
+        #[encoding_name = "__IOHIDServiceClient"]
+        unsafe impl IOHIDServiceClient {}
+    );
 
     #[repr(C)]
-    pub struct __IOHIDEvent(libc::c_void);
+    pub struct IOHIDEventSystemClient(libc::c_void);
 
-    pub type IOHIDEventRef = *const __IOHIDEvent;
+    cf_type!(
+        #[encoding_name = "__IOHIDEventSystemClient"]
+        unsafe impl IOHIDEventSystemClient {}
+    );
+
+    #[repr(C)]
+    pub struct IOHIDEvent(libc::c_void);
+
+    cf_type!(
+        #[encoding_name = "__IOHIDEvent"]
+        unsafe impl IOHIDEvent {}
+    );
 
     #[allow(non_upper_case_globals)]
     pub const kIOHIDEventTypeTemperature: i64 = 15;
@@ -321,36 +335,40 @@ mod io_service {
     }
 
     #[cfg(not(feature = "apple-sandbox"))]
+    #[link(name = "IOKit", kind = "framework")]
     extern "C" {
-        pub fn IOHIDEventSystemClientCreate(allocator: CFAllocatorRef)
-            -> IOHIDEventSystemClientRef;
+        pub fn IOHIDEventSystemClientCreate(
+            allocator: Option<&CFAllocator>,
+        ) -> Option<NonNull<IOHIDEventSystemClient>>;
 
         pub fn IOHIDEventSystemClientSetMatching(
-            client: IOHIDEventSystemClientRef,
-            matches: CFDictionaryRef,
+            client: &IOHIDEventSystemClient,
+            matches: &CFDictionary,
         ) -> i32;
 
-        pub fn IOHIDEventSystemClientCopyServices(client: IOHIDEventSystemClientRef) -> CFArrayRef;
+        pub fn IOHIDEventSystemClientCopyServices(
+            client: &IOHIDEventSystemClient,
+        ) -> Option<NonNull<CFArray>>;
 
         pub fn IOHIDServiceClientCopyProperty(
-            service: IOHIDServiceClientRef,
-            key: CFStringRef,
-        ) -> CFStringRef;
+            service: &IOHIDServiceClient,
+            key: &CFString,
+        ) -> Option<NonNull<CFString>>;
 
         pub fn IOHIDServiceClientCopyEvent(
-            service: IOHIDServiceClientRef,
+            service: &IOHIDServiceClient,
             v0: i64,
             v1: i32,
             v2: i64,
-        ) -> IOHIDEventRef;
+        ) -> Option<NonNull<IOHIDEvent>>;
 
-        pub fn IOHIDEventGetFloatValue(event: IOHIDEventRef, field: i64) -> f64;
+        pub fn IOHIDEventGetFloatValue(event: &IOHIDEvent, field: i64) -> f64;
     }
 
-    pub(crate) const HID_DEVICE_PROPERTY_PRODUCT: &[u8] = b"Product\0";
+    pub(crate) const HID_DEVICE_PROPERTY_PRODUCT: &str = "Product";
 
-    pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE: &[u8] = b"PrimaryUsage\0";
-    pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE: &[u8] = b"PrimaryUsagePage\0";
+    pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE: &str = "PrimaryUsage";
+    pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE: &str = "PrimaryUsagePage";
 
     #[allow(non_upper_case_globals)]
     pub(crate) const kHIDPage_AppleVendor: i32 = 0xff00;
@@ -358,46 +376,23 @@ mod io_service {
     #[allow(non_upper_case_globals)]
     pub(crate) const kHIDUsage_AppleVendor_TemperatureSensor: i32 = 0x0005;
 
-    pub(crate) fn matching(page: i32, usage: i32) -> CFDictionaryRef {
+    pub(crate) fn matching(page: i32, usage: i32) -> Option<CFRetained<CFDictionary>> {
         unsafe {
             let keys = [
-                CFStringCreateWithCStringNoCopy(
-                    null() as *const _,
-                    HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE.as_ptr() as *const _,
-                    core_foundation_sys::string::kCFStringEncodingUTF8,
-                    core_foundation_sys::base::kCFAllocatorNull as *mut _,
-                ),
-                CFStringCreateWithCStringNoCopy(
-                    null() as *const _,
-                    HID_DEVICE_PROPERTY_PRIMARY_USAGE.as_ptr() as *const _,
-                    core_foundation_sys::string::kCFStringEncodingUTF8,
-                    core_foundation_sys::base::kCFAllocatorNull as *mut _,
-                ),
+                CFString::from_static_str(HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE),
+                CFString::from_static_str(HID_DEVICE_PROPERTY_PRIMARY_USAGE),
             ];
 
-            let nums = [
-                CFNumberCreate(null(), kCFNumberSInt32Type, &page as *const _ as *const _),
-                CFNumberCreate(null(), kCFNumberSInt32Type, &usage as *const _ as *const _),
-            ];
+            let nums = [CFNumber::new_i32(page), CFNumber::new_i32(usage)];
 
-            let dict = CFDictionaryCreate(
-                null(),
-                &keys as *const _ as *const _,
-                &nums as *const _ as *const _,
+            CFDictionaryCreate(
+                None,
+                &keys as *const _ as *mut _,
+                &nums as *const _ as *mut _,
                 2,
                 &kCFTypeDictionaryKeyCallBacks,
                 &kCFTypeDictionaryValueCallBacks,
-            );
-
-            for key in keys {
-                CFRelease(key as _);
-            }
-
-            for num in nums {
-                CFRelease(num as _);
-            }
-
-            dict
+            )
         }
     }
 }
