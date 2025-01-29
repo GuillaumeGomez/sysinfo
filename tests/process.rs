@@ -3,7 +3,6 @@
 #![cfg(feature = "system")]
 
 use bstr::ByteSlice;
-use std::{sync::mpsc, time::Duration};
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System, UpdateKind};
 
 macro_rules! start_proc {
@@ -424,7 +423,7 @@ fn test_refresh_tasks() {
 
     // 1) Spawn a thread that waits on a channel, so we control when it exits.
     let task_name = "controlled_test_thread";
-    let (tx, rx) = mpsc::channel::<()>();
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
 
     std::thread::Builder::new()
         .name(task_name.to_string())
@@ -440,7 +439,7 @@ fn test_refresh_tasks() {
     // Wait until the new thread shows up in the process/tasks list.
     // We do a short loop and check each time by refreshing processes.
     const MAX_POLLS: usize = 20;
-    const POLL_INTERVAL: Duration = Duration::from_millis(100);
+    const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 
     for _ in 0..MAX_POLLS {
         sys.refresh_processes(ProcessesToUpdate::All, /*refresh_users=*/ false);
