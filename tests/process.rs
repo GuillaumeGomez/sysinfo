@@ -412,6 +412,10 @@ fn test_refresh_process_doesnt_remove() {
 
 // Checks that `refresh_processes` is adding and removing task.
 #[test]
+#[cfg(all(
+    any(target_os = "linux", target_os = "android"),
+    not(feature = "unknown-ci")
+))]
 fn test_refresh_tasks() {
     // Skip if unsupported.
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
