@@ -11,15 +11,15 @@ use std::fmt;
 use std::io;
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::os::windows::ffi::OsStringExt;
-use std::os::windows::process::CommandExt;
+use std::os::windows::process::{CommandExt, ExitStatusExt};
 use std::path::{Path, PathBuf};
-use std::process;
+use std::process::{self, ExitStatus};
 use std::ptr::null_mut;
-use std::str;
+use std::str::{self, FromStr};
 use std::sync::{Arc, OnceLock};
+use std::time::Instant;
 
 use libc::c_void;
-use ntapi::ntexapi::SYSTEM_PROCESS_INFORMATION;
 use ntapi::ntrtl::RTL_USER_PROCESS_PARAMETERS;
 use ntapi::ntwow64::{PEB32, RTL_USER_PROCESS_PARAMETERS32};
 use windows::core::PCWSTR;
@@ -34,18 +34,25 @@ use windows::Win32::Foundation::{
 };
 use windows::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
+use windows::Win32::System::Diagnostics::ToolHelp::PROCESSENTRY32W;
 use windows::Win32::System::Memory::{
     GetProcessHeap, HeapAlloc, HeapFree, VirtualQueryEx, HEAP_ZERO_MEMORY, MEMORY_BASIC_INFORMATION,
 };
-use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
+use windows::Win32::System::ProcessStatus::{
+    GetModuleFileNameExW, GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS_EX,
+};
 use windows::Win32::System::RemoteDesktop::ProcessIdToSessionId;
 use windows::Win32::System::SystemInformation::OSVERSIONINFOEXW;
 use windows::Win32::System::Threading::{
-    GetProcessIoCounters, GetProcessTimes, GetSystemTimes, OpenProcess, OpenProcessToken,
-    CREATE_NO_WINDOW, IO_COUNTERS, PEB, PROCESS_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION,
-    PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
+    GetExitCodeProcess, GetProcessIoCounters, GetProcessTimes, GetSystemTimes, OpenProcess,
+    OpenProcessToken, CREATE_NO_WINDOW, IO_COUNTERS, PEB, PROCESS_BASIC_INFORMATION,
+    PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
 };
 use windows::Win32::UI::Shell::CommandLineToArgvW;
+
+use super::MINIMUM_CPU_UPDATE_INTERVAL;
+
+const FILETIMES_PER_MILLISECONDS: u64 = 10_000; // 100 nanosecond units
 
 impl fmt::Display for ProcessStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -189,6 +196,7 @@ pub(crate) struct ProcessInner {
     old_written_bytes: u64,
     read_bytes: u64,
     written_bytes: u64,
+    accumulated_cpu_time: u64,
 }
 
 struct CPUsageCalculationValues {
@@ -196,6 +204,7 @@ struct CPUsageCalculationValues {
     old_process_user_cpu: u64,
     old_system_sys_cpu: u64,
     old_system_user_cpu: u64,
+    last_update: Instant,
 }
 
 impl CPUsageCalculationValues {
@@ -205,6 +214,7 @@ impl CPUsageCalculationValues {
             old_process_user_cpu: 0,
             old_system_sys_cpu: 0,
             old_system_user_cpu: 0,
+            last_update: Instant::now(),
         }
     }
 }
@@ -267,6 +277,7 @@ impl ProcessInner {
             old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
+            accumulated_cpu_time: 0,
         }
     }
 
@@ -276,7 +287,6 @@ impl ProcessInner {
         nb_cpus: u64,
         now: u64,
         refresh_parent: bool,
-        pi: &SYSTEM_PROCESS_INFORMATION,
     ) {
         if refresh_kind.cpu() {
             compute_cpu_usage(self, nb_cpus);
@@ -285,8 +295,21 @@ impl ProcessInner {
             update_disk_usage(self);
         }
         if refresh_kind.memory() {
-            self.memory = pi.WorkingSetSize as _;
-            self.virtual_memory = pi.VirtualSize as _;
+            let mut mem_info = PROCESS_MEMORY_COUNTERS_EX::default();
+            if let Some(handle) = self.get_handle() {
+                if let Err(_error) = unsafe {
+                    GetProcessMemoryInfo(
+                        handle,
+                        &mut mem_info as *mut _ as *mut _,
+                        std::mem::size_of_val::<PROCESS_MEMORY_COUNTERS_EX>(&mem_info) as _,
+                    )
+                } {
+                    sysinfo_debug!("GetProcessMemoryInfo failed: {_error:?}");
+                } else {
+                    self.memory = mem_info.WorkingSetSize as _;
+                    self.virtual_memory = mem_info.PrivateUsage as _;
+                }
+            }
         }
         unsafe {
             get_process_user_id(self, refresh_kind);
@@ -304,12 +327,28 @@ impl ProcessInner {
         self.updated = true;
     }
 
-    pub(crate) fn get_handle(&self) -> Option<HANDLE> {
-        self.handle.as_ref().map(|h| ***h)
+    pub(crate) fn from_process_entry(entry: &PROCESSENTRY32W, now: u64) -> Self {
+        let pid = Pid::from_u32(entry.th32ProcessID);
+        let name = match OsString::from_str(
+            String::from_utf16_lossy(&entry.szExeFile).trim_end_matches('\0'),
+        ) {
+            Ok(name) => name,
+            Err(_) => format!("<no name> Process {pid}").into(),
+        };
+        let ppid = {
+            if entry.th32ParentProcessID == 0 {
+                // no parent pid
+                None
+            } else {
+                Some(Pid::from_u32(entry.th32ParentProcessID))
+            }
+        };
+
+        Self::new(pid, ppid, now, name)
     }
 
-    pub(crate) fn get_start_time(&self) -> Option<u64> {
-        self.handle.as_ref().map(|handle| get_start_time(***handle))
+    pub(crate) fn get_handle(&self) -> Option<HANDLE> {
+        self.handle.as_ref().map(|h| ***h)
     }
 
     pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
@@ -379,6 +418,10 @@ impl ProcessInner {
         self.cpu_usage
     }
 
+    pub(crate) fn accumulated_cpu_time(&self) -> u64 {
+        self.accumulated_cpu_time
+    }
+
     pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
@@ -404,18 +447,30 @@ impl ProcessInner {
         None
     }
 
-    pub(crate) fn wait(&self) {
+    pub(crate) fn wait(&self) -> Option<ExitStatus> {
         if let Some(handle) = self.get_handle() {
             while is_proc_running(handle) {
                 if get_start_time(handle) != self.start_time() {
                     // PID owner changed so the previous process was finished!
-                    return;
+                    sysinfo_debug!("PID owner changed so cannot get old process exit status");
+                    return None;
                 }
                 std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            let mut exit_status = 0;
+            unsafe {
+                match GetExitCodeProcess(handle, &mut exit_status) {
+                    Ok(_) => Some(ExitStatus::from_raw(exit_status)),
+                    Err(_error) => {
+                        sysinfo_debug!("failed to retrieve process exit status: {_error:?}");
+                        None
+                    }
+                }
             }
         } else {
             // In this case, we can't do anything so we just return.
             sysinfo_debug!("can't wait on this process so returning");
+            None
         }
     }
 
@@ -939,6 +994,8 @@ fn check_sub(a: u64, b: u64) -> u64 {
 /// Before changing this function, you must consider the following:
 /// <https://github.com/GuillaumeGomez/sysinfo/issues/459>
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
+    let need_update = p.cpu_calc_values.last_update.elapsed() > MINIMUM_CPU_UPDATE_INTERVAL;
+
     unsafe {
         let mut ftime: FILETIME = zeroed();
         let mut fsys: FILETIME = zeroed();
@@ -950,19 +1007,26 @@ pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
         if let Some(handle) = p.get_handle() {
             let _err = GetProcessTimes(handle, &mut ftime, &mut ftime, &mut fsys, &mut fuser);
         }
-        // FIXME: should these values be stored in one place to make use of
-        // `MINIMUM_CPU_UPDATE_INTERVAL`?
+
+        // system times have changed, we need to get most recent system times
+        // and update the cpu times cache, as well as global_kernel_time and global_user_time
         let _err = GetSystemTimes(
             Some(&mut fglobal_idle_time),
             Some(&mut fglobal_kernel_time),
             Some(&mut fglobal_user_time),
         );
 
+        p.cpu_calc_values.last_update = Instant::now();
+
         let sys = filetime_to_u64(fsys);
         let user = filetime_to_u64(fuser);
         let global_kernel_time = filetime_to_u64(fglobal_kernel_time);
         let global_user_time = filetime_to_u64(fglobal_user_time);
 
+        p.accumulated_cpu_time = user.saturating_add(sys) / FILETIMES_PER_MILLISECONDS;
+        if !need_update {
+            return;
+        }
         let delta_global_kernel_time =
             check_sub(global_kernel_time, p.cpu_calc_values.old_system_sys_cpu);
         let delta_global_user_time =
@@ -1008,5 +1072,5 @@ pub(crate) fn update_disk_usage(p: &mut ProcessInner) {
 
 #[inline(always)]
 const fn filetime_to_u64(ft: FILETIME) -> u64 {
-    (ft.dwHighDateTime as u64) << 32 | (ft.dwLowDateTime as u64)
+    ((ft.dwHighDateTime as u64) << 32) | (ft.dwLowDateTime as u64)
 }

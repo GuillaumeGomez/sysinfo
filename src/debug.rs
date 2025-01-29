@@ -43,6 +43,7 @@ impl std::fmt::Debug for crate::Process {
             .field("memory usage", &self.memory())
             .field("virtual memory usage", &self.virtual_memory())
             .field("CPU usage", &self.cpu_usage())
+            .field("accumulated CPU time", &self.accumulated_cpu_time())
             .field("status", &self.status())
             .field("root", &self.root())
             .field("disk_usage", &self.disk_usage())

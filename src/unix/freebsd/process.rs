@@ -5,8 +5,7 @@ use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Sig
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::path::{Path, PathBuf};
-
-use libc::kill;
+use std::process::ExitStatus;
 
 use super::utils::{get_sys_value_str, WrapMap};
 
@@ -65,6 +64,7 @@ pub(crate) struct ProcessInner {
     old_read_bytes: u64,
     written_bytes: u64,
     old_written_bytes: u64,
+    accumulated_cpu_time: u64,
 }
 
 impl ProcessInner {
@@ -129,6 +129,10 @@ impl ProcessInner {
         self.cpu_usage
     }
 
+    pub(crate) fn accumulated_cpu_time(&self) -> u64 {
+        self.accumulated_cpu_time
+    }
+
     pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
@@ -154,18 +158,8 @@ impl ProcessInner {
         Some(self.effective_group_id)
     }
 
-    pub(crate) fn wait(&self) {
-        let mut status = 0;
-        // attempt waiting
-        unsafe {
-            if retry_eintr!(libc::waitpid(self.pid.0, &mut status, 0)) < 0 {
-                // attempt failed (non-child process) so loop until process ends
-                let duration = std::time::Duration::from_millis(10);
-                while kill(self.pid.0, 0) == 0 {
-                    std::thread::sleep(duration);
-                }
-            }
-        }
+    pub(crate) fn wait(&self) -> Option<ExitStatus> {
+        crate::unix::utils::wait_process(self.pid)
     }
 
     pub(crate) fn session_id(&self) -> Option<Pid> {
@@ -182,6 +176,12 @@ impl ProcessInner {
     pub(crate) fn switch_updated(&mut self) -> bool {
         std::mem::replace(&mut self.updated, false)
     }
+}
+
+#[inline]
+fn get_accumulated_cpu_time(kproc: &libc::kinfo_proc) -> u64 {
+    // from FreeBSD source /bin/ps/print.c
+    kproc.ki_runtime / 1_000
 }
 
 pub(crate) unsafe fn get_process_data(
@@ -247,6 +247,9 @@ pub(crate) unsafe fn get_process_data(
                 proc_.old_written_bytes = proc_.written_bytes;
                 proc_.written_bytes = kproc.ki_rusage.ru_oublock as _;
             }
+            if refresh_kind.cpu() {
+                proc_.accumulated_cpu_time = get_accumulated_cpu_time(kproc);
+            }
 
             return Ok(None);
         }
@@ -297,6 +300,11 @@ pub(crate) unsafe fn get_process_data(
             old_read_bytes: 0,
             written_bytes: kproc.ki_rusage.ru_oublock as _,
             old_written_bytes: 0,
+            accumulated_cpu_time: if refresh_kind.cpu() {
+                get_accumulated_cpu_time(kproc)
+            } else {
+                0
+            },
             updated: true,
         },
     }))

@@ -2,6 +2,7 @@
 
 use std::ffi::{OsStr, OsString};
 use std::path::Path;
+use std::process::ExitStatus;
 
 use crate::{DiskUsage, Gid, Pid, ProcessStatus, Signal, Uid};
 
@@ -68,6 +69,10 @@ impl ProcessInner {
         0.0
     }
 
+    pub(crate) fn accumulated_cpu_time(&self) -> u64 {
+        0
+    }
+
     pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage::default()
     }
@@ -88,7 +93,9 @@ impl ProcessInner {
         None
     }
 
-    pub(crate) fn wait(&self) {}
+    pub(crate) fn wait(&self) -> Option<ExitStatus> {
+        None
+    }
 
     pub(crate) fn session_id(&self) -> Option<Pid> {
         None

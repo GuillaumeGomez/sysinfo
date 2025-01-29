@@ -296,11 +296,12 @@ impl IoService {
         let mut iterator: ffi::io_iterator_t = 0;
 
         unsafe {
-            let matching_dictionary = ffi::IOServiceMatching(b"AppleSMC\0".as_ptr() as *const i8);
-            if matching_dictionary.is_null() {
+            let Some(matching_dictionary) =
+                ffi::IOServiceMatching(b"AppleSMC\0".as_ptr() as *const i8)
+            else {
                 sysinfo_debug!("IOServiceMatching call failed, `AppleSMC` not found");
                 return None;
-            }
+            };
             let result = ffi::IOServiceGetMatchingServices(
                 ffi::kIOMasterPortDefault,
                 matching_dictionary,

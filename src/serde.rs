@@ -95,6 +95,7 @@ impl Serialize for crate::Process {
         state.serialize_field("start_time", &self.start_time())?;
         state.serialize_field("run_time", &self.run_time())?;
         state.serialize_field("cpu_usage", &self.cpu_usage())?;
+        state.serialize_field("accumulated_cpu_time", &self.accumulated_cpu_time())?;
         state.serialize_field("disk_usage", &self.disk_usage())?;
         state.serialize_field("user_id", &self.user_id())?;
         state.serialize_field("group_id", &self.group_id())?;

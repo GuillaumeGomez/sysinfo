@@ -9,14 +9,14 @@ pub(crate) unsafe fn get_cpu_frequency() -> u64 {
 pub(crate) unsafe fn get_cpu_frequency() -> u64 {
     use crate::sys::ffi;
     use crate::sys::macos::utils::IOReleaser;
-    use crate::sys::utils::CFReleaser;
-    use core_foundation_sys::string::CFStringCreateWithCStringNoCopy;
+    use objc2_core_foundation::{
+        kCFAllocatorDefault, CFData, CFDataGetBytes, CFDataGetLength, CFRange, CFRetained, CFString,
+    };
 
-    let matching = ffi::IOServiceMatching(b"AppleARMIODevice\0".as_ptr() as *const _);
-    if matching.is_null() {
+    let Some(matching) = ffi::IOServiceMatching(b"AppleARMIODevice\0".as_ptr() as *const _) else {
         sysinfo_debug!("IOServiceMatching call failed, `AppleARMIODevice` not found");
         return 0;
-    }
+    };
 
     // Starting from mac M1, the above call returns nothing for the CPU frequency
     // so we try to get it from another source. This code comes from
@@ -55,41 +55,39 @@ pub(crate) unsafe fn get_cpu_frequency() -> u64 {
         }
     };
 
-    let node_name = match CFReleaser::new(CFStringCreateWithCStringNoCopy(
-        std::ptr::null(),
-        b"voltage-states5-sram\0".as_ptr() as *const _,
-        core_foundation_sys::string::kCFStringEncodingUTF8,
-        core_foundation_sys::base::kCFAllocatorNull as *mut _,
-    )) {
-        Some(n) => n,
-        None => {
-            sysinfo_debug!("CFStringCreateWithCStringNoCopy failed");
-            return 0;
-        }
-    };
+    let node_name = CFString::from_static_str("voltage-states5-sram");
 
-    let core_ref = match CFReleaser::new(ffi::IORegistryEntryCreateCFProperty(
+    let core_ref = match ffi::IORegistryEntryCreateCFProperty(
         entry.inner(),
-        node_name.inner(),
-        core_foundation_sys::base::kCFAllocatorDefault,
+        &node_name,
+        kCFAllocatorDefault,
         0,
-    )) {
+    ) {
         Some(c) => c,
         None => {
             sysinfo_debug!("`voltage-states5-sram` property not found");
             return 0;
         }
     };
+    let core_ref = CFRetained::from_raw(core_ref);
 
-    let core_length = core_foundation_sys::data::CFDataGetLength(core_ref.inner() as *const _);
+    let Ok(core_ref) = core_ref.downcast::<CFData>() else {
+        sysinfo_debug!("`voltage-states5-sram` property was not CFData");
+        return 0;
+    };
+
+    let core_length = CFDataGetLength(&core_ref);
     if core_length < 8 {
         sysinfo_debug!("expected `voltage-states5-sram` buffer to have at least size 8");
         return 0;
     }
     let mut max: u64 = 0;
-    core_foundation_sys::data::CFDataGetBytes(
-        core_ref.inner() as *const _,
-        core_foundation_sys::base::CFRange::init(core_length - 8, 4),
+    CFDataGetBytes(
+        &core_ref,
+        CFRange {
+            location: core_length - 8,
+            length: 4,
+        },
         &mut max as *mut _ as *mut _,
     );
     max / 1_000_000

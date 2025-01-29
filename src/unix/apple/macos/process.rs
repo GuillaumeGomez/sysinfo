@@ -4,6 +4,7 @@ use std::ffi::{OsStr, OsString};
 use std::mem::{self, MaybeUninit};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
+use std::process::ExitStatus;
 
 use libc::{c_int, c_void, kill};
 
@@ -44,6 +45,7 @@ pub(crate) struct ProcessInner {
     pub(crate) old_written_bytes: u64,
     pub(crate) read_bytes: u64,
     pub(crate) written_bytes: u64,
+    accumulated_cpu_time: u64,
 }
 
 impl ProcessInner {
@@ -75,6 +77,7 @@ impl ProcessInner {
             old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
+            accumulated_cpu_time: 0,
         }
     }
 
@@ -106,6 +109,7 @@ impl ProcessInner {
             old_written_bytes: 0,
             read_bytes: 0,
             written_bytes: 0,
+            accumulated_cpu_time: 0,
         }
     }
 
@@ -177,6 +181,10 @@ impl ProcessInner {
         self.cpu_usage
     }
 
+    pub(crate) fn accumulated_cpu_time(&self) -> u64 {
+        self.accumulated_cpu_time
+    }
+
     pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             read_bytes: self.read_bytes.saturating_sub(self.old_read_bytes),
@@ -202,18 +210,8 @@ impl ProcessInner {
         self.effective_group_id
     }
 
-    pub(crate) fn wait(&self) {
-        let mut status = 0;
-        // attempt waiting
-        unsafe {
-            if retry_eintr!(libc::waitpid(self.pid.0, &mut status, 0)) < 0 {
-                // attempt failed (non-child process) so loop until process ends
-                let duration = std::time::Duration::from_millis(10);
-                while kill(self.pid.0, 0) == 0 {
-                    std::thread::sleep(duration);
-                }
-            }
-        }
+    pub(crate) fn wait(&self) -> Option<ExitStatus> {
+        crate::unix::utils::wait_process(self.pid)
     }
 
     pub(crate) fn session_id(&self) -> Option<Pid> {
@@ -331,7 +329,7 @@ unsafe fn get_bsd_info(pid: Pid) -> Option<libc::proc_bsdinfo> {
         0,
         &mut info as *mut _ as *mut _,
         mem::size_of::<libc::proc_bsdinfo>() as _,
-    ) != mem::size_of::<libc::proc_bsdinfo>() as _
+    ) != mem::size_of::<libc::proc_bsdinfo>() as c_int
     {
         None
     } else {
@@ -351,6 +349,7 @@ unsafe fn create_new_process(
     now: u64,
     refresh_kind: ProcessRefreshKind,
     info: Option<libc::proc_bsdinfo>,
+    timebase_to_ms: f64,
 ) -> Result<Option<Process>, ()> {
     let info = match info {
         Some(info) => info,
@@ -377,10 +376,20 @@ unsafe fn create_new_process(
     }
     get_cwd_root(&mut p, refresh_kind);
 
-    if refresh_kind.memory() {
+    if refresh_kind.cpu() || refresh_kind.memory() {
         let task_info = get_task_info(pid);
-        p.memory = task_info.pti_resident_size;
-        p.virtual_memory = task_info.pti_virtual_size;
+
+        if refresh_kind.cpu() {
+            p.accumulated_cpu_time = (task_info
+                .pti_total_user
+                .saturating_add(task_info.pti_total_system)
+                as f64
+                * timebase_to_ms) as u64;
+        }
+        if refresh_kind.memory() {
+            p.memory = task_info.pti_resident_size;
+            p.virtual_memory = task_info.pti_virtual_size;
+        }
     }
 
     p.user_id = Some(Uid(info.pbi_ruid));
@@ -639,6 +648,7 @@ pub(crate) fn update_process(
     now: u64,
     refresh_kind: ProcessRefreshKind,
     check_if_alive: bool,
+    timebase_to_ms: f64,
 ) -> Result<Option<Process>, ()> {
     unsafe {
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
@@ -649,7 +659,7 @@ pub(crate) fn update_process(
                     // We don't it to be removed, just replaced.
                     p.updated = true;
                     // The owner of this PID changed.
-                    return create_new_process(pid, now, refresh_kind, Some(info));
+                    return create_new_process(pid, now, refresh_kind, Some(info), timebase_to_ms);
                 }
                 let parent = get_parent(&info);
                 // Update the parent if it changed.
@@ -697,6 +707,11 @@ pub(crate) fn update_process(
 
                 if refresh_kind.cpu() {
                     compute_cpu_usage(p, task_info, system_time, user_time, time_interval);
+                    p.accumulated_cpu_time = (task_info
+                        .pti_total_user
+                        .saturating_add(task_info.pti_total_system)
+                        as f64
+                        * timebase_to_ms) as u64;
                 }
                 if refresh_kind.memory() {
                     p.memory = task_info.pti_resident_size;
@@ -706,7 +721,7 @@ pub(crate) fn update_process(
             p.updated = true;
             Ok(None)
         } else {
-            create_new_process(pid, now, refresh_kind, get_bsd_info(pid))
+            create_new_process(pid, now, refresh_kind, get_bsd_info(pid), timebase_to_ms)
         }
     }
 }

@@ -5,6 +5,7 @@ use crate::{DiskUsage, Gid, Pid, ProcessStatus, Signal, Uid};
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::path::Path;
+use std::process::ExitStatus;
 
 impl fmt::Display for ProcessStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -78,6 +79,10 @@ impl ProcessInner {
         0.0
     }
 
+    pub(crate) fn accumulated_cpu_time(&self) -> u64 {
+        0
+    }
+
     pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage::default()
     }
@@ -98,7 +103,9 @@ impl ProcessInner {
         None
     }
 
-    pub(crate) fn wait(&self) {}
+    pub(crate) fn wait(&self) -> Option<ExitStatus> {
+        None
+    }
 
     pub(crate) fn session_id(&self) -> Option<Pid> {
         None

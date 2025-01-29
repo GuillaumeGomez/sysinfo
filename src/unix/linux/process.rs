@@ -8,10 +8,11 @@ use std::fs::{self, DirEntry, File};
 use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
+use std::process::ExitStatus;
 use std::str::{self, FromStr};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use libc::{c_ulong, gid_t, kill, uid_t};
+use libc::{c_ulong, gid_t, uid_t};
 
 use crate::sys::system::SystemInfo;
 use crate::sys::utils::{
@@ -125,6 +126,7 @@ pub(crate) struct ProcessInner {
     written_bytes: u64,
     thread_kind: Option<ThreadKind>,
     proc_path: PathBuf,
+    accumulated_cpu_time: u64,
 }
 
 impl ProcessInner {
@@ -162,12 +164,13 @@ impl ProcessInner {
             written_bytes: 0,
             thread_kind: None,
             proc_path,
+            accumulated_cpu_time: 0,
         }
     }
 
     pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
         let c_signal = crate::sys::system::convert_signal(signal)?;
-        unsafe { Some(kill(self.pid.0, c_signal) == 0) }
+        unsafe { Some(libc::kill(self.pid.0, c_signal) == 0) }
     }
 
     pub(crate) fn name(&self) -> &OsStr {
@@ -226,6 +229,10 @@ impl ProcessInner {
         self.cpu_usage
     }
 
+    pub(crate) fn accumulated_cpu_time(&self) -> u64 {
+        self.accumulated_cpu_time
+    }
+
     pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
             written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
@@ -251,18 +258,8 @@ impl ProcessInner {
         self.effective_group_id
     }
 
-    pub(crate) fn wait(&self) {
-        let mut status = 0;
-        // attempt waiting
-        unsafe {
-            if retry_eintr!(libc::waitpid(self.pid.0, &mut status, 0)) < 0 {
-                // attempt failed (non-child process) so loop until process ends
-                let duration = std::time::Duration::from_millis(10);
-                while kill(self.pid.0, 0) == 0 {
-                    std::thread::sleep(duration);
-                }
-            }
-        }
+    pub(crate) fn wait(&self) -> Option<ExitStatus> {
+        crate::unix::utils::wait_process(self.pid)
     }
 
     pub(crate) fn session_id(&self) -> Option<Pid> {
@@ -434,6 +431,13 @@ fn update_proc_info(
     update_time_and_memory(proc_path, p, str_parts, uptime, info, refresh_kind);
     if refresh_kind.disk_usage() {
         update_process_disk_activity(p, proc_path);
+    }
+    // Needs to be after `update_time_and_memory`.
+    if refresh_kind.cpu() {
+        // The external values for CPU times are in "ticks", which are
+        // scaled by "HZ", which is pegged externally at 100 ticks/second.
+        p.accumulated_cpu_time =
+            p.utime.saturating_add(p.stime).saturating_mul(1_000) / info.clock_cycle;
     }
 }
 

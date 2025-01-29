@@ -1,19 +1,16 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{
-    sys::{
-        ffi,
-        utils::{self, CFReleaser},
-    },
-    DiskUsage,
-};
+use crate::{sys::ffi, DiskUsage};
 use crate::{Disk, DiskKind, DiskRefreshKind};
 
-use core_foundation_sys::array::CFArrayCreate;
-use core_foundation_sys::base::kCFAllocatorDefault;
-use core_foundation_sys::dictionary::{CFDictionaryGetValueIfPresent, CFDictionaryRef};
-use core_foundation_sys::number::{kCFBooleanTrue, CFBooleanRef, CFNumberGetValue};
-use core_foundation_sys::string::{self as cfs, CFStringRef};
+use objc2_core_foundation::{
+    kCFAllocatorDefault, kCFTypeArrayCallBacks, kCFURLVolumeAvailableCapacityForImportantUsageKey,
+    kCFURLVolumeAvailableCapacityKey, kCFURLVolumeIsBrowsableKey, kCFURLVolumeIsEjectableKey,
+    kCFURLVolumeIsInternalKey, kCFURLVolumeIsLocalKey, kCFURLVolumeIsRemovableKey,
+    kCFURLVolumeNameKey, kCFURLVolumeTotalCapacityKey, CFArray, CFArrayCreate, CFBoolean,
+    CFDictionary, CFDictionaryGetValueIfPresent, CFNumber, CFRetained, CFString,
+    CFURLCopyResourcePropertiesForKeys, CFURLCreateFromFileSystemRepresentation, CFURL,
+};
 
 use libc::c_void;
 
@@ -29,7 +26,7 @@ pub(crate) struct DiskInner {
     bsd_name: Option<Vec<u8>>,
     pub(crate) file_system: OsString,
     pub(crate) mount_point: PathBuf,
-    volume_url: RetainedCFURL,
+    volume_url: CFRetained<CFURL>,
     pub(crate) total_space: u64,
     pub(crate) available_space: u64,
     pub(crate) is_removable: bool,
@@ -81,16 +78,13 @@ impl DiskInner {
         if refresh_kind.storage() {
             unsafe {
                 if let Some(requested_properties) = build_requested_properties(&[
-                    ffi::kCFURLVolumeTotalCapacityKey,
-                    ffi::kCFURLVolumeAvailableCapacityKey,
-                    ffi::kCFURLVolumeAvailableCapacityForImportantUsageKey,
+                    kCFURLVolumeTotalCapacityKey,
+                    kCFURLVolumeAvailableCapacityKey,
+                    kCFURLVolumeAvailableCapacityForImportantUsageKey,
                 ]) {
                     match get_disk_properties(&self.volume_url, &requested_properties) {
                         Some(disk_props) => {
-                            match get_int_value(
-                                disk_props.inner(),
-                                DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
-                            ) {
+                            match get_int_value(&disk_props, kCFURLVolumeTotalCapacityKey) {
                                 Some(total_space) => self.total_space = total_space,
                                 None => {
                                     sysinfo_debug!("Failed to get disk total space");
@@ -238,19 +232,19 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
     // Currently we query maximum 9 properties.
     let mut properties = Vec::with_capacity(9);
     // "mandatory" information
-    properties.push(ffi::kCFURLVolumeNameKey);
-    properties.push(ffi::kCFURLVolumeIsBrowsableKey);
-    properties.push(ffi::kCFURLVolumeIsLocalKey);
+    properties.push(kCFURLVolumeNameKey);
+    properties.push(kCFURLVolumeIsBrowsableKey);
+    properties.push(kCFURLVolumeIsLocalKey);
 
     // is_removable
-    properties.push(ffi::kCFURLVolumeIsEjectableKey);
-    properties.push(ffi::kCFURLVolumeIsRemovableKey);
-    properties.push(ffi::kCFURLVolumeIsInternalKey);
+    properties.push(kCFURLVolumeIsEjectableKey);
+    properties.push(kCFURLVolumeIsRemovableKey);
+    properties.push(kCFURLVolumeIsInternalKey);
 
     if refresh_kind.storage() {
-        properties.push(ffi::kCFURLVolumeTotalCapacityKey);
-        properties.push(ffi::kCFURLVolumeAvailableCapacityForImportantUsageKey);
-        properties.push(ffi::kCFURLVolumeAvailableCapacityKey);
+        properties.push(kCFURLVolumeTotalCapacityKey);
+        properties.push(kCFURLVolumeAvailableCapacityForImportantUsageKey);
+        properties.push(kCFURLVolumeAvailableCapacityKey);
     }
 
     // Create a list of properties about the disk that we want to fetch.
@@ -263,13 +257,11 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
     };
 
     for c_disk in raw_disks {
-        let volume_url = match CFReleaser::new(
-            core_foundation_sys::url::CFURLCreateFromFileSystemRepresentation(
-                kCFAllocatorDefault,
-                c_disk.f_mntonname.as_ptr() as *const _,
-                c_disk.f_mntonname.len() as _,
-                false as _,
-            ),
+        let volume_url = match CFURLCreateFromFileSystemRepresentation(
+            kCFAllocatorDefault,
+            c_disk.f_mntonname.as_ptr() as *const _,
+            c_disk.f_mntonname.len() as _,
+            false as _,
         ) {
             Some(url) => url,
             None => {
@@ -287,11 +279,7 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
         // `kCFURLEnumeratorSkipInvisibles` option of `CFURLEnumeratorOptions`. Specifically,
         // the first one considers the writable `Data`(`/System/Volumes/Data`) partition to be
         // browsable, while it is classified as "invisible" by CoreFoundation's volume emumerator.
-        let browsable = get_bool_value(
-            prop_dict.inner(),
-            DictKey::Extern(ffi::kCFURLVolumeIsBrowsableKey),
-        )
-        .unwrap_or_default();
+        let browsable = get_bool_value(&prop_dict, kCFURLVolumeIsBrowsableKey).unwrap_or_default();
 
         // Do not return invisible "disks". Most of the time, these are APFS snapshots, hidden
         // system volumes, etc. Browsable is defined to be visible in the system's UI like Finder,
@@ -303,11 +291,7 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
             continue;
         }
 
-        let local_only = get_bool_value(
-            prop_dict.inner(),
-            DictKey::Extern(ffi::kCFURLVolumeIsLocalKey),
-        )
-        .unwrap_or(true);
+        let local_only = get_bool_value(&prop_dict, kCFURLVolumeIsLocalKey).unwrap_or(true);
 
         // Skip any drive that is not locally attached to the system.
         //
@@ -336,155 +320,87 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
     }
 }
 
-type RetainedCFArray = CFReleaser<core_foundation_sys::array::__CFArray>;
-pub(crate) type RetainedCFDictionary = CFReleaser<core_foundation_sys::dictionary::__CFDictionary>;
-type RetainedCFURL = CFReleaser<core_foundation_sys::url::__CFURL>;
-#[cfg(target_os = "macos")]
-pub(crate) type RetainedCFString = CFReleaser<core_foundation_sys::string::__CFString>;
-
-unsafe fn build_requested_properties(properties: &[CFStringRef]) -> Option<RetainedCFArray> {
-    CFReleaser::new(CFArrayCreate(
-        ptr::null_mut(),
-        properties.as_ptr() as *const *const c_void,
+unsafe fn build_requested_properties(
+    properties: &[Option<&CFString>],
+) -> Option<CFRetained<CFArray>> {
+    CFArrayCreate(
+        None,
+        properties.as_ptr() as *mut *const c_void,
         properties.len() as _,
-        &core_foundation_sys::array::kCFTypeArrayCallBacks,
-    ))
+        &kCFTypeArrayCallBacks,
+    )
 }
 
 fn get_disk_properties(
-    volume_url: &RetainedCFURL,
-    requested_properties: &RetainedCFArray,
-) -> Option<RetainedCFDictionary> {
-    CFReleaser::new(unsafe {
-        ffi::CFURLCopyResourcePropertiesForKeys(
-            volume_url.inner(),
-            requested_properties.inner(),
-            ptr::null_mut(),
-        )
-    })
+    volume_url: &CFURL,
+    requested_properties: &CFArray,
+) -> Option<CFRetained<CFDictionary>> {
+    unsafe {
+        CFURLCopyResourcePropertiesForKeys(volume_url, Some(requested_properties), ptr::null_mut())
+    }
 }
 
-fn get_available_volume_space(disk_props: &RetainedCFDictionary) -> Option<u64> {
+fn get_available_volume_space(disk_props: &CFDictionary) -> Option<u64> {
     // We prefer `AvailableCapacityForImportantUsage` over `AvailableCapacity` because
     // it takes more of the system's properties into account, like the trash, system-managed caches,
     // etc. It generally also returns higher values too, because of the above, so it's a more
     // accurate representation of what the system _could_ still use.
     unsafe {
         get_int_value(
-            disk_props.inner(),
-            DictKey::Extern(ffi::kCFURLVolumeAvailableCapacityForImportantUsageKey),
+            disk_props,
+            kCFURLVolumeAvailableCapacityForImportantUsageKey,
         )
         .filter(|bytes| *bytes != 0)
-        .or_else(|| {
-            get_int_value(
-                disk_props.inner(),
-                DictKey::Extern(ffi::kCFURLVolumeAvailableCapacityKey),
-            )
-        })
+        .or_else(|| get_int_value(disk_props, kCFURLVolumeAvailableCapacityKey))
     }
 }
 
-pub(super) enum DictKey {
-    Extern(CFStringRef),
-    #[cfg(target_os = "macos")]
-    Defined(&'static str),
-}
-
 unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
-    dict: CFDictionaryRef,
-    key: DictKey,
+    dict: &CFDictionary,
+    key: Option<&CFString>,
     callback: F,
 ) -> Option<T> {
-    #[cfg(target_os = "macos")]
-    let _defined;
-    #[allow(clippy::infallible_destructuring_match)]
-    let key = match key {
-        DictKey::Extern(val) => val,
-        #[cfg(target_os = "macos")]
-        DictKey::Defined(val) => {
-            _defined = CFReleaser::new(cfs::CFStringCreateWithBytesNoCopy(
-                kCFAllocatorDefault,
-                val.as_ptr(),
-                val.len() as _,
-                cfs::kCFStringEncodingUTF8,
-                false as _,
-                core_foundation_sys::base::kCFAllocatorNull,
-            ))?;
-
-            _defined.inner()
-        }
-    };
-
     let mut value = std::ptr::null();
-    if CFDictionaryGetValueIfPresent(dict, key.cast(), &mut value) != 0 {
+    let key: *const CFString = key.map(|key| key as *const CFString).unwrap_or(ptr::null());
+    if CFDictionaryGetValueIfPresent(dict, key.cast(), &mut value) {
         callback(value)
     } else {
         None
     }
 }
 
-pub(super) unsafe fn get_str_value(dict: CFDictionaryRef, key: DictKey) -> Option<String> {
+pub(super) unsafe fn get_str_value(dict: &CFDictionary, key: Option<&CFString>) -> Option<String> {
     get_dict_value(dict, key, |v| {
-        let v = v as cfs::CFStringRef;
-
-        let len_utf16 = cfs::CFStringGetLength(v) as usize;
-        let len_bytes = len_utf16 * 2; // Two bytes per UTF-16 codepoint.
-
-        let v_ptr = cfs::CFStringGetCStringPtr(v, cfs::kCFStringEncodingUTF8);
-        if v_ptr.is_null() {
-            // Fallback on CFStringGetString to read the underlying bytes from the CFString.
-            let mut buf = vec![0; len_bytes];
-            let success = cfs::CFStringGetCString(
-                v,
-                buf.as_mut_ptr(),
-                len_bytes as _,
-                cfs::kCFStringEncodingUTF8,
-            );
-
-            if success != 0 {
-                utils::vec_to_rust(buf)
-            } else {
-                None
-            }
-        } else {
-            crate::unix::utils::cstr_to_rust_with_size(v_ptr, Some(len_bytes))
-        }
+        let v = unsafe { &*v.cast::<CFString>() };
+        Some(v.to_string())
     })
 }
 
-unsafe fn get_bool_value(dict: CFDictionaryRef, key: DictKey) -> Option<bool> {
-    get_dict_value(dict, key, |v| Some(v as CFBooleanRef == kCFBooleanTrue))
+unsafe fn get_bool_value(dict: &CFDictionary, key: Option<&CFString>) -> Option<bool> {
+    get_dict_value(dict, key, |v| {
+        let v = unsafe { &*v.cast::<CFBoolean>() };
+        Some(v.as_bool())
+    })
 }
 
-pub(super) unsafe fn get_int_value(dict: CFDictionaryRef, key: DictKey) -> Option<u64> {
+pub(super) unsafe fn get_int_value(dict: &CFDictionary, key: Option<&CFString>) -> Option<u64> {
     get_dict_value(dict, key, |v| {
-        let mut val: i64 = 0;
-        if CFNumberGetValue(
-            v.cast(),
-            core_foundation_sys::number::kCFNumberSInt64Type,
-            &mut val as *mut _ as *mut _,
-        ) {
-            Some(val as _)
-        } else {
-            None
-        }
+        let v = unsafe { &*v.cast::<CFNumber>() };
+        Some(v.as_i64()? as u64)
     })
 }
 
 unsafe fn new_disk(
     disk: Option<&mut Disk>,
     mount_point: PathBuf,
-    volume_url: RetainedCFURL,
+    volume_url: CFRetained<CFURL>,
     c_disk: libc::statfs,
-    disk_props: &RetainedCFDictionary,
+    disk_props: &CFDictionary,
     refresh_kind: DiskRefreshKind,
 ) -> Option<Disk> {
     let (total_space, available_space) = if refresh_kind.storage() {
         (
-            get_int_value(
-                disk_props.inner(),
-                DictKey::Extern(ffi::kCFURLVolumeTotalCapacityKey),
-            ),
+            get_int_value(disk_props, kCFURLVolumeTotalCapacityKey),
             get_available_volume_space(disk_props),
         )
     } else {
@@ -509,11 +425,7 @@ unsafe fn new_disk(
     // Note: Since we requested these properties from the system, we don't expect
     // these property retrievals to fail.
 
-    let name = get_str_value(
-        disk_props.inner(),
-        DictKey::Extern(ffi::kCFURLVolumeNameKey),
-    )
-    .map(OsString::from)?;
+    let name = get_str_value(disk_props, kCFURLVolumeNameKey).map(OsString::from)?;
 
     let file_system = {
         let len = c_disk
@@ -537,28 +449,16 @@ unsafe fn new_disk(
     // so we just assume the disk type is an SSD and set disk i/o stats to 0 until Rust has a way to conditionally link to
     // IOKit in more recent deployment versions.
 
-    let ejectable = get_bool_value(
-        disk_props.inner(),
-        DictKey::Extern(ffi::kCFURLVolumeIsEjectableKey),
-    )
-    .unwrap_or(false);
+    let ejectable = get_bool_value(disk_props, kCFURLVolumeIsEjectableKey).unwrap_or(false);
 
-    let removable = get_bool_value(
-        disk_props.inner(),
-        DictKey::Extern(ffi::kCFURLVolumeIsRemovableKey),
-    )
-    .unwrap_or(false);
+    let removable = get_bool_value(disk_props, kCFURLVolumeIsRemovableKey).unwrap_or(false);
 
     let is_removable = if ejectable || removable {
         true
     } else {
         // If neither `ejectable` or `removable` return `true`, fallback to checking
         // if the disk is attached to the internal system.
-        let internal = get_bool_value(
-            disk_props.inner(),
-            DictKey::Extern(ffi::kCFURLVolumeIsInternalKey),
-        )
-        .unwrap_or_default();
+        let internal = get_bool_value(disk_props, kCFURLVolumeIsInternalKey).unwrap_or_default();
 
         !internal
     };

@@ -34,3 +34,24 @@ pub(crate) fn cstr_to_rust_with_size(
         String::from_utf8(s).ok()
     }
 }
+
+#[cfg(all(
+    feature = "system",
+    not(any(target_os = "ios", feature = "apple-sandbox"))
+))]
+pub(crate) fn wait_process(pid: crate::Pid) -> Option<std::process::ExitStatus> {
+    use std::os::unix::process::ExitStatusExt;
+
+    let mut status = 0;
+    // attempt waiting
+    unsafe {
+        if retry_eintr!(libc::waitpid(pid.0, &mut status, 0)) < 0 {
+            // attempt failed (non-child process) so loop until process ends
+            let duration = std::time::Duration::from_millis(10);
+            while libc::kill(pid.0, 0) == 0 {
+                std::thread::sleep(duration);
+            }
+        }
+        Some(std::process::ExitStatus::from_raw(status))
+    }
+}

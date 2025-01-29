@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::path::Path;
+use std::process::ExitStatus;
 use std::str::FromStr;
 
 use crate::common::impl_get_set::impl_get_set;
@@ -790,6 +791,33 @@ impl System {
         SystemInner::distribution_id()
     }
 
+    /// Returns the distribution ids of operating systems that are closely
+    /// related to the local operating system in regards to packaging and
+    /// programming interfaces, for example listing one or more OS identifiers
+    /// the local OS is a derivative from.
+    ///
+    /// See also
+    /// - <https://www.freedesktop.org/software/systemd/man/latest/os-release.html#ID_LIKE=>
+    ///
+    /// | example platform | value of `System::distribution_id_like()` |
+    /// |---|---|
+    /// | android phone | [] |
+    /// | archlinux laptop | [] |
+    /// | centos server | ["rhel", "fedora"] |
+    /// | ubuntu laptop | ["debian"] |
+    /// | windows laptop | [] |
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Distribution ID_LIKE: {:?}", System::distribution_id_like());
+    /// ```
+    pub fn distribution_id_like() -> Vec<String> {
+        SystemInner::distribution_id_like()
+    }
+
     /// Returns the system hostname based off DNS.
     ///
     /// **Important**: this information is computed every time this function is called.
@@ -866,7 +894,8 @@ pub struct LoadAvg {
 ///
 /// If you want the list of the supported signals on the current system, use
 /// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub enum Signal {
     /// Hangup detected on controlling terminal or death of controlling process.
     Hangup,
@@ -990,7 +1019,8 @@ pub struct CGroupLimits {
 }
 
 /// Enum describing the different status of a process.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub enum ProcessStatus {
     /// ## Linux
     ///
@@ -1108,6 +1138,7 @@ pub enum ProcessStatus {
 
 /// Enum describing the different kind of threads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub enum ThreadKind {
     /// Kernel thread.
     Kernel,
@@ -1142,7 +1173,8 @@ impl Process {
     /// Sends [`Signal::Kill`] to the process (which is the only signal supported on all supported
     /// platforms by this crate).
     ///
-    /// Returns `true` if the signal was sent successfully.
+    /// Returns `true` if the signal was sent successfully. If you want to wait for this process
+    /// to end, you can use [`Process::wait`].
     ///
     /// ⚠️ Even if this function returns `true`, it doesn't necessarily mean that the process will
     /// be killed. It just means that the signal was sent successfully.
@@ -1150,7 +1182,7 @@ impl Process {
     /// ⚠️ Please note that some processes might not be "killable", like if they run with higher
     /// levels than the current process for example.
     ///
-    /// If you want to send another signal, take a look at [`Process::kill_with`].
+    /// If you want to use another signal, take a look at [`Process::kill_with`].
     ///
     /// To get the list of the supported signals on this system, use
     /// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
@@ -1171,7 +1203,8 @@ impl Process {
     /// it'll do nothing and will return `None`. Otherwise it'll return `Some(bool)`. The boolean
     /// value will depend on whether or not the signal was sent successfully.
     ///
-    /// If you just want to kill the process, use [`Process::kill`] directly.
+    /// If you just want to kill the process, use [`Process::kill`] directly. If you want to wait
+    /// for this process to end, you can use [`Process::wait`].
     ///
     /// ⚠️ Please note that some processes might not be "killable", like if they run with higher
     /// levels than the current process for example.
@@ -1191,6 +1224,24 @@ impl Process {
     /// ```
     pub fn kill_with(&self, signal: Signal) -> Option<bool> {
         self.inner.kill_with(signal)
+    }
+
+    /// Wait for process termination and returns its [`ExitStatus`] if it could be retrieved,
+    /// returns `None` otherwise.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let mut s = System::new_all();
+    ///
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("Waiting for pid 1337");
+    ///     let exit_status = process.wait();
+    ///     println!("Pid 1337 exited with: {exit_status:?}");
+    /// }
+    /// ```
+    pub fn wait(&self) -> Option<ExitStatus> {
+        self.inner.wait()
     }
 
     /// Returns the name of the process.
@@ -1463,6 +1514,22 @@ impl Process {
         self.inner.cpu_usage()
     }
 
+    /// Returns the total accumulated CPU usage (in CPU-milliseconds). Note
+    /// that it might be bigger than the total clock run time of a process if
+    /// run on a multi-core machine.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     println!("{}", process.accumulated_cpu_time());
+    /// }
+    /// ```
+    pub fn accumulated_cpu_time(&self) -> u64 {
+        self.inner.accumulated_cpu_time()
+    }
+
     /// Returns number of bytes read and written to disk.
     ///
     /// ⚠️ On Windows, this method actually returns **ALL** I/O read and
@@ -1574,23 +1641,6 @@ impl Process {
     /// ```
     pub fn effective_group_id(&self) -> Option<Gid> {
         self.inner.effective_group_id()
-    }
-
-    /// Wait for process termination.
-    ///
-    /// ```no_run
-    /// use sysinfo::{Pid, System};
-    ///
-    /// let mut s = System::new_all();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("Waiting for pid 1337");
-    ///     process.wait();
-    ///     println!("Pid 1337 exited");
-    /// }
-    /// ```
-    pub fn wait(&self) {
-        self.inner.wait()
     }
 
     /// Returns the session ID for the current process or `None` if it couldn't
@@ -1909,7 +1959,14 @@ impl ProcessRefreshKind {
         }
     }
 
-    impl_get_set!(ProcessRefreshKind, cpu, with_cpu, without_cpu);
+    impl_get_set!(
+        ProcessRefreshKind,
+        cpu,
+        with_cpu,
+        without_cpu,
+        "\
+It will retrieve both CPU usage and CPU accumulated time,"
+    );
     impl_get_set!(
         ProcessRefreshKind,
         disk_usage,
