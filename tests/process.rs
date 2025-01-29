@@ -527,7 +527,7 @@ fn test_refresh_thread() {
     s.refresh_processes_specifics(
         ProcessesToUpdate::All,
         false,
-        ProcessRefreshKind::everything().without_thread(),
+        ProcessRefreshKind::everything().without_tasks(),
     );
 
     // Check that we have an empty thread list.

@@ -277,7 +277,7 @@ impl System {
     ///         .with_cpu()
     ///         .with_disk_usage()
     ///         .with_exe(UpdateKind::OnlyIfNotSet)
-    ///         .with_thread(),
+    ///         .with_tasks(),
     /// );
     /// ```
     ///
@@ -314,7 +314,7 @@ impl System {
                 .with_cpu()
                 .with_disk_usage()
                 .with_exe(UpdateKind::OnlyIfNotSet)
-                .with_thread(),
+                .with_tasks(),
         )
     }
 
@@ -1865,7 +1865,7 @@ pub struct ProcessRefreshKind {
     environ: UpdateKind,
     cmd: UpdateKind,
     exe: UpdateKind,
-    thread: bool,
+    tasks: bool,
 }
 
 impl ProcessRefreshKind {
@@ -1905,7 +1905,7 @@ impl ProcessRefreshKind {
             environ: UpdateKind::OnlyIfNotSet,
             cmd: UpdateKind::OnlyIfNotSet,
             exe: UpdateKind::OnlyIfNotSet,
-            thread: true,
+            tasks: true,
         }
     }
 
@@ -1948,7 +1948,7 @@ It will retrieve the following information:
     );
     impl_get_set!(ProcessRefreshKind, cmd, with_cmd, without_cmd, UpdateKind);
     impl_get_set!(ProcessRefreshKind, exe, with_exe, without_exe, UpdateKind);
-    impl_get_set!(ProcessRefreshKind, thread, with_thread, without_thread);
+    impl_get_set!(ProcessRefreshKind, tasks, with_tasks, without_tasks);
 }
 
 /// Used to determine what you want to refresh specifically on the [`Cpu`] type.

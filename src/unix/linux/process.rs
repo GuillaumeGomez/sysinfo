@@ -782,7 +782,7 @@ pub(crate) fn refresh_procs(
             .map(|entry| {
                 let Ok(entry) = entry else { return Vec::new() };
                 let mut entries = Vec::new();
-                get_all_pid_entries(None, None, entry, &mut entries, refresh_kind.thread());
+                get_all_pid_entries(None, None, entry, &mut entries, refresh_kind.tasks());
                 entries
             })
             .flatten()
