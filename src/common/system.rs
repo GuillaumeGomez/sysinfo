@@ -1888,7 +1888,7 @@ impl ProcessRefreshKind {
             environ: UpdateKind::OnlyIfNotSet,
             cmd: UpdateKind::OnlyIfNotSet,
             exe: UpdateKind::OnlyIfNotSet,
-            thread: false,
+            thread: true,
         }
     }
 

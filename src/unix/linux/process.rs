@@ -660,7 +660,7 @@ fn get_all_pid_entries(
     parent_pid: Option<Pid>,
     entry: DirEntry,
     data: &mut Vec<ProcAndTasks>,
-    refresh_kind: ProcessRefreshKind,
+    enable_thread_stats: bool,
 ) -> Option<Pid> {
     let Ok(file_type) = entry.file_type() else {
         return None;
@@ -679,12 +679,18 @@ fn get_all_pid_entries(
     let name = name?;
     let pid = Pid::from(usize::from_str(name.to_str()?).ok()?);
 
-    let tasks = if refresh_kind.thread() {
+    let tasks = if enable_thread_stats {
         let tasks_dir = Path::join(&entry, "task");
         if let Ok(entries) = fs::read_dir(tasks_dir) {
             let mut tasks = HashSet::new();
             for task in entries.into_iter().filter_map(|entry| {
-                get_all_pid_entries(Some(name), Some(pid), entry.ok()?, data, refresh_kind)
+                get_all_pid_entries(
+                    Some(name),
+                    Some(pid),
+                    entry.ok()?,
+                    data,
+                    enable_thread_stats,
+                )
             }) {
                 tasks.insert(task);
             }
@@ -776,7 +782,7 @@ pub(crate) fn refresh_procs(
             .map(|entry| {
                 let Ok(entry) = entry else { return Vec::new() };
                 let mut entries = Vec::new();
-                get_all_pid_entries(None, None, entry, &mut entries, refresh_kind);
+                get_all_pid_entries(None, None, entry, &mut entries, refresh_kind.thread());
                 entries
             })
             .flatten()
