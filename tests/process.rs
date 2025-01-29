@@ -439,7 +439,6 @@ fn test_refresh_tasks() {
     const POLL_INTERVAL: Duration = Duration::from_millis(100);
 
     for _ in 0..MAX_POLLS {
-        println!("Waiting for thread start...");
         sys.refresh_processes(ProcessesToUpdate::All, /*refresh_users=*/ false);
 
         // Check if our thread is present in two ways:
@@ -469,12 +468,35 @@ fn test_refresh_tasks() {
         std::thread::sleep(POLL_INTERVAL);
     }
 
+    // At this point we know the thread is visible in the system's process/tasks list.
+    // Lets validate a few more things:
+    // * ProcessRefreshKind::nothing() should have thread information.
+    // * ProcessRefreshKind::nothing().with_tasks() should have thread information.
+    // * ProcessRefreshKind::nothing().without_tasks() should have thread information.
+    // * ProcessRefreshKind::everything() should have thread information.
+    // * ProcessRefreshKind::everything() should have thread information.
+    // * ProcessRefreshKind::everything().without_tasks() should not have thread information.
+
+    let expectations = [
+        (ProcessRefreshKind::nothing(), true),
+        (ProcessRefreshKind::nothing().with_tasks(), true),
+        (ProcessRefreshKind::nothing().without_tasks(), false),
+        (ProcessRefreshKind::everything(), true),
+        (ProcessRefreshKind::everything().with_tasks(), true),
+        (ProcessRefreshKind::everything().without_tasks(), false),
+    ];
+    for (kind, expect_tasks) in expectations.iter() {
+        let mut sys_new = System::new();
+        sys_new.refresh_processes_specifics(ProcessesToUpdate::All, true, *kind);
+        let proc = sys_new.process(pid).unwrap();
+        assert_eq!(proc.tasks().is_some(), *expect_tasks);
+    }
+
     // 3) Signal the thread to exit.
     drop(tx);
 
     // 4) Wait until the thread is gone from the system’s process/tasks list.
     for _ in 0..MAX_POLLS {
-        println!("Waiting for thread stop...");
         sys.refresh_processes(ProcessesToUpdate::All, /*refresh_users=*/ true);
 
         let parent_proc = sys.process(pid as sysinfo::Pid);
@@ -500,42 +522,6 @@ fn test_refresh_tasks() {
         }
         std::thread::sleep(POLL_INTERVAL);
     }
-}
-
-// Checks that `RefreshKind::Thread` when disabled doesnt get thread information.
-#[test]
-#[cfg(all(
-    any(target_os = "linux", target_os = "android"),
-    not(feature = "unknown-ci")
-))]
-fn test_refresh_thread() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
-        return;
-    }
-    let task_name = "task_1_second";
-    std::thread::Builder::new()
-        .name(task_name.into())
-        .spawn(|| {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        })
-        .unwrap();
-
-    let pid = Pid::from_u32(std::process::id() as _);
-
-    // Refresh everything but threads.
-    let mut s = System::new();
-    s.refresh_processes_specifics(
-        ProcessesToUpdate::All,
-        false,
-        ProcessRefreshKind::everything().without_tasks(),
-    );
-
-    // Check that we have an empty thread list.
-    assert!(s.process(pid).unwrap().tasks().is_none());
-    assert!(s
-        .processes_by_exact_name(task_name.as_ref())
-        .next()
-        .is_none());
 }
 
 // Checks that `refresh_process` is removing dead processes when asked.

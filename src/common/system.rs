@@ -1904,7 +1904,7 @@ pub enum ProcessesToUpdate<'a> {
 /// ```
 ///
 /// [`Process`]: crate::Process
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProcessRefreshKind {
     cpu: bool,
     disk_usage: bool,
@@ -1916,6 +1916,23 @@ pub struct ProcessRefreshKind {
     cmd: UpdateKind,
     exe: UpdateKind,
     tasks: bool,
+}
+
+impl Default for ProcessRefreshKind {
+    fn default() -> Self {
+        Self {
+            cpu: false,
+            disk_usage: false,
+            memory: false,
+            user: UpdateKind::Never,
+            cwd: UpdateKind::Never,
+            root: UpdateKind::Never,
+            environ: UpdateKind::Never,
+            cmd: UpdateKind::Never,
+            exe: UpdateKind::Never,
+            tasks: true, // Process by default includes all tasks.
+        }
+    }
 }
 
 impl ProcessRefreshKind {
