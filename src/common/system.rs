@@ -307,7 +307,8 @@ impl System {
                 .with_memory()
                 .with_cpu()
                 .with_disk_usage()
-                .with_exe(UpdateKind::OnlyIfNotSet),
+                .with_exe(UpdateKind::OnlyIfNotSet)
+                .with_thread(),
         )
     }
 
