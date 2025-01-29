@@ -1918,18 +1918,22 @@ pub struct ProcessRefreshKind {
     tasks: bool,
 }
 
+/// Default implementation for [`ProcessRefreshKind`].
+/// Sets everything to default values except for `tasks` which is set to `true`.
+/// This is because by default, a [`Process`] was fetching all tasks and we want to keep this
+/// behavior.
 impl Default for ProcessRefreshKind {
     fn default() -> Self {
         Self {
             cpu: false,
             disk_usage: false,
             memory: false,
-            user: UpdateKind::Never,
-            cwd: UpdateKind::Never,
-            root: UpdateKind::Never,
-            environ: UpdateKind::Never,
-            cmd: UpdateKind::Never,
-            exe: UpdateKind::Never,
+            user: UpdateKind::default(),
+            cwd: UpdateKind::default(),
+            root: UpdateKind::default(),
+            environ: UpdateKind::default(),
+            cmd: UpdateKind::default(),
+            exe: UpdateKind::default(),
             tasks: true, // Process by default includes all tasks.
         }
     }
