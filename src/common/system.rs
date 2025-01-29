@@ -262,7 +262,7 @@ impl System {
         self.inner.refresh_cpu_specifics(refresh_kind)
     }
 
-    /// Gets all processes and updates their information.
+    /// Gets all processes and updates their information, along with all the threads/tasks each process has.
     ///
     /// It does the same as:
     ///
@@ -276,7 +276,8 @@ impl System {
     ///         .with_memory()
     ///         .with_cpu()
     ///         .with_disk_usage()
-    ///         .with_exe(UpdateKind::OnlyIfNotSet),
+    ///         .with_exe(UpdateKind::OnlyIfNotSet)
+    ///         .with_thread(),
     /// );
     /// ```
     ///
@@ -286,6 +287,11 @@ impl System {
     ///
     /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
     /// by using [`set_open_files_limit`][crate::set_open_files_limit].
+    ///
+    /// ⚠️ On Linux, if you dont need the threads/tasks of each process, you can use
+    /// `refresh_processes_specifics` with `ProcessRefreshKind::everything().without_threads()`.
+    /// Refreshesing all processes and their threads can be quite expensive. For more information
+    /// see [`ProcessRefreshKind`].
     ///
     /// Example:
     ///
@@ -1819,6 +1825,16 @@ pub enum ProcessesToUpdate<'a> {
 /// the information won't be retrieved if the information is accessible without needing
 /// extra computation.
 ///
+/// ⚠️ ** Linux Specific ** ⚠️
+/// When using `ProcessRefreshKind::everything()`, in linux we will fetch all relevant
+/// information from `/proc/<pid>/` as well as all the information from `/proc/<pid>/task/<tid>/`
+/// dirs. This makes the refresh mechanism a lot slower depending on the number of threads
+/// each process has.
+///  
+/// If you dont care about threads information, use `ProcessRefreshKind::everything().without_thread()`
+/// as much as possible.
+///
+/// In windows, this will not have any effect.
 /// ```
 /// use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System};
 ///
