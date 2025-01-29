@@ -430,6 +430,7 @@ fn test_refresh_tasks() {
     let pid = Pid::from_u32(std::process::id() as _);
 
     // Checks that the task is listed as it should.
+    // refresh_processes by default refreshes tasks.
     let mut s = System::new();
     s.refresh_processes(ProcessesToUpdate::All, false);
 
@@ -461,6 +462,42 @@ fn test_refresh_tasks() {
             .map(|task| task.name() == task_name)
             .unwrap_or(false)))
         .unwrap_or(false));
+    assert!(s
+        .processes_by_exact_name(task_name.as_ref())
+        .next()
+        .is_none());
+}
+
+// Checks that `RefreshKind::Thread` when disabled doesnt get thread information.
+#[test]
+#[cfg(all(
+    any(target_os = "linux", target_os = "android"),
+    not(feature = "unknown-ci")
+))]
+fn test_refresh_thread() {
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let task_name = "task_1_second";
+    std::thread::Builder::new()
+        .name(task_name.into())
+        .spawn(|| {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        })
+        .unwrap();
+
+    let pid = Pid::from_u32(std::process::id() as _);
+
+    // Refresh everything but threads.
+    let mut s = System::new();
+    s.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        false,
+        ProcessRefreshKind::everything().without_thread(),
+    );
+
+    // Check that we have an empty thread list.
+    assert!(s.process(pid).unwrap().tasks().is_none());
     assert!(s
         .processes_by_exact_name(task_name.as_ref())
         .next()
