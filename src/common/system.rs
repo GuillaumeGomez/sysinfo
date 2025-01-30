@@ -290,7 +290,7 @@ impl System {
     /// by using [`set_open_files_limit`][crate::set_open_files_limit].
     ///
     /// ⚠️ On Linux, if you dont need the threads/tasks of each process, you can use
-    /// `refresh_processes_specifics` with `ProcessRefreshKind::everything().without_threads()`.
+    /// `refresh_processes_specifics` with `ProcessRefreshKind::everything().without_tasks()`.
     /// Refreshesing all processes and their threads can be quite expensive. For more information
     /// see [`ProcessRefreshKind`].
     ///
