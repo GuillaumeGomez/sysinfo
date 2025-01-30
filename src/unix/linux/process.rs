@@ -664,7 +664,7 @@ fn get_all_pid_entries(
     parent_pid: Option<Pid>,
     entry: DirEntry,
     data: &mut Vec<ProcAndTasks>,
-    enable_thread_stats: bool,
+    enable_task_stats: bool,
 ) -> Option<Pid> {
     let Ok(file_type) = entry.file_type() else {
         return None;
