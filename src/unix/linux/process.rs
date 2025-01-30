@@ -683,18 +683,12 @@ fn get_all_pid_entries(
     let name = name?;
     let pid = Pid::from(usize::from_str(name.to_str()?).ok()?);
 
-    let tasks = if enable_thread_stats {
+    let tasks = if enable_task_stats {
         let tasks_dir = Path::join(&entry, "task");
         if let Ok(entries) = fs::read_dir(tasks_dir) {
             let mut tasks = HashSet::new();
             for task in entries.into_iter().filter_map(|entry| {
-                get_all_pid_entries(
-                    Some(name),
-                    Some(pid),
-                    entry.ok()?,
-                    data,
-                    enable_thread_stats,
-                )
+                get_all_pid_entries(Some(name), Some(pid), entry.ok()?, data, enable_task_stats)
             }) {
                 tasks.insert(task);
             }

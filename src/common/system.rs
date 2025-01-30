@@ -263,7 +263,7 @@ impl System {
         self.inner.refresh_cpu_specifics(refresh_kind)
     }
 
-    /// Gets all processes and updates their information, along with all the threads/tasks each process has.
+    /// Gets all processes and updates their information, along with all the tasks each process has.
     ///
     /// It does the same as:
     ///
@@ -278,7 +278,6 @@ impl System {
     ///         .with_cpu()
     ///         .with_disk_usage()
     ///         .with_exe(UpdateKind::OnlyIfNotSet)
-    ///         .with_tasks(),
     /// );
     /// ```
     ///
@@ -289,9 +288,9 @@ impl System {
     /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
     /// by using [`set_open_files_limit`][crate::set_open_files_limit].
     ///
-    /// ⚠️ On Linux, if you dont need the threads/tasks of each process, you can use
+    /// ⚠️ On Linux, if you dont need the tasks of each process, you can use
     /// `refresh_processes_specifics` with `ProcessRefreshKind::everything().without_tasks()`.
-    /// Refreshesing all processes and their threads can be quite expensive. For more information
+    /// Refreshesing all processes and their tasks can be quite expensive. For more information
     /// see [`ProcessRefreshKind`].
     ///
     /// Example:
@@ -1878,13 +1877,12 @@ pub enum ProcessesToUpdate<'a> {
 /// ⚠️ ** Linux Specific ** ⚠️
 /// When using `ProcessRefreshKind::everything()`, in linux we will fetch all relevant
 /// information from `/proc/<pid>/` as well as all the information from `/proc/<pid>/task/<tid>/`
-/// dirs. This makes the refresh mechanism a lot slower depending on the number of threads
+/// dirs. This makes the refresh mechanism a lot slower depending on the number of tasks
 /// each process has.
 ///  
-/// If you dont care about threads information, use `ProcessRefreshKind::everything().without_thread()`
+/// If you don't care about tasks information, use `ProcessRefreshKind::everything().without_thread()`
 /// as much as possible.
 ///
-/// In windows, this will not have any effect.
 /// ```
 /// use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System};
 ///
@@ -1940,8 +1938,9 @@ impl Default for ProcessRefreshKind {
 }
 
 impl ProcessRefreshKind {
-    /// Creates a new `ProcessRefreshKind` with every refresh set to `false`.
-    ///
+    /// Creates a new `ProcessRefreshKind` with every refresh set to `false`, except for `tasks`
+    /// This is because by default, [`Process`] was fetching all tasks and we want to keep this
+    /// behavior.
     /// ```
     /// use sysinfo::{ProcessRefreshKind, UpdateKind};
     ///
