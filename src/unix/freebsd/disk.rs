@@ -375,7 +375,15 @@ pub unsafe fn get_all_list(
             OsString::from(mount_point)
         };
 
-        if let Some(disk) = container.iter_mut().find(|d| d.inner.name == name) {
+        if let Some(disk) = container.iter_mut().find(|d| {
+            d.inner.name == name
+                && d.inner
+                    .file_system
+                    .as_encoded_bytes()
+                    .iter()
+                    .zip(fs_type.iter())
+                    .all(|(a, b)| a == b)
+        }) {
             // I/O usage is updated for all disks at once at the end.
             refresh_disk(&mut disk.inner, refresh_kind.without_io_usage());
             disk.inner.updated = true;

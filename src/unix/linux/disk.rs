@@ -406,10 +406,11 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
         })
     {
         let mount_point = Path::new(&fs_file);
-        if let Some(disk) = container
-            .iter_mut()
-            .find(|d| d.inner.mount_point == mount_point)
-        {
+        if let Some(disk) = container.iter_mut().find(|d| {
+            d.inner.mount_point == mount_point
+                && d.inner.device_name == fs_spec
+                && d.inner.file_system == fs_vfstype
+        }) {
             disk.inner
                 .efficient_refresh(refresh_kind, &procfs_disk_stats, false);
             disk.inner.updated = true;
