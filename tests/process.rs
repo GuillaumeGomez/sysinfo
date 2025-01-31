@@ -416,55 +416,115 @@ fn test_refresh_process_doesnt_remove() {
     not(feature = "unknown-ci")
 ))]
 fn test_refresh_tasks() {
+    // Skip if unsupported.
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
-    let task_name = "task_1_second";
+
+    // 1) Spawn a thread that waits on a channel, so we control when it exits.
+    let task_name = "controlled_test_thread";
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+
     std::thread::Builder::new()
-        .name(task_name.into())
-        .spawn(|| {
-            std::thread::sleep(std::time::Duration::from_secs(1));
+        .name(task_name.to_string())
+        .spawn(move || {
+            // Wait until the main thread signals we can exit.
+            let _ = rx.recv();
         })
         .unwrap();
 
     let pid = Pid::from_u32(std::process::id() as _);
+    let mut sys = System::new();
 
-    // Checks that the task is listed as it should.
-    let mut s = System::new();
-    s.refresh_processes(ProcessesToUpdate::All, false);
+    // Wait until the new thread shows up in the process/tasks list.
+    // We do a short loop and check each time by refreshing processes.
+    const MAX_POLLS: usize = 20;
+    const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 
-    assert!(s
-        .process(pid)
-        .unwrap()
-        .tasks()
-        .map(|tasks| tasks.iter().any(|task_pid| s
-            .process(*task_pid)
-            .map(|task| task.name() == task_name)
-            .unwrap_or(false)))
-        .unwrap_or(false));
-    assert!(s
-        .processes_by_exact_name(task_name.as_ref())
-        .next()
-        .is_some());
+    for _ in 0..MAX_POLLS {
+        sys.refresh_processes(ProcessesToUpdate::All, /*refresh_users=*/ false);
 
-    // Let's give some time to the system to clean up...
-    std::thread::sleep(std::time::Duration::from_secs(2));
+        // Check if our thread is present in two ways:
+        //   (a) via parent's tasks
+        //   (b) by exact name
+        let parent_proc = sys.process(pid);
+        let tasks_contain_thread = parent_proc
+            .and_then(|p| p.tasks())
+            .map(|tids| {
+                tids.iter().any(|tid| {
+                    sys.process(*tid)
+                        .map(|t| t.name() == task_name)
+                        .unwrap_or(false)
+                })
+            })
+            .unwrap_or(false);
 
-    s.refresh_processes(ProcessesToUpdate::All, true);
+        let by_exact_name_exists = sys
+            .processes_by_exact_name(task_name.as_ref())
+            .next()
+            .is_some();
 
-    assert!(!s
-        .process(pid)
-        .unwrap()
-        .tasks()
-        .map(|tasks| tasks.iter().any(|task_pid| s
-            .process(*task_pid)
-            .map(|task| task.name() == task_name)
-            .unwrap_or(false)))
-        .unwrap_or(false));
-    assert!(s
-        .processes_by_exact_name(task_name.as_ref())
-        .next()
-        .is_none());
+        if tasks_contain_thread && by_exact_name_exists {
+            // We confirmed the thread is now visible
+            break;
+        }
+        std::thread::sleep(POLL_INTERVAL);
+    }
+
+    // At this point we know the task is visible in the system's process/tasks list.
+    // Let's validate a few more things:
+    // * ProcessRefreshKind::nothing() should have task information.
+    // * ProcessRefreshKind::nothing().with_tasks() should have task information.
+    // * ProcessRefreshKind::nothing().without_tasks() shouldn't have task information.
+    // * ProcessRefreshKind::everything() should have task information.
+    // * ProcessRefreshKind::everything() should have task information.
+    // * ProcessRefreshKind::everything().without_tasks() should not have task information.
+
+    let expectations = [
+        (ProcessRefreshKind::nothing(), true),
+        (ProcessRefreshKind::nothing().with_tasks(), true),
+        (ProcessRefreshKind::nothing().without_tasks(), false),
+        (ProcessRefreshKind::everything(), true),
+        (ProcessRefreshKind::everything().with_tasks(), true),
+        (ProcessRefreshKind::everything().without_tasks(), false),
+    ];
+    for (kind, expect_tasks) in expectations.iter() {
+        let mut sys_new = System::new();
+        sys_new.refresh_processes_specifics(ProcessesToUpdate::All, true, *kind);
+        let proc = sys_new.process(pid).unwrap();
+        assert_eq!(proc.tasks().is_some(), *expect_tasks);
+    }
+
+    // 3) Signal the thread to exit.
+    drop(tx);
+
+    // 4) Wait until the thread is gone from the system’s process/tasks list.
+    for _ in 0..MAX_POLLS {
+        sys.refresh_processes(ProcessesToUpdate::All, /*refresh_users=*/ true);
+
+        let parent_proc = sys.process(pid as sysinfo::Pid);
+        let tasks_contain_thread = parent_proc
+            .and_then(|p| p.tasks())
+            .map(|tids| {
+                tids.iter().any(|tid| {
+                    sys.process(*tid)
+                        .map(|t| t.name() == task_name)
+                        .unwrap_or(false)
+                })
+            })
+            .unwrap_or(false);
+
+        let by_exact_name_exists = sys
+            .processes_by_exact_name(task_name.as_ref())
+            .next()
+            .is_some();
+
+        // If it's gone from both checks, we're good.
+        if !tasks_contain_thread && !by_exact_name_exists {
+            break;
+        }
+        std::thread::sleep(POLL_INTERVAL);
+    }
 }
 
 // Checks that `refresh_process` is removing dead processes when asked.

@@ -664,6 +664,7 @@ fn get_all_pid_entries(
     parent_pid: Option<Pid>,
     entry: DirEntry,
     data: &mut Vec<ProcAndTasks>,
+    enable_task_stats: bool,
 ) -> Option<Pid> {
     let Ok(file_type) = entry.file_type() else {
         return None;
@@ -682,17 +683,19 @@ fn get_all_pid_entries(
     let name = name?;
     let pid = Pid::from(usize::from_str(name.to_str()?).ok()?);
 
-    let tasks_dir = Path::join(&entry, "task");
-
-    let tasks = if let Ok(entries) = fs::read_dir(tasks_dir) {
-        let mut tasks = HashSet::new();
-        for task in entries
-            .into_iter()
-            .filter_map(|entry| get_all_pid_entries(Some(name), Some(pid), entry.ok()?, data))
-        {
-            tasks.insert(task);
+    let tasks = if enable_task_stats {
+        let tasks_dir = Path::join(&entry, "task");
+        if let Ok(entries) = fs::read_dir(tasks_dir) {
+            let mut tasks = HashSet::new();
+            for task in entries.into_iter().filter_map(|entry| {
+                get_all_pid_entries(Some(name), Some(pid), entry.ok()?, data, enable_task_stats)
+            }) {
+                tasks.insert(task);
+            }
+            Some(tasks)
+        } else {
+            None
         }
-        Some(tasks)
     } else {
         None
     };
@@ -777,7 +780,7 @@ pub(crate) fn refresh_procs(
             .map(|entry| {
                 let Ok(entry) = entry else { return Vec::new() };
                 let mut entries = Vec::new();
-                get_all_pid_entries(None, None, entry, &mut entries);
+                get_all_pid_entries(None, None, entry, &mut entries, refresh_kind.tasks());
                 entries
             })
             .flatten()

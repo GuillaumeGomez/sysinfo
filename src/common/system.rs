@@ -263,7 +263,7 @@ impl System {
         self.inner.refresh_cpu_specifics(refresh_kind)
     }
 
-    /// Gets all processes and updates their information.
+    /// Gets all processes and updates their information, along with all the tasks each process has.
     ///
     /// It does the same as:
     ///
@@ -277,7 +277,7 @@ impl System {
     ///         .with_memory()
     ///         .with_cpu()
     ///         .with_disk_usage()
-    ///         .with_exe(UpdateKind::OnlyIfNotSet),
+    ///         .with_exe(UpdateKind::OnlyIfNotSet)
     /// );
     /// ```
     ///
@@ -287,6 +287,11 @@ impl System {
     ///
     /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
     /// by using [`set_open_files_limit`][crate::set_open_files_limit].
+    ///
+    /// ⚠️ On Linux, if you dont need the tasks of each process, you can use
+    /// `refresh_processes_specifics` with `ProcessRefreshKind::everything().without_tasks()`.
+    /// Refreshesing all processes and their tasks can be quite expensive. For more information
+    /// see [`ProcessRefreshKind`].
     ///
     /// Example:
     ///
@@ -308,7 +313,8 @@ impl System {
                 .with_memory()
                 .with_cpu()
                 .with_disk_usage()
-                .with_exe(UpdateKind::OnlyIfNotSet),
+                .with_exe(UpdateKind::OnlyIfNotSet)
+                .with_tasks(),
         )
     }
 
@@ -1868,6 +1874,15 @@ pub enum ProcessesToUpdate<'a> {
 /// the information won't be retrieved if the information is accessible without needing
 /// extra computation.
 ///
+/// ⚠️ ** Linux Specific ** ⚠️
+/// When using `ProcessRefreshKind::everything()`, in linux we will fetch all relevant
+/// information from `/proc/<pid>/` as well as all the information from `/proc/<pid>/task/<tid>/`
+/// folders. This makes the refresh mechanism a lot slower depending on the number of tasks
+/// each process has.
+///  
+/// If you don't care about tasks information, use `ProcessRefreshKind::everything().without_tasks()`
+/// as much as possible.
+///
 /// ```
 /// use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System};
 ///
@@ -1887,7 +1902,7 @@ pub enum ProcessesToUpdate<'a> {
 /// ```
 ///
 /// [`Process`]: crate::Process
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProcessRefreshKind {
     cpu: bool,
     disk_usage: bool,
@@ -1898,11 +1913,35 @@ pub struct ProcessRefreshKind {
     environ: UpdateKind,
     cmd: UpdateKind,
     exe: UpdateKind,
+    tasks: bool,
+}
+
+/// Creates a new `ProcessRefreshKind` with every refresh set to `false`, except for `tasks`.
+/// By default, we want to list all processes and tasks are considered processes on their own
+/// in linux so we still fetch them by default. However, the processes information are not
+/// refreshed.
+impl Default for ProcessRefreshKind {
+    fn default() -> Self {
+        Self {
+            cpu: false,
+            disk_usage: false,
+            memory: false,
+            user: UpdateKind::default(),
+            cwd: UpdateKind::default(),
+            root: UpdateKind::default(),
+            environ: UpdateKind::default(),
+            cmd: UpdateKind::default(),
+            exe: UpdateKind::default(),
+            tasks: true, // Process by default includes all tasks.
+        }
+    }
 }
 
 impl ProcessRefreshKind {
-    /// Creates a new `ProcessRefreshKind` with every refresh set to `false`.
-    ///
+    /// Creates a new `ProcessRefreshKind` with every refresh set to `false`, except for `tasks`.
+    /// By default, we want to list all processes and tasks are considered processes on their own
+    /// in linux so we still fetch them by default. However, the processes information are not
+    /// refreshed.
     /// ```
     /// use sysinfo::{ProcessRefreshKind, UpdateKind};
     ///
@@ -1937,6 +1976,7 @@ impl ProcessRefreshKind {
             environ: UpdateKind::OnlyIfNotSet,
             cmd: UpdateKind::OnlyIfNotSet,
             exe: UpdateKind::OnlyIfNotSet,
+            tasks: true,
         }
     }
 
@@ -1986,6 +2026,7 @@ It will retrieve the following information:
     );
     impl_get_set!(ProcessRefreshKind, cmd, with_cmd, without_cmd, UpdateKind);
     impl_get_set!(ProcessRefreshKind, exe, with_exe, without_exe, UpdateKind);
+    impl_get_set!(ProcessRefreshKind, tasks, with_tasks, without_tasks);
 }
 
 /// Used to determine what you want to refresh specifically on the [`Cpu`] type.
