@@ -471,14 +471,14 @@ fn test_refresh_tasks() {
         std::thread::sleep(POLL_INTERVAL);
     }
 
-    // At this point we know the thread is visible in the system's process/tasks list.
-    // Lets validate a few more things:
-    // * ProcessRefreshKind::nothing() should have thread information.
-    // * ProcessRefreshKind::nothing().with_tasks() should have thread information.
-    // * ProcessRefreshKind::nothing().without_tasks() should have thread information.
-    // * ProcessRefreshKind::everything() should have thread information.
-    // * ProcessRefreshKind::everything() should have thread information.
-    // * ProcessRefreshKind::everything().without_tasks() should not have thread information.
+    // At this point we know the task is visible in the system's process/tasks list.
+    // Let's validate a few more things:
+    // * ProcessRefreshKind::nothing() should have task information.
+    // * ProcessRefreshKind::nothing().with_tasks() should have task information.
+    // * ProcessRefreshKind::nothing().without_tasks() shouldn't have task information.
+    // * ProcessRefreshKind::everything() should have task information.
+    // * ProcessRefreshKind::everything() should have task information.
+    // * ProcessRefreshKind::everything().without_tasks() should not have task information.
 
     let expectations = [
         (ProcessRefreshKind::nothing(), true),

@@ -1880,7 +1880,7 @@ pub enum ProcessesToUpdate<'a> {
 /// dirs. This makes the refresh mechanism a lot slower depending on the number of tasks
 /// each process has.
 ///  
-/// If you don't care about tasks information, use `ProcessRefreshKind::everything().without_thread()`
+/// If you don't care about tasks information, use `ProcessRefreshKind::everything().without_tasks()`
 /// as much as possible.
 ///
 /// ```
