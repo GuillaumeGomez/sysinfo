@@ -1916,10 +1916,10 @@ pub struct ProcessRefreshKind {
     tasks: bool,
 }
 
-    /// Creates a new `ProcessRefreshKind` with every refresh set to `false`, except for `tasks`.
-    /// By default, we want to list all processes and tasks are considered processes on their own
-    /// in linux so we still fetch them by default. However, the processes information are not
-    /// refreshed.
+/// Creates a new `ProcessRefreshKind` with every refresh set to `false`, except for `tasks`.
+/// By default, we want to list all processes and tasks are considered processes on their own
+/// in linux so we still fetch them by default. However, the processes information are not
+/// refreshed.
 impl Default for ProcessRefreshKind {
     fn default() -> Self {
         Self {
