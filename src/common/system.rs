@@ -1877,7 +1877,7 @@ pub enum ProcessesToUpdate<'a> {
 /// ⚠️ ** Linux Specific ** ⚠️
 /// When using `ProcessRefreshKind::everything()`, in linux we will fetch all relevant
 /// information from `/proc/<pid>/` as well as all the information from `/proc/<pid>/task/<tid>/`
-/// dirs. This makes the refresh mechanism a lot slower depending on the number of tasks
+/// folders. This makes the refresh mechanism a lot slower depending on the number of tasks
 /// each process has.
 ///  
 /// If you don't care about tasks information, use `ProcessRefreshKind::everything().without_tasks()`
