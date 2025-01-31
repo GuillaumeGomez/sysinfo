@@ -306,6 +306,8 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
 
         let disk = container
             .iter_mut()
+            // FIXME: Using the mount point might not be enough to ensure this disk is the one
+            // we're looking for.
             .find(|d| d.inner.mount_point == mount_point);
         if let Some(disk) = new_disk(
             disk,

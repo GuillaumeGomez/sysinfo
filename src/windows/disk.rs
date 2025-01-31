@@ -320,7 +320,10 @@ pub(crate) unsafe fn get_list(
         let name = os_string_from_zero_terminated(&name);
         let file_system = os_string_from_zero_terminated(&file_system);
         for mount_path in mount_paths {
-            if let Some(disk) = disks.iter_mut().find(|d| d.inner.mount_point == mount_path) {
+            if let Some(disk) = disks
+                .iter_mut()
+                .find(|d| d.inner.mount_point == mount_path && d.inner.file_system == file_system)
+            {
                 disk.refresh_specifics(refreshes);
                 disk.inner.updated = true;
                 continue;

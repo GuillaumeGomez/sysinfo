@@ -406,10 +406,11 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
         })
     {
         let mount_point = Path::new(&fs_file);
-        if let Some(disk) = container
-            .iter_mut()
-            .find(|d| d.inner.mount_point == mount_point)
-        {
+        if let Some(disk) = container.iter_mut().find(|d| {
+            d.inner.mount_point == mount_point
+                && d.inner.device_name == fs_spec
+                && d.inner.file_system == fs_vfstype
+        }) {
             disk.inner
                 .efficient_refresh(refresh_kind, &procfs_disk_stats, false);
             disk.inner.updated = true;
@@ -465,9 +466,9 @@ impl DiskStat {
         // 3rd field
         let name = iter.nth(2).map(ToString::to_string)?;
         // 6th field
-        let sectors_read = iter.nth(2).and_then(|v| u64::from_str(v).ok())?;
+        let sectors_read = iter.nth(2).and_then(|v| u64::from_str(v).ok()).unwrap_or(0);
         // 10th field
-        let sectors_written = iter.nth(3).and_then(|v| u64::from_str(v).ok())?;
+        let sectors_written = iter.nth(3).and_then(|v| u64::from_str(v).ok()).unwrap_or(0);
         Some((
             name,
             Self {
@@ -577,6 +578,34 @@ mod test {
                 DiskStat {
                     sectors_read: 6,
                     sectors_written: 10,
+                },
+            ),
+        ]);
+
+        assert_eq!(data, expected_data);
+    }
+
+    #[test]
+    fn disk_entry_with_less_information() {
+        let file_content = "\
+ systemd-1      /efi autofs rw,relatime,fd=181,pgrp=1,timeout=120,minproto=5,maxproto=5,direct,pipe_ino=8311 0 0
+ /dev/nvme0n1p1 /efi vfat   rw,nosuid,nodev,noexec,relatime,nosymfollow,fmask=0077,dmask=0077                0 0
+";
+
+        let data = disk_stats_inner(file_content);
+        let expected_data: HashMap<String, DiskStat> = HashMap::from([
+            (
+                "autofs".to_string(),
+                DiskStat {
+                    sectors_read: 0,
+                    sectors_written: 0,
+                },
+            ),
+            (
+                "vfat".to_string(),
+                DiskStat {
+                    sectors_read: 0,
+                    sectors_written: 0,
                 },
             ),
         ]);
