@@ -1938,9 +1938,10 @@ impl Default for ProcessRefreshKind {
 }
 
 impl ProcessRefreshKind {
-    /// Creates a new `ProcessRefreshKind` with every refresh set to `false`, except for `tasks`
-    /// This is because by default, [`Process`] was fetching all tasks and we want to keep this
-    /// behavior.
+    /// Creates a new `ProcessRefreshKind` with every refresh set to `false`, except for `tasks`.
+    /// By default, we want to list all processes and tasks are considered processes on their own
+    /// in linux so we still fetch them by default. However, the processes information are not
+    /// refreshed.
     /// ```
     /// use sysinfo::{ProcessRefreshKind, UpdateKind};
     ///
