@@ -977,3 +977,32 @@ fn accumulated_cpu_time() {
         acc_time
     );
 }
+
+#[test]
+fn test_exists() {
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+
+    let file_name = "target/test_binary4";
+    build_test_binary(file_name);
+    let mut p = std::process::Command::new(format!("./{file_name}"))
+        .arg("1")
+        .spawn()
+        .unwrap();
+    let pid = Pid::from_u32(p.id() as _);
+
+    let mut s = System::new();
+    let process_refresh_kind = ProcessRefreshKind::nothing().with_memory();
+    s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, process_refresh_kind);
+    assert!(s.process(pid).unwrap().exists());
+
+    p.kill().expect("Unable to kill process.");
+    // We need this, otherwise the process will still be around as a zombie on linux.
+    let _ = p.wait();
+    // Let's give some time to the system to clean up...
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, process_refresh_kind);
+    assert!(!s.process(pid).unwrap().exists());
+}

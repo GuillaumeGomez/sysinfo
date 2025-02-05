@@ -46,6 +46,7 @@ pub(crate) struct ProcessInner {
     pub(crate) read_bytes: u64,
     pub(crate) written_bytes: u64,
     accumulated_cpu_time: u64,
+    exists: bool,
 }
 
 impl ProcessInner {
@@ -78,6 +79,7 @@ impl ProcessInner {
             read_bytes: 0,
             written_bytes: 0,
             accumulated_cpu_time: 0,
+            exists: true,
         }
     }
 
@@ -110,6 +112,7 @@ impl ProcessInner {
             read_bytes: 0,
             written_bytes: 0,
             accumulated_cpu_time: 0,
+            exists: true,
         }
     }
 
@@ -227,6 +230,14 @@ impl ProcessInner {
 
     pub(crate) fn switch_updated(&mut self) -> bool {
         std::mem::replace(&mut self.updated, false)
+    }
+
+    pub(crate) fn set_nonexistent(&mut self) {
+        self.exists = false;
+    }
+
+    pub(crate) fn exists(&self) -> bool {
+        self.exists
     }
 }
 
