@@ -830,6 +830,24 @@ fn trim_ascii(mut bytes: &[u8]) -> &[u8] {
     bytes
 }
 
+fn split_content(mut data: &[u8]) -> Vec<OsString> {
+    let mut out = Vec::with_capacity(10);
+    while let Some(pos) = data.iter().position(|c| *c == 0) {
+        let s = trim_ascii(&data[..pos]);
+        if !s.is_empty() {
+            out.push(OsStr::from_bytes(s).to_os_string());
+        }
+        data = &data[pos + 1..];
+    }
+    if !data.is_empty() {
+        let s = trim_ascii(data);
+        if !s.is_empty() {
+            out.push(OsStr::from_bytes(s).to_os_string());
+        }
+    }
+    out
+}
+
 fn copy_from_file(entry: &Path) -> Vec<OsString> {
     match File::open(entry) {
         Ok(mut f) => {
@@ -839,16 +857,7 @@ fn copy_from_file(entry: &Path) -> Vec<OsString> {
                 sysinfo_debug!("Failed to read file in `copy_from_file`: {:?}", _e);
                 Vec::new()
             } else {
-                let mut out = Vec::with_capacity(10);
-                let mut data = data.as_slice();
-                while let Some(pos) = data.iter().position(|c| *c == 0) {
-                    let s = trim_ascii(&data[..pos]);
-                    if !s.is_empty() {
-                        out.push(OsStr::from_bytes(s).to_os_string());
-                    }
-                    data = &data[pos + 1..];
-                }
-                out
+                split_content(&data)
             }
         }
         Err(_e) => {
@@ -968,5 +977,26 @@ impl std::ops::DerefMut for FileCounter {
 impl Drop for FileCounter {
     fn drop(&mut self) {
         remaining_files().fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_content;
+    use std::ffi::OsString;
+
+    // This test ensures that all the parts of the data are split.
+    #[test]
+    fn test_copy_file() {
+        assert_eq!(split_content(b"hello\0"), vec![OsString::from("hello")]);
+        assert_eq!(split_content(b"hello"), vec![OsString::from("hello")]);
+        assert_eq!(
+            split_content(b"hello\0b"),
+            vec![OsString::from("hello"), "b".into()]
+        );
+        assert_eq!(
+            split_content(b"hello\0\0\0\0b"),
+            vec![OsString::from("hello"), "b".into()]
+        );
     }
 }
