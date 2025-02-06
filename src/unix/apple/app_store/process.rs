@@ -104,4 +104,10 @@ impl ProcessInner {
     pub(crate) fn switch_updated(&mut self) -> bool {
         false
     }
+
+    pub(crate) fn set_nonexistent(&mut self) {}
+
+    pub(crate) fn exists(&self) -> bool {
+        false
+    }
 }

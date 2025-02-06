@@ -357,7 +357,9 @@ impl System {
         }
         fn update(pid: &Pid, processes: &mut HashMap<Pid, Process>) {
             if let Some(proc) = processes.get_mut(pid) {
-                proc.inner.switch_updated();
+                if !proc.inner.switch_updated() {
+                    proc.inner.set_nonexistent();
+                }
             }
         }
 
@@ -1720,6 +1722,29 @@ impl Process {
                 None
             }
         }
+    }
+
+    /// Returns `true` if the process doesn't exist anymore but was not yet removed from
+    /// the processes list because the `remove_dead_processes` argument was set to `false`
+    /// in methods like [`System::refresh_processes`].
+    ///
+    /// ```no_run
+    /// use sysinfo::{ProcessesToUpdate, System};
+    ///
+    /// let mut s = System::new_all();
+    /// // We set the `remove_dead_processes` to `false`.
+    /// s.refresh_processes(ProcessesToUpdate::All, false);
+    ///
+    /// for (_, process) in s.processes() {
+    ///     println!(
+    ///         "Process {:?} {}",
+    ///         process.pid(),
+    ///         if process.exists() { "exists" } else { "doesn't exist" },
+    ///     );
+    /// }
+    /// ```
+    pub fn exists(&self) -> bool {
+        self.inner.exists()
     }
 }
 

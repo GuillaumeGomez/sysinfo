@@ -127,6 +127,7 @@ pub(crate) struct ProcessInner {
     thread_kind: Option<ThreadKind>,
     proc_path: PathBuf,
     accumulated_cpu_time: u64,
+    exists: bool,
 }
 
 impl ProcessInner {
@@ -165,6 +166,7 @@ impl ProcessInner {
             thread_kind: None,
             proc_path,
             accumulated_cpu_time: 0,
+            exists: true,
         }
     }
 
@@ -279,6 +281,14 @@ impl ProcessInner {
 
     pub(crate) fn switch_updated(&mut self) -> bool {
         std::mem::replace(&mut self.updated, false)
+    }
+
+    pub(crate) fn set_nonexistent(&mut self) {
+        self.exists = false;
+    }
+
+    pub(crate) fn exists(&self) -> bool {
+        self.exists
     }
 }
 
