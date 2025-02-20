@@ -28,6 +28,7 @@ pub(crate) struct DiskInner {
     bsd_name: Option<Vec<u8>>,
     pub(crate) file_system: OsString,
     pub(crate) mount_point: PathBuf,
+    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     volume_url: CFRetained<CFURL>,
     pub(crate) total_space: u64,
     pub(crate) available_space: u64,
