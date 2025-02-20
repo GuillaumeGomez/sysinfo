@@ -2,6 +2,8 @@
 
 use crate::{Gid, Group, Uid, User};
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct UserInner;
 
 impl UserInner {

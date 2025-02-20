@@ -13,6 +13,8 @@ impl fmt::Display for ProcessStatus {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct ProcessInner {
     pid: Pid,
     parent: Option<Pid>,

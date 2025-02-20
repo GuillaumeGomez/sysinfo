@@ -15,6 +15,7 @@ use crate::sys::utils::to_utf8_str;
 
 #[doc = include_str!("../../md_doc/sid.md")]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Sid {
     sid: Vec<u8>,
 }

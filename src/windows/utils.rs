@@ -70,6 +70,12 @@ cfg_if! {
             }
         }
 
+        impl std::fmt::Debug for HandleWrapper {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                writeln!(f, "HandleWrapper")
+            }
+        }
+
         impl Drop for HandleWrapper {
             fn drop(&mut self) {
                 let _err = unsafe { CloseHandle(self.0) };

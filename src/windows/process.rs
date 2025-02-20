@@ -173,6 +173,9 @@ unsafe fn get_process_user_id(process: &mut ProcessInner, refresh_kind: ProcessR
 unsafe impl Send for HandleWrapper {}
 unsafe impl Sync for HandleWrapper {}
 
+#[derive(Debug, Clone, derivative::Derivative)]
+#[derivative(PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct ProcessInner {
     name: OsString,
     cmd: Vec<OsString>,
@@ -186,10 +189,13 @@ pub(crate) struct ProcessInner {
     pub(crate) virtual_memory: u64,
     pub(crate) parent: Option<Pid>,
     status: ProcessStatus,
+    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
+    #[derivative(PartialOrd = "ignore", Ord = "ignore", PartialEq = "ignore")]
     handle: Option<Arc<HandleWrapper>>,
     cpu_calc_values: CPUsageCalculationValues,
     start_time: u64,
     pub(crate) run_time: u64,
+    #[derivative(Ord = "ignore")]
     cpu_usage: f32,
     pub(crate) updated: bool,
     old_read_bytes: u64,
@@ -200,11 +206,22 @@ pub(crate) struct ProcessInner {
     exists: bool,
 }
 
+#[cfg(feature = "serde")]
+fn deserialize_instant_now<'de, D>(_deserializer: D) -> Result<Instant, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    Ok(Instant::now())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 struct CPUsageCalculationValues {
     old_process_sys_cpu: u64,
     old_process_user_cpu: u64,
     old_system_sys_cpu: u64,
     old_system_user_cpu: u64,
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_instant_now"))]
     last_update: Instant,
 }
 

@@ -28,6 +28,7 @@ cfg_if! {
     }
 
     if #[cfg(feature = "disk")] {
+        #[derive(Clone, PartialEq, Eq)]
         pub(crate) struct DisksInner {
             pub(crate) disks: Vec<crate::Disk>,
         }

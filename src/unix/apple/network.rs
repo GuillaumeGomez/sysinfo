@@ -64,6 +64,8 @@ fn update_network_data(inner: &mut NetworkDataInner, data: &if_data64) {
     );
 }
 
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct NetworksInner {
     pub(crate) interfaces: HashMap<String, NetworkData>,
 }
@@ -252,7 +254,8 @@ impl NetworksInner {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct NetworkDataInner {
     current_in: u64,
     old_in: u64,

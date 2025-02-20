@@ -1007,7 +1007,7 @@ impl std::fmt::Display for Signal {
 }
 
 /// Contains memory limits for the current process.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CGroupLimits {
     /// Total memory (in bytes) for the current cgroup.
     pub total_memory: u64,
@@ -1138,7 +1138,7 @@ pub enum ProcessStatus {
 }
 
 /// Enum describing the different kind of threads.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub enum ThreadKind {
     /// Kernel thread.
@@ -1816,8 +1816,28 @@ cfg_if! {
         use libc::pid_t;
 
         pid_decl!(pid_t);
+
+        #[cfg(feature = "serde")]
+        impl<'de> serde::Deserialize<'de> for Pid {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+               Ok(Self(pid_t::deserialize(deserializer)?))
+            }
+        }
     } else {
         pid_decl!(usize);
+
+         #[cfg(feature = "serde")]
+        impl<'de> serde::Deserialize<'de> for Pid {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+               Ok(Self(usize::deserialize(deserializer)?))
+            }
+        }
     }
 }
 
@@ -1836,7 +1856,7 @@ cfg_if! {
 ///     ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
 /// );
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UpdateKind {
     /// Never update the related information.
     #[default]
@@ -1927,7 +1947,7 @@ pub enum ProcessesToUpdate<'a> {
 /// ```
 ///
 /// [`Process`]: crate::Process
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ProcessRefreshKind {
     cpu: bool,
     disk_usage: bool,
@@ -2074,7 +2094,7 @@ It will retrieve the following information:
 /// ```
 ///
 /// [`Cpu`]: crate::Cpu
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CpuRefreshKind {
     cpu_usage: bool,
     frequency: bool,
@@ -2133,7 +2153,7 @@ impl CpuRefreshKind {
 /// println!("total RAM: {}", system.total_memory());
 /// println!("free RAM:  {}", system.free_memory());
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemoryRefreshKind {
     ram: bool,
     swap: bool,
@@ -2192,7 +2212,7 @@ impl MemoryRefreshKind {
 /// assert!(system.processes().len() > 0);
 /// # }
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RefreshKind {
     processes: Option<ProcessRefreshKind>,
     memory: Option<MemoryRefreshKind>,

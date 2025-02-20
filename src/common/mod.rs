@@ -43,6 +43,7 @@ pub(crate) mod user;
 /// ```
 #[cfg(any(feature = "disk", feature = "system"))]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct DiskUsage {
     /// Total number of written bytes.
     pub total_written_bytes: u64,
@@ -109,6 +110,7 @@ macro_rules! gid {
         xid!(
             /// A group id wrapping a platform specific type.
             #[derive(Copy)]
+            #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
             Gid,
             $type,
             std::str::FromStr
@@ -129,6 +131,16 @@ cfg_if! {
     ))] {
         uid!(libc::uid_t, std::str::FromStr);
         gid!(libc::gid_t);
+
+        #[cfg(all(feature = "serde", any(feature = "system", feature = "user")))]
+        impl<'de> serde::Deserialize<'de> for Uid {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+               Ok(Self(libc::uid_t::deserialize(deserializer)?))
+            }
+        }
     } else if #[cfg(windows)] {
         uid!(crate::windows::Sid);
         gid!(u32);
@@ -141,8 +153,28 @@ cfg_if! {
                 Ok(Self(t.parse()?))
             }
         }
+
+        #[cfg(all(feature = "serde", any(feature = "system", feature = "user")))]
+        impl<'de> serde::Deserialize<'de> for Uid {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+               Ok(Self(crate::windows::Sid::deserialize(deserializer)?))
+            }
+        }
     } else {
         uid!(u32, std::str::FromStr);
         gid!(u32);
+
+        #[cfg(feature = "serde")]
+        impl<'de> serde::Deserialize<'de> for Uid {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+               Ok(Self(u32::deserialize(deserializer)?))
+            }
+        }
     }
 }

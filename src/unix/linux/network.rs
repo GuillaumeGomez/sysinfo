@@ -128,6 +128,8 @@ fn refresh_networks_list_from_sysfs(
     }
 }
 
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct NetworksInner {
     pub(crate) interfaces: HashMap<String, NetworkData>,
 }
@@ -153,6 +155,8 @@ impl NetworksInner {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct NetworkDataInner {
     /// Total number of bytes received over interface.
     rx_bytes: u64,

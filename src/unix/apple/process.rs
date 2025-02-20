@@ -48,6 +48,7 @@ impl fmt::Display for ProcessStatus {
 
 /// Enum describing the different status of a thread.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) enum ThreadStatus {
     /// Thread is running normally.
     Running,

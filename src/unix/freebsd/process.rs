@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#![allow(clippy::non_canonical_partial_ord_impl)]
+
 use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Signal, Uid};
 
 use std::ffi::{OsStr, OsString};
@@ -40,6 +42,9 @@ impl fmt::Display for ProcessStatus {
     }
 }
 
+#[derive(Clone, derivative::Derivative)]
+#[derivative(PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct ProcessInner {
     pub(crate) name: OsString,
     pub(crate) cmd: Vec<OsString>,
@@ -52,6 +57,7 @@ pub(crate) struct ProcessInner {
     pub(crate) memory: u64,
     pub(crate) virtual_memory: u64,
     pub(crate) updated: bool,
+    #[derivative(Ord = "ignore")]
     cpu_usage: f32,
     start_time: u64,
     run_time: u64,

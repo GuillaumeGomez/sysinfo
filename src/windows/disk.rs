@@ -117,6 +117,7 @@ pub(crate) unsafe fn get_volume_path_names_for_volume_name(
     path_names
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct DiskInner {
     type_: DiskKind,
     name: OsString,
@@ -213,6 +214,7 @@ impl DiskInner {
     }
 }
 
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct DisksInner {
     pub(crate) disks: Vec<Disk>,
 }

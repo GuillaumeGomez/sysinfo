@@ -4,6 +4,8 @@ use crate::{IpNetwork, MacAddr, NetworkData};
 
 use std::collections::HashMap;
 
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct NetworksInner {
     pub(crate) interfaces: HashMap<String, NetworkData>,
 }
@@ -22,6 +24,8 @@ impl NetworksInner {
     pub(crate) fn refresh(&mut self, _remove_not_listed_interfaces: bool) {}
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct NetworkDataInner;
 
 impl NetworkDataInner {

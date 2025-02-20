@@ -66,6 +66,8 @@ impl fmt::Display for ProcessStatus {
 
 #[allow(dead_code)]
 #[repr(usize)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 enum ProcIndex {
     Pid = 0,
     State,
@@ -93,6 +95,9 @@ enum ProcIndex {
     // More exist but we only use the listed ones. For more, take a look at `man proc`.
 }
 
+#[derive(derivative::Derivative)]
+#[derivative(PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct ProcessInner {
     pub(crate) name: OsString,
     pub(crate) cmd: Vec<OsString>,
@@ -112,13 +117,17 @@ pub(crate) struct ProcessInner {
     start_time: u64,
     run_time: u64,
     pub(crate) updated: bool,
+    #[derivative(Ord = "ignore")]
     cpu_usage: f32,
     user_id: Option<Uid>,
     effective_user_id: Option<Uid>,
     group_id: Option<Gid>,
     effective_group_id: Option<Gid>,
     pub(crate) status: ProcessStatus,
+    #[derivative(Ord = "ignore", PartialOrd = "ignore")]
     pub(crate) tasks: Option<HashSet<Pid>>,
+    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
+    #[derivative(Ord = "ignore", PartialOrd = "ignore", PartialEq = "ignore")]
     stat_file: Option<FileCounter>,
     old_read_bytes: u64,
     old_written_bytes: u64,
@@ -289,6 +298,47 @@ impl ProcessInner {
 
     pub(crate) fn exists(&self) -> bool {
         self.exists
+    }
+}
+
+impl Clone for ProcessInner {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.to_owned(),
+            cmd: self.cmd.to_owned(),
+            exe: self.exe.to_owned(),
+            pid: self.pid,
+            parent: self.parent,
+            environ: self.environ.to_owned(),
+            cwd: self.cwd.to_owned(),
+            root: self.root.to_owned(),
+            memory: self.memory,
+            virtual_memory: self.virtual_memory,
+            utime: self.utime.to_owned(),
+            stime: self.stime.to_owned(),
+            old_utime: self.old_utime.to_owned(),
+            old_stime: self.old_stime.to_owned(),
+            start_time_without_boot_time: self.start_time_without_boot_time.to_owned(),
+            start_time: self.start_time.to_owned(),
+            run_time: self.run_time.to_owned(),
+            updated: self.updated.to_owned(),
+            cpu_usage: self.cpu_usage.to_owned(),
+            user_id: self.user_id.to_owned(),
+            effective_user_id: self.effective_user_id.to_owned(),
+            group_id: self.group_id.to_owned(),
+            effective_group_id: self.effective_group_id.to_owned(),
+            status: self.status.to_owned(),
+            tasks: self.tasks.to_owned(),
+            stat_file: Default::default(),
+            old_read_bytes: self.old_read_bytes.to_owned(),
+            old_written_bytes: self.old_written_bytes.to_owned(),
+            read_bytes: self.read_bytes.to_owned(),
+            written_bytes: self.written_bytes.to_owned(),
+            thread_kind: self.thread_kind.to_owned(),
+            proc_path: self.proc_path.to_owned(),
+            accumulated_cpu_time: self.accumulated_cpu_time.to_owned(),
+            exists: self.exists.to_owned(),
+        }
     }
 }
 
