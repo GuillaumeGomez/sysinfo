@@ -128,6 +128,7 @@ pub(crate) struct ProcessInner {
     #[derivative(Ord = "ignore", PartialOrd = "ignore")]
     pub(crate) tasks: Option<HashSet<Pid>>,
     #[cfg_attr(feature = "serde", serde(skip_deserializing))]
+    #[derivative(PartialEq = "ignore")]
     stat_file: Option<FileCounter>,
     old_read_bytes: u64,
     old_written_bytes: u64,
@@ -1033,22 +1034,6 @@ impl std::ops::DerefMut for FileCounter {
         &mut self.0
     }
 }
-
-impl PartialEq for FileCounter {
-    fn eq(&self, other: &Self) -> bool {
-        match self.0.metadata() {
-            Ok(m1) => match other.0.metadata() {
-                Ok(m2) => {
-                    m1.file_type().eq(&m2.file_type()) && m1.mtime_nsec().eq(&m2.mtime_nsec())
-                }
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-}
-
-impl Eq for FileCounter {}
 
 impl PartialOrd for FileCounter {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
