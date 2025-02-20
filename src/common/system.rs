@@ -1816,8 +1816,28 @@ cfg_if! {
         use libc::pid_t;
 
         pid_decl!(pid_t);
+
+        #[cfg(feature = "serde")]
+        impl<'de> serde::Deserialize<'de> for Pid {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+               Ok(Self(pid_t::deserialize(deserializer)?))
+            }
+        }
     } else {
         pid_decl!(usize);
+
+         #[cfg(feature = "serde")]
+        impl<'de> serde::Deserialize<'de> for Pid {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+               Ok(Self(usize::deserialize(deserializer)?))
+            }
+        }
     }
 }
 

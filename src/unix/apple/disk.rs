@@ -20,7 +20,6 @@ use std::path::{Path, PathBuf};
 use std::ptr;
 
 #[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct DiskInner {
     pub(crate) type_: DiskKind,
     pub(crate) name: OsString,
@@ -28,7 +27,6 @@ pub(crate) struct DiskInner {
     bsd_name: Option<Vec<u8>>,
     pub(crate) file_system: OsString,
     pub(crate) mount_point: PathBuf,
-    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     volume_url: CFRetained<CFURL>,
     pub(crate) total_space: u64,
     pub(crate) available_space: u64,

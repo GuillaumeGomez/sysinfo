@@ -29,7 +29,6 @@ cfg_if! {
 
     if #[cfg(feature = "disk")] {
         #[derive(Clone, PartialEq, Eq)]
-        #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
         pub(crate) struct DisksInner {
             pub(crate) disks: Vec<crate::Disk>,
         }
