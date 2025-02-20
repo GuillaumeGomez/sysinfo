@@ -1054,7 +1054,7 @@ impl PartialOrd for FileCounter {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match self.0.metadata() {
             Ok(m1) => match other.0.metadata() {
-                Ok(m2) => m1.mtime_nsec().partial_cmp(&m2.mtime_nsec()),
+                Ok(m2) => m1.mtime_nsec().cmp(&m2.mtime_nsec()),
                 _ => None,
             },
             _ => None,
