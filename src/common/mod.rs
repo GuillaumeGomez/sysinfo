@@ -132,7 +132,7 @@ cfg_if! {
         uid!(libc::uid_t, std::str::FromStr);
         gid!(libc::gid_t);
 
-        #[cfg(feature = "serde")]
+        #[cfg(all(feature = "serde", any(feature = "system", feature = "user")))]
         impl<'de> serde::Deserialize<'de> for Uid {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
             where
@@ -154,7 +154,7 @@ cfg_if! {
             }
         }
 
-        #[cfg(feature = "serde")]
+        #[cfg(all(feature = "serde", any(feature = "system", feature = "user")))]
         impl<'de> serde::Deserialize<'de> for Uid {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
             where
