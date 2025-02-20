@@ -19,6 +19,8 @@ use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use std::ptr;
 
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct DiskInner {
     pub(crate) type_: DiskKind,
     pub(crate) name: OsString,

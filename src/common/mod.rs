@@ -43,6 +43,7 @@ pub(crate) mod user;
 /// ```
 #[cfg(any(feature = "disk", feature = "system"))]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct DiskUsage {
     /// Total number of written bytes.
     pub total_written_bytes: u64,

@@ -16,6 +16,8 @@ use crate::{Gid, Uid, UserInner};
 ///     println!("{:?}", user);
 /// }
 /// ```
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct User {
     pub(crate) inner: UserInner,
 }
@@ -109,7 +111,8 @@ impl User {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct GroupInner {
     pub(crate) id: Gid,
     pub(crate) name: String,
@@ -136,7 +139,8 @@ pub(crate) struct GroupInner {
 ///     }
 /// }
 /// ```
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Group {
     pub(crate) inner: GroupInner,
 }
@@ -189,6 +193,8 @@ impl Group {
 ///     println!("{} is in {} groups", user.name(), user.groups().len());
 /// }
 /// ```
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Users {
     users: Vec<User>,
 }
@@ -360,6 +366,8 @@ impl Users {
 ///     println!("{}", group.name());
 /// }
 /// ```
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Groups {
     groups: Vec<Group>,
 }

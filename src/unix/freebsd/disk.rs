@@ -18,7 +18,8 @@ use super::ffi::{
 use super::utils::{c_buf_to_utf8_str, get_sys_value_str_by_name};
 use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct DiskInner {
     name: OsString,
     c_mount_point: Vec<libc::c_char>,

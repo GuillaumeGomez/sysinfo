@@ -66,6 +66,8 @@ impl fmt::Display for ProcessStatus {
 
 #[allow(dead_code)]
 #[repr(usize)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 enum ProcIndex {
     Pid = 0,
     State,
@@ -93,6 +95,8 @@ enum ProcIndex {
     // More exist but we only use the listed ones. For more, take a look at `man proc`.
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct ProcessInner {
     pub(crate) name: OsString,
     pub(crate) cmd: Vec<OsString>,

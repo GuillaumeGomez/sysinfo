@@ -17,6 +17,8 @@ use crate::DiskUsage;
 ///     println!("{:?}: {:?}", disk.name(), disk.kind());
 /// }
 /// ```
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Disk {
     pub(crate) inner: crate::DiskInner,
 }
@@ -198,6 +200,8 @@ impl Disk {
 /// feature must be enabled. Note, however, that sysinfo may hang under certain
 /// circumstances. For example, if a CIFS or NFS share has been mounted with
 /// the _hard_ option, but the connection has an error, such as the share server has stopped.
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Disks {
     inner: crate::DisksInner,
 }

@@ -34,6 +34,8 @@ macro_rules! cast {
     };
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct DiskInner {
     type_: DiskKind,
     device_name: OsString,

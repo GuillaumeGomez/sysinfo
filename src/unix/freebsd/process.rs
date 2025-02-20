@@ -40,6 +40,8 @@ impl fmt::Display for ProcessStatus {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct ProcessInner {
     pub(crate) name: OsString,
     pub(crate) cmd: Vec<OsString>,

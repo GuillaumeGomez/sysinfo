@@ -173,6 +173,8 @@ unsafe fn get_process_user_id(process: &mut ProcessInner, refresh_kind: ProcessR
 unsafe impl Send for HandleWrapper {}
 unsafe impl Sync for HandleWrapper {}
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct ProcessInner {
     name: OsString,
     cmd: Vec<OsString>,
@@ -200,6 +202,8 @@ pub(crate) struct ProcessInner {
     exists: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 struct CPUsageCalculationValues {
     old_process_sys_cpu: u64,
     old_process_user_cpu: u64,

@@ -117,6 +117,8 @@ pub(crate) unsafe fn get_volume_path_names_for_volume_name(
     path_names
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct DiskInner {
     type_: DiskKind,
     name: OsString,

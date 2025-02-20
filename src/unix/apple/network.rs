@@ -252,7 +252,8 @@ impl NetworksInner {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct NetworkDataInner {
     current_in: u64,
     old_in: u64,

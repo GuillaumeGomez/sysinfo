@@ -153,6 +153,8 @@ impl NetworksInner {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct NetworkDataInner {
     /// Total number of bytes received over interface.
     rx_bytes: u64,

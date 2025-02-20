@@ -10,6 +10,8 @@ use crate::User;
 
 use libc::{getgrgid_r, getgrouplist};
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct UserInner {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,

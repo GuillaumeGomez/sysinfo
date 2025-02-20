@@ -16,6 +16,8 @@ use windows::Win32::Security::Authentication::Identity::{
     SECURITY_LOGON_SESSION_DATA, SECURITY_LOGON_TYPE,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct UserInner {
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,

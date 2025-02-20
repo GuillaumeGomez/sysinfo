@@ -4,6 +4,8 @@ use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
 
 use std::{ffi::OsStr, path::Path};
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct DiskInner;
 
 impl DiskInner {
