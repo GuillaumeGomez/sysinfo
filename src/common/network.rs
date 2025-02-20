@@ -18,6 +18,8 @@ use crate::{NetworkDataInner, NetworksInner};
 ///     println!("[{interface_name}]: {network:?}");
 /// }
 /// ```
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Networks {
     pub(crate) inner: NetworksInner,
 }

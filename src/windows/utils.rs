@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use std::fmt::Debug;
+
 #[cfg(feature = "disk")]
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_ACCESS_RIGHTS, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
@@ -67,6 +69,12 @@ cfg_if! {
 
             fn deref(&self) -> &Self::Target {
                 &self.0
+            }
+        }
+
+        impl Debug for HandleWrapper {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                writeln!(f, "HandleWrapper")
             }
         }
 

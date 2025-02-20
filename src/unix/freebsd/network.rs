@@ -14,7 +14,7 @@ macro_rules! old_and_new {
     }};
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct NetworksInner {
     pub(crate) interfaces: HashMap<String, NetworkData>,
@@ -133,6 +133,8 @@ impl NetworksInner {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct NetworkDataInner {
     /// Total number of bytes received over interface.
     ifi_ibytes: u64,

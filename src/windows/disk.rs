@@ -215,6 +215,8 @@ impl DiskInner {
     }
 }
 
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct DisksInner {
     pub(crate) disks: Vec<Disk>,
 }

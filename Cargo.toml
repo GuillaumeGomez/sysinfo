@@ -109,6 +109,7 @@ cargo-args = ["-Zbuild-std"]
 rustdoc-args = ["--generate-link-to-definition"]
 
 [dependencies]
+derivative = "2.2.0"
 memchr = { version = "2.5", optional = true }
 rayon = { version = "^1.8", optional = true }
 serde = { version = "^1.0.190", optional = true, features = ["derive"] }

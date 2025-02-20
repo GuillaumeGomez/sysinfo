@@ -7,6 +7,7 @@ use std::fmt;
 use std::fs::{self, DirEntry, File};
 use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 use std::str::{self, FromStr};
@@ -95,7 +96,8 @@ enum ProcIndex {
     // More exist but we only use the listed ones. For more, take a look at `man proc`.
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(derivative::Derivative)]
+#[derivative(PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub(crate) struct ProcessInner {
     pub(crate) name: OsString,
@@ -116,13 +118,16 @@ pub(crate) struct ProcessInner {
     start_time: u64,
     run_time: u64,
     pub(crate) updated: bool,
+    #[derivative(Ord = "ignore")]
     cpu_usage: f32,
     user_id: Option<Uid>,
     effective_user_id: Option<Uid>,
     group_id: Option<Gid>,
     effective_group_id: Option<Gid>,
     pub(crate) status: ProcessStatus,
+    #[derivative(Ord = "ignore", PartialOrd = "ignore")]
     pub(crate) tasks: Option<HashSet<Pid>>,
+    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     stat_file: Option<FileCounter>,
     old_read_bytes: u64,
     old_written_bytes: u64,
@@ -293,6 +298,47 @@ impl ProcessInner {
 
     pub(crate) fn exists(&self) -> bool {
         self.exists
+    }
+}
+
+impl Clone for ProcessInner {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            cmd: self.cmd.clone(),
+            exe: self.exe.clone(),
+            pid: self.pid.clone(),
+            parent: self.parent.clone(),
+            environ: self.environ.clone(),
+            cwd: self.cwd.clone(),
+            root: self.root.clone(),
+            memory: self.memory.clone(),
+            virtual_memory: self.virtual_memory.clone(),
+            utime: self.utime.clone(),
+            stime: self.stime.clone(),
+            old_utime: self.old_utime.clone(),
+            old_stime: self.old_stime.clone(),
+            start_time_without_boot_time: self.start_time_without_boot_time.clone(),
+            start_time: self.start_time.clone(),
+            run_time: self.run_time.clone(),
+            updated: self.updated.clone(),
+            cpu_usage: self.cpu_usage.clone(),
+            user_id: self.user_id.clone(),
+            effective_user_id: self.effective_user_id.clone(),
+            group_id: self.group_id.clone(),
+            effective_group_id: self.effective_group_id.clone(),
+            status: self.status.clone(),
+            tasks: self.tasks.clone(),
+            stat_file: Default::default(),
+            old_read_bytes: self.old_read_bytes.clone(),
+            old_written_bytes: self.old_written_bytes.clone(),
+            read_bytes: self.read_bytes.clone(),
+            written_bytes: self.written_bytes.clone(),
+            thread_kind: self.thread_kind.clone(),
+            proc_path: self.proc_path.clone(),
+            accumulated_cpu_time: self.accumulated_cpu_time.clone(),
+            exists: self.exists.clone(),
+        }
     }
 }
 
@@ -985,6 +1031,40 @@ impl std::ops::Deref for FileCounter {
 impl std::ops::DerefMut for FileCounter {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl PartialEq for FileCounter {
+    fn eq(&self, other: &Self) -> bool {
+        match self.0.metadata() {
+            Ok(m1) => match other.0.metadata() {
+                Ok(m2) => {
+                    m1.file_type().eq(&m2.file_type()) && m1.mtime_nsec().eq(&m2.mtime_nsec())
+                }
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+}
+
+impl Eq for FileCounter {}
+
+impl PartialOrd for FileCounter {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.0.metadata() {
+            Ok(m1) => match other.0.metadata() {
+                Ok(m2) => m1.mtime_nsec().partial_cmp(&m2.mtime_nsec()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+}
+
+impl Ord for FileCounter {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
