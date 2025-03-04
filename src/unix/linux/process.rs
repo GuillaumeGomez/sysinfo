@@ -502,6 +502,67 @@ fn retrieve_all_new_process_info(
     Process { inner: p }
 }
 
+fn update_existing_process(
+    proc: &mut Process,
+    parent_pid: Option<Pid>,
+    uptime: u64,
+    info: &SystemInfo,
+    refresh_kind: ProcessRefreshKind,
+) -> Result<(Option<Process>, Pid), ()> {
+    let entry = &mut proc.inner;
+    let data = if let Some(mut f) = entry.stat_file.take() {
+        match get_all_data_from_file(&mut f, 1024) {
+            Ok(data) => {
+                // Everything went fine, we put back the file descriptor.
+                entry.stat_file = Some(f);
+                data
+            }
+            Err(_) => {
+                // It's possible that the file descriptor is no longer valid in case the
+                // original process was terminated and another one took its place.
+                _get_stat_data(&entry.proc_path, &mut entry.stat_file)?
+            }
+        }
+    } else {
+        _get_stat_data(&entry.proc_path, &mut entry.stat_file)?
+    };
+    let parts = parse_stat_file(&data).ok_or(())?;
+    let start_time_without_boot_time = compute_start_time_without_boot_time(&parts, info);
+
+    // It's possible that a new process took this same PID when the "original one" terminated.
+    // If the start time differs, then it means it's not the same process anymore and that we
+    // need to get all its information, hence why we check it here.
+    if start_time_without_boot_time == entry.start_time_without_boot_time {
+        let mut proc_path = PathHandler::new(&entry.proc_path);
+
+        update_proc_info(
+            entry,
+            parent_pid,
+            refresh_kind,
+            &mut proc_path,
+            &parts.str_parts,
+            uptime,
+            info,
+        );
+
+        refresh_user_group_ids(entry, &mut proc_path, refresh_kind);
+        return Ok((None, entry.pid));
+    }
+    // If we're here, it means that the PID still exists but it's a different process.
+    let p = retrieve_all_new_process_info(
+        entry.pid,
+        parent_pid,
+        &parts,
+        &entry.proc_path,
+        info,
+        refresh_kind,
+        uptime,
+    );
+    *proc = p;
+    // Since this PID is already in the HashMap, no need to add it again.
+    Ok((None, proc.inner.pid))
+}
+
 pub(crate) fn _get_process_data(
     path: &Path,
     proc_list: &mut HashMap<Pid, Process>,
@@ -511,77 +572,17 @@ pub(crate) fn _get_process_data(
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
 ) -> Result<(Option<Process>, Pid), ()> {
-    let data;
-    let parts = if let Some(ref mut entry) = proc_list.get_mut(&pid) {
-        let entry = &mut entry.inner;
-        data = if let Some(mut f) = entry.stat_file.take() {
-            match get_all_data_from_file(&mut f, 1024) {
-                Ok(data) => {
-                    // Everything went fine, we put back the file descriptor.
-                    entry.stat_file = Some(f);
-                    data
-                }
-                Err(_) => {
-                    // It's possible that the file descriptor is no longer valid in case the
-                    // original process was terminated and another one took its place.
-                    _get_stat_data(&entry.proc_path, &mut entry.stat_file)?
-                }
-            }
-        } else {
-            _get_stat_data(path, &mut entry.stat_file)?
-        };
-        let parts = parse_stat_file(&data).ok_or(())?;
-        let start_time_without_boot_time = compute_start_time_without_boot_time(&parts, info);
-
-        // It's possible that a new process took this same PID when the "original one" terminated.
-        // If the start time differs, then it means it's not the same process anymore and that we
-        // need to get all its information, hence why we check it here.
-        if start_time_without_boot_time == entry.start_time_without_boot_time {
-            let mut proc_path = PathHandler::new(path);
-
-            update_proc_info(
-                entry,
-                parent_pid,
-                refresh_kind,
-                &mut proc_path,
-                &parts.str_parts,
-                uptime,
-                info,
-            );
-
-            refresh_user_group_ids(entry, &mut proc_path, refresh_kind);
-            return Ok((None, pid));
-        }
-        parts
-    } else {
-        let mut stat_file = None;
-        let data = _get_stat_data(path, &mut stat_file)?;
-        let parts = parse_stat_file(&data).ok_or(())?;
-
-        let mut p = retrieve_all_new_process_info(
-            pid,
-            parent_pid,
-            &parts,
-            path,
-            info,
-            refresh_kind,
-            uptime,
-        );
-        p.inner.stat_file = stat_file;
-        return Ok((Some(p), pid));
-    };
-
-    // If we're here, it means that the PID still exists but it's a different process.
-    let p =
-        retrieve_all_new_process_info(pid, parent_pid, &parts, path, info, refresh_kind, uptime);
-    match proc_list.get_mut(&pid) {
-        Some(ref mut entry) => **entry = p,
-        // If it ever enters this case, it means that the process was removed from the HashMap
-        // in-between with the usage of dark magic.
-        None => unreachable!(),
+    if let Some(ref mut entry) = proc_list.get_mut(&pid) {
+        return update_existing_process(entry, parent_pid, uptime, info, refresh_kind);
     }
-    // Since this PID is already in the HashMap, no need to add it again.
-    Ok((None, pid))
+    let mut stat_file = None;
+    let data = _get_stat_data(path, &mut stat_file)?;
+    let parts = parse_stat_file(&data).ok_or(())?;
+
+    let mut p =
+        retrieve_all_new_process_info(pid, parent_pid, &parts, path, info, refresh_kind, uptime);
+    p.inner.stat_file = stat_file;
+    Ok((Some(p), pid))
 }
 
 fn old_get_memory(entry: &mut ProcessInner, str_parts: &[&str], info: &SystemInfo) {
@@ -737,6 +738,8 @@ where
     val
 }
 
+/// We're forced to read the whole `/proc` folder because if a process died and another took its
+/// place, we need to get the task parent (if it's a task).
 pub(crate) fn refresh_procs(
     proc_list: &mut HashMap<Pid, Process>,
     path: &Path,
