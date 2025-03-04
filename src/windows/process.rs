@@ -963,7 +963,7 @@ fn get_proc_env<T: RtlUserProcessParameters>(
             let mut begin = 0;
             while let Some(offset) = raw_env[begin..].iter().position(|&c| c == 0) {
                 let end = begin + offset;
-                if raw_env[begin..end].iter().any(|&c| c == equals) {
+                if raw_env[begin..end].contains(&equals) {
                     environ.push(OsString::from_wide(&raw_env[begin..end]));
                     begin = end + 1;
                 } else {
