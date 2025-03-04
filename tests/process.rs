@@ -116,7 +116,7 @@ fn test_environ() {
     s.refresh_processes_specifics(
         ProcessesToUpdate::Some(&[pid]),
         false,
-        sysinfo::ProcessRefreshKind::everything(),
+        ProcessRefreshKind::everything(),
     );
     p.kill().expect("Unable to kill process.");
 
@@ -374,7 +374,7 @@ fn test_refresh_process_doesnt_remove() {
 
     // Checks that the process is listed as it should.
     let mut s = System::new_with_specifics(
-        RefreshKind::nothing().with_processes(sysinfo::ProcessRefreshKind::nothing()),
+        RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing()),
     );
     s.refresh_processes(ProcessesToUpdate::All, false);
 
@@ -589,7 +589,7 @@ fn test_process_iterator_lifetimes() {
     }
 
     let s = System::new_with_specifics(
-        sysinfo::RefreshKind::nothing().with_processes(sysinfo::ProcessRefreshKind::nothing()),
+        RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing()),
     );
 
     let process: Option<&sysinfo::Process>;
@@ -671,8 +671,6 @@ fn test_process_creds() {
 // This test ensures that only the requested information is retrieved.
 #[test]
 fn test_process_specific_refresh() {
-    use sysinfo::{DiskUsage, ProcessRefreshKind};
-
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
@@ -693,7 +691,7 @@ fn test_process_specific_refresh() {
         assert_eq!(p.memory(), 0);
         assert_eq!(p.virtual_memory(), 0);
         // These two won't be checked, too much lazyness in testing them...
-        assert_eq!(p.disk_usage(), DiskUsage::default());
+        assert_eq!(p.disk_usage(), sysinfo::DiskUsage::default());
         assert_eq!(p.cpu_usage(), 0.);
     }
 
@@ -1005,4 +1003,53 @@ fn test_exists() {
 
     s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, process_refresh_kind);
     assert!(!s.process(pid).unwrap().exists());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_tasks() {
+    use std::collections::HashSet;
+
+    fn get_tasks(system: &System) -> HashSet<Pid> {
+        let pid_to_process = system.processes();
+        let mut task_pids: HashSet<Pid> = HashSet::new();
+        for process in pid_to_process.values() {
+            if let Some(tasks) = process.tasks() {
+                task_pids.extend(tasks);
+            }
+        }
+        task_pids
+    }
+
+    let scheduler = std::thread::spawn(|| {
+        let mut system = System::new_with_specifics(RefreshKind::nothing());
+        let mut nb_failures = 0;
+
+        for _ in 0..5 {
+            system.refresh_processes_specifics(
+                ProcessesToUpdate::All,
+                true,
+                ProcessRefreshKind::nothing(),
+            );
+
+            let mut system_new = System::new_with_specifics(RefreshKind::nothing());
+            system_new.refresh_processes_specifics(
+                ProcessesToUpdate::All,
+                true,
+                ProcessRefreshKind::nothing(),
+            );
+
+            let nb_tasks = get_tasks(&system).len();
+            let new_nb_tasks = get_tasks(&system_new).len();
+            if nb_tasks != new_nb_tasks {
+                nb_failures += 1;
+            }
+            println!("{nb_tasks} == {new_nb_tasks}");
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+        if nb_failures > 2 {
+            panic!("number of tasks doesn't match");
+        }
+    });
+    scheduler.join().expect("Scheduler panicked");
 }
