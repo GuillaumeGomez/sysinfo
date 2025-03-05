@@ -508,6 +508,7 @@ fn update_existing_process(
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
+    tasks: Option<HashSet<Pid>>,
 ) -> Result<Option<Process>, ()> {
     let entry = &mut proc.inner;
     let data = if let Some(mut f) = entry.stat_file.take() {
@@ -526,6 +527,8 @@ fn update_existing_process(
     } else {
         _get_stat_data(&entry.proc_path, &mut entry.stat_file)?
     };
+    entry.tasks = tasks;
+
     let parts = parse_stat_file(&data).ok_or(())?;
     let start_time_without_boot_time = compute_start_time_without_boot_time(&parts, info);
 
@@ -563,6 +566,7 @@ fn update_existing_process(
     Ok(None)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn _get_process_data(
     path: &Path,
     proc_list: &mut HashMap<Pid, Process>,
@@ -571,9 +575,10 @@ pub(crate) fn _get_process_data(
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
+    tasks: Option<HashSet<Pid>>,
 ) -> Result<Option<Process>, ()> {
     if let Some(ref mut entry) = proc_list.get_mut(&pid) {
-        return update_existing_process(entry, parent_pid, uptime, info, refresh_kind);
+        return update_existing_process(entry, parent_pid, uptime, info, refresh_kind, tasks);
     }
     let mut stat_file = None;
     let data = _get_stat_data(path, &mut stat_file)?;
@@ -582,6 +587,7 @@ pub(crate) fn _get_process_data(
     let mut new_process =
         retrieve_all_new_process_info(pid, parent_pid, &parts, path, info, refresh_kind, uptime);
     new_process.inner.stat_file = stat_file;
+    new_process.inner.tasks = tasks;
     Ok(Some(new_process))
 }
 
@@ -797,7 +803,7 @@ pub(crate) fn refresh_procs(
             .filter(|e| filter_callback(e, filter))
             .filter_map(|e| {
                 let proc_list = proc_list.get();
-                let mut new_process = _get_process_data(
+                let new_process = _get_process_data(
                     e.path.as_path(),
                     proc_list,
                     e.pid,
@@ -805,14 +811,10 @@ pub(crate) fn refresh_procs(
                     uptime,
                     info,
                     refresh_kind,
+                    e.tasks,
                 )
                 .ok()?;
                 nb_updated.fetch_add(1, Ordering::Relaxed);
-                if let Some(ref mut p) = new_process {
-                    p.inner.tasks = e.tasks;
-                } else if let Some(p) = proc_list.get_mut(&e.pid) {
-                    p.inner.tasks = e.tasks;
-                }
                 new_process
             })
             .collect::<Vec<_>>()
