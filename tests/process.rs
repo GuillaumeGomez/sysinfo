@@ -1021,35 +1021,25 @@ fn test_tasks() {
         task_pids
     }
 
-    let scheduler = std::thread::spawn(|| {
-        let mut system = System::new_with_specifics(RefreshKind::nothing());
-        let mut nb_failures = 0;
+    let mut system = System::new_with_specifics(RefreshKind::nothing());
+    system.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
 
-        for _ in 0..5 {
-            system.refresh_processes_specifics(
-                ProcessesToUpdate::All,
-                true,
-                ProcessRefreshKind::nothing(),
-            );
+    // Spawn a thread to increase the task count
+    let scheduler = std::thread::spawn(move || {
+        system.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing(),
+        );
 
-            let mut system_new = System::new_with_specifics(RefreshKind::nothing());
-            system_new.refresh_processes_specifics(
-                ProcessesToUpdate::All,
-                true,
-                ProcessRefreshKind::nothing(),
-            );
+        let mut system_new = System::new_with_specifics(RefreshKind::nothing());
+        system_new.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing(),
+        );
 
-            let nb_tasks = get_tasks(&system).len();
-            let new_nb_tasks = get_tasks(&system_new).len();
-            if nb_tasks != new_nb_tasks {
-                nb_failures += 1;
-            }
-            println!("{nb_tasks} == {new_nb_tasks}");
-            std::thread::sleep(std::time::Duration::from_millis(500));
-        }
-        if nb_failures > 2 {
-            panic!("number of tasks doesn't match");
-        }
+        assert_eq!(get_tasks(&system), get_tasks(&system_new));
     });
     scheduler.join().expect("Scheduler panicked");
 }
