@@ -508,7 +508,8 @@ fn update_existing_process(
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
-) -> Result<(Option<Process>, Pid), ()> {
+    tasks: Option<HashSet<Pid>>,
+) -> Result<Option<Process>, ()> {
     let entry = &mut proc.inner;
     let data = if let Some(mut f) = entry.stat_file.take() {
         match get_all_data_from_file(&mut f, 1024) {
@@ -526,6 +527,8 @@ fn update_existing_process(
     } else {
         _get_stat_data(&entry.proc_path, &mut entry.stat_file)?
     };
+    entry.tasks = tasks;
+
     let parts = parse_stat_file(&data).ok_or(())?;
     let start_time_without_boot_time = compute_start_time_without_boot_time(&parts, info);
 
@@ -546,7 +549,7 @@ fn update_existing_process(
         );
 
         refresh_user_group_ids(entry, &mut proc_path, refresh_kind);
-        return Ok((None, entry.pid));
+        return Ok(None);
     }
     // If we're here, it means that the PID still exists but it's a different process.
     let p = retrieve_all_new_process_info(
@@ -560,9 +563,10 @@ fn update_existing_process(
     );
     *proc = p;
     // Since this PID is already in the HashMap, no need to add it again.
-    Ok((None, proc.inner.pid))
+    Ok(None)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn _get_process_data(
     path: &Path,
     proc_list: &mut HashMap<Pid, Process>,
@@ -571,18 +575,20 @@ pub(crate) fn _get_process_data(
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
-) -> Result<(Option<Process>, Pid), ()> {
+    tasks: Option<HashSet<Pid>>,
+) -> Result<Option<Process>, ()> {
     if let Some(ref mut entry) = proc_list.get_mut(&pid) {
-        return update_existing_process(entry, parent_pid, uptime, info, refresh_kind);
+        return update_existing_process(entry, parent_pid, uptime, info, refresh_kind, tasks);
     }
     let mut stat_file = None;
     let data = _get_stat_data(path, &mut stat_file)?;
     let parts = parse_stat_file(&data).ok_or(())?;
 
-    let mut p =
+    let mut new_process =
         retrieve_all_new_process_info(pid, parent_pid, &parts, path, info, refresh_kind, uptime);
-    p.inner.stat_file = stat_file;
-    Ok((Some(p), pid))
+    new_process.inner.stat_file = stat_file;
+    new_process.inner.tasks = tasks;
+    Ok(Some(new_process))
 }
 
 fn old_get_memory(entry: &mut ProcessInner, str_parts: &[&str], info: &SystemInfo) {
@@ -799,21 +805,20 @@ pub(crate) fn refresh_procs(
             .flatten()
             .filter(|e| filter_callback(e, filter))
             .filter_map(|e| {
-                let (mut p, _) = _get_process_data(
+                let proc_list = proc_list.get();
+                let new_process = _get_process_data(
                     e.path.as_path(),
-                    proc_list.get(),
+                    proc_list,
                     e.pid,
                     e.parent_pid,
                     uptime,
                     info,
                     refresh_kind,
+                    e.tasks,
                 )
                 .ok()?;
                 nb_updated.fetch_add(1, Ordering::Relaxed);
-                if let Some(ref mut p) = p {
-                    p.inner.tasks = e.tasks;
-                }
-                p
+                new_process
             })
             .collect::<Vec<_>>()
     };
