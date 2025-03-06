@@ -211,12 +211,20 @@ jobs:
           command: check
           args: --features apple-sandbox --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml
           use-cross: ${{ matrix.triple.cross }}
+
       - name: Check without multithreading (Apple app store restrictions)
         if: matrix.triple.os == 'macos-latest'
         uses: ClementTsang/cargo-action@v0.0.6
         with:
           command: check
           args: --features apple-sandbox --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features
+          use-cross: ${{ matrix.triple.cross }}
+
+      - name: Check features (system with Apple app store restrictions)
+        uses: ClementTsang/cargo-action@v0.0.6
+        with:
+          command: check
+          args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features system,apple-sandbox
           use-cross: ${{ matrix.triple.cross }}
 
   tests:

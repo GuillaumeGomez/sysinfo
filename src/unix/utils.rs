@@ -37,7 +37,10 @@ pub(crate) fn cstr_to_rust_with_size(
 
 #[cfg(all(
     feature = "system",
-    not(any(target_os = "ios", feature = "apple-sandbox"))
+    not(any(
+        target_os = "ios",
+        all(target_os = "macos", feature = "apple-sandbox",)
+    ))
 ))]
 pub(crate) fn wait_process(pid: crate::Pid) -> Option<std::process::ExitStatus> {
     use std::os::unix::process::ExitStatusExt;
