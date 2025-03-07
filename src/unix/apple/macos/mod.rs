@@ -12,11 +12,19 @@ cfg_if! {
         pub use crate::sys::app_store::process;
     }
 
+
     if #[cfg(any(
-            feature = "system",
             feature = "disk",
-            target_arch = "x86",
-            target_arch = "x86_64",
+            all(
+                not(feature = "apple-sandbox"),
+                any(
+                    feature = "system",
+                    all(
+                        feature = "component",
+                        any(target_arch = "x86", target_arch = "x86_64")
+                    )
+                )
+            ),
         ))]
     {
         pub(crate) mod utils;

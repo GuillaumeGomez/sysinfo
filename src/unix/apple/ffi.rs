@@ -3,7 +3,13 @@
 // Reexport items defined in either macos or ios ffi module.
 #[cfg(all(
     not(target_os = "ios"),
-    any(feature = "component", feature = "disk", feature = "system"),
+    any(
+        feature = "disk",
+        all(
+            not(feature = "apple-sandbox"),
+            any(feature = "component", feature = "system")
+        ),
+    ),
 ))]
 pub use crate::sys::inner::ffi::*;
 
