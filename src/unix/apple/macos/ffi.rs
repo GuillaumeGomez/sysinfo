@@ -1,46 +1,75 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 #[cfg(any(
-    feature = "system",
     feature = "disk",
     all(
-        feature = "component",
-        any(target_arch = "x86", target_arch = "x86_64")
+        not(feature = "apple-sandbox"),
+        any(
+            feature = "system",
+            all(
+                feature = "component",
+                any(target_arch = "x86", target_arch = "x86_64")
+            )
+        )
     ),
 ))]
 use libc::mach_port_t;
-#[cfg(any(feature = "system", feature = "disk"))]
+#[cfg(any(
+    all(feature = "system", not(feature = "apple-sandbox")),
+    feature = "disk"
+))]
 use objc2_core_foundation::CFAllocator;
 #[cfg(any(
-    feature = "system",
     feature = "disk",
     all(
-        feature = "component",
-        any(target_arch = "x86", target_arch = "x86_64")
+        not(feature = "apple-sandbox"),
+        any(
+            feature = "system",
+            all(
+                feature = "component",
+                any(target_arch = "x86", target_arch = "x86_64")
+            )
+        )
     ),
 ))]
 use objc2_core_foundation::CFMutableDictionary;
-#[cfg(any(feature = "system", feature = "disk"))]
+#[cfg(any(
+    all(feature = "system", not(feature = "apple-sandbox")),
+    feature = "disk"
+))]
 use objc2_core_foundation::CFString;
-#[cfg(any(feature = "system", feature = "disk"))]
+#[cfg(any(
+    all(feature = "system", not(feature = "apple-sandbox")),
+    feature = "disk"
+))]
 use objc2_core_foundation::CFType;
 #[cfg(any(
-    feature = "system",
     feature = "disk",
     all(
-        feature = "component",
-        any(target_arch = "x86", target_arch = "x86_64")
+        not(feature = "apple-sandbox"),
+        any(
+            feature = "system",
+            all(
+                feature = "component",
+                any(target_arch = "x86", target_arch = "x86_64")
+            )
+        )
     ),
 ))]
 use std::ptr::NonNull;
 
 use libc::c_char;
 #[cfg(any(
-    feature = "system",
     feature = "disk",
     all(
-        feature = "component",
-        any(target_arch = "x86", target_arch = "x86_64")
+        not(feature = "apple-sandbox"),
+        any(
+            feature = "system",
+            all(
+                feature = "component",
+                any(target_arch = "x86", target_arch = "x86_64")
+            )
+        )
     ),
 ))]
 use libc::kern_return_t;
@@ -48,38 +77,57 @@ use libc::kern_return_t;
 // Note: IOKit is only available on macOS up until very recent iOS versions: https://developer.apple.com/documentation/iokit
 
 #[cfg(any(
-    feature = "system",
     feature = "disk",
     all(
-        feature = "component",
-        any(target_arch = "x86", target_arch = "x86_64")
+        not(feature = "apple-sandbox"),
+        any(
+            feature = "system",
+            all(
+                feature = "component",
+                any(target_arch = "x86", target_arch = "x86_64")
+            )
+        )
     ),
 ))]
 #[allow(non_camel_case_types)]
 pub type io_object_t = mach_port_t;
 
 #[cfg(any(
-    feature = "system",
     feature = "disk",
     all(
-        feature = "component",
-        any(target_arch = "x86", target_arch = "x86_64")
+        not(feature = "apple-sandbox"),
+        any(
+            feature = "system",
+            all(
+                feature = "component",
+                any(target_arch = "x86", target_arch = "x86_64")
+            )
+        )
     ),
 ))]
 #[allow(non_camel_case_types)]
 pub type io_iterator_t = io_object_t;
-#[cfg(any(feature = "system", feature = "disk"))]
+#[cfg(any(
+    all(feature = "system", not(feature = "apple-sandbox")),
+    feature = "disk"
+))]
 #[allow(non_camel_case_types)]
 pub type io_registry_entry_t = io_object_t;
 // This is a hack, `io_name_t` should normally be `[c_char; 128]` but Rust makes it very annoying
 // to deal with that so we go around it a bit.
 #[allow(non_camel_case_types, dead_code)]
 pub type io_name = [c_char; 128];
-#[cfg(any(feature = "system", feature = "disk"))]
+#[cfg(any(
+    all(feature = "system", not(feature = "apple-sandbox")),
+    feature = "disk"
+))]
 #[allow(non_camel_case_types)]
 pub type io_name_t = *const c_char;
 
-#[cfg(any(feature = "system", feature = "disk"))]
+#[cfg(any(
+    all(feature = "system", not(feature = "apple-sandbox")),
+    feature = "disk"
+))]
 pub type IOOptionBits = u32;
 
 cfg_if! {
@@ -107,22 +155,32 @@ cfg_if! {
 // we can simply set it to 0 (and is the same value as its replacement `kIOMainPortDefault`).
 #[allow(non_upper_case_globals)]
 #[cfg(any(
-    feature = "system",
     feature = "disk",
     all(
-        feature = "component",
-        any(target_arch = "x86", target_arch = "x86_64")
+        not(feature = "apple-sandbox"),
+        any(
+            feature = "system",
+            all(
+                feature = "component",
+                any(target_arch = "x86", target_arch = "x86_64")
+            )
+        )
     ),
 ))]
 pub const kIOMasterPortDefault: mach_port_t = 0;
 
 // Note: Obtaining information about disks using IOKIt is allowed inside the default macOS App Sandbox.
 #[cfg(any(
-    feature = "system",
     feature = "disk",
     all(
-        feature = "component",
-        any(target_arch = "x86", target_arch = "x86_64")
+        not(feature = "apple-sandbox"),
+        any(
+            feature = "system",
+            all(
+                feature = "component",
+                any(target_arch = "x86", target_arch = "x86_64")
+            )
+        )
     ),
 ))]
 #[link(name = "IOKit", kind = "framework")]
