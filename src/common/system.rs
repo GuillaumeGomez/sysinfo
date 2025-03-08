@@ -792,6 +792,34 @@ impl System {
         SystemInner::distribution_id()
     }
 
+    /// Provides kernel version following this string format:
+    ///
+    /// "<code>[distribution_id] OS Build [kernel_version]</code>"
+    ///
+    /// If any of the information is not available, it will be replaced with "unknown".
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Kernel long version: {}", System::kernel_long_version());
+    /// ```
+    ///
+    /// [distribution_id]: System::distribution_id
+    /// [kernel_version]: System::kernel_version
+    pub fn kernel_long_version() -> String {
+        let mut distribution_id = System::distribution_id();
+        if distribution_id.is_empty() {
+            distribution_id.push_str("Unknown");
+        }
+        let kernel_version = match System::kernel_version() {
+            None => "unknown".to_string(),
+            Some(s) => s,
+        };
+        distribution_id + " OS Build " + &kernel_version
+    }
+
     /// Returns the distribution ids of operating systems that are closely
     /// related to the local operating system in regards to packaging and
     /// programming interfaces, for example listing one or more OS identifiers
