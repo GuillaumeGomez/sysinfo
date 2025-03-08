@@ -290,6 +290,43 @@ impl ProcessInner {
     pub(crate) fn exists(&self) -> bool {
         self.exists
     }
+
+    pub(crate) fn open_files(&self) -> Option<u32> {
+        let open_files_dir = self.proc_path.as_path().join("fd");
+        match fs::read_dir(&open_files_dir) {
+            Ok(entries) => Some(entries.count() as u32),
+            Err(_error) => {
+                sysinfo_debug!(
+                    "Failed to get open files in `{}`: {_error:?}",
+                    open_files_dir.display(),
+                );
+                None
+            }
+        }
+    }
+
+    pub(crate) fn open_files_limit(&self) -> Option<u32> {
+        let limits_files = self.proc_path.as_path().join("limits");
+        match fs::read_to_string(&limits_files) {
+            Ok(content) => {
+                for line in content.lines() {
+                    if let Some(line) = line.strip_prefix("Max open files ") {
+                        if let Some(nb) = line.split_whitespace().find(|p| !p.is_empty()) {
+                            return u32::from_str(nb).ok();
+                        }
+                    }
+                }
+                None
+            }
+            Err(_error) => {
+                sysinfo_debug!(
+                    "Failed to get limits in `{}`: {_error:?}",
+                    limits_files.display()
+                );
+                None
+            }
+        }
+    }
 }
 
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, total_time: f32, max_value: f32) {
