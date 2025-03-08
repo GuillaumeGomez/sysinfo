@@ -432,7 +432,7 @@ impl Groups {
         Self { groups: Vec::new() }
     }
 
-    /// Creates a new [`Groups`][crate::Groups] type with the user list loaded.
+    /// Creates a new [`Groups`][crate::Groups] type with the group list loaded.
     ///
     /// ```no_run
     /// use sysinfo::Groups;
@@ -448,7 +448,7 @@ impl Groups {
         groups
     }
 
-    /// Returns the users list.
+    /// Returns the groups list.
     ///
     /// ```no_run
     /// use sysinfo::Groups;
