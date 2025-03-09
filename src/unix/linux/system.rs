@@ -516,6 +516,16 @@ impl SystemInner {
         system_info_as_list(get_system_info_android(InfoType::DistributionIDLike))
     }
 
+    #[cfg(not(target_os = "android"))]
+    pub(crate) fn kernel_name() -> Option<&'static str> {
+        Some("Linux")
+    }
+
+    #[cfg(target_os = "android")]
+    pub(crate) fn kernel_name() -> Option<&'static str> {
+        Some("Android kernel")
+    }
+
     pub(crate) fn cpu_arch() -> Option<String> {
         let mut raw = std::mem::MaybeUninit::<libc::utsname>::uninit();
 
