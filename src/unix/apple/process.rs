@@ -75,3 +75,39 @@ impl From<i32> for ThreadStatus {
         }
     }
 }
+
+impl ProcessInner {
+    pub(crate) fn open_files(&self) -> Option<u32> {
+        let buffer_size_bytes = unsafe {
+            libc::proc_pidinfo(
+                self.pid().0,
+                crate::sys::ffi::PROC_PIDLISTFDS,
+                0,
+                std::ptr::null_mut(),
+                0,
+            )
+        };
+
+        if buffer_size_bytes < 0 {
+            sysinfo_debug!("proc_pidinfo failed");
+            None
+        } else {
+            Some(
+                buffer_size_bytes as u32
+                    / std::mem::size_of::<crate::sys::ffi::proc_fdinfo>() as u32,
+            )
+        }
+    }
+
+    // FIXME: Should query the value, because it can be changed with setrlimit and other means.
+    // For now, cannot find where to get this information sadly...
+    #[cfg(target_os = "ios")]
+    pub(crate) fn open_files_limit(&self) -> Option<u32> {
+        Some(256)
+    }
+
+    #[cfg(not(target_os = "ios"))]
+    pub(crate) fn open_files_limit(&self) -> Option<u32> {
+        Some(10_240)
+    }
+}
