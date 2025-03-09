@@ -23,6 +23,16 @@ cfg_if! {
             pub fn objc_autoreleasePoolPush() -> *mut c_void;
         }
     }
+    if #[cfg(feature = "system")] {
+        // FIXME: to be removed once https://github.com/rust-lang/libc/pull/4310 is merged.
+        #[allow(non_camel_case_types, dead_code)]
+        pub struct proc_fdinfo {
+            pub proc_fd: i32,
+            pub proc_fdtype: u32,
+        }
+
+        pub const PROC_PIDLISTFDS: libc::c_int = 1;
+    }
 }
 
 #[cfg_attr(feature = "debug", derive(Eq, Hash, PartialEq))]
