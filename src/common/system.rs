@@ -792,34 +792,6 @@ impl System {
         SystemInner::distribution_id()
     }
 
-    /// Provides kernel version following this string format:
-    ///
-    /// "<code>[distribution_id] OS Build [kernel_version]</code>"
-    ///
-    /// If any of the information is not available, it will be replaced with "unknown".
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// println!("Kernel long version: {}", System::kernel_long_version());
-    /// ```
-    ///
-    /// [distribution_id]: System::distribution_id
-    /// [kernel_version]: System::kernel_version
-    pub fn kernel_long_version() -> String {
-        let mut distribution_id = System::distribution_id();
-        if distribution_id.is_empty() {
-            distribution_id.push_str("Unknown");
-        }
-        let kernel_version = match System::kernel_version() {
-            None => "unknown".to_string(),
-            Some(s) => s,
-        };
-        distribution_id + " OS Build " + &kernel_version
-    }
-
     /// Returns the distribution ids of operating systems that are closely
     /// related to the local operating system in regards to packaging and
     /// programming interfaces, for example listing one or more OS identifiers
@@ -845,6 +817,41 @@ impl System {
     /// ```
     pub fn distribution_id_like() -> Vec<String> {
         SystemInner::distribution_id_like()
+    }
+
+    /// Provides kernel version following this string format:
+    ///
+    /// | Platform | Result |
+    /// |-|-|
+    /// | Windows | Windows OS Build 20348.2227 |
+    /// | Linux | Linux 6.12.13-200.fc41.x86_64 |
+    /// | Android | Android 612.13-200 |
+    /// | MacOS | Darwin 21.6.0 |
+    /// | FreeBSD | FreeBSD 199506 |
+    ///
+    /// If any of the information is not available, it will be replaced with "unknown".
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Kernel long version: {}", System::kernel_long_version());
+    /// ```
+    ///
+    /// [distribution_id]: System::distribution_id
+    /// [kernel_version]: System::kernel_version
+    pub fn kernel_long_version() -> String {
+        let kernel_version = match System::kernel_version() {
+            None => "unknown".to_string(),
+            Some(s) => s,
+        };
+        let kernel_name = SystemInner::kernel_name().unwrap_or("Unknown");
+        if cfg!(windows) {
+            format!("{kernel_name} OS Build {kernel_version}")
+        } else {
+            format!("{kernel_name} {kernel_version}")
+        }
     }
 
     /// Returns the system hostname based off DNS.

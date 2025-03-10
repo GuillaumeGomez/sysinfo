@@ -222,7 +222,7 @@ impl SystemInner {
     pub(crate) fn long_os_version() -> Option<String> {
         let mut os_release: [c_int; 2] = [0; 2];
         unsafe {
-            init_mib(b"kern.osrelease\0", &mut os_release);
+            init_mib(b"kern.version\0", &mut os_release);
             get_system_info(&os_release, None)
         }
     }
@@ -236,10 +236,13 @@ impl SystemInner {
     }
 
     pub(crate) fn kernel_version() -> Option<String> {
-        let mut kern_version: [c_int; 2] = [0; 2];
         unsafe {
-            init_mib(b"kern.version\0", &mut kern_version);
-            get_system_info(&kern_version, None)
+            let mut kern_version: libc::c_int = 0;
+            if get_sys_value_by_name(b"kern.osrevision\0", &mut kern_version) {
+                Some(kern_version.to_string())
+            } else {
+                None
+            }
         }
     }
 
@@ -249,6 +252,10 @@ impl SystemInner {
 
     pub(crate) fn distribution_id_like() -> Vec<String> {
         Vec::new()
+    }
+
+    pub(crate) fn kernel_name() -> Option<&'static str> {
+        Some("FreeBSD")
     }
 
     pub(crate) fn cpu_arch() -> Option<String> {

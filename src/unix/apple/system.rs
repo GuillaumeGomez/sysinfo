@@ -501,6 +501,10 @@ impl SystemInner {
         Vec::new()
     }
 
+    pub(crate) fn kernel_name() -> Option<&'static str> {
+        Some("Darwin")
+    }
+
     pub(crate) fn cpu_arch() -> Option<String> {
         let mut arch_str: [u8; 32] = [0; 32];
         let mut mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
