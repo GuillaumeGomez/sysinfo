@@ -143,6 +143,7 @@ fn print_help() {
         &mut io::stdout(),
         "pid                : Display this example's PID"
     );
+
     writeln!(&mut io::stdout(), "quit               : Exit the program");
 }
 
@@ -438,12 +439,14 @@ fn interpret_input(
                  System kernel version:    {}\n\
                  System OS version:        {}\n\
                  System OS (long) version: {}\n\
-                 System host name:         {}",
+                 System host name:         {}\n\
+		 System kernel:            {}",
                 System::name().unwrap_or_else(|| "<unknown>".to_owned()),
                 System::kernel_version().unwrap_or_else(|| "<unknown>".to_owned()),
                 System::os_version().unwrap_or_else(|| "<unknown>".to_owned()),
                 System::long_os_version().unwrap_or_else(|| "<unknown>".to_owned()),
                 System::host_name().unwrap_or_else(|| "<unknown>".to_owned()),
+                System::kernel_long_version(),
             );
         }
         e => {
