@@ -821,11 +821,13 @@ impl System {
 
     /// Provides kernel version following this string format:
     ///
-    /// | Windows | Windows 10 (OS Build 20348.2227) |
-    /// | Linux | Linux 41 (kernel version 6.12.13-200.fc41.x86_64) |
-    /// | Android | Android 6.12.13-200 (kernel version 612.13-200) |
-    /// | MacOS | Darwin 12.6.3 (kernel version 21.6.0) |
-    /// | FreeBSD | FreeBSD 13.1 (kernel version 199506) |
+    /// | Platform | Result |
+    /// |-|-|
+    /// | Windows | Windows OS Build 20348.2227 |
+    /// | Linux | Linux 6.12.13-200.fc41.x86_64 |
+    /// | Android | Android 612.13-200 |
+    /// | MacOS | Darwin 21.6.0 |
+    /// | FreeBSD | FreeBSD 199506 |
     ///
     /// If any of the information is not available, it will be replaced with "unknown".
     ///
@@ -844,15 +846,11 @@ impl System {
             None => "unknown".to_string(),
             Some(s) => s,
         };
-        let os_version = match System::os_version() {
-            None => "unknown".to_string(),
-            Some(s) => s,
-        };
         let kernel_name = SystemInner::kernel_name().unwrap_or("Unknown");
         if cfg!(windows) {
-            format!("{kernel_name} {os_version} (OS Build {kernel_version})")
+            format!("{kernel_name} OS Build {kernel_version}")
         } else {
-            format!("{kernel_name} {os_version} (kernel version {kernel_version})")
+            format!("{kernel_name} {kernel_version}")
         }
     }
 
