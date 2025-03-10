@@ -139,6 +139,10 @@ impl SystemInner {
         Vec::new()
     }
 
+    pub(crate) fn kernel_name() -> Option<&'static str> {
+        None
+    }
+
     pub(crate) fn host_name() -> Option<String> {
         None
     }

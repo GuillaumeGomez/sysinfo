@@ -423,6 +423,10 @@ impl SystemInner {
         Vec::new()
     }
 
+    pub(crate) fn kernel_name() -> Option<&'static str> {
+        Some("Windows")
+    }
+
     pub(crate) fn cpu_arch() -> Option<String> {
         unsafe {
             // https://docs.microsoft.com/fr-fr/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info
