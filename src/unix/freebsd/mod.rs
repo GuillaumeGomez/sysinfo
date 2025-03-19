@@ -15,10 +15,13 @@ cfg_if! {
     }
     if #[cfg(feature = "disk")] {
         pub mod disk;
-        pub mod ffi;
 
         pub(crate) use self::disk::DiskInner;
         pub(crate) use crate::unix::DisksInner;
+    }
+
+    if #[cfg(any(feature = "disk", feature = "system"))] {
+        pub mod ffi;
     }
 
     if #[cfg(feature = "component")] {

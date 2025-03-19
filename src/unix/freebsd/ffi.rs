@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#![allow(non_camel_case_types)]
+#![allow(non_camel_case_types, dead_code)]
 
-use libc::{c_int, c_void};
+use libc::{c_char, c_int, c_uint, c_ulong, c_void, uintptr_t};
 
 // definitions come from:
 // https://github.com/freebsd/freebsd-src/blob/main/lib/libdevstat/devstat.h
@@ -16,6 +16,51 @@ use libc::{c_int, c_void};
 //     pub(crate) dinfo: *mut devinfo,
 //     pub(crate) snap_time: c_long_double,
 // }
+
+// FIXME: can be removed once https://github.com/rust-lang/libc/pull/4327 is merged
+#[repr(C)]
+pub(crate) struct filedesc {
+    pub fd_files: *mut fdescenttbl,
+    pub fd_map: *mut c_ulong,
+    pub fd_freefile: c_int,
+    pub fd_refcnt: c_int,
+    pub fd_holdcnt: c_int,
+    fd_sx: sx,
+    fd_kqlist: kqlist,
+    pub fd_holdleaderscount: c_int,
+    pub fd_holdleaderswakeup: c_int,
+}
+
+// FIXME: can be removed once https://github.com/rust-lang/libc/pull/4327 is merged
+#[repr(C)]
+pub(crate) struct fdescenttbl {
+    pub fdt_nfiles: c_int,
+    fdt_ofiles: [*mut c_void; 0],
+}
+
+// FIXME: can be removed once https://github.com/rust-lang/libc/pull/4327 is merged
+#[repr(C)]
+pub(crate) struct sx {
+    lock_object: lock_object,
+    sx_lock: uintptr_t,
+}
+
+// FIXME: can be removed once https://github.com/rust-lang/libc/pull/4327 is merged
+#[repr(C)]
+pub(crate) struct lock_object {
+    lo_name: *const c_char,
+    lo_flags: c_uint,
+    lo_data: c_uint,
+    // This is normally `struct  witness`.
+    lo_witness: *mut c_void,
+}
+
+// FIXME: can be removed once https://github.com/rust-lang/libc/pull/4327 is merged
+#[repr(C)]
+pub(crate) struct kqlist {
+    tqh_first: *mut c_void,
+    tqh_last: *mut *mut c_void,
+}
 
 pub(crate) const DEVSTAT_READ: usize = 0x01;
 pub(crate) const DEVSTAT_WRITE: usize = 0x02;

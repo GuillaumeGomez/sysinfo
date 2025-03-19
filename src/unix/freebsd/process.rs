@@ -7,7 +7,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 
-use super::utils::{get_sys_value_str, WrapMap};
+use super::utils::{get_sys_value_by_name, get_sys_value_str, WrapMap};
 
 #[doc(hidden)]
 impl From<libc::c_char> for ProcessStatus {
@@ -66,6 +66,9 @@ pub(crate) struct ProcessInner {
     old_written_bytes: u64,
     accumulated_cpu_time: u64,
     exists: bool,
+    // On FreeBSD, we can only get this information from `kinfo_proc`, so instead of going through
+    // all open processes again, better store the value...
+    open_files: Option<u32>,
 }
 
 impl ProcessInner {
@@ -185,6 +188,21 @@ impl ProcessInner {
     pub(crate) fn exists(&self) -> bool {
         self.exists
     }
+
+    pub(crate) fn open_files(&self) -> Option<u32> {
+        self.open_files
+    }
+
+    pub(crate) fn open_files_limit(&self) -> Option<u32> {
+        let mut value = 0u32;
+        unsafe {
+            if get_sys_value_by_name(b"kern.maxfilesperproc\0", &mut value) {
+                Some(value)
+            } else {
+                None
+            }
+        }
+    }
 }
 
 #[inline]
@@ -234,6 +252,13 @@ pub(crate) unsafe fn get_process_data(
     // let run_time = (kproc.ki_runtime + 5_000) / 10_000;
 
     let start_time = kproc.ki_start.tv_sec as u64;
+    let mut open_files = None;
+    if !kproc.ki_fd.is_null() {
+        let ki_fd = kproc.ki_fd as *mut super::ffi::filedesc;
+        if !(*ki_fd).fd_files.is_null() {
+            open_files = Some((*(*ki_fd).fd_files).fdt_nfiles as _);
+        }
+    }
 
     if let Some(proc_) = (*wrap.0.get()).get_mut(&Pid(kproc.ki_pid)) {
         let proc_ = &mut proc_.inner;
@@ -259,6 +284,8 @@ pub(crate) unsafe fn get_process_data(
             if refresh_kind.cpu() {
                 proc_.accumulated_cpu_time = get_accumulated_cpu_time(kproc);
             }
+
+            proc_.open_files = open_files;
 
             return Ok(None);
         }
@@ -316,6 +343,7 @@ pub(crate) unsafe fn get_process_data(
             },
             updated: true,
             exists: true,
+            open_files,
         },
     }))
 }
