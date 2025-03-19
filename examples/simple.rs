@@ -285,9 +285,19 @@ fn interpret_input(
                 writeln!(&mut io::stdout(), "example: show 1254");
             } else if let Ok(pid) = Pid::from_str(tmp[1]) {
                 match sys.process(pid) {
-                    Some(p) => writeln!(&mut io::stdout(), "{:?}", *p),
-                    None => writeln!(&mut io::stdout(), "pid \"{pid:?}\" not found"),
-                };
+                    Some(p) => {
+                        writeln!(&mut io::stdout(), "{:?}", *p);
+                        writeln!(
+                            &mut io::stdout(),
+                            "Files open/limit: {:?}/{:?}",
+                            p.open_files(),
+                            p.open_files_limit(),
+                        );
+                    }
+                    None => {
+                        writeln!(&mut io::stdout(), "pid \"{pid:?}\" not found");
+                    }
+                }
             } else {
                 let proc_name = tmp[1];
                 for proc_ in sys.processes_by_name(proc_name.as_ref()) {

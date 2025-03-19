@@ -120,4 +120,12 @@ impl ProcessInner {
     pub(crate) fn exists(&self) -> bool {
         false
     }
+
+    pub(crate) fn open_files(&self) -> Option<u32> {
+        None
+    }
+
+    pub(crate) fn open_files_limit(&self) -> Option<u32> {
+        None
+    }
 }

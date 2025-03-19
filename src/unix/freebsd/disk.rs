@@ -8,12 +8,11 @@ use std::path::{Path, PathBuf};
 use std::ptr::{null_mut, NonNull};
 use std::sync::OnceLock;
 
-use libc::c_void;
+use libc::{c_void, devstat, devstat_getversion};
 
 use super::ffi::{
-    devstat, devstat_getversion, geom_stats_open, geom_stats_snapshot_free,
-    geom_stats_snapshot_get, geom_stats_snapshot_next, geom_stats_snapshot_reset, DEVSTAT_READ,
-    DEVSTAT_WRITE,
+    geom_stats_open, geom_stats_snapshot_free, geom_stats_snapshot_get, geom_stats_snapshot_next,
+    geom_stats_snapshot_reset, DEVSTAT_READ, DEVSTAT_WRITE,
 };
 use super::utils::{c_buf_to_utf8_str, get_sys_value_str_by_name};
 use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};

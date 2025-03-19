@@ -44,9 +44,10 @@ use windows::Win32::System::ProcessStatus::{
 use windows::Win32::System::RemoteDesktop::ProcessIdToSessionId;
 use windows::Win32::System::SystemInformation::OSVERSIONINFOEXW;
 use windows::Win32::System::Threading::{
-    GetExitCodeProcess, GetProcessIoCounters, GetProcessTimes, GetSystemTimes, OpenProcess,
-    OpenProcessToken, CREATE_NO_WINDOW, IO_COUNTERS, PEB, PROCESS_BASIC_INFORMATION,
-    PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
+    GetExitCodeProcess, GetProcessHandleCount, GetProcessIoCounters, GetProcessTimes,
+    GetSystemTimes, OpenProcess, OpenProcessToken, CREATE_NO_WINDOW, IO_COUNTERS, PEB,
+    PROCESS_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
+    PROCESS_VM_READ,
 };
 use windows::Win32::UI::Shell::CommandLineToArgvW;
 
@@ -500,6 +501,37 @@ impl ProcessInner {
 
     pub(crate) fn exists(&self) -> bool {
         self.exists
+    }
+
+    pub(crate) fn open_files(&self) -> Option<u32> {
+        if let Some(ref handle) = self.handle {
+            let mut handles_count = 0;
+            unsafe {
+                if let Err(_error) = GetProcessHandleCount(***handle, &mut handles_count) {
+                    sysinfo_debug!("GetProcessHandleCount failed: {_error:?}");
+                    None
+                } else {
+                    Some(handles_count)
+                }
+            }
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn open_files_limit(&self) -> Option<u32> {
+        // Apparently when using C run-time libraries, it's limited by _NHANDLE_.
+        // It's a define:
+        //
+        // ```
+        // #define IOINFO_L2E          6
+        // #define IOINFO_ARRAY_ELTS   (1 << IOINFO_L2E)
+        // #define IOINFO_ARRAYS       128
+        // #define _NHANDLE_ (IOINFO_ARRAYS * IOINFO_ARRAY_ELTS)
+        // ```
+        //
+        // So 128 * (1 << 6) = 8192
+        Some(8192)
     }
 }
 

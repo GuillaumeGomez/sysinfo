@@ -1781,6 +1781,55 @@ impl Process {
     pub fn exists(&self) -> bool {
         self.inner.exists()
     }
+
+    /// Returns the number of open files in the current process.
+    ///
+    /// Returns `None` if it failed retrieving the information or if the current system is not
+    /// supported.
+    ///
+    /// **Important**: this information is computed every time this function is called (except on
+    /// FreeBSD).
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    ///
+    /// for (_, process) in s.processes() {
+    ///     println!(
+    ///         "Process {:?} {:?}",
+    ///         process.pid(),
+    ///         process.open_files(),
+    ///     );
+    /// }
+    /// ```
+    pub fn open_files(&self) -> Option<u32> {
+        self.inner.open_files()
+    }
+
+    /// Returns the maximum number of open files for the current process.
+    ///
+    /// Returns `None` if it failed retrieving the information or if the current system is not
+    /// supported.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// let s = System::new_all();
+    ///
+    /// for (_, process) in s.processes() {
+    ///     println!(
+    ///         "Process {:?} {:?}",
+    ///         process.pid(),
+    ///         process.open_files_limit(),
+    ///     );
+    /// }
+    /// ```
+    pub fn open_files_limit(&self) -> Option<u32> {
+        self.inner.open_files_limit()
+    }
 }
 
 macro_rules! pid_decl {

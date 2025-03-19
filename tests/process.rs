@@ -1103,3 +1103,22 @@ fn test_tasks() {
     });
     scheduler.join().expect("Scheduler panicked");
 }
+
+#[test]
+fn open_files() {
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let pid = sysinfo::get_current_pid().expect("failed to get current pid");
+    let _file =
+        std::fs::File::create(std::env::temp_dir().join("sysinfo-open-files.test")).unwrap();
+    let mut s = System::new();
+    s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
+    let cur_process = s.process(pid).unwrap();
+    assert!(cur_process
+        .open_files()
+        .is_some_and(|open_files| open_files > 0));
+    assert!(cur_process
+        .open_files_limit()
+        .is_some_and(|open_files| open_files > 0));
+}

@@ -53,6 +53,10 @@ impl PathHandler {
         // the end since every `PathHandler::join` call will first call `pop` internally.
         Self(path.join("a"))
     }
+
+    pub(crate) fn as_path(&self) -> &Path {
+        &self.0
+    }
 }
 
 #[cfg(feature = "system")]
@@ -65,7 +69,7 @@ impl PathPush for PathHandler {
     fn join(&mut self, p: &str) -> &Path {
         self.0.pop();
         self.0.push(p);
-        self.0.as_path()
+        self.as_path()
     }
 }
 
