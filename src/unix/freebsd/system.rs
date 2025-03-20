@@ -287,13 +287,14 @@ impl SystemInner {
         processes_to_update: ProcessesToUpdate<'_>,
         refresh_kind: ProcessRefreshKind,
     ) -> usize {
+        let (op, arg) = match processes_to_update {
+            ProcessesToUpdate::Some(&[]) => return 0,
+            ProcessesToUpdate::Some(&[pid]) => (libc::KERN_PROC_PID, pid.as_u32() as c_int),
+            _ => (libc::KERN_PROC_PROC, 0),
+        };
+
         let mut count = 0;
-        let kvm_procs = libc::kvm_getprocs(
-            self.system_info.kd.as_ptr(),
-            libc::KERN_PROC_PROC,
-            0,
-            &mut count,
-        );
+        let kvm_procs = libc::kvm_getprocs(self.system_info.kd.as_ptr(), op, arg, &mut count);
         if count < 1 {
             sysinfo_debug!("kvm_getprocs returned nothing...");
             return 0;
