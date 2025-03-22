@@ -7,9 +7,9 @@ use objc2_core_foundation::{
     kCFAllocatorDefault, kCFTypeArrayCallBacks, kCFURLVolumeAvailableCapacityForImportantUsageKey,
     kCFURLVolumeAvailableCapacityKey, kCFURLVolumeIsBrowsableKey, kCFURLVolumeIsEjectableKey,
     kCFURLVolumeIsInternalKey, kCFURLVolumeIsLocalKey, kCFURLVolumeIsRemovableKey,
-    kCFURLVolumeNameKey, kCFURLVolumeTotalCapacityKey, CFArray, CFArrayCreate, CFBoolean,
-    CFDictionary, CFDictionaryGetValueIfPresent, CFNumber, CFRetained, CFString,
-    CFURLCopyResourcePropertiesForKeys, CFURLCreateFromFileSystemRepresentation, CFURL,
+    kCFURLVolumeNameKey, kCFURLVolumeTotalCapacityKey, kCFURLVolumeUUIDStringKey, CFArray,
+    CFArrayCreate, CFBoolean, CFDictionary, CFDictionaryGetValueIfPresent, CFNumber, CFRetained,
+    CFString, CFURLCopyResourcePropertiesForKeys, CFURLCreateFromFileSystemRepresentation, CFURL,
 };
 
 use libc::c_void;
@@ -36,6 +36,7 @@ pub(crate) struct DiskInner {
     pub(crate) written_bytes: u64,
     pub(crate) read_bytes: u64,
     updated: bool,
+    uuid: OsString,
 }
 
 impl DiskInner {
@@ -229,12 +230,13 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
         disks
     };
 
-    // Currently we query maximum 9 properties.
-    let mut properties = Vec::with_capacity(9);
+    // Currently we query maximum 10 properties.
+    let mut properties = Vec::with_capacity(10);
     // "mandatory" information
     properties.push(kCFURLVolumeNameKey);
     properties.push(kCFURLVolumeIsBrowsableKey);
     properties.push(kCFURLVolumeIsLocalKey);
+    properties.push(kCFURLVolumeUUIDStringKey);
 
     // is_removable
     properties.push(kCFURLVolumeIsEjectableKey);
@@ -304,11 +306,10 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
             CStr::from_ptr(c_disk.f_mntonname.as_ptr()).to_bytes(),
         ));
 
-        let disk = container
-            .iter_mut()
-            // FIXME: Using the mount point might not be enough to ensure this disk is the one
-            // we're looking for.
-            .find(|d| d.inner.mount_point == mount_point);
+        let uuid = OsStr::from_bytes(CStr::from_ptr(c_disk.f_mntonname.as_ptr()).to_bytes())
+            .to_os_string();
+
+        let disk = container.iter_mut().find(|d| d.inner.uuid == uuid);
         if let Some(disk) = new_disk(
             disk,
             mount_point,
@@ -316,6 +317,7 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
             c_disk,
             &prop_dict,
             refresh_kind,
+            uuid,
         ) {
             container.push(disk);
         }
@@ -399,6 +401,7 @@ unsafe fn new_disk(
     c_disk: libc::statfs,
     disk_props: &CFDictionary,
     refresh_kind: DiskRefreshKind,
+    uuid: OsString,
 ) -> Option<Disk> {
     let (total_space, available_space) = if refresh_kind.storage() {
         (
@@ -484,6 +487,7 @@ unsafe fn new_disk(
         old_read_bytes: 0,
         old_written_bytes: 0,
         updated: true,
+        uuid,
     };
 
     disk.refresh_kind(refresh_kind);
