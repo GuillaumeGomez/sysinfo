@@ -262,7 +262,7 @@ pub(crate) fn compute_usage_of_cpu(proc_: &Cpu, cpu_info: *mut i32, offset: isiz
     let idle;
 
     // In case we are initializing cpus, there is no "old value" yet.
-    if old_cpu_info == cpu_info {
+    if std::ptr::eq(old_cpu_info, cpu_info) {
         in_use = get_in_use(cpu_info, offset);
         idle = get_idle(cpu_info, offset);
     } else {
