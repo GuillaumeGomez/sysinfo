@@ -1,132 +1,50 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#[cfg(any(
-    feature = "disk",
-    all(
-        not(feature = "apple-sandbox"),
-        any(
-            feature = "system",
-            all(
-                feature = "component",
-                any(target_arch = "x86", target_arch = "x86_64")
-            )
-        )
-    ),
-))]
-use libc::mach_port_t;
-#[cfg(any(
-    all(feature = "system", not(feature = "apple-sandbox")),
-    feature = "disk"
-))]
-use objc2_core_foundation::CFAllocator;
-#[cfg(any(
-    feature = "disk",
-    all(
-        not(feature = "apple-sandbox"),
-        any(
-            feature = "system",
-            all(
-                feature = "component",
-                any(target_arch = "x86", target_arch = "x86_64")
-            )
-        )
-    ),
-))]
-use objc2_core_foundation::CFMutableDictionary;
-#[cfg(any(
-    all(feature = "system", not(feature = "apple-sandbox")),
-    feature = "disk"
-))]
-use objc2_core_foundation::CFString;
-#[cfg(any(
-    all(feature = "system", not(feature = "apple-sandbox")),
-    feature = "disk"
-))]
-use objc2_core_foundation::CFType;
-#[cfg(any(
-    feature = "disk",
-    all(
-        not(feature = "apple-sandbox"),
-        any(
-            feature = "system",
-            all(
-                feature = "component",
-                any(target_arch = "x86", target_arch = "x86_64")
-            )
-        )
-    ),
-))]
-use std::ptr::NonNull;
-
-use libc::c_char;
-#[cfg(any(
-    feature = "disk",
-    all(
-        not(feature = "apple-sandbox"),
-        any(
-            feature = "system",
-            all(
-                feature = "component",
-                any(target_arch = "x86", target_arch = "x86_64")
-            )
-        )
-    ),
-))]
-use libc::kern_return_t;
-
 // Note: IOKit is only available on macOS up until very recent iOS versions: https://developer.apple.com/documentation/iokit
 
-#[cfg(any(
-    feature = "disk",
-    all(
-        not(feature = "apple-sandbox"),
-        any(
-            feature = "system",
-            all(
-                feature = "component",
-                any(target_arch = "x86", target_arch = "x86_64")
+cfg_if! {
+    if #[cfg(any(
+        feature = "disk",
+        all(
+            not(feature = "apple-sandbox"),
+            any(
+                feature = "system",
+                all(
+                    feature = "component",
+                    any(target_arch = "x86", target_arch = "x86_64")
+                )
             )
-        )
-    ),
-))]
-#[allow(non_camel_case_types)]
-pub type io_object_t = mach_port_t;
+        ),
+    ))] {
+        #[allow(non_camel_case_types)]
+        pub type io_object_t = libc::mach_port_t;
+        #[allow(non_camel_case_types)]
+        pub type io_iterator_t = io_object_t;
+        // Based on https://github.com/libusb/libusb/blob/bed8d3034eac74a6e1ba123b5c270ea63cb6cf1a/libusb/os/darwin_usb.c#L54-L55,
+        // we can simply set it to 0 (and is the same value as its
+        // replacement `kIOMainPortDefault`).
+        #[allow(non_upper_case_globals)]
+        pub const kIOMasterPortDefault: libc::mach_port_t = 0;
+    }
+
+    if #[cfg(any(
+        all(feature = "system", not(feature = "apple-sandbox")),
+        feature = "disk"
+    ))] {
+        #[allow(non_camel_case_types)]
+        pub type io_registry_entry_t = io_object_t;
+        #[allow(non_camel_case_types)]
+        pub type io_name_t = *const libc::c_char;
+        // This is a hack, `io_name_t` should normally be `[c_char; 128]` but Rust makes it very annoying
+        // to deal with that so we go around it a bit.
+        #[allow(non_camel_case_types, dead_code)]
+        pub type io_name = [libc::c_char; 128];
+    }
+}
 
 #[cfg(any(
     feature = "disk",
-    all(
-        not(feature = "apple-sandbox"),
-        any(
-            feature = "system",
-            all(
-                feature = "component",
-                any(target_arch = "x86", target_arch = "x86_64")
-            )
-        )
-    ),
-))]
-#[allow(non_camel_case_types)]
-pub type io_iterator_t = io_object_t;
-#[cfg(any(
-    all(feature = "system", not(feature = "apple-sandbox")),
-    feature = "disk"
-))]
-#[allow(non_camel_case_types)]
-pub type io_registry_entry_t = io_object_t;
-// This is a hack, `io_name_t` should normally be `[c_char; 128]` but Rust makes it very annoying
-// to deal with that so we go around it a bit.
-#[allow(non_camel_case_types, dead_code)]
-pub type io_name = [c_char; 128];
-#[cfg(any(
-    all(feature = "system", not(feature = "apple-sandbox")),
-    feature = "disk"
-))]
-#[allow(non_camel_case_types)]
-pub type io_name_t = *const c_char;
-
-#[cfg(any(
-    all(feature = "system", not(feature = "apple-sandbox")),
-    feature = "disk"
+    all(not(feature = "apple-sandbox"), feature = "system",),
 ))]
 pub type IOOptionBits = u32;
 
@@ -151,24 +69,6 @@ cfg_if! {
     }
 }
 
-// Based on https://github.com/libusb/libusb/blob/bed8d3034eac74a6e1ba123b5c270ea63cb6cf1a/libusb/os/darwin_usb.c#L54-L55,
-// we can simply set it to 0 (and is the same value as its replacement `kIOMainPortDefault`).
-#[allow(non_upper_case_globals)]
-#[cfg(any(
-    feature = "disk",
-    all(
-        not(feature = "apple-sandbox"),
-        any(
-            feature = "system",
-            all(
-                feature = "component",
-                any(target_arch = "x86", target_arch = "x86_64")
-            )
-        )
-    ),
-))]
-pub const kIOMasterPortDefault: mach_port_t = 0;
-
 // Note: Obtaining information about disks using IOKIt is allowed inside the default macOS App Sandbox.
 #[cfg(any(
     feature = "disk",
@@ -186,10 +86,10 @@ pub const kIOMasterPortDefault: mach_port_t = 0;
 #[link(name = "IOKit", kind = "framework")]
 extern "C" {
     pub fn IOServiceGetMatchingServices(
-        mainPort: mach_port_t,
-        matching: NonNull<CFMutableDictionary>, // CF_RELEASES_ARGUMENT
+        mainPort: libc::mach_port_t,
+        matching: std::ptr::NonNull<objc2_core_foundation::CFMutableDictionary>, // CF_RELEASES_ARGUMENT
         existing: *mut io_iterator_t,
-    ) -> kern_return_t;
+    ) -> libc::kern_return_t;
     #[cfg(all(
         not(feature = "apple-sandbox"),
         any(
@@ -200,35 +100,43 @@ extern "C" {
             ),
         ),
     ))]
-    pub fn IOServiceMatching(a: *const c_char) -> Option<NonNull<CFMutableDictionary>>; // CF_RETURNS_RETAINED
+    pub fn IOServiceMatching(
+        a: *const libc::c_char,
+    ) -> Option<std::ptr::NonNull<objc2_core_foundation::CFMutableDictionary>>; // CF_RETURNS_RETAINED
 
     pub fn IOIteratorNext(iterator: io_iterator_t) -> io_object_t;
 
-    pub fn IOObjectRelease(obj: io_object_t) -> kern_return_t;
+    pub fn IOObjectRelease(obj: io_object_t) -> libc::kern_return_t;
 
     #[cfg(any(feature = "system", feature = "disk"))]
     pub fn IORegistryEntryCreateCFProperty(
         entry: io_registry_entry_t,
-        key: &CFString,
-        allocator: Option<&CFAllocator>,
+        key: &objc2_core_foundation::CFString,
+        allocator: Option<&objc2_core_foundation::CFAllocator>,
         options: IOOptionBits,
-    ) -> Option<NonNull<CFType>>;
+    ) -> Option<std::ptr::NonNull<objc2_core_foundation::CFType>>;
     #[cfg(feature = "disk")]
     pub fn IORegistryEntryGetParentEntry(
         entry: io_registry_entry_t,
         plane: io_name_t,
         parent: *mut io_registry_entry_t,
-    ) -> kern_return_t;
+    ) -> libc::kern_return_t;
     #[cfg(feature = "disk")]
     pub fn IOBSDNameMatching(
-        mainPort: mach_port_t,
+        mainPort: libc::mach_port_t,
         options: u32,
-        bsdName: *const c_char,
-    ) -> Option<NonNull<CFMutableDictionary>>; // CF_RETURNS_RETAINED
+        bsdName: *const libc::c_char,
+    ) -> Option<std::ptr::NonNull<objc2_core_foundation::CFMutableDictionary>>; // CF_RETURNS_RETAINED
     #[cfg(all(feature = "system", not(feature = "apple-sandbox")))]
-    pub fn IORegistryEntryGetName(entry: io_registry_entry_t, name: io_name_t) -> kern_return_t;
+    pub fn IORegistryEntryGetName(
+        entry: io_registry_entry_t,
+        name: io_name_t,
+    ) -> libc::kern_return_t;
     #[cfg(feature = "disk")]
-    pub fn IOObjectConformsTo(object: io_object_t, className: *const c_char) -> libc::boolean_t;
+    pub fn IOObjectConformsTo(
+        object: io_object_t,
+        className: *const libc::c_char,
+    ) -> libc::boolean_t;
 }
 
 #[cfg(all(
@@ -251,8 +159,8 @@ pub const KIO_RETURN_SUCCESS: i32 = 0;
     ),
 ))]
 mod io_service {
-    use super::{io_object_t, mach_port_t};
-    use libc::{kern_return_t, size_t, task_t};
+    use super::io_object_t;
+    use libc::{kern_return_t, mach_port_t, size_t, task_t};
 
     #[allow(non_camel_case_types)]
     pub type io_connect_t = io_object_t;
@@ -338,13 +246,6 @@ mod io_service {
 
 #[cfg(feature = "apple-sandbox")]
 mod io_service {}
-
-#[cfg(all(
-    feature = "component",
-    not(feature = "apple-sandbox"),
-    any(target_arch = "x86", target_arch = "x86_64")
-))]
-pub use io_service::*;
 
 #[cfg(all(
     feature = "component",
@@ -458,6 +359,6 @@ mod io_service {
 #[cfg(all(
     feature = "component",
     not(feature = "apple-sandbox"),
-    target_arch = "aarch64"
+    any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64")
 ))]
 pub use io_service::*;
