@@ -13,26 +13,11 @@
 ))]
 pub use crate::sys::inner::ffi::*;
 
-cfg_if! {
-    if #[cfg(feature = "disk")] {
-        use std::ffi::c_void;
-
-        #[link(name = "objc", kind = "dylib")]
-        extern "C" {
-            pub fn objc_autoreleasePoolPop(pool: *mut c_void);
-            pub fn objc_autoreleasePoolPush() -> *mut c_void;
-        }
-    }
-    if #[cfg(feature = "system")] {
-        // FIXME: to be removed once https://github.com/rust-lang/libc/pull/4310 is merged.
-        #[allow(non_camel_case_types, dead_code)]
-        pub struct proc_fdinfo {
-            pub proc_fd: i32,
-            pub proc_fdtype: u32,
-        }
-
-        pub const PROC_PIDLISTFDS: libc::c_int = 1;
-    }
+#[cfg(feature = "disk")]
+#[link(name = "objc", kind = "dylib")]
+extern "C" {
+    pub fn objc_autoreleasePoolPop(pool: *mut libc::c_void);
+    pub fn objc_autoreleasePoolPush() -> *mut libc::c_void;
 }
 
 #[cfg_attr(feature = "debug", derive(Eq, Hash, PartialEq))]

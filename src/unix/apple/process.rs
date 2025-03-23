@@ -81,7 +81,7 @@ impl ProcessInner {
         let buffer_size_bytes = unsafe {
             libc::proc_pidinfo(
                 self.pid().0,
-                crate::sys::ffi::PROC_PIDLISTFDS,
+                libc::PROC_PIDLISTFDS,
                 0,
                 std::ptr::null_mut(),
                 0,
@@ -92,10 +92,7 @@ impl ProcessInner {
             sysinfo_debug!("proc_pidinfo failed");
             None
         } else {
-            Some(
-                buffer_size_bytes as u32
-                    / std::mem::size_of::<crate::sys::ffi::proc_fdinfo>() as u32,
-            )
+            Some(buffer_size_bytes as u32 / std::mem::size_of::<libc::proc_fdinfo>() as u32)
         }
     }
 
