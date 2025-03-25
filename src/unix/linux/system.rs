@@ -558,9 +558,15 @@ impl SystemInner {
 }
 
 fn read_u64(filename: &str) -> Option<u64> {
-    get_all_utf8_data(filename, 16_635)
+    let result = get_all_utf8_data(filename, 16_635)
         .ok()
-        .and_then(|d| u64::from_str(d.trim()).ok())
+        .and_then(|d| u64::from_str(d.trim()).ok());
+
+    if result.is_none() {
+        sysinfo_debug!("Failed to read u64 in filename {}", filename);
+    }
+
+    result
 }
 
 fn read_table<F>(filename: &str, colsep: char, mut f: F)
@@ -609,7 +615,8 @@ impl crate::CGroupLimits {
         if let (Some(mem_cur), Some(mem_max), Some(mem_rss)) = (
             // cgroups v2
             read_u64("/sys/fs/cgroup/memory.current"),
-            read_u64("/sys/fs/cgroup/memory.max"),
+            // memory.max contains `max` when no limit is set.
+            read_u64("/sys/fs/cgroup/memory.max").or(Some(u64::MAX)),
             read_table_key("/sys/fs/cgroup/memory.stat", "anon", ' '),
         ) {
             let mut limits = Self {
