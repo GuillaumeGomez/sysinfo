@@ -558,9 +558,15 @@ impl SystemInner {
 }
 
 fn read_u64(filename: &str) -> Option<u64> {
-    get_all_utf8_data(filename, 16_635)
+    let result = get_all_utf8_data(filename, 16_635)
         .ok()
-        .and_then(|d| u64::from_str(d.trim()).ok())
+        .and_then(|d| u64::from_str(d.trim()).ok());
+
+    if result.is_none() {
+        sysinfo_debug!("Failed to read u64 in filename {}", filename);
+    }
+
+    result
 }
 
 fn read_table<F>(filename: &str, colsep: char, mut f: F)
