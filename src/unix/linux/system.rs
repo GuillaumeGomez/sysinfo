@@ -609,7 +609,8 @@ impl crate::CGroupLimits {
         if let (Some(mem_cur), Some(mem_max), Some(mem_rss)) = (
             // cgroups v2
             read_u64("/sys/fs/cgroup/memory.current"),
-            read_u64("/sys/fs/cgroup/memory.max"),
+            // memory.max contains `max` when no limit is set.
+            read_u64("/sys/fs/cgroup/memory.max").unwrap_or(u64::MAX),
             read_table_key("/sys/fs/cgroup/memory.stat", "anon", ' '),
         ) {
             let mut limits = Self {
