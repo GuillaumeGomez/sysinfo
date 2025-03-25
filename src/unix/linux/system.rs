@@ -606,11 +606,11 @@ impl crate::CGroupLimits {
             sys.mem_total != 0,
             "You need to call System::refresh_memory before trying to get cgroup limits!",
         );
-        if let (Some(mem_cur), Some(mem_max), Some(mem_rss)) = (
+        if let (Some(mem_cur), mem_max, Some(mem_rss)) = (
             // cgroups v2
             read_u64("/sys/fs/cgroup/memory.current"),
             // memory.max contains `max` when no limit is set.
-            read_u64("/sys/fs/cgroup/memory.max").unwrap_or(u64::MAX),
+            read_u64("/sys/fs/cgroup/memory.max").or(Some(u64::MAX)),
             read_table_key("/sys/fs/cgroup/memory.stat", "anon", ' '),
         ) {
             let mut limits = Self {
