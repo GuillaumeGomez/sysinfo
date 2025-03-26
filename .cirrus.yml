@@ -22,7 +22,8 @@ task:
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,network
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features user
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,user
-    - cargo clippy -- -D warnings
+    - cargo clippy --features serde -- -D warnings
+    - cargo clippy --features multithread -- -D warnings
     - cargo check --example simple
     - FREEBSD_CI=1 cargo test -- --test-threads=1
     - FREEBSD_CI=1 cargo test --lib -- --ignored --test-threads=1
@@ -51,7 +52,8 @@ task:
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,network
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features user
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,user
-    - cargo clippy -- -D warnings
+    - cargo clippy --features serde -- -D warnings
+    - cargo clippy --features multithread -- -D warnings
     - cargo check --example simple
     - FREEBSD_CI=1 cargo test -- --test-threads=1
     - FREEBSD_CI=1 cargo test --lib -- --test-threads=1
@@ -83,7 +85,8 @@ task:
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features user
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,user
     - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features apple-sandbox
-    - cargo clippy -- -D warnings
+    - cargo clippy --features serde -- -D warnings
+    - cargo clippy --features multithread -- -D warnings
     - cargo check --example simple
     - APPLE_CI=1 cargo test -- --test-threads=1
     - APPLE_CI=1 cargo test --lib -- --ignored --test-threads=1

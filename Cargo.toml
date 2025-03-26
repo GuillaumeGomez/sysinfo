@@ -15,7 +15,7 @@ edition = "2021"
 name = "sysinfo"
 
 [features]
-default = ["component", "disk", "network", "system", "user", "multithread"]
+default = ["component", "disk", "network", "system", "user"]
 component = [
     "windows/Win32_Foundation",
     "windows/Win32_Security",
