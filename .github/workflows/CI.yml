@@ -42,6 +42,7 @@ jobs:
           toolchain: nightly
           components: clippy
       - run: cargo clippy --all-targets --features serde -- -D warnings
+      - run: cargo clippy --all-targets --features multithread -- -D warnings
 
   check:
     name: Check ${{ matrix.toolchain }} / ${{ matrix.triple.target }}
