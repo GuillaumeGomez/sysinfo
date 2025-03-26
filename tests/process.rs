@@ -344,6 +344,10 @@ fn test_refresh_processes() {
     let mut s = System::new();
     s.refresh_processes(ProcessesToUpdate::All, false);
     assert!(s.process(pid).is_some());
+    // We will use this `System` instance for another check.
+    let mut old_system = System::new();
+    old_system.refresh_processes(ProcessesToUpdate::All, false);
+    assert!(old_system.process(pid).is_some());
 
     // Check that the process name is not empty.
     assert!(!s.process(pid).unwrap().name().is_empty());
@@ -354,9 +358,28 @@ fn test_refresh_processes() {
     // Let's give some time to the system to clean up...
     std::thread::sleep(std::time::Duration::from_secs(1));
 
+    let mut new_system = sysinfo::System::new_with_specifics(RefreshKind::nothing());
+    new_system.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid]),
+        true,
+        ProcessRefreshKind::nothing(),
+    );
+
+    // `new_system` should not have this removed process.
+    assert!(new_system.process(pid).is_none());
+
     s.refresh_processes(ProcessesToUpdate::All, true);
     // Checks that the process isn't listed anymore.
     assert!(s.process(pid).is_none());
+
+    // And we ensure that refreshing it this way will work too (ie, not listed anymore).
+    old_system.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid]),
+        true,
+        ProcessRefreshKind::nothing(),
+    );
+
+    assert!(old_system.process(pid).is_none());
 }
 
 // This test ensures that if we refresh only one process, then only this process is removed.
