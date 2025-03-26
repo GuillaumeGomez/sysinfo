@@ -160,7 +160,7 @@ impl CpusWrapper {
             }
 
             #[cfg(not(feature = "multithread"))]
-            fn iter_mut<'a>(val: &'a mut Vec<Cpu>) -> std::slice::IterMut<'a, Cpu> {
+            fn iter_mut(val: &mut [Cpu]) -> std::slice::IterMut<'_, Cpu> {
                 val.iter_mut()
             }
 

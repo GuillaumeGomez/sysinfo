@@ -833,13 +833,12 @@ pub(crate) fn refresh_procs(
         let proc_list = Wrap(UnsafeCell::new(proc_list));
 
         iter(d)
-            .map(|entry| {
+            .flat_map(|entry| {
                 let Ok(entry) = entry else { return Vec::new() };
                 let mut entries = Vec::new();
                 get_all_pid_entries(None, None, entry, &mut entries, refresh_kind.tasks());
                 entries
             })
-            .flatten()
             .filter(|e| filter_callback(e, filter))
             .filter_map(|e| {
                 let proc_list = proc_list.get();
