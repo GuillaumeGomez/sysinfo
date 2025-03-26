@@ -269,11 +269,11 @@ impl SystemInner {
                 &(dyn Fn(Pid, &[Pid]) -> bool + Sync + Send),
             ) = match processes_to_update {
                 ProcessesToUpdate::All => (&[], &empty_filter),
-                ProcessesToUpdate::Some(pids) => {
-                    if pids.is_empty() {
+                ProcessesToUpdate::Some(pids_to_refresh) => {
+                    if pids_to_refresh.is_empty() {
                         return 0;
                     }
-                    (pids, &real_filter)
+                    (pids_to_refresh, &real_filter)
                 }
             };
 

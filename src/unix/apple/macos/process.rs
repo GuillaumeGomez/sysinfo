@@ -366,10 +366,11 @@ unsafe fn create_new_process(
         Some(info) => info,
         None => {
             let mut p = ProcessInner::new_empty(pid);
-            if get_exe_and_name_backup(&mut p, refresh_kind) {
+            if get_exe_and_name_backup(&mut p, refresh_kind, false) {
                 get_cwd_root(&mut p, refresh_kind);
                 return Ok(Some(Process { inner: p }));
             }
+            eprintln!("No name, let's leave");
             // If we can't even have the name, no point in keeping it.
             return Err(());
         }
@@ -381,7 +382,9 @@ unsafe fn create_new_process(
     let run_time = now.saturating_sub(start_time);
 
     let mut p = ProcessInner::new(pid, parent, start_time, run_time);
-    if !get_process_infos(&mut p, refresh_kind) && !get_exe_and_name_backup(&mut p, refresh_kind) {
+    if !get_process_infos(&mut p, refresh_kind)
+        && !get_exe_and_name_backup(&mut p, refresh_kind, false)
+    {
         // If we can't even have the name, no point in keeping it.
         return Err(());
     }
@@ -418,10 +421,11 @@ unsafe fn create_new_process(
 unsafe fn get_exe_and_name_backup(
     process: &mut ProcessInner,
     refresh_kind: ProcessRefreshKind,
+    force_check: bool,
 ) -> bool {
     let exe_needs_update = refresh_kind.exe().needs_update(|| process.exe.is_none());
-    if !process.name.is_empty() && !exe_needs_update {
-        return false;
+    if !process.name.is_empty() && !exe_needs_update && !force_check {
+        return true;
     }
     let mut buffer: Vec<u8> = Vec::with_capacity(libc::PROC_PIDPATHINFO_MAXSIZE as _);
     match libc::proc_pidpath(
@@ -665,10 +669,15 @@ pub(crate) fn update_process(
         if let Some(ref mut p) = (*wrap.0.get()).get_mut(&pid) {
             let p = &mut p.inner;
 
+            let mut extra_checked = false;
+
             if let Some(info) = get_bsd_info(pid) {
                 if info.pbi_start_tvsec != p.start_time {
-                    // We don't it to be removed, just replaced.
+                    // We don't want it to be removed, just replaced.
                     p.updated = true;
+                    // To ensure the name and exe path will be updated.
+                    p.name.clear();
+                    p.exe = None;
                     // The owner of this PID changed.
                     return create_new_process(pid, now, refresh_kind, Some(info), timebase_to_ms);
                 }
@@ -677,10 +686,19 @@ pub(crate) fn update_process(
                 if p.parent != parent {
                     p.parent = parent;
                 }
+            } else {
+                // Weird that we can't get this information. Sometimes, mac can list PIDs that do
+                // not exist anymore. So let's ensure that the process is actually still alive.
+                if !get_exe_and_name_backup(p, refresh_kind, true) {
+                    // So it's not actually alive, then let's un-update it so it will be removed.
+                    p.updated = false;
+                    return Ok(None);
+                }
+                extra_checked = true;
             }
 
-            if !get_process_infos(p, refresh_kind) {
-                get_exe_and_name_backup(p, refresh_kind);
+            if !get_process_infos(p, refresh_kind) && !extra_checked {
+                get_exe_and_name_backup(p, refresh_kind, false);
             }
             get_cwd_root(p, refresh_kind);
 
