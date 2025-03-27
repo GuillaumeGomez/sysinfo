@@ -1,3 +1,26 @@
+# 0.34.0
+
+ * `multithread` feature is disabled by default.
+ * Add new `Process` methods: `accumulated_cpu_time`, `exists`, `open_files` and `open_files_limit`.
+ * `Process::wait` method now returns `Option<ExitStatus>`.
+ * Add new `System` methods: `distribution_id_like` and `kernel_long_version`.
+ * Turn `System::physical_core_count` method into an associated function.
+ * Make `System::refresh_all` and `System::refresh_specifics` methods remove dead processes.
+ * Add new `ProcessRefreshKind` refresh: `tasks`.
+ * Fix `Group` docs.
+ * Implement `Deserialize` trait on `DiskKind`, `MacAddr`, `IpNetwork`, `ProcessStatus`, `Signal` and `ThreadKind`.
+ * Implement `FromStr` trait on `IpNetwork` and `MacAddr`.
+ * Implement `Hash` trait on `DiskKind`, `MacAddr`, `ProcessStatus` and `Signal`.
+ * macOS: Removed processes are now correctly handled when refreshing processes.
+ * macOS: Strenghten dist list refresh.
+ * macOS: Fix internal `cfg` handling which triggered compilation failures in some specific cases.
+ * Linux: max cgroups memory is more reliant in case of wrong input.
+ * Linux: Fix processes tasks update.
+ * Linux: Improve disks retrieval.
+ * Windows: Fix antivirus considering programs using `sysinfo` as viruses by replacing uses of `NtQueryInformationProcess` with other "mainstream" Windows API.
+ * Windows: Improve CPU usage computation efficiency.
+ * FreeBSD: Improve `process_procs` when there is only one process to refresh.
+
 # 0.33.1
 
  * Linux: Fix components retrieval.

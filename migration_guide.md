@@ -1,5 +1,25 @@
 # Migration guide
 
+## 0.33 to 0.34
+
+### Major changes
+
+The `multithread` feature is now disabled by default. It is to reduce the issues linked to the `rayon` crate usage.
+
+The `System::physical_core_count` method was turned into an associated function. No need to have a `System` instance to get this information anymore.
+
+The `System::refresh_all` and `System::refresh_specifics` methods now remove dead processes. If you don't want the dead processes to be removed, you will need to use `System::refresh_processes_specifics` directly instead.
+
+### New APIs
+
+The `Process` type has new methods: `accumulated_cpu_time`, `exists`, `open_files` and `open_files_limit`.
+
+The `Process::wait` method now returns `Option<ExitStatus>` instead of `ExitStatus`.
+
+The `System` type has new methods: `distribution_id_like` and `kernel_long_version`.
+
+The `ProcessRefreshKind` type has a new "refresh kind": `tasks`.
+
 ## 0.32 to 0.33
 
 ### Major changes
