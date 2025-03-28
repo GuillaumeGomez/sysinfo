@@ -1,3 +1,7 @@
+# 0.34.1
+
+ * macOS: Remove forgotten debug print.
+
 # 0.34.0
 
  * `multithread` feature is disabled by default.
