@@ -370,7 +370,6 @@ unsafe fn create_new_process(
                 get_cwd_root(&mut p, refresh_kind);
                 return Ok(Some(Process { inner: p }));
             }
-            eprintln!("No name, let's leave");
             // If we can't even have the name, no point in keeping it.
             return Err(());
         }
