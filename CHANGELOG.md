@@ -1,3 +1,7 @@
+# 0.34.2
+
+ * FreeBSD: Fix segfault when refreshing processes.
+
 # 0.34.1
 
  * macOS: Remove forgotten debug print.
