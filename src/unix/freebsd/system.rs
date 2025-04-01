@@ -11,7 +11,8 @@ use std::ffi::CStr;
 use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+use std::sync::OnceLock;
 use std::time::{Duration, SystemTime};
 
 use crate::sys::cpu::{physical_core_count, CpusWrapper};
@@ -281,6 +282,12 @@ impl SystemInner {
     }
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct PtrWrap<T: Copy>(pub *mut T);
+
+unsafe impl<T: Copy> Send for PtrWrap<T> {}
+unsafe impl<T: Copy> Sync for PtrWrap<T> {}
+
 impl SystemInner {
     unsafe fn refresh_procs(
         &mut self,
@@ -340,11 +347,17 @@ impl SystemInner {
             let now = get_now();
             let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
 
+            // We cast into `*mut ()` because `c_void` isn't `Copy`...
+            //
+            // And we need `PtrWrap` because pointers aren't `Send` and `Sync`.
+            let kd = PtrWrap(kd() as *mut ());
+
             IterTrait::filter_map(crate::utils::into_iter(kvm_procs), |kproc| {
                 if !filter_callback(kproc, filter) {
                     return None;
                 }
                 let ret = super::process::get_process_data(
+                    kd,
                     kproc,
                     &proc_list,
                     page_size,
@@ -454,6 +467,21 @@ impl Zfs {
             None
         }
     }
+}
+
+fn kd() -> *mut libc::kvm_t {
+    static KD: OnceLock<AtomicPtr<libc::kvm_t>> = OnceLock::new();
+
+    KD.get_or_init(|| unsafe {
+        AtomicPtr::new(libc::kvm_open(
+            std::ptr::null(),
+            std::ptr::null(),
+            std::ptr::null(),
+            libc::O_RDONLY,
+            std::ptr::null_mut(),
+        ))
+    })
+    .load(Ordering::Relaxed)
 }
 
 /// This struct is used to get system information more easily.

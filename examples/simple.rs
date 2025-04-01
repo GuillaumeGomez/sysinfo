@@ -275,7 +275,7 @@ fn interpret_input(
             writeln!(&mut io::stdout(), "fifteen minutes: {}%", load_avg.fifteen);
         }
         e if e.starts_with("show ") => {
-            let tmp: Vec<&str> = e.split(' ').collect();
+            let tmp: Vec<&str> = e.split(' ').filter(|s| !s.is_empty()).collect();
 
             if tmp.len() != 2 {
                 writeln!(
