@@ -7,6 +7,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 
+use super::ffi::filedesc;
 use super::utils::{get_sys_value_by_name, get_sys_value_str, WrapMap};
 
 #[doc(hidden)]
@@ -212,6 +213,7 @@ fn get_accumulated_cpu_time(kproc: &libc::kinfo_proc) -> u64 {
 }
 
 pub(crate) unsafe fn get_process_data(
+    kd: super::system::PtrWrap<()>,
     kproc: &libc::kinfo_proc,
     wrap: &WrapMap,
     page_size: isize,
@@ -253,10 +255,35 @@ pub(crate) unsafe fn get_process_data(
 
     let start_time = kproc.ki_start.tv_sec as u64;
     let mut open_files = None;
-    if !kproc.ki_fd.is_null() {
-        let ki_fd = kproc.ki_fd as *mut super::ffi::filedesc;
-        if !(*ki_fd).fd_files.is_null() {
-            open_files = Some((*(*ki_fd).fd_files).fdt_nfiles as _);
+    let kd = kd.0 as *mut libc::kvm_t;
+    if !kd.is_null() && !kproc.ki_fd.is_null() {
+        let mut ki_fd = std::mem::MaybeUninit::<filedesc>::uninit();
+        let size = std::mem::size_of::<filedesc>();
+        // `ki_fd` pointer is not actually a pointer to accessible but to kernel memory.
+        // So to retrieve the value, we need to get the memory from the kernel using `kvm_read2`.
+        let write_size = libc::kvm_read2(
+            kd,
+            kproc.ki_fd as _,
+            ki_fd.as_mut_ptr() as *mut _,
+            size as _,
+        );
+        if write_size == size as _ {
+            let ki_fd = ki_fd.assume_init();
+            if !ki_fd.fd_files.is_null() {
+                let mut fd_files = std::mem::MaybeUninit::<super::ffi::fdescenttbl>::uninit();
+                let size = std::mem::size_of::<super::ffi::fdescenttbl>();
+                // Kernel memory here as well...
+                let write_size = libc::kvm_read2(
+                    kd,
+                    ki_fd.fd_files as _,
+                    fd_files.as_mut_ptr() as *mut _,
+                    size as _,
+                );
+                if write_size == size as _ {
+                    let fd_files = fd_files.assume_init();
+                    open_files = Some(fd_files.fdt_nfiles as _);
+                }
+            }
         }
     }
 
