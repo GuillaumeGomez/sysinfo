@@ -895,6 +895,22 @@ impl System {
     pub fn physical_core_count() -> Option<usize> {
         SystemInner::physical_core_count()
     }
+
+    /// Returns the (default) maximum number of open files for a process.
+    ///
+    /// Returns `None` if it failed retrieving the information or if the current system is not
+    /// supported.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Max open files: {:?}", System::open_files_limit());
+    /// ```
+    pub fn open_files_limit() -> Option<usize> {
+        SystemInner::open_files_limit()
+    }
 }
 
 /// A struct representing system load average value.
@@ -1803,7 +1819,7 @@ impl Process {
     ///     );
     /// }
     /// ```
-    pub fn open_files(&self) -> Option<u32> {
+    pub fn open_files(&self) -> Option<usize> {
         self.inner.open_files()
     }
 
@@ -1827,7 +1843,7 @@ impl Process {
     ///     );
     /// }
     /// ```
-    pub fn open_files_limit(&self) -> Option<u32> {
+    pub fn open_files_limit(&self) -> Option<usize> {
         self.inner.open_files_limit()
     }
 }

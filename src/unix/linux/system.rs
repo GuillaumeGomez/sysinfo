@@ -20,19 +20,43 @@ use std::str::FromStr;
 use std::sync::{atomic::AtomicIsize, OnceLock};
 use std::time::Duration;
 
-// This whole thing is to prevent having too many files open at once. It could be problematic
-// for processes using a lot of files and using sysinfo at the same time.
-pub(crate) fn remaining_files() -> &'static AtomicIsize {
-    static REMAINING_FILES: OnceLock<AtomicIsize> = OnceLock::new();
-    REMAINING_FILES.get_or_init(|| unsafe {
+unsafe fn getrlimit() -> Option<libc::rlimit> {
+    let mut limits = libc::rlimit {
+        rlim_cur: 0,
+        rlim_max: 0,
+    };
+
+    if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
+        None
+    } else {
+        Some(limits)
+    }
+}
+
+pub(crate) fn get_max_nb_fds() -> usize {
+    unsafe {
         let mut limits = libc::rlimit {
             rlim_cur: 0,
             rlim_max: 0,
         };
         if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
             // Most Linux system now defaults to 1024.
-            return AtomicIsize::new(1024 / 2);
+            1024 / 2
+        } else {
+            limits.rlim_max as usize / 2
         }
+    }
+}
+
+// This whole thing is to prevent having too many files open at once. It could be problematic
+// for processes using a lot of files and using sysinfo at the same time.
+pub(crate) fn remaining_files() -> &'static AtomicIsize {
+    static REMAINING_FILES: OnceLock<AtomicIsize> = OnceLock::new();
+    REMAINING_FILES.get_or_init(|| unsafe {
+        let Some(mut limits) = getrlimit() else {
+            // Most Linux system now defaults to 1024.
+            return AtomicIsize::new(1024 / 2);
+        };
         // We save the value in case the update fails.
         let current = limits.rlim_cur;
 
@@ -88,21 +112,6 @@ declare_signals! {
 pub const SUPPORTED_SIGNALS: &[crate::Signal] = supported_signals();
 #[doc = include_str!("../../../md_doc/minimum_cpu_update_interval.md")]
 pub const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
-
-pub(crate) fn get_max_nb_fds() -> isize {
-    unsafe {
-        let mut limits = libc::rlimit {
-            rlim_cur: 0,
-            rlim_max: 0,
-        };
-        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
-            // Most Linux system now defaults to 1024.
-            1024 / 2
-        } else {
-            limits.rlim_max as isize / 2
-        }
-    }
-}
 
 fn boot_time() -> u64 {
     if let Ok(buf) = File::open("/proc/stat").and_then(|mut f| {
@@ -554,6 +563,18 @@ impl SystemInner {
     pub(crate) fn refresh_cpu_list(&mut self, refresh_kind: CpuRefreshKind) {
         self.cpus = CpusWrapper::new();
         self.refresh_cpu_specifics(refresh_kind);
+    }
+
+    pub(crate) fn open_files_limit() -> Option<usize> {
+        unsafe {
+            match getrlimit() {
+                Some(limits) => Some(limits.rlim_cur as _),
+                None => {
+                    sysinfo_debug!("getrlimit failed");
+                    None
+                }
+            }
+        }
     }
 }
 

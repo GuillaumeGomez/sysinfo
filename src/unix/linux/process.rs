@@ -291,10 +291,10 @@ impl ProcessInner {
         self.exists
     }
 
-    pub(crate) fn open_files(&self) -> Option<u32> {
+    pub(crate) fn open_files(&self) -> Option<usize> {
         let open_files_dir = self.proc_path.as_path().join("fd");
         match fs::read_dir(&open_files_dir) {
-            Ok(entries) => Some(entries.count() as u32),
+            Ok(entries) => Some(entries.count() as _),
             Err(_error) => {
                 sysinfo_debug!(
                     "Failed to get open files in `{}`: {_error:?}",
@@ -305,14 +305,14 @@ impl ProcessInner {
         }
     }
 
-    pub(crate) fn open_files_limit(&self) -> Option<u32> {
+    pub(crate) fn open_files_limit(&self) -> Option<usize> {
         let limits_files = self.proc_path.as_path().join("limits");
         match fs::read_to_string(&limits_files) {
             Ok(content) => {
                 for line in content.lines() {
                     if let Some(line) = line.strip_prefix("Max open files ") {
                         if let Some(nb) = line.split_whitespace().find(|p| !p.is_empty()) {
-                            return u32::from_str(nb).ok();
+                            return usize::from_str(nb).ok();
                         }
                     }
                 }

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 
 use super::ffi::filedesc;
-use super::utils::{get_sys_value_by_name, get_sys_value_str, WrapMap};
+use super::utils::{get_sys_value_str, WrapMap};
 
 #[doc(hidden)]
 impl From<libc::c_char> for ProcessStatus {
@@ -69,7 +69,7 @@ pub(crate) struct ProcessInner {
     exists: bool,
     // On FreeBSD, we can only get this information from `kinfo_proc`, so instead of going through
     // all open processes again, better store the value...
-    open_files: Option<u32>,
+    open_files: Option<usize>,
 }
 
 impl ProcessInner {
@@ -190,19 +190,12 @@ impl ProcessInner {
         self.exists
     }
 
-    pub(crate) fn open_files(&self) -> Option<u32> {
+    pub(crate) fn open_files(&self) -> Option<usize> {
         self.open_files
     }
 
-    pub(crate) fn open_files_limit(&self) -> Option<u32> {
-        let mut value = 0u32;
-        unsafe {
-            if get_sys_value_by_name(b"kern.maxfilesperproc\0", &mut value) {
-                Some(value)
-            } else {
-                None
-            }
-        }
+    pub(crate) fn open_files_limit(&self) -> Option<usize> {
+        crate::System::open_files_limit()
     }
 }
 

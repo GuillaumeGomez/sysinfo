@@ -280,6 +280,17 @@ impl SystemInner {
     pub(crate) fn physical_core_count() -> Option<usize> {
         physical_core_count()
     }
+
+    pub(crate) fn open_files_limit() -> Option<usize> {
+        let mut value = 0u32;
+        unsafe {
+            if get_sys_value_by_name(b"kern.maxfilesperproc\0", &mut value) {
+                Some(value as _)
+            } else {
+                None
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy)]

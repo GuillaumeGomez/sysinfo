@@ -153,4 +153,8 @@ impl SystemInner {
     pub(crate) fn physical_core_count() -> Option<usize> {
         None
     }
+
+    pub(crate) fn open_files_limit() -> Option<usize> {
+        None
+    }
 }
