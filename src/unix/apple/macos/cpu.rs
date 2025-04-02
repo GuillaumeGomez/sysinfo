@@ -1,12 +1,12 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 #[cfg(feature = "apple-sandbox")]
-pub(crate) unsafe fn get_cpu_frequency() -> u64 {
+pub(crate) unsafe fn get_cpu_frequency(_brand: &str) -> u64 {
     0
 }
 
 #[cfg(not(feature = "apple-sandbox"))]
-pub(crate) unsafe fn get_cpu_frequency() -> u64 {
+pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
     use crate::sys::ffi;
     use crate::sys::macos::utils::IOReleaser;
     use objc2_core_foundation::{
@@ -90,5 +90,12 @@ pub(crate) unsafe fn get_cpu_frequency() -> u64 {
         },
         &mut max as *mut _ as *mut _,
     );
-    max / 1_000_000
+
+    // Check taken from https://github.com/vladkens/macmon/commit/9e05a6f6e9aee01c4cd6e01e0639ac23f5820f18.
+    // Not sure if there is a better way to differentiate this.
+    if brand.contains("M1") || brand.contains("M2") | brand.contains("M3") {
+        max / 1_000_000
+    } else {
+        max / 1_000
+    }
 }
