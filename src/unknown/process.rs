@@ -121,11 +121,11 @@ impl ProcessInner {
         false
     }
 
-    pub(crate) fn open_files(&self) -> Option<u32> {
+    pub(crate) fn open_files(&self) -> Option<usize> {
         None
     }
 
-    pub(crate) fn open_files_limit(&self) -> Option<u32> {
+    pub(crate) fn open_files_limit(&self) -> Option<usize> {
         None
     }
 }

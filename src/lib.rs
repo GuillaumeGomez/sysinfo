@@ -152,16 +152,13 @@ mod windows;
 /// }
 /// let s = System::new_all();
 /// ```
-pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
+pub fn set_open_files_limit(mut _new_limit: usize) -> bool {
     cfg_if! {
         if #[cfg(all(feature = "system", not(feature = "unknown-ci"), any(target_os = "linux", target_os = "android")))]
         {
             use crate::sys::system::remaining_files;
             use std::sync::atomic::Ordering;
 
-            if _new_limit < 0 {
-                _new_limit = 0;
-            }
             let max = sys::system::get_max_nb_fds();
             if _new_limit > max {
                 _new_limit = max;
@@ -171,7 +168,8 @@ pub fn set_open_files_limit(mut _new_limit: isize) -> bool {
             // files are closed, we subtract the current number of opened files to the new
             // limit.
             remaining_files().fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
-                let diff = max.saturating_sub(remaining);
+                let _new_limit = _new_limit as isize;
+                let diff = (max as isize).saturating_sub(remaining);
                 Some(_new_limit.saturating_sub(diff))
             }).unwrap();
 

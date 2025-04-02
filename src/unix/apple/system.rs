@@ -530,6 +530,18 @@ impl SystemInner {
     pub(crate) fn physical_core_count() -> Option<usize> {
         physical_core_count()
     }
+
+    // FIXME: Would be better to query this information instead of using a "default" value like this.
+    pub(crate) fn open_files_limit() -> Option<usize> {
+        #[cfg(target_os = "ios")]
+        {
+            Some(256)
+        }
+        #[cfg(not(target_os = "ios"))]
+        {
+            Some(10_240)
+        }
+    }
 }
 
 fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {

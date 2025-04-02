@@ -503,7 +503,7 @@ impl ProcessInner {
         self.exists
     }
 
-    pub(crate) fn open_files(&self) -> Option<u32> {
+    pub(crate) fn open_files(&self) -> Option<usize> {
         if let Some(ref handle) = self.handle {
             let mut handles_count = 0;
             unsafe {
@@ -511,7 +511,7 @@ impl ProcessInner {
                     sysinfo_debug!("GetProcessHandleCount failed: {_error:?}");
                     None
                 } else {
-                    Some(handles_count)
+                    Some(handles_count as _)
                 }
             }
         } else {
@@ -519,19 +519,8 @@ impl ProcessInner {
         }
     }
 
-    pub(crate) fn open_files_limit(&self) -> Option<u32> {
-        // Apparently when using C run-time libraries, it's limited by _NHANDLE_.
-        // It's a define:
-        //
-        // ```
-        // #define IOINFO_L2E          6
-        // #define IOINFO_ARRAY_ELTS   (1 << IOINFO_L2E)
-        // #define IOINFO_ARRAYS       128
-        // #define _NHANDLE_ (IOINFO_ARRAYS * IOINFO_ARRAY_ELTS)
-        // ```
-        //
-        // So 128 * (1 << 6) = 8192
-        Some(8192)
+    pub(crate) fn open_files_limit(&self) -> Option<usize> {
+        crate::System::open_files_limit()
     }
 }
 
