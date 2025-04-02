@@ -42,7 +42,7 @@ impl CpusWrapper {
             return;
         }
         if refresh_kind.frequency() && !self.got_cpu_frequency {
-            let frequency = unsafe { get_cpu_frequency() };
+            let frequency = unsafe { get_cpu_frequency(cpus.first().map_or("", |c| c.brand())) };
             for proc_ in cpus.iter_mut() {
                 proc_.inner.set_frequency(frequency);
             }
@@ -200,7 +200,7 @@ impl CpuInner {
     }
 }
 
-pub(crate) unsafe fn get_cpu_frequency() -> u64 {
+pub(crate) unsafe fn get_cpu_frequency(#[allow(unused_variables)] brand: &str) -> u64 {
     let mut speed: u64 = 0;
     let mut len = std::mem::size_of::<u64>();
     if libc::sysctlbyname(
@@ -220,7 +220,7 @@ pub(crate) unsafe fn get_cpu_frequency() -> u64 {
     }
     #[cfg(not(any(target_os = "ios", feature = "apple-sandbox")))]
     {
-        crate::sys::inner::cpu::get_cpu_frequency()
+        crate::sys::inner::cpu::get_cpu_frequency(brand)
     }
 }
 
@@ -324,7 +324,7 @@ pub(crate) fn init_cpus(
 
     let (vendor_id, brand) = get_vendor_id_and_brand();
     let frequency = if refresh_kind.frequency() {
-        unsafe { get_cpu_frequency() }
+        unsafe { get_cpu_frequency(&brand) }
     } else {
         global_cpu.frequency
     };
