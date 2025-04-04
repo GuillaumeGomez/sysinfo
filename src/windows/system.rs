@@ -13,7 +13,7 @@ use std::mem::{size_of, zeroed};
 use std::os::windows::ffi::OsStrExt;
 use std::time::{Duration, SystemTime};
 
-use windows::core::{PCWSTR, PWSTR};
+use windows::core::{Owned, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{self, HANDLE, STILL_ACTIVE};
 use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
@@ -242,6 +242,9 @@ impl SystemInner {
             }
         };
 
+        // This owns the above handle and makes sure that close will be called when dropped.
+        let snapshot = unsafe { Owned::new(snapshot) };
+
         // https://learn.microsoft.com/en-us/windows/win32/api/tlhelp32/ns-tlhelp32-processentry32w
         // Microsoft documentation states that for PROCESSENTRY32W, before calling Process32FirstW,
         // the 'dwSize' field MUST be set to the size of the PROCESSENTRY32W. Otherwise, Process32FirstW fails.
@@ -255,7 +258,7 @@ impl SystemInner {
 
         // process the first process
         unsafe {
-            if let Err(_error) = Process32FirstW(snapshot, &mut process_entry) {
+            if let Err(_error) = Process32FirstW(*snapshot, &mut process_entry) {
                 sysinfo_debug!("Process32FirstW has failed: {_error:?}");
                 return 0;
             }
@@ -292,7 +295,7 @@ impl SystemInner {
             }
 
             // nothing else to process
-            if unsafe { Process32NextW(snapshot, &mut process_entry).is_err() } {
+            if unsafe { Process32NextW(*snapshot, &mut process_entry).is_err() } {
                 break;
             }
         }
