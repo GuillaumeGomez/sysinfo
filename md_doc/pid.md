@@ -15,6 +15,6 @@ let i: u32 = p.as_u32();
 
 On glibc systems this is a glibc [`pid_t`](https://www.gnu.org/software/libc/manual/html_node/Process-Identification.html).
 
-On Windows systems this is a [`usize` and represents a windows process identifier](https://docs.microsoft.com/en-us/windows/win32/procthread/process-handles-and-identifiers).
+On Windows systems this is a [`usize` and represents a windows process identifier](https://learn.microsoft.com/en-us/windows/win32/procthread/process-handles-and-identifiers).
 
 On unsupported systems, this is also a `usize`.
