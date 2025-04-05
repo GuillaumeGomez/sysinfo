@@ -39,6 +39,11 @@ pub(crate) struct DiskInner {
     uuid: OsString,
 }
 
+// Needed because `volume_url` type (`CFURL` contains an `*const UnsafeCell`). `UnsafeCell` is
+// `!Sync` and `*const` is both `!Sync` and `!Send`. However, this type is not `Clone` and is not
+// `Copy`, so it's "safe" to make it `Send`.
+unsafe impl Send for DiskInner {}
+
 impl DiskInner {
     pub(crate) fn kind(&self) -> DiskKind {
         self.type_
