@@ -7,8 +7,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 
-use super::ffi::filedesc;
-use super::utils::{get_sys_value_str, WrapMap};
+use super::utils::{get_sys_value_str, get_sysctl_raw, WrapMap};
 
 #[doc(hidden)]
 impl From<libc::c_char> for ProcessStatus {
@@ -67,9 +66,6 @@ pub(crate) struct ProcessInner {
     old_written_bytes: u64,
     accumulated_cpu_time: u64,
     exists: bool,
-    // On FreeBSD, we can only get this information from `kinfo_proc`, so instead of going through
-    // all open processes again, better store the value...
-    open_files: Option<usize>,
 }
 
 impl ProcessInner {
@@ -191,11 +187,71 @@ impl ProcessInner {
     }
 
     pub(crate) fn open_files(&self) -> Option<usize> {
-        self.open_files
+        let mib = &[
+            libc::CTL_KERN,
+            libc::KERN_PROC,
+            libc::KERN_PROC_FILEDESC,
+            self.pid.0 as _,
+        ];
+        let mut len = 0;
+        unsafe {
+            if get_sysctl_raw(mib, std::ptr::null_mut(), &mut len).is_none() {
+                sysinfo_debug!("Failed to query `open_files` info");
+                return None;
+            }
+            let Some(data) = AllocatedPtr::<()>::new(len) else {
+                sysinfo_debug!("Failed to allocate memory to get `open_files` info");
+                return None;
+            };
+            // No clue why, it's done this way in `freebsd/lib/libutil/kinfo_getfile.c` so I suppose
+            // they have a good reason...
+            len = len * 4 / 3;
+            if get_sysctl_raw(mib, data.0, &mut len).is_none() {
+                sysinfo_debug!("Couldn't retrieve `open_files` data");
+                return None;
+            }
+            let mut current = data.0;
+            let end = current.byte_add(len);
+            let mut count = 0;
+            while current < end {
+                let t = current as *mut libc::kinfo_file;
+                if t.is_null() || (*t).kf_structsize == 0 {
+                    break;
+                }
+                current = current.byte_add((*t).kf_structsize as _);
+                count += 1;
+            }
+            Some(count)
+        }
     }
 
     pub(crate) fn open_files_limit(&self) -> Option<usize> {
         crate::System::open_files_limit()
+    }
+}
+
+struct AllocatedPtr<T>(*mut T);
+
+impl<T> AllocatedPtr<T> {
+    fn new(size: libc::size_t) -> Option<Self> {
+        unsafe {
+            let ptr = libc::malloc(size);
+            if ptr.is_null() {
+                None
+            } else {
+                Some(Self(ptr as _))
+            }
+        }
+    }
+}
+
+impl<T> Drop for AllocatedPtr<T> {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            unsafe {
+                libc::free(self.0 as _);
+            }
+        }
     }
 }
 
@@ -206,7 +262,6 @@ fn get_accumulated_cpu_time(kproc: &libc::kinfo_proc) -> u64 {
 }
 
 pub(crate) unsafe fn get_process_data(
-    kd: super::system::PtrWrap<()>,
     kproc: &libc::kinfo_proc,
     wrap: &WrapMap,
     page_size: isize,
@@ -247,38 +302,6 @@ pub(crate) unsafe fn get_process_data(
     // let run_time = (kproc.ki_runtime + 5_000) / 10_000;
 
     let start_time = kproc.ki_start.tv_sec as u64;
-    let mut open_files = None;
-    let kd = kd.0 as *mut libc::kvm_t;
-    if !kd.is_null() && !kproc.ki_fd.is_null() {
-        let mut ki_fd = std::mem::MaybeUninit::<filedesc>::uninit();
-        let size = std::mem::size_of::<filedesc>();
-        // `ki_fd` pointer is not actually a pointer to accessible but to kernel memory.
-        // So to retrieve the value, we need to get the memory from the kernel using `kvm_read2`.
-        let write_size = libc::kvm_read2(
-            kd,
-            kproc.ki_fd as _,
-            ki_fd.as_mut_ptr() as *mut _,
-            size as _,
-        );
-        if write_size == size as _ {
-            let ki_fd = ki_fd.assume_init();
-            if !ki_fd.fd_files.is_null() {
-                let mut fd_files = std::mem::MaybeUninit::<super::ffi::fdescenttbl>::uninit();
-                let size = std::mem::size_of::<super::ffi::fdescenttbl>();
-                // Kernel memory here as well...
-                let write_size = libc::kvm_read2(
-                    kd,
-                    ki_fd.fd_files as _,
-                    fd_files.as_mut_ptr() as *mut _,
-                    size as _,
-                );
-                if write_size == size as _ {
-                    let fd_files = fd_files.assume_init();
-                    open_files = Some(fd_files.fdt_nfiles as _);
-                }
-            }
-        }
-    }
 
     if let Some(proc_) = (*wrap.0.get()).get_mut(&Pid(kproc.ki_pid)) {
         let proc_ = &mut proc_.inner;
@@ -304,8 +327,6 @@ pub(crate) unsafe fn get_process_data(
             if refresh_kind.cpu() {
                 proc_.accumulated_cpu_time = get_accumulated_cpu_time(kproc);
             }
-
-            proc_.open_files = open_files;
 
             return Ok(None);
         }
@@ -363,7 +384,6 @@ pub(crate) unsafe fn get_process_data(
             },
             updated: true,
             exists: true,
-            open_files,
         },
     }))
 }

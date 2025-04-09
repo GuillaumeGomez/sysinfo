@@ -1803,8 +1803,7 @@ impl Process {
     /// Returns `None` if it failed retrieving the information or if the current system is not
     /// supported.
     ///
-    /// **Important**: this information is computed every time this function is called (except on
-    /// FreeBSD).
+    /// **Important**: this information is computed every time this function is called.
     ///
     /// ```no_run
     /// use sysinfo::System;
