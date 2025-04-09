@@ -101,6 +101,27 @@ pub(crate) fn c_buf_to_os_string(buf: &[libc::c_char]) -> OsString {
 }
 
 #[cfg(feature = "system")]
+pub(crate) unsafe fn get_sysctl_raw(
+    mib: &[libc::c_int],
+    data: *mut (),
+    len: &mut libc::size_t,
+) -> Option<()> {
+    if libc::sysctl(
+        mib.as_ptr(),
+        mib.len() as _,
+        data as _,
+        len,
+        std::ptr::null_mut(),
+        0,
+    ) != 0
+    {
+        None
+    } else {
+        Some(())
+    }
+}
+
+#[cfg(feature = "system")]
 pub(crate) unsafe fn get_sys_value_str(
     mib: &[libc::c_int],
     buf: &mut [libc::c_char],
