@@ -394,7 +394,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
                 => true,
                 "tmpfs" => !cfg!(feature = "linux-tmpfs"),
                 // calling statvfs on a mounted CIFS or NFS may hang, when they are mounted with option: hard
-                "cifs" | "nfs" | "nfs4" => !cfg!(feature = "linux-netdevs"),
+                "cifs" | "nfs" | "nfs4" | "autofs" => !cfg!(feature = "linux-netdevs"),
                 _ => false,
             };
 
