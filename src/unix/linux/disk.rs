@@ -393,7 +393,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
                 "mqueue" // https://man7.org/linux/man-pages/man7/mq_overview.7.html
                 => true,
                 "tmpfs" => !cfg!(feature = "linux-tmpfs"),
-                // calling statvfs on a mounted CIFS or NFS may hang, when they are mounted with option: hard
+                // calling statvfs on a mounted CIFS or NFS or through autofs may hang, when they are mounted with option: hard
                 "cifs" | "nfs" | "nfs4" | "autofs" => !cfg!(feature = "linux-netdevs"),
                 _ => false,
             };
