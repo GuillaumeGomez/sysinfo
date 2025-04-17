@@ -47,7 +47,7 @@ cfg_if! {
                     None,
                     OPEN_EXISTING,
                     Default::default(),
-                    HANDLE::default(),
+                    Some(HANDLE::default()),
                 )
                 .ok()?;
                 if handle.is_invalid() {

@@ -396,7 +396,7 @@ unsafe fn get_disk_kind(handle: &HandleWrapper) -> DiskKind {
     if !device_io_control || dw_size != size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as _ {
         DiskKind::Unknown(-1)
     } else {
-        let is_hdd = result.IncursSeekPenalty.as_bool();
+        let is_hdd = result.IncursSeekPenalty;
         if is_hdd {
             DiskKind::HDD
         } else {
