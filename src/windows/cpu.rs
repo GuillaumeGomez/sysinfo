@@ -9,14 +9,13 @@ use std::mem;
 use std::ops::DerefMut;
 use std::sync::{Mutex, OnceLock};
 
-use windows::core::{s, PCSTR, PCWSTR, PSTR};
-use windows::Win32::Foundation::{
-    CloseHandle, BOOLEAN, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS, FALSE, HANDLE, TRUE,
-};
+use windows::core::{s, PCSTR, PCWSTR};
+use windows::Win32::Foundation::{CloseHandle, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS, HANDLE};
 use windows::Win32::System::Performance::{
     PdhAddEnglishCounterA, PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData,
     PdhCollectQueryDataEx, PdhEnumObjectsA, PdhGetFormattedCounterValue, PdhOpenQueryA,
-    PdhRemoveCounter, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PERF_DETAIL_NOVICE,
+    PdhRemoveCounter, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
+    PERF_DETAIL_NOVICE,
 };
 use windows::Win32::System::Power::{
     CallNtPowerInformation, ProcessorInformation, PROCESSOR_POWER_INFORMATION,
@@ -56,11 +55,11 @@ pub(crate) fn get_load_average() -> LoadAvg {
     LoadAvg::default()
 }
 
-unsafe extern "system" fn load_avg_callback(counter: *mut c_void, _: BOOLEAN) {
+unsafe extern "system" fn load_avg_callback(counter: *mut c_void, _: bool) {
     let mut display_value = mem::MaybeUninit::<PDH_FMT_COUNTERVALUE>::uninit();
 
     if PdhGetFormattedCounterValue(
-        counter as _,
+        PDH_HCOUNTER(counter),
         PDH_FMT_DOUBLE,
         None,
         display_value.as_mut_ptr(),
@@ -83,23 +82,27 @@ unsafe extern "system" fn load_avg_callback(counter: *mut c_void, _: BOOLEAN) {
 
 unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
     // You can see the original implementation here: https://github.com/giampaolo/psutil
-    let mut query = 0;
+    let mut query = PDH_HQUERY::default();
 
     if PdhOpenQueryA(PCSTR::null(), 0, &mut query) != ERROR_SUCCESS.0 {
         sysinfo_debug!("init_load_avg: PdhOpenQueryA failed");
         return Mutex::new(None);
     }
 
-    let mut counter = 0;
-    if PdhAddEnglishCounterA(query, s!("\\System\\Cpu Queue Length"), 0, &mut counter)
-        != ERROR_SUCCESS.0
+    let counter = 0;
+    if PdhAddEnglishCounterA(
+        query,
+        s!("\\System\\Cpu Queue Length"),
+        0,
+        &mut PDH_HCOUNTER(counter as *mut c_void),
+    ) != ERROR_SUCCESS.0
     {
         PdhCloseQuery(query);
         sysinfo_debug!("init_load_avg: failed to get CPU queue length");
         return Mutex::new(None);
     }
 
-    let event = match CreateEventA(None, FALSE, FALSE, s!("LoadUpdateEvent")) {
+    let event = match CreateEventA(None, false, false, s!("LoadUpdateEvent")) {
         Ok(ev) => ev,
         Err(_) => {
             PdhCloseQuery(query);
@@ -127,7 +130,7 @@ unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
     {
         Mutex::new(Some(LoadAvg::default()))
     } else {
-        PdhRemoveCounter(counter);
+        PdhRemoveCounter(PDH_HCOUNTER(counter as *mut c_void));
         PdhCloseQuery(query);
         sysinfo_debug!("init_load_avg: RegisterWaitForSingleObject failed");
         Mutex::new(None)
@@ -135,9 +138,9 @@ unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
 }
 
 struct InternalQuery {
-    query: HANDLE,
+    query: PDH_HQUERY,
     event: HANDLE,
-    data: HashMap<String, HANDLE>,
+    data: HashMap<String, PDH_HCOUNTER>,
 }
 
 unsafe impl Send for InternalQuery {}
@@ -147,7 +150,7 @@ impl Drop for InternalQuery {
     fn drop(&mut self) {
         unsafe {
             for (_, counter) in self.data.iter() {
-                PdhRemoveCounter(counter.0);
+                PdhRemoveCounter(*counter);
             }
 
             if !self.event.is_invalid() {
@@ -155,7 +158,7 @@ impl Drop for InternalQuery {
             }
 
             if !self.query.is_invalid() {
-                PdhCloseQuery(self.query.0);
+                PdhCloseQuery(self.query);
             }
         }
     }
@@ -167,21 +170,21 @@ pub(crate) struct Query {
 
 impl Query {
     pub fn new(force_reload: bool) -> Option<Query> {
-        let mut query = 0;
+        let mut query = PDH_HQUERY::default();
         unsafe {
             if force_reload {
                 PdhEnumObjectsA(
                     PCSTR::null(),
                     PCSTR::null(),
-                    PSTR::null(),
+                    None,
                     &mut 0,
                     PERF_DETAIL_NOVICE,
-                    TRUE,
+                    true,
                 );
             }
             if PdhOpenQueryA(PCSTR::null(), 0, &mut query) == ERROR_SUCCESS.0 {
                 let q = InternalQuery {
-                    query: HANDLE(query),
+                    query,
                     event: HANDLE::default(),
                     data: HashMap::new(),
                 };
@@ -200,7 +203,7 @@ impl Query {
                 let mut display_value = mem::MaybeUninit::<PDH_FMT_COUNTERVALUE>::uninit();
 
                 return if PdhGetFormattedCounterValue(
-                    counter.0,
+                    *counter,
                     PDH_FMT_DOUBLE,
                     None,
                     display_value.as_mut_ptr(),
@@ -224,15 +227,15 @@ impl Query {
             return false;
         }
         unsafe {
-            let mut counter = 0;
+            let mut counter = PDH_HCOUNTER::default();
             let ret = PdhAddEnglishCounterW(
-                self.internal.query.0,
+                self.internal.query,
                 PCWSTR::from_raw(getter.as_ptr()),
                 0,
                 &mut counter,
             );
             if ret == ERROR_SUCCESS.0 {
-                self.internal.data.insert(name.clone(), HANDLE(counter));
+                self.internal.data.insert(name.clone(), counter);
             } else {
                 sysinfo_debug!(
                     "Query::add_english_counter: failed to add counter '{}': {:x}...",
@@ -247,7 +250,7 @@ impl Query {
 
     pub fn refresh(&self) {
         unsafe {
-            if PdhCollectQueryData(self.internal.query.0) != ERROR_SUCCESS.0 {
+            if PdhCollectQueryData(self.internal.query) != ERROR_SUCCESS.0 {
                 sysinfo_debug!("failed to refresh CPU data");
             }
         }

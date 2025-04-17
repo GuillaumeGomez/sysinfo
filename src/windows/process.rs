@@ -29,7 +29,7 @@ use windows::Wdk::System::Threading::{
     ProcessWow64Information, PROCESSINFOCLASS,
 };
 use windows::Win32::Foundation::{
-    LocalFree, ERROR_INSUFFICIENT_BUFFER, FILETIME, HANDLE, HINSTANCE, HLOCAL, MAX_PATH,
+    LocalFree, ERROR_INSUFFICIENT_BUFFER, FILETIME, HANDLE, HLOCAL, HMODULE, MAX_PATH,
     STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH, UNICODE_STRING,
 };
 use windows::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
@@ -240,8 +240,8 @@ fn windows_8_1_or_newer() -> &'static bool {
 unsafe fn get_exe(process_handler: &HandleWrapper) -> Option<PathBuf> {
     let mut exe_buf = [0u16; MAX_PATH as usize + 1];
     GetModuleFileNameExW(
-        **process_handler,
-        HINSTANCE::default(),
+        Some(**process_handler),
+        Some(HMODULE::default()),
         exe_buf.as_mut_slice(),
     );
 
@@ -641,7 +641,7 @@ unsafe fn get_cmdline_from_buffer(buffer: PCWSTR) -> Vec<OsString> {
         res.push(OsString::from_wide(arg.as_wide()));
     }
 
-    let _err = LocalFree(HLOCAL(argv_p as _));
+    let _err = LocalFree(Some(HLOCAL(argv_p as _)));
 
     res
 }

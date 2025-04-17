@@ -487,11 +487,7 @@ fn get_dns_hostname() -> Option<String> {
     // setting the `lpBuffer` to null will return the buffer size
     // https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getcomputernameexw
     unsafe {
-        let _err = GetComputerNameExW(
-            ComputerNamePhysicalDnsHostname,
-            PWSTR::null(),
-            &mut buffer_size,
-        );
+        let _err = GetComputerNameExW(ComputerNamePhysicalDnsHostname, None, &mut buffer_size);
 
         // Setting the buffer with the new length
         let mut buffer = vec![0_u16; buffer_size as usize];
@@ -499,7 +495,7 @@ fn get_dns_hostname() -> Option<String> {
         // https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/ne-sysinfoapi-computer_name_format
         if GetComputerNameExW(
             ComputerNamePhysicalDnsHostname,
-            PWSTR::from_raw(buffer.as_mut_ptr()),
+            Some(PWSTR::from_raw(buffer.as_mut_ptr())),
             &mut buffer_size,
         )
         .is_ok()
@@ -551,7 +547,7 @@ impl RegKey {
         if RegOpenKeyExW(
             hkey,
             PCWSTR::from_raw(path.as_ptr()),
-            0,
+            Some(0),
             KEY_READ,
             &mut new_hkey,
         )

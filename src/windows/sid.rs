@@ -5,9 +5,9 @@ use std::{fmt::Display, str::FromStr};
 use windows::core::{PCWSTR, PWSTR};
 #[cfg(feature = "user")]
 use windows::Win32::Foundation::ERROR_INSUFFICIENT_BUFFER;
-use windows::Win32::Foundation::{LocalFree, HLOCAL, PSID};
+use windows::Win32::Foundation::{LocalFree, HLOCAL};
 use windows::Win32::Security::Authorization::{ConvertSidToStringSidW, ConvertStringSidToSidW};
-use windows::Win32::Security::{CopySid, GetLengthSid, IsValidSid};
+use windows::Win32::Security::{CopySid, GetLengthSid, IsValidSid, PSID};
 #[cfg(feature = "user")]
 use windows::Win32::Security::{LookupAccountSidW, SidTypeUnknown};
 
@@ -69,9 +69,9 @@ impl Sid {
             if let Err(err) = LookupAccountSidW(
                 PCWSTR::null(),
                 sid,
-                PWSTR::null(),
+                None,
                 &mut name_len,
-                PWSTR::null(),
+                None,
                 &mut domain_len,
                 &mut name_use,
             ) {
@@ -90,9 +90,9 @@ impl Sid {
             if LookupAccountSidW(
                 PCWSTR::null(),
                 sid,
-                PWSTR::from_raw(name.as_mut_ptr()),
+                Some(PWSTR::from_raw(name.as_mut_ptr())),
                 &mut name_len,
-                PWSTR::null(),
+                None,
                 &mut domain_len,
                 &mut name_use,
             )
@@ -119,7 +119,7 @@ impl Display for Sid {
                 return None;
             }
             let result = to_utf8_str(string_sid);
-            let _err = LocalFree(HLOCAL(string_sid.0 as _));
+            let _err = LocalFree(Some(HLOCAL(string_sid.0 as _)));
             Some(result)
         }
 
@@ -146,7 +146,7 @@ impl FromStr for Sid {
                 return Err(format!("ConvertStringSidToSidW failed: {:?}", err));
             }
             let sid = Self::from_psid(psid);
-            let _err = LocalFree(HLOCAL(psid.0 as _));
+            let _err = LocalFree(Some(HLOCAL(psid.0 as _)));
 
             // Unwrapping because ConvertStringSidToSidW should've performed
             // all the necessary validations. If it returned an invalid SID,
