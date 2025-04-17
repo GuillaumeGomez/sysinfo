@@ -73,7 +73,7 @@ impl CpusWrapper {
 
             if first || refresh_kind.cpu_usage() {
                 if let Some(Ok(line)) = it.next() {
-                    if &line[..4] != b"cpu " {
+                    if line.len() < 4 || &line[..4] != b"cpu " {
                         return;
                     }
                     let mut parts = line.split(|x| *x == b' ').filter(|s| !s.is_empty()).skip(1);
@@ -92,7 +92,7 @@ impl CpusWrapper {
                 }
                 if first || !only_update_global_cpu {
                     while let Some(Ok(line)) = it.next() {
-                        if &line[..3] != b"cpu" {
+                        if line.len() < 3 || &line[..3] != b"cpu" {
                             break;
                         }
 
@@ -122,22 +122,31 @@ impl CpusWrapper {
                             });
                         } else {
                             parts.next(); // we don't want the name again
-                            self.cpus[i].inner.set(
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                                parts.next().map(to_u64).unwrap_or(0),
-                            );
+                            if let Some(cpu) = self.cpus.get_mut(i) {
+                                cpu.inner.set(
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                    parts.next().map(to_u64).unwrap_or(0),
+                                );
+                            } else {
+                                // A new CPU was added, so let's ignore it. If they want it into
+                                // the list, they need to use `refresh_cpu_list`.
+                                sysinfo_debug!("ignoring new CPU added");
+                            }
                         }
 
                         i += 1;
                     }
+                }
+                if i < self.cpus.len() {
+                    sysinfo_debug!("{} CPU(s) seem to have been removed", self.cpus.len() - i);
                 }
             }
         }
