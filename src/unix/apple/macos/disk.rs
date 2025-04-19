@@ -1,9 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::ffi;
 use crate::sys::{
     disk::{get_int_value, get_str_value},
-    macos::utils::IOReleaser,
+    macos::{ffi, utils::IOReleaser},
 };
 use crate::DiskKind;
 

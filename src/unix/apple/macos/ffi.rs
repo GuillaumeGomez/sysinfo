@@ -30,6 +30,16 @@ cfg_if! {
     ),
 ))]
 mod keydata {
+    #[cfg_attr(feature = "debug", derive(Eq, Hash, PartialEq))]
+    #[derive(Clone)]
+    #[repr(C)]
+    pub struct Val_t {
+        pub key: [i8; 5],
+        pub data_size: u32,
+        pub data_type: [i8; 5], // UInt32Char_t
+        pub bytes: [i8; 32],    // SMCBytes_t
+    }
+
     #[cfg_attr(feature = "debug", derive(Debug, Eq, Hash, PartialEq))]
     #[repr(C)]
     pub struct KeyData_vers_t {

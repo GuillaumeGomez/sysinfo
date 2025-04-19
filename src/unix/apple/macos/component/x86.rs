@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::{ffi, macos::utils::IOReleaser};
+use crate::sys::macos::{ffi, utils::IOReleaser};
 use crate::Component;
 
 use libc::{c_char, c_int, c_void};
