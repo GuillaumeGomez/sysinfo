@@ -1,16 +1,17 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::ptr::NonNull;
-
-use objc2_core_foundation::{kCFAllocatorDefault, CFRetained, CFString};
+use objc2_core_foundation::{
+    kCFAllocatorDefault, CFArray, CFDictionary, CFNumber, CFRetained, CFString,
+};
+use objc2_io_kit::{IOHIDEventSystemClient, IOHIDServiceClient};
 
 use crate::sys::inner::ffi::{
     kHIDPage_AppleVendor, kHIDUsage_AppleVendor_TemperatureSensor, kIOHIDEventTypeTemperature,
-    matching, IOHIDEventFieldBase, IOHIDEventGetFloatValue, IOHIDEventSystemClientCopyServices,
-    IOHIDEventSystemClientCreate, IOHIDEventSystemClientSetMatching, IOHIDServiceClientCopyEvent,
-    IOHIDServiceClientCopyProperty, HID_DEVICE_PROPERTY_PRODUCT,
+    IOHIDEventFieldBase, IOHIDEventGetFloatValue, IOHIDEventSystemClientCreate,
+    IOHIDEventSystemClientSetMatching, IOHIDServiceClientCopyEvent,
+    HID_DEVICE_PROPERTY_PRIMARY_USAGE, HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE,
+    HID_DEVICE_PROPERTY_PRODUCT,
 };
-use crate::unix::apple::ffi::{IOHIDEventSystemClient, IOHIDServiceClient};
 use crate::Component;
 
 pub(crate) struct ComponentsInner {
@@ -47,17 +48,24 @@ impl ComponentsInner {
 
     #[allow(unreachable_code)]
     pub(crate) fn refresh(&mut self) {
-        unsafe {
-            let matches = match matching(
-                kHIDPage_AppleVendor,
-                kHIDUsage_AppleVendor_TemperatureSensor,
-            ) {
-                Some(m) => m,
-                None => return,
-            };
+        let keys = [
+            &*CFString::from_static_str(HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE),
+            &*CFString::from_static_str(HID_DEVICE_PROPERTY_PRIMARY_USAGE),
+        ];
 
+        let nums = [
+            &*CFNumber::new_i32(kHIDPage_AppleVendor),
+            &*CFNumber::new_i32(kHIDUsage_AppleVendor_TemperatureSensor),
+        ];
+
+        let matches = CFDictionary::from_slices(&keys, &nums);
+        let matches = matches.as_opaque();
+
+        unsafe {
             if self.client.is_none() {
                 let client = match IOHIDEventSystemClientCreate(kCFAllocatorDefault) {
+                    // SAFETY: `IOHIDEventSystemClientCreate` is a "create"
+                    // function, so the client has +1 retain count.
                     Some(c) => CFRetained::from_raw(c),
                     None => return,
                 };
@@ -66,30 +74,23 @@ impl ComponentsInner {
 
             let client = self.client.as_ref().unwrap();
 
-            let _ = IOHIDEventSystemClientSetMatching(client, &matches);
+            let _ = IOHIDEventSystemClientSetMatching(client, matches);
 
-            let services = match IOHIDEventSystemClientCopyServices(client) {
-                Some(s) => CFRetained::from_raw(s),
+            let services = match client.services() {
+                Some(s) => s,
                 None => return,
             };
 
+            // SAFETY: Return type documented to be CFArray of IOHIDServiceClient.
+            let services = CFRetained::cast_unchecked::<CFArray<IOHIDServiceClient>>(services);
+
             let key = CFString::from_static_str(HID_DEVICE_PROPERTY_PRODUCT);
 
-            let count = services.count();
-
-            for i in 0..count {
-                let service = services.value_at_index(i).cast::<IOHIDServiceClient>();
-                if service.is_null() {
-                    continue;
-                }
-                // The 'service' should never be freed since it is returned by a 'Get' call.
-                // See issue https://github.com/GuillaumeGomez/sysinfo/issues/1279
-                let service = CFRetained::retain(NonNull::from(&*service));
-
-                let Some(name) = IOHIDServiceClientCopyProperty(&service, &key) else {
+            for service in services {
+                let Some(name) = service.property(&key) else {
                     continue;
                 };
-                let name = CFRetained::from_raw(name);
+                let name = name.downcast::<CFString>().unwrap();
                 let name_str = name.to_string();
 
                 if let Some(c) = self
@@ -164,6 +165,8 @@ impl ComponentInner {
                 self.temperature = None;
                 return;
             };
+            // SAFETY: `IOHIDServiceClientCopyEvent` is a "copy" function, so
+            // the event has +1 retain count.
             let event = CFRetained::from_raw(event);
 
             let temperature =

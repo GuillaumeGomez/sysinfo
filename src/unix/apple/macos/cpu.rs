@@ -7,22 +7,28 @@ pub(crate) unsafe fn get_cpu_frequency(_brand: &str) -> u64 {
 
 #[cfg(not(feature = "apple-sandbox"))]
 pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
-    use crate::sys::ffi;
     use crate::sys::macos::utils::IOReleaser;
-    use objc2_core_foundation::{kCFAllocatorDefault, CFData, CFRange, CFRetained, CFString};
+    use objc2_core_foundation::{
+        kCFAllocatorDefault, CFData, CFDictionary, CFRange, CFRetained, CFString,
+    };
+    use objc2_io_kit::{
+        io_iterator_t, kIOMasterPortDefault, kIOReturnSuccess, IOIteratorNext,
+        IORegistryEntryCreateCFProperty, IORegistryEntryGetName, IOServiceGetMatchingServices,
+        IOServiceMatching,
+    };
 
-    let Some(matching) = ffi::IOServiceMatching(b"AppleARMIODevice\0".as_ptr() as *const _) else {
+    let Some(matching) = IOServiceMatching(b"AppleARMIODevice\0".as_ptr().cast()) else {
         sysinfo_debug!("IOServiceMatching call failed, `AppleARMIODevice` not found");
         return 0;
     };
+    let matching = CFRetained::<CFDictionary>::from(&matching);
 
     // Starting from mac M1, the above call returns nothing for the CPU frequency
     // so we try to get it from another source. This code comes from
     // <https://github.com/giampaolo/psutil/pull/2222>.
-    let mut iterator: ffi::io_iterator_t = 0;
-    let result =
-        ffi::IOServiceGetMatchingServices(ffi::kIOMasterPortDefault, matching, &mut iterator);
-    if result != ffi::KIO_RETURN_SUCCESS {
+    let mut iterator: io_iterator_t = 0;
+    let result = IOServiceGetMatchingServices(kIOMasterPortDefault, Some(matching), &mut iterator);
+    if result != kIOReturnSuccess {
         sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
         return 0;
     }
@@ -36,16 +42,16 @@ pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
         }
     };
 
-    let mut name: ffi::io_name = std::mem::zeroed();
+    let mut name = [0; 128];
     let entry = loop {
-        let entry = match IOReleaser::new(ffi::IOIteratorNext(iterator.inner())) {
+        let entry = match IOReleaser::new(IOIteratorNext(iterator.inner())) {
             Some(d) => d,
             None => {
                 sysinfo_debug!("`pmgr` entry was not found in AppleARMIODevice service");
                 return 0;
             }
         };
-        let status = ffi::IORegistryEntryGetName(entry.inner(), name.as_mut_ptr());
+        let status = IORegistryEntryGetName(entry.inner(), &mut name);
         if status != libc::KERN_SUCCESS {
             continue;
         } else if libc::strcmp(name.as_ptr(), b"pmgr\0".as_ptr() as *const _) == 0 {
@@ -55,9 +61,9 @@ pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
 
     let node_name = CFString::from_static_str("voltage-states5-sram");
 
-    let core_ref = match ffi::IORegistryEntryCreateCFProperty(
+    let core_ref = match IORegistryEntryCreateCFProperty(
         entry.inner(),
-        &node_name,
+        Some(&node_name),
         kCFAllocatorDefault,
         0,
     ) {
@@ -67,7 +73,6 @@ pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
             return 0;
         }
     };
-    let core_ref = CFRetained::from_raw(core_ref);
 
     let Ok(core_ref) = core_ref.downcast::<CFData>() else {
         sysinfo_debug!("`voltage-states5-sram` property was not CFData");
