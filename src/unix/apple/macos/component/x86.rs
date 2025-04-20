@@ -1,9 +1,14 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::{ffi, macos::utils::IOReleaser};
+use crate::sys::macos::{ffi, utils::IOReleaser};
 use crate::Component;
 
 use libc::{c_char, c_int, c_void};
+use objc2_core_foundation::{CFDictionary, CFRetained};
+use objc2_io_kit::{
+    io_connect_t, io_iterator_t, kIOMasterPortDefault, kIOReturnSuccess, IOConnectCallStructMethod,
+    IOIteratorNext, IOServiceClose, IOServiceGetMatchingServices, IOServiceMatching, IOServiceOpen,
+};
 
 use std::mem;
 
@@ -23,11 +28,11 @@ pub(crate) struct ComponentFFI {
     val: ffi::Val_t,
     /// It is the `System::connection`. We need it to not require an extra argument
     /// in `ComponentInner::refresh`.
-    connection: ffi::io_connect_t,
+    connection: io_connect_t,
 }
 
 impl ComponentFFI {
-    fn new(key: &[i8], connection: ffi::io_connect_t) -> Option<ComponentFFI> {
+    fn new(key: &[i8], connection: io_connect_t) -> Option<ComponentFFI> {
         unsafe {
             get_key_size(connection, key)
                 .ok()
@@ -116,7 +121,7 @@ impl ComponentInner {
         max: Option<f32>,
         critical: Option<f32>,
         key: &[i8],
-        connection: ffi::io_connect_t,
+        connection: io_connect_t,
     ) -> Option<Self> {
         let ffi_part = ComponentFFI::new(key, connection)?;
         ffi_part.temperature().map(|temperature| Self {
@@ -156,19 +161,19 @@ impl ComponentInner {
 }
 
 unsafe fn perform_call(
-    conn: ffi::io_connect_t,
+    conn: io_connect_t,
     index: c_int,
     input_structure: *const ffi::KeyData_t,
     output_structure: *mut ffi::KeyData_t,
 ) -> i32 {
     let mut structure_output_size = mem::size_of::<ffi::KeyData_t>();
 
-    ffi::IOConnectCallStructMethod(
+    IOConnectCallStructMethod(
         conn,
         index as u32,
-        input_structure,
+        input_structure.cast(),
         mem::size_of::<ffi::KeyData_t>(),
-        output_structure,
+        output_structure.cast(),
         &mut structure_output_size,
     )
 }
@@ -193,10 +198,7 @@ unsafe fn ultostr(s: *mut c_char, val: u32) {
     *s.offset(4) = 0;
 }
 
-unsafe fn get_key_size(
-    con: ffi::io_connect_t,
-    key: &[i8],
-) -> Result<(ffi::KeyData_t, ffi::Val_t), i32> {
+unsafe fn get_key_size(con: io_connect_t, key: &[i8]) -> Result<(ffi::KeyData_t, ffi::Val_t), i32> {
     let mut input_structure: ffi::KeyData_t = mem::zeroed::<ffi::KeyData_t>();
     let mut output_structure: ffi::KeyData_t = mem::zeroed::<ffi::KeyData_t>();
     let mut val: ffi::Val_t = mem::zeroed::<ffi::Val_t>();
@@ -210,7 +212,7 @@ unsafe fn get_key_size(
         &input_structure,
         &mut output_structure,
     );
-    if result != ffi::KIO_RETURN_SUCCESS {
+    if result != kIOReturnSuccess {
         return Err(result);
     }
 
@@ -225,19 +227,20 @@ unsafe fn get_key_size(
 }
 
 unsafe fn read_key(
-    con: ffi::io_connect_t,
+    con: io_connect_t,
     input_structure: &ffi::KeyData_t,
     mut val: ffi::Val_t,
 ) -> Result<ffi::Val_t, i32> {
     let mut output_structure: ffi::KeyData_t = mem::zeroed::<ffi::KeyData_t>();
 
+    #[allow(non_upper_case_globals)]
     match perform_call(
         con,
         ffi::KERNEL_INDEX_SMC,
         input_structure,
         &mut output_structure,
     ) {
-        ffi::KIO_RETURN_SUCCESS => {
+        kIOReturnSuccess => {
             libc::memcpy(
                 val.bytes.as_mut_ptr() as *mut c_void,
                 output_structure.bytes.as_mut_ptr() as *mut c_void,
@@ -250,7 +253,7 @@ unsafe fn read_key(
 }
 
 fn get_temperature_inner(
-    con: ffi::io_connect_t,
+    con: io_connect_t,
     input_structure: &ffi::KeyData_t,
     original_val: &ffi::Val_t,
 ) -> Option<f32> {
@@ -268,17 +271,17 @@ fn get_temperature_inner(
     None
 }
 
-fn get_temperature(con: ffi::io_connect_t, key: &[i8]) -> Option<f32> {
+fn get_temperature(con: io_connect_t, key: &[i8]) -> Option<f32> {
     unsafe {
         let (input_structure, val) = get_key_size(con, key).ok()?;
         get_temperature_inner(con, &input_structure, &val)
     }
 }
 
-pub(crate) struct IoService(ffi::io_connect_t);
+pub(crate) struct IoService(io_connect_t);
 
 impl IoService {
-    fn new(obj: ffi::io_connect_t) -> Option<Self> {
+    fn new(obj: io_connect_t) -> Option<Self> {
         if obj == 0 {
             None
         } else {
@@ -286,28 +289,25 @@ impl IoService {
         }
     }
 
-    pub(crate) fn inner(&self) -> ffi::io_connect_t {
+    pub(crate) fn inner(&self) -> io_connect_t {
         self.0
     }
 
     // code from https://github.com/Chris911/iStats
     // Not supported on iOS, or in the default macOS
     pub(crate) fn new_connection() -> Option<Self> {
-        let mut iterator: ffi::io_iterator_t = 0;
+        let mut iterator: io_iterator_t = 0;
 
         unsafe {
-            let Some(matching_dictionary) =
-                ffi::IOServiceMatching(b"AppleSMC\0".as_ptr() as *const i8)
-            else {
+            let Some(matching) = IOServiceMatching(b"AppleSMC\0".as_ptr() as *const i8) else {
                 sysinfo_debug!("IOServiceMatching call failed, `AppleSMC` not found");
                 return None;
             };
-            let result = ffi::IOServiceGetMatchingServices(
-                ffi::kIOMasterPortDefault,
-                matching_dictionary,
-                &mut iterator,
-            );
-            if result != ffi::KIO_RETURN_SUCCESS {
+            let matching = CFRetained::<CFDictionary>::from(&matching);
+
+            let result =
+                IOServiceGetMatchingServices(kIOMasterPortDefault, Some(matching), &mut iterator);
+            if result != kIOReturnSuccess {
                 sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
                 return None;
             }
@@ -319,7 +319,7 @@ impl IoService {
                 }
             };
 
-            let device = match IOReleaser::new(ffi::IOIteratorNext(iterator.inner())) {
+            let device = match IOReleaser::new(IOIteratorNext(iterator.inner())) {
                 Some(d) => d,
                 None => {
                     sysinfo_debug!("Error: no SMC found");
@@ -328,14 +328,14 @@ impl IoService {
             };
 
             let mut conn = 0;
-            let result = ffi::IOServiceOpen(
+            let result = IOServiceOpen(
                 device.inner(),
                 #[allow(deprecated)]
                 libc::mach_task_self(),
                 0,
                 &mut conn,
             );
-            if result != ffi::KIO_RETURN_SUCCESS {
+            if result != kIOReturnSuccess {
                 sysinfo_debug!("Error: IOServiceOpen() = {}", result);
                 return None;
             }
@@ -352,8 +352,6 @@ impl IoService {
 
 impl Drop for IoService {
     fn drop(&mut self) {
-        unsafe {
-            ffi::IOServiceClose(self.0);
-        }
+        unsafe { IOServiceClose(self.0) };
     }
 }

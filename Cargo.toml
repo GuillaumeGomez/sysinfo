@@ -29,6 +29,8 @@ component = [
     "objc2-core-foundation/CFDictionary",
     "objc2-core-foundation/CFNumber",
     "objc2-core-foundation/CFString",
+    "objc2-io-kit",
+    "objc2-io-kit/hidsystem",
 ]
 disk = [
     "windows/Win32_Foundation",
@@ -45,6 +47,7 @@ disk = [
     "objc2-core-foundation/CFNumber",
     "objc2-core-foundation/CFString",
     "objc2-core-foundation/CFURL",
+    "objc2-io-kit",
 ]
 system = [
     "windows/Win32_Foundation",
@@ -71,6 +74,7 @@ system = [
     "objc2-core-foundation/CFData",
     "objc2-core-foundation/CFDictionary",
     "objc2-core-foundation/CFString",
+    "objc2-io-kit",
 ]
 network = [
     "windows/Win32_Foundation",
@@ -124,8 +128,12 @@ windows = { version = ">=0.59, <=0.61", optional = true }
 libc = "^0.2.171"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-objc2-core-foundation = { version = "0.3.0", optional = true, default-features = false, features = [
+objc2-core-foundation = { version = "0.3.1", optional = true, default-features = false, features = [
     "std",
+] }
+objc2-io-kit = { version = "0.3.1", optional = true, default-features = false, features = [
+    "std",
+    "libc",
 ] }
 
 [target.'cfg(all(target_os = "linux", not(target_os = "android")))'.dev-dependencies]

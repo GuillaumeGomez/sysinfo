@@ -1,31 +1,29 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::ffi;
 use crate::sys::{
     disk::{get_int_value, get_str_value},
-    macos::utils::IOReleaser,
+    macos::{ffi, utils::IOReleaser},
 };
 use crate::DiskKind;
 
 use objc2_core_foundation::{kCFAllocatorDefault, CFDictionary, CFRetained, CFString};
+use objc2_io_kit::{
+    io_iterator_t, io_registry_entry_t, kIOMasterPortDefault, kIOServicePlane, IOBSDNameMatching,
+    IOIteratorNext, IOObjectConformsTo, IORegistryEntryCreateCFProperty,
+    IORegistryEntryGetParentEntry, IOServiceGetMatchingServices,
+};
 
 fn iterate_service_tree<T, F>(bsd_name: &[u8], key: &CFString, eval: F) -> Option<T>
 where
-    F: Fn(ffi::io_registry_entry_t, &CFDictionary) -> Option<T>,
+    F: Fn(io_registry_entry_t, &CFDictionary) -> Option<T>,
 {
-    // We don't need to wrap this in CFRetained because the following call to
-    // `IOServiceGetMatchingServices` will take ownership of one retain reference.
-    let matching =
-        unsafe { ffi::IOBSDNameMatching(ffi::kIOMasterPortDefault, 0, bsd_name.as_ptr().cast()) }?;
+    let matching = unsafe { IOBSDNameMatching(kIOMasterPortDefault, 0, bsd_name.as_ptr().cast()) }?;
+    let matching = CFRetained::<CFDictionary>::from(&matching);
 
-    let mut service_iterator: ffi::io_iterator_t = 0;
+    let mut service_iterator: io_iterator_t = 0;
 
     if unsafe {
-        ffi::IOServiceGetMatchingServices(
-            ffi::kIOMasterPortDefault,
-            matching,
-            &mut service_iterator,
-        )
+        IOServiceGetMatchingServices(kIOMasterPortDefault, Some(matching), &mut service_iterator)
     } != libc::KERN_SUCCESS
     {
         return None;
@@ -34,10 +32,10 @@ where
     // Safety: We checked for success, so there is always a valid iterator, even if its empty.
     let service_iterator = unsafe { IOReleaser::new_unchecked(service_iterator) };
 
-    let mut parent_entry: ffi::io_registry_entry_t = 0;
+    let mut parent_entry: io_registry_entry_t = 0;
 
     while let Some(mut current_service_entry) =
-        IOReleaser::new(unsafe { ffi::IOIteratorNext(service_iterator.inner()) })
+        IOReleaser::new(unsafe { IOIteratorNext(service_iterator.inner()) })
     {
         // Note: This loop is required in a non-obvious way. Due to device properties existing as a tree
         // in IOKit, we may need an arbitrary number of calls to `IORegistryEntryCreateCFProperty` in order to find
@@ -45,9 +43,9 @@ where
         // tree, so we need to continue going from child->parent node until its found.
         loop {
             if unsafe {
-                ffi::IORegistryEntryGetParentEntry(
+                IORegistryEntryGetParentEntry(
                     current_service_entry.inner(),
-                    ffi::kIOServicePlane.as_ptr().cast(),
+                    kIOServicePlane.as_ptr().cast_mut().cast(),
                     &mut parent_entry,
                 )
             } != libc::KERN_SUCCESS
@@ -62,16 +60,15 @@ where
             };
 
             let properties_result = unsafe {
-                ffi::IORegistryEntryCreateCFProperty(
+                IORegistryEntryCreateCFProperty(
                     current_service_entry.inner(),
-                    key,
+                    Some(key),
                     kCFAllocatorDefault,
                     0,
                 )
             };
 
             if let Some(properties) = properties_result {
-                let properties = unsafe { CFRetained::from_raw(properties) };
                 if let Ok(properties) = properties.downcast::<CFDictionary>() {
                     if let Some(result) = eval(parent_entry, &properties) {
                         return Some(result);
@@ -109,10 +106,9 @@ pub(crate) fn get_disk_io(bsd_name: &[u8]) -> Option<(u64, u64)> {
     let stat_string = CFString::from_static_str(ffi::kIOBlockStorageDriverStatisticsKey);
 
     iterate_service_tree(bsd_name, &stat_string, |parent_entry, properties| {
-        if unsafe {
-            ffi::IOObjectConformsTo(parent_entry, b"IOBlockStorageDriver\0".as_ptr() as *const _)
-        } == 0
-        {
+        if !unsafe {
+            IOObjectConformsTo(parent_entry, b"IOBlockStorageDriver\0".as_ptr() as *mut _)
+        } {
             return None;
         }
 

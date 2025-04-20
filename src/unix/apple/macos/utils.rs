@@ -2,6 +2,8 @@
 
 use std::num::NonZeroU32;
 
+use objc2_io_kit::IOObjectRelease;
+
 type IoObject = NonZeroU32;
 
 pub(crate) struct IOReleaser(IoObject);
@@ -26,6 +28,6 @@ impl IOReleaser {
 
 impl Drop for IOReleaser {
     fn drop(&mut self) {
-        unsafe { super::ffi::IOObjectRelease(self.0.get() as _) };
+        unsafe { IOObjectRelease(self.0.get() as _) };
     }
 }
