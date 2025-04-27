@@ -127,7 +127,6 @@ fn check_boot_time() {
 // This test is used to ensure that the CPU usage computation isn't completely going off
 // when refreshing it too frequently (ie, multiple times in a row in a very small interval).
 #[test]
-#[ignore] // This test MUST be run on its own to prevent wrong CPU usage measurements.
 fn test_consecutive_cpu_usage_update() {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
@@ -160,12 +159,7 @@ fn test_consecutive_cpu_usage_update() {
         });
     }
 
-    let mut pids = sys
-        .processes()
-        .iter()
-        .map(|(pid, _)| *pid)
-        .take(2)
-        .collect::<Vec<_>>();
+    let mut pids = sys.processes().keys().copied().take(2).collect::<Vec<_>>();
     let pid = std::process::id();
     pids.push(Pid::from_u32(pid));
     assert_eq!(pids.len(), 3);
@@ -182,14 +176,12 @@ fn test_consecutive_cpu_usage_update() {
         // To ensure that Linux doesn't give too high numbers.
         assert!(
             sys.process(pids[2]).unwrap().cpu_usage() < sys.cpus().len() as f32 * 100.,
-            "using ALL CPU: failed at iteration {}",
-            it
+            "using ALL CPU: failed at iteration {it}",
         );
         // To ensure it's not 0 either.
         assert!(
             sys.process(pids[2]).unwrap().cpu_usage() > 0.,
-            "using NO CPU: failed at iteration {}",
-            it
+            "using NO CPU: failed at iteration {it}",
         );
     }
     stop.store(false, Ordering::Relaxed);

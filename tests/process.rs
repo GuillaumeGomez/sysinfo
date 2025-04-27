@@ -896,9 +896,7 @@ fn test_process_run_time() {
     let new_run_time = s.process(current_pid).expect("no process found").run_time();
     assert!(
         new_run_time > run_time,
-        "{} not superior to {}",
-        new_run_time,
-        run_time
+        "{new_run_time} not superior to {run_time}",
     );
 }
 
@@ -1053,9 +1051,7 @@ fn accumulated_cpu_time() {
         .accumulated_cpu_time();
     assert!(
         new_acc_time > acc_time,
-        "{} not superior to {}",
-        new_acc_time,
-        acc_time
+        "{new_acc_time} not superior to {acc_time}",
     );
 }
 
@@ -1093,10 +1089,13 @@ fn test_exists() {
 fn test_tasks() {
     use std::collections::HashSet;
 
-    fn get_tasks(system: &System) -> HashSet<Pid> {
-        let pid_to_process = system.processes();
+    if !sysinfo::IS_SUPPORTED_SYSTEM {
+        return;
+    }
+
+    fn get_tasks(system: &System, pid: Pid) -> HashSet<Pid> {
         let mut task_pids: HashSet<Pid> = HashSet::new();
-        for process in pid_to_process.values() {
+        if let Some(process) = system.process(pid) {
             if let Some(tasks) = process.tasks() {
                 task_pids.extend(tasks);
             }
@@ -1106,6 +1105,7 @@ fn test_tasks() {
 
     let mut system = System::new_with_specifics(RefreshKind::nothing());
     system.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    let pid = sysinfo::get_current_pid().expect("failed to get current pid");
 
     // Spawn a thread to increase the task count
     let scheduler = std::thread::spawn(move || {
@@ -1122,7 +1122,7 @@ fn test_tasks() {
             ProcessRefreshKind::nothing(),
         );
 
-        assert_eq!(get_tasks(&system), get_tasks(&system_new));
+        assert_eq!(get_tasks(&system, pid), get_tasks(&system_new, pid));
     });
     scheduler.join().expect("Scheduler panicked");
 }

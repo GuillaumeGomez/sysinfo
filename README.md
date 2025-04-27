@@ -127,7 +127,7 @@ Most of the time, you don't want all information provided by `sysinfo` but just 
 In this case, it's recommended to use `refresh_specifics(...)` methods with only what you need
 to have much better performance.
 
-Another issues frequently encountered: unless you know what you're doing, it's almost all the
+Another issue frequently encountered: unless you know what you're doing, it's almost all the
 time better to instantiate the `System` struct once and use this one instance through your
 program. The reason is because a lot of information needs a previous measure to be computed
 (the CPU usage for example). Another example why it's much better: in case you want to list
@@ -191,6 +191,15 @@ I wrote a blog post you can find [here][sysinfo-blog] which explains how `sysinf
 on the different systems.
 
 [sysinfo-blog]: https://blog.guillaume-gomez.fr/articles/2021-09-06+sysinfo%3A+how+to+extract+systems%27+information
+
+### Running tests
+
+Because we're looking at system information, some tests have a better chance to succeed when there is
+a limited number of parallel running tests. To ensure they all pass, use:
+
+```bash
+cargo test -- --test-threads=1
+```
 
 ### C interface
 

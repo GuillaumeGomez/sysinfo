@@ -143,7 +143,7 @@ impl FromStr for Sid {
             if let Err(err) =
                 ConvertStringSidToSidW(PCWSTR::from_raw(string_sid.as_ptr()), &mut psid)
             {
-                return Err(format!("ConvertStringSidToSidW failed: {:?}", err));
+                return Err(format!("ConvertStringSidToSidW failed: {err:?}"));
             }
             let sid = Self::from_psid(psid);
             let _err = LocalFree(Some(HLOCAL(psid.0 as _)));

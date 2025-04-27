@@ -379,6 +379,25 @@ impl ComponentInner {
     }
 }
 
+fn read_temp_dir<F: FnMut(PathBuf)>(path: &str, starts_with: &str, mut f: F) {
+    if let Ok(dir) = read_dir(path) {
+        for entry in dir.flatten() {
+            if !entry
+                .file_name()
+                .to_str()
+                .unwrap_or("")
+                .starts_with(starts_with)
+            {
+                continue;
+            }
+            let path = entry.path();
+            if !path.is_file() {
+                f(path);
+            }
+        }
+    }
+}
+
 pub(crate) struct ComponentsInner {
     pub(crate) components: Vec<Component>,
 }
@@ -407,33 +426,25 @@ impl ComponentsInner {
     }
 
     pub(crate) fn refresh(&mut self) {
-        if let Ok(dir) = read_dir(Path::new("/sys/class/hwmon/")) {
-            for entry in dir.flatten() {
-                let Ok(file_type) = entry.file_type() else {
-                    continue;
-                };
-                let entry = entry.path();
-                if !file_type.is_file()
-                    && entry
-                        .file_name()
-                        .and_then(|x| x.to_str())
-                        .unwrap_or("")
-                        .starts_with("hwmon")
-                {
-                    ComponentInner::from_hwmon(&mut self.components, &entry);
-                }
-            }
-        }
+        read_temp_dir("/sys/class/hwmon", "hwmon", |path| {
+            ComponentInner::from_hwmon(&mut self.components, &path);
+        });
         if self.components.is_empty() {
-            // Specfic to raspberry pi.
-            let thermal_path = Path::new("/sys/class/thermal/thermal_zone0/");
-            if thermal_path.join("temp").exists() {
-                let mut component = ComponentInner::default();
-                fill_component(&mut component, "input", thermal_path, "temp");
-                let name = get_file_line(&thermal_path.join("type"), 16);
-                component.name = name.unwrap_or_default();
-                self.components.push(Component { inner: component });
-            }
+            // Normally should only be used by raspberry pi.
+            read_temp_dir("/sys/class/thermal", "thermal_", |path| {
+                let temp = path.join("temp");
+                if temp.exists() {
+                    let Some(name) = get_file_line(&path.join("type"), 16) else {
+                        return;
+                    };
+                    let mut component = ComponentInner {
+                        name,
+                        ..Default::default()
+                    };
+                    fill_component(&mut component, "input", &path, "temp");
+                    self.components.push(Component { inner: component });
+                }
+            });
         }
     }
 }
