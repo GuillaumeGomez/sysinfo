@@ -9,9 +9,7 @@ pub(crate) unsafe fn get_cpu_frequency(_brand: &str) -> u64 {
 pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
     use crate::sys::ffi;
     use crate::sys::macos::utils::IOReleaser;
-    use objc2_core_foundation::{
-        kCFAllocatorDefault, CFData, CFDataGetBytes, CFDataGetLength, CFRange, CFRetained, CFString,
-    };
+    use objc2_core_foundation::{kCFAllocatorDefault, CFData, CFRange, CFRetained, CFString};
 
     let Some(matching) = ffi::IOServiceMatching(b"AppleARMIODevice\0".as_ptr() as *const _) else {
         sysinfo_debug!("IOServiceMatching call failed, `AppleARMIODevice` not found");
@@ -76,14 +74,13 @@ pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
         return 0;
     };
 
-    let core_length = CFDataGetLength(&core_ref);
+    let core_length = core_ref.length();
     if core_length < 8 {
         sysinfo_debug!("expected `voltage-states5-sram` buffer to have at least size 8");
         return 0;
     }
     let mut max: u64 = 0;
-    CFDataGetBytes(
-        &core_ref,
+    core_ref.bytes(
         CFRange {
             location: core_length - 8,
             length: 4,

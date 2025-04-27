@@ -257,7 +257,7 @@ mod io_service {
 
     use objc2_core_foundation::{
         cf_type, kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks, CFAllocator,
-        CFArray, CFDictionary, CFDictionaryCreate, CFNumber, CFRetained, CFString,
+        CFArray, CFDictionary, CFNumber, CFRetained, CFString,
     };
 
     #[repr(C)]
@@ -344,7 +344,7 @@ mod io_service {
 
             let nums = [CFNumber::new_i32(page), CFNumber::new_i32(usage)];
 
-            CFDictionaryCreate(
+            CFDictionary::new(
                 None,
                 &keys as *const _ as *mut _,
                 &nums as *const _ as *mut _,

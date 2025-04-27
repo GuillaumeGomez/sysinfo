@@ -8,8 +8,7 @@ use objc2_core_foundation::{
     kCFURLVolumeAvailableCapacityKey, kCFURLVolumeIsBrowsableKey, kCFURLVolumeIsEjectableKey,
     kCFURLVolumeIsInternalKey, kCFURLVolumeIsLocalKey, kCFURLVolumeIsRemovableKey,
     kCFURLVolumeNameKey, kCFURLVolumeTotalCapacityKey, kCFURLVolumeUUIDStringKey, CFArray,
-    CFArrayCreate, CFBoolean, CFDictionary, CFDictionaryGetValueIfPresent, CFNumber, CFRetained,
-    CFString, CFURLCopyResourcePropertiesForKeys, CFURLCreateFromFileSystemRepresentation, CFURL,
+    CFBoolean, CFDictionary, CFNumber, CFRetained, CFString, CFURL,
 };
 
 use libc::c_void;
@@ -264,7 +263,7 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
     };
 
     for c_disk in raw_disks {
-        let volume_url = match CFURLCreateFromFileSystemRepresentation(
+        let volume_url = match CFURL::from_file_system_representation(
             kCFAllocatorDefault,
             c_disk.f_mntonname.as_ptr() as *const _,
             c_disk.f_mntonname.len() as _,
@@ -332,7 +331,7 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
 unsafe fn build_requested_properties(
     properties: &[Option<&CFString>],
 ) -> Option<CFRetained<CFArray>> {
-    CFArrayCreate(
+    CFArray::new(
         None,
         properties.as_ptr() as *mut *const c_void,
         properties.len() as _,
@@ -344,9 +343,7 @@ fn get_disk_properties(
     volume_url: &CFURL,
     requested_properties: &CFArray,
 ) -> Option<CFRetained<CFDictionary>> {
-    unsafe {
-        CFURLCopyResourcePropertiesForKeys(volume_url, Some(requested_properties), ptr::null_mut())
-    }
+    unsafe { volume_url.resource_properties_for_keys(Some(requested_properties), ptr::null_mut()) }
 }
 
 fn get_available_volume_space(disk_props: &CFDictionary) -> Option<u64> {
@@ -371,7 +368,7 @@ unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
 ) -> Option<T> {
     let mut value = std::ptr::null();
     let key: *const CFString = key.map(|key| key as *const CFString).unwrap_or(ptr::null());
-    if CFDictionaryGetValueIfPresent(dict, key.cast(), &mut value) {
+    if dict.value_if_present(key.cast(), &mut value) {
         callback(value)
     } else {
         None

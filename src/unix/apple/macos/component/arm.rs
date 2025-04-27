@@ -2,9 +2,7 @@
 
 use std::ptr::NonNull;
 
-use objc2_core_foundation::{
-    kCFAllocatorDefault, CFArrayGetCount, CFArrayGetValueAtIndex, CFRetained, CFString,
-};
+use objc2_core_foundation::{kCFAllocatorDefault, CFRetained, CFString};
 
 use crate::sys::inner::ffi::{
     kHIDPage_AppleVendor, kHIDUsage_AppleVendor_TemperatureSensor, kIOHIDEventTypeTemperature,
@@ -77,10 +75,10 @@ impl ComponentsInner {
 
             let key = CFString::from_static_str(HID_DEVICE_PROPERTY_PRODUCT);
 
-            let count = CFArrayGetCount(&services);
+            let count = services.count();
 
             for i in 0..count {
-                let service = CFArrayGetValueAtIndex(&services, i).cast::<IOHIDServiceClient>();
+                let service = services.value_at_index(i).cast::<IOHIDServiceClient>();
                 if service.is_null() {
                     continue;
                 }
