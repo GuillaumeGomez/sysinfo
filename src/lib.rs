@@ -334,11 +334,7 @@ mod test {
             // to find that user ID in the global user list
             for process in s.processes().values() {
                 if let Some(uid) = process.user_id() {
-                    assert!(
-                        users.get_user_by_id(uid).is_some(),
-                        "No UID {:?} found",
-                        uid
-                    );
+                    assert!(users.get_user_by_id(uid).is_some(), "No UID {uid:?} found");
                 }
             }
         }

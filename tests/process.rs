@@ -896,9 +896,7 @@ fn test_process_run_time() {
     let new_run_time = s.process(current_pid).expect("no process found").run_time();
     assert!(
         new_run_time > run_time,
-        "{} not superior to {}",
-        new_run_time,
-        run_time
+        "{new_run_time} not superior to {run_time}",
     );
 }
 
@@ -1053,9 +1051,7 @@ fn accumulated_cpu_time() {
         .accumulated_cpu_time();
     assert!(
         new_acc_time > acc_time,
-        "{} not superior to {}",
-        new_acc_time,
-        acc_time
+        "{new_acc_time} not superior to {acc_time}",
     );
 }
 
