@@ -127,7 +127,6 @@ fn check_boot_time() {
 // This test is used to ensure that the CPU usage computation isn't completely going off
 // when refreshing it too frequently (ie, multiple times in a row in a very small interval).
 #[test]
-#[ignore] // This test MUST be run on its own to prevent wrong CPU usage measurements.
 fn test_consecutive_cpu_usage_update() {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
