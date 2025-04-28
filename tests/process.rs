@@ -1106,6 +1106,7 @@ fn test_tasks() {
     let mut system = System::new_with_specifics(RefreshKind::nothing());
     system.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
     let pid = sysinfo::get_current_pid().expect("failed to get current pid");
+    let old_tasks = get_tasks(&system, pid);
 
     // Spawn a thread to increase the task count
     let scheduler = std::thread::spawn(move || {
@@ -1122,7 +1123,9 @@ fn test_tasks() {
             ProcessRefreshKind::nothing(),
         );
 
-        assert_eq!(get_tasks(&system, pid), get_tasks(&system_new, pid));
+        let new_tasks = get_tasks(&system, pid);
+        assert_ne!(old_tasks, new_tasks);
+        assert_eq!(new_tasks, get_tasks(&system_new, pid));
     });
     scheduler.join().expect("Scheduler panicked");
 }
