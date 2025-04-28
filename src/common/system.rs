@@ -13,6 +13,9 @@ use crate::{CpuInner, Gid, ProcessInner, SystemInner, Uid};
 
 /// Structs containing system's information such as processes, memory and CPU.
 ///
+/// ⚠️ On newer Android versions, there are restrictions on which system information
+/// a non-system application has access to. So CPU information might not be available.
+///
 /// ```
 /// use sysinfo::System;
 ///
