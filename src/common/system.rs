@@ -1201,6 +1201,16 @@ pub enum ThreadKind {
     Userland,
 }
 
+/// Enum describing possible [`Process::kill_and_wait`] errors.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+pub enum KillError {
+    /// This signal doesn't exist on this platform.
+    SignalDoesNotExist,
+    /// The signal failed to be sent to the target process.
+    FailedToSendSignal,
+}
+
 /// Struct containing information of a process.
 ///
 /// ## iOS
@@ -1229,7 +1239,7 @@ impl Process {
     /// platforms by this crate).
     ///
     /// Returns `true` if the signal was sent successfully. If you want to wait for this process
-    /// to end, you can use [`Process::wait`].
+    /// to end, you can use [`Process::wait`] or directly [`Process::kill_and_wait`].
     ///
     /// ⚠️ Even if this function returns `true`, it doesn't necessarily mean that the process will
     /// be killed. It just means that the signal was sent successfully.
@@ -1259,7 +1269,7 @@ impl Process {
     /// value will depend on whether or not the signal was sent successfully.
     ///
     /// If you just want to kill the process, use [`Process::kill`] directly. If you want to wait
-    /// for this process to end, you can use [`Process::wait`].
+    /// for this process to end, you can use [`Process::wait`] or [`Process::kill_with_and_wait`].
     ///
     /// ⚠️ Please note that some processes might not be "killable", like if they run with higher
     /// levels than the current process for example.
@@ -1279,6 +1289,62 @@ impl Process {
     /// ```
     pub fn kill_with(&self, signal: Signal) -> Option<bool> {
         self.inner.kill_with(signal)
+    }
+
+    /// Sends [`Signal::Kill`] to the process then waits for its termination.
+    ///
+    /// Internally, this method is calling [`Process::kill`] then [`Process::wait`].
+    ///
+    /// ⚠️ Please note that some processes might not be "killable", like if they run with higher
+    /// levels than the current process for example. In this case, this method could enter an
+    /// infinite loop.
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     if let Err(error) = process.kill_and_wait() {
+    ///         println!("`kill_and_wait` failed: {error:?}");
+    ///     }
+    /// }
+    /// ```
+    pub fn kill_and_wait(&self) -> Result<Option<ExitStatus>, KillError> {
+        self.kill_with_and_wait(Signal::Kill)
+    }
+
+    /// Sends the given `signal` to the process.then waits for its termination.
+    ///
+    /// Internally, this method is calling [`Process::kill_with`] then [`Process::wait`].
+    ///
+    /// ⚠️ Please note that some processes might not be "killable", like if they run with higher
+    /// levels than the current process for example. In this case, this method could enter an
+    /// infinite loop.
+    ///
+    /// To get the list of the supported signals on this system, use
+    /// [`SUPPORTED_SIGNALS`][crate::SUPPORTED_SIGNALS].
+    ///
+    /// ```no_run
+    /// use sysinfo::{Pid, System};
+    ///
+    /// let s = System::new_all();
+    /// if let Some(process) = s.process(Pid::from(1337)) {
+    ///     if let Err(error) = process.kill_and_wait() {
+    ///         println!("`kill_and_wait` failed: {error:?}");
+    ///     }
+    /// }
+    /// ```
+    pub fn kill_with_and_wait(&self, signal: Signal) -> Result<Option<ExitStatus>, KillError> {
+        match self.inner.kill_with(signal) {
+            Some(sent) => {
+                if !sent {
+                    return Err(KillError::FailedToSendSignal);
+                }
+            }
+            None => return Err(KillError::SignalDoesNotExist),
+        }
+
+        Ok(self.inner.wait())
     }
 
     /// Wait for process termination and returns its [`ExitStatus`] if it could be retrieved,
