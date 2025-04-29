@@ -31,6 +31,7 @@ use windows::Wdk::System::Threading::{
 use windows::Win32::Foundation::{
     LocalFree, ERROR_INSUFFICIENT_BUFFER, FILETIME, HANDLE, HLOCAL, HMODULE, MAX_PATH,
     STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH, UNICODE_STRING,
+    WAIT_FAILED,
 };
 use windows::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
@@ -45,9 +46,9 @@ use windows::Win32::System::RemoteDesktop::ProcessIdToSessionId;
 use windows::Win32::System::SystemInformation::OSVERSIONINFOEXW;
 use windows::Win32::System::Threading::{
     GetExitCodeProcess, GetProcessHandleCount, GetProcessIoCounters, GetProcessTimes,
-    GetSystemTimes, OpenProcess, OpenProcessToken, CREATE_NO_WINDOW, IO_COUNTERS, PEB,
-    PROCESS_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
-    PROCESS_VM_READ,
+    GetSystemTimes, OpenProcess, OpenProcessToken, WaitForSingleObject, CREATE_NO_WINDOW, INFINITE,
+    IO_COUNTERS, PEB, PROCESS_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION,
+    PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
 };
 use windows::Win32::UI::Shell::CommandLineToArgvW;
 
@@ -452,13 +453,11 @@ impl ProcessInner {
 
     pub(crate) fn wait(&self) -> Option<ExitStatus> {
         if let Some(handle) = self.get_handle() {
-            while is_proc_running(handle) {
-                if get_start_time(handle) != self.start_time() {
-                    // PID owner changed so the previous process was finished!
-                    sysinfo_debug!("PID owner changed so cannot get old process exit status");
-                    return None;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(10));
+            if is_proc_running(handle)
+                && unsafe { WaitForSingleObject(handle, INFINITE) == WAIT_FAILED }
+            {
+                sysinfo_debug!("Failed to wait for process");
+                return None;
             }
             let mut exit_status = 0;
             unsafe {
@@ -570,14 +569,6 @@ fn get_start_and_run_time(handle: HANDLE, now: u64) -> (u64, u64) {
         let start = compute_start(process_times);
         let run_time = check_sub(now, start);
         (start, run_time)
-    }
-}
-
-#[inline]
-pub(crate) fn get_start_time(handle: HANDLE) -> u64 {
-    unsafe {
-        let process_times = get_process_times(handle);
-        compute_start(process_times)
     }
 }
 
