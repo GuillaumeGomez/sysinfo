@@ -6,7 +6,7 @@
 
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
-use sysinfo::{Components, Disks, Networks, Pid, Signal, System, Users};
+use sysinfo::{Components, Disks, Groups, Networks, Pid, Signal, System, Users};
 
 const signals: &[Signal] = &[
     Signal::Hangup,
@@ -336,6 +336,11 @@ fn interpret_input(
                 );
             }
         }
+	"groups" => {
+            for group in Groups::new_with_refreshed_list().list() {
+                println!("{:?}", group);
+            }
+	}
         "boot_time" => {
             writeln!(&mut io::stdout(), "{} seconds", System::boot_time());
         }
