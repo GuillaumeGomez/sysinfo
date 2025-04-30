@@ -6,145 +6,60 @@
 
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
-use sysinfo::{Components, Disks, Networks, Pid, Signal, System, Users};
-
-const signals: &[Signal] = &[
-    Signal::Hangup,
-    Signal::Interrupt,
-    Signal::Quit,
-    Signal::Illegal,
-    Signal::Trap,
-    Signal::Abort,
-    Signal::Bus,
-    Signal::FloatingPointException,
-    Signal::Kill,
-    Signal::User1,
-    Signal::Segv,
-    Signal::User2,
-    Signal::Pipe,
-    Signal::Alarm,
-    Signal::Term,
-    Signal::Child,
-    Signal::Continue,
-    Signal::Stop,
-    Signal::TSTP,
-    Signal::TTIN,
-    Signal::TTOU,
-    Signal::Urgent,
-    Signal::XCPU,
-    Signal::XFSZ,
-    Signal::VirtualAlarm,
-    Signal::Profiling,
-    Signal::Winch,
-    Signal::IO,
-    Signal::Power,
-    Signal::Sys,
-];
+use sysinfo::{Components, Disks, Groups, Networks, Pid, System, Users, SUPPORTED_SIGNALS};
 
 fn print_help() {
-    writeln!(&mut io::stdout(), "== Help menu ==");
-    writeln!(&mut io::stdout(), "help               : show this menu");
-    writeln!(
-        &mut io::stdout(),
-        "signals            : show the available signals"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh            : reloads all processes information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh [pid]      : reloads corresponding process information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh_components : reloads components information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh_cpu        : reloads CPU information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh_disks      : reloads disks information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh_users      : reloads users information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh_networks   : reloads networks information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "show [pid | name]  : show information of the given process \
-         corresponding to [pid | name]"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "kill [pid] [signal]: send [signal] to the process with this \
-         [pid]. 0 < [signal] < 32"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "cpus               : Displays CPUs state"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "memory             : Displays memory state"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "temperature        : Displays components' temperature"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "disks              : Displays disks' information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "network            : Displays network' information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "all                : Displays all process name and pid"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "uptime             : Displays system uptime"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "boot_time          : Displays system boot time"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "vendor_id          : Displays CPU vendor id"
-    );
-    writeln!(&mut io::stdout(), "brand              : Displays CPU brand");
-    writeln!(
-        &mut io::stdout(),
-        "load_avg           : Displays system load average"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "frequency          : Displays CPU frequency"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "users              : Displays all users and their groups"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "system             : Displays system information (such as name, version and hostname)"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "pid                : Display this example's PID"
-    );
+    println!(
+        "\
+== Help menu ==
 
-    writeln!(&mut io::stdout(), "quit               : Exit the program");
+help               : shows this menu
+quit               : exits the program
+
+= Refresh commands =
+
+refresh            : reloads all processes information
+refresh [pid]      : reloads corresponding process information
+refresh_components : reloads components information
+refresh_cpu        : reloads CPU information
+refresh_disks      : reloads disks information
+refresh_networks   : reloads networks information
+refresh_users      : reloads users information
+
+= Process commands =
+
+all                : displays all process name and pid
+kill [pid] [signal]: sends [signal] to the process with this [pid]. To get the [signal] number, use the `signals` command.
+show [pid | name]  : shows information of the given process corresponding to [pid | name]
+signals            : shows the available signals
+pid                : displays this example's PID
+
+= CPU commands =
+
+brand              : displays CPU brand
+cpus               : displays CPUs state
+frequency          : displays CPU frequency
+vendor_id          : displays CPU vendor id
+
+= Users and groups commands =
+
+groups             : displays all groups
+users              : displays all users and their groups
+
+= System commands =
+
+boot_time          : displays system boot time
+load_avg           : displays system load average
+system             : displays system information (such as name, version and hostname)
+uptime             : displays system uptime
+
+= Extra components commands =
+
+disks              : displays disks' information
+memory             : displays memory state
+network            : displays network' information
+temperature        : displays components' temperature"
+    );
 }
 
 fn interpret_input(
@@ -158,89 +73,63 @@ fn interpret_input(
     match input.trim() {
         "help" => print_help(),
         "refresh_disks" => {
-            writeln!(&mut io::stdout(), "Refreshing disk list...");
+            println!("Refreshing disk list...");
             disks.refresh(true);
-            writeln!(&mut io::stdout(), "Done.");
+            println!("Done.");
         }
         "refresh_users" => {
-            writeln!(&mut io::stdout(), "Refreshing user list...");
+            println!("Refreshing user list...");
             users.refresh();
-            writeln!(&mut io::stdout(), "Done.");
+            println!("Done.");
         }
         "refresh_networks" => {
-            writeln!(&mut io::stdout(), "Refreshing network list...");
+            println!("Refreshing network list...");
             networks.refresh(true);
-            writeln!(&mut io::stdout(), "Done.");
+            println!("Done.");
         }
         "refresh_components" => {
-            writeln!(&mut io::stdout(), "Refreshing component list...");
+            println!("Refreshing component list...");
             components.refresh(true);
-            writeln!(&mut io::stdout(), "Done.");
+            println!("Done.");
         }
         "refresh_cpu" => {
-            writeln!(&mut io::stdout(), "Refreshing CPUs...");
+            println!("Refreshing CPUs...");
             sys.refresh_cpu_all();
-            writeln!(&mut io::stdout(), "Done.");
+            println!("Done.");
         }
         "signals" => {
-            let mut nb = 1i32;
-
-            for sig in signals {
-                writeln!(&mut io::stdout(), "{nb:2}:{sig:?}");
-                nb += 1;
+            for (nb, sig) in SUPPORTED_SIGNALS.iter().enumerate() {
+                println!("{:2}:{sig:?}", nb + 1);
             }
         }
         "cpus" => {
             // Note: you should refresh a few times before using this, so that usage statistics
             // can be ascertained
-            writeln!(
-                &mut io::stdout(),
+            println!(
                 "number of physical cores: {}",
                 System::physical_core_count()
                     .map(|c| c.to_string())
                     .unwrap_or_else(|| "Unknown".to_owned()),
             );
-            writeln!(
-                &mut io::stdout(),
-                "total CPU usage: {}%",
-                sys.global_cpu_usage(),
-            );
+            println!("total CPU usage: {}%", sys.global_cpu_usage(),);
             for cpu in sys.cpus() {
-                writeln!(&mut io::stdout(), "{cpu:?}");
+                println!("{cpu:?}");
             }
         }
         "memory" => {
-            writeln!(
-                &mut io::stdout(),
-                "total memory:     {: >10} KB",
-                sys.total_memory() / 1_000
-            );
-            writeln!(
-                &mut io::stdout(),
+            println!("total memory:     {: >10} KB", sys.total_memory() / 1_000);
+            println!(
                 "available memory: {: >10} KB",
                 sys.available_memory() / 1_000
             );
-            writeln!(
-                &mut io::stdout(),
-                "used memory:      {: >10} KB",
-                sys.used_memory() / 1_000
-            );
-            writeln!(
-                &mut io::stdout(),
-                "total swap:       {: >10} KB",
-                sys.total_swap() / 1_000
-            );
-            writeln!(
-                &mut io::stdout(),
-                "used swap:        {: >10} KB",
-                sys.used_swap() / 1_000
-            );
+            println!("used memory:      {: >10} KB", sys.used_memory() / 1_000);
+            println!("total swap:       {: >10} KB", sys.total_swap() / 1_000);
+            println!("used swap:        {: >10} KB", sys.used_swap() / 1_000);
         }
         "quit" | "exit" => return true,
         "all" => {
             for (pid, proc_) in sys.processes() {
-                writeln!(
-                    &mut io::stdout(),
+                println!(
                     "{}:{} status={:?}",
                     pid,
                     proc_.name().to_string_lossy(),
@@ -250,77 +139,62 @@ fn interpret_input(
         }
         "frequency" => {
             for cpu in sys.cpus() {
-                writeln!(
-                    &mut io::stdout(),
-                    "[{}] {} MHz",
-                    cpu.name(),
-                    cpu.frequency(),
-                );
+                println!("[{}] {} MHz", cpu.name(), cpu.frequency(),);
             }
         }
         "vendor_id" => {
-            writeln!(
-                &mut io::stdout(),
-                "vendor ID: {}",
-                sys.cpus()[0].vendor_id()
-            );
+            println!("vendor ID: {}", sys.cpus()[0].vendor_id());
         }
         "brand" => {
-            writeln!(&mut io::stdout(), "brand: {}", sys.cpus()[0].brand());
+            println!("brand: {}", sys.cpus()[0].brand());
         }
         "load_avg" => {
             let load_avg = System::load_average();
-            writeln!(&mut io::stdout(), "one minute     : {}%", load_avg.one);
-            writeln!(&mut io::stdout(), "five minutes   : {}%", load_avg.five);
-            writeln!(&mut io::stdout(), "fifteen minutes: {}%", load_avg.fifteen);
+            println!("one minute     : {}%", load_avg.one);
+            println!("five minutes   : {}%", load_avg.five);
+            println!("fifteen minutes: {}%", load_avg.fifteen);
         }
         e if e.starts_with("show ") => {
             let tmp: Vec<&str> = e.split(' ').filter(|s| !s.is_empty()).collect();
 
             if tmp.len() != 2 {
-                writeln!(
-                    &mut io::stdout(),
-                    "show command takes a pid or a name in parameter!"
-                );
-                writeln!(&mut io::stdout(), "example: show 1254");
+                println!("show command takes a pid or a name in parameter!");
+                println!("example: show 1254");
             } else if let Ok(pid) = Pid::from_str(tmp[1]) {
                 match sys.process(pid) {
                     Some(p) => {
-                        writeln!(&mut io::stdout(), "{:?}", *p);
-                        writeln!(
-                            &mut io::stdout(),
+                        println!("{:?}", *p);
+                        println!(
                             "Files open/limit: {:?}/{:?}",
                             p.open_files(),
                             p.open_files_limit(),
                         );
                     }
                     None => {
-                        writeln!(&mut io::stdout(), "pid \"{pid:?}\" not found");
+                        println!("pid \"{pid:?}\" not found");
                     }
                 }
             } else {
                 let proc_name = tmp[1];
                 for proc_ in sys.processes_by_name(proc_name.as_ref()) {
-                    writeln!(
-                        &mut io::stdout(),
-                        "==== {} ====",
-                        proc_.name().to_string_lossy()
-                    );
-                    writeln!(&mut io::stdout(), "{proc_:?}");
+                    println!("==== {} ====", proc_.name().to_string_lossy());
+                    println!("{proc_:?}");
                 }
             }
         }
         "temperature" => {
             for component in components.iter() {
-                writeln!(&mut io::stdout(), "{component:?}");
+                println!("{component:?}");
             }
         }
         "network" => {
             for (interface_name, data) in networks.iter() {
-                writeln!(
-                    &mut io::stdout(),
-                    "{}:\n  ether {}\n  input data  (new / total): {} / {} B\n  output data (new / total): {} / {} B",
-                    interface_name,
+                println!(
+                    "\
+{interface_name}:
+  ether {}
+  input data  (new / total): {} / {} B
+  output data (new / total): {} / {} B",
                     data.mac_address(),
                     data.received(),
                     data.total_received(),
@@ -330,68 +204,66 @@ fn interpret_input(
             }
         }
         "show" => {
-            writeln!(
-                &mut io::stdout(),
-                "'show' command expects a pid number or a process name"
-            );
+            println!("'show' command expects a pid number or a process name");
         }
         e if e.starts_with("kill ") => {
-            let tmp: Vec<&str> = e.split(' ').collect();
+            let tmp: Vec<&str> = e
+                .split(' ')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect();
 
             if tmp.len() != 3 {
-                writeln!(
-                    &mut io::stdout(),
-                    "kill command takes the pid and a signal number in parameter!"
-                );
-                writeln!(&mut io::stdout(), "example: kill 1254 9");
+                println!("kill command takes the pid and a signal number in parameter!");
+                println!("example: kill 1254 9");
             } else {
-                let pid = Pid::from_str(tmp[1]).unwrap();
-                let signal = i32::from_str(tmp[2]).unwrap();
-
-                if signal < 1 || signal > 31 {
-                    writeln!(
-                        &mut io::stdout(),
-                        "Signal must be between 0 and 32 ! See the signals list with the \
-                         signals command"
+                let Ok(pid) = Pid::from_str(tmp[1]) else {
+                    eprintln!("Expected a number for the PID, found {:?}", tmp[1]);
+                    return false;
+                };
+                let Ok(signal) = usize::from_str(tmp[2]) else {
+                    eprintln!("Expected a number for the signal, found {:?}", tmp[2]);
+                    return false;
+                };
+                let Some(signal) = SUPPORTED_SIGNALS.get(signal) else {
+                    eprintln!(
+                        "No signal matching {signal}. Use the `signals` command to get the \
+                         list of signals.",
                     );
-                } else {
-                    match sys.process(pid) {
-                        Some(p) => {
-                            if let Some(res) =
-                                p.kill_with(*signals.get(signal as usize - 1).unwrap())
-                            {
-                                writeln!(&mut io::stdout(), "kill: {res}");
-                            } else {
-                                writeln!(
-                                    &mut io::stdout(),
-                                    "kill: signal not supported on this platform"
-                                );
-                            }
+                    return false;
+                };
+
+                match sys.process(pid) {
+                    Some(p) => {
+                        if let Some(res) = p.kill_with(*signal) {
+                            println!("kill: {res}");
+                        } else {
+                            eprintln!("kill: signal not supported on this platform");
                         }
-                        None => {
-                            writeln!(&mut io::stdout(), "pid not found");
-                        }
-                    };
+                    }
+                    None => {
+                        eprintln!("pid not found");
+                    }
                 }
             }
         }
         "disks" => {
             for disk in disks {
-                writeln!(&mut io::stdout(), "{disk:?}");
+                println!("{disk:?}");
             }
         }
         "users" => {
             for user in users {
-                writeln!(
-                    &mut io::stdout(),
-                    "{:?} => {:?}",
-                    user.name(),
-                    user.groups()
-                );
+                println!("{:?} => {:?}", user.name(), user.groups(),);
+            }
+        }
+        "groups" => {
+            for group in Groups::new_with_refreshed_list().list() {
+                println!("{group:?}");
             }
         }
         "boot_time" => {
-            writeln!(&mut io::stdout(), "{} seconds", System::boot_time());
+            println!("{} seconds", System::boot_time());
         }
         "uptime" => {
             let up = System::uptime();
@@ -401,18 +273,15 @@ fn interpret_input(
             let hours = uptime / 3600;
             uptime -= hours * 3600;
             let minutes = uptime / 60;
-            writeln!(
-                &mut io::stdout(),
-                "{days} days {hours} hours {minutes} minutes ({up} seconds in total)",
-            );
+            println!("{days} days {hours} hours {minutes} minutes ({up} seconds in total)",);
         }
         x if x.starts_with("refresh") => {
             if x == "refresh" {
-                writeln!(&mut io::stdout(), "Getting processes' information...");
+                println!("Getting processes' information...");
                 sys.refresh_all();
-                writeln!(&mut io::stdout(), "Done.");
+                println!("Done.");
             } else if x.starts_with("refresh ") {
-                writeln!(&mut io::stdout(), "Getting process' information...");
+                println!("Getting process' information...");
                 if let Some(pid) = x
                     .split(' ')
                     .filter_map(|pid| pid.parse().ok())
@@ -420,37 +289,34 @@ fn interpret_input(
                     .next()
                 {
                     if sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true) != 0 {
-                        writeln!(&mut io::stdout(), "Process `{pid}` updated successfully");
+                        println!("Process `{pid}` updated successfully");
                     } else {
-                        writeln!(&mut io::stdout(), "Process `{pid}` couldn't be updated...");
+                        println!("Process `{pid}` couldn't be updated...");
                     }
                 } else {
-                    writeln!(&mut io::stdout(), "Invalid [pid] received...");
+                    println!("Invalid [pid] received...");
                 }
             } else {
-                writeln!(
-                    &mut io::stdout(),
+                println!(
                     "\"{x}\": Unknown command. Enter 'help' if you want to get the commands' \
                      list.",
                 );
             }
         }
         "pid" => {
-            writeln!(
-                &mut io::stdout(),
+            println!(
                 "PID: {}",
                 sysinfo::get_current_pid().expect("failed to get PID")
             );
         }
         "system" => {
-            writeln!(
-                &mut io::stdout(),
+            println!(
                 "System name:              {}\n\
                  System kernel version:    {}\n\
                  System OS version:        {}\n\
                  System OS (long) version: {}\n\
                  System host name:         {}\n\
-		 System kernel:            {}",
+                 System kernel:            {}",
                 System::name().unwrap_or_else(|| "<unknown>".to_owned()),
                 System::kernel_version().unwrap_or_else(|| "<unknown>".to_owned()),
                 System::os_version().unwrap_or_else(|| "<unknown>".to_owned()),
@@ -460,8 +326,7 @@ fn interpret_input(
             );
         }
         e => {
-            writeln!(
-                &mut io::stdout(),
+            println!(
                 "\"{e}\": Unknown command. Enter 'help' if you want to get the commands' \
                  list.",
             );
