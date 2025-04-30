@@ -6,7 +6,7 @@
 
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
-use sysinfo::{Components, Disks, Groups, Networks, Pid, Signal, System, Users};
+use sysinfo::{Components, Disks, Groups, Networks, Pid, System, Users, SUPPORTED_SIGNALS};
 
 fn print_help() {
     println!(
@@ -29,7 +29,7 @@ refresh_users      : reloads users information
 = Process commands =
 
 all                : displays all process name and pid
-kill [pid] [signal]: sends [signal] to the process with this [pid]. 0 < [signal] < 32
+kill [pid] [signal]: sends [signal] to the process with this [pid]. To get the [signal] number, use the `signals` command.
 show [pid | name]  : shows information of the given process corresponding to [pid | name]
 signals            : shows the available signals
 pid                : displays this example's PID
@@ -98,11 +98,8 @@ fn interpret_input(
             println!("Done.");
         }
         "signals" => {
-            let mut nb = 1i32;
-
-            for sig in signals {
-                println!("{nb:2}:{sig:?}");
-                nb += 1;
+            for (nb, sig) in SUPPORTED_SIGNALS.iter().enumerate() {
+                println!("{:2}:{sig:?}", nb + 1);
             }
         }
         "cpus" => {
@@ -114,35 +111,20 @@ fn interpret_input(
                     .map(|c| c.to_string())
                     .unwrap_or_else(|| "Unknown".to_owned()),
             );
-            println!(
-                "total CPU usage: {}%",
-                sys.global_cpu_usage(),
-            );
+            println!("total CPU usage: {}%", sys.global_cpu_usage(),);
             for cpu in sys.cpus() {
                 println!("{cpu:?}");
             }
         }
         "memory" => {
-            println!(
-                "total memory:     {: >10} KB",
-                sys.total_memory() / 1_000
-            );
+            println!("total memory:     {: >10} KB", sys.total_memory() / 1_000);
             println!(
                 "available memory: {: >10} KB",
                 sys.available_memory() / 1_000
             );
-            println!(
-                "used memory:      {: >10} KB",
-                sys.used_memory() / 1_000
-            );
-            println!(
-                "total swap:       {: >10} KB",
-                sys.total_swap() / 1_000
-            );
-            println!(
-                "used swap:        {: >10} KB",
-                sys.used_swap() / 1_000
-            );
+            println!("used memory:      {: >10} KB", sys.used_memory() / 1_000);
+            println!("total swap:       {: >10} KB", sys.total_swap() / 1_000);
+            println!("used swap:        {: >10} KB", sys.used_swap() / 1_000);
         }
         "quit" | "exit" => return true,
         "all" => {
@@ -161,10 +143,7 @@ fn interpret_input(
             }
         }
         "vendor_id" => {
-            println!(
-                "vendor ID: {}",
-                sys.cpus()[0].vendor_id()
-            );
+            println!("vendor ID: {}", sys.cpus()[0].vendor_id());
         }
         "brand" => {
             println!("brand: {}", sys.cpus()[0].brand());
@@ -225,44 +204,46 @@ fn interpret_input(
             }
         }
         "show" => {
-            println!(
-                "'show' command expects a pid number or a process name"
-            );
+            println!("'show' command expects a pid number or a process name");
         }
         e if e.starts_with("kill ") => {
-            let tmp: Vec<&str> = e.split(' ').map(|s| s.trim()).filter(|s| !s.is_empty())collect();
+            let tmp: Vec<&str> = e
+                .split(' ')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect();
 
             if tmp.len() != 3 {
                 println!("kill command takes the pid and a signal number in parameter!");
                 println!("example: kill 1254 9");
             } else {
-                let Ok(pid) = Pid::from_str(tmp[1]) else { };
-                let signal = i32::from_str(tmp[2]).unwrap();
-
-                if signal < 1 || signal > 31 {
-                    writeln!(
-                        &mut io::stdout(),
-                        "Signal must be between 0 and 32 ! See the signals list with the \
-                         signals command"
+                let Ok(pid) = Pid::from_str(tmp[1]) else {
+                    eprintln!("Expected a number for the PID, found {:?}", tmp[1]);
+                    return false;
+                };
+                let Ok(signal) = usize::from_str(tmp[2]) else {
+                    eprintln!("Expected a number for the signal, found {:?}", tmp[2]);
+                    return false;
+                };
+                let Some(signal) = SUPPORTED_SIGNALS.get(signal) else {
+                    eprintln!(
+                        "No signal matching {signal}. Use the `signals` command to get the \
+                         list of signals.",
                     );
-                } else {
-                    match sys.process(pid) {
-                        Some(p) => {
-                            if let Some(res) =
-                                p.kill_with(*signals.get(signal as usize - 1).unwrap())
-                            {
-                                println!("kill: {res}");
-                            } else {
-                                writeln!(
-                                    &mut io::stdout(),
-                                    "kill: signal not supported on this platform"
-                                );
-                            }
+                    return false;
+                };
+
+                match sys.process(pid) {
+                    Some(p) => {
+                        if let Some(res) = p.kill_with(*signal) {
+                            println!("kill: {res}");
+                        } else {
+                            eprintln!("kill: signal not supported on this platform");
                         }
-                        None => {
-                            println!("pid not found");
-                        }
-                    };
+                    }
+                    None => {
+                        eprintln!("pid not found");
+                    }
                 }
             }
         }
@@ -292,9 +273,7 @@ fn interpret_input(
             let hours = uptime / 3600;
             uptime -= hours * 3600;
             let minutes = uptime / 60;
-            println!(
-                "{days} days {hours} hours {minutes} minutes ({up} seconds in total)",
-            );
+            println!("{days} days {hours} hours {minutes} minutes ({up} seconds in total)",);
         }
         x if x.starts_with("refresh") => {
             if x == "refresh" {
