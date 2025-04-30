@@ -42,109 +42,55 @@ const signals: &[Signal] = &[
 ];
 
 fn print_help() {
-    writeln!(&mut io::stdout(), "== Help menu ==");
-    writeln!(&mut io::stdout(), "help               : show this menu");
-    writeln!(
-        &mut io::stdout(),
-        "signals            : show the available signals"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh            : reloads all processes information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh [pid]      : reloads corresponding process information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh_components : reloads components information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh_cpu        : reloads CPU information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh_disks      : reloads disks information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh_users      : reloads users information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "refresh_networks   : reloads networks information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "show [pid | name]  : show information of the given process \
-         corresponding to [pid | name]"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "kill [pid] [signal]: send [signal] to the process with this \
-         [pid]. 0 < [signal] < 32"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "cpus               : Displays CPUs state"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "memory             : Displays memory state"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "temperature        : Displays components' temperature"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "disks              : Displays disks' information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "network            : Displays network' information"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "all                : Displays all process name and pid"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "uptime             : Displays system uptime"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "boot_time          : Displays system boot time"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "vendor_id          : Displays CPU vendor id"
-    );
-    writeln!(&mut io::stdout(), "brand              : Displays CPU brand");
-    writeln!(
-        &mut io::stdout(),
-        "load_avg           : Displays system load average"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "frequency          : Displays CPU frequency"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "users              : Displays all users and their groups"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "system             : Displays system information (such as name, version and hostname)"
-    );
-    writeln!(
-        &mut io::stdout(),
-        "pid                : Display this example's PID"
-    );
+    writeln!(&mut io::stdout(), "\
+== Help menu ==
 
-    writeln!(&mut io::stdout(), "quit               : Exit the program");
+help               : shows this menu
+quit               : exits the program
+
+= Refresh commands =
+
+refresh            : reloads all processes information
+refresh [pid]      : reloads corresponding process information
+refresh_components : reloads components information
+refresh_cpu        : reloads CPU information
+refresh_disks      : reloads disks information
+refresh_networks   : reloads networks information
+refresh_users      : reloads users information
+
+= Process commands =
+
+all                : displays all process name and pid
+kill [pid] [signal]: sends [signal] to the process with this [pid]. 0 < [signal] < 32
+show [pid | name]  : shows information of the given process corresponding to [pid | name]
+signals            : shows the available signals
+pid                : displays this example's PID
+
+= CPU commands =
+
+brand              : displays CPU brand
+cpus               : displays CPUs state
+frequency          : displays CPU frequency
+vendor_id          : displays CPU vendor id
+
+= Users and groups commands =
+
+groups             : displays all groups
+users              : displays all users and their groups
+
+= System commands =
+
+boot_time          : displays system boot time
+load_avg           : displays system load average
+system             : displays system information (such as name, version and hostname)
+uptime             : displays system uptime
+
+= Extra components commands =
+
+disks              : displays disks' information
+memory             : displays memory state
+network            : displays network' information
+temperature        : displays components' temperature");
 }
 
 fn interpret_input(
