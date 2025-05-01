@@ -1,3 +1,19 @@
+# 0.35.0
+
+ * Update MSRV to 1.75.
+ * Add `System::open_files_limit`.
+ * Add `Process::kill_and_wait` and `Process::kill_with_and_wait` methods.
+ * `Process::open_files*` methods return `usize`.
+ * `set_open_files_limit` argument type is `usize`.
+ * Code example was improved.
+ * macOS: Fix M4 CPU frequency calculation.
+ * Linux: Correctly handle when new CPUs are added.
+ * Linux: Ignore `autofs` disks.
+ * Linux (raspberry pi): Retrieve more thermal zones.
+ * Android: Update documentation to mention that newer Android version don't allow to retrieve CPU information.
+ * Windows: Improve `Process::wait` code.
+ * Windows: Fix `Groups::refresh`.
+
 # 0.34.2
 
  * FreeBSD: Fix segfault when refreshing processes.

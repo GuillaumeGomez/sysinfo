@@ -1,5 +1,19 @@
 # Migration guide
 
+## 0.34 to 0.35
+
+### Major changes
+
+`Process::open_files*` methods now return a `usize`.
+
+The `set_open_files_limit` function argument type is now `usize`.
+
+### New APIs
+
+`System` has a new `open_files_limit` method.
+
+`Process` has two new methods: `kill_and_wait` and `kill_with_and_wait`.
+
 ## 0.33 to 0.34
 
 ### Major changes
