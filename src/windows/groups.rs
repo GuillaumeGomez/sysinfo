@@ -6,7 +6,7 @@ use crate::{Gid, Group, GroupInner};
 use std::ptr::null_mut;
 use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS};
 use windows::Win32::NetworkManagement::NetManagement::{
-    NetApiBufferFree, NetQueryDisplayInformation, MAX_PREFERRED_LENGTH, NET_DISPLAY_GROUP,
+    NetApiBufferFree, NetLocalGroupEnum, LOCALGROUP_INFO_0, MAX_PREFERRED_LENGTH,
 };
 
 impl GroupInner {
@@ -23,7 +23,7 @@ impl GroupInner {
     }
 }
 
-struct NetApiBuffer(*mut NET_DISPLAY_GROUP);
+struct NetApiBuffer(*mut LOCALGROUP_INFO_0);
 
 impl Drop for NetApiBuffer {
     fn drop(&mut self) {
@@ -40,7 +40,7 @@ impl Default for NetApiBuffer {
 }
 
 impl NetApiBuffer {
-    pub fn inner_mut(&mut self) -> *mut *mut NET_DISPLAY_GROUP {
+    pub fn inner_mut(&mut self) -> *mut *mut LOCALGROUP_INFO_0 {
         &mut self.0 as *mut _
     }
 }
@@ -49,34 +49,30 @@ pub(crate) fn get_groups(groups: &mut Vec<Group>) {
     groups.clear();
 
     unsafe {
-        let mut i = 0;
         let mut nb_entries = 0;
+        let mut total_entries_hint = 0;
+        let mut handle = 0;
         loop {
             let mut buff = NetApiBuffer::default();
-            let res = NetQueryDisplayInformation(
+            let res = NetLocalGroupEnum(
                 None,
-                3, // Level. Here, group account information.
-                i, // If it's not the first iteration, frm which index we want to start from.
-                1000,
+                0, // Level. Here, just get the group names.
+                buff.inner_mut() as *mut _,
                 MAX_PREFERRED_LENGTH,
                 &mut nb_entries,
-                buff.inner_mut() as *mut _,
+                &mut total_entries_hint,
+                Some(&mut handle),
             );
             if res != ERROR_SUCCESS.0 && res != ERROR_MORE_DATA.0 {
-                sysinfo_debug!("NetQueryDisplayInformation failed: {res:?}");
+                sysinfo_debug!("NetLocalGroupEnum failed: {res:?}");
                 break;
             }
-            let mut p = buff.0;
-            for _ in 0..nb_entries {
-                let name = to_utf8_str((*p).grpi3_name);
+            let entries = std::slice::from_raw_parts(buff.0, nb_entries as usize);
+            for entry in entries {
+                let name = to_utf8_str(entry.lgrpi0_name);
                 groups.push(Group {
-                    inner: GroupInner::new(Gid((*p).grpi3_group_id), name),
+                    inner: GroupInner::new(Gid(0), name),
                 });
-                //
-                // If there is more data, set the index.
-                //
-                i = (*p).grpi3_next_index;
-                p = p.add(1);
             }
             if res != ERROR_MORE_DATA.0 {
                 break;
