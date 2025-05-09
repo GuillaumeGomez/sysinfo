@@ -165,7 +165,7 @@ unsafe fn get_process_user_id(process: &mut ProcessInner, refresh_kind: ProcessR
         return;
     }
 
-    // We force this check to prevent overwritting a `Some` with a `None`.
+    // We force this check to prevent overwriting a `Some` with a `None`.
     if let Some(uid) = Sid::from_psid((*ptu.0).User.Sid).map(Uid) {
         process.user_id = Some(uid);
     }

@@ -36,7 +36,7 @@
  * Implement `FromStr` trait on `IpNetwork` and `MacAddr`.
  * Implement `Hash` trait on `DiskKind`, `MacAddr`, `ProcessStatus` and `Signal`.
  * macOS: Removed processes are now correctly handled when refreshing processes.
- * macOS: Strenghten dist list refresh.
+ * macOS: Strengthen dist list refresh.
  * macOS: Fix internal `cfg` handling which triggered compilation failures in some specific cases.
  * Linux: max cgroups memory is more reliant in case of wrong input.
  * Linux: Fix processes tasks update.
