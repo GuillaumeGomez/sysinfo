@@ -828,7 +828,7 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
             while let Some(line) = lines.next() {
                 if line.starts_with("vendor_id\t") {
                     info.vendor_id = Some(get_value(line));
-                } else if line.starts_with("model name\t") {
+                } else if line.starts_with("model name\t") || line.starts_with("Model Name\t") {
                     info.brand = Some(get_value(line));
                 } else if line.starts_with("CPU implementer\t") {
                     info.implementer = Some(get_hex_value(line));
