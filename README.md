@@ -65,7 +65,7 @@ println!("System host name:        {:?}", System::host_name());
 // Number of CPUs:
 println!("NB CPUs: {}", sys.cpus().len());
 
-// Display processes ID, name na disk usage:
+// Display processes ID, name and disk usage:
 for (pid, process) in sys.processes() {
     println!("[{pid}] {:?} {:?}", process.name(), process.disk_usage());
 }

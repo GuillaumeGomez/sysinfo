@@ -215,7 +215,7 @@ fn test_refresh_memory() {
     assert_eq!(s.free_swap(), 0);
 
     if std::env::var("APPLE_CI").is_ok() {
-        // Apparently there is no swap for macOS in CIs so can't run futher than this point.
+        // Apparently there is no swap for macOS in CIs so can't run further than this point.
         return;
     }
 

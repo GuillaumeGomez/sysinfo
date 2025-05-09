@@ -284,7 +284,7 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
         // Future note: There is a difference between `kCFURLVolumeIsBrowsableKey` and the
         // `kCFURLEnumeratorSkipInvisibles` option of `CFURLEnumeratorOptions`. Specifically,
         // the first one considers the writable `Data`(`/System/Volumes/Data`) partition to be
-        // browsable, while it is classified as "invisible" by CoreFoundation's volume emumerator.
+        // browsable, while it is classified as "invisible" by CoreFoundation's volume enumerator.
         let browsable = get_bool_value(&prop_dict, kCFURLVolumeIsBrowsableKey).unwrap_or_default();
 
         // Do not return invisible "disks". Most of the time, these are APFS snapshots, hidden

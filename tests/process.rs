@@ -773,7 +773,7 @@ fn test_process_specific_refresh() {
         assert_eq!(p.root(), None);
         assert_eq!(p.memory(), 0);
         assert_eq!(p.virtual_memory(), 0);
-        // These two won't be checked, too much lazyness in testing them...
+        // These two won't be checked, too much laziness in testing them...
         assert_eq!(p.disk_usage(), sysinfo::DiskUsage::default());
         assert_eq!(p.cpu_usage(), 0.);
     }

@@ -864,7 +864,7 @@ pub(crate) fn refresh_procs(
     nb_updated.into_inner()
 }
 
-// FIXME: To be removed once MSRV for this crate is 1.80 nd use the `trim_ascii()` method instead.
+// FIXME: To be removed once MSRV for this crate is 1.80 and use the `trim_ascii()` method instead.
 fn trim_ascii(mut bytes: &[u8]) -> &[u8] {
     // Code from Rust code library.
     while let [rest @ .., last] = bytes {
