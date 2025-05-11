@@ -758,6 +758,12 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
         line.starts_with("processor\t")
     }
 
+    #[inline]
+    fn is_key(line: &str, key: &[u8]) -> bool {
+        let line = line.as_bytes();
+        line.len() > key.len() && line[..key.len()].eq_ignore_ascii_case(key)
+    }
+
     #[derive(Default)]
     struct CpuInfo {
         index: usize,
@@ -825,14 +831,14 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
             };
 
             #[allow(clippy::while_let_on_iterator)]
-            while let Some(line) = lines.next() {
-                if line.starts_with("vendor_id\t") {
+            while let Some(line) = lines.peek() {
+                if is_key(line, b"vendor_id\t") {
                     info.vendor_id = Some(get_value(line));
-                } else if line.starts_with("model name\t") || line.starts_with("Model Name\t") {
+                } else if is_key(line, b"model name\t") {
                     info.brand = Some(get_value(line));
-                } else if line.starts_with("CPU implementer\t") {
+                } else if is_key(line, b"CPU implementer\t") {
                     info.implementer = Some(get_hex_value(line));
-                } else if line.starts_with("CPU part\t") {
+                } else if is_key(line, b"CPU part\t") {
                     info.part = Some(get_hex_value(line));
                 } else if info.has_all_info() || is_new_processor(line) {
                     break;
