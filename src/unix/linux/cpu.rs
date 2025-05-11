@@ -736,7 +736,10 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
     {
         return HashMap::new();
     }
+    get_vendor_id_and_brand_inner(&s)
+}
 
+fn get_vendor_id_and_brand_inner(data: &str) -> HashMap<usize, (String, String)> {
     fn get_value(s: &str) -> String {
         s.split(':')
             .next_back()
@@ -756,6 +759,12 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
     #[inline]
     fn is_new_processor(line: &str) -> bool {
         line.starts_with("processor\t")
+    }
+
+    #[inline]
+    fn is_key(line: &str, key: &[u8]) -> bool {
+        let line = line.as_bytes();
+        line.len() > key.len() && line[..key.len()].eq_ignore_ascii_case(key)
     }
 
     #[derive(Default)]
@@ -804,7 +813,7 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
     }
 
     let mut cpus: HashMap<usize, (String, String)> = HashMap::new();
-    let mut lines = s.split('\n');
+    let mut lines = data.split('\n').peekable();
     while let Some(line) = lines.next() {
         if is_new_processor(line) {
             let index = match line
@@ -825,22 +834,82 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
             };
 
             #[allow(clippy::while_let_on_iterator)]
-            while let Some(line) = lines.next() {
-                if line.starts_with("vendor_id\t") {
+            while let Some(line) = lines.peek() {
+                if is_key(line, b"vendor_id\t") {
                     info.vendor_id = Some(get_value(line));
-                } else if line.starts_with("model name\t") || line.starts_with("Model Name\t") {
+                } else if is_key(line, b"model name\t") {
                     info.brand = Some(get_value(line));
-                } else if line.starts_with("CPU implementer\t") {
+                } else if is_key(line, b"CPU implementer\t") {
                     info.implementer = Some(get_hex_value(line));
-                } else if line.starts_with("CPU part\t") {
+                } else if is_key(line, b"CPU part\t") {
                     info.part = Some(get_hex_value(line));
                 } else if info.has_all_info() || is_new_processor(line) {
                     break;
                 }
+                lines.next();
             }
             let (index, vendor_id, brand) = info.convert();
             cpus.insert(index, (vendor_id, brand));
         }
     }
     cpus
+}
+
+#[cfg(test)]
+mod test {
+    use super::get_vendor_id_and_brand_inner;
+
+    // The iterator was skipping the `is_new_processor` check because we already moved past
+    // the line where `processor]\t` is located.
+    //
+    // Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/1527>.
+    #[test]
+    fn test_cpu_retrieval() {
+        const DATA: &str = r#"
+processor		: 1
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 1
+
+processor		: 2
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+package			: 0
+core			: 2
+
+processor		: 3
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 3
+
+processor		: 4
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 0
+
+processor		: 5
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 1
+
+processor		: 6
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 2
+
+processor		: 7
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 3"#;
+
+        let cpus = get_vendor_id_and_brand_inner(DATA);
+        assert_eq!(cpus.len(), 7);
+    }
 }
