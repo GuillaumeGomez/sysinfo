@@ -1,3 +1,8 @@
+# 0.35.1
+
+ * Linux: Fix processor retrieval if some information is missing.
+ * Windows: Increase range of `windows` crate up to `< 0.63`.
+
 # 0.35.0
 
  * Update MSRV to 1.75.
