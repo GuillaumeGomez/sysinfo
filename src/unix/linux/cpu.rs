@@ -736,7 +736,10 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
     {
         return HashMap::new();
     }
+    get_vendor_id_and_brand_inner(&s)
+}
 
+fn get_vendor_id_and_brand_inner(data: &str) -> HashMap<usize, (String, String)> {
     fn get_value(s: &str) -> String {
         s.split(':')
             .next_back()
@@ -810,7 +813,7 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
     }
 
     let mut cpus: HashMap<usize, (String, String)> = HashMap::new();
-    let mut lines = s.split('\n');
+    let mut lines = data.split('\n').peekable();
     while let Some(line) = lines.next() {
         if is_new_processor(line) {
             let index = match line
@@ -843,10 +846,70 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
                 } else if info.has_all_info() || is_new_processor(line) {
                     break;
                 }
+                lines.next();
             }
             let (index, vendor_id, brand) = info.convert();
             cpus.insert(index, (vendor_id, brand));
         }
     }
     cpus
+}
+
+#[cfg(test)]
+mod test {
+    use super::get_vendor_id_and_brand_inner;
+
+    // The iterator was skipping the `is_new_processor` check because we already moved past
+    // the line where `processor]\t` is located.
+    //
+    // Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/1527>.
+    #[test]
+    fn test_cpu_retrieval() {
+        const DATA: &str = r#"
+processor		: 1
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 1
+
+processor		: 2
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+package			: 0
+core			: 2
+
+processor		: 3
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 3
+
+processor		: 4
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 0
+
+processor		: 5
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 1
+
+processor		: 6
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 2
+
+processor		: 7
+cpu model		: Loongson-3 V0.4  FPU V0.1
+model name		: Loongson-3A R4 (Loongson-3B4000) @ 1800MHz
+CPU MHz			: 1800.00
+core			: 3"#;
+
+        let cpus = get_vendor_id_and_brand_inner(DATA);
+        assert_eq!(cpus.len(), 7);
+    }
 }
