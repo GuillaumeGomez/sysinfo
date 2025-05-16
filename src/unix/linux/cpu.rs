@@ -436,11 +436,11 @@ pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
         return 0;
     }
     let find_cpu_mhz = s.split('\n').find(|line| {
-        line.starts_with("cpu MHz\t")
-            || line.starts_with("CPU MHz\t")
-            || line.starts_with("BogoMIPS")
-            || line.starts_with("clock\t")
-            || line.starts_with("bogomips per cpu")
+        cpuinfo_is_key(line, b"cpu MHz\t")
+            || cpuinfo_is_key(line, b"CPU MHz\t")
+            || cpuinfo_is_key(line, b"BogoMIPS")
+            || cpuinfo_is_key(line, b"clock\t")
+            || cpuinfo_is_key(line, b"bogomips per cpu")
     });
     find_cpu_mhz
         .and_then(|line| line.split(':').next_back())
@@ -740,6 +740,12 @@ pub(crate) fn get_vendor_id_and_brand() -> HashMap<usize, (String, String)> {
     get_vendor_id_and_brand_inner(&s)
 }
 
+#[inline]
+fn cpuinfo_is_key(line: &str, key: &[u8]) -> bool {
+    let line = line.as_bytes();
+    line.len() > key.len() && line[..key.len()].eq_ignore_ascii_case(key)
+}
+
 fn get_vendor_id_and_brand_inner(data: &str) -> HashMap<usize, (String, String)> {
     fn get_value(s: &str) -> String {
         s.split(':')
@@ -760,12 +766,6 @@ fn get_vendor_id_and_brand_inner(data: &str) -> HashMap<usize, (String, String)>
     #[inline]
     fn is_new_processor(line: &str) -> bool {
         line.starts_with("processor\t")
-    }
-
-    #[inline]
-    fn is_key(line: &str, key: &[u8]) -> bool {
-        let line = line.as_bytes();
-        line.len() > key.len() && line[..key.len()].eq_ignore_ascii_case(key)
     }
 
     #[derive(Default)]
@@ -836,13 +836,13 @@ fn get_vendor_id_and_brand_inner(data: &str) -> HashMap<usize, (String, String)>
 
             #[allow(clippy::while_let_on_iterator)]
             while let Some(line) = lines.peek() {
-                if is_key(line, b"vendor_id\t") {
+                if cpuinfo_is_key(line, b"vendor_id\t") {
                     info.vendor_id = Some(get_value(line));
-                } else if is_key(line, b"model name\t") {
+                } else if cpuinfo_is_key(line, b"model name\t") {
                     info.brand = Some(get_value(line));
-                } else if is_key(line, b"CPU implementer\t") {
+                } else if cpuinfo_is_key(line, b"CPU implementer\t") {
                     info.implementer = Some(get_hex_value(line));
-                } else if is_key(line, b"CPU part\t") {
+                } else if cpuinfo_is_key(line, b"CPU part\t") {
                     info.part = Some(get_hex_value(line));
                 } else if info.has_all_info() || is_new_processor(line) {
                     break;
