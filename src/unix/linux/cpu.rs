@@ -437,6 +437,7 @@ pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
     }
     let find_cpu_mhz = s.split('\n').find(|line| {
         line.starts_with("cpu MHz\t")
+            || line.starts_with("CPU MHz\t")
             || line.starts_with("BogoMIPS")
             || line.starts_with("clock\t")
             || line.starts_with("bogomips per cpu")
