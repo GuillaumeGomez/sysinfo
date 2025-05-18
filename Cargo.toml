@@ -123,6 +123,7 @@ ntapi = { version = "0.4", optional = true }
 # Support a range of versions in order to avoid duplication of this crate. Make sure to test all
 # versions when bumping to a new release, and only increase the minimum when absolutely necessary.
 windows = { version = ">=0.59, <0.62", optional = true }
+wmi = { version = ">=0.17.0" }
 
 [target.'cfg(not(any(target_os = "unknown", target_arch = "wasm32")))'.dependencies]
 libc = "^0.2.171"
