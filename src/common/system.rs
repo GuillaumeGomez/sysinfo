@@ -1347,8 +1347,18 @@ impl Process {
         Ok(self.inner.wait())
     }
 
-    /// Wait for process termination and returns its [`ExitStatus`] if it could be retrieved,
-    /// returns `None` otherwise.
+    /// Waits for process termination and returns its [`ExitStatus`] if it could be retrieved,
+    /// returns `None` otherwise. It means that as long as the process is alive, this method will
+    /// not return.
+    ///
+    /// ⚠️ On **macOS** and **FreeBSD**, if the process died and a new one took its PID, unless
+    /// you refreshed, it will wait for the new process to end.
+    ///
+    /// On **Windows**, as long as we have a (internal) handle, we can always retrieve the exit
+    /// status.
+    ///
+    /// On **Linux**/**Android**, we check that the start time of the PID we're waiting is the same
+    /// as the current process'. If not it means the process died and a new one got its PID.
     ///
     /// ```no_run
     /// use sysinfo::{Pid, System};
