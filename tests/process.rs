@@ -1148,3 +1148,31 @@ fn open_files() {
         .open_files_limit()
         .is_some_and(|open_files| open_files > 0));
 }
+
+#[test]
+fn test_wait() {
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let p = start_proc!("2", "TestWait");
+    let pid = Pid::from_u32(p.id() as _);
+    let mut s = System::new();
+    s.refresh_processes_specifics(ProcessesToUpdate::All, false, ProcessRefreshKind::nothing());
+    // We check the result of the exiting process.
+    let exit_status = s.process(pid).unwrap().wait();
+    assert!(exit_status.is_some());
+
+    // Now we check that it doesn't exist anymore.
+    let mut s2 = System::new();
+    s2.refresh_processes_specifics(ProcessesToUpdate::All, false, ProcessRefreshKind::nothing());
+    assert!(s2.process(pid).is_none());
+    // And we check that waiting for it will return `None`.
+    if cfg!(target_os = "linux") {
+        assert_eq!(s.process(pid).unwrap().wait(), None);
+    } else {
+        // On windows we can get the exit status as long as we have a handle.
+        // On mac and freebsd, no clue why.
+        let exit_status = s.process(pid).unwrap().wait();
+        assert!(exit_status.is_some());
+    }
+}

@@ -110,6 +110,7 @@ pub(crate) struct ProcessInner {
     old_stime: u64,
     start_time_without_boot_time: u64,
     start_time: u64,
+    start_time_raw: u64,
     run_time: u64,
     pub(crate) updated: bool,
     cpu_usage: f32,
@@ -151,6 +152,7 @@ impl ProcessInner {
             updated: true,
             start_time_without_boot_time: 0,
             start_time: 0,
+            start_time_raw: 0,
             run_time: 0,
             user_id: None,
             effective_user_id: None,
@@ -261,6 +263,15 @@ impl ProcessInner {
     }
 
     pub(crate) fn wait(&self) -> Option<ExitStatus> {
+        // If anything fails when trying to retrieve the start time, better to return `None`.
+        let (data, _) = _get_stat_data_and_file(&self.proc_path).ok()?;
+        let parts = parse_stat_file(&data)?;
+
+        if start_time_raw(&parts) != self.start_time_raw {
+            sysinfo_debug!("Seems to not be the same process anymore");
+            return None;
+        }
+
         crate::unix::utils::wait_process(self.pid)
     }
 
@@ -400,15 +411,26 @@ unsafe impl<T> Send for Wrap<'_, T> {}
 unsafe impl<T> Sync for Wrap<'_, T> {}
 
 #[inline(always)]
-fn compute_start_time_without_boot_time(parts: &Parts<'_>, info: &SystemInfo) -> u64 {
+fn start_time_raw(parts: &Parts<'_>) -> u64 {
+    u64::from_str(parts.str_parts[ProcIndex::StartTime as usize]).unwrap_or(0)
+}
+
+#[inline(always)]
+fn compute_start_time_without_boot_time(parts: &Parts<'_>, info: &SystemInfo) -> (u64, u64) {
+    let raw = start_time_raw(parts);
     // To be noted that the start time is invalid here, it still needs to be converted into
     // "real" time.
-    u64::from_str(parts.str_parts[ProcIndex::StartTime as usize]).unwrap_or(0) / info.clock_cycle
+    (raw, raw / info.clock_cycle)
+}
+
+fn _get_stat_data_and_file(path: &Path) -> Result<(Vec<u8>, File), ()> {
+    let mut file = File::open(path.join("stat")).map_err(|_| ())?;
+    let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
+    Ok((data, file))
 }
 
 fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<Vec<u8>, ()> {
-    let mut file = File::open(path.join("stat")).map_err(|_| ())?;
-    let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
+    let (data, file) = _get_stat_data_and_file(path)?;
     *stat_file = FileCounter::new(file);
     Ok(data)
 }
@@ -511,7 +533,10 @@ fn retrieve_all_new_process_info(
     let mut proc_path = PathHandler::new(path);
     let name = parts.short_exe;
 
-    p.start_time_without_boot_time = compute_start_time_without_boot_time(parts, info);
+    let (start_time_raw, start_time_without_boot_time) =
+        compute_start_time_without_boot_time(parts, info);
+    p.start_time_raw = start_time_raw;
+    p.start_time_without_boot_time = start_time_without_boot_time;
     p.start_time = p
         .start_time_without_boot_time
         .saturating_add(info.boot_time);
@@ -567,12 +592,12 @@ fn update_existing_process(
     entry.tasks = tasks;
 
     let parts = parse_stat_file(&data).ok_or(())?;
-    let start_time_without_boot_time = compute_start_time_without_boot_time(&parts, info);
+    let start_time_raw = start_time_raw(&parts);
 
     // It's possible that a new process took this same PID when the "original one" terminated.
     // If the start time differs, then it means it's not the same process anymore and that we
     // need to get all its information, hence why we check it here.
-    if start_time_without_boot_time == entry.start_time_without_boot_time {
+    if start_time_raw == entry.start_time_raw {
         let mut proc_path = PathHandler::new(&entry.proc_path);
 
         update_proc_info(
