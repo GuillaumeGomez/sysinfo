@@ -1,3 +1,9 @@
+# 0.35.2
+
+ * Linux: Fix retrieval of processor frequency on loongarch64.
+ * Linux/Android: Improve `Process::wait` by checking if the process is still alive before waiting.
+ * Windows: Fix `Process::wait`.
+
 # 0.35.1
 
  * Linux: Fix processor retrieval if some information is missing.
