@@ -491,7 +491,7 @@ impl GeomSnapshot {
         }
     }
 
-    fn iter(&mut self) -> GeomSnapshotIter {
+    fn iter(&mut self) -> GeomSnapshotIter<'_> {
         GeomSnapshotIter(self)
     }
 
