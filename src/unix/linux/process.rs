@@ -362,7 +362,6 @@ pub(crate) fn set_time(p: &mut ProcessInner, utime: u64, stime: u64) {
     p.old_stime = p.stime;
     p.utime = utime;
     p.stime = stime;
-    p.updated = true;
 }
 
 pub(crate) fn update_process_disk_activity(p: &mut ProcessInner, path: &mut PathHandler) {
@@ -508,6 +507,7 @@ fn update_proc_info(
         p.accumulated_cpu_time =
             p.utime.saturating_add(p.stime).saturating_mul(1_000) / info.clock_cycle;
     }
+    p.updated = true;
 }
 
 fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, str_parts: &[&str]) {
@@ -845,8 +845,15 @@ pub(crate) fn refresh_procs(
 
     let nb_updated = AtomicUsize::new(0);
 
-    // FIXME: To prevent retrieving a task more than once (it can be listed in `/proc/[PID]/task`
-    // subfolder and directly in `/proc` at the same time), might be interesting to use a `HashSet`.
+    // This code goes through processes (listed in `/proc`) and through tasks (listed in
+    // `/proc/[PID]/task`). However, the stored tasks information is supposed to be already present
+    // in the PIDs listed from `/proc` so there will be no duplicates between PIDs and tasks PID.
+    //
+    // If a task is not listed in `/proc`, then we don't retrieve its information.
+    //
+    // So in short: since we update the `HashMap` itself by adding/removing entries outside of the
+    // parallel iterator, we can safely use it inside the parallel iterator and update its entries
+    // concurrently.
     let procs = {
         let d = match fs::read_dir(path) {
             Ok(d) => d,
