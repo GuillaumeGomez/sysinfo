@@ -4,11 +4,18 @@ use crate::{
     common::{Gid, Uid},
     Group, User,
 };
-
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
-use crate::User;
-
 use libc::{getgrgid_r, getgrouplist};
+
+#[cfg(not(target_os = "android"))]
+use libc::{endpwent, getpwent, setpwent};
+
+// See `https://github.com/rust-lang/libc/issues/3014`.
+#[cfg(target_os = "android")]
+extern "C" {
+    fn getpwent() -> *mut libc::passwd;
+    fn setpwent();
+    fn endpwent();
+}
 
 pub(crate) struct UserInner {
     pub(crate) uid: Uid,
@@ -123,9 +130,9 @@ pub(crate) fn get_users(users: &mut Vec<User>) {
     let mut users_map = std::collections::HashMap::with_capacity(10);
 
     unsafe {
-        libc::setpwent();
+        setpwent();
         loop {
-            let pw = libc::getpwent();
+            let pw = getpwent();
             if pw.is_null() {
                 // The call was interrupted by a signal, retrying.
                 if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
@@ -148,7 +155,7 @@ pub(crate) fn get_users(users: &mut Vec<User>) {
                 users_map.insert(name, (Uid(uid), Gid(gid)));
             }
         }
-        libc::endpwent();
+        endpwent();
     }
     for (name, (uid, gid)) in users_map {
         users.push(User {
