@@ -2,13 +2,20 @@
 
 use crate::{
     common::{Gid, Uid},
-    Group,
+    Group, User,
 };
-
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
-use crate::User;
-
 use libc::{getgrgid_r, getgrouplist};
+
+#[cfg(not(target_os = "android"))]
+use libc::{endpwent, getpwent, setpwent};
+
+// See `https://github.com/rust-lang/libc/issues/3014`.
+#[cfg(target_os = "android")]
+extern "C" {
+    fn getpwent() -> *mut libc::passwd;
+    fn setpwent();
+    fn endpwent();
+}
 
 pub(crate) struct UserInner {
     pub(crate) uid: Uid,
@@ -113,37 +120,61 @@ pub(crate) unsafe fn get_user_groups(
     }
 }
 
-// Not used by mac.
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub(crate) fn get_users(users: &mut Vec<User>) {
-    use std::fs::File;
-    use std::io::Read;
-
-    #[inline]
-    fn parse_id(id: &str) -> Option<u32> {
-        id.parse::<u32>().ok()
+    fn filter(shell: *const std::ffi::c_char, uid: u32) -> bool {
+        !endswith(shell, b"/false") && !endswith(shell, b"/uucico") && uid < 65536
     }
 
     users.clear();
 
-    let mut s = String::new();
+    let mut users_map = std::collections::HashMap::with_capacity(10);
 
-    let _ = File::open("/etc/passwd").and_then(|mut f| f.read_to_string(&mut s));
-    for line in s.lines() {
-        let mut parts = line.split(':');
-        if let Some(username) = parts.next() {
-            let mut parts = parts.skip(1);
-            // Skip the user if the uid cannot be parsed correctly
-            if let Some(uid) = parts.next().and_then(parse_id) {
-                if let Some(group_id) = parts.next().and_then(parse_id) {
-                    users.push(User {
-                        inner: UserInner::new(Uid(uid), Gid(group_id), username.to_owned()),
-                    });
+    unsafe {
+        setpwent();
+        loop {
+            let pw = getpwent();
+            if pw.is_null() {
+                // The call was interrupted by a signal, retrying.
+                if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                    continue;
                 }
+                break;
+            }
+
+            if !filter((*pw).pw_shell, (*pw).pw_uid) {
+                // This is not a "real" or "local" user.
+                continue;
+            }
+            if let Some(name) = crate::unix::utils::cstr_to_rust((*pw).pw_name) {
+                if users_map.contains_key(&name) {
+                    continue;
+                }
+
+                let uid = (*pw).pw_uid;
+                let gid = (*pw).pw_gid;
+                users_map.insert(name, (Uid(uid), Gid(gid)));
             }
         }
+        endpwent();
+    }
+    for (name, (uid, gid)) in users_map {
+        users.push(User {
+            inner: UserInner::new(uid, gid, name),
+        });
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-pub(crate) use crate::unix::apple::users::get_users;
+fn endswith(s1: *const std::ffi::c_char, s2: &[u8]) -> bool {
+    if s1.is_null() {
+        return false;
+    }
+    unsafe {
+        let mut len = libc::strlen(s1) as isize - 1;
+        let mut i = s2.len() as isize - 1;
+        while len >= 0 && i >= 0 && *s1.offset(len) == s2[i as usize] as _ {
+            i -= 1;
+            len -= 1;
+        }
+        i == -1
+    }
+}

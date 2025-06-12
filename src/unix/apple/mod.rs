@@ -47,7 +47,6 @@ cfg_if! {
     }
 
     if #[cfg(feature = "user")] {
-        pub mod groups;
         pub mod users;
 
         pub(crate) use crate::unix::groups::get_groups;
@@ -65,8 +64,6 @@ mod component;
 mod cpu;
 #[cfg(any())]
 mod disk;
-#[cfg(any())]
-mod groups;
 #[cfg(any())]
 mod ios;
 #[cfg(any())]
