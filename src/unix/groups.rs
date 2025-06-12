@@ -1,9 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
-use crate::Group;
+use crate::{Gid, Group, GroupInner};
 
-impl crate::GroupInner {
+impl GroupInner {
     pub(crate) fn new(id: crate::Gid, name: String) -> Self {
         Self { id, name }
     }
@@ -17,37 +16,37 @@ impl crate::GroupInner {
     }
 }
 
-// Not used by mac.
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub(crate) fn get_groups(groups: &mut Vec<Group>) {
-    use crate::{Gid, GroupInner};
-    use std::fs::File;
-    use std::io::Read;
-
-    #[inline]
-    fn parse_id(id: &str) -> Option<u32> {
-        id.parse::<u32>().ok()
-    }
-
     groups.clear();
 
-    let mut s = String::new();
+    let mut groups_map = std::collections::HashMap::with_capacity(10);
 
-    let _ = File::open("/etc/group").and_then(|mut f| f.read_to_string(&mut s));
+    unsafe {
+        libc::setgrent();
+        loop {
+            let gr = libc::getgrent();
+            if gr.is_null() {
+                // The call was interrupted by a signal, retrying.
+                if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                    continue;
+                }
+                break;
+            }
 
-    for line in s.lines() {
-        let mut parts = line.split(':');
-        if let Some(name) = parts.next() {
-            let mut parts = parts.skip(1);
-            // Skip the user if the uid cannot be parsed correctly
-            if let Some(gid) = parts.next().and_then(parse_id) {
-                groups.push(Group {
-                    inner: GroupInner::new(Gid(gid), name.to_owned()),
-                });
+            if let Some(name) = crate::unix::utils::cstr_to_rust((*gr).gr_name) {
+                if groups_map.contains_key(&name) {
+                    continue;
+                }
+
+                let gid = (*gr).gr_gid;
+                groups_map.insert(name, Gid(gid));
             }
         }
+        libc::endgrent();
+    }
+    for (name, gid) in groups_map {
+        groups.push(Group {
+            inner: GroupInner::new(gid, name),
+        });
     }
 }
-
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-pub(crate) use crate::unix::apple::groups::get_groups;
