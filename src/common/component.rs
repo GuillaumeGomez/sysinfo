@@ -252,8 +252,8 @@ impl Component {
     ///
     /// | name | label | device_model | id_sensor | Computed label by `sysinfo` |
     /// |---------|--------|------------|----------|----------------------|
-    /// | ✓    | ✓    | ✓  | ✓ | `"{name} {label} {device_model} temp{id}"` |
-    /// | ✓    | ✓    | ✗  | ✓ | `"{name} {label} {id}"` |
+    /// | ✓    | ✓    | ✓  | ✓ | `"{name} {label} {device_model}"` |
+    /// | ✓    | ✓    | ✗  | ✓ | `"{name} {label}"` |
     /// | ✓    | ✗    | ✓  | ✓ | `"{name} {device_model}"` |
     /// | ✓    | ✗    | ✗  | ✓ | `"{name} temp{id}"` |
     ///

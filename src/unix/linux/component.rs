@@ -301,14 +301,8 @@ impl ComponentInner {
             // kind of sensors yet
             .filter(|(_, c)| c.inner.input_file.is_some())
         {
-            if new_comp.inner.label.is_empty() {
-                // sysinfo expose a generic interface with a `label`.
-                // Problem: a lot of sensors don't have a label or a device model! ¯\_(ツ)_/¯
-                // So let's pretend we have a unique label!
-                // See the table in `Component::label` documentation for the table detail.
-                new_comp.inner.label = new_comp.inner.format_label("temp", id);
-            }
-
+            // compute label from known data
+            new_comp.inner.label = new_comp.inner.format_label("temp", id);
             if let Some(comp) = components
                 .iter_mut()
                 .find(|comp| comp.inner.label == new_comp.inner.label)
@@ -335,7 +329,7 @@ impl ComponentInner {
         let has_label = !label.is_empty();
         match (has_label, device_model) {
             (true, Some(device_model)) => {
-                format!("{name} {label} {device_model} {class}{id}")
+                format!("{name} {label} {device_model}")
             }
             (true, None) => format!("{name} {label}"),
             (false, Some(device_model)) => format!("{name} {device_model}"),
@@ -426,12 +420,18 @@ impl ComponentsInner {
     }
 
     pub(crate) fn refresh(&mut self) {
-        read_temp_dir("/sys/class/hwmon", "hwmon", |path| {
+        self.refresh_from_sys_class_path("/sys/class");
+    }
+
+    fn refresh_from_sys_class_path(&mut self, path: &str) {
+        let hwmon_path = format!("{path}/hwmon");
+        read_temp_dir(&hwmon_path, "hwmon", |path| {
             ComponentInner::from_hwmon(&mut self.components, &path);
         });
         if self.components.is_empty() {
             // Normally should only be used by raspberry pi.
-            read_temp_dir("/sys/class/thermal", "thermal_", |path| {
+            let thermal_path = format!("{path}/thermal");
+            read_temp_dir(&thermal_path, "thermal_", |path| {
                 let temp = path.join("temp");
                 if temp.exists() {
                     let Some(name) = get_file_line(&path.join("type"), 16) else {
@@ -446,5 +446,168 @@ impl ComponentsInner {
                 }
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile;
+
+    #[test]
+    fn test_component_refresh_simple() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temporary directory");
+        let hwmon0_dir = temp_dir.path().join("hwmon/hwmon0");
+
+        fs::create_dir_all(temp_dir.path().join("hwmon/hwmon0"))
+            .expect("failed to create hwmon/hwmon0 directory");
+
+        fs::write(hwmon0_dir.join("name"), "test_name").expect("failed to write to name file");
+        fs::write(hwmon0_dir.join("temp1_input"), "1234")
+            .expect("failed to write to temp1_input file");
+
+        let mut components = ComponentsInner::new();
+        components.refresh_from_sys_class_path(
+            temp_dir
+                .path()
+                .to_str()
+                .expect("failed to convert path to string"),
+        );
+        let components = components.into_vec();
+
+        assert_eq!(components.len(), 1);
+        assert_eq!(components[0].inner.name, "test_name");
+        assert_eq!(components[0].label(), "test_name temp1");
+        assert_eq!(components[0].temperature(), Some(1.234));
+    }
+
+    #[test]
+    fn test_component_refresh_with_more_data() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temporary directory");
+        let hwmon0_dir = temp_dir.path().join("hwmon/hwmon0");
+
+        // create hwmon0 file including device/model file
+        fs::create_dir_all(&hwmon0_dir.join("device"))
+            .expect("failed to create hwmon/hwmon0 directory");
+
+        fs::write(hwmon0_dir.join("name"), "test_name").expect("failed to write to name file");
+        fs::write(hwmon0_dir.join("device/model"), "test_model")
+            .expect("failed to write to model file");
+
+        fs::write(hwmon0_dir.join("temp1_label"), "test_label1")
+            .expect("failed to write to temp1_label file");
+        fs::write(hwmon0_dir.join("temp1_input"), "1234")
+            .expect("failed to write to temp1_input file");
+        fs::write(hwmon0_dir.join("temp1_crit"), "100").expect("failed to write to temp1_min file");
+
+        let mut components = ComponentsInner::new();
+        components.refresh_from_sys_class_path(
+            temp_dir
+                .path()
+                .to_str()
+                .expect("failed to convert path to string"),
+        );
+        let components = components.into_vec();
+
+        assert_eq!(components.len(), 1);
+        assert_eq!(components[0].inner.name, "test_name");
+        assert_eq!(components[0].label(), "test_name test_label1 test_model");
+        assert_eq!(components[0].temperature(), Some(1.234));
+        assert_eq!(components[0].max(), Some(1.234));
+        assert_eq!(components[0].critical(), Some(0.1));
+    }
+
+    #[test]
+    fn test_component_refresh_multiple_sensors() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temporary directory");
+        let hwmon0_dir = temp_dir.path().join("hwmon/hwmon0");
+        fs::create_dir_all(&hwmon0_dir).expect("failed to create hwmon/hwmon0 directory");
+
+        fs::write(hwmon0_dir.join("name"), "test_name").expect("failed to write to name file");
+
+        fs::write(hwmon0_dir.join("temp1_label"), "test_label1")
+            .expect("failed to write to temp1_label file");
+        fs::write(hwmon0_dir.join("temp1_input"), "1234")
+            .expect("failed to write to temp1_input file");
+        fs::write(hwmon0_dir.join("temp1_crit"), "100").expect("failed to write to temp1_min file");
+
+        fs::write(hwmon0_dir.join("temp2_label"), "test_label2")
+            .expect("failed to write to temp2_label file");
+        fs::write(&hwmon0_dir.join("temp2_input"), "5678")
+            .expect("failed to write to temp2_input file");
+        fs::write(hwmon0_dir.join("temp2_crit"), "200").expect("failed to write to temp2_min file");
+
+        let mut components = ComponentsInner::new();
+        components.refresh_from_sys_class_path(
+            temp_dir
+                .path()
+                .to_str()
+                .expect("failed to convert path to string"),
+        );
+        let mut components = components.into_vec();
+        components.sort_by_key(|c| c.inner.label.clone());
+
+        assert_eq!(components.len(), 2);
+        assert_eq!(components[0].inner.name, "test_name");
+        assert_eq!(components[0].label(), "test_name test_label1");
+        assert_eq!(components[0].temperature(), Some(1.234));
+        assert_eq!(components[0].max(), Some(1.234));
+        assert_eq!(components[0].critical(), Some(0.1));
+
+        assert_eq!(components[1].inner.name, "test_name");
+        assert_eq!(components[1].label(), "test_name test_label2");
+        assert_eq!(components[1].temperature(), Some(5.678));
+        assert_eq!(components[1].max(), Some(5.678));
+        assert_eq!(components[1].critical(), Some(0.2));
+    }
+
+    #[test]
+    fn test_component_refresh_multiple_sensors_with_device_model() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temporary directory");
+        let hwmon0_dir = temp_dir.path().join("hwmon/hwmon0");
+
+        // create hwmon0 file including device/model file
+        fs::create_dir_all(&hwmon0_dir.join("device"))
+            .expect("failed to create hwmon/hwmon0 directory");
+
+        fs::write(hwmon0_dir.join("name"), "test_name").expect("failed to write to name file");
+        fs::write(hwmon0_dir.join("device/model"), "test_model")
+            .expect("failed to write to model file");
+
+        fs::write(hwmon0_dir.join("temp1_label"), "test_label1")
+            .expect("failed to write to temp1_label file");
+        fs::write(hwmon0_dir.join("temp1_input"), "1234")
+            .expect("failed to write to temp1_input file");
+        fs::write(hwmon0_dir.join("temp1_crit"), "100").expect("failed to write to temp1_min file");
+
+        fs::write(hwmon0_dir.join("temp2_label"), "test_label2")
+            .expect("failed to write to temp2_label file");
+        fs::write(&hwmon0_dir.join("temp2_input"), "5678")
+            .expect("failed to write to temp2_input file");
+        fs::write(hwmon0_dir.join("temp2_crit"), "200").expect("failed to write to temp2_min file");
+
+        let mut components = ComponentsInner::new();
+        components.refresh_from_sys_class_path(
+            temp_dir
+                .path()
+                .to_str()
+                .expect("failed to convert path to string"),
+        );
+        let mut components = components.into_vec();
+        components.sort_by_key(|c| c.inner.label.clone());
+
+        assert_eq!(components.len(), 2);
+        assert_eq!(components[0].inner.name, "test_name");
+        assert_eq!(components[0].label(), "test_name test_label1 test_model");
+        assert_eq!(components[0].temperature(), Some(1.234));
+        assert_eq!(components[0].max(), Some(1.234));
+        assert_eq!(components[0].critical(), Some(0.1));
+
+        assert_eq!(components[1].inner.name, "test_name");
+        assert_eq!(components[1].label(), "test_name test_label2 test_model");
+        assert_eq!(components[1].temperature(), Some(5.678));
+        assert_eq!(components[1].max(), Some(5.678));
+        assert_eq!(components[1].critical(), Some(0.2));
     }
 }
