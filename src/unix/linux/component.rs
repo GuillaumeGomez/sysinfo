@@ -488,7 +488,7 @@ mod tests {
         let hwmon0_dir = temp_dir.path().join("hwmon/hwmon0");
 
         // create hwmon0 file including device/model file
-        fs::create_dir_all(&hwmon0_dir.join("device"))
+        fs::create_dir_all(hwmon0_dir.join("device"))
             .expect("failed to create hwmon/hwmon0 directory");
 
         fs::write(hwmon0_dir.join("name"), "test_name").expect("failed to write to name file");
@@ -534,7 +534,7 @@ mod tests {
 
         fs::write(hwmon0_dir.join("temp2_label"), "test_label2")
             .expect("failed to write to temp2_label file");
-        fs::write(&hwmon0_dir.join("temp2_input"), "5678")
+        fs::write(hwmon0_dir.join("temp2_input"), "5678")
             .expect("failed to write to temp2_input file");
         fs::write(hwmon0_dir.join("temp2_crit"), "200").expect("failed to write to temp2_min file");
 
@@ -568,7 +568,7 @@ mod tests {
         let hwmon0_dir = temp_dir.path().join("hwmon/hwmon0");
 
         // create hwmon0 file including device/model file
-        fs::create_dir_all(&hwmon0_dir.join("device"))
+        fs::create_dir_all(hwmon0_dir.join("device"))
             .expect("failed to create hwmon/hwmon0 directory");
 
         fs::write(hwmon0_dir.join("name"), "test_name").expect("failed to write to name file");
@@ -583,7 +583,7 @@ mod tests {
 
         fs::write(hwmon0_dir.join("temp2_label"), "test_label2")
             .expect("failed to write to temp2_label file");
-        fs::write(&hwmon0_dir.join("temp2_input"), "5678")
+        fs::write(hwmon0_dir.join("temp2_input"), "5678")
             .expect("failed to write to temp2_input file");
         fs::write(hwmon0_dir.join("temp2_crit"), "200").expect("failed to write to temp2_min file");
 
