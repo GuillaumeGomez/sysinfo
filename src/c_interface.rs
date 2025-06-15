@@ -602,3 +602,43 @@ pub extern "C" fn sysinfo_system_long_version() -> RString {
 pub extern "C" fn sysinfo_cpu_physical_cores() -> u32 {
     System::physical_core_count().unwrap_or(0) as u32
 }
+
+/// Equivalent of [`system::motherboard_name()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_motherboard_name() -> RString {
+    if let Some(c) = System::motherboard_name().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`system::motherboard_vendor()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_motherboard_vendor() -> RString {
+    if let Some(c) = System::motherboard_vendor().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`system::motherboard_version()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_motherboard_version() -> RString {
+    if let Some(c) = System::motherboard_version().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`system::motherboard_serial()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_motherboard_serial() -> RString {
+    if let Some(c) = System::motherboard_serial().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}

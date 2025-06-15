@@ -154,6 +154,53 @@ impl SystemTimeInfo {
     }
 }
 
+// Get a property value from the IOPlatformExpertDevice.
+#[cfg(not(feature = "apple-sandbox"))]
+pub(crate) fn get_io_platform_property(key: &str) -> Option<String> {
+    use crate::sys::macos::utils::IOReleaser;
+    use objc2_core_foundation::{kCFAllocatorDefault, CFData, CFGetTypeID, CFString, ConcreteType};
+    use objc2_io_kit::{
+        kIOMasterPortDefault, IORegistryEntryCreateCFProperty, IOServiceGetMatchingService,
+        IOServiceMatching,
+    };
+    use std::ffi::CStr;
+
+    let Some(matching) =
+        (unsafe { IOServiceMatching(b"IOPlatformExpertDevice\0".as_ptr().cast()) })
+    else {
+        sysinfo_debug!("IOServiceMatching call failed, `IOPlatformExpertDevice` not found");
+        return None;
+    };
+
+    let result = unsafe {
+        IOServiceGetMatchingService(kIOMasterPortDefault, Some(matching.as_opaque().into()))
+    };
+    if result == 0 {
+        sysinfo_debug!("Error: IOServiceGetMatchingService() = {}", result);
+        return None;
+    }
+
+    let _r = IOReleaser::new(result);
+    let key_cfstring = CFString::from_str(key);
+    let properties = unsafe {
+        IORegistryEntryCreateCFProperty(result, Some(&key_cfstring), kCFAllocatorDefault, 0)
+    }?;
+
+    if CFGetTypeID(Some(&*properties)) == CFString::type_id() {
+        properties
+            .downcast::<CFString>()
+            .ok()
+            .map(|s| s.to_string())
+    } else {
+        properties.downcast::<CFData>().ok().and_then(|s| {
+            CStr::from_bytes_with_nul(&s.to_vec())
+                .ok()
+                .and_then(|cstr| cstr.to_str().ok())
+                .map(str::to_owned)
+        })
+    }
+}
+
 #[cfg(test)]
 mod test {
 

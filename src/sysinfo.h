@@ -70,5 +70,9 @@ RString     sysinfo_system_version();
 RString     sysinfo_system_host_name();
 RString     sysinfo_system_long_version();
 uint32_t    sysinfo_cpu_physical_cores();
+RString     sysinfo_motherboard_name();
+RString     sysinfo_motherboard_vendor();
+RString     sysinfo_motherboard_version();
+RString     sysinfo_motherboard_serial();
 
 void        sysinfo_rstring_free(RString str);
