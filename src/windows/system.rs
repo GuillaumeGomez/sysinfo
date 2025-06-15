@@ -4,6 +4,7 @@ use crate::{
     Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate,
 };
 
+use super::ffi::SMBIOSBaseboardInformation;
 use crate::sys::cpu::*;
 use crate::{Process, ProcessInner};
 
@@ -666,17 +667,6 @@ pub(crate) fn get_reg_value_u32(hkey: HKEY, path: &str, field_name: &str) -> Opt
             .map(|_| buf)
             .ok()
     }
-}
-
-#[repr(C, packed)]
-struct SMBIOSBaseboardInformation {
-    _type: u8,
-    length: u8,
-    _handle: u16,
-    manufacturer: u8,
-    product_name: u8,
-    version: u8,
-    serial_number: u8,
 }
 
 // Get the SMBIOS table using the WinAPI.

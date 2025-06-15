@@ -165,11 +165,12 @@ pub(crate) fn get_io_platform_property(key: &str) -> Option<String> {
     };
     use std::ffi::CStr;
 
-    let Some(matching) =
-        (unsafe { IOServiceMatching(b"IOPlatformExpertDevice\0".as_ptr().cast()) })
-    else {
-        sysinfo_debug!("IOServiceMatching call failed, `IOPlatformExpertDevice` not found");
-        return None;
+    let matching = match unsafe { IOServiceMatching(b"IOPlatformExpertDevice\0".as_ptr().cast()) } {
+        Some(matching) => matching,
+        None => {
+            sysinfo_debug!("IOServiceMatching call failed, `IOPlatformExpertDevice` not found");
+            return None;
+        }
     };
 
     let result = unsafe {

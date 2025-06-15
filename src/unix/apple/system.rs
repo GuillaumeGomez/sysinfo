@@ -533,44 +533,44 @@ impl SystemInner {
         physical_core_count()
     }
 
-    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     pub(crate) fn motherboard_name() -> Option<String> {
-        get_io_platform_property("board-id")
+        cfg_if! {
+            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                get_io_platform_property("board-id")
+            } else {
+                None
+            }
+        }
     }
 
-    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     pub(crate) fn motherboard_vendor() -> Option<String> {
-        get_io_platform_property("manufacturer")
+        cfg_if! {
+            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                get_io_platform_property("manufacturer")
+            } else {
+                None
+            }
+        }
     }
 
-    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     pub(crate) fn motherboard_version() -> Option<String> {
-        get_io_platform_property("version")
+        cfg_if! {
+            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                get_io_platform_property("version")
+            } else {
+                None
+            }
+        }
     }
 
-    #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
     pub(crate) fn motherboard_serial() -> Option<String> {
-        get_io_platform_property("IOPlatformSerialNumber")
-    }
-
-    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    pub(crate) fn motherboard_name() -> Option<String> {
-        None
-    }
-
-    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    pub(crate) fn motherboard_vendor() -> Option<String> {
-        None
-    }
-
-    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    pub(crate) fn motherboard_version() -> Option<String> {
-        None
-    }
-
-    #[cfg(any(target_os = "ios", feature = "apple-sandbox"))]
-    pub(crate) fn motherboard_serial() -> Option<String> {
-        None
+        cfg_if! {
+            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                get_io_platform_property("IOPlatformSerialNumber")
+            } else {
+                None
+            }
+        }
     }
 
     // FIXME: Would be better to query this information instead of using a "default" value like this.

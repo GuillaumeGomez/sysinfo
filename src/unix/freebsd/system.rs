@@ -14,6 +14,7 @@ use std::ptr::NonNull;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
+use super::ffi::{kenv, KENV_GET, KENV_MVALLEN};
 use crate::sys::cpu::{physical_core_count, CpusWrapper};
 use crate::sys::process::get_exe;
 use crate::sys::utils::{
@@ -279,6 +280,7 @@ impl SystemInner {
     pub(crate) fn physical_core_count() -> Option<usize> {
         physical_core_count()
     }
+
     pub(crate) fn motherboard_name() -> Option<String> {
         get_kenv_var(b"smbios.planar.product\0")
     }
@@ -751,20 +753,6 @@ fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
             }
         }
     }
-}
-
-// Retrieved from https://github.com/freebsd/freebsd-src/blob/main/sys/sys/kenv.h
-const KENV_GET: c_int = 0;
-const KENV_MVALLEN: usize = 128;
-
-// Retrieved from https://github.com/freebsd/freebsd-src/blob/main/include/kenv.h
-extern "C" {
-    pub fn kenv(
-        action: libc::c_int,
-        name: *const libc::c_char,
-        value: *mut libc::c_char,
-        len: libc::c_int,
-    ) -> libc::c_int;
 }
 
 // Get the value of a kernel environment variable.
