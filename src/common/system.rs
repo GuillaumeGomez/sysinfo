@@ -899,6 +899,71 @@ impl System {
         SystemInner::physical_core_count()
     }
 
+    /// Returns the motherboard name.
+    ///
+    /// This corresponds to the model identifier assigned by the motherboard's
+    /// manufacturer (e.g. "20BE0061MC").
+    /// This information isn't available on ARM-based macOS systems.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Motherboard name: {:?}", System::motherboard_name());
+    /// ```
+    pub fn motherboard_name() -> Option<String> {
+        SystemInner::motherboard_name()
+    }
+
+    /// Returns the motherboard vendor.
+    ///
+    /// This corresponds to the name of the motherboard's manufacturer (e.g. "LENOVO").
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Motherboard vendor: {:?}", System::motherboard_vendor());
+    /// ```
+    pub fn motherboard_vendor() -> Option<String> {
+        SystemInner::motherboard_vendor()
+    }
+
+    /// Returns the motherboard version.
+    ///
+    /// This corresponds to the version or model number assigned by the motherboard's
+    /// manufacturer (e.g. "0B98401 Pro").
+    /// This information isn't available on ARM-based macOS systems.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Motherboard version: {:?}", System::motherboard_version());
+    /// ```
+    pub fn motherboard_version() -> Option<String> {
+        SystemInner::motherboard_version()
+    }
+
+    /// Returns the motherboard serial number.
+    ///
+    /// This corresponds to the serial number assigned by the motherboard's
+    /// manufacturer (e.g. "W1KS427111E").
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Motherboard serial number: {:?}", System::motherboard_serial());
+    /// ```
+    pub fn motherboard_serial() -> Option<String> {
+        SystemInner::motherboard_serial()
+    }
+
     /// Returns the (default) maximum number of open files for a process.
     ///
     /// Returns `None` if it failed retrieving the information or if the current system is not

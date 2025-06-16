@@ -7,6 +7,7 @@ cfg_if! {
         mod process;
         mod cpu;
         mod system;
+        mod ffi;
 
         pub(crate) use self::cpu::CpuInner;
         pub(crate) use self::process::ProcessInner;
@@ -58,6 +59,8 @@ mod component;
 mod cpu;
 #[cfg(any())]
 mod disk;
+#[cfg(any())]
+mod ffi;
 #[cfg(any())]
 mod groups;
 #[cfg(any())]

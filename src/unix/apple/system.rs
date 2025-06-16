@@ -2,6 +2,8 @@
 
 use crate::sys::cpu::*;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+use crate::sys::macos::system::get_io_platform_property;
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
@@ -529,6 +531,46 @@ impl SystemInner {
 
     pub(crate) fn physical_core_count() -> Option<usize> {
         physical_core_count()
+    }
+
+    pub(crate) fn motherboard_name() -> Option<String> {
+        cfg_if! {
+            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                get_io_platform_property("board-id")
+            } else {
+                None
+            }
+        }
+    }
+
+    pub(crate) fn motherboard_vendor() -> Option<String> {
+        cfg_if! {
+            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                get_io_platform_property("manufacturer")
+            } else {
+                None
+            }
+        }
+    }
+
+    pub(crate) fn motherboard_version() -> Option<String> {
+        cfg_if! {
+            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                get_io_platform_property("version")
+            } else {
+                None
+            }
+        }
+    }
+
+    pub(crate) fn motherboard_serial() -> Option<String> {
+        cfg_if! {
+            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                get_io_platform_property("IOPlatformSerialNumber")
+            } else {
+                None
+            }
+        }
     }
 
     // FIXME: Would be better to query this information instead of using a "default" value like this.
