@@ -177,7 +177,7 @@ pub(crate) fn get_io_platform_property(key: &str) -> Option<String> {
         IOServiceGetMatchingService(kIOMasterPortDefault, Some(matching.as_opaque().into()))
     };
     if result == 0 {
-        sysinfo_debug!("Error: IOServiceGetMatchingService() = {}", result);
+        sysinfo_debug!("IOServiceGetMatchingService failed");
         return None;
     }
 

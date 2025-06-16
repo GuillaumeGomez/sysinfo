@@ -903,6 +903,7 @@ impl System {
     ///
     /// This corresponds to the model identifier assigned by the motherboard's
     /// manufacturer (e.g. "20BE0061MC").
+    /// This information isn't available on ARM-based macOS systems.
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
@@ -934,7 +935,7 @@ impl System {
     ///
     /// This corresponds to the version or model number assigned by the motherboard's
     /// manufacturer (e.g. "0B98401 Pro").
-    ///
+    /// This information isn't available on ARM-based macOS systems.
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
@@ -951,7 +952,6 @@ impl System {
     ///
     /// This corresponds to the serial number assigned by the motherboard's
     /// manufacturer (e.g. "W1KS427111E").
-    ///
     ///
     /// **Important**: this information is computed every time this function is called.
     ///

@@ -689,7 +689,7 @@ fn get_smbios_table() -> Option<Vec<u8>> {
 }
 
 // Parses the SMBIOS table to get mainboard information (type 2).
-// Returns a part of struct with its associat>ed strings.
+// Returns a part of struct with its associated strings.
 // The parsing format is described here: https://wiki.osdev.org/System_Management_BIOS
 fn parse_mainboard_info(table: &[u8]) -> Option<(SMBIOSBaseboardInformation, Vec<&str>)> {
     // Skip SMBIOS types 0 and 1 to get Mainboard Information (type 2)
