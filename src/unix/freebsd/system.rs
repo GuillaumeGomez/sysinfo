@@ -14,7 +14,6 @@ use std::ptr::NonNull;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
-use super::ffi::{kenv, KENV_GET, KENV_MVALLEN};
 use crate::sys::cpu::{physical_core_count, CpusWrapper};
 use crate::sys::process::get_exe;
 use crate::sys::utils::{
@@ -22,7 +21,7 @@ use crate::sys::utils::{
     get_sys_value_by_name, init_mib,
 };
 
-use libc::c_int;
+use libc::{c_int, kenv, KENV_GET, KENV_MVALLEN};
 
 declare_signals! {
     c_int,
@@ -757,7 +756,7 @@ fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
 
 // Get the value of a kernel environment variable.
 fn get_kenv_var(name: &[u8]) -> Option<String> {
-    let mut buf: [libc::c_char; KENV_MVALLEN] = [0; KENV_MVALLEN];
+    let mut buf: [libc::c_char; KENV_MVALLEN as usize] = [0; KENV_MVALLEN as usize];
 
     let size = unsafe {
         kenv(

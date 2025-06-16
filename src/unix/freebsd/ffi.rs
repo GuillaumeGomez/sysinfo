@@ -20,23 +20,11 @@ use libc::{c_int, c_void};
 pub(crate) const DEVSTAT_READ: usize = 0x01;
 pub(crate) const DEVSTAT_WRITE: usize = 0x02;
 
-// definition come from https://github.com/freebsd/freebsd-src/blob/main/sys/sys/kenv.h
-pub(crate) const KENV_GET: c_int = 0;
-pub(crate) const KENV_MVALLEN: usize = 128;
-
 // pub(crate) const DSM_NONE: c_int = 0;
 // pub(crate) const DSM_TOTAL_BYTES_READ: c_int = 2;
 // pub(crate) const DSM_TOTAL_BYTES_WRITE: c_int = 3;
 
 extern "C" {
-    // definition come from: https://github.com/freebsd/freebsd-src/blob/main/include/kenv.h
-    pub(crate) fn kenv(
-        action: libc::c_int,
-        name: *const libc::c_char,
-        value: *mut libc::c_char,
-        len: libc::c_int,
-    ) -> libc::c_int;
-
     // pub(crate) fn devstat_compute_statistics(current: *mut devstat, previous: *mut devstat, etime: c_long_double, ...) -> c_int;
 }
 
