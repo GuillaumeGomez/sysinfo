@@ -81,11 +81,6 @@ RString     sysinfo_product_serial();
 RString     sysinfo_product_sku();
 RString     sysinfo_product_uuid();
 RString     sysinfo_product_version();
-RString     sysinfo_sys_vendor();
-RString     sysinfo_chassis_asset_tag();
-RString     sysinfo_chassis_serial();
-RString     sysinfo_chassis_type();
-RString     sysinfo_chassis_vendor();
-RString     sysinfo_chassis_version();
+RString     sysinfo_vendor_name();
 
 void        sysinfo_rstring_free(RString str);

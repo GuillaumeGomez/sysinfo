@@ -713,60 +713,10 @@ pub extern "C" fn sysinfo_product_version() -> RString {
     }
 }
 
-/// Equivalent of [`system::sys_vendor()`].
+/// Equivalent of [`system::vendor_name()`].
 #[no_mangle]
-pub extern "C" fn sysinfo_sys_vendor() -> RString {
-    if let Some(c) = System::sys_vendor().and_then(|c| CString::new(c).ok()) {
-        c.into_raw() as _
-    } else {
-        std::ptr::null()
-    }
-}
-
-/// Equivalent of [`system::chassis_asset_tag()`].
-#[no_mangle]
-pub extern "C" fn sysinfo_chassis_asset_tag() -> RString {
-    if let Some(c) = System::chassis_asset_tag().and_then(|c| CString::new(c).ok()) {
-        c.into_raw() as _
-    } else {
-        std::ptr::null()
-    }
-}
-
-/// Equivalent of [`system::chassis_serial()`].
-#[no_mangle]
-pub extern "C" fn sysinfo_chassis_serial() -> RString {
-    if let Some(c) = System::chassis_serial().and_then(|c| CString::new(c).ok()) {
-        c.into_raw() as _
-    } else {
-        std::ptr::null()
-    }
-}
-
-/// Equivalent of [`system::chassis_type()`].
-#[no_mangle]
-pub extern "C" fn sysinfo_chassis_type() -> RString {
-    if let Some(c) = System::chassis_type().and_then(|c| CString::new(c).ok()) {
-        c.into_raw() as _
-    } else {
-        std::ptr::null()
-    }
-}
-
-/// Equivalent of [`system::chassis_vendor()`].
-#[no_mangle]
-pub extern "C" fn sysinfo_chassis_vendor() -> RString {
-    if let Some(c) = System::chassis_vendor().and_then(|c| CString::new(c).ok()) {
-        c.into_raw() as _
-    } else {
-        std::ptr::null()
-    }
-}
-
-/// Equivalent of [`system::chassis_version()`].
-#[no_mangle]
-pub extern "C" fn sysinfo_chassis_version() -> RString {
-    if let Some(c) = System::chassis_version().and_then(|c| CString::new(c).ok()) {
+pub extern "C" fn sysinfo_vendor_name() -> RString {
+    if let Some(c) = System::vendor_name().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()

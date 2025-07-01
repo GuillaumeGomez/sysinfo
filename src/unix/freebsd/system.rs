@@ -324,28 +324,8 @@ impl SystemInner {
         get_kenv_var(b"smbios.system.version\0")
     }
 
-    pub(crate) fn sys_vendor() -> Option<String> {
+    pub(crate) fn vendor_name() -> Option<String> {
         get_kenv_var(b"smbios.system.maker\0")
-    }
-
-    pub(crate) fn chassis_asset_tag() -> Option<String> {
-        get_kenv_var(b"smbios.chassis.tag\0")
-    }
-
-    pub(crate) fn chassis_serial() -> Option<String> {
-        get_kenv_var(b"smbios.chassis.serial\0")
-    }
-
-    pub(crate) fn chassis_type() -> Option<String> {
-        get_kenv_var(b"smbios.chassis.type\0")
-    }
-
-    pub(crate) fn chassis_vendor() -> Option<String> {
-        get_kenv_var(b"smbios.chassis.maker\0")
-    }
-
-    pub(crate) fn chassis_version() -> Option<String> {
-        get_kenv_var(b"smbios.chassis.version\0")
     }
 
     pub(crate) fn open_files_limit() -> Option<usize> {

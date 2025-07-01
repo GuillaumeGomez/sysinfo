@@ -1079,7 +1079,7 @@ impl System {
         SystemInner::product_version()
     }
 
-    /// Returns the system vendor.
+    /// Returns the system vendor name.
     ///
     /// This corresponds to the vendor name assigned by the hardware
     /// manufacturer (e.g. "LENOVO").
@@ -1089,90 +1089,10 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// println!("System vendor: {:?}", System::sys_vendor());
+    /// println!("Vendor name: {:?}", System::vendor_name());
     /// ```
-    pub fn sys_vendor() -> Option<String> {
-        SystemInner::sys_vendor()
-    }
-
-    /// Returns the chassis asset tag.
-    ///
-    /// This corresponds to the identifier assigned by the system administrator or
-    /// organization to track the physical device for inventory purposes.
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// println!("Chassis asset tag: {:?}", System::chassis_asset_tag());
-    /// ```
-    pub fn chassis_asset_tag() -> Option<String> {
-        SystemInner::chassis_asset_tag()
-    }
-
-    /// Returns the chassis serial number.
-    ///
-    /// This corresponds to the chassis serial number assigned by the hardware
-    /// manufacturer (e.g. "W1KS427111E").
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// println!("Chassis serial number: {:?}", System::chassis_serial());
-    /// ```
-    pub fn chassis_serial() -> Option<String> {
-        SystemInner::chassis_serial()
-    }
-
-    /// Returns the chassis type.
-    ///
-    /// This corresponds to the chassis type assigned by the hardware
-    /// manufacturer (e.g. "Laptop").
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// println!("Chassis type: {:?}", System::chassis_type());
-    /// ```
-    pub fn chassis_type() -> Option<String> {
-        SystemInner::chassis_type()
-    }
-
-    /// Returns the chassis vendor.
-    ///
-    /// This corresponds to the chassis vendor name assigned by the hardware
-    /// manufacturer (e.g. "LENOVO").
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// println!("Chassis vendor: {:?}", System::chassis_vendor());
-    /// ```
-    pub fn chassis_vendor() -> Option<String> {
-        SystemInner::chassis_vendor()
-    }
-
-    /// Returns the chassis version.
-    ///
-    /// This corresponds to the chassis version assigned by the hardware
-    /// manufacturer (e.g. "Lenovo ThinkPad T440p").
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// println!("Chassis version: {:?}", System::chassis_version());
-    /// ```
-    pub fn chassis_version() -> Option<String> {
-        SystemInner::chassis_version()
+    pub fn vendor_name() -> Option<String> {
+        SystemInner::vendor_name()
     }
 
     /// Returns the (default) maximum number of open files for a process.

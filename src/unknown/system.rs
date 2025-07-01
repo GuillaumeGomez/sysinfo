@@ -198,27 +198,7 @@ impl SystemInner {
         None
     }
 
-    pub(crate) fn sys_vendor() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn chassis_asset_tag() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn chassis_serial() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn chassis_type() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn chassis_vendor() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn chassis_version() -> Option<String> {
+    pub(crate) fn vendor_name() -> Option<String> {
         None
     }
 

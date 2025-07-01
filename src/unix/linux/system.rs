@@ -10,7 +10,6 @@ use crate::{
 
 use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 
-use crate::common::ffi::SMBIOSChassisType;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -647,46 +646,8 @@ impl SystemInner {
             .map(|s| s.trim().to_owned())
     }
 
-    pub(crate) fn sys_vendor() -> Option<String> {
+    pub(crate) fn vendor_name() -> Option<String> {
         std::fs::read_to_string("/sys/devices/virtual/dmi/id/sys_vendor")
-            .ok()
-            .map(|s| s.trim().to_owned())
-    }
-
-    pub(crate) fn chassis_asset_tag() -> Option<String> {
-        std::fs::read_to_string("/sys/devices/virtual/dmi/id/chassis_asset_tag")
-            .ok()
-            .map(|s| s.trim().to_owned())
-    }
-
-    pub(crate) fn chassis_serial() -> Option<String> {
-        std::fs::read_to_string("/sys/devices/virtual/dmi/id/chassis_serial")
-            .ok()
-            .map(|s| s.trim().to_owned())
-    }
-
-    pub(crate) fn chassis_type() -> Option<String> {
-        std::fs::read_to_string("/sys/devices/virtual/dmi/id/chassis_type")
-            .ok()
-            .map(|s| s.trim().to_owned())
-            .and_then(|s| {
-                s.parse::<u8>()
-                    .ok()
-                    .and_then(|t| SMBIOSChassisType::try_from(t).ok())
-                    .and_then(|s| SMBIOSChassisType::try_into(s).ok())
-                    .map(str::to_owned)
-                    .or(Some(s))
-            })
-    }
-
-    pub(crate) fn chassis_vendor() -> Option<String> {
-        std::fs::read_to_string("/sys/devices/virtual/dmi/id/chassis_vendor")
-            .ok()
-            .map(|s| s.trim().to_owned())
-    }
-
-    pub(crate) fn chassis_version() -> Option<String> {
-        std::fs::read_to_string("/sys/devices/virtual/dmi/id/chassis_version")
             .ok()
             .map(|s| s.trim().to_owned())
     }

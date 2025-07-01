@@ -1,7 +1,5 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::common::ffi::SMBIOSChassisType;
-
 pub trait SMBIOSType {
     fn length(&self) -> u8;
 }
@@ -73,24 +71,6 @@ pub(crate) struct SMBIOSBaseboardInformation {
 }
 
 impl SMBIOSType for SMBIOSBaseboardInformation {
-    fn length(&self) -> u8 {
-        self.length
-    }
-}
-
-#[repr(C, packed)]
-pub(crate) struct SMBIOSSystemEnclosureInformation {
-    pub(crate) _type: u8,
-    pub(crate) length: u8,
-    pub(crate) _handle: u16,
-    pub(crate) manufacturer: u8,
-    pub(crate) r#type: SMBIOSChassisType,
-    pub(crate) version: u8,
-    pub(crate) serial_number: u8,
-    pub(crate) asset_tag_number: u8,
-}
-
-impl SMBIOSType for SMBIOSSystemEnclosureInformation {
     fn length(&self) -> u8 {
         self.length
     }

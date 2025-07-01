@@ -4,10 +4,7 @@ use crate::{
     Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate,
 };
 
-use super::ffi::{
-    SMBIOSBaseboardInformation, SMBIOSSystemEnclosureInformation, SMBIOSSystemInformation,
-    SMBIOSType,
-};
+use super::ffi::{SMBIOSBaseboardInformation, SMBIOSSystemInformation, SMBIOSType};
 use crate::sys::cpu::*;
 use crate::{Process, ProcessInner};
 
@@ -593,7 +590,7 @@ impl SystemInner {
             .map(str::to_string)
     }
 
-    pub(crate) fn sys_vendor() -> Option<String> {
+    pub(crate) fn vendor_name() -> Option<String> {
         let table = get_smbios_table()?;
         let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
         if info.manufacturer == 0 {
@@ -601,60 +598,6 @@ impl SystemInner {
         }
         strings
             .get(info.manufacturer as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn chassis_asset_tag() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSSystemEnclosureInformation>(&table, 3)?;
-        if info.asset_tag_number == 0 {
-            return None;
-        }
-        strings
-            .get(info.asset_tag_number as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn chassis_serial() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSSystemEnclosureInformation>(&table, 3)?;
-        if info.serial_number == 0 {
-            return None;
-        }
-        strings
-            .get(info.serial_number as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn chassis_type() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, _) = parse_smbios::<SMBIOSSystemEnclosureInformation>(&table, 3)?;
-        info.r#type.try_into().ok().map(str::to_owned)
-    }
-
-    pub(crate) fn chassis_vendor() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSSystemEnclosureInformation>(&table, 3)?;
-        if info.manufacturer == 0 {
-            return None;
-        }
-        strings
-            .get(info.manufacturer as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn chassis_version() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSSystemEnclosureInformation>(&table, 3)?;
-        if info.version == 0 {
-            return None;
-        }
-        strings
-            .get(info.version as usize - 1)
             .copied()
             .map(str::to_string)
     }
