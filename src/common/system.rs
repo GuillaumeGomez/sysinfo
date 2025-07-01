@@ -899,6 +899,22 @@ impl System {
         SystemInner::physical_core_count()
     }
 
+    /// Returns the motherboard asset tag.
+    ///
+    /// This corresponds to the identifier assigned by the motherboard's
+    /// manufacturer to track the physical device for inventory purposes.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Motherboard asset tag: {:?}", System::motherboard_asset_tag());
+    /// ```
+    pub fn motherboard_asset_tag() -> Option<String> {
+        SystemInner::motherboard_asset_tag()
+    }
+
     /// Returns the motherboard name.
     ///
     /// This corresponds to the model identifier assigned by the motherboard's
@@ -962,6 +978,121 @@ impl System {
     /// ```
     pub fn motherboard_serial() -> Option<String> {
         SystemInner::motherboard_serial()
+    }
+
+    /// Returns the product family identifier.
+    ///
+    /// This corresponds to the product family assigned by the hardware
+    /// manufacturer (e.g. "T440p").
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Product family: {:?}", System::product_family());
+    /// ```
+    pub fn product_family() -> Option<String> {
+        SystemInner::product_family()
+    }
+
+    /// Returns the product name.
+    ///
+    /// This corresponds to the product name assigned by the hardware
+    /// manufacturer (e.g. "20AN").
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Product name: {:?}", System::product_name());
+    /// ```
+    pub fn product_name() -> Option<String> {
+        SystemInner::product_name()
+    }
+
+    /// Returns the product serial number.
+    ///
+    /// This corresponds to the serial identifier assigned by the hardware
+    /// manufacturer (e.g. "W1KS427111E").
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Product serial: {:?}", System::product_serial());
+    /// ```
+    pub fn product_serial() -> Option<String> {
+        SystemInner::product_serial()
+    }
+
+    /// Returns the product Stock Keeping Unit (SKU).
+    ///
+    /// This corresponds to the Stock Keeping Unit assigned by the hardware
+    /// manufacturer (e.g. "LENOVO_MT_20AN") which identifies a specific
+    /// model or configuration.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Product sku: {:?}", System::product_sku());
+    /// ```
+    pub fn product_sku() -> Option<String> {
+        SystemInner::product_sku()
+    }
+
+    /// Returns the product UUID.
+    ///
+    /// This corresponds to the unique identifier assigned by the hardware
+    /// manufacturer (e.g. "407488fe-960a-43b5-a265-8fd0e9200b8f") which uniquely
+    /// identifies the physical system.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Product UUID: {:?}", System::product_uuid());
+    /// ```
+    pub fn product_uuid() -> Option<String> {
+        SystemInner::product_uuid()
+    }
+
+    /// Returns the product version.
+    ///
+    /// This corresponds to the version assigned by the hardware
+    /// manufacturer (e.g. "Lenovo ThinkPad T440p") which identifies
+    /// the specific version or revision of the product.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Product version: {:?}", System::product_version());
+    /// ```
+    pub fn product_version() -> Option<String> {
+        SystemInner::product_version()
+    }
+
+    /// Returns the system vendor name.
+    ///
+    /// This corresponds to the vendor name assigned by the hardware
+    /// manufacturer (e.g. "LENOVO").
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// println!("Vendor name: {:?}", System::vendor_name());
+    /// ```
+    pub fn vendor_name() -> Option<String> {
+        SystemInner::vendor_name()
     }
 
     /// Returns the (default) maximum number of open files for a process.

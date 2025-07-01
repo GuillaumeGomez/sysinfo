@@ -603,6 +603,16 @@ pub extern "C" fn sysinfo_cpu_physical_cores() -> u32 {
     System::physical_core_count().unwrap_or(0) as u32
 }
 
+/// Equivalent of [`system::motherboard_asset_tag()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_motherboard_asset_tag() -> RString {
+    if let Some(c) = System::motherboard_asset_tag().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}
+
 /// Equivalent of [`system::motherboard_name()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_motherboard_name() -> RString {
@@ -637,6 +647,76 @@ pub extern "C" fn sysinfo_motherboard_version() -> RString {
 #[no_mangle]
 pub extern "C" fn sysinfo_motherboard_serial() -> RString {
     if let Some(c) = System::motherboard_serial().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`system::product_family()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_product_family() -> RString {
+    if let Some(c) = System::product_family().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`system::product_name()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_product_name() -> RString {
+    if let Some(c) = System::product_name().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`system::product_serial()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_product_serial() -> RString {
+    if let Some(c) = System::product_serial().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`system::product_sku()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_product_sku() -> RString {
+    if let Some(c) = System::product_sku().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`system::product_uuid()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_product_uuid() -> RString {
+    if let Some(c) = System::product_uuid().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`system::product_version()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_product_version() -> RString {
+    if let Some(c) = System::product_version().and_then(|c| CString::new(c).ok()) {
+        c.into_raw() as _
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Equivalent of [`system::vendor_name()`].
+#[no_mangle]
+pub extern "C" fn sysinfo_vendor_name() -> RString {
+    if let Some(c) = System::vendor_name().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
