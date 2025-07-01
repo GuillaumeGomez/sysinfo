@@ -10,6 +10,7 @@ use crate::{
 
 use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
 
+use crate::common::ffi::SMBIOSChassisType;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -560,6 +561,12 @@ impl SystemInner {
         get_physical_core_count()
     }
 
+    pub(crate) fn motherboard_asset_tag() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/board_asset_tag")
+            .ok()
+            .map(|s| s.trim().to_owned())
+    }
+
     pub(crate) fn motherboard_name() -> Option<String> {
         std::fs::read_to_string("/sys/devices/virtual/dmi/id/board_name")
             .ok()
@@ -586,6 +593,100 @@ impl SystemInner {
 
     pub(crate) fn motherboard_serial() -> Option<String> {
         std::fs::read_to_string("/sys/devices/virtual/dmi/id/board_serial")
+            .ok()
+            .map(|s| s.trim().to_owned())
+    }
+
+    pub(crate) fn product_family() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_family")
+            .ok()
+            .map(|s| s.trim().to_owned())
+    }
+
+    pub(crate) fn product_name() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_name")
+            .ok()
+            .or_else(|| {
+                std::fs::read_to_string("/sys/firmware/devicetree/base/model")
+                    .ok()
+                    .or_else(|| {
+                        std::fs::read_to_string("/sys/firmware/devicetree/base/banner-name").ok()
+                    })
+                    .or_else(|| std::fs::read_to_string("/tmp/sysinfo/model").ok())
+                    .map(|s| s.trim_end_matches('\0').to_owned())
+            })
+            .map(|s| s.trim().to_owned())
+    }
+
+    pub(crate) fn product_serial() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_serial")
+            .ok()
+            .or_else(|| {
+                std::fs::read_to_string("/sys/firmware/devicetree/base/serial-number")
+                    .ok()
+                    .map(|s| s.trim_end_matches('\0').to_owned())
+            })
+            .map(|s| s.trim().to_owned())
+    }
+
+    pub(crate) fn product_sku() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_sku")
+            .ok()
+            .map(|s| s.trim().to_owned())
+    }
+
+    pub(crate) fn product_uuid() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_uuid")
+            .ok()
+            .map(|s| s.trim().to_owned())
+    }
+
+    pub(crate) fn product_version() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_version")
+            .ok()
+            .map(|s| s.trim().to_owned())
+    }
+
+    pub(crate) fn sys_vendor() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/sys_vendor")
+            .ok()
+            .map(|s| s.trim().to_owned())
+    }
+
+    pub(crate) fn chassis_asset_tag() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/chassis_asset_tag")
+            .ok()
+            .map(|s| s.trim().to_owned())
+    }
+
+    pub(crate) fn chassis_serial() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/chassis_serial")
+            .ok()
+            .map(|s| s.trim().to_owned())
+    }
+
+    pub(crate) fn chassis_type() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/chassis_type")
+            .ok()
+            .map(|s| s.trim().to_owned())
+            .and_then(|s| {
+                s.parse::<u8>()
+                    .ok()
+                    .and_then(|t| SMBIOSChassisType::try_from(t).ok())
+                    .and_then(|s| SMBIOSChassisType::try_into(s).ok())
+                    .map(str::to_owned)
+                    .or(Some(s))
+            })
+    }
+
+    pub(crate) fn chassis_vendor() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/chassis_vendor")
+            .ok()
+            .map(|s| s.trim().to_owned())
+    }
+
+    pub(crate) fn chassis_version() -> Option<String> {
+        std::fs::read_to_string("/sys/devices/virtual/dmi/id/chassis_version")
             .ok()
             .map(|s| s.trim().to_owned())
     }

@@ -4,6 +4,11 @@
 pub(crate) mod component;
 #[cfg(feature = "disk")]
 pub(crate) mod disk;
+#[cfg(all(
+    feature = "system",
+    any(target_os = "linux", target_os = "windows", target_os = "macos")
+))]
+pub(crate) mod ffi;
 #[cfg(any(feature = "system", feature = "disk"))]
 pub(crate) mod impl_get_set;
 #[cfg(feature = "network")]

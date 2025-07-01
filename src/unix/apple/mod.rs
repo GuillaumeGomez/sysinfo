@@ -21,6 +21,7 @@ cfg_if! {
         pub mod cpu;
         pub mod process;
         pub mod system;
+        pub mod models_name;
 
         pub(crate) use self::cpu::CpuInner;
         pub(crate) use self::process::ProcessInner;
@@ -68,6 +69,8 @@ mod disk;
 mod ios;
 #[cfg(any())]
 mod macos;
+#[cfg(any())]
+mod models_name;
 #[cfg(any())]
 mod network;
 #[cfg(any())]

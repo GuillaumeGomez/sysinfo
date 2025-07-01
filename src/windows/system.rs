@@ -4,7 +4,10 @@ use crate::{
     Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate,
 };
 
-use super::ffi::SMBIOSBaseboardInformation;
+use super::ffi::{
+    SMBIOSBaseboardInformation, SMBIOSSystemEnclosureInformation, SMBIOSSystemInformation,
+    SMBIOSType,
+};
 use crate::sys::cpu::*;
 use crate::{Process, ProcessInner};
 
@@ -460,9 +463,24 @@ impl SystemInner {
         get_physical_core_count()
     }
 
+    pub(crate) fn motherboard_asset_tag() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&table, 2)?;
+        if info.asset_tag == 0 {
+            return None;
+        }
+        strings
+            .get(info.asset_tag as usize - 1)
+            .copied()
+            .map(str::to_string)
+    }
+
     pub(crate) fn motherboard_name() -> Option<String> {
         let table = get_smbios_table()?;
-        let (info, strings) = parse_mainboard_info(&table)?;
+        let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&table, 2)?;
+        if info.product_name == 0 {
+            return None;
+        }
         strings
             .get(info.product_name as usize - 1)
             .copied()
@@ -471,7 +489,10 @@ impl SystemInner {
 
     pub(crate) fn motherboard_vendor() -> Option<String> {
         let table = get_smbios_table()?;
-        let (info, strings) = parse_mainboard_info(&table)?;
+        let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&table, 2)?;
+        if info.manufacturer == 0 {
+            return None;
+        }
         strings
             .get(info.manufacturer as usize - 1)
             .copied()
@@ -480,7 +501,10 @@ impl SystemInner {
 
     pub(crate) fn motherboard_version() -> Option<String> {
         let table = get_smbios_table()?;
-        let (info, strings) = parse_mainboard_info(&table)?;
+        let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&table, 2)?;
+        if info.version == 0 {
+            return None;
+        }
         strings
             .get(info.version as usize - 1)
             .copied()
@@ -489,9 +513,148 @@ impl SystemInner {
 
     pub(crate) fn motherboard_serial() -> Option<String> {
         let table = get_smbios_table()?;
-        let (info, strings) = parse_mainboard_info(&table)?;
+        let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&table, 2)?;
+        if info.serial_number == 0 {
+            return None;
+        }
         strings
             .get(info.serial_number as usize - 1)
+            .copied()
+            .map(str::to_string)
+    }
+
+    pub(crate) fn product_family() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
+        if info.family == 0 {
+            return None;
+        }
+        strings
+            .get(info.family as usize - 1)
+            .copied()
+            .map(str::to_string)
+    }
+
+    pub(crate) fn product_name() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
+        if info.product_name == 0 {
+            return None;
+        }
+        strings
+            .get(info.product_name as usize - 1)
+            .copied()
+            .map(str::to_string)
+    }
+
+    pub(crate) fn product_serial() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
+        if info.serial_number == 0 {
+            return None;
+        }
+        strings
+            .get(info.serial_number as usize - 1)
+            .copied()
+            .map(str::to_string)
+    }
+
+    pub(crate) fn product_sku() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
+        if info.sku_number == 0 {
+            return None;
+        }
+        strings
+            .get(info.sku_number as usize - 1)
+            .copied()
+            .map(str::to_string)
+    }
+
+    pub(crate) fn product_uuid() -> Option<String> {
+        let table = get_smbios_table()?;
+        Some(
+            parse_smbios::<SMBIOSSystemInformation>(&table, 1)?
+                .0
+                .uuid
+                .to_string(),
+        )
+    }
+
+    pub(crate) fn product_version() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
+        if info.version == 0 {
+            return None;
+        }
+        strings
+            .get(info.version as usize - 1)
+            .copied()
+            .map(str::to_string)
+    }
+
+    pub(crate) fn sys_vendor() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
+        if info.manufacturer == 0 {
+            return None;
+        }
+        strings
+            .get(info.manufacturer as usize - 1)
+            .copied()
+            .map(str::to_string)
+    }
+
+    pub(crate) fn chassis_asset_tag() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, strings) = parse_smbios::<SMBIOSSystemEnclosureInformation>(&table, 3)?;
+        if info.asset_tag_number == 0 {
+            return None;
+        }
+        strings
+            .get(info.asset_tag_number as usize - 1)
+            .copied()
+            .map(str::to_string)
+    }
+
+    pub(crate) fn chassis_serial() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, strings) = parse_smbios::<SMBIOSSystemEnclosureInformation>(&table, 3)?;
+        if info.serial_number == 0 {
+            return None;
+        }
+        strings
+            .get(info.serial_number as usize - 1)
+            .copied()
+            .map(str::to_string)
+    }
+
+    pub(crate) fn chassis_type() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, _) = parse_smbios::<SMBIOSSystemEnclosureInformation>(&table, 3)?;
+        info.r#type.try_into().ok().map(str::to_owned)
+    }
+
+    pub(crate) fn chassis_vendor() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, strings) = parse_smbios::<SMBIOSSystemEnclosureInformation>(&table, 3)?;
+        if info.manufacturer == 0 {
+            return None;
+        }
+        strings
+            .get(info.manufacturer as usize - 1)
+            .copied()
+            .map(str::to_string)
+    }
+
+    pub(crate) fn chassis_version() -> Option<String> {
+        let table = get_smbios_table()?;
+        let (info, strings) = parse_smbios::<SMBIOSSystemEnclosureInformation>(&table, 3)?;
+        if info.version == 0 {
+            return None;
+        }
+        strings
+            .get(info.version as usize - 1)
             .copied()
             .map(str::to_string)
     }
@@ -688,12 +851,14 @@ fn get_smbios_table() -> Option<Vec<u8>> {
     Some(buffer)
 }
 
-// Parses the SMBIOS table to get mainboard information (type 2).
+// Parses the SMBIOS table to get mainboard information (type number).
 // Returns a part of struct with its associated strings.
 // The parsing format is described here: https://wiki.osdev.org/System_Management_BIOS
-fn parse_mainboard_info(table: &[u8]) -> Option<(SMBIOSBaseboardInformation, Vec<&str>)> {
-    // Skip SMBIOS types 0 and 1 to get Mainboard Information (type 2)
+// and here: https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.6.0.pdf
+fn parse_smbios<T: SMBIOSType>(table: &[u8], number: u8) -> Option<(T, Vec<&str>)> {
+    // Skip SMBIOS types until type `number` is reached.
     // All indexes provided by the structure start at 1.
+    // If the index is 0, the value has not been filled in.
     // At index i:
     //      table[i] is the current SMBIOS type.
     //      table[i + 1] is the length of the current SMBIOS table header
@@ -701,7 +866,7 @@ fn parse_mainboard_info(table: &[u8]) -> Option<(SMBIOSBaseboardInformation, Vec
     //      and is a list of null-terminated strings, terminated with two \0.
     let mut i = 0;
     while i + 1 < table.len() {
-        if table[i] == 2 {
+        if table[i] == number {
             break;
         }
         i += table[i + 1] as usize;
@@ -715,12 +880,11 @@ fn parse_mainboard_info(table: &[u8]) -> Option<(SMBIOSBaseboardInformation, Vec
         }
     }
 
-    let info: SMBIOSBaseboardInformation =
-        unsafe { std::ptr::read_unaligned(table[i..].as_ptr() as *const _) };
+    let info: T = unsafe { std::ptr::read_unaligned(table[i..].as_ptr() as *const _) };
 
     // As said in the SMBIOS 3 standard: https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.6.0.pdf,
     // the strings are necessarily in UTF-8.
-    let values = table[(i + info.length as usize)..]
+    let values = table[(i + info.length() as usize)..]
         .split(|&b| b == 0)
         .map(|s| unsafe { std::str::from_utf8_unchecked(s) })
         .take_while(|s| !s.is_empty())

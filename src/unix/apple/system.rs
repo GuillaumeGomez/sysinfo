@@ -1,8 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::common::ffi::SMBIOSChassisType;
 use crate::sys::cpu::*;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::sys::macos::system::get_io_platform_property;
+use crate::sys::models_name::product_name_from_module_name;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
@@ -533,6 +535,10 @@ impl SystemInner {
         physical_core_count()
     }
 
+    pub(crate) fn motherboard_asset_tag() -> Option<String> {
+        None
+    }
+
     pub(crate) fn motherboard_name() -> Option<String> {
         cfg_if! {
             if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
@@ -571,6 +577,96 @@ impl SystemInner {
                 None
             }
         }
+    }
+
+    pub(crate) fn product_family() -> Option<String> {
+        Some(get_sysctl_str(b"hw.model\0"))
+    }
+
+    pub(crate) fn product_name() -> Option<String> {
+        Self::product_family()
+            .and_then(|family| product_name_from_module_name(&family).map(str::to_owned))
+            .or_else(|| {
+                cfg_if! {
+                    if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                        get_io_platform_property("product-name")
+                    } else {
+                        None
+                    }
+                }
+            })
+    }
+
+    pub(crate) fn product_serial() -> Option<String> {
+        cfg_if! {
+            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                use objc2_io_kit::kIOPlatformSerialNumberKey;
+                get_io_platform_property(unsafe { std::str::from_utf8_unchecked(kIOPlatformSerialNumberKey.to_bytes()) })
+            } else {
+                None
+            }
+        }
+    }
+
+    pub(crate) fn product_sku() -> Option<String> {
+        None
+    }
+
+    pub(crate) fn product_uuid() -> Option<String> {
+        cfg_if! {
+            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                use objc2_io_kit::kIOPlatformUUIDKey;
+                get_io_platform_property(unsafe { std::str::from_utf8_unchecked(kIOPlatformUUIDKey.to_bytes()) })
+            } else {
+                None
+            }
+        }
+    }
+
+    pub(crate) fn product_version() -> Option<String> {
+        cfg_if! {
+            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
+                get_io_platform_property("version")
+            } else {
+                None
+            }
+        }
+    }
+
+    pub(crate) fn sys_vendor() -> Option<String> {
+        Self::motherboard_vendor()
+    }
+
+    pub(crate) fn chassis_asset_tag() -> Option<String> {
+        None
+    }
+
+    pub(crate) fn chassis_serial() -> Option<String> {
+        None
+    }
+
+    pub fn chassis_type() -> Option<String> {
+        Self::product_name()
+            .and_then(|name| {
+                if name.starts_with("MacBook ") {
+                    SMBIOSChassisType::Laptop.try_into().ok()
+                } else if name.starts_with("Mac mini ") || name.starts_with("Mac Studio ") {
+                    SMBIOSChassisType::MiniPC.try_into().ok()
+                } else if name.starts_with("iMac ") {
+                    SMBIOSChassisType::AllInOne.try_into().ok()
+                } else {
+                    SMBIOSChassisType::Desktop.try_into().ok()
+                }
+            })
+            .map(str::to_string)
+    }
+
+    pub fn chassis_vendor() -> Option<String> {
+        Self::motherboard_vendor()
+    }
+
+    pub fn chassis_version() -> Option<String> {
+        None
     }
 
     // FIXME: Would be better to query this information instead of using a "default" value like this.
