@@ -30,6 +30,19 @@ impl std::fmt::Debug for crate::System {
 }
 
 #[cfg(feature = "system")]
+impl std::fmt::Debug for crate::Motherboard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Motherboard")
+            .field("name", &self.name())
+            .field("vendor", &self.vendor())
+            .field("version", &self.version())
+            .field("serial", &self.serial())
+            .field("asset_tag", &self.asset_tag())
+            .finish()
+    }
+}
+
+#[cfg(feature = "system")]
 impl std::fmt::Debug for crate::Process {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Process")

@@ -77,3 +77,71 @@ cfg_if! {
         }
     }
 }
+
+cfg_if! {
+    if #[cfg(feature = "system")] {
+        use windows::Win32::System::SystemInformation::{FIRMWARE_TABLE_PROVIDER, GetSystemFirmwareTable};
+        use super::ffi::SMBIOSType;
+
+        // Get the SMBIOS table using the WinAPI.
+        pub(crate) fn get_smbios_table() -> Option<Vec<u8>> {
+            const PROVIDER: FIRMWARE_TABLE_PROVIDER = FIRMWARE_TABLE_PROVIDER(u32::from_be_bytes(*b"RSMB"));
+
+            let size = unsafe { GetSystemFirmwareTable(PROVIDER, 0, None) };
+            if size == 0 {
+                return None;
+            }
+
+            let mut buffer = vec![0u8; size as usize];
+
+            let res = unsafe { GetSystemFirmwareTable(PROVIDER, 0, Some(&mut buffer)) };
+            if res == 0 {
+                return None;
+            }
+
+            Some(buffer)
+        }
+
+        // Parses the SMBIOS table to get mainboard information (type number).
+        // Returns a part of struct with its associated strings.
+        // The parsing format is described here: https://wiki.osdev.org/System_Management_BIOS
+        // and here: https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.6.0.pdf
+        pub(crate) fn parse_smbios<T: SMBIOSType>(table: &[u8], number: u8) -> Option<(T, Vec<&str>)> {
+            // Skip SMBIOS types until type `number` is reached.
+            // All indexes provided by the structure start at 1.
+            // If the index is 0, the value has not been filled in.
+            // At index i:
+            //      table[i] is the current SMBIOS type.
+            //      table[i + 1] is the length of the current SMBIOS table header
+            //      Strings section starts immediately after the SMBIOS header,
+            //      and is a list of null-terminated strings, terminated with two \0.
+            let mut i = 0;
+            while i + 1 < table.len() {
+                if table[i] == number {
+                    break;
+                }
+                i += table[i + 1] as usize;
+                // Skip strings table (terminated itself by \0)
+                while i < table.len() {
+                    if table[i] == 0 && table[i + 1] == 0 {
+                        i += 2;
+                        break;
+                    }
+                    i += 1;
+                }
+            }
+
+            let info: T = unsafe { std::ptr::read_unaligned(table[i..].as_ptr() as *const _) };
+
+            // As said in the SMBIOS 3 standard: https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.6.0.pdf,
+            // the strings are necessarily in UTF-8.
+            let values = table[(i + info.length() as usize)..]
+                .split(|&b| b == 0)
+                .map(|s| unsafe { std::str::from_utf8_unchecked(s) })
+                .take_while(|s| !s.is_empty())
+                .collect();
+
+            Some((info, values))
+        }
+    }
+}

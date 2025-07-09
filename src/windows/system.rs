@@ -4,7 +4,8 @@ use crate::{
     Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate,
 };
 
-use super::ffi::{SMBIOSBaseboardInformation, SMBIOSSystemInformation, SMBIOSType};
+use super::ffi::SMBIOSSystemInformation;
+use super::utils::{get_smbios_table, parse_smbios};
 use crate::sys::cpu::*;
 use crate::{Process, ProcessInner};
 
@@ -25,8 +26,8 @@ use windows::Win32::System::Registry::{
 };
 use windows::Win32::System::SystemInformation::{self, GetSystemInfo};
 use windows::Win32::System::SystemInformation::{
-    ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetSystemFirmwareTable, GetTickCount64,
-    GlobalMemoryStatusEx, FIRMWARE_TABLE_PROVIDER, MEMORYSTATUSEX, SYSTEM_INFO,
+    ComputerNamePhysicalDnsHostname, GetComputerNameExW, GetTickCount64, GlobalMemoryStatusEx,
+    MEMORYSTATUSEX, SYSTEM_INFO,
 };
 use windows::Win32::System::Threading::GetExitCodeProcess;
 
@@ -460,66 +461,6 @@ impl SystemInner {
         get_physical_core_count()
     }
 
-    pub(crate) fn motherboard_asset_tag() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&table, 2)?;
-        if info.asset_tag == 0 {
-            return None;
-        }
-        strings
-            .get(info.asset_tag as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn motherboard_name() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&table, 2)?;
-        if info.product_name == 0 {
-            return None;
-        }
-        strings
-            .get(info.product_name as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn motherboard_vendor() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&table, 2)?;
-        if info.manufacturer == 0 {
-            return None;
-        }
-        strings
-            .get(info.manufacturer as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn motherboard_version() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&table, 2)?;
-        if info.version == 0 {
-            return None;
-        }
-        strings
-            .get(info.version as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn motherboard_serial() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&table, 2)?;
-        if info.serial_number == 0 {
-            return None;
-        }
-        strings
-            .get(info.serial_number as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
     pub(crate) fn product_family() -> Option<String> {
         let table = get_smbios_table()?;
         let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
@@ -773,65 +714,4 @@ pub(crate) fn get_reg_value_u32(hkey: HKEY, path: &str, field_name: &str) -> Opt
             .map(|_| buf)
             .ok()
     }
-}
-
-// Get the SMBIOS table using the WinAPI.
-fn get_smbios_table() -> Option<Vec<u8>> {
-    const PROVIDER: FIRMWARE_TABLE_PROVIDER = FIRMWARE_TABLE_PROVIDER(u32::from_be_bytes(*b"RSMB"));
-
-    let size = unsafe { GetSystemFirmwareTable(PROVIDER, 0, None) };
-    if size == 0 {
-        return None;
-    }
-
-    let mut buffer = vec![0u8; size as usize];
-
-    let res = unsafe { GetSystemFirmwareTable(PROVIDER, 0, Some(&mut buffer)) };
-    if res == 0 {
-        return None;
-    }
-
-    Some(buffer)
-}
-
-// Parses the SMBIOS table to get mainboard information (type number).
-// Returns a part of struct with its associated strings.
-// The parsing format is described here: https://wiki.osdev.org/System_Management_BIOS
-// and here: https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.6.0.pdf
-fn parse_smbios<T: SMBIOSType>(table: &[u8], number: u8) -> Option<(T, Vec<&str>)> {
-    // Skip SMBIOS types until type `number` is reached.
-    // All indexes provided by the structure start at 1.
-    // If the index is 0, the value has not been filled in.
-    // At index i:
-    //      table[i] is the current SMBIOS type.
-    //      table[i + 1] is the length of the current SMBIOS table header
-    //      Strings section starts immediately after the SMBIOS header,
-    //      and is a list of null-terminated strings, terminated with two \0.
-    let mut i = 0;
-    while i + 1 < table.len() {
-        if table[i] == number {
-            break;
-        }
-        i += table[i + 1] as usize;
-        // Skip strings table (terminated itself by \0)
-        while i < table.len() {
-            if table[i] == 0 && table[i + 1] == 0 {
-                i += 2;
-                break;
-            }
-            i += 1;
-        }
-    }
-
-    let info: T = unsafe { std::ptr::read_unaligned(table[i..].as_ptr() as *const _) };
-
-    // As said in the SMBIOS 3 standard: https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.6.0.pdf,
-    // the strings are necessarily in UTF-8.
-    let values = table[(i + info.length() as usize)..]
-        .split(|&b| b == 0)
-        .map(|s| unsafe { std::str::from_utf8_unchecked(s) })
-        .take_while(|s| !s.is_empty())
-        .collect();
-
-    Some((info, values))
 }

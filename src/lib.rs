@@ -78,9 +78,9 @@ pub use crate::common::network::{
 };
 #[cfg(feature = "system")]
 pub use crate::common::system::{
-    get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, KillError, LoadAvg, MemoryRefreshKind, Pid,
-    Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, RefreshKind, Signal, System,
-    ThreadKind, UpdateKind,
+    get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, KillError, LoadAvg, MemoryRefreshKind,
+    Motherboard, Pid, Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, RefreshKind,
+    Signal, System, ThreadKind, UpdateKind,
 };
 #[cfg(feature = "user")]
 pub use crate::common::user::{Group, Groups, User, Users};
@@ -99,7 +99,7 @@ pub(crate) use crate::sys::UserInner;
 #[cfg(feature = "component")]
 pub(crate) use crate::sys::{ComponentInner, ComponentsInner};
 #[cfg(feature = "system")]
-pub(crate) use crate::sys::{CpuInner, ProcessInner, SystemInner};
+pub(crate) use crate::sys::{CpuInner, MotherboardInner, ProcessInner, SystemInner};
 #[cfg(feature = "disk")]
 pub(crate) use crate::sys::{DiskInner, DisksInner};
 #[cfg(feature = "network")]

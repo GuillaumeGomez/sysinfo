@@ -158,6 +158,24 @@ impl serde::Serialize for crate::System {
         state.end()
     }
 }
+#[cfg(feature = "system")]
+impl serde::Serialize for crate::Motherboard {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // `5` corresponds to the number of fields.
+        let mut state = serializer.serialize_struct("Motherboard", 5)?;
+
+        state.serialize_field("name", &self.name())?;
+        state.serialize_field("vendor", &self.vendor())?;
+        state.serialize_field("version", &self.version())?;
+        state.serialize_field("serial", &self.serial())?;
+        state.serialize_field("asset_tag", &self.asset_tag())?;
+
+        state.end()
+    }
+}
 
 #[cfg(feature = "system")]
 impl Serialize for crate::CGroupLimits {

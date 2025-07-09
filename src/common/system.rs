@@ -9,9 +9,9 @@ use std::str::FromStr;
 
 use crate::common::impl_get_set::impl_get_set;
 use crate::common::DiskUsage;
-use crate::{CpuInner, Gid, ProcessInner, SystemInner, Uid};
+use crate::{CpuInner, Gid, MotherboardInner, ProcessInner, SystemInner, Uid};
 
-/// Structs containing system's information such as processes, memory and CPU.
+/// Type containing system's information such as processes, memory and CPU.
 ///
 /// ⚠️ On newer Android versions, there are restrictions on which system information
 /// a non-system application has access to. So CPU information might not be available.
@@ -899,87 +899,6 @@ impl System {
         SystemInner::physical_core_count()
     }
 
-    /// Returns the motherboard asset tag.
-    ///
-    /// This corresponds to the identifier assigned by the motherboard's
-    /// manufacturer to track the physical device for inventory purposes.
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// println!("Motherboard asset tag: {:?}", System::motherboard_asset_tag());
-    /// ```
-    pub fn motherboard_asset_tag() -> Option<String> {
-        SystemInner::motherboard_asset_tag()
-    }
-
-    /// Returns the motherboard name.
-    ///
-    /// This corresponds to the model identifier assigned by the motherboard's
-    /// manufacturer (e.g. "20BE0061MC").
-    /// This information isn't available on ARM-based macOS systems.
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// println!("Motherboard name: {:?}", System::motherboard_name());
-    /// ```
-    pub fn motherboard_name() -> Option<String> {
-        SystemInner::motherboard_name()
-    }
-
-    /// Returns the motherboard vendor.
-    ///
-    /// This corresponds to the name of the motherboard's manufacturer (e.g. "LENOVO").
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// println!("Motherboard vendor: {:?}", System::motherboard_vendor());
-    /// ```
-    pub fn motherboard_vendor() -> Option<String> {
-        SystemInner::motherboard_vendor()
-    }
-
-    /// Returns the motherboard version.
-    ///
-    /// This corresponds to the version or model number assigned by the motherboard's
-    /// manufacturer (e.g. "0B98401 Pro").
-    /// This information isn't available on ARM-based macOS systems.
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// println!("Motherboard version: {:?}", System::motherboard_version());
-    /// ```
-    pub fn motherboard_version() -> Option<String> {
-        SystemInner::motherboard_version()
-    }
-
-    /// Returns the motherboard serial number.
-    ///
-    /// This corresponds to the serial number assigned by the motherboard's
-    /// manufacturer (e.g. "W1KS427111E").
-    ///
-    /// **Important**: this information is computed every time this function is called.
-    ///
-    /// ```no_run
-    /// use sysinfo::System;
-    ///
-    /// println!("Motherboard serial number: {:?}", System::motherboard_serial());
-    /// ```
-    pub fn motherboard_serial() -> Option<String> {
-        SystemInner::motherboard_serial()
-    }
-
     /// Returns the product family identifier.
     ///
     /// This corresponds to the product family assigned by the hardware
@@ -1109,6 +1028,129 @@ impl System {
     /// ```
     pub fn open_files_limit() -> Option<usize> {
         SystemInner::open_files_limit()
+    }
+}
+
+/// This type allows to retrieve motherboard-related information.
+///
+/// ```
+/// use sysinfo::Motherboard;
+///
+/// if let Some(m) = Motherboard::new() {
+///     println!("{m:?}");
+/// }
+/// ```
+pub struct Motherboard {
+    pub(crate) inner: MotherboardInner,
+}
+
+impl Motherboard {
+    /// Creates a new instance of the `Motherboard` type.
+    ///
+    /// ```
+    /// use sysinfo::Motherboard;
+    ///
+    /// if let Some(m) = Motherboard::new() {
+    ///     println!("{m:?}");
+    /// }
+    /// ```
+    pub fn new() -> Option<Self> {
+        Some(Self {
+            inner: MotherboardInner::new()?,
+        })
+    }
+
+    /// Returns the motherboard name.
+    ///
+    /// This corresponds to the model identifier assigned by the motherboard's
+    /// manufacturer (e.g. "20BE0061MC").
+    /// This information isn't available on ARM-based macOS systems.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::Motherboard;
+    ///
+    /// if let Some(m) = Motherboard::new() {
+    ///     println!("Motherboard name: {:?}", m.name());
+    /// }
+    /// ```
+    pub fn name(&self) -> Option<String> {
+        self.inner.name()
+    }
+
+    /// Returns the motherboard vendor.
+    ///
+    /// This corresponds to the name of the motherboard's manufacturer (e.g. "LENOVO").
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::Motherboard;
+    ///
+    /// if let Some(m) = Motherboard::new() {
+    ///     println!("Motherboard vendor: {:?}", m.vendor());
+    /// }
+    /// ```
+    pub fn vendor(&self) -> Option<String> {
+        self.inner.vendor()
+    }
+
+    /// Returns the motherboard version.
+    ///
+    /// This corresponds to the version or model number assigned by the motherboard's
+    /// manufacturer (e.g. "0B98401 Pro").
+    /// This information isn't available on ARM-based macOS systems.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::Motherboard;
+    ///
+    /// if let Some(m) = Motherboard::new() {
+    ///     println!("Motherboard version: {:?}", m.version());
+    /// }
+    /// ```
+    pub fn version(&self) -> Option<String> {
+        self.inner.version()
+    }
+
+    /// Returns the motherboard serial number.
+    ///
+    /// This corresponds to the serial number assigned by the motherboard's
+    /// manufacturer (e.g. "W1KS427111E").
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ```no_run
+    /// use sysinfo::Motherboard;
+    ///
+    /// if let Some(m) = Motherboard::new() {
+    ///     println!("Motherboard serial number: {:?}", m.serial());
+    /// }
+    /// ```
+    pub fn serial(&self) -> Option<String> {
+        self.inner.serial()
+    }
+
+    /// Returns the motherboard asset tag.
+    ///
+    /// This corresponds to the identifier assigned by the motherboard's
+    /// manufacturer to track the physical device for inventory purposes.
+    ///
+    /// **Important**: this information is computed every time this function is called.
+    ///
+    /// ⚠️ Not supported on macOS/iOS.
+    ///
+    /// ```no_run
+    /// use sysinfo::Motherboard;
+    ///
+    /// if let Some(m) = Motherboard::new() {
+    ///     println!("Motherboard asset tag: {:?}", m.asset_tag());
+    /// }
+    /// ```
+    pub fn asset_tag(&self) -> Option<String> {
+        self.inner.asset_tag()
     }
 }
 
