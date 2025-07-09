@@ -280,6 +280,10 @@ impl SystemInner {
         physical_core_count()
     }
 
+    pub(crate) fn motherboard_asset_tag() -> Option<String> {
+        get_kenv_var(b"smbios.planar.tag\0")
+    }
+
     pub(crate) fn motherboard_name() -> Option<String> {
         get_kenv_var(b"smbios.planar.product\0")
     }
@@ -294,6 +298,34 @@ impl SystemInner {
 
     pub(crate) fn motherboard_serial() -> Option<String> {
         get_kenv_var(b"smbios.planar.serial\0")
+    }
+
+    pub(crate) fn product_family() -> Option<String> {
+        get_kenv_var(b"smbios.system.family\0")
+    }
+
+    pub(crate) fn product_name() -> Option<String> {
+        get_kenv_var(b"smbios.system.product\0")
+    }
+
+    pub(crate) fn product_serial() -> Option<String> {
+        get_kenv_var(b"smbios.system.serial\0")
+    }
+
+    pub(crate) fn product_sku() -> Option<String> {
+        get_kenv_var(b"smbios.system.sku\0")
+    }
+
+    pub(crate) fn product_uuid() -> Option<String> {
+        get_kenv_var(b"smbios.system.uuid\0")
+    }
+
+    pub(crate) fn product_version() -> Option<String> {
+        get_kenv_var(b"smbios.system.version\0")
+    }
+
+    pub(crate) fn vendor_name() -> Option<String> {
+        get_kenv_var(b"smbios.system.maker\0")
     }
 
     pub(crate) fn open_files_limit() -> Option<usize> {

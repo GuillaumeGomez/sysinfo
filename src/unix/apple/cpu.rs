@@ -364,7 +364,7 @@ pub(crate) fn init_cpus(
     });
 }
 
-fn get_sysctl_str(s: &[u8]) -> String {
+pub(crate) fn get_sysctl_str(s: &[u8]) -> String {
     let mut len = 0;
 
     unsafe {

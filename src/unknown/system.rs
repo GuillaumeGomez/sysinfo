@@ -154,6 +154,10 @@ impl SystemInner {
         None
     }
 
+    pub(crate) fn motherboard_asset_tag() -> Option<String> {
+        None
+    }
+
     pub(crate) fn motherboard_name() -> Option<String> {
         None
     }
@@ -167,6 +171,34 @@ impl SystemInner {
     }
 
     pub(crate) fn motherboard_serial() -> Option<String> {
+        None
+    }
+
+    pub(crate) fn product_family() -> Option<String> {
+        None
+    }
+
+    pub(crate) fn product_name() -> Option<String> {
+        None
+    }
+
+    pub(crate) fn product_serial() -> Option<String> {
+        None
+    }
+
+    pub(crate) fn product_sku() -> Option<String> {
+        None
+    }
+
+    pub(crate) fn product_uuid() -> Option<String> {
+        None
+    }
+
+    pub(crate) fn product_version() -> Option<String> {
+        None
+    }
+
+    pub(crate) fn vendor_name() -> Option<String> {
         None
     }
 
