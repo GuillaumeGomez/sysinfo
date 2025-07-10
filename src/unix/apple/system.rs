@@ -2,8 +2,6 @@
 
 use crate::sys::cpu::*;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
-use crate::sys::macos::system::get_io_platform_property;
-#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
@@ -531,62 +529,6 @@ impl SystemInner {
 
     pub(crate) fn physical_core_count() -> Option<usize> {
         physical_core_count()
-    }
-
-    pub(crate) fn product_family() -> Option<String> {
-        Some(get_sysctl_str(b"hw.model\0"))
-    }
-
-    pub(crate) fn product_name() -> Option<String> {
-        Self::product_family().or_else(|| {
-            cfg_if! {
-                if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
-                    get_io_platform_property("product-name")
-                } else {
-                    None
-                }
-            }
-        })
-    }
-
-    pub(crate) fn product_serial() -> Option<String> {
-        cfg_if! {
-            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
-                use objc2_io_kit::kIOPlatformSerialNumberKey;
-                get_io_platform_property(unsafe { std::str::from_utf8_unchecked(kIOPlatformSerialNumberKey.to_bytes()) })
-            } else {
-                None
-            }
-        }
-    }
-
-    pub(crate) fn product_sku() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn product_uuid() -> Option<String> {
-        cfg_if! {
-            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
-                use objc2_io_kit::kIOPlatformUUIDKey;
-                get_io_platform_property(unsafe { std::str::from_utf8_unchecked(kIOPlatformUUIDKey.to_bytes()) })
-            } else {
-                None
-            }
-        }
-    }
-
-    pub(crate) fn product_version() -> Option<String> {
-        cfg_if! {
-            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
-                get_io_platform_property("version")
-            } else {
-                None
-            }
-        }
-    }
-
-    pub(crate) fn vendor_name() -> Option<String> {
-        crate::Motherboard::new().and_then(|m| m.vendor())
     }
 
     // FIXME: Would be better to query this information instead of using a "default" value like this.

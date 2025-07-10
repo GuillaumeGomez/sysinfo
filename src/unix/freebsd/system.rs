@@ -17,8 +17,8 @@ use std::time::{Duration, SystemTime};
 use crate::sys::cpu::{physical_core_count, CpusWrapper};
 use crate::sys::process::get_exe;
 use crate::sys::utils::{
-    self, boot_time, c_buf_to_os_string, c_buf_to_utf8_string, from_cstr_array, get_kenv_var,
-    get_sys_value, get_sys_value_by_name, init_mib,
+    self, boot_time, c_buf_to_os_string, c_buf_to_utf8_string, from_cstr_array, get_sys_value,
+    get_sys_value_by_name, init_mib,
 };
 
 use libc::c_int;
@@ -278,34 +278,6 @@ impl SystemInner {
 
     pub(crate) fn physical_core_count() -> Option<usize> {
         physical_core_count()
-    }
-
-    pub(crate) fn product_family() -> Option<String> {
-        get_kenv_var(b"smbios.system.family\0")
-    }
-
-    pub(crate) fn product_name() -> Option<String> {
-        get_kenv_var(b"smbios.system.product\0")
-    }
-
-    pub(crate) fn product_serial() -> Option<String> {
-        get_kenv_var(b"smbios.system.serial\0")
-    }
-
-    pub(crate) fn product_sku() -> Option<String> {
-        get_kenv_var(b"smbios.system.sku\0")
-    }
-
-    pub(crate) fn product_uuid() -> Option<String> {
-        get_kenv_var(b"smbios.system.uuid\0")
-    }
-
-    pub(crate) fn product_version() -> Option<String> {
-        get_kenv_var(b"smbios.system.version\0")
-    }
-
-    pub(crate) fn vendor_name() -> Option<String> {
-        get_kenv_var(b"smbios.system.maker\0")
     }
 
     pub(crate) fn open_files_limit() -> Option<usize> {

@@ -5,11 +5,13 @@ cfg_if! {
         pub mod cpu;
         pub mod motherboard;
         pub mod process;
+        pub mod product;
         pub mod system;
 
         pub(crate) use self::cpu::CpuInner;
         pub(crate) use self::motherboard::MotherboardInner;
         pub(crate) use self::process::ProcessInner;
+        pub(crate) use self::product::ProductInner;
         pub(crate) use self::system::SystemInner;
         pub use self::system::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
     }
@@ -59,6 +61,8 @@ mod motherboard;
 mod network;
 #[cfg(any())]
 mod process;
+#[cfg(any())]
+mod product;
 #[cfg(any())]
 mod system;
 #[cfg(any())]

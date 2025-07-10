@@ -4,15 +4,17 @@ mod utils;
 
 cfg_if! {
     if #[cfg(feature = "system")] {
-        mod process;
         mod cpu;
-        mod system;
-        mod motherboard;
         mod ffi;
+        mod motherboard;
+        mod process;
+        mod product;
+        mod system;
 
         pub(crate) use self::cpu::CpuInner;
         pub(crate) use self::motherboard::MotherboardInner;
         pub(crate) use self::process::ProcessInner;
+        pub(crate) use self::product::ProductInner;
         pub(crate) use self::system::SystemInner;
         pub use self::system::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
     }
@@ -73,6 +75,8 @@ mod network;
 mod network_helper;
 #[cfg(any())]
 mod process;
+#[cfg(any())]
+mod product;
 #[cfg(any())]
 mod sid;
 #[cfg(any())]

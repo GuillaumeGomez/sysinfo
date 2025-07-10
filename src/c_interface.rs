@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disks, Motherboard, Networks, Pid, Process, ProcessesToUpdate, System};
+use crate::{Disks, Motherboard, Networks, Pid, Process, ProcessesToUpdate, Product, System};
 use libc::{self, c_char, c_float, c_uint, c_void, size_t};
 use std::borrow::BorrowMut;
 use std::ffi::CString;
@@ -668,70 +668,70 @@ pub extern "C" fn sysinfo_motherboard_serial() -> RString {
     }
 }
 
-/// Equivalent of [`system::product_family()`].
+/// Equivalent of [`Product::family()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_product_family() -> RString {
-    if let Some(c) = System::product_family().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = Product::family().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
     }
 }
 
-/// Equivalent of [`system::product_name()`].
+/// Equivalent of [`Product::name()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_product_name() -> RString {
-    if let Some(c) = System::product_name().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = Product::name().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
     }
 }
 
-/// Equivalent of [`system::product_serial()`].
+/// Equivalent of [`Product::serial_number()`].
 #[no_mangle]
-pub extern "C" fn sysinfo_product_serial() -> RString {
-    if let Some(c) = System::product_serial().and_then(|c| CString::new(c).ok()) {
+pub extern "C" fn sysinfo_product_serial_number() -> RString {
+    if let Some(c) = Product::serial_number().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
     }
 }
 
-/// Equivalent of [`system::product_sku()`].
+/// Equivalent of [`Product::stock_keeping_unit()`].
 #[no_mangle]
-pub extern "C" fn sysinfo_product_sku() -> RString {
-    if let Some(c) = System::product_sku().and_then(|c| CString::new(c).ok()) {
+pub extern "C" fn sysinfo_product_stock_keeping_unit() -> RString {
+    if let Some(c) = Product::stock_keeping_unit().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
     }
 }
 
-/// Equivalent of [`system::product_uuid()`].
+/// Equivalent of [`Product::uuid()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_product_uuid() -> RString {
-    if let Some(c) = System::product_uuid().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = Product::uuid().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
     }
 }
 
-/// Equivalent of [`system::product_version()`].
+/// Equivalent of [`Product::version()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_product_version() -> RString {
-    if let Some(c) = System::product_version().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = Product::version().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
     }
 }
 
-/// Equivalent of [`system::vendor_name()`].
+/// Equivalent of [`Product::vendor_name()`].
 #[no_mangle]
-pub extern "C" fn sysinfo_vendor_name() -> RString {
-    if let Some(c) = System::vendor_name().and_then(|c| CString::new(c).ok()) {
+pub extern "C" fn sysinfo_product_vendor_name() -> RString {
+    if let Some(c) = Product::vendor_name().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
     } else {
         std::ptr::null()
