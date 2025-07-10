@@ -4,8 +4,6 @@ use crate::{
     Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate,
 };
 
-use super::ffi::SMBIOSSystemInformation;
-use super::utils::{get_smbios_table, parse_smbios};
 use crate::sys::cpu::*;
 use crate::{Process, ProcessInner};
 
@@ -459,88 +457,6 @@ impl SystemInner {
 
     pub(crate) fn physical_core_count() -> Option<usize> {
         get_physical_core_count()
-    }
-
-    pub(crate) fn product_family() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
-        if info.family == 0 {
-            return None;
-        }
-        strings
-            .get(info.family as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn product_name() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
-        if info.product_name == 0 {
-            return None;
-        }
-        strings
-            .get(info.product_name as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn product_serial() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
-        if info.serial_number == 0 {
-            return None;
-        }
-        strings
-            .get(info.serial_number as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn product_sku() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
-        if info.sku_number == 0 {
-            return None;
-        }
-        strings
-            .get(info.sku_number as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn product_uuid() -> Option<String> {
-        let table = get_smbios_table()?;
-        Some(
-            parse_smbios::<SMBIOSSystemInformation>(&table, 1)?
-                .0
-                .uuid
-                .to_string(),
-        )
-    }
-
-    pub(crate) fn product_version() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
-        if info.version == 0 {
-            return None;
-        }
-        strings
-            .get(info.version as usize - 1)
-            .copied()
-            .map(str::to_string)
-    }
-
-    pub(crate) fn vendor_name() -> Option<String> {
-        let table = get_smbios_table()?;
-        let (info, strings) = parse_smbios::<SMBIOSSystemInformation>(&table, 1)?;
-        if info.manufacturer == 0 {
-            return None;
-        }
-        strings
-            .get(info.manufacturer as usize - 1)
-            .copied()
-            .map(str::to_string)
     }
 
     pub(crate) fn open_files_limit() -> Option<usize> {

@@ -77,10 +77,10 @@ RString     sysinfo_motherboard_version();
 RString     sysinfo_motherboard_serial();
 RString     sysinfo_product_family();
 RString     sysinfo_product_name();
-RString     sysinfo_product_serial();
-RString     sysinfo_product_sku();
+RString     sysinfo_product_serial_number();
+RString     sysinfo_product_stock_keeping_unit();
 RString     sysinfo_product_uuid();
 RString     sysinfo_product_version();
-RString     sysinfo_vendor_name();
+RString     sysinfo_product_vendor_name();
 
 void        sysinfo_rstring_free(RString str);

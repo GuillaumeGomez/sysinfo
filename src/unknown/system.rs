@@ -154,34 +154,6 @@ impl SystemInner {
         None
     }
 
-    pub(crate) fn product_family() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn product_name() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn product_serial() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn product_sku() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn product_uuid() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn product_version() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn vendor_name() -> Option<String> {
-        None
-    }
-
     pub(crate) fn open_files_limit() -> Option<usize> {
         None
     }
