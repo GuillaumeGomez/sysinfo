@@ -203,6 +203,7 @@ use sysinfo::", stringify!($imports), r";
         KillError,
         LoadAvg,
         MemoryRefreshKind,
+        Motherboard,
         Pid,
         Process,
         ProcessesToUpdate,
