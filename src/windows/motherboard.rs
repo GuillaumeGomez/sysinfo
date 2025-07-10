@@ -36,7 +36,7 @@ impl MotherboardInner {
             .map(str::to_string)
     }
 
-    pub(crate) fn vendor(&self) -> Option<String> {
+    pub(crate) fn vendor_name(&self) -> Option<String> {
         let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&self.smbios_table, 2)?;
         if info.manufacturer == 0 {
             return None;
@@ -58,7 +58,7 @@ impl MotherboardInner {
             .map(str::to_string)
     }
 
-    pub(crate) fn serial(&self) -> Option<String> {
+    pub(crate) fn serial_number(&self) -> Option<String> {
         let (info, strings) = parse_smbios::<SMBIOSBaseboardInformation>(&self.smbios_table, 2)?;
         if info.serial_number == 0 {
             return None;

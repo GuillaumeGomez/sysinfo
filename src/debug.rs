@@ -34,9 +34,9 @@ impl std::fmt::Debug for crate::Motherboard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Motherboard")
             .field("name", &self.name())
-            .field("vendor", &self.vendor())
+            .field("vendor_name", &self.vendor_name())
             .field("version", &self.version())
-            .field("serial", &self.serial())
+            .field("serial_number", &self.serial_number())
             .field("asset_tag", &self.asset_tag())
             .finish()
     }

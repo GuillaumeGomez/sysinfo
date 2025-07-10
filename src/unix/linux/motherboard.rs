@@ -26,7 +26,7 @@ impl MotherboardInner {
             .map(|s| s.trim().to_owned())
     }
 
-    pub(crate) fn vendor(&self) -> Option<String> {
+    pub(crate) fn vendor_name(&self) -> Option<String> {
         read_to_string("/sys/devices/virtual/dmi/id/board_vendor")
             .ok()
             .or_else(|| Some(parse_device_tree_compatible()?.0))
@@ -39,7 +39,7 @@ impl MotherboardInner {
             .map(|s| s.trim().to_owned())
     }
 
-    pub(crate) fn serial(&self) -> Option<String> {
+    pub(crate) fn serial_number(&self) -> Option<String> {
         read_to_string("/sys/devices/virtual/dmi/id/board_serial")
             .ok()
             .map(|s| s.trim().to_owned())

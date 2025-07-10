@@ -60,6 +60,6 @@ impl ProductInner {
     }
 
     pub(crate) fn vendor_name() -> Option<String> {
-        crate::Motherboard::new().and_then(|m| m.vendor())
+        crate::Motherboard::new().and_then(|m| m.vendor_name())
     }
 }

@@ -17,7 +17,7 @@ impl MotherboardInner {
         get_kenv_var(b"smbios.planar.product\0")
     }
 
-    pub(crate) fn vendor(&self) -> Option<String> {
+    pub(crate) fn vendor_name(&self) -> Option<String> {
         get_kenv_var(b"smbios.planar.maker\0")
     }
 
@@ -25,7 +25,7 @@ impl MotherboardInner {
         get_kenv_var(b"smbios.planar.version\0")
     }
 
-    pub(crate) fn serial(&self) -> Option<String> {
+    pub(crate) fn serial_number(&self) -> Option<String> {
         get_kenv_var(b"smbios.planar.serial\0")
     }
 }

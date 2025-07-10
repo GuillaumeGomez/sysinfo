@@ -616,7 +616,7 @@ pub extern "C" fn sysinfo_motherboard_asset_tag() -> RString {
     }
 }
 
-/// Equivalent of [`system::motherboard_name()`].
+/// Equivalent of [`Motherboard::name()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_motherboard_name() -> RString {
     if let Some(c) = Motherboard::new()
@@ -629,11 +629,11 @@ pub extern "C" fn sysinfo_motherboard_name() -> RString {
     }
 }
 
-/// Equivalent of [`system::motherboard_vendor()`].
+/// Equivalent of [`Motherboard::vendor_name()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_motherboard_vendor() -> RString {
     if let Some(c) = Motherboard::new()
-        .and_then(|m| m.vendor())
+        .and_then(|m| m.vendor_name())
         .and_then(|c| CString::new(c).ok())
     {
         c.into_raw() as _
@@ -642,7 +642,7 @@ pub extern "C" fn sysinfo_motherboard_vendor() -> RString {
     }
 }
 
-/// Equivalent of [`system::motherboard_version()`].
+/// Equivalent of [`Motherboard::version()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_motherboard_version() -> RString {
     if let Some(c) = Motherboard::new()
@@ -655,11 +655,11 @@ pub extern "C" fn sysinfo_motherboard_version() -> RString {
     }
 }
 
-/// Equivalent of [`system::motherboard_serial()`].
+/// Equivalent of [`Motherboard::serial_number()`].
 #[no_mangle]
-pub extern "C" fn sysinfo_motherboard_serial() -> RString {
+pub extern "C" fn sysinfo_motherboard_serial_number() -> RString {
     if let Some(c) = Motherboard::new()
-        .and_then(|m| m.serial())
+        .and_then(|m| m.serial_number())
         .and_then(|c| CString::new(c).ok())
     {
         c.into_raw() as _
