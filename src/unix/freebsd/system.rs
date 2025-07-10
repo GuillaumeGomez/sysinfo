@@ -17,11 +17,11 @@ use std::time::{Duration, SystemTime};
 use crate::sys::cpu::{physical_core_count, CpusWrapper};
 use crate::sys::process::get_exe;
 use crate::sys::utils::{
-    self, boot_time, c_buf_to_os_string, c_buf_to_utf8_string, from_cstr_array, get_sys_value,
-    get_sys_value_by_name, init_mib,
+    self, boot_time, c_buf_to_os_string, c_buf_to_utf8_string, from_cstr_array, get_kenv_var,
+    get_sys_value, get_sys_value_by_name, init_mib,
 };
 
-use libc::{c_int, kenv, KENV_GET, KENV_MVALLEN};
+use libc::c_int;
 
 declare_signals! {
     c_int,
@@ -278,26 +278,6 @@ impl SystemInner {
 
     pub(crate) fn physical_core_count() -> Option<usize> {
         physical_core_count()
-    }
-
-    pub(crate) fn motherboard_asset_tag() -> Option<String> {
-        get_kenv_var(b"smbios.planar.tag\0")
-    }
-
-    pub(crate) fn motherboard_name() -> Option<String> {
-        get_kenv_var(b"smbios.planar.product\0")
-    }
-
-    pub(crate) fn motherboard_vendor() -> Option<String> {
-        get_kenv_var(b"smbios.planar.maker\0")
-    }
-
-    pub(crate) fn motherboard_version() -> Option<String> {
-        get_kenv_var(b"smbios.planar.version\0")
-    }
-
-    pub(crate) fn motherboard_serial() -> Option<String> {
-        get_kenv_var(b"smbios.planar.serial\0")
     }
 
     pub(crate) fn product_family() -> Option<String> {
@@ -784,28 +764,6 @@ fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
             }
         }
     }
-}
-
-// Get the value of a kernel environment variable.
-fn get_kenv_var(name: &[u8]) -> Option<String> {
-    let mut buf: [libc::c_char; KENV_MVALLEN as usize] = [0; KENV_MVALLEN as usize];
-
-    let size = unsafe {
-        kenv(
-            KENV_GET as _,
-            name.as_ptr() as _,
-            buf.as_mut_ptr() as _,
-            buf.len() as _,
-        ) as isize
-    };
-
-    // returns a strictly negative number in case of error
-    // (see: https://man.freebsd.org/cgi/man.cgi?query=kenv&sektion=2&manpath=FreeBSD+15.0-CURRENT)
-    if size < 0 {
-        return None;
-    }
-
-    c_buf_to_utf8_string(&buf[..size as usize])
 }
 
 fn get_now() -> u64 {

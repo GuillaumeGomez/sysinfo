@@ -154,26 +154,6 @@ impl SystemInner {
         None
     }
 
-    pub(crate) fn motherboard_asset_tag() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn motherboard_name() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn motherboard_vendor() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn motherboard_version() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn motherboard_serial() -> Option<String> {
-        None
-    }
-
     pub(crate) fn product_family() -> Option<String> {
         None
     }

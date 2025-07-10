@@ -265,3 +265,26 @@ impl std::ops::Deref for KInfoProc {
         &self.0
     }
 }
+
+#[cfg(feature = "system")]
+// Get the value of a kernel environment variable.
+pub(crate) fn get_kenv_var(name: &[u8]) -> Option<String> {
+    let mut buf: [libc::c_char; libc::KENV_MVALLEN as usize] = [0; libc::KENV_MVALLEN as usize];
+
+    let size = unsafe {
+        libc::kenv(
+            libc::KENV_GET as _,
+            name.as_ptr() as _,
+            buf.as_mut_ptr() as _,
+            buf.len() as _,
+        ) as isize
+    };
+
+    // returns a strictly negative number in case of error
+    // (see: https://man.freebsd.org/cgi/man.cgi?query=kenv&sektion=2&manpath=FreeBSD+15.0-CURRENT)
+    if size < 0 {
+        return None;
+    }
+
+    c_buf_to_utf8_string(&buf[..size as usize])
+}

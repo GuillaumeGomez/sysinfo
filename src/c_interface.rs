@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disks, Networks, Pid, Process, ProcessesToUpdate, System};
+use crate::{Disks, Motherboard, Networks, Pid, Process, ProcessesToUpdate, System};
 use libc::{self, c_char, c_float, c_uint, c_void, size_t};
 use std::borrow::BorrowMut;
 use std::ffi::CString;
@@ -603,10 +603,13 @@ pub extern "C" fn sysinfo_cpu_physical_cores() -> u32 {
     System::physical_core_count().unwrap_or(0) as u32
 }
 
-/// Equivalent of [`system::motherboard_asset_tag()`].
+/// Equivalent of [`Motherboard::asset_tag()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_motherboard_asset_tag() -> RString {
-    if let Some(c) = System::motherboard_asset_tag().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = Motherboard::new()
+        .and_then(|m| m.asset_tag())
+        .and_then(|c| CString::new(c).ok())
+    {
         c.into_raw() as _
     } else {
         std::ptr::null()
@@ -616,7 +619,10 @@ pub extern "C" fn sysinfo_motherboard_asset_tag() -> RString {
 /// Equivalent of [`system::motherboard_name()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_motherboard_name() -> RString {
-    if let Some(c) = System::motherboard_name().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = Motherboard::new()
+        .and_then(|m| m.name())
+        .and_then(|c| CString::new(c).ok())
+    {
         c.into_raw() as _
     } else {
         std::ptr::null()
@@ -626,7 +632,10 @@ pub extern "C" fn sysinfo_motherboard_name() -> RString {
 /// Equivalent of [`system::motherboard_vendor()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_motherboard_vendor() -> RString {
-    if let Some(c) = System::motherboard_vendor().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = Motherboard::new()
+        .and_then(|m| m.vendor())
+        .and_then(|c| CString::new(c).ok())
+    {
         c.into_raw() as _
     } else {
         std::ptr::null()
@@ -636,7 +645,10 @@ pub extern "C" fn sysinfo_motherboard_vendor() -> RString {
 /// Equivalent of [`system::motherboard_version()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_motherboard_version() -> RString {
-    if let Some(c) = System::motherboard_version().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = Motherboard::new()
+        .and_then(|m| m.version())
+        .and_then(|c| CString::new(c).ok())
+    {
         c.into_raw() as _
     } else {
         std::ptr::null()
@@ -646,7 +658,10 @@ pub extern "C" fn sysinfo_motherboard_version() -> RString {
 /// Equivalent of [`system::motherboard_serial()`].
 #[no_mangle]
 pub extern "C" fn sysinfo_motherboard_serial() -> RString {
-    if let Some(c) = System::motherboard_serial().and_then(|c| CString::new(c).ok()) {
+    if let Some(c) = Motherboard::new()
+        .and_then(|m| m.serial())
+        .and_then(|c| CString::new(c).ok())
+    {
         c.into_raw() as _
     } else {
         std::ptr::null()

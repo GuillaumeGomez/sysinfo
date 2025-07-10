@@ -533,50 +533,6 @@ impl SystemInner {
         physical_core_count()
     }
 
-    pub(crate) fn motherboard_asset_tag() -> Option<String> {
-        None
-    }
-
-    pub(crate) fn motherboard_name() -> Option<String> {
-        cfg_if! {
-            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
-                get_io_platform_property("board-id")
-            } else {
-                None
-            }
-        }
-    }
-
-    pub(crate) fn motherboard_vendor() -> Option<String> {
-        cfg_if! {
-            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
-                get_io_platform_property("manufacturer")
-            } else {
-                None
-            }
-        }
-    }
-
-    pub(crate) fn motherboard_version() -> Option<String> {
-        cfg_if! {
-            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
-                get_io_platform_property("version")
-            } else {
-                None
-            }
-        }
-    }
-
-    pub(crate) fn motherboard_serial() -> Option<String> {
-        cfg_if! {
-            if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
-                get_io_platform_property("IOPlatformSerialNumber")
-            } else {
-                None
-            }
-        }
-    }
-
     pub(crate) fn product_family() -> Option<String> {
         Some(get_sysctl_str(b"hw.model\0"))
     }
@@ -630,7 +586,7 @@ impl SystemInner {
     }
 
     pub(crate) fn vendor_name() -> Option<String> {
-        Self::motherboard_vendor()
+        crate::Motherboard::new().and_then(|m| m.vendor())
     }
 
     // FIXME: Would be better to query this information instead of using a "default" value like this.

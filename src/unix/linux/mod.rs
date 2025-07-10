@@ -5,10 +5,12 @@ pub(crate) mod utils;
 cfg_if! {
     if #[cfg(feature = "system")] {
         pub mod cpu;
+        pub mod motherboard;
         pub mod process;
         pub mod system;
 
         pub(crate) use self::cpu::CpuInner;
+        pub(crate) use self::motherboard::MotherboardInner;
         pub(crate) use self::process::ProcessInner;
         pub(crate) use self::system::SystemInner;
         pub use self::system::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
@@ -48,6 +50,8 @@ mod component;
 mod cpu;
 #[cfg(any())]
 mod disk;
+#[cfg(any())]
+mod motherboard;
 #[cfg(any())]
 mod network;
 #[cfg(any())]

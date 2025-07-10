@@ -7,9 +7,11 @@ cfg_if! {
         mod process;
         mod cpu;
         mod system;
+        mod motherboard;
         mod ffi;
 
         pub(crate) use self::cpu::CpuInner;
+        pub(crate) use self::motherboard::MotherboardInner;
         pub(crate) use self::process::ProcessInner;
         pub(crate) use self::system::SystemInner;
         pub use self::system::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
@@ -63,6 +65,8 @@ mod disk;
 mod ffi;
 #[cfg(any())]
 mod groups;
+#[cfg(any())]
+mod motherboard;
 #[cfg(any())]
 mod network;
 #[cfg(any())]
