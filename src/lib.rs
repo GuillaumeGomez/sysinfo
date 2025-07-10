@@ -203,6 +203,7 @@ use sysinfo::", stringify!($imports), r";
         KillError,
         LoadAvg,
         MemoryRefreshKind,
+        Motherboard,
         Pid,
         Process,
         ProcessesToUpdate,
@@ -348,5 +349,58 @@ mod test {
         } else {
             assert!(!IS_SUPPORTED_SYSTEM);
         }
+    }
+
+    // If it doesn't compile, it means types don't implement expected traits.
+    #[cfg(any(
+        feature = "system",
+        feature = "disk",
+        feature = "component",
+        feature = "user",
+        feature = "network"
+    ))]
+    #[test]
+    fn test_send_and_sync() {
+        #[allow(dead_code)]
+        trait HasSendAndSync: Send + Sync {}
+
+        // Structs
+        impl HasSendAndSync for CGroupLimits {}
+        impl HasSendAndSync for Component {}
+        impl HasSendAndSync for Components {}
+        impl HasSendAndSync for Cpu {}
+        impl HasSendAndSync for CpuRefreshKind {}
+        impl HasSendAndSync for Disk {}
+        impl HasSendAndSync for Disks {}
+        impl HasSendAndSync for DiskRefreshKind {}
+        impl HasSendAndSync for DiskUsage {}
+        impl HasSendAndSync for Gid {}
+        impl HasSendAndSync for Group {}
+        impl HasSendAndSync for Groups {}
+        impl HasSendAndSync for IpNetwork {}
+        impl HasSendAndSync for LoadAvg {}
+        impl HasSendAndSync for MacAddr {}
+        impl HasSendAndSync for MemoryRefreshKind {}
+        impl HasSendAndSync for NetworkData {}
+        impl HasSendAndSync for Networks {}
+        impl HasSendAndSync for Pid {}
+        impl HasSendAndSync for Process {}
+        impl HasSendAndSync for ProcessRefreshKind {}
+        impl HasSendAndSync for RefreshKind {}
+        impl HasSendAndSync for System {}
+        impl HasSendAndSync for Uid {}
+        impl HasSendAndSync for User {}
+        impl HasSendAndSync for Users {}
+
+        // Enums
+        impl HasSendAndSync for DiskKind {}
+        impl HasSendAndSync for IpNetworkFromStrError {}
+        impl HasSendAndSync for KillError {}
+        impl HasSendAndSync for MacAddrFromStrError {}
+        impl HasSendAndSync for ProcessStatus {}
+        impl HasSendAndSync for ProcessesToUpdate<'_> {}
+        impl HasSendAndSync for Signal {}
+        impl HasSendAndSync for ThreadKind {}
+        impl HasSendAndSync for UpdateKind {}
     }
 }

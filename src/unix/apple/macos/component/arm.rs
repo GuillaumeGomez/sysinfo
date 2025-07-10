@@ -19,6 +19,11 @@ pub(crate) struct ComponentsInner {
     client: Option<CFRetained<IOHIDEventSystemClient>>,
 }
 
+// SAFETY: `ComponentsInner::client` is never updated in a `&self` context, so it's safe to
+// make the type `Sync` and `Send`.
+unsafe impl Send for ComponentsInner {}
+unsafe impl Sync for ComponentsInner {}
+
 impl ComponentsInner {
     pub(crate) fn new() -> Self {
         Self {
@@ -121,6 +126,8 @@ pub(crate) struct ComponentInner {
     pub(crate) updated: bool,
 }
 
+// SAFETY: `ComponentsInner::service` is never updated, so it's safe to make the type `Sync`
+// and `Send`.
 unsafe impl Send for ComponentInner {}
 unsafe impl Sync for ComponentInner {}
 
