@@ -1,3 +1,11 @@
+# 0.36.0
+
+ * Add new `Motherboard` type.
+ * Add new `Product` type.
+ * Linux/macOS: Fix CPU usage update.
+ * Linux: Improve `Component::label` generated `String`.
+ * macOS: Make `Components` implement `Send` and `Sync` traits.
+
 # 0.35.2
 
  * Linux: Fix retrieval of processor frequency on loongarch64.
