@@ -276,9 +276,9 @@ pub(crate) unsafe fn get_process_data(
 
     // We now get the values needed for both new and existing process.
     let cpu_usage = if refresh_kind.cpu() {
-        (100 * kproc.ki_pctcpu) as f32 / fscale
+        Some((100 * kproc.ki_pctcpu) as f32 / fscale)
     } else {
-        0.
+        None
     };
     // Processes can be reparented apparently?
     let parent = if kproc.ki_ppid != 0 {
@@ -309,7 +309,9 @@ pub(crate) unsafe fn get_process_data(
         // If the `start_time` we just got is different from the one stored, it means it's not the
         // same process.
         if proc_.start_time == start_time {
-            proc_.cpu_usage = cpu_usage;
+            if let Some(cpu_usage) = cpu_usage {
+                proc_.cpu_usage = cpu_usage;
+            }
             proc_.parent = parent;
             proc_.status = status;
             if refresh_kind.memory() {
@@ -358,7 +360,7 @@ pub(crate) unsafe fn get_process_data(
             effective_group_id: Gid(kproc.ki_svgid),
             start_time,
             run_time: now.saturating_sub(start_time),
-            cpu_usage,
+            cpu_usage: cpu_usage.unwrap_or(0.),
             virtual_memory,
             memory,
             // procstat_getfiles

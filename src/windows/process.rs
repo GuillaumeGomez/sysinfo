@@ -1025,7 +1025,7 @@ fn check_sub(a: u64, b: u64) -> u64 {
 /// Before changing this function, you must consider the following:
 /// <https://github.com/GuillaumeGomez/sysinfo/issues/459>
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, nb_cpus: u64) {
-    let need_update = p.cpu_calc_values.last_update.elapsed() > MINIMUM_CPU_UPDATE_INTERVAL;
+    let need_update = p.cpu_calc_values.last_update.elapsed() >= MINIMUM_CPU_UPDATE_INTERVAL;
 
     unsafe {
         let mut ftime: FILETIME = zeroed();

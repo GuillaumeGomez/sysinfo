@@ -251,7 +251,6 @@ pub(crate) fn compute_cpu_usage(
 ) {
     if let Some(time_interval) = time_interval {
         let total_existing_time = p.old_stime.saturating_add(p.old_utime);
-        let mut updated_cpu_usage = false;
         if time_interval > 0.000001 && total_existing_time > 0 {
             let total_current_time = task_info
                 .pti_total_system
@@ -260,11 +259,7 @@ pub(crate) fn compute_cpu_usage(
             let total_time_diff = total_current_time.saturating_sub(total_existing_time);
             if total_time_diff > 0 {
                 p.cpu_usage = (total_time_diff as f64 / time_interval * 100.) as f32;
-                updated_cpu_usage = true;
             }
-        }
-        if !updated_cpu_usage {
-            p.cpu_usage = 0.;
         }
         p.old_stime = task_info.pti_total_system;
         p.old_utime = task_info.pti_total_user;
@@ -392,6 +387,8 @@ unsafe fn create_new_process(
     if refresh_kind.cpu() || refresh_kind.memory() {
         let task_info = get_task_info(pid);
 
+        p.old_stime = task_info.pti_total_system;
+        p.old_utime = task_info.pti_total_user;
         if refresh_kind.cpu() {
             p.accumulated_cpu_time = (task_info
                 .pti_total_user
