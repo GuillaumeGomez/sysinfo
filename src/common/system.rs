@@ -964,7 +964,7 @@ impl Motherboard {
         self.inner.name()
     }
 
-    /// Returns the motherboard vendor.
+    /// Returns the motherboard vendor name.
     ///
     /// This corresponds to the name of the motherboard's manufacturer (e.g. "LENOVO").
     ///
@@ -974,11 +974,11 @@ impl Motherboard {
     /// use sysinfo::Motherboard;
     ///
     /// if let Some(m) = Motherboard::new() {
-    ///     println!("Motherboard vendor: {:?}", m.vendor());
+    ///     println!("Motherboard vendor: {:?}", m.vendor_name());
     /// }
     /// ```
-    pub fn vendor(&self) -> Option<String> {
-        self.inner.vendor()
+    pub fn vendor_name(&self) -> Option<String> {
+        self.inner.vendor_name()
     }
 
     /// Returns the motherboard version.
@@ -1011,11 +1011,11 @@ impl Motherboard {
     /// use sysinfo::Motherboard;
     ///
     /// if let Some(m) = Motherboard::new() {
-    ///     println!("Motherboard serial number: {:?}", m.serial());
+    ///     println!("Motherboard serial number: {:?}", m.serial_number());
     /// }
     /// ```
-    pub fn serial(&self) -> Option<String> {
-        self.inner.serial()
+    pub fn serial_number(&self) -> Option<String> {
+        self.inner.serial_number()
     }
 
     /// Returns the motherboard asset tag.

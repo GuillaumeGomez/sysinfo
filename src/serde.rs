@@ -168,9 +168,9 @@ impl serde::Serialize for crate::Motherboard {
         let mut state = serializer.serialize_struct("Motherboard", 5)?;
 
         state.serialize_field("name", &self.name())?;
-        state.serialize_field("vendor", &self.vendor())?;
+        state.serialize_field("vendor_name", &self.vendor_name())?;
         state.serialize_field("version", &self.version())?;
-        state.serialize_field("serial", &self.serial())?;
+        state.serialize_field("serial_number", &self.serial_number())?;
         state.serialize_field("asset_tag", &self.asset_tag())?;
 
         state.end()

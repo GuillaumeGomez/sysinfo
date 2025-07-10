@@ -20,7 +20,7 @@ impl MotherboardInner {
         }
     }
 
-    pub(crate) fn vendor(&self) -> Option<String> {
+    pub(crate) fn vendor_name(&self) -> Option<String> {
         cfg_if! {
             if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
                 get_io_platform_property("manufacturer")
@@ -40,7 +40,7 @@ impl MotherboardInner {
         }
     }
 
-    pub(crate) fn serial(&self) -> Option<String> {
+    pub(crate) fn serial_number(&self) -> Option<String> {
         cfg_if! {
             if #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))] {
                 get_io_platform_property("IOPlatformSerialNumber")

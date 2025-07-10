@@ -11,7 +11,7 @@ impl MotherboardInner {
         unreachable!()
     }
 
-    pub(crate) fn vendor(&self) -> Option<String> {
+    pub(crate) fn vendor_name(&self) -> Option<String> {
         unreachable!()
     }
 
@@ -19,7 +19,7 @@ impl MotherboardInner {
         unreachable!()
     }
 
-    pub(crate) fn serial(&self) -> Option<String> {
+    pub(crate) fn serial_number(&self) -> Option<String> {
         unreachable!()
     }
 
