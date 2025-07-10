@@ -113,7 +113,7 @@ impl SystemTimeInfo {
     pub fn get_time_interval(&mut self, port: mach_port_t) -> f64 {
         let need_cpu_usage_update = self
             .last_update
-            .map(|last_update| last_update.elapsed() > crate::MINIMUM_CPU_UPDATE_INTERVAL)
+            .map(|last_update| last_update.elapsed() >= crate::MINIMUM_CPU_UPDATE_INTERVAL)
             .unwrap_or(true);
         if need_cpu_usage_update {
             let mut total = 0;

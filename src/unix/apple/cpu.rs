@@ -32,7 +32,7 @@ impl CpusWrapper {
     pub(crate) fn refresh(&mut self, refresh_kind: CpuRefreshKind, port: mach_port_t) {
         let need_cpu_usage_update = self
             .last_update
-            .is_some_and(|last_update| last_update.elapsed() > crate::MINIMUM_CPU_UPDATE_INTERVAL);
+            .is_some_and(|last_update| last_update.elapsed() >= crate::MINIMUM_CPU_UPDATE_INTERVAL);
 
         let cpus = &mut self.cpus;
         if cpus.is_empty() {

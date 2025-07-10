@@ -1176,3 +1176,27 @@ fn test_wait() {
         assert!(exit_status.is_some());
     }
 }
+
+// Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/1528>.
+//
+// On macOS, we didn't set the `old_stime` and `old_utime` when we create processes, meaning
+// that we can get CPU usage only on the third try.
+#[test]
+fn test_cpu_processes_usage() {
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    if std::env::var("FREEBSD_CI").is_ok() {
+        // FIXME: once I'm able to run a virtual freebsd machine, need to check if this test
+        // is working.
+        return;
+    }
+
+    let mut sys = System::new_all();
+
+    std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    assert!(sys.processes().iter().any(|(_, p)| p.cpu_usage() > 0.));
+}
