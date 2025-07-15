@@ -12,7 +12,7 @@ use crate::{Cpu, CpuRefreshKind};
 
 macro_rules! to_str {
     ($e:expr) => {
-        unsafe { std::str::from_utf8_unchecked($e) }
+        std::str::from_utf8($e).unwrap_or_default()
     };
 }
 
