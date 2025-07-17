@@ -239,24 +239,34 @@ impl CpuValues {
         self.guest_nice = guest_nice;
     }
 
-    /// Returns work time.
+    #[inline]
     pub fn work_time(&self) -> u64 {
-        self.user
-            .saturating_add(self.nice)
-            .saturating_add(self.system)
+        self.user.saturating_add(self.nice)
+    }
+
+    #[inline]
+    pub fn system_time(&self) -> u64 {
+        self.system
             .saturating_add(self.irq)
             .saturating_add(self.softirq)
     }
 
-    /// Returns total time.
+    #[inline]
+    pub fn idle_time(&self) -> u64 {
+        self.idle.saturating_add(self.iowait)
+    }
+
+    #[inline]
+    pub fn virtual_time(&self) -> u64 {
+        self.guest.saturating_add(self.guest_nice)
+    }
+
+    #[inline]
     pub fn total_time(&self) -> u64 {
         self.work_time()
-            .saturating_add(self.idle)
-            .saturating_add(self.iowait)
-            // `steal`, `guest` and `guest_nice` are only used if we want to account the "guest"
-            // into the computation.
-            .saturating_add(self.guest)
-            .saturating_add(self.guest_nice)
+            .saturating_add(self.system_time())
+            .saturating_add(self.idle_time())
+            .saturating_add(self.virtual_time())
             .saturating_add(self.steal)
     }
 }
@@ -318,15 +328,34 @@ impl CpuUsage {
                 }
             };
         }
+
         self.old_values = self.new_values;
         self.new_values.set(
             user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice,
         );
+
         self.total_time = self.new_values.total_time();
         self.old_total_time = self.old_values.total_time();
-        self.percent = min!(self.new_values.work_time(), self.old_values.work_time(), 0.)
-            / min!(self.total_time, self.old_total_time, 1.)
-            * 100.;
+
+        let nice_period = self.new_values.nice.saturating_sub(self.old_values.nice);
+        let user_period = self.new_values.user.saturating_sub(self.old_values.user);
+        let steal_period = self.new_values.steal.saturating_sub(self.old_values.steal);
+        let guest_period = self
+            .new_values
+            .virtual_time()
+            .saturating_sub(self.old_values.virtual_time());
+        let system_period = self
+            .new_values
+            .system_time()
+            .saturating_sub(self.old_values.system_time());
+
+        let total = min!(self.total_time, self.old_total_time, 1.);
+        let nice = nice_period as f32 / total;
+        let user = user_period as f32 / total;
+        let system = system_period as f32 / total;
+        let irq = (steal_period + guest_period) as f32 / total;
+
+        self.percent = (nice + user + system + irq) * 100.;
         if self.percent > 100. {
             self.percent = 100.; // to prevent the percentage to go above 100%
         }
