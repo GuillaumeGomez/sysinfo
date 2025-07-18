@@ -1,3 +1,7 @@
+# 0.36.1
+
+* Linux: Improve processor CPU usage computation.
+
 # 0.36.0
 
  * Add new `Motherboard` type.
