@@ -29,6 +29,8 @@ use windows::Win32::System::SystemInformation::{
 };
 use windows::Win32::System::Threading::GetExitCodeProcess;
 
+use wmi::{WMIDateTime, COMLibrary, WMIConnection};
+
 declare_signals! {
     (),
     Signal::Kill => (),
@@ -73,8 +75,51 @@ unsafe fn boot_time() -> u64 {
     }
 }
 
+/// Struct containing physical memory information.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize, serde::de::DeserializeOwned))]
+pub(crate) struct PhysicalMemory {
+    attributes: Option<u32>,
+    bank_label: Option<String>,
+    capacity: Option<String>,
+    caption: Option<String>,
+    configured_clock_speed: Option<u32>,
+    configured_voltage: Option<u32>,
+    creation_class_name: Option<String>,
+    data_width: Option<u16>,
+    description: Option<String>,
+    device_locator: Option<String>,
+    form_factor: Option<u16>,
+    hot_swappable: Option<bool>,
+    install_date: Option<WMIDateTime>,
+    interleave_data_depth: Option<u16>,
+    interleave_position: Option<u32>,
+    manufacturer: Option<String>,
+    max_voltage: Option<u32>,
+    memory_type: Option<u16>,
+    min_voltage: Option<u32>,
+    model: Option<String>,
+    name: Option<String>,
+    other_identifying_info: Option<String>,
+    part_number: Option<String>,
+    position_in_row: Option<u32>,
+    powered_on: Option<bool>,
+    removable: Option<bool>,
+    replaceable: Option<bool>,
+    serial_number: Option<String>,
+    sku: Option<String>,
+    sm_bios_memory_type: Option<u32>,
+    speed: Option<u32>,
+    status: Option<String>,
+    tag: Option<String>,
+    total_width: Option<u16>,
+    type_detail: Option<u16>,
+    version: Option<String>,
+}
+
 pub(crate) struct SystemInner {
     process_list: HashMap<Pid, Process>,
+    memory: Vec<PhysicalMemory>,
     mem_total: u64,
     mem_available: u64,
     swap_total: u64,
@@ -87,6 +132,7 @@ impl SystemInner {
     pub(crate) fn new() -> Self {
         Self {
             process_list: HashMap::with_capacity(500),
+            memory: Vec::with_capacity(4),
             mem_total: 0,
             mem_available: 0,
             swap_total: 0,
@@ -113,6 +159,27 @@ impl SystemInner {
                 );
             }
         }
+    }
+
+    fn query_physical_memory(&mut self) -> Option<Vec<PhysicalMemory>> {
+        // 1. Initialize a connection with the Component Object Model Library
+        //    - See: https://learn.microsoft.com/en-us/windows/win32/com/the-com-library
+        // 2. Initialize a connection with the Windows Management Instrumentation (WMI)
+        // 3. Query the WMI with a request for all details relating to the Win32_PhysicalMemory class
+        //    - Win32_PhysicalMemory class defintion: 
+        //      https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-physicalmemory
+        // 4. Return a vector of serialized Win32_PhysicalMemory objects.
+        // 
+        // Note: return None on failure.
+
+        COMLibrary::new().ok().and_then(|com_conn| {
+            WMIConnection::new(com_conn).ok().and_then(|wmi_conn| {
+                // This line in particular is problematic.
+                // Quote: "the trait bound `PhysicalMemory: serde::de::DeserializeOwned` is not satisfied"
+                // if we make 'serde' mandatory, the error will go away.
+                wmi_conn.raw_query("SELECT * FROM Win32_PhysicalMemory").ok()
+            })
+        })
     }
 
     pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
@@ -168,6 +235,20 @@ impl SystemInner {
                 let _err = GlobalMemoryStatusEx(&mut mem_info);
                 self.mem_total = mem_info.ullTotalPhys as _;
                 self.mem_available = mem_info.ullAvailPhys as _;
+
+                // self.memory should only be set once.
+                //
+                // The Win32_PhysicalMemory class from the WMI does not
+                // change unless you restart your system, and do your phyiscal changes
+                // (i.e remove a stick of RAM)
+                if self.memory.is_empty() {
+                    match self.query_physical_memory() {
+                        Some(phyiscal_memory) => self.memory = phyiscal_memory,
+                        None => {
+                            sysinfo_debug!("Warning: When getting physical memory data: query_physical_memory() returned None.")
+                        }
+                    }
+                }
             }
             if refresh_kind.swap() {
                 let mut perf_info: PERFORMANCE_INFORMATION = zeroed();
@@ -301,6 +382,10 @@ impl SystemInner {
         }
 
         num_procs
+    }
+
+    pub(crate) fn memory_details(&self) -> &Vec<PhysicalMemory> {
+        &self.memory
     }
 
     pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
