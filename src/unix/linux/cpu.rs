@@ -424,6 +424,10 @@ impl CpuInner {
         self.usage.percent
     }
 
+    pub(crate) fn cpu_total_time(&self) -> u64 {
+        self.usage.total_time
+    }
+
     pub(crate) fn name(&self) -> &str {
         &self.name
     }

@@ -7,6 +7,10 @@ impl CpuInner {
         0.0
     }
 
+    pub(crate) fn cpu_total_time(&self) -> u64 {
+        0
+    }
+
     pub(crate) fn name(&self) -> &str {
         ""
     }

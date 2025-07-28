@@ -268,6 +268,7 @@ impl CpusWrapper {
             global: CpuUsage {
                 percent: 0f32,
                 key_used: None,
+                total_time: 0,
             },
             cpus: Vec::new(),
         }
@@ -309,6 +310,7 @@ impl CpusWrapper {
 pub(crate) struct CpuUsage {
     percent: f32,
     pub(crate) key_used: Option<KeyHandler>,
+    total_time: u64,
 }
 
 impl CpuUsage {
@@ -328,6 +330,10 @@ pub(crate) struct CpuInner {
 impl CpuInner {
     pub(crate) fn cpu_usage(&self) -> f32 {
         self.usage.percent
+    }
+
+    pub(crate) fn cpu_total_time(&self) -> u64 {
+        self.usage.total_time
     }
 
     pub(crate) fn name(&self) -> &str {
@@ -357,6 +363,7 @@ impl CpuInner {
             usage: CpuUsage {
                 percent: 0f32,
                 key_used: None,
+                total_time: 0,
             },
             vendor_id,
             brand,

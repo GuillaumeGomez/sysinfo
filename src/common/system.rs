@@ -2334,7 +2334,7 @@ pub enum ProcessesToUpdate<'a> {
 /// information from `/proc/<pid>/` as well as all the information from `/proc/<pid>/task/<tid>/`
 /// folders. This makes the refresh mechanism a lot slower depending on the number of tasks
 /// each process has.
-///  
+///
 /// If you don't care about tasks information, use `ProcessRefreshKind::everything().without_tasks()`
 /// as much as possible.
 ///
@@ -2775,6 +2775,22 @@ impl Cpu {
     /// ```
     pub fn cpu_usage(&self) -> f32 {
         self.inner.cpu_usage()
+    }
+
+    /// Returns this CPU's total_time.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let s = System::new_with_specifics(
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    /// for cpu in s.cpus() {
+    ///     println!("{}", cpu.cpu_total_time());
+    /// }
+    /// ```
+    pub fn cpu_total_time(&self) -> u64 {
+        self.inner.cpu_total_time()
     }
 
     /// Returns this CPU's name.

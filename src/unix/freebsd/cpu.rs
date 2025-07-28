@@ -116,6 +116,7 @@ impl CpusWrapper {
 
 pub(crate) struct CpuInner {
     pub(crate) cpu_usage: f32,
+    pub(crate) cpu_total_time: u64,
     name: String,
     pub(crate) vendor_id: String,
     pub(crate) frequency: u64,
@@ -125,6 +126,7 @@ impl CpuInner {
     pub(crate) fn new(name: String, vendor_id: String, frequency: u64) -> Self {
         Self {
             cpu_usage: 0.,
+            cpu_total_time: 0,
             name,
             vendor_id,
             frequency,
@@ -133,6 +135,10 @@ impl CpuInner {
 
     pub(crate) fn cpu_usage(&self) -> f32 {
         self.cpu_usage
+    }
+
+    pub(crate) fn cpu_total_time(&self) -> u64 {
+        self.cpu_total_time
     }
 
     pub(crate) fn name(&self) -> &str {

@@ -115,6 +115,7 @@ pub(crate) struct CpuUsage {
     data: Arc<CpuData>,
     // Cannot be frequency for each CPU apparently so we store it in the CPU usage...
     frequency: u64,
+    total_time: u64,
 }
 
 impl CpuUsage {
@@ -123,6 +124,7 @@ impl CpuUsage {
             percent: 0.,
             data: Arc::new(CpuData::new(std::ptr::null_mut(), 0)),
             frequency: 0,
+            total_time: 0,
         }
     }
 
@@ -130,8 +132,16 @@ impl CpuUsage {
         self.percent
     }
 
+    pub(crate) fn total_time(&self) -> u64 {
+        self.total_time
+    }
+
     pub(crate) fn set_cpu_usage(&mut self, value: f32) {
         self.percent = value;
+    }
+
+    pub(crate) fn set_cpu_total_time(&mut self, value: u64) {
+        self.total_time = value;
     }
 }
 
@@ -156,6 +166,7 @@ impl CpuInner {
                 percent: 0.,
                 data: cpu_data,
                 frequency,
+                total_time: 0,
             },
             vendor_id,
             brand,
@@ -164,6 +175,10 @@ impl CpuInner {
 
     pub(crate) fn set_cpu_usage(&mut self, cpu_usage: f32) {
         self.usage.set_cpu_usage(cpu_usage);
+    }
+
+    pub(crate) fn set_cpu_total_time(&mut self, total_time: u64) {
+        self.usage.set_cpu_total_time(total_time)
     }
 
     pub(crate) fn update(&mut self, cpu_usage: f32, cpu_data: Arc<CpuData>) {
@@ -181,6 +196,10 @@ impl CpuInner {
 
     pub(crate) fn cpu_usage(&self) -> f32 {
         self.usage.percent()
+    }
+
+    pub(crate) fn cpu_total_time(&self) -> u64 {
+        self.usage.total_time()
     }
 
     pub(crate) fn name(&self) -> &str {
@@ -355,6 +374,7 @@ pub(crate) fn init_cpus(
                 let cpu_usage = compute_usage_of_cpu(&cpu, cpu_info, offset);
                 cpu.inner.set_cpu_usage(cpu_usage);
                 percentage += cpu.cpu_usage();
+                cpu.inner.set_cpu_total_time(cpu.cpu_total_time());
             }
             cpus.push(cpu);
 
