@@ -5,6 +5,7 @@ use crate::Component;
 
 pub(crate) struct ComponentInner {
     id: Vec<u8>,
+    component_id: String,
     label: String,
     temperature: Option<f32>,
     max: f32,
@@ -12,6 +13,17 @@ pub(crate) struct ComponentInner {
 }
 
 impl ComponentInner {
+    pub(crate) fn new(id: Vec<u8>, temperature: f32, core: usize) -> ComponentInner {
+        ComponentInner {
+            id,
+            component_id: format!("cpu_{}", core + 1),
+            label: format!("CPU {}", core + 1),
+            temperature: Some(temperature),
+            max: temperature,
+            updated: true,
+        }
+    }
+
     pub(crate) fn temperature(&self) -> Option<f32> {
         self.temperature
     }
@@ -25,7 +37,7 @@ impl ComponentInner {
     }
 
     pub(crate) fn id(&self) -> Option<&str> {
-        std::str::from_utf8(&self.id).ok()
+        Some(&self.component_id)
     }
 
     pub(crate) fn label(&self) -> &str {
@@ -94,13 +106,7 @@ impl ComponentsInner {
                     let id = format!("dev.cpu.{core}.temperature\0").as_bytes().to_vec();
                     if let Some(temperature) = refresh_component(&id) {
                         self.components.push(Component {
-                            inner: ComponentInner {
-                                id,
-                                label: format!("CPU {}", core + 1),
-                                temperature: Some(temperature),
-                                max: temperature,
-                                updated: true,
-                            },
+                            inner: ComponentInner::new(id, temperature, core),
                         });
                     }
                 }
@@ -111,5 +117,29 @@ impl ComponentsInner {
                 c.inner.updated = true;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::unix::freebsd::{ComponentInner, ComponentsInner};
+    use crate::Component;
+
+    #[test]
+    fn test_components() {
+        let component1 = Component {
+            inner: ComponentInner::new(b"dev.cpu.0.temperature\0".to_vec(), 1.234, 0),
+        };
+
+        let component2 = Component {
+            inner: ComponentInner::new(b"dev.cpu.1.temperature\0".to_vec(), 5.678, 1),
+        };
+        assert_eq!(component1.id(), Some("cpu_1"));
+        assert_eq!(component1.label(), "CPU 1");
+        assert_eq!(component1.temperature(), Some(1.234));
+
+        assert_eq!(component2.id(), Some("cpu_2"));
+        assert_eq!(component2.label(), "CPU 2");
+        assert_eq!(component2.temperature(), Some(5.678));
     }
 }
