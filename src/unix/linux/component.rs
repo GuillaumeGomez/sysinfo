@@ -7,6 +7,7 @@
 use crate::Component;
 
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs::{File, read_dir};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -17,7 +18,7 @@ pub(crate) struct ComponentInner {
     device_model: Option<String>,
 
     /// ID of a `Component`.
-    id: String,
+    id: Option<String>,
 
     /// The chip name.
     ///
@@ -294,14 +295,10 @@ impl ComponentInner {
             });
             let component = &mut component.inner;
             let name = get_file_line(&folder.join("name"), 16);
-            let component_id = format!(
-                "{}_{id}",
-                folder
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_str()
-                    .unwrap_or_default()
-            );
+            let component_id = folder
+                .file_name()
+                .and_then(OsStr::to_str)
+                .map(|f| format!("{f}_{id}"));
             component.name = name.unwrap_or_default();
             component.id = component_id;
             let device_model = get_file_line(&folder.join("device/model"), 16);
@@ -367,7 +364,7 @@ impl ComponentInner {
     }
 
     pub(crate) fn id(&self) -> Option<&str> {
-        Some(&self.id)
+        self.id.as_deref()
     }
 
     pub(crate) fn refresh(&mut self) {
@@ -452,14 +449,10 @@ impl ComponentsInner {
                     let Some(name) = get_file_line(&path.join("type"), 16) else {
                         return;
                     };
-                    let component_id = path
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_str()
-                        .unwrap_or_default();
+                    let component_id = path.file_name().and_then(OsStr::to_str).map(str::to_string);
                     let mut component = ComponentInner {
                         name,
-                        id: String::from(component_id),
+                        id: component_id,
                         ..Default::default()
                     };
                     fill_component(&mut component, "input", &path, "temp");
