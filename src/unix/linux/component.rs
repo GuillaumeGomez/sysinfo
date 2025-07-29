@@ -610,4 +610,45 @@ mod tests {
         assert_eq!(components[1].critical(), Some(0.2));
         assert_eq!(components[1].id(), Some("hwmon0_2"));
     }
+
+    #[test]
+    fn test_thermal_zone() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temporary directory");
+        let thermal_zone0_dir = temp_dir.path().join("thermal/thermal_zone0");
+        let thermal_zone1_dir = temp_dir.path().join("thermal/thermal_zone1");
+
+        // create thermal zone files
+        fs::create_dir_all(thermal_zone0_dir.join("device"))
+            .expect("failed to create thermal/thermal_zone0 directory");
+
+        fs::write(thermal_zone0_dir.join("type"), "test_name")
+            .expect("failed to write to name file");
+        fs::write(thermal_zone0_dir.join("temp"), "1234").expect("failed to write to temp file");
+
+        // create thermal zone files
+        fs::create_dir_all(thermal_zone1_dir.join("device"))
+            .expect("failed to create thermal/thermal_zone1 directory");
+
+        fs::write(thermal_zone1_dir.join("type"), "test_name2")
+            .expect("failed to write to name file");
+        fs::write(thermal_zone1_dir.join("temp"), "5678").expect("failed to write to temp file");
+
+        let mut components = ComponentsInner::new();
+        components.refresh_from_sys_class_path(temp_dir.path());
+        let mut components = components.into_vec();
+        components.sort_by_key(|c| c.inner.name.clone());
+
+        assert_eq!(components.len(), 2);
+        assert_eq!(components[0].inner.name, "test_name");
+        assert_eq!(components[0].label(), "");
+        assert_eq!(components[0].temperature(), Some(1.234));
+        assert_eq!(components[0].max(), Some(1.234));
+        assert_eq!(components[0].id(), Some("thermal_zone0"));
+
+        assert_eq!(components[1].inner.name, "test_name2");
+        assert_eq!(components[1].label(), "");
+        assert_eq!(components[1].temperature(), Some(5.678));
+        assert_eq!(components[1].max(), Some(5.678));
+        assert_eq!(components[1].id(), Some("thermal_zone1"));
+    }
 }
