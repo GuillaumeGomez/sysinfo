@@ -15,6 +15,10 @@ use std::path::{Path, PathBuf};
 pub(crate) struct ComponentInner {
     /// Optional associated device of a `Component`.
     device_model: Option<String>,
+
+    /// ID of a `Component`.
+    id: String,
+
     /// The chip name.
     ///
     /// Kernel documentation extract:
@@ -290,7 +294,16 @@ impl ComponentInner {
             });
             let component = &mut component.inner;
             let name = get_file_line(&folder.join("name"), 16);
+            let component_id = format!(
+                "{}_{id}",
+                folder
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_str()
+                    .unwrap_or_default()
+            );
             component.name = name.unwrap_or_default();
+            component.id = component_id;
             let device_model = get_file_line(&folder.join("device/model"), 16);
             component.device_model = device_model;
             fill_component(component, item, folder, filename);
@@ -351,6 +364,10 @@ impl ComponentInner {
 
     pub(crate) fn label(&self) -> &str {
         &self.label
+    }
+
+    pub(crate) fn id(&self) -> Option<&str> {
+        Some(&self.id)
     }
 
     pub(crate) fn refresh(&mut self) {
@@ -435,8 +452,14 @@ impl ComponentsInner {
                     let Some(name) = get_file_line(&path.join("type"), 16) else {
                         return;
                     };
+                    let component_id = path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_str()
+                        .unwrap_or_default();
                     let mut component = ComponentInner {
                         name,
+                        id: String::from(component_id),
                         ..Default::default()
                     };
                     fill_component(&mut component, "input", &path, "temp");
@@ -473,6 +496,7 @@ mod tests {
         assert_eq!(components[0].inner.name, "test_name");
         assert_eq!(components[0].label(), "test_name temp1");
         assert_eq!(components[0].temperature(), Some(1.234));
+        assert_eq!(components[0].id(), Some("hwmon0_1"));
     }
 
     #[test]
@@ -504,6 +528,7 @@ mod tests {
         assert_eq!(components[0].temperature(), Some(1.234));
         assert_eq!(components[0].max(), Some(1.234));
         assert_eq!(components[0].critical(), Some(0.1));
+        assert_eq!(components[0].id(), Some("hwmon0_1"));
     }
 
     #[test]
@@ -536,12 +561,14 @@ mod tests {
         assert_eq!(components[0].label(), "test_name test_label1");
         assert_eq!(components[0].temperature(), Some(1.234));
         assert_eq!(components[0].max(), Some(1.234));
+        assert_eq!(components[0].id(), Some("hwmon0_1"));
         assert_eq!(components[0].critical(), Some(0.1));
 
         assert_eq!(components[1].inner.name, "test_name");
         assert_eq!(components[1].label(), "test_name test_label2");
         assert_eq!(components[1].temperature(), Some(5.678));
         assert_eq!(components[1].max(), Some(5.678));
+        assert_eq!(components[1].id(), Some("hwmon0_2"));
         assert_eq!(components[1].critical(), Some(0.2));
     }
 
@@ -581,11 +608,13 @@ mod tests {
         assert_eq!(components[0].temperature(), Some(1.234));
         assert_eq!(components[0].max(), Some(1.234));
         assert_eq!(components[0].critical(), Some(0.1));
+        assert_eq!(components[0].id(), Some("hwmon0_1"));
 
         assert_eq!(components[1].inner.name, "test_name");
         assert_eq!(components[1].label(), "test_name test_label2 test_model");
         assert_eq!(components[1].temperature(), Some(5.678));
         assert_eq!(components[1].max(), Some(5.678));
         assert_eq!(components[1].critical(), Some(0.2));
+        assert_eq!(components[1].id(), Some("hwmon0_2"));
     }
 }

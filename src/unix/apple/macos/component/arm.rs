@@ -163,6 +163,10 @@ impl ComponentInner {
         &self.label
     }
 
+    pub(crate) fn id(&self) -> Option<&str> {
+        None
+    }
+
     pub(crate) fn refresh(&mut self) {
         unsafe {
             let Some(event) =

@@ -269,6 +269,25 @@ impl Component {
         self.inner.label()
     }
 
+    /// Returns the identifier of the component.
+    ///
+    /// Note: The identifier should be reasonably unique but is provided by the kernel.
+    /// It could change if the hardware changes or after a reboot.
+    ///
+    /// ```no_run
+    /// use sysinfo::Components;
+    ///
+    /// let components = Components::new_with_refreshed_list();
+    /// for component in &components {
+    ///     if let Some(id) = component.id() {
+    ///         println!("{id}");
+    ///     }
+    /// }
+    /// ```
+    pub fn id(&self) -> Option<&str> {
+        self.inner.id()
+    }
+
     /// Refreshes component.
     ///
     /// ```no_run

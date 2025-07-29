@@ -24,6 +24,10 @@ impl ComponentInner {
         None
     }
 
+    pub(crate) fn id(&self) -> Option<&str> {
+        std::str::from_utf8(&self.id).ok()
+    }
+
     pub(crate) fn label(&self) -> &str {
         &self.label
     }

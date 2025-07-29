@@ -151,6 +151,10 @@ impl ComponentInner {
         &self.label
     }
 
+    pub(crate) fn id(&self) -> Option<&str> {
+        None
+    }
+
     pub(crate) fn refresh(&mut self) {
         self.temperature = self.ffi_part.temperature();
         if let Some(temperature) = self.temperature {
