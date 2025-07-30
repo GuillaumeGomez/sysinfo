@@ -66,7 +66,7 @@ impl ComponentInner {
     }
 
     pub(crate) fn id(&self) -> Option<&str> {
-        None
+        Some(&self.label)
     }
 
     pub(crate) fn refresh(&mut self) {
