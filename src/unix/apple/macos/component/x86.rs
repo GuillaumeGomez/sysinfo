@@ -13,15 +13,28 @@ use objc2_io_kit::{
 
 use std::mem;
 
-const COMPONENTS_TEMPERATURE_IDS: &[(&str, &[i8])] = &[
-    ("PECI CPU", &['T' as i8, 'C' as i8, 'X' as i8, 'C' as i8]), // PECI CPU "TCXC"
-    ("PECI CPU", &['T' as i8, 'C' as i8, 'X' as i8, 'c' as i8]), // PECI CPU "TCXc"
+const COMPONENTS_TEMPERATURE_IDS: &[(&str, &str, &[i8])] = &[
+    (
+        "PECI CPU",
+        "TCXC",
+        &['T' as i8, 'C' as i8, 'X' as i8, 'C' as i8],
+    ), // PECI CPU "TCXC"
+    (
+        "PECI CPU",
+        "TCXc",
+        &['T' as i8, 'C' as i8, 'X' as i8, 'c' as i8],
+    ), // PECI CPU "TCXc"
     (
         "CPU Proximity",
+        "TC0P",
         &['T' as i8, 'C' as i8, '0' as i8, 'P' as i8],
     ), // CPU Proximity (heat spreader) "TC0P"
-    ("GPU", &['T' as i8, 'G' as i8, '0' as i8, 'P' as i8]),      // GPU "TG0P"
-    ("Battery", &['T' as i8, 'B' as i8, '0' as i8, 'T' as i8]),  // Battery "TB0T"
+    ("GPU", "TG0P", &['T' as i8, 'G' as i8, '0' as i8, 'P' as i8]), // GPU "TG0P"
+    (
+        "Battery",
+        "TB0T",
+        &['T' as i8, 'B' as i8, '0' as i8, 'T' as i8],
+    ), // Battery "TB0T"
 ];
 
 pub(crate) struct ComponentFFI {
@@ -93,13 +106,18 @@ impl ComponentsInner {
         let critical_temp =
             get_temperature(connection, &['T' as i8, 'C' as i8, '0' as i8, 'D' as i8, 0]);
 
-        for (id, v) in COMPONENTS_TEMPERATURE_IDS.iter() {
-            if let Some(c) = self.components.iter_mut().find(|c| c.inner.label == *id) {
+        for (label, id, v) in COMPONENTS_TEMPERATURE_IDS.iter() {
+            if let Some(c) = self.components.iter_mut().find(|c| c.inner.id == *id) {
                 c.refresh();
                 c.inner.updated = true;
-            } else if let Some(c) =
-                ComponentInner::new((*id).to_owned(), None, critical_temp, v, connection)
-            {
+            } else if let Some(c) = ComponentInner::new(
+                (*id).to_owned(),
+                (*label).to_owned(),
+                None,
+                critical_temp,
+                v,
+                connection,
+            ) {
                 self.components.push(Component { inner: c });
             }
         }
@@ -107,6 +125,7 @@ impl ComponentsInner {
 }
 
 pub(crate) struct ComponentInner {
+    id: String,
     temperature: Option<f32>,
     max: f32,
     critical: Option<f32>,
@@ -118,6 +137,7 @@ pub(crate) struct ComponentInner {
 impl ComponentInner {
     /// Creates a new `ComponentInner` with the given information.
     pub(crate) fn new(
+        id: String,
         label: String,
         max: Option<f32>,
         critical: Option<f32>,
@@ -126,6 +146,7 @@ impl ComponentInner {
     ) -> Option<Self> {
         let ffi_part = ComponentFFI::new(key, connection)?;
         ffi_part.temperature().map(|temperature| Self {
+            id,
             temperature: Some(temperature),
             label,
             max: max.unwrap_or(temperature),
@@ -152,7 +173,7 @@ impl ComponentInner {
     }
 
     pub(crate) fn id(&self) -> Option<&str> {
-        None
+        Some(&self.id)
     }
 
     pub(crate) fn refresh(&mut self) {
