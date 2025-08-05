@@ -274,6 +274,23 @@ impl Component {
     /// Note: The identifier should be reasonably unique but is provided by the kernel.
     /// It could change if the hardware changes or after a reboot.
     ///
+    /// | OS | Computed ID by `sysinfo` | Example |
+    /// |----|--------------------------|----------|
+    /// | Linux/hwmon | hwmon file concatenated with the temp index. | ` hwmon0_1` if the temperature data comes from the `hwmon0/temp1_input` file. |
+    /// | Linux/thermal | thermal file name | `thermal_zone0` |
+    /// | FreeBSD | `cpu_` concatenated with the core index. | `cpu_1` for the first core. |
+    /// | macOS/arm | Serial ID reported by the HID driver. | |
+    /// | macOS/x86 | Technical ID sent to the OS (see below) | `TXCX` |
+    /// | Windows | `Computer` (same as the label) | `Computer` |
+    /// | appstore | Components are not available | None |
+    /// | unknown | Components are not available | None |
+    ///
+    /// For macOS on X86 the following identifiers are possible:
+    /// - `TXCX` or `TXCx` for PECI CPU (depending on if run on iMac or MacBook)
+    /// - `TC0P` for CPU Proximity
+    /// - `TG0P` for GPU
+    /// - `TB0T` for Battery
+    ///
     /// ```no_run
     /// use sysinfo::Components;
     ///
