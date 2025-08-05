@@ -7,7 +7,7 @@
     feature = "system",
     feature = "user"
 ))]
-use serde::{ser::SerializeStruct, Serialize, Serializer};
+use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 #[cfg(feature = "disk")]
 impl Serialize for crate::Disk {

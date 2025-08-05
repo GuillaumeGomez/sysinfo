@@ -2,7 +2,7 @@
 
 #[cfg(feature = "disk")]
 #[link(name = "objc", kind = "dylib")]
-extern "C" {
+unsafe extern "C" {
     pub fn objc_autoreleasePoolPop(pool: *mut libc::c_void);
     pub fn objc_autoreleasePoolPush() -> *mut libc::c_void;
 }

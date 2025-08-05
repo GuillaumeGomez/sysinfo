@@ -4,8 +4,8 @@ use std::ffi::OsStr;
 use std::fmt;
 use std::path::Path;
 
-use crate::common::impl_get_set::impl_get_set;
 use crate::DiskUsage;
+use crate::common::impl_get_set::impl_get_set;
 
 /// Struct containing a disk information.
 ///

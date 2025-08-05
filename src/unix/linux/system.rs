@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::cpu::{get_physical_core_count, CpusWrapper};
+use crate::sys::cpu::{CpusWrapper, get_physical_core_count};
 use crate::sys::process::{compute_cpu_usage, refresh_procs};
 use crate::sys::utils::{get_all_utf8_data, to_u64};
 use crate::{
@@ -8,7 +8,7 @@ use crate::{
     ProcessesToUpdate,
 };
 
-use libc::{self, c_char, sysconf, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE};
+use libc::{self, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE, c_char, sysconf};
 
 use std::cmp::min;
 use std::collections::HashMap;
@@ -17,7 +17,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::{atomic::AtomicIsize, OnceLock};
+use std::sync::{OnceLock, atomic::AtomicIsize};
 use std::time::Duration;
 
 unsafe fn getrlimit() -> Option<libc::rlimit> {
@@ -26,7 +26,7 @@ unsafe fn getrlimit() -> Option<libc::rlimit> {
         rlim_max: 0,
     };
 
-    if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
+    if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) } != 0 {
         None
     } else {
         Some(limits)
@@ -792,6 +792,7 @@ fn get_system_info_android(info: InfoType) -> Option<String> {
 
 #[cfg(test)]
 mod test {
+    use super::InfoType;
     #[cfg(target_os = "android")]
     use super::get_system_info_android;
     #[cfg(not(target_os = "android"))]
@@ -799,7 +800,6 @@ mod test {
     use super::read_table;
     use super::read_table_key;
     use super::system_info_as_list;
-    use super::InfoType;
     use std::collections::HashMap;
     use std::io::Write;
     use tempfile::NamedTempFile;

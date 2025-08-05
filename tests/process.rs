@@ -178,18 +178,21 @@ fn test_process_refresh() {
         ProcessesToUpdate::Some(&[sysinfo::get_current_pid().expect("failed to get current pid")]),
         false,
     );
-    assert!(s
-        .process(sysinfo::get_current_pid().expect("failed to get current pid"))
-        .is_some());
+    assert!(
+        s.process(sysinfo::get_current_pid().expect("failed to get current pid"))
+            .is_some()
+    );
 
-    assert!(s
-        .processes()
-        .iter()
-        .all(|(_, p)| p.environ().is_empty() && p.cwd().is_none() && p.cmd().is_empty()));
-    assert!(s
-        .processes()
-        .iter()
-        .any(|(_, p)| !p.name().is_empty() && p.memory() != 0));
+    assert!(
+        s.processes()
+            .iter()
+            .all(|(_, p)| p.environ().is_empty() && p.cwd().is_none() && p.cmd().is_empty())
+    );
+    assert!(
+        s.processes()
+            .iter()
+            .any(|(_, p)| !p.name().is_empty() && p.memory() != 0)
+    );
 }
 
 #[test]
@@ -1141,12 +1144,16 @@ fn open_files() {
     let mut s = System::new();
     s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let cur_process = s.process(pid).unwrap();
-    assert!(cur_process
-        .open_files()
-        .is_some_and(|open_files| open_files > 0));
-    assert!(cur_process
-        .open_files_limit()
-        .is_some_and(|open_files| open_files > 0));
+    assert!(
+        cur_process
+            .open_files()
+            .is_some_and(|open_files| open_files > 0)
+    );
+    assert!(
+        cur_process
+            .open_files_limit()
+            .is_some_and(|open_files| open_files > 0)
+    );
 }
 
 #[test]

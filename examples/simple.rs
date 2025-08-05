@@ -6,7 +6,7 @@
 
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
-use sysinfo::{Components, Disks, Groups, Networks, Pid, System, Users, SUPPORTED_SIGNALS};
+use sysinfo::{Components, Disks, Groups, Networks, Pid, SUPPORTED_SIGNALS, System, Users};
 
 fn print_help() {
     println!(

@@ -29,14 +29,14 @@ pub type CNetworks = *mut c_void;
 pub type CDisks = *mut c_void;
 
 /// Equivalent of [`System::new()`][crate::System#method.new].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_init() -> CSystem {
     let system = Box::new(System::new());
     Box::into_raw(system) as CSystem
 }
 
 /// Equivalent of `System::drop()`. Important in C to cleanup memory.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_destroy(system: CSystem) {
     assert!(!system.is_null());
     unsafe {
@@ -45,7 +45,7 @@ pub extern "C" fn sysinfo_destroy(system: CSystem) {
 }
 
 /// Equivalent of [`System::refresh_memory()`][crate::System#method.refresh_memory].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_refresh_memory(system: CSystem) {
     assert!(!system.is_null());
     unsafe {
@@ -59,7 +59,7 @@ pub extern "C" fn sysinfo_refresh_memory(system: CSystem) {
 }
 
 /// Equivalent of [`System::refresh_cpu_usage()`][crate::System#method.refresh_cpu_usage].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_refresh_cpu(system: CSystem) {
     assert!(!system.is_null());
     unsafe {
@@ -73,7 +73,7 @@ pub extern "C" fn sysinfo_refresh_cpu(system: CSystem) {
 }
 
 /// Equivalent of [`System::refresh_all()`][crate::System#method.refresh_all].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_refresh_all(system: CSystem) {
     assert!(!system.is_null());
     unsafe {
@@ -89,7 +89,7 @@ pub extern "C" fn sysinfo_refresh_all(system: CSystem) {
 /// Equivalent of [`System::refresh_processes(ProcessesToUpdate::All)`].
 ///
 /// [`System::refresh_processes(ProcessesToUpdate::All)`]: crate::System#method.refresh_processes
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
     assert!(!system.is_null());
     unsafe {
@@ -105,7 +105,7 @@ pub extern "C" fn sysinfo_refresh_processes(system: CSystem) {
 /// Equivalent of [`System::refresh_processes(ProcessesToUpdate::Some(pid))`].
 ///
 /// [`System::refresh_processes(ProcessesToUpdate::Some(pid))`]: crate::System#method.refresh_processes
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: PID) {
     assert!(!system.is_null());
     unsafe {
@@ -119,14 +119,14 @@ pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: PID) {
 }
 
 /// Equivalent of [`Disks::new()`][crate::Disks#method.new].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_disks_init() -> CDisks {
     let disks = Box::new(Disks::new());
     Box::into_raw(disks) as CDisks
 }
 
 /// Equivalent of `Disks::drop()`. Important in C to cleanup memory.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_disks_destroy(disks: CDisks) {
     assert!(!disks.is_null());
     unsafe {
@@ -135,7 +135,7 @@ pub extern "C" fn sysinfo_disks_destroy(disks: CDisks) {
 }
 
 /// Equivalent of [`Disks::refresh()`][crate::Disks#method.refresh].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_disks_refresh(disks: CDisks) {
     assert!(!disks.is_null());
     unsafe {
@@ -149,7 +149,7 @@ pub extern "C" fn sysinfo_disks_refresh(disks: CDisks) {
 }
 
 /// Equivalent of [`System::total_memory()`][crate::System#method.total_memory].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_total_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
     unsafe {
@@ -161,7 +161,7 @@ pub extern "C" fn sysinfo_total_memory(system: CSystem) -> size_t {
 }
 
 /// Equivalent of [`System::free_memory()`][crate::System#method.free_memory].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_free_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
     unsafe {
@@ -173,7 +173,7 @@ pub extern "C" fn sysinfo_free_memory(system: CSystem) -> size_t {
 }
 
 /// Equivalent of [`System::used_memory()`][crate::System#method.used_memory].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_used_memory(system: CSystem) -> size_t {
     assert!(!system.is_null());
     let system: Box<System> = unsafe { Box::from_raw(system as *mut System) };
@@ -183,7 +183,7 @@ pub extern "C" fn sysinfo_used_memory(system: CSystem) -> size_t {
 }
 
 /// Equivalent of [`System::total_swap()`][crate::System#method.total_swap].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_total_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
     unsafe {
@@ -195,7 +195,7 @@ pub extern "C" fn sysinfo_total_swap(system: CSystem) -> size_t {
 }
 
 /// Equivalent of [`System::free_swap()`][crate::System#method.free_swap].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_free_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
     unsafe {
@@ -207,7 +207,7 @@ pub extern "C" fn sysinfo_free_swap(system: CSystem) -> size_t {
 }
 
 /// Equivalent of [`System::used_swap()`][crate::System#method.used_swap].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_used_swap(system: CSystem) -> size_t {
     assert!(!system.is_null());
     unsafe {
@@ -219,14 +219,14 @@ pub extern "C" fn sysinfo_used_swap(system: CSystem) -> size_t {
 }
 
 /// Equivalent of [`Networks::new()`][crate::Networks#method.new].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_networks_init() -> CNetworks {
     let networks = Box::new(Networks::new());
     Box::into_raw(networks) as CNetworks
 }
 
 /// Equivalent of `Networks::drop()`. Important in C to cleanup memory.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_networks_destroy(networks: CNetworks) {
     assert!(!networks.is_null());
     unsafe {
@@ -235,7 +235,7 @@ pub extern "C" fn sysinfo_networks_destroy(networks: CNetworks) {
 }
 
 /// Equivalent of [`Networks::refresh()`][crate::Networks#method.refresh].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_networks_refresh(networks: CNetworks) {
     assert!(!networks.is_null());
     unsafe {
@@ -250,7 +250,7 @@ pub extern "C" fn sysinfo_networks_refresh(networks: CNetworks) {
 
 /// Equivalent of
 /// `system::networks().iter().fold(0, |acc, (_, data)| acc + data.received() as size_t)`.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_networks_received(networks: CNetworks) -> size_t {
     assert!(!networks.is_null());
     unsafe {
@@ -265,7 +265,7 @@ pub extern "C" fn sysinfo_networks_received(networks: CNetworks) -> size_t {
 
 /// Equivalent of
 /// `system::networks().iter().fold(0, |acc, (_, data)| acc + data.transmitted() as size_t)`.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_networks_transmitted(networks: CNetworks) -> size_t {
     assert!(!networks.is_null());
     unsafe {
@@ -282,7 +282,7 @@ pub extern "C" fn sysinfo_networks_transmitted(networks: CNetworks) -> size_t {
 ///
 /// * `length` will contain the number of CPU usage added into `procs`.
 /// * `procs` will be allocated if it's null and will contain of CPU usage.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_cpus_usage(
     system: CSystem,
     length: *mut c_uint,
@@ -315,7 +315,7 @@ pub extern "C" fn sysinfo_cpus_usage(
 /// # ⚠️ WARNING ⚠️
 ///
 /// While having this method returned processes, you should *never* call any refresh method!
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_processes(
     system: CSystem,
     fn_pointer: Option<ProcessLoop>,
@@ -348,7 +348,7 @@ pub extern "C" fn sysinfo_processes(
 ///
 /// While having this method returned process, you should *never* call any
 /// refresh method!
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_process_by_pid(system: CSystem, pid: PID) -> CProcess {
     assert!(!system.is_null());
     unsafe {
@@ -368,7 +368,7 @@ pub extern "C" fn sysinfo_process_by_pid(system: CSystem, pid: PID) -> CProcess 
 /// # ⚠️ WARNING ⚠️
 ///
 /// While having this method processes, you should *never* call any refresh method!
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_process_tasks(
     process: CProcess,
     fn_pointer: Option<ProcessPidLoop>,
@@ -395,7 +395,7 @@ pub extern "C" fn sysinfo_process_tasks(
 }
 
 /// Equivalent of [`Process::pid()`][crate::Process#method.pid].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_process_pid(process: CProcess) -> PID {
     assert!(!process.is_null());
     let process = process as *const Process;
@@ -405,7 +405,7 @@ pub extern "C" fn sysinfo_process_pid(process: CProcess) -> PID {
 /// Equivalent of [`Process::parent()`][crate::Process#method.parent].
 ///
 /// In case there is no known parent, it returns `0`.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_process_parent_pid(process: CProcess) -> PID {
     assert!(!process.is_null());
     let process = process as *const Process;
@@ -413,7 +413,7 @@ pub extern "C" fn sysinfo_process_parent_pid(process: CProcess) -> PID {
 }
 
 /// Equivalent of [`Process::cpu_usage()`][crate::Process#method.cpu_usage].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_process_cpu_usage(process: CProcess) -> c_float {
     assert!(!process.is_null());
     let process = process as *const Process;
@@ -421,7 +421,7 @@ pub extern "C" fn sysinfo_process_cpu_usage(process: CProcess) -> c_float {
 }
 
 /// Equivalent of [`Process::memory()`][crate::Process#method.memory].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_process_memory(process: CProcess) -> size_t {
     assert!(!process.is_null());
     let process = process as *const Process;
@@ -429,7 +429,7 @@ pub extern "C" fn sysinfo_process_memory(process: CProcess) -> size_t {
 }
 
 /// Equivalent of [`Process::virtual_memory()`][crate::Process#method.virtual_memory].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_process_virtual_memory(process: CProcess) -> size_t {
     assert!(!process.is_null());
     let process = process as *const Process;
@@ -437,7 +437,7 @@ pub extern "C" fn sysinfo_process_virtual_memory(process: CProcess) -> size_t {
 }
 
 /// Equivalent of [`Process::exe()`][crate::Process#method.exe].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_process_executable_path(process: CProcess) -> RString {
     assert!(!process.is_null());
     let process = process as *const Process;
@@ -452,7 +452,7 @@ pub extern "C" fn sysinfo_process_executable_path(process: CProcess) -> RString 
 }
 
 /// Equivalent of [`Process::root()`][crate::Process#method.root].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_process_root_directory(process: CProcess) -> RString {
     assert!(!process.is_null());
     let process = process as *const Process;
@@ -467,7 +467,7 @@ pub extern "C" fn sysinfo_process_root_directory(process: CProcess) -> RString {
 }
 
 /// Equivalent of [`Process::cwd()`][crate::Process#method.cwd].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_process_current_directory(process: CProcess) -> RString {
     assert!(!process.is_null());
     let process = process as *const Process;
@@ -482,7 +482,7 @@ pub extern "C" fn sysinfo_process_current_directory(process: CProcess) -> RStrin
 }
 
 /// Frees a C string created with `CString::into_raw()`.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_rstring_free(s: RString) {
     if !s.is_null() {
         unsafe {
@@ -492,7 +492,7 @@ pub extern "C" fn sysinfo_rstring_free(s: RString) {
 }
 
 /// Equivalent of [`cpu::vendor_id()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_cpu_vendor_id(system: CSystem) -> RString {
     assert!(!system.is_null());
     unsafe {
@@ -512,7 +512,7 @@ pub extern "C" fn sysinfo_cpu_vendor_id(system: CSystem) -> RString {
 }
 
 /// Equivalent of [`cpu::brand()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_cpu_brand(system: CSystem) -> RString {
     assert!(!system.is_null());
     unsafe {
@@ -532,7 +532,7 @@ pub extern "C" fn sysinfo_cpu_brand(system: CSystem) -> RString {
 }
 
 /// Equivalent of [`cpu::frequency()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_cpu_frequency(system: CSystem) -> u64 {
     assert!(!system.is_null());
     unsafe {
@@ -548,7 +548,7 @@ pub extern "C" fn sysinfo_cpu_frequency(system: CSystem) -> u64 {
 }
 
 /// Equivalent of [`System::name()`][crate::System#method.name].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_system_name() -> RString {
     if let Some(c) = System::name().and_then(|p| CString::new(p).ok()) {
         c.into_raw() as _
@@ -558,7 +558,7 @@ pub extern "C" fn sysinfo_system_name() -> RString {
 }
 
 /// Equivalent of [`System::version()`][crate::System#method.version].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_system_version() -> RString {
     if let Some(c) = System::os_version().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
@@ -568,7 +568,7 @@ pub extern "C" fn sysinfo_system_version() -> RString {
 }
 
 /// Equivalent of [`System::kernel_version()`][crate::System#method.kernel_version].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_system_kernel_version() -> RString {
     if let Some(c) = System::kernel_version().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
@@ -578,7 +578,7 @@ pub extern "C" fn sysinfo_system_kernel_version() -> RString {
 }
 
 /// Equivalent of [`System::host_name()`][crate::System#method.host_name].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_system_host_name() -> RString {
     if let Some(c) = System::host_name().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
@@ -588,7 +588,7 @@ pub extern "C" fn sysinfo_system_host_name() -> RString {
 }
 
 /// Equivalent of [`System::long_os_version()`][crate::System#method.long_os_version].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_system_long_version() -> RString {
     if let Some(c) = System::long_os_version().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
@@ -598,13 +598,13 @@ pub extern "C" fn sysinfo_system_long_version() -> RString {
 }
 
 /// Equivalent of [`system::physical_core_count()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_cpu_physical_cores() -> u32 {
     System::physical_core_count().unwrap_or(0) as u32
 }
 
 /// Equivalent of [`Motherboard::asset_tag()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_motherboard_asset_tag() -> RString {
     if let Some(c) = Motherboard::new()
         .and_then(|m| m.asset_tag())
@@ -617,7 +617,7 @@ pub extern "C" fn sysinfo_motherboard_asset_tag() -> RString {
 }
 
 /// Equivalent of [`Motherboard::name()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_motherboard_name() -> RString {
     if let Some(c) = Motherboard::new()
         .and_then(|m| m.name())
@@ -630,7 +630,7 @@ pub extern "C" fn sysinfo_motherboard_name() -> RString {
 }
 
 /// Equivalent of [`Motherboard::vendor_name()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_motherboard_vendor() -> RString {
     if let Some(c) = Motherboard::new()
         .and_then(|m| m.vendor_name())
@@ -643,7 +643,7 @@ pub extern "C" fn sysinfo_motherboard_vendor() -> RString {
 }
 
 /// Equivalent of [`Motherboard::version()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_motherboard_version() -> RString {
     if let Some(c) = Motherboard::new()
         .and_then(|m| m.version())
@@ -656,7 +656,7 @@ pub extern "C" fn sysinfo_motherboard_version() -> RString {
 }
 
 /// Equivalent of [`Motherboard::serial_number()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_motherboard_serial_number() -> RString {
     if let Some(c) = Motherboard::new()
         .and_then(|m| m.serial_number())
@@ -669,7 +669,7 @@ pub extern "C" fn sysinfo_motherboard_serial_number() -> RString {
 }
 
 /// Equivalent of [`Product::family()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_product_family() -> RString {
     if let Some(c) = Product::family().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
@@ -679,7 +679,7 @@ pub extern "C" fn sysinfo_product_family() -> RString {
 }
 
 /// Equivalent of [`Product::name()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_product_name() -> RString {
     if let Some(c) = Product::name().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
@@ -689,7 +689,7 @@ pub extern "C" fn sysinfo_product_name() -> RString {
 }
 
 /// Equivalent of [`Product::serial_number()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_product_serial_number() -> RString {
     if let Some(c) = Product::serial_number().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
@@ -699,7 +699,7 @@ pub extern "C" fn sysinfo_product_serial_number() -> RString {
 }
 
 /// Equivalent of [`Product::stock_keeping_unit()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_product_stock_keeping_unit() -> RString {
     if let Some(c) = Product::stock_keeping_unit().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
@@ -709,7 +709,7 @@ pub extern "C" fn sysinfo_product_stock_keeping_unit() -> RString {
 }
 
 /// Equivalent of [`Product::uuid()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_product_uuid() -> RString {
     if let Some(c) = Product::uuid().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
@@ -719,7 +719,7 @@ pub extern "C" fn sysinfo_product_uuid() -> RString {
 }
 
 /// Equivalent of [`Product::version()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_product_version() -> RString {
     if let Some(c) = Product::version().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _
@@ -729,7 +729,7 @@ pub extern "C" fn sysinfo_product_version() -> RString {
 }
 
 /// Equivalent of [`Product::vendor_name()`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_product_vendor_name() -> RString {
     if let Some(c) = Product::vendor_name().and_then(|c| CString::new(c).ok()) {
         c.into_raw() as _

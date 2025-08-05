@@ -2,8 +2,8 @@
 
 use std::collections::HashMap;
 
-use crate::network_helper::{get_interface_address, get_interface_ip_networks};
 use crate::NetworkData;
+use crate::network_helper::{get_interface_address, get_interface_ip_networks};
 
 /// Interface addresses are OS-independent
 pub(crate) fn refresh_networks_addresses(interfaces: &mut HashMap<String, NetworkData>) {

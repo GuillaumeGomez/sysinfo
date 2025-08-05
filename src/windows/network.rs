@@ -3,7 +3,7 @@
 use crate::network::refresh_networks_addresses;
 use crate::{IpNetwork, MacAddr, NetworkData};
 
-use std::collections::{hash_map, HashMap};
+use std::collections::{HashMap, hash_map};
 
 use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, MIB_IF_TABLE2};
 use windows::Win32::NetworkManagement::Ndis::MediaConnectStateDisconnected;

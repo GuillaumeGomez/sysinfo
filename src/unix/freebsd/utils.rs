@@ -9,7 +9,9 @@ use std::os::unix::ffi::OsStrExt;
 #[inline]
 pub unsafe fn init_mib(name: &[u8], mib: &mut [libc::c_int]) {
     let mut len = mib.len();
-    libc::sysctlnametomib(name.as_ptr() as _, mib.as_mut_ptr(), &mut len);
+    unsafe {
+        libc::sysctlnametomib(name.as_ptr() as _, mib.as_mut_ptr(), &mut len);
+    }
 }
 
 #[cfg(feature = "system")]
@@ -40,27 +42,31 @@ pub(crate) fn boot_time() -> u64 {
 #[cfg(any(feature = "system", feature = "network"))]
 pub(crate) unsafe fn get_sys_value<T: Sized>(mib: &[libc::c_int], value: &mut T) -> bool {
     let mut len = std::mem::size_of::<T>() as libc::size_t;
-    libc::sysctl(
-        mib.as_ptr(),
-        mib.len() as _,
-        value as *mut _ as *mut _,
-        &mut len,
-        std::ptr::null_mut(),
-        0,
-    ) == 0
+    unsafe {
+        libc::sysctl(
+            mib.as_ptr(),
+            mib.len() as _,
+            value as *mut _ as *mut _,
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        ) == 0
+    }
 }
 
 #[cfg(feature = "system")]
 pub(crate) unsafe fn get_sys_value_array<T: Sized>(mib: &[libc::c_int], value: &mut [T]) -> bool {
     let mut len = std::mem::size_of_val(value) as libc::size_t;
-    libc::sysctl(
-        mib.as_ptr(),
-        mib.len() as _,
-        value.as_mut_ptr() as *mut _,
-        &mut len as *mut _,
-        std::ptr::null_mut(),
-        0,
-    ) == 0
+    unsafe {
+        libc::sysctl(
+            mib.as_ptr(),
+            mib.len() as _,
+            value.as_mut_ptr() as *mut _,
+            &mut len as *mut _,
+            std::ptr::null_mut(),
+            0,
+        ) == 0
+    }
 }
 
 #[cfg(any(feature = "disk", feature = "system", feature = "network"))]
@@ -106,18 +112,20 @@ pub(crate) unsafe fn get_sysctl_raw(
     data: *mut (),
     len: &mut libc::size_t,
 ) -> Option<()> {
-    if libc::sysctl(
-        mib.as_ptr(),
-        mib.len() as _,
-        data as _,
-        len,
-        std::ptr::null_mut(),
-        0,
-    ) != 0
-    {
-        None
-    } else {
-        Some(())
+    unsafe {
+        if libc::sysctl(
+            mib.as_ptr(),
+            mib.len() as _,
+            data as _,
+            len,
+            std::ptr::null_mut(),
+            0,
+        ) != 0
+        {
+            None
+        } else {
+            Some(())
+        }
     }
 }
 
@@ -127,16 +135,18 @@ pub(crate) unsafe fn get_sys_value_str(
     buf: &mut [libc::c_char],
 ) -> Option<OsString> {
     let mut len = std::mem::size_of_val(buf) as libc::size_t;
-    if libc::sysctl(
-        mib.as_ptr(),
-        mib.len() as _,
-        buf.as_mut_ptr() as *mut _,
-        &mut len,
-        std::ptr::null_mut(),
-        0,
-    ) != 0
-    {
-        return None;
+    unsafe {
+        if libc::sysctl(
+            mib.as_ptr(),
+            mib.len() as _,
+            buf.as_mut_ptr() as *mut _,
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        ) != 0
+        {
+            return None;
+        }
     }
     Some(c_buf_to_os_string(
         &buf[..len / std::mem::size_of::<libc::c_char>()],
@@ -148,14 +158,16 @@ pub(crate) unsafe fn get_sys_value_by_name<T: Sized>(name: &[u8], value: &mut T)
     let mut len = std::mem::size_of::<T>() as libc::size_t;
     let original = len;
 
-    libc::sysctlbyname(
-        name.as_ptr() as *const libc::c_char,
-        value as *mut _ as *mut _,
-        &mut len,
-        std::ptr::null_mut(),
-        0,
-    ) == 0
-        && original == len
+    unsafe {
+        libc::sysctlbyname(
+            name.as_ptr() as *const libc::c_char,
+            value as *mut _ as *mut _,
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        ) == 0
+            && original == len
+    }
 }
 
 #[cfg(any(feature = "system", feature = "disk"))]
@@ -202,9 +214,11 @@ pub(crate) unsafe fn from_cstr_array(ptr: *const *const libc::c_char) -> Vec<OsS
     }
     let mut max = 0;
     loop {
-        let ptr = ptr.add(max);
-        if (*ptr).is_null() {
-            break;
+        unsafe {
+            let ptr = ptr.add(max);
+            if (*ptr).is_null() {
+                break;
+            }
         }
         max += 1;
     }
@@ -214,8 +228,10 @@ pub(crate) unsafe fn from_cstr_array(ptr: *const *const libc::c_char) -> Vec<OsS
     let mut ret = Vec::with_capacity(max);
 
     for pos in 0..max {
-        let p = ptr.add(pos);
-        ret.push(OsStr::from_bytes(CStr::from_ptr(*p).to_bytes()).to_os_string());
+        unsafe {
+            let p = ptr.add(pos);
+            ret.push(OsStr::from_bytes(CStr::from_ptr(*p).to_bytes()).to_os_string());
+        }
     }
     ret
 }
@@ -225,13 +241,15 @@ pub(crate) unsafe fn get_nb_cpus() -> usize {
     let mut smp: libc::c_int = 0;
     let mut nb_cpus: libc::c_int = 1;
 
-    if !get_sys_value_by_name(b"kern.smp.active\0", &mut smp) {
-        smp = 0;
-    }
-    #[allow(clippy::collapsible_if)] // I keep as is for readability reasons.
-    if smp != 0 {
-        if !get_sys_value_by_name(b"kern.smp.cpus\0", &mut nb_cpus) || nb_cpus < 1 {
-            nb_cpus = 1;
+    unsafe {
+        if !get_sys_value_by_name(b"kern.smp.active\0", &mut smp) {
+            smp = 0;
+        }
+        #[allow(clippy::collapsible_if)] // I keep as is for readability reasons.
+        if smp != 0 {
+            if !get_sys_value_by_name(b"kern.smp.cpus\0", &mut nb_cpus) || nb_cpus < 1 {
+                nb_cpus = 1;
+            }
         }
     }
     nb_cpus as usize

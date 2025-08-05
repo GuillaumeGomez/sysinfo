@@ -294,17 +294,19 @@ pub(crate) fn compute_cpu_usage(
 }
 
 unsafe fn get_task_info(pid: Pid) -> libc::proc_taskinfo {
-    let mut task_info = mem::zeroed::<libc::proc_taskinfo>();
-    // If it doesn't work, we just don't have memory information for this process
-    // so it's "fine".
-    libc::proc_pidinfo(
-        pid.0,
-        libc::PROC_PIDTASKINFO,
-        0,
-        &mut task_info as *mut libc::proc_taskinfo as *mut c_void,
-        mem::size_of::<libc::proc_taskinfo>() as _,
-    );
-    task_info
+    unsafe {
+        let mut task_info = mem::zeroed::<libc::proc_taskinfo>();
+        // If it doesn't work, we just don't have memory information for this process
+        // so it's "fine".
+        libc::proc_pidinfo(
+            pid.0,
+            libc::PROC_PIDTASKINFO,
+            0,
+            &mut task_info as *mut libc::proc_taskinfo as *mut c_void,
+            mem::size_of::<libc::proc_taskinfo>() as _,
+        );
+        task_info
+    }
 }
 
 #[inline]
@@ -327,19 +329,21 @@ fn check_if_pid_is_alive(pid: Pid, check_if_alive: bool) -> bool {
 }
 
 unsafe fn get_bsd_info(pid: Pid) -> Option<libc::proc_bsdinfo> {
-    let mut info = mem::zeroed::<libc::proc_bsdinfo>();
+    unsafe {
+        let mut info = mem::zeroed::<libc::proc_bsdinfo>();
 
-    if libc::proc_pidinfo(
-        pid.0,
-        libc::PROC_PIDTBSDINFO,
-        0,
-        &mut info as *mut _ as *mut _,
-        mem::size_of::<libc::proc_bsdinfo>() as _,
-    ) != mem::size_of::<libc::proc_bsdinfo>() as c_int
-    {
-        None
-    } else {
-        Some(info)
+        if libc::proc_pidinfo(
+            pid.0,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            &mut info as *mut _ as *mut _,
+            mem::size_of::<libc::proc_bsdinfo>() as _,
+        ) != mem::size_of::<libc::proc_bsdinfo>() as c_int
+        {
+            None
+        } else {
+            Some(info)
+        }
     }
 }
 
@@ -361,12 +365,14 @@ unsafe fn create_new_process(
         Some(info) => info,
         None => {
             let mut p = ProcessInner::new_empty(pid);
-            if get_exe_and_name_backup(&mut p, refresh_kind, false) {
-                get_cwd_root(&mut p, refresh_kind);
-                return Ok(Some(Process { inner: p }));
+            unsafe {
+                if get_exe_and_name_backup(&mut p, refresh_kind, false) {
+                    get_cwd_root(&mut p, refresh_kind);
+                    return Ok(Some(Process { inner: p }));
+                }
+                // If we can't even have the name, no point in keeping it.
+                return Err(());
             }
-            // If we can't even have the name, no point in keeping it.
-            return Err(());
         }
     };
 
@@ -376,41 +382,43 @@ unsafe fn create_new_process(
     let run_time = now.saturating_sub(start_time);
 
     let mut p = ProcessInner::new(pid, parent, start_time, run_time);
-    if !get_process_infos(&mut p, refresh_kind)
-        && !get_exe_and_name_backup(&mut p, refresh_kind, false)
-    {
-        // If we can't even have the name, no point in keeping it.
-        return Err(());
-    }
-    get_cwd_root(&mut p, refresh_kind);
-
-    if refresh_kind.cpu() || refresh_kind.memory() {
-        let task_info = get_task_info(pid);
-
-        p.old_stime = task_info.pti_total_system;
-        p.old_utime = task_info.pti_total_user;
-        if refresh_kind.cpu() {
-            p.accumulated_cpu_time = (task_info
-                .pti_total_user
-                .saturating_add(task_info.pti_total_system)
-                as f64
-                * timebase_to_ms) as u64;
+    unsafe {
+        if !get_process_infos(&mut p, refresh_kind)
+            && !get_exe_and_name_backup(&mut p, refresh_kind, false)
+        {
+            // If we can't even have the name, no point in keeping it.
+            return Err(());
         }
-        if refresh_kind.memory() {
-            p.memory = task_info.pti_resident_size;
-            p.virtual_memory = task_info.pti_virtual_size;
-        }
-    }
+        get_cwd_root(&mut p, refresh_kind);
 
-    p.user_id = Some(Uid(info.pbi_ruid));
-    p.effective_user_id = Some(Uid(info.pbi_uid));
-    p.group_id = Some(Gid(info.pbi_rgid));
-    p.effective_group_id = Some(Gid(info.pbi_gid));
-    p.process_status = ProcessStatus::from(info.pbi_status);
-    if refresh_kind.disk_usage() {
-        update_proc_disk_activity(&mut p);
+        if refresh_kind.cpu() || refresh_kind.memory() {
+            let task_info = get_task_info(pid);
+
+            p.old_stime = task_info.pti_total_system;
+            p.old_utime = task_info.pti_total_user;
+            if refresh_kind.cpu() {
+                p.accumulated_cpu_time = (task_info
+                    .pti_total_user
+                    .saturating_add(task_info.pti_total_system)
+                    as f64
+                    * timebase_to_ms) as u64;
+            }
+            if refresh_kind.memory() {
+                p.memory = task_info.pti_resident_size;
+                p.virtual_memory = task_info.pti_virtual_size;
+            }
+        }
+
+        p.user_id = Some(Uid(info.pbi_ruid));
+        p.effective_user_id = Some(Uid(info.pbi_uid));
+        p.group_id = Some(Gid(info.pbi_rgid));
+        p.effective_group_id = Some(Gid(info.pbi_gid));
+        p.process_status = ProcessStatus::from(info.pbi_status);
+        if refresh_kind.disk_usage() {
+            update_proc_disk_activity(&mut p);
+        }
+        Ok(Some(Process { inner: p }))
     }
-    Ok(Some(Process { inner: p }))
 }
 
 /// Less efficient way to retrieve `exe` and `name`.
@@ -424,26 +432,28 @@ unsafe fn get_exe_and_name_backup(
         return true;
     }
     let mut buffer: Vec<u8> = Vec::with_capacity(libc::PROC_PIDPATHINFO_MAXSIZE as _);
-    match libc::proc_pidpath(
-        process.pid.0,
-        buffer.as_mut_ptr() as *mut _,
-        libc::PROC_PIDPATHINFO_MAXSIZE as _,
-    ) {
-        x if x > 0 => {
-            buffer.set_len(x as _);
-            let tmp = OsString::from_vec(buffer);
-            let exe = PathBuf::from(tmp);
-            if process.name.is_empty() {
-                exe.file_name()
-                    .unwrap_or_default()
-                    .clone_into(&mut process.name);
+    unsafe {
+        match libc::proc_pidpath(
+            process.pid.0,
+            buffer.as_mut_ptr() as *mut _,
+            libc::PROC_PIDPATHINFO_MAXSIZE as _,
+        ) {
+            x if x > 0 => {
+                buffer.set_len(x as _);
+                let tmp = OsString::from_vec(buffer);
+                let exe = PathBuf::from(tmp);
+                if process.name.is_empty() {
+                    exe.file_name()
+                        .unwrap_or_default()
+                        .clone_into(&mut process.name);
+                }
+                if exe_needs_update {
+                    process.exe = Some(exe);
+                }
+                true
             }
-            if exe_needs_update {
-                process.exe = Some(exe);
-            }
-            true
+            _ => false,
         }
-        _ => false,
     }
 }
 
@@ -464,23 +474,25 @@ unsafe fn get_cwd_root(process: &mut ProcessInner, refresh_kind: ProcessRefreshK
     if !cwd_needs_update && !root_needs_update {
         return;
     }
-    let mut vnodepathinfo = mem::zeroed::<libc::proc_vnodepathinfo>();
-    let result = libc::proc_pidinfo(
-        process.pid.0,
-        libc::PROC_PIDVNODEPATHINFO,
-        0,
-        &mut vnodepathinfo as *mut _ as *mut _,
-        mem::size_of::<libc::proc_vnodepathinfo>() as _,
-    );
-    if result < 1 {
-        sysinfo_debug!("Failed to retrieve cwd and root for {}", process.pid.0);
-        return;
-    }
-    if cwd_needs_update {
-        process.cwd = convert_node_path_info(&vnodepathinfo.pvi_cdir);
-    }
-    if root_needs_update {
-        process.root = convert_node_path_info(&vnodepathinfo.pvi_rdir);
+    unsafe {
+        let mut vnodepathinfo = mem::zeroed::<libc::proc_vnodepathinfo>();
+        let result = libc::proc_pidinfo(
+            process.pid.0,
+            libc::PROC_PIDVNODEPATHINFO,
+            0,
+            &mut vnodepathinfo as *mut _ as *mut _,
+            mem::size_of::<libc::proc_vnodepathinfo>() as _,
+        );
+        if result < 1 {
+            sysinfo_debug!("Failed to retrieve cwd and root for {}", process.pid.0);
+            return;
+        }
+        if cwd_needs_update {
+            process.cwd = convert_node_path_info(&vnodepathinfo.pvi_cdir);
+        }
+        if root_needs_update {
+            process.root = convert_node_path_info(&vnodepathinfo.pvi_rdir);
+        }
     }
 }
 
@@ -517,80 +529,82 @@ unsafe fn get_process_infos(process: &mut ProcessInner, refresh_kind: ProcessRef
      */
     let mut mib: [libc::c_int; 3] = [libc::CTL_KERN, libc::KERN_PROCARGS2, process.pid.0 as _];
     let mut arg_max = 0;
-    // First we retrieve the size we will need for our data (in `arg_max`).
-    if libc::sysctl(
-        mib.as_mut_ptr(),
-        mib.len() as _,
-        std::ptr::null_mut(),
-        &mut arg_max,
-        std::ptr::null_mut(),
-        0,
-    ) == -1
-    {
-        sysinfo_debug!(
-            "couldn't get arguments and environment size for PID {}",
-            process.pid.0
+    unsafe {
+        // First we retrieve the size we will need for our data (in `arg_max`).
+        if libc::sysctl(
+            mib.as_mut_ptr(),
+            mib.len() as _,
+            std::ptr::null_mut(),
+            &mut arg_max,
+            std::ptr::null_mut(),
+            0,
+        ) == -1
+        {
+            sysinfo_debug!(
+                "couldn't get arguments and environment size for PID {}",
+                process.pid.0
+            );
+            return false; // not enough rights I assume?
+        }
+
+        let mut proc_args: Vec<u8> = Vec::with_capacity(arg_max as _);
+        if libc::sysctl(
+            mib.as_mut_ptr(),
+            mib.len() as _,
+            proc_args.as_mut_slice().as_mut_ptr() as *mut _,
+            &mut arg_max,
+            std::ptr::null_mut(),
+            0,
+        ) == -1
+        {
+            sysinfo_debug!(
+                "couldn't get arguments and environment for PID {}",
+                process.pid.0
+            );
+            return false; // What changed since the previous call? Dark magic!
+        }
+
+        proc_args.set_len(arg_max);
+
+        if proc_args.is_empty() {
+            return false;
+        }
+        // We copy the number of arguments (`argc`) to `n_args`.
+        let mut n_args: c_int = 0;
+        libc::memcpy(
+            &mut n_args as *mut _ as *mut _,
+            proc_args.as_slice().as_ptr() as *const _,
+            mem::size_of::<c_int>(),
         );
-        return false; // not enough rights I assume?
-    }
 
-    let mut proc_args: Vec<u8> = Vec::with_capacity(arg_max as _);
-    if libc::sysctl(
-        mib.as_mut_ptr(),
-        mib.len() as _,
-        proc_args.as_mut_slice().as_mut_ptr() as *mut _,
-        &mut arg_max,
-        std::ptr::null_mut(),
-        0,
-    ) == -1
-    {
-        sysinfo_debug!(
-            "couldn't get arguments and environment for PID {}",
-            process.pid.0
-        );
-        return false; // What changed since the previous call? Dark magic!
-    }
+        // We skip `argc`.
+        let proc_args = &proc_args[mem::size_of::<c_int>()..];
 
-    proc_args.set_len(arg_max);
+        let (exe, proc_args) = get_exe(proc_args);
+        if process.name.is_empty() {
+            exe.file_name()
+                .unwrap_or_default()
+                .clone_into(&mut process.name);
+        }
 
-    if proc_args.is_empty() {
-        return false;
-    }
-    // We copy the number of arguments (`argc`) to `n_args`.
-    let mut n_args: c_int = 0;
-    libc::memcpy(
-        &mut n_args as *mut _ as *mut _,
-        proc_args.as_slice().as_ptr() as *const _,
-        mem::size_of::<c_int>(),
-    );
+        if refresh_kind.exe().needs_update(|| process.exe.is_none()) {
+            process.exe = Some(exe.to_owned());
+        }
 
-    // We skip `argc`.
-    let proc_args = &proc_args[mem::size_of::<c_int>()..];
-
-    let (exe, proc_args) = get_exe(proc_args);
-    if process.name.is_empty() {
-        exe.file_name()
-            .unwrap_or_default()
-            .clone_into(&mut process.name);
+        let environ_needs_update = refresh_kind
+            .environ()
+            .needs_update(|| process.environ.is_empty());
+        let cmd_needs_update = refresh_kind.cmd().needs_update(|| process.cmd.is_empty());
+        if !environ_needs_update && !cmd_needs_update {
+            // Nothing else to be done!
+            return true;
+        }
+        let proc_args = get_arguments(&mut process.cmd, proc_args, n_args, cmd_needs_update);
+        if environ_needs_update {
+            get_environ(&mut process.environ, proc_args);
+        }
+        true
     }
-
-    if refresh_kind.exe().needs_update(|| process.exe.is_none()) {
-        process.exe = Some(exe.to_owned());
-    }
-
-    let environ_needs_update = refresh_kind
-        .environ()
-        .needs_update(|| process.environ.is_empty());
-    let cmd_needs_update = refresh_kind.cmd().needs_update(|| process.cmd.is_empty());
-    if !environ_needs_update && !cmd_needs_update {
-        // Nothing else to be done!
-        return true;
-    }
-    let proc_args = get_arguments(&mut process.cmd, proc_args, n_args, cmd_needs_update);
-    if environ_needs_update {
-        get_environ(&mut process.environ, proc_args);
-    }
-    true
 }
 
 fn get_exe(data: &[u8]) -> (&Path, &[u8]) {

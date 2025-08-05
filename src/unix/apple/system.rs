@@ -20,8 +20,8 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use libc::{
-    c_int, c_void, host_statistics64, mach_port_t, sysconf, sysctl, timeval, vm_statistics64,
-    _SC_PAGESIZE,
+    _SC_PAGESIZE, c_int, c_void, host_statistics64, mach_port_t, sysconf, sysctl, timeval,
+    vm_statistics64,
 };
 
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]

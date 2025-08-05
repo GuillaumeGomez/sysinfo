@@ -13,14 +13,13 @@ use std::mem::{size_of, zeroed};
 use std::os::windows::ffi::OsStrExt;
 use std::time::{Duration, SystemTime};
 
-use windows::core::{Owned, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{self, HANDLE, STILL_ACTIVE};
 use windows::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+    CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
 use windows::Win32::System::ProcessStatus::{K32GetPerformanceInfo, PERFORMANCE_INFORMATION};
 use windows::Win32::System::Registry::{
-    RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_LOCAL_MACHINE, KEY_READ, REG_NONE,
+    HKEY, HKEY_LOCAL_MACHINE, KEY_READ, REG_NONE, RegCloseKey, RegOpenKeyExW, RegQueryValueExW,
 };
 use windows::Win32::System::SystemInformation::{self, GetSystemInfo};
 use windows::Win32::System::SystemInformation::{
@@ -28,6 +27,7 @@ use windows::Win32::System::SystemInformation::{
     MEMORYSTATUSEX, SYSTEM_INFO,
 };
 use windows::Win32::System::Threading::GetExitCodeProcess;
+use windows::core::{Owned, PCWSTR, PWSTR};
 
 declare_signals! {
     (),
@@ -61,7 +61,7 @@ unsafe fn boot_time() -> u64 {
         Ok(n) => {
             let system_time_ns = n.as_nanos();
             // milliseconds to nanoseconds
-            let tick_count_ns = GetTickCount64() as u128 * 1_000_000;
+            let tick_count_ns = unsafe { GetTickCount64() } as u128 * 1_000_000;
             // nanoseconds to seconds
             let boot_time_sec = system_time_ns.saturating_sub(tick_count_ns) / 1_000_000_000;
             boot_time_sec.try_into().unwrap_or(u64::MAX)
@@ -544,13 +544,15 @@ struct RegKey(HKEY);
 impl RegKey {
     unsafe fn open(hkey: HKEY, path: &[u16]) -> Option<Self> {
         let mut new_hkey = Default::default();
-        if RegOpenKeyExW(
-            hkey,
-            PCWSTR::from_raw(path.as_ptr()),
-            Some(0),
-            KEY_READ,
-            &mut new_hkey,
-        )
+        if unsafe {
+            RegOpenKeyExW(
+                hkey,
+                PCWSTR::from_raw(path.as_ptr()),
+                Some(0),
+                KEY_READ,
+                &mut new_hkey,
+            )
+        }
         .is_err()
         {
             return None;
@@ -566,14 +568,16 @@ impl RegKey {
     ) -> windows::core::Result<()> {
         let mut buf_type = REG_NONE;
 
-        RegQueryValueExW(
-            self.0,
-            PCWSTR::from_raw(field_name.as_ptr()),
-            None,
-            Some(&mut buf_type),
-            Some(buf.as_mut_ptr()),
-            Some(buf_len),
-        )
+        unsafe {
+            RegQueryValueExW(
+                self.0,
+                PCWSTR::from_raw(field_name.as_ptr()),
+                None,
+                Some(&mut buf_type),
+                Some(buf.as_mut_ptr()),
+                Some(buf_len),
+            )
+        }
         .ok()
     }
 }

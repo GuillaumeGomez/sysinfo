@@ -78,9 +78,9 @@ pub use crate::common::network::{
 };
 #[cfg(feature = "system")]
 pub use crate::common::system::{
-    get_current_pid, CGroupLimits, Cpu, CpuRefreshKind, KillError, LoadAvg, MemoryRefreshKind,
-    Motherboard, Pid, Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, Product,
-    RefreshKind, Signal, System, ThreadKind, UpdateKind,
+    CGroupLimits, Cpu, CpuRefreshKind, KillError, LoadAvg, MemoryRefreshKind, Motherboard, Pid,
+    Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, Product, RefreshKind, Signal,
+    System, ThreadKind, UpdateKind, get_current_pid,
 };
 #[cfg(feature = "user")]
 pub use crate::common::user::{Group, Groups, User, Users};
@@ -312,11 +312,12 @@ mod test {
                     System::new_with_specifics(RefreshKind::nothing().with_processes(
                         ProcessRefreshKind::nothing().with_user(UpdateKind::Always),
                     ));
-                assert!(s
-                    .processes()
-                    .iter()
-                    .filter_map(|(_, p)| p.user_id())
-                    .any(|uid| users.get_user_by_id(uid).is_some()));
+                assert!(
+                    s.processes()
+                        .iter()
+                        .filter_map(|(_, p)| p.user_id())
+                        .any(|uid| users.get_user_by_id(uid).is_some())
+                );
             }
         }
     }

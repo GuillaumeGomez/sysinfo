@@ -6,14 +6,16 @@ pub(crate) unsafe fn get_sys_value(
     value: *mut libc::c_void,
     mib: &mut [i32],
 ) -> bool {
-    libc::sysctl(
-        mib.as_mut_ptr(),
-        mib.len() as _,
-        value,
-        &mut len as *mut _,
-        std::ptr::null_mut(),
-        0,
-    ) == 0
+    unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            mib.len() as _,
+            value,
+            &mut len as *mut _,
+            std::ptr::null_mut(),
+            0,
+        ) == 0
+    }
 }
 
 #[cfg(feature = "system")]
@@ -22,11 +24,13 @@ pub(crate) unsafe fn get_sys_value_by_name(
     len: &mut usize,
     value: *mut libc::c_void,
 ) -> bool {
-    libc::sysctlbyname(
-        name.as_ptr() as *const _,
-        value,
-        len,
-        std::ptr::null_mut(),
-        0,
-    ) == 0
+    unsafe {
+        libc::sysctlbyname(
+            name.as_ptr() as *const _,
+            value,
+            len,
+            std::ptr::null_mut(),
+            0,
+        ) == 0
+    }
 }

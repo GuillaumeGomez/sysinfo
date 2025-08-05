@@ -7,7 +7,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 
-use super::utils::{get_sys_value_str, get_sysctl_raw, WrapMap};
+use super::utils::{WrapMap, get_sys_value_str, get_sysctl_raw};
 
 #[doc(hidden)]
 impl From<libc::c_char> for ProcessStatus {
@@ -303,7 +303,7 @@ pub(crate) unsafe fn get_process_data(
 
     let start_time = kproc.ki_start.tv_sec as u64;
 
-    if let Some(proc_) = (*wrap.0.get()).get_mut(&Pid(kproc.ki_pid)) {
+    if let Some(proc_) = unsafe { (*wrap.0.get()).get_mut(&Pid(kproc.ki_pid)) } {
         let proc_ = &mut proc_.inner;
         proc_.updated = true;
         // If the `start_time` we just got is different from the one stored, it means it's not the
@@ -398,15 +398,17 @@ pub(crate) unsafe fn get_exe(
     if refresh_kind.exe().needs_update(|| exe.is_none()) {
         let mut buffer = [0; libc::PATH_MAX as usize + 1];
 
-        *exe = get_sys_value_str(
-            &[
-                libc::CTL_KERN,
-                libc::KERN_PROC,
-                libc::KERN_PROC_PATHNAME,
-                pid.0,
-            ],
-            &mut buffer,
-        )
-        .map(PathBuf::from);
+        unsafe {
+            *exe = get_sys_value_str(
+                &[
+                    libc::CTL_KERN,
+                    libc::KERN_PROC,
+                    libc::KERN_PROC_PATHNAME,
+                    pid.0,
+                ],
+                &mut buffer,
+            )
+            .map(PathBuf::from);
+        }
     }
 }

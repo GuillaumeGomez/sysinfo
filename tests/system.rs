@@ -38,9 +38,10 @@ fn test_refresh_process() {
             "process not listed",
         );
         // Ensure that the process was really added to the list!
-        assert!(sys
-            .process(sysinfo::get_current_pid().expect("failed to get current pid"))
-            .is_some());
+        assert!(
+            sys.process(sysinfo::get_current_pid().expect("failed to get current pid"))
+                .is_some()
+        );
     }
 }
 
@@ -91,9 +92,9 @@ fn check_if_send_and_sync() {
     };
     if let Some(p) = sys.process(current_pid) {
         p.foo(); // If this doesn't compile, it'll simply mean that the Process type
-                 // doesn't implement the Send trait.
+        // doesn't implement the Send trait.
         p.bar(); // If this doesn't compile, it'll simply mean that the Process type
-                 // doesn't implement the Sync trait.
+    // doesn't implement the Sync trait.
     } else {
         #[cfg(not(feature = "apple-sandbox"))]
         assert!(!sysinfo::IS_SUPPORTED_SYSTEM);
@@ -128,8 +129,8 @@ fn check_boot_time() {
 // when refreshing it too frequently (ie, multiple times in a row in a very small interval).
 #[test]
 fn test_consecutive_cpu_usage_update() {
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
     use sysinfo::{Pid, ProcessRefreshKind, System};
 

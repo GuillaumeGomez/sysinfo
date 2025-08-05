@@ -14,7 +14,7 @@ use std::ptr::NonNull;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
-use crate::sys::cpu::{physical_core_count, CpusWrapper};
+use crate::sys::cpu::{CpusWrapper, physical_core_count};
 use crate::sys::process::get_exe;
 use crate::sys::utils::{
     self, boot_time, c_buf_to_os_string, c_buf_to_utf8_string, from_cstr_array, get_sys_value,
@@ -305,7 +305,8 @@ impl SystemInner {
         };
 
         let mut count = 0;
-        let kvm_procs = libc::kvm_getprocs(self.system_info.kd.as_ptr(), op, arg, &mut count);
+        let kvm_procs =
+            unsafe { libc::kvm_getprocs(self.system_info.kd.as_ptr(), op, arg, &mut count) };
         if count < 1 {
             sysinfo_debug!("kvm_getprocs returned nothing...");
             return 0;
@@ -343,42 +344,46 @@ impl SystemInner {
             #[cfg(not(feature = "multithread"))]
             use std::iter::Iterator as IterTrait;
 
-            let kvm_procs: &mut [utils::KInfoProc] =
-                std::slice::from_raw_parts_mut(kvm_procs as _, count as _);
+            unsafe {
+                let kvm_procs: &mut [utils::KInfoProc] =
+                    std::slice::from_raw_parts_mut(kvm_procs as _, count as _);
 
-            let fscale = self.system_info.fscale;
-            let page_size = self.system_info.page_size as isize;
-            let now = get_now();
-            let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
+                let fscale = self.system_info.fscale;
+                let page_size = self.system_info.page_size as isize;
+                let now = get_now();
+                let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
 
-            IterTrait::filter_map(crate::utils::into_iter(kvm_procs), |kproc| {
-                if !filter_callback(kproc, filter) {
-                    return None;
-                }
-                let ret = super::process::get_process_data(
-                    kproc,
-                    &proc_list,
-                    page_size,
-                    fscale,
-                    now,
-                    refresh_kind,
-                )
-                .ok()?;
-                nb_updated.fetch_add(1, Ordering::Relaxed);
-                ret
-            })
-            .collect::<Vec<_>>()
+                IterTrait::filter_map(crate::utils::into_iter(kvm_procs), |kproc| {
+                    if !filter_callback(kproc, filter) {
+                        return None;
+                    }
+                    let ret = super::process::get_process_data(
+                        kproc,
+                        &proc_list,
+                        page_size,
+                        fscale,
+                        now,
+                        refresh_kind,
+                    )
+                    .ok()?;
+                    nb_updated.fetch_add(1, Ordering::Relaxed);
+                    ret
+                })
+                .collect::<Vec<_>>()
+            }
         };
 
         for process in new_processes {
             self.process_list.insert(process.inner.pid, process);
         }
-        let kvm_procs: &mut [utils::KInfoProc] =
-            std::slice::from_raw_parts_mut(kvm_procs as _, count as _);
+        unsafe {
+            let kvm_procs: &mut [utils::KInfoProc] =
+                std::slice::from_raw_parts_mut(kvm_procs as _, count as _);
 
-        for kproc in kvm_procs {
-            if let Some(process) = self.process_list.get_mut(&Pid(kproc.ki_pid)) {
-                add_missing_proc_info(&mut self.system_info, kproc, process, refresh_kind);
+            for kproc in kvm_procs {
+                if let Some(process) = self.process_list.get_mut(&Pid(kproc.ki_pid)) {
+                    add_missing_proc_info(&mut self.system_info, kproc, process, refresh_kind);
+                }
             }
         }
         nb_updated.into_inner()
@@ -398,7 +403,7 @@ unsafe fn add_missing_proc_info(
             .cmd()
             .needs_update(|| proc_inner.cmd.is_empty());
         if proc_inner.name.is_empty() || cmd_needs_update {
-            let cmd = from_cstr_array(libc::kvm_getargv(kd, kproc, 0) as _);
+            let cmd = unsafe { from_cstr_array(libc::kvm_getargv(kd, kproc, 0) as _) };
 
             if !cmd.is_empty() {
                 // First, we try to retrieve the name from the command line.
@@ -412,8 +417,10 @@ unsafe fn add_missing_proc_info(
                 }
             }
         }
-        get_exe(&mut proc_inner.exe, proc_inner.pid, refresh_kind);
-        system_info.get_proc_missing_info(kproc, proc_inner, refresh_kind);
+        unsafe {
+            get_exe(&mut proc_inner.exe, proc_inner.pid, refresh_kind);
+            system_info.get_proc_missing_info(kproc, proc_inner, refresh_kind);
+        }
         if proc_inner.name.is_empty() {
             // The name can be cut short because the `ki_comm` field size is limited,
             // which is why we prefer to get the name from the command line as much as
@@ -424,7 +431,7 @@ unsafe fn add_missing_proc_info(
             .environ()
             .needs_update(|| proc_inner.environ.is_empty())
         {
-            proc_inner.environ = from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _);
+            proc_inner.environ = unsafe { from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _) };
         }
     }
 }
@@ -498,7 +505,7 @@ impl SystemInfo {
                 MaybeUninit::<[libc::c_char; libc::_POSIX2_LINE_MAX as usize]>::uninit();
             let kd = NonNull::new(libc::kvm_openfiles(
                 std::ptr::null(),
-                b"/dev/null\0".as_ptr() as *const _,
+                c"/dev/null".as_ptr() as *const _,
                 std::ptr::null(),
                 0,
                 errbuf.as_mut_ptr() as *mut _,
@@ -652,39 +659,44 @@ impl SystemInfo {
             return;
         }
         if self.procstat.is_null() {
-            self.procstat = libc::procstat_open_sysctl();
-            if self.procstat.is_null() {
-                sysinfo_debug!("procstat_open_sysctl failed");
-                return;
+            unsafe {
+                self.procstat = libc::procstat_open_sysctl();
+                if self.procstat.is_null() {
+                    sysinfo_debug!("procstat_open_sysctl failed");
+                    return;
+                }
             }
         }
-        let head = libc::procstat_getfiles(self.procstat, kproc as *const _ as usize as *mut _, 0);
-        if head.is_null() {
-            return;
-        }
-        let mut entry = (*head).stqh_first;
-        while !entry.is_null() && done > 0 {
-            {
-                let tmp = &*entry;
-                if tmp.fs_uflags & libc::PS_FST_UFLAG_CDIR != 0 {
-                    if cwd_needs_update && !tmp.fs_path.is_null() {
-                        if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
-                            proc_.cwd = Some(PathBuf::from(p));
-                            done -= 1;
+        unsafe {
+            let head =
+                libc::procstat_getfiles(self.procstat, kproc as *const _ as usize as *mut _, 0);
+            if head.is_null() {
+                return;
+            }
+            let mut entry = (*head).stqh_first;
+            while !entry.is_null() && done > 0 {
+                {
+                    let tmp = &*entry;
+                    if tmp.fs_uflags & libc::PS_FST_UFLAG_CDIR != 0 {
+                        if cwd_needs_update && !tmp.fs_path.is_null() {
+                            if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
+                                proc_.cwd = Some(PathBuf::from(p));
+                                done -= 1;
+                            }
                         }
-                    }
-                } else if tmp.fs_uflags & libc::PS_FST_UFLAG_RDIR != 0 {
-                    if root_needs_update && !tmp.fs_path.is_null() {
-                        if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
-                            proc_.root = Some(PathBuf::from(p));
-                            done -= 1;
+                    } else if tmp.fs_uflags & libc::PS_FST_UFLAG_RDIR != 0 {
+                        if root_needs_update && !tmp.fs_path.is_null() {
+                            if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
+                                proc_.root = Some(PathBuf::from(p));
+                                done -= 1;
+                            }
                         }
                     }
                 }
+                entry = (*entry).next.stqe_next;
             }
-            entry = (*entry).next.stqe_next;
+            libc::procstat_freefiles(self.procstat, head);
         }
-        libc::procstat_freefiles(self.procstat, head);
     }
 }
 

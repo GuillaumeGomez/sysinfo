@@ -4,8 +4,8 @@
 use libc::{mach_timebase_info, mach_timebase_info_data_t};
 
 use libc::{
-    host_processor_info, mach_port_t, munmap, natural_t, processor_cpu_load_info,
-    processor_cpu_load_info_t, sysconf, vm_page_size, PROCESSOR_CPU_LOAD_INFO, _SC_CLK_TCK,
+    _SC_CLK_TCK, PROCESSOR_CPU_LOAD_INFO, host_processor_info, mach_port_t, munmap, natural_t,
+    processor_cpu_load_info, processor_cpu_load_info_t, sysconf, vm_page_size,
 };
 use std::ptr::null_mut;
 use std::time::Instant;
@@ -158,14 +158,14 @@ impl SystemTimeInfo {
 #[cfg(not(feature = "apple-sandbox"))]
 pub(crate) fn get_io_platform_property(key: &str) -> Option<String> {
     use crate::sys::macos::utils::IOReleaser;
-    use objc2_core_foundation::{kCFAllocatorDefault, CFData, CFGetTypeID, CFString, ConcreteType};
+    use objc2_core_foundation::{CFData, CFGetTypeID, CFString, ConcreteType, kCFAllocatorDefault};
     use objc2_io_kit::{
-        kIOMasterPortDefault, IORegistryEntryCreateCFProperty, IOServiceGetMatchingService,
-        IOServiceMatching,
+        IORegistryEntryCreateCFProperty, IOServiceGetMatchingService, IOServiceMatching,
+        kIOMasterPortDefault,
     };
     use std::ffi::CStr;
 
-    let matching = match unsafe { IOServiceMatching(b"IOPlatformExpertDevice\0".as_ptr().cast()) } {
+    let matching = match unsafe { IOServiceMatching(c"IOPlatformExpertDevice".as_ptr().cast()) } {
         Some(matching) => matching,
         None => {
             sysinfo_debug!("IOServiceMatching call failed, `IOPlatformExpertDevice` not found");

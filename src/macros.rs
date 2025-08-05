@@ -62,9 +62,11 @@ macro_rules! declare_signals {
 #[allow(unused_macros)]
 macro_rules! retry_eintr {
     (set_to_0 => $($t:tt)+) => {{
-        let errno = crate::unix::libc_errno();
+        #[allow(unused_unsafe)]
+        let errno = unsafe { crate::unix::libc_errno() };
         if !errno.is_null() {
-            *errno = 0;
+            #[allow(unused_unsafe)]
+            unsafe { *errno = 0; }
         }
         retry_eintr!($($t)+)
     }};

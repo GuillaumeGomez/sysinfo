@@ -28,19 +28,20 @@ impl Iterator for InterfaceAddressIterator {
         unsafe {
             while !self.ifap.is_null() {
                 // advance the pointer until a MAC address is found
-                let ifap = self.ifap;
-                self.ifap = (*ifap).ifa_next;
+                // Safety: `ifap` is already checked as non-null in the loop condition.
+                let ifap = &*self.ifap;
+                self.ifap = ifap.ifa_next;
 
                 if let Some(addr) = parse_interface_address(ifap) {
-                    let ifa_name = (*ifap).ifa_name;
+                    let ifa_name = ifap.ifa_name;
                     if ifa_name.is_null() {
                         continue;
                     }
                     // libc::IFNAMSIZ + 6
                     // This size refers to ./apple/network.rs:75
                     let mut name = vec![0u8; libc::IFNAMSIZ + 6];
-                    libc::strcpy(name.as_mut_ptr() as _, (*ifap).ifa_name);
-                    name.set_len(libc::strlen((*ifap).ifa_name));
+                    libc::strcpy(name.as_mut_ptr() as _, ifap.ifa_name);
+                    name.set_len(libc::strlen(ifap.ifa_name));
                     let name = String::from_utf8_unchecked(name);
 
                     return Some((name, addr));
@@ -82,43 +83,47 @@ impl From<&libc::sockaddr_dl> for MacAddr {
 }
 
 #[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "ios"))]
-unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> Option<MacAddr> {
-    let sock_addr = (*ifap).ifa_addr;
+unsafe fn parse_interface_address(ifap: &libc::ifaddrs) -> Option<MacAddr> {
+    let sock_addr = ifap.ifa_addr;
     if sock_addr.is_null() {
         return None;
     }
-    match (*sock_addr).sa_family as libc::c_int {
-        libc::AF_LINK => {
-            let addr = sock_addr as *const libc::sockaddr_dl;
-            Some(MacAddr::from(&*addr))
+    unsafe {
+        match (*sock_addr).sa_family as libc::c_int {
+            libc::AF_LINK => {
+                let addr = sock_addr as *const libc::sockaddr_dl;
+                Some(MacAddr::from(&*addr))
+            }
+            _ => None,
         }
-        _ => None,
     }
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-unsafe fn parse_interface_address(ifap: *const libc::ifaddrs) -> Option<MacAddr> {
+unsafe fn parse_interface_address(ifap: &libc::ifaddrs) -> Option<MacAddr> {
     use libc::sockaddr_ll;
 
-    let sock_addr = (*ifap).ifa_addr;
+    let sock_addr = ifap.ifa_addr;
     if sock_addr.is_null() {
         return None;
     }
-    match (*sock_addr).sa_family as libc::c_int {
-        libc::AF_PACKET => {
-            let addr = sock_addr as *const sockaddr_ll;
-            // Take the first 6 bytes
-            let [addr @ .., _, _] = (*addr).sll_addr;
-            Some(MacAddr(addr))
+    unsafe {
+        match (*sock_addr).sa_family as libc::c_int {
+            libc::AF_PACKET => {
+                let addr = sock_addr as *const sockaddr_ll;
+                // Take the first 6 bytes
+                let [addr @ .., _, _] = (*addr).sll_addr;
+                Some(MacAddr(addr))
+            }
+            _ => None,
         }
-        _ => None,
     }
 }
 
 /// Return an iterator on (interface_name, address) pairs
 pub(crate) unsafe fn get_interface_address() -> Result<InterfaceAddressIterator, String> {
     let mut ifap = null_mut();
-    if retry_eintr!(libc::getifaddrs(&mut ifap)) == 0 && !ifap.is_null() {
+    if unsafe { retry_eintr!(libc::getifaddrs(&mut ifap)) } == 0 && !ifap.is_null() {
         Ok(InterfaceAddressIterator { ifap, buf: ifap })
     } else {
         Err("failed to call getifaddrs()".to_string())
@@ -130,28 +135,28 @@ pub(crate) unsafe fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNe
     let mut addrs: MaybeUninit<*mut libc::ifaddrs> = MaybeUninit::uninit();
 
     // Safety: addrs.as_mut_ptr() is valid, it points to addrs.
-    if libc::getifaddrs(addrs.as_mut_ptr()) != 0 {
+    if unsafe { libc::getifaddrs(addrs.as_mut_ptr()) } != 0 {
         sysinfo_debug!("Failed to operate libc::getifaddrs as ifaddrs Uninitialized");
         return ifaces;
     }
 
     // Safety: If there was an error, we would have already returned.
     // Therefore, getifaddrs has initialized `addrs`.
-    let addrs = addrs.assume_init();
+    let addrs = unsafe { addrs.assume_init() };
 
     let mut addr = addrs;
     while !addr.is_null() {
         // Safety: We assume that addr is valid for the lifetime of this loop
         // body, and is not mutated.
-        let addr_ref: &libc::ifaddrs = &*addr;
+        let addr_ref: &libc::ifaddrs = unsafe { &*addr };
 
         let c_str = addr_ref.ifa_name as *const c_char;
 
         // Safety: ifa_name is a null terminated interface name
-        let bytes = CStr::from_ptr(c_str).to_bytes();
+        let bytes = unsafe { CStr::from_ptr(c_str).to_bytes() };
 
         // Safety: Interfaces on unix must be valid UTF-8
-        let mut name = from_utf8_unchecked(bytes).to_owned();
+        let mut name = unsafe { from_utf8_unchecked(bytes).to_owned() };
         // Interfaces names may be formatted as <interface name>:<sub-interface index>
         if name.contains(':') {
             if let Some(interface_name) = name.split(':').next() {
@@ -180,7 +185,7 @@ pub(crate) unsafe fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNe
     }
 
     // Safety: addrs has been previously allocated through getifaddrs
-    libc::freeifaddrs(addrs);
+    unsafe { libc::freeifaddrs(addrs) };
     ifaces
 }
 

@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    common::{Gid, Uid},
     Group, User,
+    common::{Gid, Uid},
 };
 use libc::{getgrgid_r, getgrouplist};
 
@@ -11,7 +11,7 @@ use libc::{endpwent, getpwent, setpwent};
 
 // See `https://github.com/rust-lang/libc/issues/3014`.
 #[cfg(target_os = "android")]
-extern "C" {
+unsafe extern "C" {
     fn getpwent() -> *mut libc::passwd;
     fn setpwent();
     fn endpwent();
@@ -60,29 +60,32 @@ pub(crate) unsafe fn get_group_name(
     let mut g = std::mem::MaybeUninit::<libc::group>::uninit();
     let mut tmp_ptr = std::ptr::null_mut();
     let mut last_errno = 0;
-    loop {
-        if retry_eintr!(set_to_0 => last_errno => getgrgid_r(
-            id as _,
-            g.as_mut_ptr() as _,
-            buffer.as_mut_ptr(),
-            buffer.capacity() as _,
-            &mut tmp_ptr as _
-        )) != 0
-        {
-            // If there was not enough memory, we give it more.
-            if last_errno == libc::ERANGE as _ {
-                // Needs to be updated for `Vec::reserve` to actually add additional capacity.
-                // In here it's "fine" since we never read from `buffer`.
-                buffer.set_len(buffer.capacity());
-                buffer.reserve(2048);
-                continue;
+
+    unsafe {
+        loop {
+            if retry_eintr!(set_to_0 => last_errno => getgrgid_r(
+                id as _,
+                g.as_mut_ptr() as _,
+                buffer.as_mut_ptr(),
+                buffer.capacity() as _,
+                &mut tmp_ptr as _
+            )) != 0
+            {
+                // If there was not enough memory, we give it more.
+                if last_errno == libc::ERANGE as _ {
+                    // Needs to be updated for `Vec::reserve` to actually add additional capacity.
+                    // In here it's "fine" since we never read from `buffer`.
+                    buffer.set_len(buffer.capacity());
+                    buffer.reserve(2048);
+                    continue;
+                }
+                return None;
             }
-            return None;
+            break;
         }
-        break;
+        let g = g.assume_init();
+        super::utils::cstr_to_rust(g.gr_name)
     }
-    let g = g.assume_init();
-    super::utils::cstr_to_rust(g.gr_name)
 }
 
 pub(crate) unsafe fn get_user_groups(
@@ -93,30 +96,32 @@ pub(crate) unsafe fn get_user_groups(
     let mut groups = Vec::with_capacity(256);
 
     loop {
-        let mut nb_groups = groups.capacity();
-        if getgrouplist(
-            name,
-            group_id as _,
-            groups.as_mut_ptr(),
-            &mut nb_groups as *mut _ as *mut _,
-        ) == -1
-        {
-            // Ensure the length matches the number of returned groups.
-            // Needs to be updated for `Vec::reserve` to actually add additional capacity.
+        unsafe {
+            let mut nb_groups = groups.capacity();
+            if getgrouplist(
+                name,
+                group_id as _,
+                groups.as_mut_ptr(),
+                &mut nb_groups as *mut _ as *mut _,
+            ) == -1
+            {
+                // Ensure the length matches the number of returned groups.
+                // Needs to be updated for `Vec::reserve` to actually add additional capacity.
+                groups.set_len(nb_groups as _);
+                groups.reserve(256);
+                continue;
+            }
             groups.set_len(nb_groups as _);
-            groups.reserve(256);
-            continue;
-        }
-        groups.set_len(nb_groups as _);
-        return groups
-            .iter()
-            .filter_map(|group_id| {
-                let name = get_group_name(*group_id as _, &mut buffer)?;
-                Some(Group {
-                    inner: crate::GroupInner::new(Gid(*group_id as _), name),
+            return groups
+                .iter()
+                .filter_map(|group_id| {
+                    let name = get_group_name(*group_id as _, &mut buffer)?;
+                    Some(Group {
+                        inner: crate::GroupInner::new(Gid(*group_id as _), name),
+                    })
                 })
-            })
-            .collect();
+                .collect();
+        }
     }
 }
 

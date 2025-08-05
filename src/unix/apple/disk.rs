@@ -1,14 +1,14 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{sys::ffi, DiskUsage};
 use crate::{Disk, DiskKind, DiskRefreshKind};
+use crate::{DiskUsage, sys::ffi};
 
 use objc2_core_foundation::{
-    kCFAllocatorDefault, kCFTypeArrayCallBacks, kCFURLVolumeAvailableCapacityForImportantUsageKey,
+    CFArray, CFBoolean, CFDictionary, CFNumber, CFRetained, CFString, CFURL, kCFAllocatorDefault,
+    kCFTypeArrayCallBacks, kCFURLVolumeAvailableCapacityForImportantUsageKey,
     kCFURLVolumeAvailableCapacityKey, kCFURLVolumeIsBrowsableKey, kCFURLVolumeIsEjectableKey,
     kCFURLVolumeIsInternalKey, kCFURLVolumeIsLocalKey, kCFURLVolumeIsRemovableKey,
-    kCFURLVolumeNameKey, kCFURLVolumeTotalCapacityKey, kCFURLVolumeUUIDStringKey, CFArray,
-    CFBoolean, CFDictionary, CFNumber, CFRetained, CFString, CFURL,
+    kCFURLVolumeNameKey, kCFURLVolumeTotalCapacityKey, kCFURLVolumeUUIDStringKey,
 };
 
 use libc::c_void;
@@ -216,114 +216,117 @@ impl crate::DisksInner {
 }
 
 unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
-    let raw_disks = {
-        let count = libc::getfsstat(ptr::null_mut(), 0, libc::MNT_NOWAIT);
-        if count < 1 {
-            return;
+    unsafe {
+        let raw_disks = {
+            let count = libc::getfsstat(ptr::null_mut(), 0, libc::MNT_NOWAIT);
+            if count < 1 {
+                return;
+            }
+            let bufsize = count * std::mem::size_of::<libc::statfs>() as libc::c_int;
+            let mut disks = Vec::with_capacity(count as _);
+            let count = libc::getfsstat(disks.as_mut_ptr(), bufsize, libc::MNT_NOWAIT);
+
+            if count < 1 {
+                return;
+            }
+
+            disks.set_len(count as usize);
+
+            disks
+        };
+
+        // Currently we query maximum 10 properties.
+        let mut properties = Vec::with_capacity(10);
+        // "mandatory" information
+        properties.push(kCFURLVolumeNameKey);
+        properties.push(kCFURLVolumeIsBrowsableKey);
+        properties.push(kCFURLVolumeIsLocalKey);
+        properties.push(kCFURLVolumeUUIDStringKey);
+
+        // is_removable
+        properties.push(kCFURLVolumeIsEjectableKey);
+        properties.push(kCFURLVolumeIsRemovableKey);
+        properties.push(kCFURLVolumeIsInternalKey);
+
+        if refresh_kind.storage() {
+            properties.push(kCFURLVolumeTotalCapacityKey);
+            properties.push(kCFURLVolumeAvailableCapacityForImportantUsageKey);
+            properties.push(kCFURLVolumeAvailableCapacityKey);
         }
-        let bufsize = count * std::mem::size_of::<libc::statfs>() as libc::c_int;
-        let mut disks = Vec::with_capacity(count as _);
-        let count = libc::getfsstat(disks.as_mut_ptr(), bufsize, libc::MNT_NOWAIT);
 
-        if count < 1 {
-            return;
-        }
-
-        disks.set_len(count as usize);
-
-        disks
-    };
-
-    // Currently we query maximum 10 properties.
-    let mut properties = Vec::with_capacity(10);
-    // "mandatory" information
-    properties.push(kCFURLVolumeNameKey);
-    properties.push(kCFURLVolumeIsBrowsableKey);
-    properties.push(kCFURLVolumeIsLocalKey);
-    properties.push(kCFURLVolumeUUIDStringKey);
-
-    // is_removable
-    properties.push(kCFURLVolumeIsEjectableKey);
-    properties.push(kCFURLVolumeIsRemovableKey);
-    properties.push(kCFURLVolumeIsInternalKey);
-
-    if refresh_kind.storage() {
-        properties.push(kCFURLVolumeTotalCapacityKey);
-        properties.push(kCFURLVolumeAvailableCapacityForImportantUsageKey);
-        properties.push(kCFURLVolumeAvailableCapacityKey);
-    }
-
-    // Create a list of properties about the disk that we want to fetch.
-    let requested_properties = match build_requested_properties(&properties) {
-        Some(properties) => properties,
-        None => {
-            sysinfo_debug!("failed to create volume key list");
-            return;
-        }
-    };
-
-    for c_disk in raw_disks {
-        let volume_url = match CFURL::from_file_system_representation(
-            kCFAllocatorDefault,
-            c_disk.f_mntonname.as_ptr() as *const _,
-            c_disk.f_mntonname.len() as _,
-            false as _,
-        ) {
-            Some(url) => url,
+        // Create a list of properties about the disk that we want to fetch.
+        let requested_properties = match build_requested_properties(&properties) {
+            Some(properties) => properties,
             None => {
-                sysinfo_debug!("getfsstat returned incompatible paths");
-                continue;
+                sysinfo_debug!("failed to create volume key list");
+                return;
             }
         };
 
-        let prop_dict = match get_disk_properties(&volume_url, &requested_properties) {
-            Some(props) => props,
-            None => continue,
-        };
+        for c_disk in raw_disks {
+            let volume_url = match CFURL::from_file_system_representation(
+                kCFAllocatorDefault,
+                c_disk.f_mntonname.as_ptr() as *const _,
+                c_disk.f_mntonname.len() as _,
+                false as _,
+            ) {
+                Some(url) => url,
+                None => {
+                    sysinfo_debug!("getfsstat returned incompatible paths");
+                    continue;
+                }
+            };
 
-        // Future note: There is a difference between `kCFURLVolumeIsBrowsableKey` and the
-        // `kCFURLEnumeratorSkipInvisibles` option of `CFURLEnumeratorOptions`. Specifically,
-        // the first one considers the writable `Data`(`/System/Volumes/Data`) partition to be
-        // browsable, while it is classified as "invisible" by CoreFoundation's volume enumerator.
-        let browsable = get_bool_value(&prop_dict, kCFURLVolumeIsBrowsableKey).unwrap_or_default();
+            let prop_dict = match get_disk_properties(&volume_url, &requested_properties) {
+                Some(props) => props,
+                None => continue,
+            };
 
-        // Do not return invisible "disks". Most of the time, these are APFS snapshots, hidden
-        // system volumes, etc. Browsable is defined to be visible in the system's UI like Finder,
-        // disk utility, system information, etc.
-        //
-        // To avoid seemingly duplicating many disks and creating an inaccurate view of the system's
-        // resources, these are skipped entirely.
-        if !browsable {
-            continue;
-        }
+            // Future note: There is a difference between `kCFURLVolumeIsBrowsableKey` and the
+            // `kCFURLEnumeratorSkipInvisibles` option of `CFURLEnumeratorOptions`. Specifically,
+            // the first one considers the writable `Data`(`/System/Volumes/Data`) partition to be
+            // browsable, while it is classified as "invisible" by CoreFoundation's volume enumerator.
+            let browsable =
+                get_bool_value(&prop_dict, kCFURLVolumeIsBrowsableKey).unwrap_or_default();
 
-        let local_only = get_bool_value(&prop_dict, kCFURLVolumeIsLocalKey).unwrap_or(true);
+            // Do not return invisible "disks". Most of the time, these are APFS snapshots, hidden
+            // system volumes, etc. Browsable is defined to be visible in the system's UI like Finder,
+            // disk utility, system information, etc.
+            //
+            // To avoid seemingly duplicating many disks and creating an inaccurate view of the system's
+            // resources, these are skipped entirely.
+            if !browsable {
+                continue;
+            }
 
-        // Skip any drive that is not locally attached to the system.
-        //
-        // This includes items like SMB mounts, and matches the other platform's behavior.
-        if !local_only {
-            continue;
-        }
+            let local_only = get_bool_value(&prop_dict, kCFURLVolumeIsLocalKey).unwrap_or(true);
 
-        let mount_point = PathBuf::from(OsStr::from_bytes(
-            CStr::from_ptr(c_disk.f_mntonname.as_ptr()).to_bytes(),
-        ));
+            // Skip any drive that is not locally attached to the system.
+            //
+            // This includes items like SMB mounts, and matches the other platform's behavior.
+            if !local_only {
+                continue;
+            }
 
-        let uuid = OsStr::from_bytes(CStr::from_ptr(c_disk.f_mntonname.as_ptr()).to_bytes())
-            .to_os_string();
+            let mount_point = PathBuf::from(OsStr::from_bytes(
+                CStr::from_ptr(c_disk.f_mntonname.as_ptr()).to_bytes(),
+            ));
 
-        let disk = container.iter_mut().find(|d| d.inner.uuid == uuid);
-        if let Some(disk) = new_disk(
-            disk,
-            mount_point,
-            volume_url,
-            c_disk,
-            &prop_dict,
-            refresh_kind,
-            uuid,
-        ) {
-            container.push(disk);
+            let uuid = OsStr::from_bytes(CStr::from_ptr(c_disk.f_mntonname.as_ptr()).to_bytes())
+                .to_os_string();
+
+            let disk = container.iter_mut().find(|d| d.inner.uuid == uuid);
+            if let Some(disk) = new_disk(
+                disk,
+                mount_point,
+                volume_url,
+                c_disk,
+                &prop_dict,
+                refresh_kind,
+                uuid,
+            ) {
+                container.push(disk);
+            }
         }
     }
 }
@@ -331,12 +334,14 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
 unsafe fn build_requested_properties(
     properties: &[Option<&CFString>],
 ) -> Option<CFRetained<CFArray>> {
-    CFArray::new(
-        None,
-        properties.as_ptr() as *mut *const c_void,
-        properties.len() as _,
-        &kCFTypeArrayCallBacks,
-    )
+    unsafe {
+        CFArray::new(
+            None,
+            properties.as_ptr() as *mut *const c_void,
+            properties.len() as _,
+            &kCFTypeArrayCallBacks,
+        )
+    }
 }
 
 fn get_disk_properties(
@@ -368,7 +373,7 @@ unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
 ) -> Option<T> {
     let mut value = std::ptr::null();
     let key: *const CFString = key.map(|key| key as *const CFString).unwrap_or(ptr::null());
-    if dict.value_if_present(key.cast(), &mut value) {
+    if unsafe { dict.value_if_present(key.cast(), &mut value) } {
         callback(value)
     } else {
         None
@@ -376,24 +381,30 @@ unsafe fn get_dict_value<T, F: FnOnce(*const c_void) -> Option<T>>(
 }
 
 pub(super) unsafe fn get_str_value(dict: &CFDictionary, key: Option<&CFString>) -> Option<String> {
-    get_dict_value(dict, key, |v| {
-        let v = unsafe { &*v.cast::<CFString>() };
-        Some(v.to_string())
-    })
+    unsafe {
+        get_dict_value(dict, key, |v| {
+            let v = &*v.cast::<CFString>();
+            Some(v.to_string())
+        })
+    }
 }
 
 unsafe fn get_bool_value(dict: &CFDictionary, key: Option<&CFString>) -> Option<bool> {
-    get_dict_value(dict, key, |v| {
-        let v = unsafe { &*v.cast::<CFBoolean>() };
-        Some(v.as_bool())
-    })
+    unsafe {
+        get_dict_value(dict, key, |v| {
+            let v = &*v.cast::<CFBoolean>();
+            Some(v.as_bool())
+        })
+    }
 }
 
 pub(super) unsafe fn get_int_value(dict: &CFDictionary, key: Option<&CFString>) -> Option<u64> {
-    get_dict_value(dict, key, |v| {
-        let v = unsafe { &*v.cast::<CFNumber>() };
-        Some(v.as_i64()? as u64)
-    })
+    unsafe {
+        get_dict_value(dict, key, |v| {
+            let v = &*v.cast::<CFNumber>();
+            Some(v.as_i64()? as u64)
+        })
+    }
 }
 
 unsafe fn new_disk(
@@ -407,7 +418,7 @@ unsafe fn new_disk(
 ) -> Option<Disk> {
     let (total_space, available_space) = if refresh_kind.storage() {
         (
-            get_int_value(disk_props, kCFURLVolumeTotalCapacityKey),
+            unsafe { get_int_value(disk_props, kCFURLVolumeTotalCapacityKey) },
             get_available_volume_space(disk_props),
         )
     } else {
@@ -432,7 +443,7 @@ unsafe fn new_disk(
     // Note: Since we requested these properties from the system, we don't expect
     // these property retrievals to fail.
 
-    let name = get_str_value(disk_props, kCFURLVolumeNameKey).map(OsString::from)?;
+    let name = unsafe { get_str_value(disk_props, kCFURLVolumeNameKey) }.map(OsString::from)?;
 
     let file_system = {
         let len = c_disk
@@ -456,16 +467,19 @@ unsafe fn new_disk(
     // so we just assume the disk type is an SSD and set disk i/o stats to 0 until Rust has a way to conditionally link to
     // IOKit in more recent deployment versions.
 
-    let ejectable = get_bool_value(disk_props, kCFURLVolumeIsEjectableKey).unwrap_or(false);
+    let ejectable =
+        unsafe { get_bool_value(disk_props, kCFURLVolumeIsEjectableKey) }.unwrap_or(false);
 
-    let removable = get_bool_value(disk_props, kCFURLVolumeIsRemovableKey).unwrap_or(false);
+    let removable =
+        unsafe { get_bool_value(disk_props, kCFURLVolumeIsRemovableKey) }.unwrap_or(false);
 
     let is_removable = if ejectable || removable {
         true
     } else {
         // If neither `ejectable` or `removable` return `true`, fallback to checking
         // if the disk is attached to the internal system.
-        let internal = get_bool_value(disk_props, kCFURLVolumeIsInternalKey).unwrap_or_default();
+        let internal =
+            unsafe { get_bool_value(disk_props, kCFURLVolumeIsInternalKey) }.unwrap_or_default();
 
         !internal
     };

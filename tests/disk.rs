@@ -131,7 +131,7 @@ fn test_disk_refresh_kind() {
 #[test]
 #[cfg(all(feature = "system", feature = "disk"))]
 fn test_disks_usage() {
-    use std::fs::{remove_file, File};
+    use std::fs::{File, remove_file};
     use std::io::Write;
     use std::path::{Path, PathBuf};
     use std::thread::sleep;

@@ -321,11 +321,7 @@ impl CpuUsage {
     ) {
         macro_rules! min {
             ($a:expr, $b:expr, $def:expr) => {
-                if $a > $b {
-                    ($a - $b) as f32
-                } else {
-                    $def
-                }
+                if $a > $b { ($a - $b) as f32 } else { $def }
             };
         }
 

@@ -16,7 +16,7 @@ use libc::{c_ulong, gid_t, uid_t};
 
 use crate::sys::system::SystemInfo;
 use crate::sys::utils::{
-    get_all_data_from_file, get_all_utf8_data, realpath, PathHandler, PathPush,
+    PathHandler, PathPush, get_all_data_from_file, get_all_utf8_data, realpath,
 };
 use crate::{
     DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, Signal,
