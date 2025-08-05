@@ -373,7 +373,7 @@ impl ComponentInner {
     }
 }
 
-fn read_temp_dir<F: FnMut(PathBuf)>(path: &str, starts_with: &str, mut f: F) {
+fn read_temp_dir<F: FnMut(PathBuf)>(path: &Path, starts_with: &str, mut f: F) {
     if let Ok(dir) = read_dir(path) {
         for entry in dir.flatten() {
             if !entry
@@ -420,18 +420,16 @@ impl ComponentsInner {
     }
 
     pub(crate) fn refresh(&mut self) {
-        self.refresh_from_sys_class_path("/sys/class");
+        self.refresh_from_sys_class_path(Path::new("/sys/class"));
     }
 
-    fn refresh_from_sys_class_path(&mut self, path: &str) {
-        let hwmon_path = format!("{path}/hwmon");
-        read_temp_dir(&hwmon_path, "hwmon", |path| {
+    fn refresh_from_sys_class_path(&mut self, path: &Path) {
+        read_temp_dir(&path.join("hwmon"), "hwmon", |path| {
             ComponentInner::from_hwmon(&mut self.components, &path);
         });
         if self.components.is_empty() {
             // Normally should only be used by raspberry pi.
-            let thermal_path = format!("{path}/thermal");
-            read_temp_dir(&thermal_path, "thermal_", |path| {
+            read_temp_dir(&path.join("thermal"), "thermal_", |path| {
                 let temp = path.join("temp");
                 if temp.exists() {
                     let Some(name) = get_file_line(&path.join("type"), 16) else {
@@ -468,12 +466,7 @@ mod tests {
             .expect("failed to write to temp1_input file");
 
         let mut components = ComponentsInner::new();
-        components.refresh_from_sys_class_path(
-            temp_dir
-                .path()
-                .to_str()
-                .expect("failed to convert path to string"),
-        );
+        components.refresh_from_sys_class_path(temp_dir.path());
         let components = components.into_vec();
 
         assert_eq!(components.len(), 1);
@@ -502,12 +495,7 @@ mod tests {
         fs::write(hwmon0_dir.join("temp1_crit"), "100").expect("failed to write to temp1_min file");
 
         let mut components = ComponentsInner::new();
-        components.refresh_from_sys_class_path(
-            temp_dir
-                .path()
-                .to_str()
-                .expect("failed to convert path to string"),
-        );
+        components.refresh_from_sys_class_path(temp_dir.path());
         let components = components.into_vec();
 
         assert_eq!(components.len(), 1);
@@ -539,12 +527,7 @@ mod tests {
         fs::write(hwmon0_dir.join("temp2_crit"), "200").expect("failed to write to temp2_min file");
 
         let mut components = ComponentsInner::new();
-        components.refresh_from_sys_class_path(
-            temp_dir
-                .path()
-                .to_str()
-                .expect("failed to convert path to string"),
-        );
+        components.refresh_from_sys_class_path(temp_dir.path());
         let mut components = components.into_vec();
         components.sort_by_key(|c| c.inner.label.clone());
 
@@ -588,12 +571,7 @@ mod tests {
         fs::write(hwmon0_dir.join("temp2_crit"), "200").expect("failed to write to temp2_min file");
 
         let mut components = ComponentsInner::new();
-        components.refresh_from_sys_class_path(
-            temp_dir
-                .path()
-                .to_str()
-                .expect("failed to convert path to string"),
-        );
+        components.refresh_from_sys_class_path(temp_dir.path());
         let mut components = components.into_vec();
         components.sort_by_key(|c| c.inner.label.clone());
 
