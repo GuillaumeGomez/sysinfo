@@ -24,12 +24,12 @@ pub(crate) const DEVSTAT_WRITE: usize = 0x02;
 // pub(crate) const DSM_TOTAL_BYTES_READ: c_int = 2;
 // pub(crate) const DSM_TOTAL_BYTES_WRITE: c_int = 3;
 
-extern "C" {
-    // pub(crate) fn devstat_compute_statistics(current: *mut devstat, previous: *mut devstat, etime: c_long_double, ...) -> c_int;
-}
+// extern "C" {
+//     pub(crate) fn devstat_compute_statistics(current: *mut devstat, previous: *mut devstat, etime: c_long_double, ...) -> c_int;
+// }
 
 #[link(name = "geom")]
-extern "C" {
+unsafe extern "C" {
     pub(crate) fn geom_stats_open() -> c_int;
     pub(crate) fn geom_stats_snapshot_get() -> *mut c_void;
     pub(crate) fn geom_stats_snapshot_next(arg: *mut c_void) -> *mut libc::devstat;

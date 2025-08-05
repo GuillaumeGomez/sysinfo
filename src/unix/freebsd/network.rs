@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use std::collections::{hash_map, HashMap};
+use std::collections::{HashMap, hash_map};
 use std::mem::MaybeUninit;
 
 use super::utils;
@@ -48,16 +48,18 @@ impl NetworksInner {
 
     unsafe fn refresh_interfaces(&mut self, refresh_all: bool) {
         let mut nb_interfaces: libc::c_int = 0;
-        if !utils::get_sys_value(
-            &[
-                libc::CTL_NET,
-                libc::PF_LINK,
-                libc::NETLINK_GENERIC,
-                libc::IFMIB_SYSTEM,
-                libc::IFMIB_IFCOUNT,
-            ],
-            &mut nb_interfaces,
-        ) {
+        if unsafe {
+            !utils::get_sys_value(
+                &[
+                    libc::CTL_NET,
+                    libc::PF_LINK,
+                    libc::NETLINK_GENERIC,
+                    libc::IFMIB_SYSTEM,
+                    libc::IFMIB_IFCOUNT,
+                ],
+                &mut nb_interfaces,
+            )
+        } {
             return;
         }
         if refresh_all {
@@ -66,7 +68,7 @@ impl NetworksInner {
                 interface.inner.updated = false;
             }
         }
-        let mut data: libc::ifmibdata = MaybeUninit::zeroed().assume_init();
+        let mut data: libc::ifmibdata = unsafe { MaybeUninit::zeroed().assume_init() };
         for row in 1..=nb_interfaces {
             let mib = [
                 libc::CTL_NET,
@@ -77,7 +79,7 @@ impl NetworksInner {
                 libc::IFDATA_GENERAL,
             ];
 
-            if !utils::get_sys_value(&mib, &mut data) {
+            if unsafe { !utils::get_sys_value(&mib, &mut data) } {
                 continue;
             }
             if let Some(name) = utils::c_buf_to_utf8_string(&data.ifmd_name) {

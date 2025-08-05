@@ -2,14 +2,14 @@
 
 use std::{fmt::Display, str::FromStr};
 
-use windows::core::{PCWSTR, PWSTR};
 #[cfg(feature = "user")]
 use windows::Win32::Foundation::ERROR_INSUFFICIENT_BUFFER;
-use windows::Win32::Foundation::{LocalFree, HLOCAL};
+use windows::Win32::Foundation::{HLOCAL, LocalFree};
 use windows::Win32::Security::Authorization::{ConvertSidToStringSidW, ConvertStringSidToSidW};
 use windows::Win32::Security::{CopySid, GetLengthSid, IsValidSid, PSID};
 #[cfg(feature = "user")]
 use windows::Win32::Security::{LookupAccountSidW, SidTypeUnknown};
+use windows::core::{PCWSTR, PWSTR};
 
 use crate::sys::utils::to_utf8_str;
 
@@ -26,15 +26,15 @@ impl Sid {
             return None;
         }
 
-        if !IsValidSid(psid).as_bool() {
+        if unsafe { !IsValidSid(psid).as_bool() } {
             return None;
         }
 
-        let length = GetLengthSid(psid);
+        let length = unsafe { GetLengthSid(psid) };
 
         let mut sid = vec![0; length as usize];
 
-        if CopySid(length, PSID(sid.as_mut_ptr().cast()), psid).is_err() {
+        if unsafe { CopySid(length, PSID(sid.as_mut_ptr().cast()), psid).is_err() } {
             sysinfo_debug!("CopySid failed: {:?}", std::io::Error::last_os_error());
             return None;
         }
@@ -114,13 +114,15 @@ impl Display for Sid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         unsafe fn convert_sid_to_string_sid(sid: PSID) -> Option<String> {
             let mut string_sid = PWSTR::null();
-            if let Err(_err) = ConvertSidToStringSidW(sid, &mut string_sid) {
-                sysinfo_debug!("ConvertSidToStringSidW failed: {:?}", _err);
-                return None;
+            unsafe {
+                if let Err(_err) = ConvertSidToStringSidW(sid, &mut string_sid) {
+                    sysinfo_debug!("ConvertSidToStringSidW failed: {:?}", _err);
+                    return None;
+                }
+                let result = to_utf8_str(string_sid);
+                let _err = LocalFree(Some(HLOCAL(string_sid.0 as _)));
+                Some(result)
             }
-            let result = to_utf8_str(string_sid);
-            let _err = LocalFree(Some(HLOCAL(string_sid.0 as _)));
-            Some(result)
         }
 
         let string_sid =

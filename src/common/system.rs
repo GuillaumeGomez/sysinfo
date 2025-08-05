@@ -7,8 +7,8 @@ use std::path::Path;
 use std::process::ExitStatus;
 use std::str::FromStr;
 
-use crate::common::impl_get_set::impl_get_set;
 use crate::common::DiskUsage;
+use crate::common::impl_get_set::impl_get_set;
 use crate::{CpuInner, Gid, MotherboardInner, ProcessInner, ProductInner, SystemInner, Uid};
 
 /// Type containing system's information such as processes, memory and CPU.
@@ -2955,23 +2955,26 @@ mod test {
 
         s.refresh_processes(ProcessesToUpdate::All, false);
         // All CPU usage will start at zero until the second refresh
-        assert!(s
-            .processes()
-            .iter()
-            .all(|(_, proc_)| proc_.cpu_usage() == 0.0));
+        assert!(
+            s.processes()
+                .iter()
+                .all(|(_, proc_)| proc_.cpu_usage() == 0.0)
+        );
 
         // Wait a bit to update CPU usage values
         std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL);
         s.refresh_processes(ProcessesToUpdate::All, true);
-        assert!(s
-            .processes()
-            .iter()
-            .all(|(_, proc_)| proc_.cpu_usage() >= 0.0
-                && proc_.cpu_usage() <= (s.cpus().len() as f32) * 100.0));
-        assert!(s
-            .processes()
-            .iter()
-            .any(|(_, proc_)| proc_.cpu_usage() > 0.0));
+        assert!(
+            s.processes()
+                .iter()
+                .all(|(_, proc_)| proc_.cpu_usage() >= 0.0
+                    && proc_.cpu_usage() <= (s.cpus().len() as f32) * 100.0)
+        );
+        assert!(
+            s.processes()
+                .iter()
+                .any(|(_, proc_)| proc_.cpu_usage() > 0.0)
+        );
     }
 
     #[test]
@@ -2996,21 +2999,29 @@ mod test {
     fn check_system_info() {
         // We don't want to test on unsupported systems.
         if IS_SUPPORTED_SYSTEM {
-            assert!(!System::name()
-                .expect("Failed to get system name")
-                .is_empty());
+            assert!(
+                !System::name()
+                    .expect("Failed to get system name")
+                    .is_empty()
+            );
 
-            assert!(!System::kernel_version()
-                .expect("Failed to get kernel version")
-                .is_empty());
+            assert!(
+                !System::kernel_version()
+                    .expect("Failed to get kernel version")
+                    .is_empty()
+            );
 
-            assert!(!System::os_version()
-                .expect("Failed to get os version")
-                .is_empty());
+            assert!(
+                !System::os_version()
+                    .expect("Failed to get os version")
+                    .is_empty()
+            );
 
-            assert!(!System::long_os_version()
-                .expect("Failed to get long OS version")
-                .is_empty());
+            assert!(
+                !System::long_os_version()
+                    .expect("Failed to get long OS version")
+                    .is_empty()
+            );
         }
 
         assert!(!System::distribution_id().is_empty());

@@ -168,11 +168,13 @@ unsafe fn get_frequency_for_cpu(cpu_nb: usize) -> u64 {
     let mut frequency: c_int = 0;
 
     // The information can be missing if it's running inside a VM.
-    if !get_sys_value_by_name(
-        format!("dev.cpu.{cpu_nb}.freq\0").as_bytes(),
-        &mut frequency,
-    ) {
-        frequency = 0;
+    unsafe {
+        if !get_sys_value_by_name(
+            format!("dev.cpu.{cpu_nb}.freq\0").as_bytes(),
+            &mut frequency,
+        ) {
+            frequency = 0;
+        }
     }
     frequency as _
 }
@@ -208,18 +210,10 @@ impl<T: Clone> VecSwitcher<T> {
     }
 
     pub fn get_old(&self) -> &[T] {
-        if self.first {
-            &self.v1
-        } else {
-            &self.v2
-        }
+        if self.first { &self.v1 } else { &self.v2 }
     }
 
     pub fn get_new(&self) -> &[T] {
-        if self.first {
-            &self.v2
-        } else {
-            &self.v1
-        }
+        if self.first { &self.v2 } else { &self.v1 }
     }
 }

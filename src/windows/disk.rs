@@ -8,19 +8,20 @@ use std::mem::size_of;
 use std::os::windows::ffi::OsStringExt;
 use std::path::Path;
 
-use windows::core::{Error, HRESULT, PCWSTR};
 use windows::Win32::Foundation::MAX_PATH;
 use windows::Win32::Storage::FileSystem::{
     FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDiskFreeSpaceExW, GetDriveTypeW,
     GetVolumeInformationW, GetVolumePathNamesForVolumeNameW,
 };
+use windows::Win32::System::IO::DeviceIoControl;
 use windows::Win32::System::Ioctl::{
-    PropertyStandardQuery, StorageDeviceSeekPenaltyProperty, DEVICE_SEEK_PENALTY_DESCRIPTOR,
-    DISK_PERFORMANCE, IOCTL_DISK_PERFORMANCE, IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
+    DEVICE_SEEK_PENALTY_DESCRIPTOR, DISK_PERFORMANCE, IOCTL_DISK_PERFORMANCE,
+    IOCTL_STORAGE_QUERY_PROPERTY, PropertyStandardQuery, STORAGE_PROPERTY_QUERY,
+    StorageDeviceSeekPenaltyProperty,
 };
 use windows::Win32::System::SystemServices::FILE_READ_ONLY_VOLUME;
 use windows::Win32::System::WindowsProgramming::{DRIVE_FIXED, DRIVE_REMOVABLE};
-use windows::Win32::System::IO::DeviceIoControl;
+use windows::core::{Error, HRESULT, PCWSTR};
 
 /// Creates a copy of the first zero-terminated wide string in `buf`.
 /// The copy includes the zero terminator.
@@ -85,11 +86,13 @@ pub(crate) unsafe fn get_volume_path_names_for_volume_name(
     let mut path_names_buf = vec![0u16; MAX_PATH as usize];
     let mut path_names_output_size = 0u32;
     for _ in 0..10 {
-        let volume_path_names = GetVolumePathNamesForVolumeNameW(
-            volume_guid_path,
-            Some(path_names_buf.as_mut_slice()),
-            &mut path_names_output_size,
-        );
+        let volume_path_names = unsafe {
+            GetVolumePathNamesForVolumeNameW(
+                volume_guid_path,
+                Some(path_names_buf.as_mut_slice()),
+                &mut path_names_output_size,
+            )
+        };
         let code = volume_path_names.map_err(|_| Error::from_win32().code());
         match code {
             Ok(()) => break,
@@ -255,12 +258,14 @@ unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {
     let mut total_size = 0;
     let mut available_space = 0;
     let lpdirectoryname = PCWSTR::from_raw(mount_point.as_ptr());
-    if GetDiskFreeSpaceExW(
-        lpdirectoryname,
-        None,
-        Some(&mut total_size),
-        Some(&mut available_space),
-    )
+    if unsafe {
+        GetDiskFreeSpaceExW(
+            lpdirectoryname,
+            None,
+            Some(&mut total_size),
+            Some(&mut available_space),
+        )
+    }
     .is_ok()
     {
         Some((total_size, available_space))
@@ -275,13 +280,13 @@ pub(crate) unsafe fn get_list(
     refreshes: DiskRefreshKind,
 ) {
     for volume_name in get_volume_guid_paths() {
-        let mount_paths = get_volume_path_names_for_volume_name(&volume_name[..]);
+        let mount_paths = unsafe { get_volume_path_names_for_volume_name(&volume_name[..]) };
         if mount_paths.is_empty() {
             continue;
         }
 
         let raw_volume_name = PCWSTR::from_raw(volume_name.as_ptr());
-        let drive_type = GetDriveTypeW(raw_volume_name);
+        let drive_type = unsafe { GetDriveTypeW(raw_volume_name) };
 
         if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
             continue;
@@ -292,14 +297,16 @@ pub(crate) unsafe fn get_list(
         let mut name = [0u16; MAX_PATH as usize + 1];
         let mut file_system = [0u16; 32];
         let mut flags = 0;
-        let volume_info_res = GetVolumeInformationW(
-            raw_volume_name,
-            Some(&mut name),
-            None,
-            None,
-            Some(&mut flags),
-            Some(&mut file_system),
-        )
+        let volume_info_res = unsafe {
+            GetVolumeInformationW(
+                raw_volume_name,
+                Some(&mut name),
+                None,
+                None,
+                Some(&mut flags),
+                Some(&mut file_system),
+            )
+        }
         .is_ok();
         if !volume_info_res {
             sysinfo_debug!(
@@ -397,11 +404,7 @@ unsafe fn get_disk_kind(handle: &HandleWrapper) -> DiskKind {
         DiskKind::Unknown(-1)
     } else {
         let is_hdd = result.IncursSeekPenalty;
-        if is_hdd {
-            DiskKind::HDD
-        } else {
-            DiskKind::SSD
-        }
+        if is_hdd { DiskKind::HDD } else { DiskKind::SSD }
     }
 }
 
@@ -425,9 +428,11 @@ fn get_disk_io(handle: HandleWrapper) -> Option<(u64, u64)> {
             None,
         )
     }
-    .map_err(|err| {
-        sysinfo_debug!("Error: DeviceIoControl(IOCTL_DISK_PERFORMANCE) = {:?}", err);
-        err
+    .inspect_err(|_err| {
+        sysinfo_debug!(
+            "Error: DeviceIoControl(IOCTL_DISK_PERFORMANCE) = {:?}",
+            _err
+        );
     })
     .ok()?;
 

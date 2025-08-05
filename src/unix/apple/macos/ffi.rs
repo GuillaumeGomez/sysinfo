@@ -131,7 +131,7 @@ mod private {
 
     #[cfg(not(feature = "apple-sandbox"))]
     #[link(name = "IOKit", kind = "framework")]
-    extern "C" {
+    unsafe extern "C" {
         pub fn IOHIDEventSystemClientCreate(
             allocator: Option<&CFAllocator>,
         ) -> Option<NonNull<IOHIDEventSystemClient>>;

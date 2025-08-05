@@ -205,12 +205,14 @@ fn get_actual_device_name(device: &OsStr) -> String {
 unsafe fn load_statvfs_values(mount_point: &Path) -> Option<(u64, u64, bool)> {
     let mount_point_cpath = to_cpath(mount_point);
     let mut stat: MaybeUninit<statvfs> = MaybeUninit::uninit();
-    if retry_eintr!(statvfs(
-        mount_point_cpath.as_ptr() as *const _,
-        stat.as_mut_ptr()
-    )) == 0
+    if unsafe {
+        retry_eintr!(statvfs(
+            mount_point_cpath.as_ptr() as *const _,
+            stat.as_mut_ptr()
+        ))
+    } == 0
     {
-        let stat = stat.assume_init();
+        let stat = unsafe { stat.assume_init() };
 
         let bsize = cast!(stat.f_bsize);
         let blocks = cast!(stat.f_blocks);
@@ -512,7 +514,7 @@ fn disk_stats_inner(content: &str) -> HashMap<String, DiskStat> {
 
 #[cfg(test)]
 mod test {
-    use super::{disk_stats_inner, DiskStat};
+    use super::{DiskStat, disk_stats_inner};
     use std::collections::HashMap;
 
     #[test]

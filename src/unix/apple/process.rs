@@ -2,8 +2,8 @@
 
 use std::fmt;
 
-pub(crate) use crate::sys::inner::process::*;
 use crate::ProcessStatus;
+pub(crate) use crate::sys::inner::process::*;
 
 #[doc(hidden)]
 impl From<u32> for ProcessStatus {

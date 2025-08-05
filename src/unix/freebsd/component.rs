@@ -42,7 +42,7 @@ impl ComponentInner {
 
 unsafe fn refresh_component(id: &[u8]) -> Option<f32> {
     let mut temperature: libc::c_int = 0;
-    if !get_sys_value_by_name(id, &mut temperature) {
+    if unsafe { !get_sys_value_by_name(id, &mut temperature) } {
         None
     } else {
         // convert from Kelvin (x 10 -> 273.2 x 10) to Celsius

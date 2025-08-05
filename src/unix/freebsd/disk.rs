@@ -5,14 +5,14 @@ use std::ffi::{OsStr, OsString};
 use std::marker::PhantomData;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
-use std::ptr::{null_mut, NonNull};
+use std::ptr::{NonNull, null_mut};
 use std::sync::OnceLock;
 
 use libc::{c_void, devstat, devstat_getversion};
 
 use super::ffi::{
-    geom_stats_open, geom_stats_snapshot_free, geom_stats_snapshot_get, geom_stats_snapshot_next,
-    geom_stats_snapshot_reset, DEVSTAT_READ, DEVSTAT_WRITE,
+    DEVSTAT_READ, DEVSTAT_WRITE, geom_stats_open, geom_stats_snapshot_free,
+    geom_stats_snapshot_get, geom_stats_snapshot_next, geom_stats_snapshot_reset,
 };
 use super::utils::{c_buf_to_utf8_str, get_sys_value_str_by_name};
 use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
@@ -165,7 +165,7 @@ unsafe fn get_statvfs(
     c_mount_point: &[libc::c_char],
     vfs: &mut libc::statvfs,
 ) -> Option<(u64, u64, bool)> {
-    if libc::statvfs(c_mount_point.as_ptr() as *const _, vfs as *mut _) < 0 {
+    if unsafe { libc::statvfs(c_mount_point.as_ptr() as *const _, vfs as *mut _) < 0 } {
         sysinfo_debug!("statvfs failed");
         None
     } else {
@@ -202,7 +202,7 @@ fn refresh_disk(disk: &mut DiskInner, refresh_kind: DiskRefreshKind) -> bool {
 }
 
 unsafe fn initialize_geom() -> Result<(), ()> {
-    let version = devstat_getversion(null_mut());
+    let version = unsafe { devstat_getversion(null_mut()) };
     if version != 6 {
         // For now we only handle the devstat 6 version.
         sysinfo_debug!("version {version} of devstat is not supported");
@@ -226,11 +226,12 @@ unsafe fn refresh_disk_io<T: GetValues>(disks: &mut [T]) {
     {
         return;
     }
-    let Some(mut snap) = GeomSnapshot::new() else {
+    let snap = unsafe { GeomSnapshot::new() };
+    let Some(mut snap) = snap else {
         return;
     };
     for device in snap.iter() {
-        let device = device.devstat.as_ref();
+        let device = unsafe { device.devstat.as_ref() };
         let Some(device_name) = c_buf_to_utf8_str(&device.device_name) else {
             continue;
         };
@@ -320,14 +321,15 @@ pub unsafe fn get_all_list(
 ) {
     let mut fs_infos: *mut libc::statfs = null_mut();
 
-    let count = libc::getmntinfo(&mut fs_infos, libc::MNT_WAIT);
+    let count = unsafe { libc::getmntinfo(&mut fs_infos, libc::MNT_WAIT) };
 
     if count < 1 {
         return;
     }
     let disk_mapping = get_disks_mapping();
 
-    let fs_infos: &[libc::statfs] = std::slice::from_raw_parts(fs_infos as _, count as _);
+    let fs_infos: &[libc::statfs] =
+        unsafe { std::slice::from_raw_parts(fs_infos as _, count as _) };
 
     for fs_info in fs_infos {
         if fs_info.f_mntfromname[0] == 0 || fs_info.f_mntonname[0] == 0 {
@@ -433,7 +435,9 @@ pub unsafe fn get_all_list(
         }
     }
     if refresh_kind.io_usage() {
-        refresh_disk_io(container.as_mut_slice());
+        unsafe {
+            refresh_disk_io(container.as_mut_slice());
+        }
     }
 }
 
@@ -482,7 +486,7 @@ struct GeomSnapshot(NonNull<c_void>);
 
 impl GeomSnapshot {
     unsafe fn new() -> Option<Self> {
-        match NonNull::new(geom_stats_snapshot_get()) {
+        match NonNull::new(unsafe { geom_stats_snapshot_get() }) {
             Some(n) => Some(Self(n)),
             None => {
                 sysinfo_debug!("geom_stats_snapshot_get failed");
@@ -518,7 +522,7 @@ impl<'a> Iterator for GeomSnapshotIter<'a> {
     type Item = Devstat<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let raw = unsafe { geom_stats_snapshot_next(self.0 .0.as_mut()) };
+        let raw = unsafe { geom_stats_snapshot_next(self.0.0.as_mut()) };
         NonNull::new(raw).map(|devstat| Devstat {
             devstat,
             phantom: PhantomData,

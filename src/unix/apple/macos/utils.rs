@@ -17,7 +17,7 @@ impl IOReleaser {
     pub(crate) unsafe fn new_unchecked(obj: u32) -> Self {
         // Chance at catching in-development mistakes
         debug_assert_ne!(obj, 0);
-        Self(IoObject::new_unchecked(obj))
+        unsafe { Self(IoObject::new_unchecked(obj)) }
     }
 
     #[inline]

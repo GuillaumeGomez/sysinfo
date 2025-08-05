@@ -2,11 +2,11 @@
 
 use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
-use std::ptr::{null_mut, NonNull};
+use std::ptr::{NonNull, null_mut};
 
 use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, ERROR_SUCCESS};
 use windows::Win32::NetworkManagement::IpHelper::{
-    GetAdaptersAddresses, GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_DNS_SERVER, GAA_FLAG_SKIP_MULTICAST,
+    GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_DNS_SERVER, GAA_FLAG_SKIP_MULTICAST, GetAdaptersAddresses,
     IP_ADAPTER_ADDRESSES_LH, IP_ADAPTER_UNICAST_ADDRESS_LH,
 };
 use windows::Win32::Networking::WinSock::{
@@ -31,7 +31,7 @@ impl InterfaceAddressIterator {
         }
     }
     unsafe fn realloc(mut self, size: libc::size_t) -> Result<Self, String> {
-        let new_buf = libc::realloc(self.buf as _, size) as *mut IP_ADAPTER_ADDRESSES_LH;
+        let new_buf = unsafe { libc::realloc(self.buf as _, size) as *mut IP_ADAPTER_ADDRESSES_LH };
         if new_buf.is_null() {
             // insufficient memory available
             // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/malloc?view=msvc-170#return-value
@@ -87,7 +87,7 @@ impl InterfaceAddressIterator {
 }
 
 pub(crate) unsafe fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>> {
-    match get_interface_address() {
+    match unsafe { get_interface_address() } {
         Ok(mut interface_iter) => interface_iter.generate_ip_networks(),
         _ => HashMap::new(),
     }
@@ -111,18 +111,20 @@ pub(crate) unsafe fn get_interface_address() -> Result<InterfaceAddressIterator,
     // https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses#examples
     // Try to retrieve adapter information up to 3 times
     for _ in 0..3 {
-        iterator = iterator.realloc(size as _)?;
-        ret = GetAdaptersAddresses(
-            AF_UNSPEC.0.into(),
-            GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER,
-            None,
-            Some(iterator.buf),
-            &mut size,
-        );
-        if ret == ERROR_SUCCESS.0 {
-            return Ok(iterator);
-        } else if ret != ERROR_BUFFER_OVERFLOW.0 {
-            break;
+        unsafe {
+            iterator = iterator.realloc(size as _)?;
+            ret = GetAdaptersAddresses(
+                AF_UNSPEC.0.into(),
+                GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_DNS_SERVER,
+                None,
+                Some(iterator.buf),
+                &mut size,
+            );
+            if ret == ERROR_SUCCESS.0 {
+                return Ok(iterator);
+            } else if ret != ERROR_BUFFER_OVERFLOW.0 {
+                break;
+            }
         }
         // if the given memory size is too small to hold the adapter information,
         // the SizePointer returned will point to the required size of the buffer,

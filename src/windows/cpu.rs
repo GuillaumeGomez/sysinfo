@@ -9,16 +9,15 @@ use std::mem;
 use std::ops::DerefMut;
 use std::sync::{Mutex, OnceLock};
 
-use windows::core::{s, PCSTR, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS, HANDLE};
 use windows::Win32::System::Performance::{
+    PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY, PERF_DETAIL_NOVICE,
     PdhAddEnglishCounterA, PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData,
     PdhCollectQueryDataEx, PdhEnumObjectsA, PdhGetFormattedCounterValue, PdhOpenQueryA,
-    PdhRemoveCounter, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
-    PERF_DETAIL_NOVICE,
+    PdhRemoveCounter,
 };
 use windows::Win32::System::Power::{
-    CallNtPowerInformation, ProcessorInformation, PROCESSOR_POWER_INFORMATION,
+    CallNtPowerInformation, PROCESSOR_POWER_INFORMATION, ProcessorInformation,
 };
 use windows::Win32::System::SystemInformation::{self, GetSystemInfo};
 use windows::Win32::System::SystemInformation::{
@@ -26,8 +25,9 @@ use windows::Win32::System::SystemInformation::{
     SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
 };
 use windows::Win32::System::Threading::{
-    CreateEventA, RegisterWaitForSingleObject, INFINITE, WT_EXECUTEDEFAULT,
+    CreateEventA, INFINITE, RegisterWaitForSingleObject, WT_EXECUTEDEFAULT,
 };
+use windows::core::{PCSTR, PCWSTR, s};
 
 // This formula comes from Linux's include/linux/sched/loadavg.h
 // https://github.com/torvalds/linux/blob/345671ea0f9258f410eb057b9ced9cefbbe5dc78/include/linux/sched/loadavg.h#L20-L23
@@ -58,24 +58,26 @@ pub(crate) fn get_load_average() -> LoadAvg {
 unsafe extern "system" fn load_avg_callback(counter: *mut c_void, _: bool) {
     let mut display_value = mem::MaybeUninit::<PDH_FMT_COUNTERVALUE>::uninit();
 
-    if PdhGetFormattedCounterValue(
-        PDH_HCOUNTER(counter),
-        PDH_FMT_DOUBLE,
-        None,
-        display_value.as_mut_ptr(),
-    ) != ERROR_SUCCESS.0
-    {
-        return;
-    }
-    let display_value = display_value.assume_init();
-    if let Ok(mut avg) = load_avg().lock() {
-        if let Some(avg) = avg.deref_mut() {
-            let current_load = display_value.Anonymous.doubleValue;
+    unsafe {
+        if PdhGetFormattedCounterValue(
+            PDH_HCOUNTER(counter),
+            PDH_FMT_DOUBLE,
+            None,
+            display_value.as_mut_ptr(),
+        ) != ERROR_SUCCESS.0
+        {
+            return;
+        }
+        let display_value = display_value.assume_init();
+        if let Ok(mut avg) = load_avg().lock() {
+            if let Some(avg) = avg.deref_mut() {
+                let current_load = display_value.Anonymous.doubleValue;
 
-            avg.one = avg.one * LOADAVG_FACTOR_1F + current_load * (1.0 - LOADAVG_FACTOR_1F);
-            avg.five = avg.five * LOADAVG_FACTOR_5F + current_load * (1.0 - LOADAVG_FACTOR_5F);
-            avg.fifteen =
-                avg.fifteen * LOADAVG_FACTOR_15F + current_load * (1.0 - LOADAVG_FACTOR_15F);
+                avg.one = avg.one * LOADAVG_FACTOR_1F + current_load * (1.0 - LOADAVG_FACTOR_1F);
+                avg.five = avg.five * LOADAVG_FACTOR_5F + current_load * (1.0 - LOADAVG_FACTOR_5F);
+                avg.fifteen =
+                    avg.fifteen * LOADAVG_FACTOR_15F + current_load * (1.0 - LOADAVG_FACTOR_15F);
+            }
         }
     }
 }
@@ -84,56 +86,58 @@ unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
     // You can see the original implementation here: https://github.com/giampaolo/psutil
     let mut query = PDH_HQUERY::default();
 
-    if PdhOpenQueryA(PCSTR::null(), 0, &mut query) != ERROR_SUCCESS.0 {
-        sysinfo_debug!("init_load_avg: PdhOpenQueryA failed");
-        return Mutex::new(None);
-    }
-
-    let counter = 0;
-    if PdhAddEnglishCounterA(
-        query,
-        s!("\\System\\Cpu Queue Length"),
-        0,
-        &mut PDH_HCOUNTER(counter as *mut c_void),
-    ) != ERROR_SUCCESS.0
-    {
-        PdhCloseQuery(query);
-        sysinfo_debug!("init_load_avg: failed to get CPU queue length");
-        return Mutex::new(None);
-    }
-
-    let event = match CreateEventA(None, false, false, s!("LoadUpdateEvent")) {
-        Ok(ev) => ev,
-        Err(_) => {
-            PdhCloseQuery(query);
-            sysinfo_debug!("init_load_avg: failed to create event `LoadUpdateEvent`");
+    unsafe {
+        if PdhOpenQueryA(PCSTR::null(), 0, &mut query) != ERROR_SUCCESS.0 {
+            sysinfo_debug!("init_load_avg: PdhOpenQueryA failed");
             return Mutex::new(None);
         }
-    };
 
-    if PdhCollectQueryDataEx(query, SAMPLING_INTERVAL as _, event) != ERROR_SUCCESS.0 {
-        PdhCloseQuery(query);
-        sysinfo_debug!("init_load_avg: PdhCollectQueryDataEx failed");
-        return Mutex::new(None);
-    }
+        let counter = 0;
+        if PdhAddEnglishCounterA(
+            query,
+            s!("\\System\\Cpu Queue Length"),
+            0,
+            &mut PDH_HCOUNTER(counter as *mut c_void),
+        ) != ERROR_SUCCESS.0
+        {
+            PdhCloseQuery(query);
+            sysinfo_debug!("init_load_avg: failed to get CPU queue length");
+            return Mutex::new(None);
+        }
 
-    let mut wait_handle = HANDLE::default();
-    if RegisterWaitForSingleObject(
-        &mut wait_handle,
-        event,
-        Some(load_avg_callback),
-        Some(counter as *const c_void),
-        INFINITE,
-        WT_EXECUTEDEFAULT,
-    )
-    .is_ok()
-    {
-        Mutex::new(Some(LoadAvg::default()))
-    } else {
-        PdhRemoveCounter(PDH_HCOUNTER(counter as *mut c_void));
-        PdhCloseQuery(query);
-        sysinfo_debug!("init_load_avg: RegisterWaitForSingleObject failed");
-        Mutex::new(None)
+        let event = match CreateEventA(None, false, false, s!("LoadUpdateEvent")) {
+            Ok(ev) => ev,
+            Err(_) => {
+                PdhCloseQuery(query);
+                sysinfo_debug!("init_load_avg: failed to create event `LoadUpdateEvent`");
+                return Mutex::new(None);
+            }
+        };
+
+        if PdhCollectQueryDataEx(query, SAMPLING_INTERVAL as _, event) != ERROR_SUCCESS.0 {
+            PdhCloseQuery(query);
+            sysinfo_debug!("init_load_avg: PdhCollectQueryDataEx failed");
+            return Mutex::new(None);
+        }
+
+        let mut wait_handle = HANDLE::default();
+        if RegisterWaitForSingleObject(
+            &mut wait_handle,
+            event,
+            Some(load_avg_callback),
+            Some(counter as *const c_void),
+            INFINITE,
+            WT_EXECUTEDEFAULT,
+        )
+        .is_ok()
+        {
+            Mutex::new(Some(LoadAvg::default()))
+        } else {
+            PdhRemoveCounter(PDH_HCOUNTER(counter as *mut c_void));
+            PdhCloseQuery(query);
+            sysinfo_debug!("init_load_avg: RegisterWaitForSingleObject failed");
+            Mutex::new(None)
+        }
     }
 }
 
@@ -407,10 +411,12 @@ pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
 
     unsafe fn add_u32(v: &mut Vec<u8>, i: u32) {
         let i = &i as *const u32 as *const u8;
-        v.push(*i);
-        v.push(*i.offset(1));
-        v.push(*i.offset(2));
-        v.push(*i.offset(3));
+        unsafe {
+            v.push(*i);
+            v.push(*i.offset(1));
+            v.push(*i.offset(2));
+            v.push(*i.offset(3));
+        }
     }
 
     unsafe {

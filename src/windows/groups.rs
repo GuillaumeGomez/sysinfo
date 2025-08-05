@@ -6,7 +6,7 @@ use crate::{Gid, Group, GroupInner};
 use std::ptr::null_mut;
 use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS};
 use windows::Win32::NetworkManagement::NetManagement::{
-    NetApiBufferFree, NetLocalGroupEnum, LOCALGROUP_INFO_0, MAX_PREFERRED_LENGTH,
+    LOCALGROUP_INFO_0, MAX_PREFERRED_LENGTH, NetApiBufferFree, NetLocalGroupEnum,
 };
 
 impl GroupInner {

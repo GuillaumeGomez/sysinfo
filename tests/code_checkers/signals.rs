@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use super::utils::{show_error, TestResult};
+use super::utils::{TestResult, show_error};
 use std::path::Path;
 
 fn check_supported_signals_decl<'a>(lines: &mut impl Iterator<Item = &'a str>, p: &Path) -> usize {

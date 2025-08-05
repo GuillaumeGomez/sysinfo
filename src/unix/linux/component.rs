@@ -7,7 +7,7 @@
 use crate::Component;
 
 use std::collections::HashMap;
-use std::fs::{read_dir, File};
+use std::fs::{File, read_dir};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 

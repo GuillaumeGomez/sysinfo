@@ -1,18 +1,17 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use objc2_core_foundation::{
-    kCFAllocatorDefault, CFArray, CFDictionary, CFNumber, CFRetained, CFString,
+    CFArray, CFDictionary, CFNumber, CFRetained, CFString, kCFAllocatorDefault,
 };
 use objc2_io_kit::{IOHIDEventSystemClient, IOHIDServiceClient};
 
-use crate::sys::inner::ffi::{
-    kHIDPage_AppleVendor, kHIDUsage_AppleVendor_TemperatureSensor, kIOHIDEventTypeTemperature,
-    IOHIDEventFieldBase, IOHIDEventGetFloatValue, IOHIDEventSystemClientCreate,
-    IOHIDEventSystemClientSetMatching, IOHIDServiceClientCopyEvent,
-    HID_DEVICE_PROPERTY_PRIMARY_USAGE, HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE,
-    HID_DEVICE_PROPERTY_PRODUCT,
-};
 use crate::Component;
+use crate::sys::inner::ffi::{
+    HID_DEVICE_PROPERTY_PRIMARY_USAGE, HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE,
+    HID_DEVICE_PROPERTY_PRODUCT, IOHIDEventFieldBase, IOHIDEventGetFloatValue,
+    IOHIDEventSystemClientCreate, IOHIDEventSystemClientSetMatching, IOHIDServiceClientCopyEvent,
+    kHIDPage_AppleVendor, kHIDUsage_AppleVendor_TemperatureSensor, kIOHIDEventTypeTemperature,
+};
 
 pub(crate) struct ComponentsInner {
     pub(crate) components: Vec<Component>,

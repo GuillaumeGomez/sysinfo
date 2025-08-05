@@ -11,10 +11,12 @@ pub(crate) unsafe fn to_utf8_str(p: windows::core::PWSTR) -> String {
         return String::new();
     }
 
-    p.to_string().unwrap_or_else(|_e| {
-        sysinfo_debug!("Failed to convert to UTF-16 string: {}", _e);
-        String::new()
-    })
+    unsafe {
+        p.to_string().unwrap_or_else(|_e| {
+            sysinfo_debug!("Failed to convert to UTF-16 string: {}", _e);
+            String::new()
+        })
+    }
 }
 
 cfg_if! {
@@ -40,7 +42,7 @@ cfg_if! {
                 open_rights: FILE_ACCESS_RIGHTS,
             ) -> Option<Self> {
                 let lpfilename = windows::core::PCWSTR::from_raw(drive_name.as_ptr());
-                let handle = CreateFileW(
+                let handle = unsafe { CreateFileW(
                     lpfilename,
                     open_rights.0,
                     FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -48,7 +50,7 @@ cfg_if! {
                     OPEN_EXISTING,
                     Default::default(),
                     Some(HANDLE::default()),
-                )
+                ) }
                 .ok()?;
                 if handle.is_invalid() {
                     sysinfo_debug!(

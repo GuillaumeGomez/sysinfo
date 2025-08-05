@@ -1,20 +1,20 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::to_utf8_str;
-use crate::{windows::sid::Sid, Gid, Group, GroupInner, Uid, User};
+use crate::{Gid, Group, GroupInner, Uid, User, windows::sid::Sid};
 
 use std::ptr::null_mut;
-use windows::core::PCWSTR;
 use windows::Win32::Foundation::{ERROR_MORE_DATA, LUID};
 use windows::Win32::NetworkManagement::NetManagement::{
-    NERR_Success, NetApiBufferFree, NetUserEnum, NetUserGetInfo, NetUserGetLocalGroups,
     FILTER_NORMAL_ACCOUNT, LG_INCLUDE_INDIRECT, LOCALGROUP_USERS_INFO_0, MAX_PREFERRED_LENGTH,
+    NERR_Success, NetApiBufferFree, NetUserEnum, NetUserGetInfo, NetUserGetLocalGroups,
     USER_INFO_0, USER_INFO_23,
 };
 use windows::Win32::Security::Authentication::Identity::{
     LsaEnumerateLogonSessions, LsaFreeReturnBuffer, LsaGetLogonSessionData,
     SECURITY_LOGON_SESSION_DATA, SECURITY_LOGON_TYPE,
 };
+use windows::core::PCWSTR;
 
 pub(crate) struct UserInner {
     pub(crate) uid: Uid,
@@ -95,7 +95,7 @@ impl<T> NetApiBuffer<T> {
     pub unsafe fn inner_mut_as_bytes(&mut self) -> &mut *mut u8 {
         // https://doc.rust-lang.org/std/mem/fn.transmute.html
         // Turning an &mut T into an &mut U:
-        &mut *(self.inner_mut() as *mut *mut T as *mut *mut u8)
+        unsafe { &mut *(self.inner_mut() as *mut *mut T as *mut *mut u8) }
     }
 }
 
@@ -132,24 +132,28 @@ unsafe fn get_groups_for_user(username: PCWSTR) -> Vec<Group> {
     let mut total_entries = 0;
     let mut groups: Vec<Group>;
 
-    let status = NetUserGetLocalGroups(
-        PCWSTR::null(),
-        username,
-        0,
-        LG_INCLUDE_INDIRECT,
-        buf.inner_mut_as_bytes(),
-        MAX_PREFERRED_LENGTH,
-        &mut nb_entries,
-        &mut total_entries,
-    );
+    let status = unsafe {
+        NetUserGetLocalGroups(
+            PCWSTR::null(),
+            username,
+            0,
+            LG_INCLUDE_INDIRECT,
+            buf.inner_mut_as_bytes(),
+            MAX_PREFERRED_LENGTH,
+            &mut nb_entries,
+            &mut total_entries,
+        )
+    };
 
     if status == NERR_Success {
         groups = Vec::with_capacity(nb_entries as _);
         if !buf.0.is_null() {
-            let entries = std::slice::from_raw_parts(buf.0, nb_entries as _);
-            groups.extend(entries.iter().map(|entry| Group {
-                inner: GroupInner::new(Gid(0), to_utf8_str(entry.lgrui0_name)),
-            }));
+            unsafe {
+                let entries = std::slice::from_raw_parts(buf.0, nb_entries as _);
+                groups.extend(entries.iter().map(|entry| Group {
+                    inner: GroupInner::new(Gid(0), to_utf8_str(entry.lgrui0_name)),
+                }));
+            }
         }
     } else {
         groups = Vec::new();
