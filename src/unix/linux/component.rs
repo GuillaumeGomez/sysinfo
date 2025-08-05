@@ -7,6 +7,7 @@
 use crate::Component;
 
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs::{File, read_dir};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -15,6 +16,10 @@ use std::path::{Path, PathBuf};
 pub(crate) struct ComponentInner {
     /// Optional associated device of a `Component`.
     device_model: Option<String>,
+
+    /// ID of a `Component`.
+    id: Option<String>,
+
     /// The chip name.
     ///
     /// Kernel documentation extract:
@@ -290,7 +295,12 @@ impl ComponentInner {
             });
             let component = &mut component.inner;
             let name = get_file_line(&folder.join("name"), 16);
+            let component_id = folder
+                .file_name()
+                .and_then(OsStr::to_str)
+                .map(|f| format!("{f}_{id}"));
             component.name = name.unwrap_or_default();
+            component.id = component_id;
             let device_model = get_file_line(&folder.join("device/model"), 16);
             component.device_model = device_model;
             fill_component(component, item, folder, filename);
@@ -351,6 +361,10 @@ impl ComponentInner {
 
     pub(crate) fn label(&self) -> &str {
         &self.label
+    }
+
+    pub(crate) fn id(&self) -> Option<&str> {
+        self.id.as_deref()
     }
 
     pub(crate) fn refresh(&mut self) {
@@ -435,8 +449,10 @@ impl ComponentsInner {
                     let Some(name) = get_file_line(&path.join("type"), 16) else {
                         return;
                     };
+                    let component_id = path.file_name().and_then(OsStr::to_str).map(str::to_string);
                     let mut component = ComponentInner {
                         name,
+                        id: component_id,
                         ..Default::default()
                     };
                     fill_component(&mut component, "input", &path, "temp");
@@ -473,6 +489,7 @@ mod tests {
         assert_eq!(components[0].inner.name, "test_name");
         assert_eq!(components[0].label(), "test_name temp1");
         assert_eq!(components[0].temperature(), Some(1.234));
+        assert_eq!(components[0].id(), Some("hwmon0_1"));
     }
 
     #[test]
@@ -504,6 +521,7 @@ mod tests {
         assert_eq!(components[0].temperature(), Some(1.234));
         assert_eq!(components[0].max(), Some(1.234));
         assert_eq!(components[0].critical(), Some(0.1));
+        assert_eq!(components[0].id(), Some("hwmon0_1"));
     }
 
     #[test]
@@ -536,12 +554,14 @@ mod tests {
         assert_eq!(components[0].label(), "test_name test_label1");
         assert_eq!(components[0].temperature(), Some(1.234));
         assert_eq!(components[0].max(), Some(1.234));
+        assert_eq!(components[0].id(), Some("hwmon0_1"));
         assert_eq!(components[0].critical(), Some(0.1));
 
         assert_eq!(components[1].inner.name, "test_name");
         assert_eq!(components[1].label(), "test_name test_label2");
         assert_eq!(components[1].temperature(), Some(5.678));
         assert_eq!(components[1].max(), Some(5.678));
+        assert_eq!(components[1].id(), Some("hwmon0_2"));
         assert_eq!(components[1].critical(), Some(0.2));
     }
 
@@ -581,11 +601,54 @@ mod tests {
         assert_eq!(components[0].temperature(), Some(1.234));
         assert_eq!(components[0].max(), Some(1.234));
         assert_eq!(components[0].critical(), Some(0.1));
+        assert_eq!(components[0].id(), Some("hwmon0_1"));
 
         assert_eq!(components[1].inner.name, "test_name");
         assert_eq!(components[1].label(), "test_name test_label2 test_model");
         assert_eq!(components[1].temperature(), Some(5.678));
         assert_eq!(components[1].max(), Some(5.678));
         assert_eq!(components[1].critical(), Some(0.2));
+        assert_eq!(components[1].id(), Some("hwmon0_2"));
+    }
+
+    #[test]
+    fn test_thermal_zone() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temporary directory");
+        let thermal_zone0_dir = temp_dir.path().join("thermal/thermal_zone0");
+        let thermal_zone1_dir = temp_dir.path().join("thermal/thermal_zone1");
+
+        // create thermal zone files
+        fs::create_dir_all(thermal_zone0_dir.join("device"))
+            .expect("failed to create thermal/thermal_zone0 directory");
+
+        fs::write(thermal_zone0_dir.join("type"), "test_name")
+            .expect("failed to write to name file");
+        fs::write(thermal_zone0_dir.join("temp"), "1234").expect("failed to write to temp file");
+
+        // create thermal zone files
+        fs::create_dir_all(thermal_zone1_dir.join("device"))
+            .expect("failed to create thermal/thermal_zone1 directory");
+
+        fs::write(thermal_zone1_dir.join("type"), "test_name2")
+            .expect("failed to write to name file");
+        fs::write(thermal_zone1_dir.join("temp"), "5678").expect("failed to write to temp file");
+
+        let mut components = ComponentsInner::new();
+        components.refresh_from_sys_class_path(temp_dir.path());
+        let mut components = components.into_vec();
+        components.sort_by_key(|c| c.inner.name.clone());
+
+        assert_eq!(components.len(), 2);
+        assert_eq!(components[0].inner.name, "test_name");
+        assert_eq!(components[0].label(), "");
+        assert_eq!(components[0].temperature(), Some(1.234));
+        assert_eq!(components[0].max(), Some(1.234));
+        assert_eq!(components[0].id(), Some("thermal_zone0"));
+
+        assert_eq!(components[1].inner.name, "test_name2");
+        assert_eq!(components[1].label(), "");
+        assert_eq!(components[1].temperature(), Some(5.678));
+        assert_eq!(components[1].max(), Some(5.678));
+        assert_eq!(components[1].id(), Some("thermal_zone1"));
     }
 }

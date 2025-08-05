@@ -65,6 +65,10 @@ impl ComponentInner {
         &self.label
     }
 
+    pub(crate) fn id(&self) -> Option<&str> {
+        Some(&self.label)
+    }
+
     pub(crate) fn refresh(&mut self) {
         if self.connection.is_none() {
             self.connection = Connection::new()

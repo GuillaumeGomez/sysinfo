@@ -153,6 +153,9 @@ mod private {
 
     pub(crate) const HID_DEVICE_PROPERTY_PRODUCT: &str = "Product";
 
+    #[allow(non_upper_case_globals)]
+    pub(crate) const kIOHIDSerialNumberKey: &str = "SerialNumber";
+
     pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE: &str = "PrimaryUsage";
     pub(crate) const HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE: &str = "PrimaryUsagePage";
 

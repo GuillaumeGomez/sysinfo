@@ -23,6 +23,10 @@ impl ComponentInner {
         ""
     }
 
+    pub(crate) fn id(&self) -> Option<&str> {
+        None
+    }
+
     pub(crate) fn refresh(&mut self) {}
 }
 
