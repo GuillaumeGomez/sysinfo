@@ -983,11 +983,12 @@ fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))>
 }
 
 fn get_tgid(file_path: &Path) -> Option<Pid> {
+    const TGID_KEY: &str = "Tgid:";
     let status_data = get_all_utf8_data(file_path, 16_385).ok()?;
-    let tgid_line = status_data.lines().find(|line| line.starts_with("Tgid:"))?;
-    let tgid = tgid_line[5..].trim_start().parse().ok()?;
-
-    Some(tgid)
+    let tgid_line = status_data
+        .lines()
+        .find(|line| line.starts_with(TGID_KEY))?;
+    tgid_line[TGID_KEY.len()..].trim_start().parse().ok()
 }
 
 struct Parts<'a> {
