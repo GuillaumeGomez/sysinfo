@@ -781,7 +781,7 @@ pub(crate) fn refresh_procs(
     // parallel iterator, we can safely use it inside the parallel iterator and update its entries
     // concurrently.
     let procs = {
-        let pid_iter: Box<dyn Iterator<Item = (PathBuf, Pid)>> = match processes_to_update {
+        let pid_iter: Box<dyn Iterator<Item = (PathBuf, Pid)> + Send> = match processes_to_update {
             ProcessesToUpdate::All => match read_dir(proc_path) {
                 Ok(proc_entries) => Box::new(proc_entries.filter_map(filter_pid_entries)),
                 Err(_err) => {
