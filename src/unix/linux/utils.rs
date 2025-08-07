@@ -50,7 +50,8 @@ pub(crate) struct PathHandler(std::path::PathBuf);
 impl PathHandler {
     pub(crate) fn new(path: &Path) -> Self {
         // `path` is the "parent" for all paths which will follow so we add a fake element at
-        // the end since every `PathHandler::join` call will first call `pop` internally.
+        // the end since every `PathHandler::replace_and_join` call will first call `pop`
+        // internally.
         Self(path.join("a"))
     }
 
@@ -61,12 +62,12 @@ impl PathHandler {
 
 #[cfg(feature = "system")]
 pub(crate) trait PathPush {
-    fn join(&mut self, p: &str) -> &Path;
+    fn replace_and_join(&mut self, p: &str) -> &Path;
 }
 
 #[cfg(feature = "system")]
 impl PathPush for PathHandler {
-    fn join(&mut self, p: &str) -> &Path {
+    fn replace_and_join(&mut self, p: &str) -> &Path {
         self.0.pop();
         self.0.push(p);
         self.as_path()
@@ -76,7 +77,7 @@ impl PathPush for PathHandler {
 // This implementation allows to skip one allocation that is done in `PathHandler`.
 #[cfg(feature = "system")]
 impl PathPush for std::path::PathBuf {
-    fn join(&mut self, p: &str) -> &Path {
+    fn replace_and_join(&mut self, p: &str) -> &Path {
         self.push(p);
         self.as_path()
     }
