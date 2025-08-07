@@ -785,7 +785,7 @@ pub(crate) fn refresh_procs(
             ProcessesToUpdate::All => match read_dir(proc_path) {
                 Ok(proc_entries) => Box::new(proc_entries.filter_map(filter_pid_entries)),
                 Err(_err) => {
-                    sysinfo_debug!("Failed to read folder {path:?}: {_err:?}");
+                    sysinfo_debug!("Failed to read folder {proc_path:?}: {_err:?}");
                     return 0;
                 }
             },
