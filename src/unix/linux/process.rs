@@ -365,7 +365,7 @@ pub(crate) fn set_time(p: &mut ProcessInner, utime: u64, stime: u64) {
 }
 
 pub(crate) fn update_process_disk_activity(p: &mut ProcessInner, path: &mut PathHandler) {
-    let data = match get_all_utf8_data(path.join("io"), 16_384) {
+    let data = match get_all_utf8_data(path.replace_and_join("io"), 16_384) {
         Ok(d) => d,
         Err(_) => return,
     };
@@ -453,7 +453,7 @@ fn refresh_user_group_ids(
     }
 
     if let Some(((user_id, effective_user_id), (group_id, effective_group_id))) =
-        get_uid_and_gid(path.join("status"))
+        get_uid_and_gid(path.replace_and_join("status"))
     {
         p.user_id = Some(Uid(user_id));
         p.effective_user_id = Some(Uid(effective_user_id));
@@ -480,20 +480,20 @@ fn update_proc_info(
     if refresh_kind.exe().needs_update(|| p.exe.is_none()) {
         // Do not use cmd[0] because it is not the same thing.
         // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
-        p.exe = realpath(proc_path.join("exe"));
+        p.exe = realpath(proc_path.replace_and_join("exe"));
     }
 
     if refresh_kind.cmd().needs_update(|| p.cmd.is_empty()) {
-        p.cmd = copy_from_file(proc_path.join("cmdline"));
+        p.cmd = copy_from_file(proc_path.replace_and_join("cmdline"));
     }
     if refresh_kind.environ().needs_update(|| p.environ.is_empty()) {
-        p.environ = copy_from_file(proc_path.join("environ"));
+        p.environ = copy_from_file(proc_path.replace_and_join("environ"));
     }
     if refresh_kind.cwd().needs_update(|| p.cwd.is_none()) {
-        p.cwd = realpath(proc_path.join("cwd"));
+        p.cwd = realpath(proc_path.replace_and_join("cwd"));
     }
     if refresh_kind.root().needs_update(|| p.root.is_none()) {
-        p.root = realpath(proc_path.join("root"));
+        p.root = realpath(proc_path.replace_and_join("root"));
     }
 
     update_time_and_memory(proc_path, p, str_parts, uptime, info, refresh_kind);
@@ -718,7 +718,7 @@ fn update_time_and_memory(
         #[allow(clippy::collapsible_if)]
         if refresh_kind.memory() {
             // Keeping this nested level for readability reasons.
-            if !get_memory(path.join("statm"), entry, info) {
+            if !get_memory(path.replace_and_join("statm"), entry, info) {
                 old_get_memory(entry, str_parts, info);
             }
         }
@@ -856,7 +856,7 @@ fn get_proc_and_tasks(
 
     if processes_to_update != ProcessesToUpdate::All {
         // If the process' tgid doesn't match its pid, it is a task
-        if let Some(tgid) = get_tgid(&path.as_path().join("status"))
+        if let Some(tgid) = get_tgid(&path.join("status"))
             && tgid != pid
         {
             parent_pid = Some(tgid);
