@@ -73,7 +73,7 @@ jobs:
           - { os: 'ubuntu-latest', target: 'x86_64-linux-android', cross: true }
           - { os: 'ubuntu-latest', target: 'i686-linux-android', cross: true }
         toolchain:
-          - "1.85.0"  # minimum supported rust version
+          - "1.88.0"  # minimum supported rust version
           - stable
           - nightly
     steps:
@@ -240,7 +240,7 @@ jobs:
           - macos-latest
           - windows-latest
         toolchain:
-          - "1.85.0"  # minimum supported rust version
+          - "1.88.0"  # minimum supported rust version
           - stable
           - nightly
     steps:
@@ -302,7 +302,7 @@ jobs:
     strategy:
       matrix:
         toolchain:
-          - "1.85.0" # minimum supported rust version
+          - "1.88.0" # minimum supported rust version
           - stable
     steps:
       - uses: actions/checkout@v4
