@@ -68,12 +68,11 @@ where
                 )
             };
 
-            if let Some(properties) = properties_result {
-                if let Ok(properties) = properties.downcast::<CFDictionary>() {
-                    if let Some(result) = eval(parent_entry, &properties) {
-                        return Some(result);
-                    }
-                }
+            if let Some(properties) = properties_result
+                && let Ok(properties) = properties.downcast::<CFDictionary>()
+                && let Some(result) = eval(parent_entry, &properties)
+            {
+                return Some(result);
             }
         }
     }

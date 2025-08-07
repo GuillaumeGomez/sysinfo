@@ -1098,10 +1098,10 @@ fn test_tasks() {
 
     fn get_tasks(system: &System, pid: Pid) -> HashSet<Pid> {
         let mut task_pids: HashSet<Pid> = HashSet::new();
-        if let Some(process) = system.process(pid) {
-            if let Some(tasks) = process.tasks() {
-                task_pids.extend(tasks);
-            }
+        if let Some(process) = system.process(pid)
+            && let Some(tasks) = process.tasks()
+        {
+            task_pids.extend(tasks);
         }
         task_pids
     }

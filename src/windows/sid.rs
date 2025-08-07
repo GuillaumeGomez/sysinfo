@@ -74,11 +74,10 @@ impl Sid {
                 None,
                 &mut domain_len,
                 &mut name_use,
-            ) {
-                if err.code() != ERROR_INSUFFICIENT_BUFFER.to_hresult() {
-                    sysinfo_debug!("LookupAccountSidW failed: {:?}", err);
-                    return None;
-                }
+            ) && err.code() != ERROR_INSUFFICIENT_BUFFER.to_hresult()
+            {
+                sysinfo_debug!("LookupAccountSidW failed: {:?}", err);
+                return None;
             }
 
             let mut name = vec![0; name_len as usize];

@@ -164,10 +164,10 @@ impl ProcessInner {
     pub(crate) fn status(&self) -> ProcessStatus {
         // If the status is `Run`, then it's very likely wrong so we instead
         // return a `ProcessStatus` converted from the `ThreadStatus`.
-        if self.process_status == ProcessStatus::Run {
-            if let Some(thread_status) = self.status {
-                return ProcessStatus::from(thread_status);
-            }
+        if self.process_status == ProcessStatus::Run
+            && let Some(thread_status) = self.status
+        {
+            return ProcessStatus::from(thread_status);
         }
         self.process_status
     }

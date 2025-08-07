@@ -23,26 +23,23 @@ fn to_correct_name(s: &str) -> String {
 fn check_md_doc_path(p: &Path, md_line: &str, ty_line: &str) -> bool {
     let parts = md_line.split('/').collect::<Vec<_>>();
     if let Some(md_name) = parts.last().and_then(|n| n.split(".md").next()) {
-        if let Some(name) = ty_line.split_whitespace().filter(|s| !s.is_empty()).nth(2) {
-            if let Some(name) = name
+        if let Some(name) = ty_line.split_whitespace().filter(|s| !s.is_empty()).nth(2)
+            && let Some(name) = name
                 .split('<')
                 .next()
                 .and_then(|n| n.split('{').next())
                 .and_then(|n| n.split('(').next())
                 .and_then(|n| n.split(';').next())
-            {
-                let correct = to_correct_name(name);
-                if correct.as_str() == md_name {
-                    return true;
-                }
-                show_error(
-                    p,
-                    &format!(
-                        "Invalid markdown file name `{md_name}`, should have been `{correct}`",
-                    ),
-                );
-                return false;
+        {
+            let correct = to_correct_name(name);
+            if correct.as_str() == md_name {
+                return true;
             }
+            show_error(
+                p,
+                &format!("Invalid markdown file name `{md_name}`, should have been `{correct}`",),
+            );
+            return false;
         }
         show_error(p, &format!("Cannot extract type name from `{ty_line}`"));
     } else {

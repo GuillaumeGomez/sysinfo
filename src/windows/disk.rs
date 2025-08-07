@@ -195,13 +195,12 @@ impl DiskInner {
             }
         }
 
-        if refreshes.storage() {
-            if let Some((total_space, available_space)) =
+        if refreshes.storage()
+            && let Some((total_space, available_space)) =
                 unsafe { get_drive_size(&self.mount_point) }
-            {
-                self.total_space = total_space;
-                self.available_space = available_space;
-            }
+        {
+            self.total_space = total_space;
+            self.available_space = available_space;
         }
         true
     }

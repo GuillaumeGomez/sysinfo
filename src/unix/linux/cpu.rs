@@ -447,10 +447,10 @@ pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
     .is_ok()
     {
         let freq_option = s.trim().split('\n').next();
-        if let Some(freq_string) = freq_option {
-            if let Ok(freq) = freq_string.parse::<u64>() {
-                return freq / 1000;
-            }
+        if let Some(freq_string) = freq_option
+            && let Ok(freq) = freq_string.parse::<u64>()
+        {
+            return freq / 1000;
         }
     }
     s.clear();

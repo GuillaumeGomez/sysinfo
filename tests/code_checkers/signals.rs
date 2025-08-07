@@ -28,15 +28,15 @@ fn check_kill_decl<'a>(lines: &mut impl Iterator<Item = &'a str>, p: &Path) -> u
         if trimmed.starts_with("fn kill(") {
             show_error(p, "`Process::kill` should not be reimplemented!");
             errors += 1;
-        } else if trimmed.starts_with("fn kill_with(") {
-            if let Some(line) = lines.next() {
-                let trimmed = line.trim();
-                if trimmed.ends_with("crate::sys::convert_signal(signal)?;") || trimmed == "None" {
-                    continue;
-                } else {
-                    show_error(p, "`Process::kill_with` should use `convert_signal`");
-                    errors += 1;
-                }
+        } else if trimmed.starts_with("fn kill_with(")
+            && let Some(line) = lines.next()
+        {
+            let trimmed = line.trim();
+            if trimmed.ends_with("crate::sys::convert_signal(signal)?;") || trimmed == "None" {
+                continue;
+            } else {
+                show_error(p, "`Process::kill_with` should use `convert_signal`");
+                errors += 1;
             }
         }
     }

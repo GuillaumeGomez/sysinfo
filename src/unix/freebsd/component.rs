@@ -47,10 +47,10 @@ impl ComponentInner {
     pub(crate) fn refresh(&mut self) {
         unsafe {
             self.temperature = refresh_component(&self.id);
-            if let Some(temperature) = self.temperature {
-                if temperature > self.max {
-                    self.max = temperature;
-                }
+            if let Some(temperature) = self.temperature
+                && temperature > self.max
+            {
+                self.max = temperature;
             }
         }
     }

@@ -196,23 +196,22 @@ pub(crate) fn get_users(users: &mut Vec<User>) {
                         23,
                         user.inner_mut_as_bytes(),
                     ) == NERR_Success
+                        && let Some(sid) = Sid::from_psid((*user.0).usri23_user_sid)
                     {
-                        if let Some(sid) = Sid::from_psid((*user.0).usri23_user_sid) {
-                            // Get the account name from the SID (because it's usually
-                            // a better name), but fall back to the name we were given
-                            // if this fails.
-                            let name = sid
-                                .account_name()
-                                .unwrap_or_else(|| to_utf8_str(entry.usri0_name));
-                            users.push(User {
-                                inner: UserInner::new(
-                                    Uid(sid),
-                                    name,
-                                    PCWSTR(entry.usri0_name.0 as *const _),
-                                    true,
-                                ),
-                            });
-                        }
+                        // Get the account name from the SID (because it's usually
+                        // a better name), but fall back to the name we were given
+                        // if this fails.
+                        let name = sid
+                            .account_name()
+                            .unwrap_or_else(|| to_utf8_str(entry.usri0_name));
+                        users.push(User {
+                            inner: UserInner::new(
+                                Uid(sid),
+                                name,
+                                PCWSTR(entry.usri0_name.0 as *const _),
+                                true,
+                            ),
+                        });
                     }
                 }
             } else {
