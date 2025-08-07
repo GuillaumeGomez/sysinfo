@@ -77,12 +77,12 @@ impl ComponentInner {
         } else {
             None
         };
-        if let Some(ref mut connection) = self.connection {
-            if let Some((temperature, _)) = connection.temperature(false) {
-                self.temperature = temperature;
-                if self.temperature > self.max {
-                    self.max = self.temperature;
-                }
+        if let Some(ref mut connection) = self.connection
+            && let Some((temperature, _)) = connection.temperature(false)
+        {
+            self.temperature = temperature;
+            if self.temperature > self.max {
+                self.max = self.temperature;
             }
         }
     }

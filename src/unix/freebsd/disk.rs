@@ -296,18 +296,20 @@ fn get_disks_mapping() -> HashMap<String, String> {
     for line in mapping.lines() {
         let mut parts = line.split_whitespace();
         let Some(kind) = parts.next() else { continue };
+
+        #[allow(clippy::collapsible_if)]
         if kind == "0" {
-            if let Some("DISK") = parts.next() {
-                if let Some(id) = parts.next() {
-                    last_id.clear();
-                    last_id.push_str(id);
-                }
+            if let Some("DISK") = parts.next()
+                && let Some(id) = parts.next()
+            {
+                last_id.clear();
+                last_id.push_str(id);
             }
         } else if kind == "2" && !last_id.is_empty() {
-            if let Some("LABEL") = parts.next() {
-                if let Some(path) = parts.next() {
-                    disk_mapping.insert(format!("/dev/{path}"), last_id.clone());
-                }
+            if let Some("LABEL") = parts.next()
+                && let Some(path) = parts.next()
+            {
+                disk_mapping.insert(format!("/dev/{path}"), last_id.clone());
             }
         }
     }

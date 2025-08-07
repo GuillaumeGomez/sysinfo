@@ -321,10 +321,10 @@ impl ProcessInner {
         match fs::read_to_string(&limits_files) {
             Ok(content) => {
                 for line in content.lines() {
-                    if let Some(line) = line.strip_prefix("Max open files ") {
-                        if let Some(nb) = line.split_whitespace().find(|p| !p.is_empty()) {
-                            return usize::from_str(nb).ok();
-                        }
+                    if let Some(line) = line.strip_prefix("Max open files ")
+                        && let Some(nb) = line.split_whitespace().find(|p| !p.is_empty())
+                    {
+                        return usize::from_str(nb).ok();
                     }
                 }
                 None

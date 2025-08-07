@@ -116,15 +116,14 @@ impl DiskInner {
             self.type_ = find_type_for_device_name(&self.device_name);
         }
 
-        if refresh_kind.storage() {
-            if let Some((total_space, available_space, is_read_only)) =
+        if refresh_kind.storage()
+            && let Some((total_space, available_space, is_read_only)) =
                 unsafe { load_statvfs_values(&self.mount_point) }
-            {
-                self.total_space = total_space;
-                self.available_space = available_space;
-                if first {
-                    self.is_read_only = is_read_only;
-                }
+        {
+            self.total_space = total_space;
+            self.available_space = available_space;
+            if first {
+                self.is_read_only = is_read_only;
             }
         }
 

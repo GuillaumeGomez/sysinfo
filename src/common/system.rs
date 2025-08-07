@@ -359,10 +359,10 @@ impl System {
             }
         }
         fn update(pid: &Pid, processes: &mut HashMap<Pid, Process>) {
-            if let Some(proc) = processes.get_mut(pid) {
-                if !proc.inner.switch_updated() {
-                    proc.inner.set_nonexistent();
-                }
+            if let Some(proc) = processes.get_mut(pid)
+                && !proc.inner.switch_updated()
+            {
+                proc.inner.set_nonexistent();
             }
         }
 
