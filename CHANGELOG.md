@@ -1,3 +1,10 @@
+# 0.37.0
+
+ * Update minimum supported Rust version to `1.88` (for 2024 edition and `if let chain` feature).
+ * Added `Component::id` API.
+ * Linux: Greatly improve partial processes retrieval.
+ * Linux: Simplify internal components retrieval code.
+
 # 0.36.1
 
 * Linux: Improve processor CPU usage computation.
