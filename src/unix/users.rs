@@ -72,7 +72,7 @@ pub(crate) unsafe fn get_group_name(
             )) != 0
             {
                 // If there was not enough memory, we give it more.
-                if last_errno == libc::ERANGE as _ {
+                if last_errno == libc::ERANGE as libc::c_int {
                     // Needs to be updated for `Vec::reserve` to actually add additional capacity.
                     // In here it's "fine" since we never read from `buffer`.
                     buffer.set_len(buffer.capacity());
@@ -176,7 +176,7 @@ fn endswith(s1: *const std::ffi::c_char, s2: &[u8]) -> bool {
     unsafe {
         let mut len = libc::strlen(s1) as isize - 1;
         let mut i = s2.len() as isize - 1;
-        while len >= 0 && i >= 0 && *s1.offset(len) == s2[i as usize] as _ {
+        while len >= 0 && i >= 0 && *s1.offset(len) == s2[i as usize] as std::ffi::c_char {
             i -= 1;
             len -= 1;
         }
