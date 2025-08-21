@@ -81,7 +81,7 @@ impl Serialize for crate::Process {
         // `19` corresponds to the (maximum) number of fields.
         let mut state = serializer.serialize_struct("Process", 19)?;
 
-        state.serialize_field("name", &self.name())?;
+        state.serialize_field("name", &self.name().to_string_lossy())?;
         state.serialize_field("cmd", &self.cmd())?;
         state.serialize_field("exe", &self.exe())?;
         state.serialize_field("pid", &self.pid().as_u32())?;
@@ -498,5 +498,36 @@ impl Serialize for crate::Uid {
         S: Serializer,
     {
         serializer.serialize_newtype_struct("Uid", &self.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_serde_process_name() {
+        if !crate::IS_SUPPORTED_SYSTEM {
+            return;
+        }
+        let mut s = crate::System::new();
+        s.refresh_processes_specifics(
+            crate::ProcessesToUpdate::All,
+            false,
+            crate::ProcessRefreshKind::nothing(),
+        );
+
+        if s.processes().is_empty() {
+            panic!("no processes?");
+        }
+
+        for p in s.processes().values() {
+            let values = match serde_json::to_value(p) {
+                Ok(serde_json::Value::Object(values)) => values,
+                other => panic!("expected object, found `{other:?}`"),
+            };
+            match values.get("name") {
+                Some(serde_json::Value::String(_)) => {}
+                value => panic!("expected a string, found `{value:?}`"),
+            }
+        }
     }
 }
