@@ -293,7 +293,7 @@ impl System {
     ///
     /// ⚠️ On Linux, if you dont need the tasks of each process, you can use
     /// `refresh_processes_specifics` with `ProcessRefreshKind::everything().without_tasks()`.
-    /// Refreshesing all processes and their tasks can be quite expensive. For more information
+    /// Refreshing all processes and their tasks can be quite expensive. For more information
     /// see [`ProcessRefreshKind`].
     ///
     /// Example:
