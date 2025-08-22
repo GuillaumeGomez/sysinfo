@@ -27,6 +27,13 @@ jobs:
           cargo fmt
           git diff --exit-code  # expect all changes from above wiped away
 
+  spell_check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@v1.32.0
+      - uses: streetsidesoftware/cspell-action@v7
+
   clippy:
     runs-on: ${{ matrix.os }}
     strategy:
