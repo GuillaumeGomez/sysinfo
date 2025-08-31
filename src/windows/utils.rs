@@ -136,10 +136,10 @@ cfg_if! {
             let info: T = unsafe { std::ptr::read_unaligned(table[i..].as_ptr() as *const _) };
 
             // As said in the SMBIOS 3 standard: https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.6.0.pdf,
-            // the strings are necessarily in UTF-8.
+            // the strings are necessarily in UTF-8. But sometimes virtual machines may return non-compliant data.
             let values = table[(i + info.length() as usize)..]
                 .split(|&b| b == 0)
-                .map(|s| unsafe { std::str::from_utf8_unchecked(s) })
+                .filter_map(|s| std::str::from_utf8(s).ok())
                 .take_while(|s| !s.is_empty())
                 .collect();
 
