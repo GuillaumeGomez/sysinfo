@@ -10,6 +10,7 @@ concurrency:
 
 env:
   RUSTFLAGS: -Dwarnings
+  CROSS_VERSION: git:e8b97f3b88a0bc588557fbfe117dc024cfff607b
 
 jobs:
   rustfmt:
@@ -92,6 +93,7 @@ jobs:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check debug feature
         uses: ClementTsang/cargo-action@v0.0.6
@@ -99,6 +101,7 @@ jobs:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --features=debug
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check debug feature
         uses: ClementTsang/cargo-action@v0.0.6
@@ -106,6 +109,7 @@ jobs:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check serde feature
         uses: ClementTsang/cargo-action@v0.0.6
@@ -113,6 +117,7 @@ jobs:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --features=serde
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check serde feature
         uses: ClementTsang/cargo-action@v0.0.6
@@ -120,6 +125,7 @@ jobs:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=serde
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check debug/serde feature (system)
         uses: ClementTsang/cargo-action@v0.0.6
@@ -127,6 +133,7 @@ jobs:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug,serde,system
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check debug/serde feature (disk)
         uses: ClementTsang/cargo-action@v0.0.6
@@ -134,6 +141,7 @@ jobs:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug,serde,disk
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check debug/serde feature (component)
         uses: ClementTsang/cargo-action@v0.0.6
@@ -141,6 +149,7 @@ jobs:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug,serde,component
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check debug/serde feature (network)
         uses: ClementTsang/cargo-action@v0.0.6
@@ -148,6 +157,7 @@ jobs:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug,serde,network
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check debug/serde feature (user)
         uses: ClementTsang/cargo-action@v0.0.6
@@ -155,6 +165,7 @@ jobs:
           command: rustc
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features=debug,serde,user
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check without multithreading
         uses: ClementTsang/cargo-action@v0.0.6
@@ -162,6 +173,7 @@ jobs:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check features (system)
         uses: ClementTsang/cargo-action@v0.0.6
@@ -169,6 +181,7 @@ jobs:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features system
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check features (disk)
         uses: ClementTsang/cargo-action@v0.0.6
@@ -176,6 +189,7 @@ jobs:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features disk
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check features (component)
         uses: ClementTsang/cargo-action@v0.0.6
@@ -183,6 +197,7 @@ jobs:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features component
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check features (network)
         uses: ClementTsang/cargo-action@v0.0.6
@@ -190,6 +205,7 @@ jobs:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features network
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check features (user)
         uses: ClementTsang/cargo-action@v0.0.6
@@ -197,6 +213,7 @@ jobs:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features user
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check example
         uses: ClementTsang/cargo-action@v0.0.6
@@ -204,6 +221,7 @@ jobs:
           command: check
           args: --target=${{ matrix.triple.target }} --example simple
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check (Apple app store restrictions)
         if: matrix.triple.os == 'macos-latest'
@@ -212,6 +230,7 @@ jobs:
           command: check
           args: --features apple-sandbox --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check without multithreading (Apple app store restrictions)
         if: matrix.triple.os == 'macos-latest'
@@ -220,6 +239,7 @@ jobs:
           command: check
           args: --features apple-sandbox --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
       - name: Check features (system with Apple app store restrictions)
         uses: ClementTsang/cargo-action@v0.0.6
@@ -227,6 +247,7 @@ jobs:
           command: check
           args: --target=${{ matrix.triple.target }} --manifest-path=Cargo.toml --no-default-features --features system,apple-sandbox
           use-cross: ${{ matrix.triple.cross }}
+          cross-version: ${{ env.CROSS_VERSION }}
 
   tests:
     needs: [check]
