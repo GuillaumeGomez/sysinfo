@@ -230,7 +230,8 @@ impl System {
         self.inner.refresh_cpu_list(refresh_kind);
     }
 
-    /// Refreshes all information related to CPUs information.
+    /// Refreshes all information related to CPUs information. It does not refresh the CPU list.
+    /// If you want to refresh the CPU list, use [`System::refresh_cpu_list`] instead.
     ///
     /// If you only want the CPU usage, use [`System::refresh_cpu_usage`] instead.
     ///
