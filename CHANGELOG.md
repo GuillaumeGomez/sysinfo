@@ -1,3 +1,9 @@
+# 0.37.1
+
+ * Fix `serde` serialization on `Process::name`.
+ * Linux: Fix `get_cpu_frequency` on `loongarch64`.
+ * Windows: Correctly handle invalid UTF-8 string in `Motherboard`.
+
 # 0.37.0
 
  * Update minimum supported Rust version to `1.88` (for 2024 edition and `if let chain` feature).
