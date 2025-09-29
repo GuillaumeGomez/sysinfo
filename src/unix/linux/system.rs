@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::ffi::CStr;
 use std::fs::File;
 use std::io::Read;
+use std::mem::MaybeUninit;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::{OnceLock, atomic::AtomicIsize};
@@ -347,12 +348,24 @@ impl SystemInner {
     }
 
     pub(crate) fn uptime() -> u64 {
-        let content = get_all_utf8_data("/proc/uptime", 50).unwrap_or_default();
-        content
-            .split('.')
-            .next()
-            .and_then(|t| t.parse().ok())
-            .unwrap_or_default()
+        if cfg!(not(target_os = "android"))
+            && let Ok(content) = get_all_utf8_data("/proc/uptime", 50)
+            && let Some(uptime) = content.split('.').next().and_then(|t| t.parse().ok())
+        {
+            return uptime;
+        }
+        Self::uptime_with_sysinfo()
+    }
+
+    fn uptime_with_sysinfo() -> u64 {
+        unsafe {
+            let mut s = MaybeUninit::<libc::sysinfo>::uninit();
+            if libc::sysinfo(s.as_mut_ptr()) != 0 {
+                return 0;
+            }
+            let s = s.assume_init();
+            if s.uptime < 1 { 0 } else { s.uptime as u64 }
+        }
     }
 
     pub(crate) fn boot_time() -> u64 {
@@ -455,7 +468,7 @@ impl SystemInner {
     }
 
     pub(crate) fn kernel_version() -> Option<String> {
-        let mut raw = std::mem::MaybeUninit::<libc::utsname>::zeroed();
+        let mut raw = MaybeUninit::<libc::utsname>::zeroed();
 
         unsafe {
             if libc::uname(raw.as_mut_ptr()) == 0 {
@@ -536,7 +549,7 @@ impl SystemInner {
     }
 
     pub(crate) fn cpu_arch() -> Option<String> {
-        let mut raw = std::mem::MaybeUninit::<libc::utsname>::uninit();
+        let mut raw = MaybeUninit::<libc::utsname>::uninit();
 
         unsafe {
             if libc::uname(raw.as_mut_ptr()) != 0 {
