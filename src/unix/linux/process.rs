@@ -481,6 +481,20 @@ fn update_proc_info(
         // Do not use cmd[0] because it is not the same thing.
         // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
         p.exe = realpath(proc_path.replace_and_join("exe"));
+        // If the target executable file was modified or removed, linux appends ` (deleted)` at
+        // the end. We need to remove it.
+        // See https://github.com/GuillaumeGomez/sysinfo/issues/1585.
+        let deleted = b" (deleted)";
+        if let Some(exe) = &mut p.exe
+            && let Some(file_name) = exe.file_name()
+            && file_name.as_encoded_bytes().ends_with(deleted)
+        {
+            let mut file_name = file_name.as_encoded_bytes().to_vec();
+            file_name.truncate(file_name.len() - deleted.len());
+            unsafe {
+                exe.set_file_name(OsString::from_encoded_bytes_unchecked(file_name));
+            }
+        }
     }
 
     if refresh_kind.cmd().needs_update(|| p.cmd.is_empty()) {
