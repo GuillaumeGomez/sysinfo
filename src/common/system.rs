@@ -255,7 +255,8 @@ impl System {
         self.refresh_cpu_specifics(CpuRefreshKind::everything())
     }
 
-    /// Refreshes CPUs specific information.
+    /// Refreshes CPUs specific information. It does not refresh the CPU list.
+    /// If you want to refresh the CPU list, use [`System::refresh_cpu_list`] instead.
     ///
     /// ```no_run
     /// use sysinfo::{System, CpuRefreshKind};
