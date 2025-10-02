@@ -1,3 +1,9 @@
+# 0.37.2
+
+ * Improve documentation of `System::refresh_cpu_all` and of `System::refresh_cpu_specifics`.
+ * Android: Fix `System::uptime`.
+ * Linux: Correctly handled modified/removed `Process::exe` paths.
+
 # 0.37.1
 
  * Fix `serde` serialization on `Process::name`.
