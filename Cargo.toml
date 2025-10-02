@@ -1,6 +1,6 @@
 [package]
 name = "sysinfo"
-version = "0.37.1"
+version = "0.37.2"
 authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 description = "Library to get system information such as processes, CPUs, disks, components and networks"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
