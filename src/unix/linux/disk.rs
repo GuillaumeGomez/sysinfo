@@ -344,7 +344,6 @@ fn get_all_list(
 ) {
     // The goal of this array is to list all removable devices (the ones whose name starts with
     // "usb-").
-    //println!("get_all_list: {content}");
     let removable_entries = match fs::read_dir("/dev/disk/by-id/") {
         Ok(r) => r
             .filter_map(|res| Some(res.ok()?.path()))
@@ -367,7 +366,6 @@ fn get_all_list(
     for (fs_spec, fs_file, fs_vfstype) in content_mounts
         .lines()
         .map(|line| {
-            //println!("get_all_list: {line}");
             let line = line.trim_start();
             // mounts format
             // http://man7.org/linux/man-pages/man5/fstab.5.html
