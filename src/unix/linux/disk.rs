@@ -434,7 +434,35 @@ fn get_all_list(
             refresh_kind,
         ));
     }
-    println!("{content_partitions}");
+
+    let procfs_disk_stats = disk_stats(&refresh_kind);
+
+    for fs_spec in content_partitions.lines().map(|line| {
+        let line = line.trim_start();
+        let fields = line.split_whitespace();
+        let vec = fields.into_iter().collect::<Vec<&str>>();
+        vec.get(3).unwrap().to_owned()
+    }) {
+        let mount_point = Path::new("");
+        let disk_name = format!("/dev/{}", fs_spec);
+
+        if let Some(disk) = container.iter_mut().find(|d| {
+            d.inner.mount_point == mount_point && d.inner.device_name == disk_name.as_str()
+        }) {
+            disk.inner
+                .efficient_refresh(refresh_kind, &procfs_disk_stats, false);
+            disk.inner.updated = true;
+            continue;
+        }
+        container.push(new_disk(
+            disk_name.as_ref(),
+            mount_point,
+            "".as_ref(),
+            &removable_entries,
+            &procfs_disk_stats,
+            refresh_kind,
+        ));
+    }
 }
 
 /// Disk IO stat information from `/proc/diskstats` file.
