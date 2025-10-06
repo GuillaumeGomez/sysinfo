@@ -446,9 +446,10 @@ fn get_all_list(
         let mount_point = Path::new("");
         let disk_name = format!("/dev/{}", fs_spec);
 
-        if let Some(disk) = container.iter_mut().find(|d| {
-            d.inner.mount_point == mount_point && d.inner.device_name == disk_name.as_str()
-        }) {
+        if let Some(disk) = container
+            .iter_mut()
+            .find(|d| d.inner.device_name == disk_name.as_str())
+        {
             disk.inner
                 .efficient_refresh(refresh_kind, &procfs_disk_stats, false);
             disk.inner.updated = true;
