@@ -433,8 +433,6 @@ fn get_all_list(
         ));
     }
 
-    let procfs_disk_stats = disk_stats(&refresh_kind);
-
     for fs_spec in content_partitions
         .lines()
         .skip(2)
