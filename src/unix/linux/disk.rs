@@ -441,7 +441,6 @@ fn get_all_list(
         let line = line.trim_start();
         let fields = line.split_whitespace();
         let vec = fields.into_iter().collect::<Vec<&str>>();
-        println!("{vec:?}");
         vec.get(3).unwrap().to_owned()
     }) {
         let mount_point = Path::new("");
@@ -458,7 +457,7 @@ fn get_all_list(
         container.push(new_disk(
             disk_name.as_ref(),
             mount_point,
-            "".as_ref(),
+            "<unknown>".as_ref(),
             &removable_entries,
             &procfs_disk_stats,
             refresh_kind,
