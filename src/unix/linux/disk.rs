@@ -361,6 +361,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
     for (fs_spec, fs_file, fs_vfstype) in content
         .lines()
         .map(|line| {
+            println!("get_all_list: {line}");
             let line = line.trim_start();
             // mounts format
             // http://man7.org/linux/man-pages/man5/fstab.5.html
