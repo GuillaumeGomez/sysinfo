@@ -437,12 +437,17 @@ fn get_all_list(
 
     let procfs_disk_stats = disk_stats(&refresh_kind);
 
-    for fs_spec in content_partitions.lines().skip(2).map(|line| {
-        let line = line.trim_start();
-        let fields = line.split_whitespace();
-        let vec = fields.into_iter().collect::<Vec<&str>>();
-        vec.get(3).unwrap().to_owned()
-    }) {
+    for fs_spec in content_partitions
+        .lines()
+        .skip(2)
+        .map(|line| {
+            let line = line.trim_start();
+            let fields = line.split_whitespace();
+            let vec = fields.into_iter().collect::<Vec<&str>>();
+            vec.get(3).unwrap().to_owned()
+        })
+        .filter(|fs_spec| !(fs_spec.starts_with("sr")))
+    {
         let mount_point = Path::new("");
         let disk_name = format!("/dev/{}", fs_spec);
 
