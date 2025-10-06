@@ -20,14 +20,14 @@ pub(crate) fn get_all_utf8_data_from_file(file: &mut File, size: usize) -> io::R
     let mut buf = String::with_capacity(size);
     file.rewind()?;
     file.read_to_string(&mut buf)?;
-    println!("get_all_utf8_data_from_file: {buf}");
+    //println!("get_all_utf8_data_from_file: {buf}");
     Ok(buf)
 }
 
 #[cfg(any(feature = "disk", feature = "system"))]
 pub(crate) fn get_all_utf8_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
     let mut file = File::open(file_path.as_ref())?;
-    println!("get_all_utf8_data: {file:?}");
+    //println!("get_all_utf8_data: {file:?}");
     get_all_utf8_data_from_file(&mut file, size)
 }
 

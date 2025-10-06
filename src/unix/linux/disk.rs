@@ -338,7 +338,7 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
 fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefreshKind) {
     // The goal of this array is to list all removable devices (the ones whose name starts with
     // "usb-").
-    println!("get_all_list: {content}");
+    //println!("get_all_list: {content}");
     let removable_entries = match fs::read_dir("/dev/disk/by-id/") {
         Ok(r) => r
             .filter_map(|res| Some(res.ok()?.path()))
