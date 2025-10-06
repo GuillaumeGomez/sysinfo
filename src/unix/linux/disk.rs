@@ -434,10 +434,8 @@ fn get_all_list(
             refresh_kind,
         ));
     }
-
-    for (major, minor, blocks, name) in content_partitions.lines().map(|line| {
-      println!("{line}");
-    }) {}
+    println!("{content_partitions}");
+}
 
 /// Disk IO stat information from `/proc/diskstats` file.
 ///
