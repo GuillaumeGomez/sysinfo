@@ -367,7 +367,7 @@ fn get_all_list(
     for (fs_spec, fs_file, fs_vfstype) in content_mounts
         .lines()
         .map(|line| {
-            println!("get_all_list: {line}");
+            //println!("get_all_list: {line}");
             let line = line.trim_start();
             // mounts format
             // http://man7.org/linux/man-pages/man5/fstab.5.html
