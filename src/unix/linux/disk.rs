@@ -155,6 +155,7 @@ impl crate::DisksInner {
         get_all_list(
             &mut self.disks,
             &get_all_utf8_data("/proc/mounts", 16_385).unwrap_or_default(),
+            &get_all_utf8_data("/proc/partitions", 16_385).unwrap_or_default(),
             refresh_kind,
         );
 
@@ -335,7 +336,12 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
     }
 }
 
-fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefreshKind) {
+fn get_all_list(
+    container: &mut Vec<Disk>,
+    content_mounts: &str,
+    content_partitions: &str,
+    refresh_kind: DiskRefreshKind,
+) {
     // The goal of this array is to list all removable devices (the ones whose name starts with
     // "usb-").
     //println!("get_all_list: {content}");
@@ -358,7 +364,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
 
     let procfs_disk_stats = disk_stats(&refresh_kind);
 
-    for (fs_spec, fs_file, fs_vfstype) in content
+    for (fs_spec, fs_file, fs_vfstype) in content_mounts
         .lines()
         .map(|line| {
             println!("get_all_list: {line}");
@@ -419,7 +425,6 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
             disk.inner.updated = true;
             continue;
         }
-        println!("-> {fs_spec}");
         container.push(new_disk(
             fs_spec.as_ref(),
             mount_point,
@@ -429,7 +434,10 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
             refresh_kind,
         ));
     }
-}
+
+    for (major, minor, blocks, name) in content_partitions.lines().map(|line| {
+      println!("{line}");
+    }) {}
 
 /// Disk IO stat information from `/proc/diskstats` file.
 ///
