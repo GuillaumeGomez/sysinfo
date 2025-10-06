@@ -441,6 +441,7 @@ fn get_all_list(
         let line = line.trim_start();
         let fields = line.split_whitespace();
         let vec = fields.into_iter().collect::<Vec<&str>>();
+        println!("{vec:?}");
         vec.get(3).unwrap().to_owned()
     }) {
         let mount_point = Path::new("");
