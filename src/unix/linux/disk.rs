@@ -437,7 +437,7 @@ fn get_all_list(
 
     let procfs_disk_stats = disk_stats(&refresh_kind);
 
-    for fs_spec in content_partitions.lines().map(|line| {
+    for fs_spec in content_partitions.lines().skip(2).map(|line| {
         let line = line.trim_start();
         let fields = line.split_whitespace();
         let vec = fields.into_iter().collect::<Vec<&str>>();
