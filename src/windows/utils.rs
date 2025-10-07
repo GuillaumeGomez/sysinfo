@@ -117,9 +117,11 @@ cfg_if! {
             //      table[i + 1] is the length of the current SMBIOS table header
             //      Strings section starts immediately after the SMBIOS header,
             //      and is a list of null-terminated strings, terminated with two \0.
+            let mut found = false;
             let mut i = 0;
             while i + 1 < table.len() {
                 if table[i] == number {
+                    found = true;
                     break;
                 }
                 i += table[i + 1] as usize;
@@ -133,11 +135,23 @@ cfg_if! {
                 }
             }
 
-            let info: T = unsafe { std::ptr::read_unaligned(table[i..].as_ptr() as *const _) };
+            if !found {
+                return None;
+            }
+
+            let data = table.get(i..)?;
+            if data.len() < std::mem::size_of::<T>() {
+                return None;
+            }
+
+            // Safety: The prior bounds check and `T: SMBIOSType` trait bound guarantees that
+            // reading from `data` produces a valid `T`.
+            let info: T = unsafe { std::ptr::read_unaligned(data.as_ptr() as *const _) };
 
             // As said in the SMBIOS 3 standard: https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.6.0.pdf,
             // the strings are necessarily in UTF-8. But sometimes virtual machines may return non-compliant data.
-            let values = table[(i + info.length() as usize)..]
+            let values = table.get((i + info.length() as usize)..)
+                .unwrap_or_default()
                 .split(|&b| b == 0)
                 .filter_map(|s| std::str::from_utf8(s).ok())
                 .take_while(|s| !s.is_empty())

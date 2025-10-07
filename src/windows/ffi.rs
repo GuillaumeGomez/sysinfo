@@ -1,6 +1,10 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-pub trait SMBIOSType {
+/// # Safety
+///
+/// Only implement for SMBIOS struct types where any initialized byte sequence
+/// is a valid instance. No extra invariants beyond byte layout.
+pub unsafe trait SMBIOSType {
     fn length(&self) -> u8;
 }
 
@@ -52,7 +56,9 @@ pub(crate) struct SMBIOSSystemInformation {
     pub(crate) family: u8,
 }
 
-impl SMBIOSType for SMBIOSSystemInformation {
+// Safety: `SMBIOSSystemInformation` is `#[repr(C, packed)]` and consists of only plain data
+// fields. Any initialized byte sequence is a valid instance.
+unsafe impl SMBIOSType for SMBIOSSystemInformation {
     fn length(&self) -> u8 {
         self.length
     }
@@ -70,7 +76,9 @@ pub(crate) struct SMBIOSBaseboardInformation {
     pub(crate) asset_tag: u8,
 }
 
-impl SMBIOSType for SMBIOSBaseboardInformation {
+// Safety: `SMBIOSBaseboardInformation` is `#[repr(C, packed)]` and consists of only plain data
+// fields. Any initialized byte sequence is a valid instance.
+unsafe impl SMBIOSType for SMBIOSBaseboardInformation {
     fn length(&self) -> u8 {
         self.length
     }
