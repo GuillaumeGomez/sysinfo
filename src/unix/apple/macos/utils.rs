@@ -28,6 +28,6 @@ impl IOReleaser {
 
 impl Drop for IOReleaser {
     fn drop(&mut self) {
-        unsafe { IOObjectRelease(self.0.get() as _) };
+        IOObjectRelease(self.0.get() as _);
     }
 }

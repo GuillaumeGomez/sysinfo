@@ -161,7 +161,7 @@ pub(crate) fn get_io_platform_property(key: &str) -> Option<String> {
     use objc2_core_foundation::{CFData, CFGetTypeID, CFString, ConcreteType, kCFAllocatorDefault};
     use objc2_io_kit::{
         IORegistryEntryCreateCFProperty, IOServiceGetMatchingService, IOServiceMatching,
-        kIOMasterPortDefault,
+        kIOMainPortDefault,
     };
     use std::ffi::CStr;
 
@@ -174,7 +174,7 @@ pub(crate) fn get_io_platform_property(key: &str) -> Option<String> {
     };
 
     let result = unsafe {
-        IOServiceGetMatchingService(kIOMasterPortDefault, Some(matching.as_opaque().into()))
+        IOServiceGetMatchingService(kIOMainPortDefault, Some(matching.as_opaque().into()))
     };
     if result == 0 {
         sysinfo_debug!("IOServiceGetMatchingService failed");
