@@ -1381,6 +1381,10 @@ pub enum ProcessStatus {
     ///
     /// Tracing stop (Linux 2.6.33 onward). Stopped by debugger during the tracing.
     ///
+    /// ## NetBSD
+    ///
+    /// The process is being traced or debugged.
+    ///
     /// ## Other OS
     ///
     /// Not available.
@@ -1441,6 +1445,14 @@ pub enum ProcessStatus {
     ///
     /// Not available.
     UninterruptibleDiskSleep,
+    /// ## NetBSD
+    ///
+    /// Suspended process.
+    ///
+    /// ## Other OS
+    ///
+    /// Not available.
+    Suspended,
     /// Unknown.
     Unknown(u32),
 }
@@ -2239,6 +2251,7 @@ cfg_if! {
         not(feature = "unknown-ci"),
         any(
             target_os = "freebsd",
+            target_os = "netbsd",
             target_os = "linux",
             target_os = "android",
             target_os = "macos",
@@ -2708,6 +2721,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
             }
         } else if #[cfg(any(
             target_os = "freebsd",
+            target_os = "netbsd",
             target_os = "linux",
             target_os = "android",
             target_os = "macos",

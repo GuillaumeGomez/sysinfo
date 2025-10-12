@@ -21,47 +21,9 @@ use crate::sys::utils::{
     get_sys_value_by_name, init_mib,
 };
 
+use super::ffi;
+
 use libc::c_int;
-
-declare_signals! {
-    c_int,
-    Signal::Hangup => libc::SIGHUP,
-    Signal::Interrupt => libc::SIGINT,
-    Signal::Quit => libc::SIGQUIT,
-    Signal::Illegal => libc::SIGILL,
-    Signal::Trap => libc::SIGTRAP,
-    Signal::Abort => libc::SIGABRT,
-    Signal::IOT => libc::SIGIOT,
-    Signal::Bus => libc::SIGBUS,
-    Signal::FloatingPointException => libc::SIGFPE,
-    Signal::Kill => libc::SIGKILL,
-    Signal::User1 => libc::SIGUSR1,
-    Signal::Segv => libc::SIGSEGV,
-    Signal::User2 => libc::SIGUSR2,
-    Signal::Pipe => libc::SIGPIPE,
-    Signal::Alarm => libc::SIGALRM,
-    Signal::Term => libc::SIGTERM,
-    Signal::Child => libc::SIGCHLD,
-    Signal::Continue => libc::SIGCONT,
-    Signal::Stop => libc::SIGSTOP,
-    Signal::TSTP => libc::SIGTSTP,
-    Signal::TTIN => libc::SIGTTIN,
-    Signal::TTOU => libc::SIGTTOU,
-    Signal::Urgent => libc::SIGURG,
-    Signal::XCPU => libc::SIGXCPU,
-    Signal::XFSZ => libc::SIGXFSZ,
-    Signal::VirtualAlarm => libc::SIGVTALRM,
-    Signal::Profiling => libc::SIGPROF,
-    Signal::Winch => libc::SIGWINCH,
-    Signal::IO => libc::SIGIO,
-    Signal::Sys => libc::SIGSYS,
-    _ => None,
-}
-
-#[doc = include_str!("../../../md_doc/supported_signals.md")]
-pub const SUPPORTED_SIGNALS: &[crate::Signal] = supported_signals();
-#[doc = include_str!("../../../md_doc/minimum_cpu_update_interval.md")]
-pub const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(100);
 
 pub(crate) struct SystemInner {
     process_list: HashMap<Pid, Process>,
@@ -89,17 +51,34 @@ impl SystemInner {
     }
 
     pub(crate) fn refresh_memory_specifics(&mut self, refresh_kind: MemoryRefreshKind) {
-        if refresh_kind.ram() {
-            if self.mem_total == 0 {
-                self.mem_total = self.system_info.get_total_memory();
+        if !refresh_kind.ram() && !refresh_kind.swap() {
+            return;
+        }
+
+        let mib = [libc::CTL_VM, ffi::VM_UVMEXP2];
+        let mut info = MaybeUninit::<ffi::uvmexp_sysctl>::uninit();
+        let mut size = std::mem::size_of::<ffi::uvmexp_sysctl>();
+
+        let info = unsafe {
+            if !get_sys_value(&mib, &mut info) {
+                sysinfo_debug!(
+                    "failed to get memory information: failed to query uvmexp information"
+                );
+                return;
             }
-            self.mem_used = self.system_info.get_used_memory();
-            self.mem_free = self.system_info.get_free_memory();
+            info.assume_init()
+        };
+
+        if refresh_kind.ram() {
+            self.mem_total = info.filepages as u64 * self.system_info.page_size;
+            self.mem_used = (info.active + info.wired) as u64 * self.system_info.page_size;
+            let cached_memory =
+                (info.filepages + info.execpages) as u64 * self.system_info.page_size;
+            self.mem_free = self.mem_total.saturating_sub(self.mem_used + cached_memory);
         }
         if refresh_kind.swap() {
-            let (swap_used, swap_total) = self.system_info.get_swap_info();
-            self.swap_total = swap_total;
-            self.swap_used = swap_used;
+            self.swap_total = info.swpages as u64 * self.system_info.page_size;
+            self.swap_used = info.swpginuse as u64 * self.system_info.page_size;
         }
     }
 
@@ -255,12 +234,12 @@ impl SystemInner {
     }
 
     pub(crate) fn kernel_name() -> Option<&'static str> {
-        Some("FreeBSD")
+        Some("NetBSD")
     }
 
     pub(crate) fn cpu_arch() -> Option<String> {
         let mut arch_str: [u8; 32] = [0; 32];
-        let mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
+        let mib = [ffi::CTL_HW as _, ffi::HW_MACHINE as _];
 
         unsafe {
             if get_sys_value(&mib, &mut arch_str) {
@@ -283,7 +262,7 @@ impl SystemInner {
     pub(crate) fn open_files_limit() -> Option<usize> {
         let mut value = 0u32;
         unsafe {
-            if get_sys_value_by_name(b"kern.maxfilesperproc\0", &mut value) {
+            if get_sys_value_by_name(b"kern.maxfilesper\0", &mut value) {
                 Some(value as _)
             } else {
                 None
@@ -301,31 +280,38 @@ impl SystemInner {
         let (op, arg) = match processes_to_update {
             ProcessesToUpdate::Some(&[]) => return 0,
             ProcessesToUpdate::Some(&[pid]) => (libc::KERN_PROC_PID, pid.as_u32() as c_int),
-            _ => (libc::KERN_PROC_PROC, 0),
+            _ => (libc::KERN_PROC_ALL, 0),
         };
 
         let mut count = 0;
-        let kvm_procs =
-            unsafe { libc::kvm_getprocs(self.system_info.kd.as_ptr(), op, arg, &mut count) };
+        let kvm_procs = unsafe {
+            ffi::kvm_getproc2(
+                self.system_info.kd.as_ptr(),
+                op,
+                arg,
+                std::mem::size_of::<libc::kinfo_proc2>(),
+                &mut count,
+            )
+        };
         if count < 1 {
-            sysinfo_debug!("kvm_getprocs returned nothing...");
+            sysinfo_debug!("kvm_getproc2 returned nothing...");
             return 0;
         }
 
         #[inline(always)]
-        fn real_filter(e: &libc::kinfo_proc, filter: &[Pid]) -> bool {
-            filter.contains(&Pid(e.ki_pid))
+        fn real_filter(e: &libc::kinfo_proc2, filter: &[Pid]) -> bool {
+            filter.contains(&Pid(e.p_pid))
         }
 
         #[inline(always)]
-        fn empty_filter(_e: &libc::kinfo_proc, _filter: &[Pid]) -> bool {
+        fn empty_filter(_e: &libc::kinfo_proc2, _filter: &[Pid]) -> bool {
             true
         }
 
         #[allow(clippy::type_complexity)]
         let (filter, filter_callback): (
             &[Pid],
-            &(dyn Fn(&libc::kinfo_proc, &[Pid]) -> bool + Sync + Send),
+            &(dyn Fn(&libc::kinfo_proc2, &[Pid]) -> bool + Sync + Send),
         ) = match processes_to_update {
             ProcessesToUpdate::All => (&[], &empty_filter),
             ProcessesToUpdate::Some(pids) => {
@@ -350,6 +336,7 @@ impl SystemInner {
 
                 let fscale = self.system_info.fscale;
                 let page_size = self.system_info.page_size as isize;
+                let kd = self.system_info.kd;
                 let now = get_now();
                 let proc_list = utils::WrapMap(UnsafeCell::new(&mut self.process_list));
 
@@ -364,6 +351,7 @@ impl SystemInner {
                         fscale,
                         now,
                         refresh_kind,
+                        kd,
                     )
                     .ok()?;
                     nb_updated.fetch_add(1, Ordering::Relaxed);
@@ -381,7 +369,7 @@ impl SystemInner {
                 std::slice::from_raw_parts_mut(kvm_procs as _, count as _);
 
             for kproc in kvm_procs {
-                if let Some(process) = self.process_list.get_mut(&Pid(kproc.ki_pid)) {
+                if let Some(process) = self.process_list.get_mut(&Pid(kproc.p_pid)) {
                     add_missing_proc_info(&mut self.system_info, kproc, process, refresh_kind);
                 }
             }
@@ -392,7 +380,7 @@ impl SystemInner {
 
 unsafe fn add_missing_proc_info(
     system_info: &mut SystemInfo,
-    kproc: &libc::kinfo_proc,
+    kproc: &libc::kinfo_proc2,
     proc_: &mut Process,
     refresh_kind: ProcessRefreshKind,
 ) {
@@ -403,7 +391,7 @@ unsafe fn add_missing_proc_info(
             .cmd()
             .needs_update(|| proc_inner.cmd.is_empty());
         if proc_inner.name.is_empty() || cmd_needs_update {
-            let cmd = unsafe { from_cstr_array(libc::kvm_getargv(kd, kproc, 0) as _) };
+            let cmd = unsafe { from_cstr_array(ffi::kvm_getargv2(kd, kproc, 0) as _) };
 
             if !cmd.is_empty() {
                 // First, we try to retrieve the name from the command line.
@@ -419,19 +407,18 @@ unsafe fn add_missing_proc_info(
         }
         unsafe {
             get_exe(&mut proc_inner.exe, proc_inner.pid, refresh_kind);
-            system_info.get_proc_missing_info(kproc, proc_inner, refresh_kind);
         }
         if proc_inner.name.is_empty() {
             // The name can be cut short because the `ki_comm` field size is limited,
             // which is why we prefer to get the name from the command line as much as
             // possible.
-            proc_inner.name = c_buf_to_os_string(&kproc.ki_comm);
+            proc_inner.name = c_buf_to_os_string(&kproc.p_comm);
         }
         if refresh_kind
             .environ()
             .needs_update(|| proc_inner.environ.is_empty())
         {
-            proc_inner.environ = unsafe { from_cstr_array(libc::kvm_getenvv(kd, kproc, 0) as _) };
+            proc_inner.environ = unsafe { from_cstr_array(ffi::kvm_getenvv2(kd, kproc, 0) as _) };
         }
     }
 }
@@ -477,21 +464,11 @@ impl Zfs {
 /// This struct is used to get system information more easily.
 #[derive(Debug)]
 struct SystemInfo {
-    hw_physical_memory: [c_int; 2],
-    page_size: c_int,
-    virtual_page_count: [c_int; 4],
-    virtual_wire_count: [c_int; 4],
-    virtual_active_count: [c_int; 4],
-    virtual_cache_count: [c_int; 4],
-    virtual_inactive_count: [c_int; 4],
-    virtual_free_count: [c_int; 4],
-    buf_space: [c_int; 2],
-    kd: NonNull<libc::kvm_t>,
+    page_size: u64,
+    kd: NonNull<ffi::kvm_t>,
     /// From FreeBSD manual: "The kernel fixed-point scale factor". It's used when computing
     /// processes' CPU usage.
     fscale: f32,
-    procstat: *mut libc::procstat,
-    zfs: Zfs,
 }
 
 // This is needed because `kd: *mut libc::kvm_t` isn't thread-safe.
@@ -502,30 +479,21 @@ impl SystemInfo {
     fn new() -> Self {
         unsafe {
             let mut errbuf =
-                MaybeUninit::<[libc::c_char; libc::_POSIX2_LINE_MAX as usize]>::uninit();
-            let kd = NonNull::new(libc::kvm_openfiles(
+                MaybeUninit::<[libc::c_char; ffi::_POSIX2_LINE_MAX as usize]>::uninit();
+            let kd = NonNull::new(ffi::kvm_openfiles(
                 std::ptr::null(),
-                c"/dev/null".as_ptr() as *const _,
                 std::ptr::null(),
-                0,
+                std::ptr::null(),
+                ffi::KVM_NO_FILES,
                 errbuf.as_mut_ptr() as *mut _,
             ))
             .expect("kvm_openfiles failed");
 
             let mut si = SystemInfo {
-                hw_physical_memory: Default::default(),
                 page_size: 0,
-                virtual_page_count: Default::default(),
-                virtual_wire_count: Default::default(),
-                virtual_active_count: Default::default(),
-                virtual_cache_count: Default::default(),
-                virtual_inactive_count: Default::default(),
-                virtual_free_count: Default::default(),
-                buf_space: Default::default(),
                 kd,
                 fscale: 0.,
-                procstat: std::ptr::null_mut(),
-                zfs: Zfs::new(),
+                // zfs: Zfs::new(),
             };
             let mut fscale: c_int = 0;
             if !get_sys_value_by_name(b"kern.fscale\0", &mut fscale) {
@@ -533,169 +501,15 @@ impl SystemInfo {
                 fscale = 2048;
             }
             si.fscale = fscale as f32;
+            let mut page_size: c_int = 0;
 
-            if !get_sys_value_by_name(b"vm.stats.vm.v_page_size\0", &mut si.page_size) {
+            if !get_sys_value_by_name(b"vm.stats.vm.v_page_size\0", &mut page_size) || page_size < 1
+            {
                 panic!("cannot get page size...");
             }
-
-            init_mib(b"hw.physmem\0", &mut si.hw_physical_memory);
-            init_mib(b"vm.stats.vm.v_page_count\0", &mut si.virtual_page_count);
-            init_mib(b"vm.stats.vm.v_wire_count\0", &mut si.virtual_wire_count);
-            init_mib(
-                b"vm.stats.vm.v_active_count\0",
-                &mut si.virtual_active_count,
-            );
-            init_mib(b"vm.stats.vm.v_cache_count\0", &mut si.virtual_cache_count);
-            init_mib(
-                b"vm.stats.vm.v_inactive_count\0",
-                &mut si.virtual_inactive_count,
-            );
-            init_mib(b"vm.stats.vm.v_free_count\0", &mut si.virtual_free_count);
-            init_mib(b"vfs.bufspace\0", &mut si.buf_space);
+            si.page_size = page_size as _;
 
             si
-        }
-    }
-
-    /// Returns (used, total).
-    fn get_swap_info(&self) -> (u64, u64) {
-        // Magic number used in htop. Cannot find how they got it when reading `kvm_getswapinfo`
-        // source code so here we go...
-        const LEN: usize = 16;
-        let mut swap = MaybeUninit::<[libc::kvm_swap; LEN]>::uninit();
-        unsafe {
-            let nswap =
-                libc::kvm_getswapinfo(self.kd.as_ptr(), swap.as_mut_ptr() as *mut _, LEN as _, 0)
-                    as usize;
-            if nswap < 1 {
-                return (0, 0);
-            }
-            let swap =
-                std::slice::from_raw_parts(swap.as_ptr() as *mut libc::kvm_swap, nswap.min(LEN));
-            let (used, total) = swap.iter().fold((0, 0), |(used, total): (u64, u64), swap| {
-                (
-                    used.saturating_add(swap.ksw_used as _),
-                    total.saturating_add(swap.ksw_total as _),
-                )
-            });
-            (
-                used.saturating_mul(self.page_size as _),
-                total.saturating_mul(self.page_size as _),
-            )
-        }
-    }
-
-    fn get_total_memory(&self) -> u64 {
-        let mut nb_pages: u64 = 0;
-        unsafe {
-            if get_sys_value(&self.virtual_page_count, &mut nb_pages) {
-                return nb_pages.saturating_mul(self.page_size as _);
-            }
-
-            // This is a fallback. It includes all the available memory, not just the one available
-            // for the users.
-            let mut total_memory: u64 = 0;
-            get_sys_value(&self.hw_physical_memory, &mut total_memory);
-            total_memory
-        }
-    }
-
-    fn get_used_memory(&self) -> u64 {
-        let mut mem_active: u64 = 0;
-        let mut mem_wire: u64 = 0;
-
-        unsafe {
-            get_sys_value(&self.virtual_active_count, &mut mem_active);
-            get_sys_value(&self.virtual_wire_count, &mut mem_wire);
-
-            let mut mem_wire = mem_wire.saturating_mul(self.page_size as _);
-            // We need to subtract "ZFS ARC" from the "wired memory" because it should belongs to cache
-            // but the kernel reports it as "wired memory" instead...
-            if let Some(arc_size) = self.zfs.arc_size() {
-                mem_wire = mem_wire.saturating_sub(arc_size);
-            }
-            mem_active
-                .saturating_mul(self.page_size as _)
-                .saturating_add(mem_wire)
-        }
-    }
-
-    fn get_free_memory(&self) -> u64 {
-        let mut buffers_mem: u64 = 0;
-        let mut inactive_mem: u64 = 0;
-        let mut cached_mem: u64 = 0;
-        let mut free_mem: u64 = 0;
-
-        unsafe {
-            get_sys_value(&self.buf_space, &mut buffers_mem);
-            get_sys_value(&self.virtual_inactive_count, &mut inactive_mem);
-            get_sys_value(&self.virtual_cache_count, &mut cached_mem);
-            get_sys_value(&self.virtual_free_count, &mut free_mem);
-            // For whatever reason, buffers_mem is already the right value...
-            buffers_mem
-                .saturating_add(inactive_mem.saturating_mul(self.page_size as _))
-                .saturating_add(cached_mem.saturating_mul(self.page_size as _))
-                .saturating_add(free_mem.saturating_mul(self.page_size as _))
-        }
-    }
-
-    #[allow(clippy::collapsible_if)] // I keep as is for readability reasons.
-    unsafe fn get_proc_missing_info(
-        &mut self,
-        kproc: &libc::kinfo_proc,
-        proc_: &mut ProcessInner,
-        refresh_kind: ProcessRefreshKind,
-    ) {
-        let mut done = 0;
-        let cwd_needs_update = refresh_kind.cwd().needs_update(|| proc_.cwd().is_none());
-        let root_needs_update = refresh_kind.root().needs_update(|| proc_.root().is_none());
-        if cwd_needs_update {
-            done += 1;
-        }
-        if root_needs_update {
-            done += 1;
-        }
-        if done == 0 {
-            return;
-        }
-        if self.procstat.is_null() {
-            unsafe {
-                self.procstat = libc::procstat_open_sysctl();
-                if self.procstat.is_null() {
-                    sysinfo_debug!("procstat_open_sysctl failed");
-                    return;
-                }
-            }
-        }
-        unsafe {
-            let head =
-                libc::procstat_getfiles(self.procstat, kproc as *const _ as usize as *mut _, 0);
-            if head.is_null() {
-                return;
-            }
-            let mut entry = (*head).stqh_first;
-            while !entry.is_null() && done > 0 {
-                {
-                    let tmp = &*entry;
-                    if tmp.fs_uflags & libc::PS_FST_UFLAG_CDIR != 0 {
-                        if cwd_needs_update && !tmp.fs_path.is_null() {
-                            if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
-                                proc_.cwd = Some(PathBuf::from(p));
-                                done -= 1;
-                            }
-                        }
-                    } else if tmp.fs_uflags & libc::PS_FST_UFLAG_RDIR != 0 {
-                        if root_needs_update && !tmp.fs_path.is_null() {
-                            if let Ok(p) = CStr::from_ptr(tmp.fs_path).to_str() {
-                                proc_.root = Some(PathBuf::from(p));
-                                done -= 1;
-                            }
-                        }
-                    }
-                }
-                entry = (*entry).next.stqe_next;
-            }
-            libc::procstat_freefiles(self.procstat, head);
         }
     }
 }
@@ -703,10 +517,7 @@ impl SystemInfo {
 impl Drop for SystemInfo {
     fn drop(&mut self) {
         unsafe {
-            libc::kvm_close(self.kd.as_ptr());
-            if !self.procstat.is_null() {
-                libc::procstat_close(self.procstat);
-            }
+            ffi::kvm_close(self.kd.as_ptr());
         }
     }
 }

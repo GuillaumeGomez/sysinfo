@@ -17,12 +17,16 @@ cfg_if! {
         #[cfg(target_os = "android")]
         #[allow(unused_imports)]
         pub(crate) use libc::__errno as libc_errno;
-    } else if #[cfg(target_os = "freebsd")] {
-        pub(crate) mod freebsd;
-        pub(crate) use freebsd as sys;
+    } else if #[cfg(any(target_os = "freebsd", target_os = "netbsd"))] {
+        pub(crate) mod bsd;
+        pub(crate) use bsd as sys;
 
         #[allow(unused_imports)]
+        #[cfg(target_os = "freebsd")]
         pub(crate) use libc::__error as libc_errno;
+        #[allow(unused_imports)]
+        #[cfg(target_os = "netbsd")]
+        pub(crate) use libc::__errno as libc_errno;
     } else {
         compile_error!("Invalid cfg!");
     }
@@ -59,7 +63,7 @@ pub(crate) mod utils;
 #[cfg(any())]
 mod apple;
 #[cfg(any())]
-mod freebsd;
+mod bsd;
 #[cfg(any())]
 mod groups;
 #[cfg(any())]
