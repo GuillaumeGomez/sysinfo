@@ -17,7 +17,7 @@ cfg_if! {
         #[cfg(target_os = "android")]
         #[allow(unused_imports)]
         pub(crate) use libc::__errno as libc_errno;
-    } else if #[cfg(target_os = "freebsd")] {
+    } else if #[cfg(any(target_os = "freebsd", target_os = "netbsd"))] {
         pub(crate) mod freebsd;
         pub(crate) use freebsd as sys;
 

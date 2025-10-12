@@ -121,6 +121,7 @@ cfg_if! {
         not(feature = "unknown-ci"),
         any(
             target_os = "freebsd",
+            target_os = "netbsd",
             target_os = "linux",
             target_os = "android",
             target_os = "macos",
