@@ -4,6 +4,8 @@ use crate::{ComponentInner, ComponentsInner};
 
 /// Interacting with components.
 ///
+/// ⚠️ Not implemented in NetBSD.
+///
 /// ```no_run
 /// use sysinfo::Components;
 ///

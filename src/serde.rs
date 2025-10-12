@@ -310,7 +310,8 @@ impl Serialize for crate::ProcessStatus {
             Self::Parked => (9, "Parked", None),
             Self::LockBlocked => (10, "LockBlocked", None),
             Self::UninterruptibleDiskSleep => (11, "UninterruptibleDiskSleep", None),
-            Self::Unknown(n) => (12, "Unknown", Some(n)),
+            Self::Suspended => (12, "Suspended", None),
+            Self::Unknown(n) => (13, "Unknown", Some(n)),
         };
 
         if let Some(ref value) = maybe_value {

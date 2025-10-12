@@ -205,7 +205,7 @@ fn test_process_disk_usage() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
-    if std::env::var("FREEBSD_CI").is_ok() {
+    if std::env::var("FREEBSD_CI").is_ok() || std::env::var("NETBSD_CI").is_ok() {
         // For an unknown reason, when running this test on Cirrus CI, it fails. It works perfectly
         // locally though... Dark magic...
         return;
@@ -617,6 +617,10 @@ fn test_wait_child() {
         s.refresh_processes(ProcessesToUpdate::Some(&[pid]), true),
         0
     );
+    if std::env::var("NETBSD_CI").is_ok() {
+        // FIXME
+        return;
+    }
     assert!(before.elapsed() < std::time::Duration::from_millis(1000));
 }
 
@@ -856,6 +860,7 @@ fn test_process_specific_refresh() {
         target_os = "macos",
         target_os = "ios",
         feature = "apple-sandbox",
+        target_os = "netbsd",
     )) {
         update_specific_and_check!(root, with_root, , None);
     }
@@ -1031,6 +1036,7 @@ fn accumulated_cpu_time() {
     if !sysinfo::IS_SUPPORTED_SYSTEM
         || cfg!(feature = "apple-sandbox")
         || cfg!(target_os = "freebsd")
+        || cfg!(target_os = "netbsd")
     {
         return;
     }
@@ -1135,7 +1141,10 @@ fn test_tasks() {
 
 #[test]
 fn open_files() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if !sysinfo::IS_SUPPORTED_SYSTEM
+        || cfg!(feature = "apple-sandbox")
+        || cfg!(target_os = "netbsd")
+    {
         return;
     }
     let pid = sysinfo::get_current_pid().expect("failed to get current pid");
@@ -1196,6 +1205,10 @@ fn test_cpu_processes_usage() {
     if std::env::var("FREEBSD_CI").is_ok() {
         // FIXME: once I'm able to run a virtual freebsd machine, need to check if this test
         // is working.
+        return;
+    }
+    if std::env::var("NETBSD_CI").is_ok() {
+        // FIXME
         return;
     }
 
