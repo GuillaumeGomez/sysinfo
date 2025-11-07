@@ -49,7 +49,7 @@ pub(crate) fn get_volume_guid_paths() -> Vec<Vec<u16>> {
         let Ok(handle) = FindFirstVolumeW(&mut buf[..]) else {
             sysinfo_debug!(
                 "Error: FindFirstVolumeW() = {:?}",
-                Error::from_win32().code()
+                Error::from_thread().code()
             );
             return Vec::new();
         };
@@ -57,14 +57,14 @@ pub(crate) fn get_volume_guid_paths() -> Vec<Vec<u16>> {
         loop {
             if FindNextVolumeW(handle, &mut buf[..]).is_err() {
                 if Error::from_thread().code() != ERROR_NO_MORE_FILES {
-                    sysinfo_debug!("Error: FindNextVolumeW = {}", Error::from_win32().code());
+                    sysinfo_debug!("Error: FindNextVolumeW = {}", Error::from_thread().code());
                 }
                 break;
             }
             volume_names.push(from_zero_terminated(&buf[..]));
         }
         if FindVolumeClose(handle).is_err() {
-            sysinfo_debug!("Error: FindVolumeClose = {:?}", Error::from_win32().code());
+            sysinfo_debug!("Error: FindVolumeClose = {:?}", Error::from_thread().code());
         };
     }
     volume_names
@@ -310,7 +310,7 @@ pub(crate) unsafe fn get_list(
         if !volume_info_res {
             sysinfo_debug!(
                 "Error: GetVolumeInformationW = {:?}",
-                Error::from_win32().code()
+                Error::from_thread().code()
             );
             continue;
         }
