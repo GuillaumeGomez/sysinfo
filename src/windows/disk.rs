@@ -56,7 +56,7 @@ pub(crate) fn get_volume_guid_paths() -> Vec<Vec<u16>> {
         volume_names.push(from_zero_terminated(&buf[..]));
         loop {
             if FindNextVolumeW(handle, &mut buf[..]).is_err() {
-                if Error::from_win32().code() != ERROR_NO_MORE_FILES {
+                if Error::from_thread().code() != ERROR_NO_MORE_FILES {
                     sysinfo_debug!("Error: FindNextVolumeW = {}", Error::from_win32().code());
                 }
                 break;
@@ -93,7 +93,7 @@ pub(crate) unsafe fn get_volume_path_names_for_volume_name(
                 &mut path_names_output_size,
             )
         };
-        let code = volume_path_names.map_err(|_| Error::from_win32().code());
+        let code = volume_path_names.map_err(|_| Error::from_thread().code());
         match code {
             Ok(()) => break,
             Err(ERROR_MORE_DATA) => {
