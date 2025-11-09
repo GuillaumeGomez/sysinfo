@@ -22,7 +22,7 @@ impl Serialize for crate::Disk {
         if let Some(s) = self.name().to_str() {
             state.serialize_field("name", s)?;
         }
-        state.serialize_field("file_system", &self.file_system())?;
+        state.serialize_field("file_system", &self.file_system().to_string_lossy())?;
         state.serialize_field("mount_point", &self.mount_point())?;
         state.serialize_field("total_space", &self.total_space())?;
         state.serialize_field("available_space", &self.available_space())?;
@@ -418,7 +418,7 @@ impl Serialize for crate::MacAddr {
     where
         S: Serializer,
     {
-        serializer.serialize_newtype_struct("MacAddr", &self.0)
+        serializer.serialize_newtype_struct("MacAddr", &self.to_string())
     }
 }
 
