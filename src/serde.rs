@@ -22,7 +22,7 @@ impl Serialize for crate::Disk {
         if let Some(s) = self.name().to_str() {
             state.serialize_field("name", s)?;
         }
-        state.serialize_field("file_system", &self.file_system().to_string_lossy())?;
+        state.serialize_field("file_system", &self.file_system())?;
         state.serialize_field("mount_point", &self.mount_point())?;
         state.serialize_field("total_space", &self.total_space())?;
         state.serialize_field("available_space", &self.available_space())?;
@@ -506,6 +506,7 @@ mod tests {
     use crate::{MacAddr, ProcessRefreshKind, ProcessesToUpdate, System};
 
     #[test]
+    #[cfg(feature = "system")]
     fn test_serde_process_name() {
         if !crate::IS_SUPPORTED_SYSTEM {
             return;
@@ -530,6 +531,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "network")]
     fn test_serde_mac_address() {
         let m = MacAddr([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC]);
 
