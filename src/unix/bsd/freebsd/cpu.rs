@@ -1,8 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::utils::{
-    get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name, init_mib,
-};
+use crate::sys::utils::{get_sys_value_array, get_sys_value_by_name, get_sys_value_str};
 use crate::{Cpu, CpuRefreshKind};
 
 use libc::{c_int, c_ulong};
@@ -11,8 +9,6 @@ pub(crate) struct CpusWrapper {
     pub(crate) global_cpu_usage: f32,
     pub(crate) cpus: Vec<Cpu>,
     got_cpu_frequency: bool,
-    mib_cp_time: [c_int; 2],
-    mib_cp_times: [c_int; 2],
     // For the global CPU usage.
     cp_time: VecSwitcher<c_ulong>,
     // For each CPU usage.
@@ -22,19 +18,12 @@ pub(crate) struct CpusWrapper {
 
 impl CpusWrapper {
     pub(crate) fn new() -> Self {
-        let mut mib_cp_time = [0; 2];
-        let mut mib_cp_times = [0; 2];
-
         unsafe {
             let nb_cpus = super::utils::get_nb_cpus();
-            init_mib(b"kern.cp_time\0", &mut mib_cp_time);
-            init_mib(b"kern.cp_times\0", &mut mib_cp_times);
             Self {
                 global_cpu_usage: 0.,
                 cpus: Vec::with_capacity(nb_cpus),
                 got_cpu_frequency: false,
-                mib_cp_time,
-                mib_cp_times,
                 cp_time: VecSwitcher::new(vec![0; libc::CPUSTATES as usize]),
                 cp_times: VecSwitcher::new(vec![0; nb_cpus * libc::CPUSTATES as usize]),
                 nb_cpus,
@@ -47,8 +36,8 @@ impl CpusWrapper {
             let mut frequency = 0;
 
             // We get the CPU vendor ID in here.
-            let vendor_id =
-                get_sys_value_str_by_name(b"hw.model\0").unwrap_or_else(|| "<unknown>".to_owned());
+            let vendor_id = get_sys_value_str(&[libc::CTL_HW, libc::HW_MODEL])
+                .unwrap_or_else(|| "<unknown>".to_owned());
 
             for pos in 0..self.nb_cpus {
                 if refresh_kind.frequency() {
@@ -76,8 +65,8 @@ impl CpusWrapper {
 
     fn get_cpu_usage(&mut self) {
         unsafe {
-            get_sys_value_array(&self.mib_cp_time, self.cp_time.get_mut());
-            get_sys_value_array(&self.mib_cp_times, self.cp_times.get_mut());
+            get_sys_value_array(&[CTL_KERN, KERN_CP_TIME], self.cp_time.get_mut());
+            get_sys_value_array(&[CTL_KERN, KERN_CP_TIMES], self.cp_times.get_mut());
         }
 
         fn compute_cpu_usage(new_cp_time: &[c_ulong], old_cp_time: &[c_ulong]) -> f32 {
@@ -156,7 +145,7 @@ pub(crate) fn physical_core_count() -> Option<usize> {
     let mut physical_core_count: u32 = 0;
 
     unsafe {
-        if get_sys_value_by_name(b"hw.ncpu\0", &mut physical_core_count) {
+        if get_sys_value(&[libc::CTL_HW, libc::HW_NCPU], &mut physical_core_count) {
             Some(physical_core_count as _)
         } else {
             None
