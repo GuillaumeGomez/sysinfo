@@ -59,6 +59,70 @@ task:
     - FREEBSD_CI=1 cargo test --lib -- --test-threads=1
 
 task:
+  name: rust 1.88 on netbsd
+  compute_engine_instance:
+    image_project: pg-ci-images
+    image: family/pg-ci-netbsd-vanilla
+    platform: netbsd
+  setup_script:
+    - curl https://sh.rustup.rs -sSf --output rustup.sh
+    - sh rustup.sh -y --profile=minimal --default-toolchain=1.88
+    - . $HOME/.cargo/env
+    - rustup --version
+    - rustup component add clippy
+  test_script:
+    - . $HOME/.cargo/env
+    - cargo check
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,system
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features disk
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,disk
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features component
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,component
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features network
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,network
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features user
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,user
+    - cargo clippy --features serde -- -D warnings
+    - cargo clippy --features multithread -- -D warnings
+    - cargo check --example simple
+    - NETBSD_CI=1 cargo test -- --test-threads=1
+    - NETBSD_CI=1 cargo test --lib -- --ignored --test-threads=1
+
+task:
+  name: rust nightly on netbsd
+  compute_engine_instance:
+    image_project: pg-ci-images
+    image: family/pg-ci-netbsd-vanilla
+    platform: netbsd
+  setup_script:
+    - curl https://sh.rustup.rs -sSf --output rustup.sh
+    - sh rustup.sh -y --profile=minimal --default-toolchain=nightly
+    - . $HOME/.cargo/env
+    - rustup --version
+    - rustup component add clippy
+  test_script:
+    - . $HOME/.cargo/env
+    - cargo check
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,system
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features disk
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,disk
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features component
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,component
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features network
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,network
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features user
+    - RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,user
+    - cargo clippy --features serde -- -D warnings
+    - cargo clippy --features multithread -- -D warnings
+    - cargo check --example simple
+    - FREEBSD_CI=1 cargo test -- --test-threads=1
+    - FREEBSD_CI=1 cargo test --lib -- --test-threads=1
+
+task:
   name: rust 1.88 on mac m1
   macos_instance:
     image: ghcr.io/cirruslabs/macos-monterey-base:latest
