@@ -6,7 +6,10 @@
 
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
-use sysinfo::{Components, Disks, Groups, Networks, Pid, SUPPORTED_SIGNALS, System, Users};
+use sysinfo::{
+    Components, Disks, Groups, Motherboard, Networks, Pid, Product, SUPPORTED_SIGNALS, System,
+    Users,
+};
 
 fn print_help() {
     println!(
@@ -52,6 +55,8 @@ boot_time          : displays system boot time
 load_avg           : displays system load average
 system             : displays system information (such as name, version and hostname)
 uptime             : displays system uptime
+motherboard        : displays motherboard information
+product            : displays product information
 
 = Extra components commands =
 
@@ -324,6 +329,13 @@ fn interpret_input(
                 System::host_name().unwrap_or_else(|| "<unknown>".to_owned()),
                 System::kernel_long_version(),
             );
+        }
+        "motherboard" => match Motherboard::new() {
+            Some(m) => println!("{m:#?}"),
+            None => println!("No motherboard information available"),
+        },
+        "product" => {
+            println!("{:#?}", Product);
         }
         e => {
             println!(
