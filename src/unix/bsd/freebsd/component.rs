@@ -122,8 +122,8 @@ impl ComponentsInner {
 
 #[cfg(test)]
 mod tests {
+    use super::{ComponentInner, ComponentsInner};
     use crate::Component;
-    use crate::unix::freebsd::{ComponentInner, ComponentsInner};
 
     #[test]
     fn test_components() {

@@ -60,7 +60,12 @@ impl Drop for InterfaceAddressIterator {
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "ios"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "ios"
+))]
 impl From<&libc::sockaddr_dl> for MacAddr {
     fn from(value: &libc::sockaddr_dl) -> Self {
         let sdl_data = value.sdl_data;
@@ -82,7 +87,12 @@ impl From<&libc::sockaddr_dl> for MacAddr {
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "ios"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "ios"
+))]
 unsafe fn parse_interface_address(ifap: &libc::ifaddrs) -> Option<MacAddr> {
     let sock_addr = ifap.ifa_addr;
     if sock_addr.is_null() {
