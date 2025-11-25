@@ -22,7 +22,7 @@ impl Serialize for crate::Disk {
         if let Some(s) = self.name().to_str() {
             state.serialize_field("name", s)?;
         }
-        state.serialize_field("file_system", &self.file_system())?;
+        state.serialize_field("file_system", &self.file_system().to_string_lossy())?;
         state.serialize_field("mount_point", &self.mount_point())?;
         state.serialize_field("total_space", &self.total_space())?;
         state.serialize_field("available_space", &self.available_space())?;
@@ -542,5 +542,23 @@ mod tests {
             other => panic!("expected string, found `{other:?}`"),
         };
         assert_eq!(value, "12:34:56:78:9a:bc");
+    }
+
+    #[test]
+    #[cfg(feature = "disk")]
+    fn test_serde_disk_file_system() {
+        let mut disk = crate::Disk {
+            inner: crate::DiskInner::default(),
+        };
+        disk.inner.file_system = "ZFS".into();
+
+        let obj = match serde_json::to_value(disk) {
+            Ok(serde_json::Value::Object(obj)) => obj,
+            other => panic!("expected object, found `{other:?}`"),
+        };
+        assert_eq!(
+            obj.get("file_system"),
+            Some(&serde_json::Value::String("ZFS".to_string()))
+        );
     }
 }

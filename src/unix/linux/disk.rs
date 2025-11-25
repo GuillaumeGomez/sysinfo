@@ -38,7 +38,7 @@ pub(crate) struct DiskInner {
     type_: DiskKind,
     device_name: OsString,
     actual_device_name: Option<String>,
-    file_system: OsString,
+    pub(crate) file_system: OsString,
     mount_point: PathBuf,
     total_space: u64,
     available_space: u64,
@@ -49,6 +49,28 @@ pub(crate) struct DiskInner {
     written_bytes: u64,
     read_bytes: u64,
     updated: bool,
+}
+
+#[cfg(test)]
+impl Default for DiskInner {
+    fn default() -> Self {
+        Self {
+            type_: DiskKind::Unknown(0),
+            device_name: OsString::new(),
+            actual_device_name: None,
+            file_system: OsString::new(),
+            mount_point: PathBuf::new(),
+            total_space: 0,
+            available_space: 0,
+            is_removable: false,
+            is_read_only: false,
+            old_written_bytes: 0,
+            old_read_bytes: 0,
+            written_bytes: 0,
+            read_bytes: 0,
+            updated: false,
+        }
+    }
 }
 
 impl DiskInner {

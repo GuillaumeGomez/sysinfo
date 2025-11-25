@@ -4,7 +4,20 @@ use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
 
 use std::{ffi::OsStr, path::Path};
 
-pub(crate) struct DiskInner;
+pub(crate) struct DiskInner {
+    #[cfg(test)]
+    #[allow(dead_code)]
+    pub(crate) file_system: std::ffi::OsString,
+}
+
+#[cfg(test)]
+impl Default for DiskInner {
+    fn default() -> Self {
+        Self {
+            file_system: std::ffi::OsString::new(),
+        }
+    }
+}
 
 impl DiskInner {
     pub(crate) fn kind(&self) -> DiskKind {
