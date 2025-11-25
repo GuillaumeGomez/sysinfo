@@ -17,7 +17,7 @@ impl ProductInner {
 
     pub(crate) fn serial_number() -> Option<String> {
         // FIXME
-        None
+        get_sys_value_str_by_name(b"machdep.dmi.system-serial\0")
     }
 
     pub(crate) fn stock_keeping_unit() -> Option<String> {
