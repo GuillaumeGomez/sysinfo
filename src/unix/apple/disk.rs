@@ -38,6 +38,31 @@ pub(crate) struct DiskInner {
     uuid: OsString,
 }
 
+#[cfg(test)]
+impl Default for DiskInner {
+    fn default() -> DiskInner {
+        Self {
+            type_: DiskKind::HDD,
+            name: OsString::new(),
+            #[cfg(target_os = "macos")]
+            bsd_name: None,
+            file_system: OsString::new(),
+            mount_point: PathBuf::new(),
+            volume_url: unsafe { CFRetained::from_raw(std::ptr::NonNull::dangling()) },
+            total_space: 0,
+            available_space: 0,
+            is_removable: false,
+            is_read_only: false,
+            old_written_bytes: 0,
+            old_read_bytes: 0,
+            written_bytes: 0,
+            read_bytes: 0,
+            updated: false,
+            uuid: OsString::new(),
+        }
+    }
+}
+
 // Needed because `volume_url` type (`CFURL` contains an `*const UnsafeCell`). `UnsafeCell` is
 // `!Sync` and `*const` is both `!Sync` and `!Send`. However, this type is not `Clone` and is not
 // `Copy`, so it's "safe" to make it `Send`.

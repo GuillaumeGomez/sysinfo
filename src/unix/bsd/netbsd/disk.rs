@@ -19,7 +19,7 @@ pub(crate) struct DiskInner {
     mount_point: PathBuf,
     total_space: u64,
     available_space: u64,
-    file_system: OsString,
+    pub(crate) file_system: OsString,
     is_removable: bool,
     is_read_only: bool,
     read_bytes: u64,
@@ -27,6 +27,28 @@ pub(crate) struct DiskInner {
     written_bytes: u64,
     old_written_bytes: u64,
     updated: bool,
+}
+
+#[cfg(test)]
+impl Default for DiskInner {
+    fn default() -> Self {
+        Self {
+            name: OsString::new(),
+            c_mount_point: Vec::new(),
+            dev_id: Vec::new(),
+            mount_point: PathBuf::new(),
+            total_space: 0,
+            available_space: 0,
+            file_system: OsString::new(),
+            is_removable: false,
+            is_read_only: false,
+            read_bytes: 0,
+            old_read_bytes: 0,
+            written_bytes: 0,
+            old_written_bytes: 0,
+            updated: false,
+        }
+    }
 }
 
 impl DiskInner {
