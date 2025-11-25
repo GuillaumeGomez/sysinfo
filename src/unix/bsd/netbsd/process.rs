@@ -249,8 +249,10 @@ fn update_proc_info(
 
     let cmd_needs_update = refresh_kind.cmd().needs_update(|| proc_.cmd.is_empty());
     if proc_.name.is_empty() || cmd_needs_update {
-        let cmd =
-            unsafe { from_cstr_array(ffi::kvm_getargv2(system_info.kd.as_ptr(), kproc, 0) as _) };
+        let cmd = match system_info.kd {
+            Some(kd) => unsafe { from_cstr_array(ffi::kvm_getargv2(kd.as_ptr(), kproc, 0) as _) },
+            None => Vec::new(),
+        };
 
         if !cmd.is_empty() {
             // First, we try to retrieve the name from the command line.
@@ -271,14 +273,6 @@ fn update_proc_info(
         }
     }
 
-    if refresh_kind
-        .environ()
-        .needs_update(|| proc_.environ.is_empty())
-    {
-        proc_.environ =
-            unsafe { from_cstr_array(ffi::kvm_getenvv2(system_info.kd.as_ptr(), kproc, 0) as _) };
-    }
-
     // We now get the values needed for both new and existing process.
     if refresh_kind.cpu() {
         proc_.cpu_usage = (100 * kproc.p_pctcpu) as f32 / system_info.fscale;
@@ -291,15 +285,25 @@ fn update_proc_info(
         None
     };
 
-    proc_.status = match kproc.p_realstat {
-        ffi::SIDL => ProcessStatus::Idle,
-        ffi::SSTOP => ProcessStatus::Stop,
-        ffi::SZOMB => ProcessStatus::Zombie,
-        ffi::SDEAD => ProcessStatus::Tracing,
-        ffi::SACTIVE => get_active_status(system_info.kd, kproc)
-            .unwrap_or(ProcessStatus::Unknown(kproc.p_realstat as _)),
-        _ => ProcessStatus::Unknown(kproc.p_realstat as _),
-    };
+    if let Some(kd) = system_info.kd {
+        if refresh_kind
+            .environ()
+            .needs_update(|| proc_.environ.is_empty())
+        {
+            proc_.environ =
+                unsafe { from_cstr_array(ffi::kvm_getenvv2(kd.as_ptr(), kproc, 0) as _) };
+        }
+
+        proc_.status = match kproc.p_realstat {
+            ffi::SIDL => ProcessStatus::Idle,
+            ffi::SSTOP => ProcessStatus::Stop,
+            ffi::SZOMB => ProcessStatus::Zombie,
+            ffi::SDEAD => ProcessStatus::Tracing,
+            ffi::SACTIVE => get_active_status(kd, kproc)
+                .unwrap_or(ProcessStatus::Unknown(kproc.p_realstat as _)),
+            _ => ProcessStatus::Unknown(kproc.p_realstat as _),
+        };
+    }
 
     if refresh_kind.memory() {
         proc_.virtual_memory = kproc.p_vm_vsize as _;

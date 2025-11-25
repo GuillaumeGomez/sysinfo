@@ -997,7 +997,10 @@ fn get_proc_env<T: RtlUserProcessParameters>(
     }
     match params.get_environ(handle) {
         Ok(buffer) => {
-            let equals = "=".encode_utf16().next().unwrap();
+            let Some(equals) = "=".encode_utf16().next() else {
+                sysinfo_debug!("not found `=` while trying to parse proc variable");
+                return;
+            };
             let raw_env = buffer;
             environ.clear();
             let mut begin = 0;

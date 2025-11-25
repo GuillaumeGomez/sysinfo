@@ -384,12 +384,25 @@ impl SystemInner {
             .trim()
             .split(' ')
             .take(3)
-            .map(|val| val.parse::<f64>().unwrap())
+            .filter_map(|val| val.parse::<f64>().ok())
             .collect::<Vec<f64>>();
-        LoadAvg {
-            one: loads[0],
-            five: loads[1],
-            fifteen: loads[2],
+        match *loads.as_slice() {
+            [one, five, fifteen, ..] => LoadAvg { one, five, fifteen },
+            [one, five] => LoadAvg {
+                one,
+                five,
+                fifteen: 0.,
+            },
+            [one] => LoadAvg {
+                one,
+                five: 0.,
+                fifteen: 0.,
+            },
+            [] => LoadAvg {
+                one: 0.,
+                five: 0.,
+                fifteen: 0.,
+            },
         }
     }
 

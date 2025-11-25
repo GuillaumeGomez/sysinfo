@@ -77,7 +77,9 @@ impl ComponentsInner {
                 self.client = Some(client);
             }
 
-            let client = self.client.as_ref().unwrap();
+            let Some(client) = self.client.as_ref() else {
+                return;
+            };
 
             let _ = IOHIDEventSystemClientSetMatching(client, matches);
 
@@ -101,7 +103,9 @@ impl ComponentsInner {
                     .and_then(|value| value.downcast::<CFString>().ok())
                     .as_deref()
                     .map(CFString::to_string);
-                let name = name.downcast::<CFString>().unwrap();
+                let Ok(name) = name.downcast::<CFString>() else {
+                    continue;
+                };
                 let name_str = name.to_string();
 
                 if let Some(c) = self

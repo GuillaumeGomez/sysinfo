@@ -784,7 +784,7 @@ fn get_vendor_id_and_brand_inner(data: &str) -> HashMap<usize, (String, String)>
             .next_back()
             .map(|x| x.trim())
             .filter(|x| x.starts_with("0x"))
-            .map(|x| u32::from_str_radix(&x[2..], 16).unwrap())
+            .and_then(|x| u32::from_str_radix(&x[2..], 16).ok())
             .unwrap_or_default()
     }
 
