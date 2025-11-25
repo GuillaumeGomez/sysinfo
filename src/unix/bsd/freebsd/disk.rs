@@ -354,7 +354,7 @@ pub unsafe fn get_all_list(
             | b"linsysfs" => {
                 sysinfo_debug!(
                     "Memory filesystem `{:?}`, ignoring it.",
-                    c_buf_to_utf8_str(&fs_info.f_fstypename).unwrap(),
+                    c_buf_to_utf8_str(&fs_info.f_fstypename),
                 );
                 continue;
             }

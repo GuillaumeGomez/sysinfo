@@ -278,11 +278,14 @@ impl SystemInner {
             ProcessesToUpdate::Some(&[pid]) => (libc::KERN_PROC_PID, pid.as_u32() as c_int),
             _ => (libc::KERN_PROC_ALL, 0),
         };
+        let Some(kd) = self.system_info.kd else {
+            return 0;
+        };
 
         let mut count = 0;
         let kvm_procs = unsafe {
             ffi::kvm_getproc2(
-                self.system_info.kd.as_ptr(),
+                kd.as_ptr(),
                 op,
                 arg,
                 std::mem::size_of::<libc::kinfo_proc2>(),
@@ -364,7 +367,7 @@ impl SystemInner {
 #[derive(Debug)]
 pub(crate) struct SystemInfo {
     pub(crate) page_size: u64,
-    pub(crate) kd: NonNull<ffi::kvm_t>,
+    pub(crate) kd: Option<NonNull<ffi::kvm_t>>,
     /// From NetBSD manual: "The kernel fixed-point scale factor". It's used when computing
     /// processes' CPU usage.
     pub(crate) fscale: f32,
@@ -384,26 +387,29 @@ impl SystemInfo {
                 std::ptr::null(),
                 ffi::KVM_NO_FILES,
                 errbuf.as_mut_ptr() as *mut _,
-            ))
-            .expect("kvm_openfiles failed");
+            ));
+            if kd.is_none() {
+                sysinfo_debug!("kvm_openfiles failed, cannot retrieve processes information");
+            }
 
             let mut si = SystemInfo {
                 page_size: 0,
                 kd,
                 fscale: 0.,
-                // zfs: Zfs::new(),
             };
             let mut fscale: c_int = 0;
             if !get_sys_value(&[libc::CTL_KERN, libc::KERN_FSCALE], &mut fscale) || fscale < 0 {
-                panic!("failed to get fscale");
+                sysinfo_debug!("failed to get fscale, cannot retrieve CPU usage information");
+            } else {
+                si.fscale = fscale as f32;
             }
-            si.fscale = fscale as f32;
 
             let page_size = libc::sysconf(libc::_SC_PAGESIZE);
             if page_size < 0 {
-                panic!("cannot get page size...");
+                sysinfo_debug!("failed to get page size, cannot retrieve memory information");
+            } else {
+                si.page_size = page_size as _;
             }
-            si.page_size = page_size as _;
 
             si
         }
@@ -413,7 +419,9 @@ impl SystemInfo {
 impl Drop for SystemInfo {
     fn drop(&mut self) {
         unsafe {
-            ffi::kvm_close(self.kd.as_ptr());
+            if let Some(kd) = self.kd {
+                ffi::kvm_close(kd.as_ptr());
+            }
         }
     }
 }
