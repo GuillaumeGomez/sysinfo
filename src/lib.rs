@@ -167,11 +167,13 @@ pub fn set_open_files_limit(mut _new_limit: usize) -> bool {
             // If files are already open, to be sure that the number won't be bigger when those
             // files are closed, we subtract the current number of opened files to the new
             // limit.
-            remaining_files().fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
+            if remaining_files().fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
                 let _new_limit = _new_limit as isize;
                 let diff = (max as isize).saturating_sub(remaining);
                 Some(_new_limit.saturating_sub(diff))
-            }).unwrap();
+            }).is_err() {
+                sysinfo_debug!("failed to update open files limit");
+            }
 
             true
         } else {

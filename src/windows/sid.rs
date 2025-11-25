@@ -152,7 +152,7 @@ impl FromStr for Sid {
             // Unwrapping because ConvertStringSidToSidW should've performed
             // all the necessary validations. If it returned an invalid SID,
             // we better fail fast.
-            Ok(sid.unwrap())
+            Ok(sid.expect("ConvertStringSidToSidW should have worked"))
         }
     }
 }

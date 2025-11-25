@@ -125,28 +125,24 @@ impl SystemInner {
         }
         if let Some(ref mut query) = self.query {
             query.refresh();
-            let mut total_idle_time = None;
             if let Some(ref key_used) = self.cpus.global.key_used {
-                total_idle_time = Some(
-                    query
-                        .get(&key_used.unique_id)
-                        .expect("global_key_idle disappeared"),
-                );
-            }
-            if let Some(total_idle_time) = total_idle_time {
-                self.cpus.global.set_cpu_usage(100.0 - total_idle_time);
+                #[allow(clippy::single_match)]
+                match query.get(&key_used.unique_id) {
+                    Some(total_idle_time) => {
+                        self.cpus.global.set_cpu_usage(100.0 - total_idle_time);
+                    }
+                    None => sysinfo_debug!("global_key_idle disappeared"),
+                }
             }
             for cpu in self.cpus.iter_mut(refresh_kind) {
-                let mut idle_time = None;
                 if let Some(ref key_used) = *get_key_used(cpu) {
-                    idle_time = Some(
-                        query
-                            .get(&key_used.unique_id)
-                            .expect("key_used disappeared"),
-                    );
-                }
-                if let Some(idle_time) = idle_time {
-                    cpu.inner.set_cpu_usage(100.0 - idle_time);
+                    #[allow(clippy::single_match)]
+                    match query.get(&key_used.unique_id) {
+                        Some(idle_time) => {
+                            cpu.inner.set_cpu_usage(100.0 - idle_time);
+                        }
+                        None => sysinfo_debug!("key_used disappeared"),
+                    }
                 }
             }
             if refresh_kind.frequency() {
