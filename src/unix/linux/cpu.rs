@@ -790,7 +790,9 @@ fn get_vendor_id_and_brand_inner(data: &str) -> HashMap<usize, (String, String)>
 
     #[inline]
     fn is_new_processor(line: &str) -> bool {
-        line.starts_with("processor\t")
+        line.split(':')
+            .next()
+            .is_some_and(|line| line.trim() == "processor")
     }
 
     #[derive(Default)]
@@ -937,5 +939,47 @@ core			: 3"#;
 
         let cpus = get_vendor_id_and_brand_inner(DATA);
         assert_eq!(cpus.len(), 7);
+    }
+
+    #[test]
+    fn test_cpu_brand_armv7() {
+        const DATA: &str = r#"
+Processor       : ARMv7 Processor rev 5 (v7l)
+processor       : 0
+BogoMIPS        : 12.80
+
+processor       : 1
+BogoMIPS        : 12.80
+
+processor       : 2
+BogoMIPS        : 12.80
+
+processor       : 3
+BogoMIPS        : 12.80
+
+processor       : 4
+BogoMIPS        : 38.40
+
+processor       : 5
+BogoMIPS        : 38.40
+
+processor       : 6
+BogoMIPS        : 38.40
+
+processor       : 7
+BogoMIPS        : 38.40
+
+Features        : swp half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 idiva idivt 
+CPU implementer : 0x41
+CPU architecture: 7
+CPU variant     : 0x0 & 0x3
+CPU part        : 0xc07 & 0xc0f
+CPU revision    : 5 & 3
+
+Hardware        : Kirin925
+Revision        : 0000
+Serial          : 0000000000000000"#;
+        let cpus = get_vendor_id_and_brand_inner(DATA);
+        assert_eq!(cpus.len(), 8);
     }
 }
