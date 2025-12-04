@@ -6,6 +6,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void* CSystem;
 typedef const void* CProcess;
 typedef const char* RString;
@@ -84,3 +88,7 @@ RString     sysinfo_product_version();
 RString     sysinfo_product_vendor_name();
 
 void        sysinfo_rstring_free(RString str);
+
+#ifdef __cplusplus
+}
+#endif
