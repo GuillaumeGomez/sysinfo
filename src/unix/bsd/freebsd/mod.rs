@@ -36,7 +36,7 @@ cfg_if! {
     if #[cfg(feature = "network")] {
         pub mod network;
 
-        pub(crate) use self::network::{NetworkDataInner, NetworksInner};
+        pub(crate) use self::network::NetworksInner;
     }
 
     if #[cfg(feature = "user")] {

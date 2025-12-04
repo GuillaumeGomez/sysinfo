@@ -17,9 +17,10 @@ use std::time::SystemTime;
 use crate::sys::cpu::{CpusWrapper, physical_core_count};
 use crate::sys::process::get_exe;
 use crate::sys::utils::{
-    self, boot_time, c_buf_to_os_string, c_buf_to_utf8_string, from_cstr_array, get_sys_value,
-    get_sys_value_by_name, init_mib,
+    self, c_buf_to_os_string, c_buf_to_utf8_string, from_cstr_array, get_sys_value,
+    get_sys_value_by_name,
 };
+use crate::unix::bsd::common::{boot_time, init_mib};
 
 use libc::c_int;
 
