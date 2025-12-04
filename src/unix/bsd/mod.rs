@@ -20,54 +20,30 @@ cfg_if! {
     }
 }
 
+cfg_if! {
+    if #[cfg(feature = "system")] {
+        pub mod system_common;
+
+        pub use self::system_common::*;
+    }
+    if #[cfg(feature = "network")] {
+        pub mod network_common;
+
+        pub(crate) use self::network_common::*;
+    }
+}
+
+mod common;
+
+// Little trick to ensure `rustfmt` works on all files.
 #[cfg(any())]
 mod freebsd;
 #[cfg(any())]
 mod netbsd;
-
-#[cfg(feature = "system")]
-declare_signals! {
-    libc::c_int,
-    Signal::Hangup => libc::SIGHUP,
-    Signal::Interrupt => libc::SIGINT,
-    Signal::Quit => libc::SIGQUIT,
-    Signal::Illegal => libc::SIGILL,
-    Signal::Trap => libc::SIGTRAP,
-    Signal::Abort => libc::SIGABRT,
-    Signal::IOT => libc::SIGIOT,
-    Signal::Bus => libc::SIGBUS,
-    Signal::FloatingPointException => libc::SIGFPE,
-    Signal::Kill => libc::SIGKILL,
-    Signal::User1 => libc::SIGUSR1,
-    Signal::Segv => libc::SIGSEGV,
-    Signal::User2 => libc::SIGUSR2,
-    Signal::Pipe => libc::SIGPIPE,
-    Signal::Alarm => libc::SIGALRM,
-    Signal::Term => libc::SIGTERM,
-    Signal::Child => libc::SIGCHLD,
-    Signal::Continue => libc::SIGCONT,
-    Signal::Stop => libc::SIGSTOP,
-    Signal::TSTP => libc::SIGTSTP,
-    Signal::TTIN => libc::SIGTTIN,
-    Signal::TTOU => libc::SIGTTOU,
-    Signal::Urgent => libc::SIGURG,
-    Signal::XCPU => libc::SIGXCPU,
-    Signal::XFSZ => libc::SIGXFSZ,
-    Signal::VirtualAlarm => libc::SIGVTALRM,
-    Signal::Profiling => libc::SIGPROF,
-    Signal::Winch => libc::SIGWINCH,
-    Signal::IO => libc::SIGIO,
-    Signal::Sys => libc::SIGSYS,
-    _ => None,
-}
-
-#[cfg(feature = "system")]
-#[doc = include_str!("../../../md_doc/supported_signals.md")]
-pub const SUPPORTED_SIGNALS: &[crate::Signal] = supported_signals();
-
-#[cfg(feature = "system")]
-#[doc = include_str!("../../../md_doc/minimum_cpu_update_interval.md")]
-pub const MINIMUM_CPU_UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
+#[cfg(any())]
+mod network_common;
+#[cfg(any())]
+mod system_common;
 
 #[doc = include_str!("../../../md_doc/is_supported.md")]
 pub const IS_SUPPORTED_SYSTEM: bool = true;

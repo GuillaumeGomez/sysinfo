@@ -14,11 +14,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::SystemTime;
 
 use crate::sys::cpu::{CpusWrapper, physical_core_count};
-use crate::sys::utils::{
-    self, boot_time, c_buf_to_utf8_string, get_sys_value, get_sys_value_by_name, init_mib,
-};
+use crate::sys::utils::{self, c_buf_to_utf8_string, get_sys_value, get_sys_value_by_name};
 
 use super::ffi;
+use crate::unix::bsd::common::{boot_time, init_mib};
 
 use libc::c_int;
 
@@ -147,7 +146,6 @@ impl SystemInner {
         self.swap_total - self.swap_used
     }
 
-    // TODO: need to be checked
     pub(crate) fn used_swap(&self) -> u64 {
         self.swap_used
     }

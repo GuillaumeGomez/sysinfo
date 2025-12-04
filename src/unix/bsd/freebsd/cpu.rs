@@ -1,8 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::utils::{
-    get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name, init_mib,
-};
+use crate::sys::utils::{get_sys_value_array, get_sys_value_by_name, get_sys_value_str_by_name};
+use crate::unix::bsd::common::init_mib;
 use crate::{Cpu, CpuRefreshKind};
 
 use libc::{c_int, c_ulong};
