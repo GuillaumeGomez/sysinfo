@@ -218,6 +218,42 @@ pub extern "C" fn sysinfo_used_swap(system: CSystem) -> size_t {
     }
 }
 
+/// If [`System::cgroup_limits()`][crate::System#method.cgroup_limits] is available, set the
+/// corresponding output parameters and return true. Otherwise, return false. The output parameters
+/// may be null pointers, in which case they are ignored.
+#[unsafe(no_mangle)]
+pub extern "C" fn sysinfo_cgroup_limits(
+    system: CSystem,
+    total_memory: *mut size_t,
+    free_memory: *mut size_t,
+    free_swap: *mut size_t,
+    rss: *mut size_t,
+) -> bool {
+    assert!(!system.is_null());
+    unsafe {
+        let system: Box<System> = Box::from_raw(system as *mut System);
+        let ret = if let Some(cgroup_limits) = system.cgroup_limits() {
+            if !total_memory.is_null() {
+                *total_memory = cgroup_limits.total_memory as size_t;
+            }
+            if !free_memory.is_null() {
+                *free_memory = cgroup_limits.free_memory as size_t;
+            }
+            if !free_swap.is_null() {
+                *free_swap = cgroup_limits.free_swap as size_t;
+            }
+            if !rss.is_null() {
+                *rss = cgroup_limits.rss as size_t;
+            }
+            true
+        } else {
+            false
+        };
+        let _ = Box::into_raw(system);
+        ret
+    }
+}
+
 /// Equivalent of [`Networks::new()`][crate::Networks#method.new].
 #[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_networks_init() -> CNetworks {
