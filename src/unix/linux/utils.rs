@@ -29,18 +29,6 @@ pub(crate) fn get_all_utf8_data<P: AsRef<Path>>(file_path: P, size: usize) -> io
     get_all_utf8_data_from_file(&mut file, size)
 }
 
-#[cfg(feature = "system")]
-#[allow(clippy::useless_conversion)]
-pub(crate) fn realpath(path: &Path) -> Option<std::path::PathBuf> {
-    match std::fs::read_link(path) {
-        Ok(path) => Some(path),
-        Err(_e) => {
-            sysinfo_debug!("failed to get real path for {:?}: {:?}", path, _e);
-            None
-        }
-    }
-}
-
 /// This type is used in `retrieve_all_new_process_info` because we have a "parent" path and
 /// from it, we `pop`/`join` every time because it's more memory efficient than using `Path::join`.
 #[cfg(feature = "system")]

@@ -1,5 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::unix::utils::realpath;
 use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Uid};
 
 use std::ffi::OsString;
@@ -185,6 +186,10 @@ fn update_proc_info(
     if refresh_kind.memory() {
         proc_.virtual_memory = kproc.p_vm_vsize as _;
         proc_.memory = (kproc.p_vm_rssize as u64).saturating_mul(system_info.page_size as _);
+    }
+
+    if refresh_kind.root().needs_update(|| proc_.root.is_none()) {
+        proc_.root = realpath(format!("/proc/{}/root", proc_.pid));
     }
 
     proc_.updated = true;

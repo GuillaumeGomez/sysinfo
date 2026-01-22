@@ -860,7 +860,6 @@ fn test_process_specific_refresh() {
         target_os = "macos",
         target_os = "ios",
         feature = "apple-sandbox",
-        target_os = "netbsd",
     )) {
         update_specific_and_check!(root, with_root, , None);
     }

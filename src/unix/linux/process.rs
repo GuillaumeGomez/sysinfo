@@ -15,9 +15,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use libc::{c_ulong, gid_t, uid_t};
 
 use crate::sys::system::SystemInfo;
-use crate::sys::utils::{
-    PathHandler, PathPush, get_all_data_from_file, get_all_utf8_data, realpath,
-};
+use crate::sys::utils::{PathHandler, PathPush, get_all_data_from_file, get_all_utf8_data};
+use crate::unix::utils::realpath;
 use crate::{
     DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, Signal,
     ThreadKind, Uid,
