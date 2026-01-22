@@ -58,3 +58,19 @@ pub(crate) fn wait_process(pid: crate::Pid) -> Option<std::process::ExitStatus> 
         Some(std::process::ExitStatus::from_raw(status))
     }
 }
+
+#[cfg(all(
+    feature = "system",
+    any(target_os = "linux", target_os = "android", target_os = "netbsd"),
+))]
+#[allow(clippy::useless_conversion)]
+pub(crate) fn realpath<P: AsRef<std::path::Path>>(path: P) -> Option<std::path::PathBuf> {
+    let path = path.as_ref();
+    match std::fs::read_link(path) {
+        Ok(path) => Some(path),
+        Err(_e) => {
+            sysinfo_debug!("failed to get real path for {:?}: {:?}", path, _e);
+            None
+        }
+    }
+}
