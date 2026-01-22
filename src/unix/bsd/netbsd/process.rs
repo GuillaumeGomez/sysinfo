@@ -3,6 +3,7 @@
 use crate::{DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, Uid};
 
 use std::ffi::OsString;
+use std::fs::read_dir;
 use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
 
@@ -50,8 +51,14 @@ impl ProcessInner {
     }
 
     pub(crate) fn open_files(&self) -> Option<usize> {
-        // FIXME
-        None
+        let open_files_dir = format!("/proc/{}/fd", self.pid);
+        match read_dir(&open_files_dir) {
+            Ok(entries) => Some(entries.count() as _),
+            Err(_error) => {
+                sysinfo_debug!("Failed to get open files in `{open_files_dir}`: {_error:?}");
+                None
+            }
+        }
     }
 
     pub(crate) fn open_files_limit(&self) -> Option<usize> {

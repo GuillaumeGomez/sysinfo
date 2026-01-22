@@ -1141,10 +1141,7 @@ fn test_tasks() {
 
 #[test]
 fn open_files() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM
-        || cfg!(feature = "apple-sandbox")
-        || cfg!(target_os = "netbsd")
-    {
+    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
     let pid = sysinfo::get_current_pid().expect("failed to get current pid");
@@ -1158,11 +1155,13 @@ fn open_files() {
             .open_files()
             .is_some_and(|open_files| open_files > 0)
     );
-    assert!(
-        cur_process
-            .open_files_limit()
-            .is_some_and(|open_files| open_files > 0)
-    );
+    if !cfg!(target_os = "netbsd") {
+        assert!(
+            cur_process
+                .open_files_limit()
+                .is_some_and(|open_files| open_files > 0)
+        );
+    }
 }
 
 #[test]
