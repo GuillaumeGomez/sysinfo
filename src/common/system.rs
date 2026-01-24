@@ -920,7 +920,7 @@ impl System {
 
 /// This type allows to retrieve motherboard-related information.
 ///
-/// ⚠️ Not implemented in NetBSD.
+/// ⚠️ Not implemented on NetBSD.
 ///
 /// ```
 /// use sysinfo::Motherboard;
@@ -1045,7 +1045,7 @@ impl Motherboard {
 
 /// This type allows to retrieve product-related information.
 ///
-/// ⚠️ Not implemented in NetBSD.
+/// ⚠️ Not implemented on NetBSD.
 ///
 /// ```
 /// use sysinfo::Product;

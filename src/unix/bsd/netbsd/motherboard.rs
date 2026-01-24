@@ -6,7 +6,8 @@ pub(crate) struct MotherboardInner;
 
 impl MotherboardInner {
     pub(crate) fn new() -> Option<Self> {
-        Some(Self)
+        // FIXME
+        None
     }
 
     pub(crate) fn asset_tag(&self) -> Option<String> {
