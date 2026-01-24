@@ -1,3 +1,10 @@
+# 0.38.0
+
+ * Add NetBSD support.
+ * Windows: Fix unsoundness for a function used in `Motherboard` and `Product`.
+ * Linux: Improve CPU info parsing.
+ * Fix `serde` serialization of `MacAddr` and of `Disk::file_system`.
+
 # 0.37.2
 
  * Improve documentation of `System::refresh_cpu_all` and of `System::refresh_cpu_specifics`.
