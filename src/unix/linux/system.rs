@@ -659,49 +659,83 @@ impl crate::CGroupLimits {
             sys.mem_total != 0,
             "You need to call System::refresh_memory before trying to get cgroup limits!",
         );
-        if let (Some(mem_cur), Some(mem_max), Some(mem_rss)) = (
-            // cgroups v2
-            read_u64("/sys/fs/cgroup/memory.current"),
-            // memory.max contains `max` when no limit is set.
-            read_u64("/sys/fs/cgroup/memory.max").or(Some(u64::MAX)),
-            read_table_key("/sys/fs/cgroup/memory.stat", "anon", ' '),
-        ) {
-            let mut limits = Self {
-                total_memory: sys.mem_total,
-                free_memory: sys.mem_free,
-                free_swap: sys.swap_free,
-                rss: mem_rss,
-            };
 
-            limits.total_memory = min(mem_max, sys.mem_total);
-            limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
-
-            if let Some(swap_cur) = read_u64("/sys/fs/cgroup/memory.swap.current") {
-                limits.free_swap = sys.swap_total.saturating_sub(swap_cur);
+        // Get cgroup path from /proc/self/cgroup
+        if let Some(cgroup_path) = get_cgroup_path() {
+            // Try cgroups v2 with standard mount point
+            let v2_base = format!("/sys/fs/cgroup{}", cgroup_path);
+            if let Some(limits) = Self::new_v2(sys, &v2_base) {
+                return Some(limits);
             }
 
-            Some(limits)
-        } else if let (Some(mem_cur), Some(mem_max), Some(mem_rss)) = (
-            // cgroups v1
-            read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
-            read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
-            read_table_key("/sys/fs/cgroup/memory/memory.stat", "total_rss", ' '),
-        ) {
-            let mut limits = Self {
-                total_memory: sys.mem_total,
-                free_memory: sys.mem_free,
-                free_swap: sys.swap_free,
-                rss: mem_rss,
-            };
+            // Try cgroups v1 with standard mount point
+            let v1_base = format!("/sys/fs/cgroup/memory{}", cgroup_path);
+            if let Some(limits) = Self::new_v1(sys, &v1_base) {
+                return Some(limits);
+            }
+        }
 
-            limits.total_memory = min(mem_max, sys.mem_total);
-            limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
+        // Fallback to root cgroup paths (existing behavior for backward compat)
+        Self::new_v2(sys, "/sys/fs/cgroup").or_else(|| Self::new_v1(sys, "/sys/fs/cgroup/memory"))
+    }
 
-            Some(limits)
-        } else {
-            None
+    fn new_v2(sys: &SystemInner, base: &str) -> Option<Self> {
+        let mem_cur = read_u64(&format!("{}/memory.current", base))?;
+        let mem_max = read_u64(&format!("{}/memory.max", base)).or(Some(u64::MAX))?;
+        let mem_rss = read_table_key(&format!("{}/memory.stat", base), "anon", ' ')?;
+
+        let mut limits = Self {
+            total_memory: min(mem_max, sys.mem_total),
+            free_memory: 0,
+            free_swap: sys.swap_free,
+            rss: mem_rss,
+        };
+        limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
+
+        if let Some(swap_cur) = read_u64(&format!("{}/memory.swap.current", base)) {
+            limits.free_swap = sys.swap_total.saturating_sub(swap_cur);
+        }
+        Some(limits)
+    }
+
+    fn new_v1(sys: &SystemInner, base: &str) -> Option<Self> {
+        let mem_cur = read_u64(&format!("{}/memory.usage_in_bytes", base))?;
+        let mem_max = read_u64(&format!("{}/memory.limit_in_bytes", base))?;
+        let mem_rss = read_table_key(&format!("{}/memory.stat", base), "total_rss", ' ')?;
+
+        let mut limits = Self {
+            total_memory: min(mem_max, sys.mem_total),
+            free_memory: 0,
+            free_swap: sys.swap_free,
+            rss: mem_rss,
+        };
+        limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
+        Some(limits)
+    }
+}
+
+fn get_cgroup_path() -> Option<String> {
+    let content = get_all_utf8_data("/proc/self/cgroup", 4096).ok()?;
+    parse_cgroup_path(content)
+}
+
+fn parse_cgroup_path(content: String) -> Option<String> {
+    for line in content.lines() {
+        let mut fields = line.splitn(3, ':');
+        let hierarchy_id = fields.next()?;
+        let controllers = fields.next()?;
+        let path = fields.next()?;
+
+        // v2: hierarchy ID is "0" and controllers is empty
+        // v1: look for "memory" controller
+        // see https://man7.org/linux/man-pages/man7/cgroups.7.html for details
+        if (hierarchy_id == "0" && controllers.is_empty())
+            || controllers.split(',').any(|c| c == "memory")
+        {
+            return Some(path.to_owned());
         }
     }
+    None
 }
 
 #[derive(PartialEq, Eq)]
@@ -823,6 +857,7 @@ mod test {
     use super::get_system_info_android;
     #[cfg(not(target_os = "android"))]
     use super::get_system_info_linux;
+    use super::parse_cgroup_path;
     use super::read_table;
     use super::read_table_key;
     use super::system_info_as_list;
@@ -1031,5 +1066,232 @@ DISTRIB_DESCRIPTION="Ubuntu 20.10"
             system_info_as_list(Some("rhel        fedora".to_string())),
             vec!["rhel".to_string(), "fedora".to_string()],
         );
+    }
+
+    // Although cgroup itself is a linux feature, tests for parsing the file contents can run on
+    // any OS.
+    #[test]
+    fn test_parse_cgroup_path_v2() {
+        let sample_content = "0::/user.slice/user-1000.slice/session.scope".to_string();
+        let parsed = parse_cgroup_path(sample_content);
+        assert_eq!(
+            parsed,
+            Some("/user.slice/user-1000.slice/session.scope".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_cgroup_path_v1() {
+        let sample_content = [
+            "12:memory,hugetlb:/user.slice/session.scope".to_string(),
+            "11:cpu,cpuacct:/user.slice/session-2.scope".to_string(),
+        ]
+        .join("\n");
+
+        let parsed = parse_cgroup_path(sample_content);
+        assert_eq!(parsed, Some("/user.slice/session.scope".to_string()));
+    }
+
+    #[test]
+    fn test_parse_cgroup_path() {
+        // Format: (input, expected_output, description)
+        let test_cases: Vec<(String, Option<String>, &str)> = vec![
+            // === cgroups v2 happy paths ===
+            (
+                "0::/user.slice/user-1000.slice/session-1.scope\n".to_string(),
+                Some("/user.slice/user-1000.slice/session-1.scope".to_string()),
+                "v2: simple user session",
+            ),
+            (
+                "0::/\n".to_string(),
+                Some("/".to_string()),
+                "v2: root cgroup",
+            ),
+            (
+                "0::/user.slice/user-1000.slice/user@1000.service/app.slice/run-p123.scope\n"
+                    .to_string(),
+                Some(
+                    "/user.slice/user-1000.slice/user@1000.service/app.slice/run-p123.scope"
+                        .to_string(),
+                ),
+                "v2: systemd-run scope",
+            ),
+            (
+                "0::/docker/abc123def456\n".to_string(),
+                Some("/docker/abc123def456".to_string()),
+                "v2: Docker container",
+            ),
+            (
+                "0::/system.slice/docker.service\n".to_string(),
+                Some("/system.slice/docker.service".to_string()),
+                "v2: Docker daemon",
+            ),
+            (
+                "0::/kubepods/besteffort/pod123/container456\n".to_string(),
+                Some("/kubepods/besteffort/pod123/container456".to_string()),
+                "v2: Kubernetes pod",
+            ),
+            // === cgroups v1 happy paths (single line) ===
+            (
+                "12:memory:/docker/abc123\n".to_string(),
+                Some("/docker/abc123".to_string()),
+                "v1: memory controller only",
+            ),
+            (
+                "5:memory,hugetlb:/user.slice\n".to_string(),
+                Some("/user.slice".to_string()),
+                "v1: memory with other controllers",
+            ),
+            (
+                "5:memory:/\n".to_string(),
+                Some("/".to_string()),
+                "v1: root cgroup",
+            ),
+            (
+                "12:hugetlb,memory:/path\n".to_string(),
+                Some("/path".to_string()),
+                "v1: memory not first in controller list",
+            ),
+            // === cgroups v1 with multiple controller lines ===
+            (
+                "12:memory:/mempath\n11:cpu,cpuacct:/cpupath\n".to_string(),
+                Some("/mempath".to_string()),
+                "v1: multi-line, memory first",
+            ),
+            (
+                "11:cpu,cpuacct:/cpupath\n12:memory:/mempath\n".to_string(),
+                Some("/mempath".to_string()),
+                "v1: multi-line, memory second",
+            ),
+            (
+                [
+                    "13:rdma:/",
+                    "12:pids:/user.slice/user-1000.slice/session-1.scope",
+                    "11:hugetlb:/",
+                    "10:net_prio:/",
+                    "9:perf_event:/",
+                    "8:net_cls:/",
+                    "7:freezer:/",
+                    "6:devices:/user.slice",
+                    "5:memory:/user.slice/user-1000.slice/session-1.scope",
+                    "4:blkio:/user.slice",
+                    "3:cpuacct:/user.slice/user-1000.slice/session-1.scope",
+                    "2:cpu:/user.slice/user-1000.slice/session-1.scope",
+                    "1:cpuset:/",
+                    "0::/user.slice/user-1000.slice/session-1.scope",
+                ]
+                .join("\n"),
+                Some("/user.slice/user-1000.slice/session-1.scope".to_string()),
+                "v1: multi-controller file (memory at line 9)",
+            ),
+            (
+                [
+                    "12:blkio:/docker/abc123",
+                    "11:memory:/docker/abc123",
+                    "10:devices:/docker/abc123",
+                    "9:hugetlb:/docker/abc123",
+                    "8:pids:/docker/abc123",
+                    "7:cpuset:/docker/abc123",
+                    "6:net_cls,net_prio:/docker/abc123",
+                    "5:perf_event:/docker/abc123",
+                    "4:freezer:/docker/abc123",
+                    "3:cpu,cpuacct:/docker/abc123",
+                    "2:rdma:/",
+                    "1:name=systemd:/docker/abc123",
+                ]
+                .join("\n"),
+                Some("/docker/abc123".to_string()),
+                "v1: Docker container with all controllers",
+            ),
+            // === Hybrid v1/v2 systems ===
+            (
+                "0::/v2path\n12:memory:/v1path\n".to_string(),
+                Some("/v2path".to_string()),
+                "hybrid: v2 line comes first",
+            ),
+            (
+                "12:memory:/v1path\n0::/v2path\n".to_string(),
+                Some("/v1path".to_string()),
+                "hybrid: v1 memory comes first (first match wins)",
+            ),
+            // === Special characters in paths ===
+            (
+                "0::/user.slice/user-1000.slice/session@1.scope\n".to_string(),
+                Some("/user.slice/user-1000.slice/session@1.scope".to_string()),
+                "path with @ symbol",
+            ),
+            (
+                "0::/path:with:colons\n".to_string(),
+                Some("/path:with:colons".to_string()),
+                "path with colons (splitn(3) handles this)",
+            ),
+            (
+                "0::/path/with spaces/in/it\n".to_string(),
+                Some("/path/with spaces/in/it".to_string()),
+                "path with spaces",
+            ),
+            // === Edge cases - no match ===
+            (
+                "5:memory_controller:/path\n".to_string(),
+                None,
+                "v1: memory as substring (not exact match)",
+            ),
+            (
+                "5:thememory:/path\n".to_string(),
+                None,
+                "v1: memory as prefix of controller name",
+            ),
+            (
+                "11:cpu,cpuacct:/cpupath\n".to_string(),
+                None,
+                "v1: no memory controller",
+            ),
+            (
+                [
+                    "12:pids:/user.slice",
+                    "11:hugetlb:/",
+                    "10:net_prio:/",
+                    "9:perf_event:/",
+                    "8:net_cls:/",
+                    "7:freezer:/",
+                    "6:devices:/user.slice",
+                    "5:blkio:/user.slice",
+                    "4:cpuacct:/user.slice",
+                    "3:cpu:/user.slice",
+                    "2:cpuset:/",
+                ]
+                .join("\n"),
+                None,
+                "v1: multi-line with no memory controller",
+            ),
+            (
+                "1:name=systemd:/user.slice\n".to_string(),
+                None,
+                "v1: named hierarchy (not v2, no memory)",
+            ),
+            // === Malformed input ===
+            ("".to_string(), None, "empty string"),
+            ("\n".to_string(), None, "only newline"),
+            ("invalid".to_string(), None, "no colons"),
+            (
+                "0:controllers".to_string(),
+                None,
+                "only two fields (missing path)",
+            ),
+            (
+                "abc::/path\n".to_string(),
+                None,
+                "non-numeric hierarchy ID (still works - we only check == '0')",
+            ),
+        ];
+
+        for (input, expected, description) in test_cases {
+            let result = parse_cgroup_path(input.clone());
+            assert_eq!(
+                result, expected,
+                "Failed: {} - input: {:?}",
+                description, input
+            );
+        }
     }
 }
