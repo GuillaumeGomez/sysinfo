@@ -7,7 +7,7 @@ use libc::{c_char, c_int, c_void};
 use objc2_core_foundation::{CFDictionary, CFRetained};
 use objc2_io_kit::{
     IOConnectCallStructMethod, IOIteratorNext, IOServiceClose, IOServiceGetMatchingServices,
-    IOServiceMatching, IOServiceOpen, io_connect_t, io_iterator_t, kIOMainPortDefault,
+    IOServiceMatching, IOServiceOpen, io_connect_t, io_iterator_t, kIOMasterPortDefault,
     kIOReturnSuccess,
 };
 
@@ -336,7 +336,7 @@ impl IoService {
             let matching = CFRetained::<CFDictionary>::from(&matching);
 
             let result =
-                IOServiceGetMatchingServices(kIOMainPortDefault, Some(matching), &mut iterator);
+                IOServiceGetMatchingServices(kIOMasterPortDefault, Some(matching), &mut iterator);
             if result != kIOReturnSuccess {
                 sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
                 return None;
@@ -384,6 +384,6 @@ impl IoService {
 
 impl Drop for IoService {
     fn drop(&mut self) {
-        IOServiceClose(self.0);
+        unsafe { IOServiceClose(self.0) };
     }
 }

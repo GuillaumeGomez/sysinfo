@@ -128,10 +128,12 @@ windows = { version = ">=0.62, <0.63", optional = true }
 libc = "^0.2.173"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-objc2-core-foundation = { version = "0.3.2", optional = true, default-features = false, features = [
+# If the package version is updated, the minimum macOS version will be 12.
+objc2-core-foundation = { version = "=0.3.1", optional = true, default-features = false, features = [
     "std",
 ] }
-objc2-io-kit = { version = "0.3.2", optional = true, default-features = false, features = [
+# If the package version is updated, the minimum macOS version will be 12.
+objc2-io-kit = { version = "=0.3.1", optional = true, default-features = false, features = [
     "std",
     "libc",
 ] }
