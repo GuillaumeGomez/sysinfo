@@ -1,3 +1,7 @@
+# 0.38.1
+
+ * macOS: Put back support for versions below macOS 12.
+
 # 0.38.0
 
  * Add NetBSD support.
