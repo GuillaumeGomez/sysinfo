@@ -480,6 +480,17 @@ impl FromStr for MacAddr {
     }
 }
 
+impl core::fmt::Display for MacAddrFromStrError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::IntError(error) => write!(f, "a number is not in hexadecimal format: {error}"),
+            Self::InvalidAddrFormat => f.write_str("invalid address format"),
+        }
+    }
+}
+
+impl core::error::Error for MacAddrFromStrError {}
+
 /// IP networks address for network interface.
 ///
 /// It is returned by [`NetworkData::ip_networks`][crate::NetworkData::ip_networks].
@@ -532,6 +543,20 @@ impl FromStr for IpNetwork {
         })
     }
 }
+
+impl core::fmt::Display for IpNetworkFromStrError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::PrefixError(error) => write!(f, "prefix is not an integer: {error}"),
+            Self::AddrParseError(error) => write!(f, "failed to parse IP address: {error}"),
+            Self::InvalidAddrFormat => {
+                f.write_str("invalid address format, should `[IP adress]/[number]`")
+            }
+        }
+    }
+}
+
+impl core::error::Error for IpNetworkFromStrError {}
 
 #[cfg(test)]
 mod tests {
