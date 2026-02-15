@@ -1481,6 +1481,17 @@ pub enum KillError {
     FailedToSendSignal,
 }
 
+impl core::fmt::Display for KillError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::SignalDoesNotExist => f.write_str("signal does not exist"),
+            Self::FailedToSendSignal => f.write_str("failed to send signal"),
+        }
+    }
+}
+
+impl core::error::Error for KillError {}
+
 /// Struct containing information of a process.
 ///
 /// ## iOS
