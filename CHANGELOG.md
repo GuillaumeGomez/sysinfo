@@ -1,3 +1,7 @@
+# 0.38.2
+
+ * Implement `Error` trait for `MacAddrFromStrError`, `IpNetworkFromStrError` and `KillError` types.
+
 # 0.38.1
 
  * macOS: Put back support for versions below macOS 12.
