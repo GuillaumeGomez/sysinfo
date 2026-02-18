@@ -2814,10 +2814,10 @@ impl Cpu {
 
     #[cfg(target_os = "linux")]
     /// Returns this CPU's idle percentage.
-    /// 
+    ///
     /// Note: You'll need to refresh it at least twice (diff between the first and the second is
     /// how CPU usage is computed) at first if you want to have a non-zero value.
-    /// 
+    ///
     /// ```no_run
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
@@ -2840,10 +2840,10 @@ impl Cpu {
 
     #[cfg(target_os = "linux")]
     /// Returns this CPU's I/O wait percentage.
-    /// 
+    ///
     /// Note: You'll need to refresh it at least twice (diff between the first and the second is
     /// how CPU usage is computed) at first if you want to have a non-zero value.
-    /// 
+    ///
     /// ```no_run
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
@@ -2866,10 +2866,10 @@ impl Cpu {
 
     #[cfg(target_os = "linux")]
     /// Returns this CPU's nice percentage.
-    /// 
+    ///
     /// Note: You'll need to refresh it at least twice (diff between the first and the second is
     /// how CPU usage is computed) at first if you want to have a non-zero value.
-    /// 
+    ///
     /// ```no_run
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
@@ -2892,10 +2892,10 @@ impl Cpu {
 
     #[cfg(target_os = "linux")]
     /// Returns this CPU's system percentage.
-    /// 
+    ///
     /// Note: You'll need to refresh it at least twice (diff between the first and the second is
     /// how CPU usage is computed) at first if you want to have a non-zero value.
-    /// 
+    ///
     /// ```no_run
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
@@ -2918,10 +2918,10 @@ impl Cpu {
 
     #[cfg(target_os = "linux")]
     /// Returns this CPU's user percentage.
-    /// 
+    ///
     /// Note: You'll need to refresh it at least twice (diff between the first and the second is
     /// how CPU usage is computed) at first if you want to have a non-zero value.
-    /// 
+    ///
     /// ```no_run
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
