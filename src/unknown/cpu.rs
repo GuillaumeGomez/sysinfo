@@ -27,7 +27,6 @@ impl CpuInner {
         0.0
     }
 
-
     pub(crate) fn name(&self) -> &str {
         ""
     }
