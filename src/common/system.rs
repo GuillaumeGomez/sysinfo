@@ -2812,6 +2812,131 @@ impl Cpu {
         self.inner.cpu_usage()
     }
 
+    /// Returns this CPU's idle percentage.
+    /// 
+    /// Note: You'll need to refresh it at least twice (diff between the first and the second is
+    /// how CPU usage is computed) at first if you want to have a non-zero value.
+    /// 
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let mut s = System::new_with_specifics(
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    ///
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPUs again to get actual value.
+    /// s.refresh_cpu_all();
+    ///
+    /// for cpu in s.cpus() {
+    ///     println!("{}%", cpu.idle());
+    /// }
+    /// ```
+    pub fn idle(&self) -> f32 {
+        self.inner.idle()
+    }
+
+    /// Returns this CPU's I/O wait percentage.
+    /// 
+    /// Note: You'll need to refresh it at least twice (diff between the first and the second is
+    /// how CPU usage is computed) at first if you want to have a non-zero value.
+    /// 
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let mut s = System::new_with_specifics(
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    ///
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPUs again to get actual value.
+    /// s.refresh_cpu_all();
+    ///
+    /// for cpu in s.cpus() {
+    ///     println!("{}%", cpu.io_wait());
+    /// }
+    /// ```
+    pub fn io_wait(&self) -> f32 {
+        self.inner.io_wait()
+    }
+
+    /// Returns this CPU's nice percentage.
+    /// 
+    /// Note: You'll need to refresh it at least twice (diff between the first and the second is
+    /// how CPU usage is computed) at first if you want to have a non-zero value.
+    /// 
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let mut s = System::new_with_specifics(
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    ///
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPUs again to get actual value.
+    /// s.refresh_cpu_all();
+    ///
+    /// for cpu in s.cpus() {
+    ///     println!("{}%", cpu.nice());
+    /// }
+    /// ```
+    pub fn nice(&self) -> f32 {
+        self.inner.nice()
+    }
+
+    /// Returns this CPU's system percentage.
+    /// 
+    /// Note: You'll need to refresh it at least twice (diff between the first and the second is
+    /// how CPU usage is computed) at first if you want to have a non-zero value.
+    /// 
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let mut s = System::new_with_specifics(
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    ///
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPUs again to get actual value.
+    /// s.refresh_cpu_all();
+    ///
+    /// for cpu in s.cpus() {
+    ///     println!("{}%", cpu.system());
+    /// }
+    /// ```
+    pub fn system(&self) -> f32 {
+        self.inner.system()
+    }
+
+    /// Returns this CPU's user percentage.
+    /// 
+    /// Note: You'll need to refresh it at least twice (diff between the first and the second is
+    /// how CPU usage is computed) at first if you want to have a non-zero value.
+    /// 
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// let mut s = System::new_with_specifics(
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
+    /// );
+    ///
+    /// // Wait a bit because CPU usage is based on diff.
+    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    /// // Refresh CPUs again to get actual value.
+    /// s.refresh_cpu_all();
+    ///
+    /// for cpu in s.cpus() {
+    ///     println!("{}%", cpu.user());
+    /// }
+    /// ```
+    pub fn user(&self) -> f32 {
+        self.inner.user()
+    }
+
     /// Returns this CPU's name.
     ///
     /// ```no_run
