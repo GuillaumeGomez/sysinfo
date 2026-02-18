@@ -2812,7 +2812,7 @@ impl Cpu {
         self.inner.cpu_usage()
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "android", feature = "unknown-ci"))]
     /// Returns this CPU's idle percentage.
     ///
     /// Note: You'll need to refresh it at least twice (diff between the first and the second is
@@ -2838,7 +2838,7 @@ impl Cpu {
         self.inner.idle()
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "android", feature = "unknown-ci"))]
     /// Returns this CPU's I/O wait percentage.
     ///
     /// Note: You'll need to refresh it at least twice (diff between the first and the second is
@@ -2864,7 +2864,7 @@ impl Cpu {
         self.inner.io_wait()
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "android", feature = "unknown-ci"))]
     /// Returns this CPU's nice percentage.
     ///
     /// Note: You'll need to refresh it at least twice (diff between the first and the second is
@@ -2890,7 +2890,7 @@ impl Cpu {
         self.inner.nice()
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "android", feature = "unknown-ci"))]
     /// Returns this CPU's system percentage.
     ///
     /// Note: You'll need to refresh it at least twice (diff between the first and the second is
@@ -2916,7 +2916,7 @@ impl Cpu {
         self.inner.system()
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "android", feature = "unknown-ci"))]
     /// Returns this CPU's user percentage.
     ///
     /// Note: You'll need to refresh it at least twice (diff between the first and the second is
