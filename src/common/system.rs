@@ -2860,7 +2860,7 @@ impl Cpu {
         self.inner.brand()
     }
 
-    /// Returns the CPU's frequency.
+    /// Returns the CPU's frequency (in MHz).
     ///
     /// ```no_run
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
