@@ -116,7 +116,7 @@ fn interpret_input(
                     .map(|c| c.to_string())
                     .unwrap_or_else(|| "Unknown".to_owned()),
             );
-            println!("total CPU usage: {}%", sys.global_cpu_usage(),);
+            println!("total CPU usage: {}%", sys.global_cpu_usage());
             for cpu in sys.cpus() {
                 println!("{cpu:?}");
             }
@@ -144,7 +144,7 @@ fn interpret_input(
         }
         "frequency" => {
             for cpu in sys.cpus() {
-                println!("[{}] {} MHz", cpu.name(), cpu.frequency(),);
+                println!("[{}] {} MHz", cpu.name(), cpu.frequency());
             }
         }
         "vendor_id" => {
@@ -259,7 +259,7 @@ fn interpret_input(
         }
         "users" => {
             for user in users {
-                println!("{:?} => {:?}", user.name(), user.groups(),);
+                println!("{:?} => {:?}", user.name(), user.groups());
             }
         }
         "groups" => {
@@ -278,7 +278,7 @@ fn interpret_input(
             let hours = uptime / 3600;
             uptime -= hours * 3600;
             let minutes = uptime / 60;
-            println!("{days} days {hours} hours {minutes} minutes ({up} seconds in total)",);
+            println!("{days} days {hours} hours {minutes} minutes ({up} seconds in total)");
         }
         x if x.starts_with("refresh") => {
             if x == "refresh" {
