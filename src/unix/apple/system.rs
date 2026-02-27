@@ -189,24 +189,15 @@ impl SystemInner {
                     &mut count,
                 ) == libc::KERN_SUCCESS
                 {
-                    // From the apple documentation:
+                    // From documentation of Apple XNU:
+                    // https://github.com/apple-oss-distributions/xnu/blob/main/doc/vm/memorystatus_notify.md#available-memory
                     //
-                    // /*
-                    //  * NB: speculative pages are already accounted for in "free_count",
-                    //  * so "speculative_count" is the number of "free" pages that are
-                    //  * used to hold data that was read speculatively from disk but
-                    //  * haven't actually been used by anyone so far.
-                    //  */
-                    self.mem_available = u64::from(stat.free_count)
+                    // AVAILABLE_NON_COMPRESSED_MEMORY = (active + inactive + free + speculative)
+                    self.mem_available = u64::from(stat.active_count)
                         .saturating_add(u64::from(stat.inactive_count))
-                        .saturating_add(u64::from(stat.purgeable_count))
-                        .saturating_sub(u64::from(stat.compressor_page_count))
+                        .saturating_add(u64::from(stat.free_count))
                         .saturating_mul(self.page_size_b);
-                    self.mem_used = u64::from(stat.active_count)
-                        .saturating_add(u64::from(stat.wire_count))
-                        .saturating_add(u64::from(stat.compressor_page_count))
-                        .saturating_add(u64::from(stat.speculative_count))
-                        .saturating_mul(self.page_size_b);
+                    self.mem_used = self.mem_total.saturating_sub(self.mem_available);
                     self.mem_free = u64::from(stat.free_count)
                         .saturating_sub(u64::from(stat.speculative_count))
                         .saturating_mul(self.page_size_b);
