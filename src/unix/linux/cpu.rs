@@ -252,11 +252,6 @@ impl CpuValues {
     }
 
     #[inline]
-    pub fn idle_time(&self) -> u64 {
-        self.idle.saturating_add(self.iowait)
-    }
-
-    #[inline]
     pub fn virtual_time(&self) -> u64 {
         self.guest.saturating_add(self.guest_nice)
     }
@@ -265,8 +260,9 @@ impl CpuValues {
     pub fn total_time(&self) -> u64 {
         self.work_time()
             .saturating_add(self.system_time())
-            .saturating_add(self.idle_time())
             .saturating_add(self.virtual_time())
+            .saturating_add(self.idle)
+            .saturating_add(self.iowait)
             .saturating_add(self.steal)
     }
 }
@@ -274,6 +270,11 @@ impl CpuValues {
 #[derive(Default)]
 pub(crate) struct CpuUsage {
     percent: f32,
+    idle: f32,
+    io_wait: f32,
+    nice: f32,
+    system: f32,
+    user: f32,
     old_values: CpuValues,
     new_values: CpuValues,
     total_time: u64,
@@ -301,6 +302,11 @@ impl CpuUsage {
             old_values: CpuValues::default(),
             new_values,
             percent: 0f32,
+            idle: 0f32,
+            io_wait: 0f32,
+            nice: 0f32,
+            system: 0f32,
+            user: 0f32,
             total_time: 0,
             old_total_time: 0,
         }
@@ -336,6 +342,7 @@ impl CpuUsage {
         let nice_period = self.new_values.nice.saturating_sub(self.old_values.nice);
         let user_period = self.new_values.user.saturating_sub(self.old_values.user);
         let steal_period = self.new_values.steal.saturating_sub(self.old_values.steal);
+        let idle_period = self.new_values.idle.saturating_sub(self.old_values.idle);
         let guest_period = self
             .new_values
             .virtual_time()
@@ -344,6 +351,10 @@ impl CpuUsage {
             .new_values
             .system_time()
             .saturating_sub(self.old_values.system_time());
+        let iowait_period = self
+            .new_values
+            .iowait
+            .saturating_sub(self.old_values.iowait);
 
         let total = min!(self.total_time, self.old_total_time, 1.);
         let nice = nice_period as f32 / total;
@@ -355,6 +366,12 @@ impl CpuUsage {
         if self.percent > 100. {
             self.percent = 100.; // to prevent the percentage to go above 100%
         }
+
+        self.idle = idle_period as f32 / total * 100.;
+        self.io_wait = iowait_period as f32 / total * 100.;
+        self.nice = nice_period as f32 / total * 100.;
+        self.system = system_period as f32 / total * 100.;
+        self.user = user_period as f32 / total * 100.;
     }
 
     pub(crate) fn usage(&self) -> f32 {
@@ -418,6 +435,26 @@ impl CpuInner {
 
     pub(crate) fn cpu_usage(&self) -> f32 {
         self.usage.percent
+    }
+
+    pub(crate) fn idle(&self) -> f32 {
+        self.usage.idle
+    }
+
+    pub(crate) fn io_wait(&self) -> f32 {
+        self.usage.io_wait
+    }
+
+    pub(crate) fn nice(&self) -> f32 {
+        self.usage.nice
+    }
+
+    pub(crate) fn system(&self) -> f32 {
+        self.usage.system
+    }
+
+    pub(crate) fn user(&self) -> f32 {
+        self.usage.user
     }
 
     pub(crate) fn name(&self) -> &str {
