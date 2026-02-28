@@ -316,8 +316,8 @@ mod test {
                     ));
                 assert!(
                     s.processes()
-                        .iter()
-                        .filter_map(|(_, p)| p.user_id())
+                        .values()
+                        .filter_map(|p| p.user_id())
                         .any(|uid| users.get_user_by_id(uid).is_some())
                 );
             }
