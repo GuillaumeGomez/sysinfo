@@ -197,7 +197,11 @@ impl SystemInner {
                         .saturating_add(u64::from(stat.inactive_count))
                         .saturating_add(u64::from(stat.free_count))
                         .saturating_mul(self.page_size_b);
-                    self.mem_used = self.mem_total.saturating_sub(self.mem_available);
+                    self.mem_used = u64::from(stat.internal_page_count)
+                        .saturating_sub(u64::from(stat.purgeable_count))
+                        .saturating_add(u64::from(stat.wire_count))
+                        .saturating_add(u64::from(stat.compressor_page_count))
+                        .saturating_mul(self.page_size_b);
                     self.mem_free = u64::from(stat.free_count)
                         .saturating_sub(u64::from(stat.speculative_count))
                         .saturating_mul(self.page_size_b);
