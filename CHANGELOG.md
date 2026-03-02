@@ -1,3 +1,8 @@
+# 0.38.3
+
+ * macOS: Improve accuracy of `System::available_memory` and `System::used_memory`.
+ * Documentation: add missing unit for `CPU::frequency` returned value.
+
 # 0.38.2
 
  * Implement `Error` trait for `MacAddrFromStrError`, `IpNetworkFromStrError` and `KillError` types.
