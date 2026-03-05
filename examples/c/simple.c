@@ -3,24 +3,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include <unistd.h>
-#include <pthread.h>
 #include "sysinfo.h"
 
 void print_process(CProcess process) {
     RString exe = sysinfo_process_executable_path(process);
     printf(
-        "process[%d]: parent: %d,\n"
-        "             cpu_usage: %f,\n"
-        "             memory: %ld,\n"
-        "             virtual memory: %ld,\n"
-        "             executable path: '%s'\n",
-        sysinfo_process_pid(process), sysinfo_process_parent_pid(process), sysinfo_process_cpu_usage(process),
-        sysinfo_process_memory(process), sysinfo_process_virtual_memory(process), exe);
+        "process[%zd]: parent: %zd,\n"
+        "              cpu_usage: %f,\n"
+        "              memory: %zd,\n"
+        "              virtual memory: %zd,\n"
+        "              executable path: '%s'\n",
+        (size_t)sysinfo_process_pid(process), (size_t)sysinfo_process_parent_pid(process),
+        sysinfo_process_cpu_usage(process),
+        (size_t)sysinfo_process_memory(process),
+        (size_t)sysinfo_process_virtual_memory(process),
+        exe);
     sysinfo_rstring_free(exe);
 }
 
 #ifdef __linux__
+
+#include <unistd.h>
+#include <pthread.h>
+
 bool task_loop(pid_t /*pid*/, void* data) {
     (void)data;
     // printf("  ");
@@ -45,8 +50,9 @@ void check_tasks(CSystem system) {
 void check_tasks(CSystem system) { (void)system; }
 #endif
 
-bool process_loop(pid_t /*pid*/, CProcess process, void* data) {
+bool process_loop(PID pid, CProcess process, void* data) {
     unsigned int* i = (unsigned int*)data;
+    (void)pid; // Flags the pid as unused, avoid compilation error with pedantic
 
     print_process(process);
     *i += 1;
@@ -67,7 +73,7 @@ int main() {
     printf("host name:            %s\n", sysinfo_system_host_name());
     printf("cpu vendor id:        %s\n", sysinfo_cpu_vendor_id(system));
     printf("cpu brand:            %s\n", sysinfo_cpu_brand(system));
-    printf("cpu frequency:        %ld\n", sysinfo_cpu_frequency(system));
+    printf("cpu frequency:        %zd\n", (size_t)sysinfo_cpu_frequency(system));
     printf("cpu cores:            %d\n", sysinfo_cpu_physical_cores());
     printf("total memory:         %zd\n", sysinfo_total_memory(system));
     printf("free memory:          %zd\n", sysinfo_free_memory(system));
@@ -88,7 +94,7 @@ int main() {
 
     // processes part
     i = 0;
-    printf("For a total of %ld processes.\n", sysinfo_processes(system, process_loop, &i));
+    printf("For a total of %zd processes.\n", (size_t)sysinfo_processes(system, process_loop, &i));
     check_tasks(system);
     // we can now free the CSystem and the CNetworks objects.
     sysinfo_destroy(system);

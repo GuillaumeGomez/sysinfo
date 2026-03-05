@@ -146,6 +146,6 @@ itertools = "0.14.0"
 
 [[example]]
 name = "simple"
-path = "examples/simple.rs"
+path = "examples/rust/simple.rs"
 required-features = ["default"]
 doc-scrape-examples = true

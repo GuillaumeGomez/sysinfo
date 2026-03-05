@@ -1,0 +1,5 @@
+{
+    "cmake.configureSettings": {
+        "SYSINFO_BUILD_EXAMPLES": true
+    }
+}

@@ -216,6 +216,39 @@ To build the C example, just run:
 > LD_LIBRARY_PATH=target/debug/ ./simple
 ```
 
+Alternatively, it is possible to build and use the C interface using CMake:  
+
+```cmake
+cmake_minimum_required(VERSION 3.21 FATAL_ERROR)
+
+project(
+    myproject
+    LANGUAGES C CXX
+)
+
+# Download the sysinfo repository
+include(FetchContent)
+FetchContent_Declare(
+  sysinfo
+  GITHUB_REPOSITORY GuillaumeGomez/sysinfo
+  GIT_TAG           0.38.3
+)
+# Make sysinfo available as a target
+FetchContent_MakeAvailable(sysinfo) 
+
+# Make executable and link it to sysinfo
+add_executable(myexe)
+target_link_libraries(myexe PRIVATE sysinfo::sysinfo)
+```
+
+Furthermore CMake allows to set several options, before downloading it, to allow for a more customized setup:
+
+* `set(BUILD_SHARED_LIBS [ON|OFF])`: will build a shared or static library respectively. Default: `OFF` (i.e. STATIC library)
+
+* `set(SYSINFO_BUILD_INSTALL [ON|OFF])`: will build the install target for the library. Default `OFF`
+
+* `set(SYSINFO_BUILD_EXAMPLES [ON|OFF])`: will build the `simple` example written in C. Default: `OFF`
+
 ### Benchmarks
 
 You can run the benchmarks locally with rust **nightly** by doing:

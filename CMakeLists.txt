@@ -12,6 +12,7 @@ project(sysinfo
 # Project options
 option(BUILD_SHARED_LIBS OFF "Build static or shared library")
 option(SYSINFO_BUILD_INSTALL OFF "Build install target")
+option(SYSINFO_BUILD_EXAMPLES OFF "Build sysinfo C example")
 set(TARGET_NAME ${PROJECT_NAME} CACHE STRING "Name for the library and binary files")
 
 # Directly set MSVC to avoid mismatch between cmake configuration and detected build type
@@ -121,6 +122,10 @@ target_include_directories(${TARGET_NAME} INTERFACE
 if (WIN32)
   # Link to ntdll.dll to avoid unknown reference to symbols when on Windows
   target_link_libraries(${TARGET_NAME} INTERFACE ntdll)
+endif()
+
+if(SYSINFO_BUILD_EXAMPLES)
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/examples/c")
 endif()
 
 if(SYSINFO_BUILD_INSTALL)
