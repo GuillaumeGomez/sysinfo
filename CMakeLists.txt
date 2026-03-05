@@ -104,6 +104,10 @@ set_target_properties(
 )
 target_include_directories(${TARGET_NAME} INTERFACE ${SYSINFO_INCLUDE_DIR})
 
+if (WIN32)
+  target_link_libraries(${TARGET_NAME} INTERFACE ntdll)
+endif()
+
 if(SYSINFO_BUILD_INSTALL)
   get_filename_component(file ${SYSINFO_HEADER_FILE_DESTINATION} ABSOLUTE)
   get_filename_component(dir ${SYSINFO_HEADER_FILE_DESTINATION} DIRECTORY)
