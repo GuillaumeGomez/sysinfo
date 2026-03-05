@@ -96,6 +96,9 @@ add_custom_target(${TARGET_NAME}_rust ALL DEPENDS ${SYSINFO_LIBRARY_OUTPUT})
 add_library(${TARGET_NAME} ${SYSINFO_CMAKE_LIBRARY_TYPE} IMPORTED GLOBAL ${SYSINFO_HEADER_FILE_DESTINATION})
 add_library(${TARGET_NAME}::${TARGET_NAME} ALIAS ${TARGET_NAME})
 
+# Manually specify the dependency between sysinfo target and the fake one to ensure Ninja will not invert the order
+add_dependencies(${TARGET_NAME} ${TARGET_NAME}_rust)
+
 # Change imported library location depending on library being static or shared
 if(BUILD_SHARED_LIBS)
   set(SYSINFO_LIBRARY_IMPORTED_LOCATION
