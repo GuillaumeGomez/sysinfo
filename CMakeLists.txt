@@ -83,7 +83,7 @@ add_custom_command(
 add_custom_target(${TARGET_NAME}_rust ALL DEPENDS ${SYSINFO_LIBRARY_OUTPUT})
 
 # Generate the imported library for sysinfo and link it to the custom target to ensure the custom command to be called
-add_library(${TARGET_NAME} ${SYSINFO_CMAKE_LIBRARY_TYPE} IMPORTED GLOBAL)
+add_library(${TARGET_NAME} ${SYSINFO_CMAKE_LIBRARY_TYPE} IMPORTED GLOBAL ${SYSINFO_HEADER_FILE_DESTINATION})
 add_library(${TARGET_NAME}::${TARGET_NAME} ALIAS ${TARGET_NAME})
 
 # Set Imported Library properties
