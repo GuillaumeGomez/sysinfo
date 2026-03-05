@@ -338,6 +338,20 @@ jobs:
         with:
           toolchain: stable
       - run: make
+  
+  c_interface_cmake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSYSINFO_BUILD_EXAMPLES=ON
+        name: CMake build
+      - run: cmake --build ./build --config Release
+        name: CMake build
+      - run: ./build/examples/c/simple
+        name: Run simple
 
   unknown-targets:
     runs-on: ubuntu-latest
