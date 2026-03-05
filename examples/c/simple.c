@@ -26,10 +26,11 @@ void print_process(CProcess process) {
 #include <unistd.h>
 #include <pthread.h>
 
-bool task_loop(pid_t /*pid*/, void* data) {
+bool task_loop(pid_t pid, void* data) {
+    (void)pid;
     (void)data;
     // printf("  ");
-    // print_process(process);
+    // print_process(process); // Done in check_tasks
     return true;
 }
 
