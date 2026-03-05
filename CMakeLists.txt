@@ -13,7 +13,9 @@ project(sysinfo
 option(BUILD_SHARED_LIBS OFF "Build static or shared library")
 option(SYSINFO_BUILD_INSTALL OFF "Build install target")
 set(TARGET_NAME ${PROJECT_NAME} CACHE STRING "Name for the library and binary files")
-set(SYSINFO_BUILD_TYPE "Release" CACHE STRING "On MSVC, which build type to use")   # Used only on MSVC
+
+# Directly set MSVC to avoid mismatch between cmake configuration and detected build type
+set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type for the library, directly set for MSVC")
 
 # Ensure cargo is installed
 set(CARGO_EXECUTABLE)
@@ -51,10 +53,8 @@ else()
   set(SYSINFO_LIBRARY_PREFIX "lib")
 endif()
 
-if(NOT MSVC)
-  set(SYSINFO_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-  string(TOLOWER ${SYSINFO_BUILD_TYPE} SYSINFO_BUILD_TYPE)
-endif()
+set(SYSINFO_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+string(TOLOWER ${SYSINFO_BUILD_TYPE} SYSINFO_BUILD_TYPE)
 
 set(SYSINFO_CMAKE_LIBRARY_TYPE "STATIC")
 if(BUILD_SHARED_LIBS)
@@ -71,10 +71,14 @@ else()
   set(SYSINFO_LIBRARY_OUTPUT ${SYSINFO_LIBRARY_PATH}/${SYSINFO_LIBRARY_NAME}.${SYSINFO_STATIC_LIBRARY_EXTENSION})
 endif()
 
+if(${SYSINFO_BUILD_TYPE} STREQUAL "release")
+  set(SYSINFO_RELEASE_FLAG "--release")
+endif()
+
 add_custom_command(
   COMMAND ${CARGO_EXECUTABLE}
   ARGS "rustc" "--manifest-path" "${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml"
-               "--features=c-interface" "$<$<CONFIG:RELEASE>:--release>"
+               "--features=c-interface" "${SYSINFO_RELEASE_FLAG}"
                "--crate-type" $<IF:$<BOOL:${BUILD_SHARED_LIBS}>,"cdylib","staticlib">
                "--target-dir" "${CMAKE_CURRENT_BINARY_DIR}"
   DEPENDS ${SYSINFO_HEADER_FILE_DESTINATION} # CMake will re-run the command whenever the file changes
