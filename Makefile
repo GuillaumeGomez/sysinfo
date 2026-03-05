@@ -12,7 +12,7 @@ IDIR = ./src
 CC = gcc
 CFLAGS = -I$(IDIR)
 
-ODIR = examples/
+ODIR = examples/c
 LDIR = ./target/debug/
 LDIR-RELEASE = ./target/release/
 
