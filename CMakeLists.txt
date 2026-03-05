@@ -13,7 +13,6 @@ project(sysinfo
 option(BUILD_SHARED_LIBS OFF "Build static or shared library")
 option(SYSINFO_BUILD_INSTALL OFF "Build install target")
 set(TARGET_NAME ${PROJECT_NAME} CACHE STRING "Name for the library and binary files")
-set(SYSINFO_TAG "v${PROJECT_VERSION}" CACHE STRING "Sysinfo tag to download")       # Override by setting it in parent CMake
 set(SYSINFO_BUILD_TYPE "Release" CACHE STRING "On MSVC, which build type to use")   # Used only on MSVC
 
 # Ensure cargo is installed
@@ -23,27 +22,22 @@ if("${CARGO_EXECUTABLE}" STREQUAL "CARGO_EXECUTABLE-NOTFOUND")
   message(FATAL_ERROR "Cargo was not found on the system. Check https://rust-lang.org/learn/get-started")
 endif()
 
-# Get the sysinfo library
-include(FetchContent)
-FetchContent_Declare(
-  sysinfo
-  GIT_REPOSITORY https://github.com/GuillaumeGomez/sysinfo.git
-  GIT_TAG ${SYSINFO_TAG}
-)
-FetchContent_MakeAvailable(sysinfo)
-
-# Copy the sysinfo.h header into the ${sysinfo_BINARY_DIR}/include/sysinfo folder to allow for a more readable header
+# Copy the sysinfo.h header into the ${CMAKE_CURRENT_BINARY_DIR}/include/sysinfo folder to allow for a more readable header
 # inclusion in C/C++ code
-set(SYSINFO_INCLUDE_DIR "${sysinfo_BINARY_DIR}/include")
-set(SYSINFO_HEADER_FILE_SOURCE "${sysinfo_SOURCE_DIR}/src/sysinfo.h")
+set(SYSINFO_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
+set(SYSINFO_HEADER_FILE_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/sysinfo.h")
 set(SYSINFO_HEADER_FILE_DESTINATION "${SYSINFO_INCLUDE_DIR}/sysinfo/sysinfo.h")
+if(NOT EXISTS ${SYSINFO_HEADER_FILE_DESTINATION})
+  file(MAKE_DIRECTORY "${SYSINFO_INCLUDE_DIR}/${PROJECT_NAME}")
+endif()
+
 file(COPY_FILE 
   ${SYSINFO_HEADER_FILE_SOURCE} ${SYSINFO_HEADER_FILE_DESTINATION}
   RESULT SYSINFO_HEADER_COPY_RESULT
   ONLY_IF_DIFFERENT
 )
 
-if(NOT SYSINFO_HEADER_COPY_RESULT)
+if(NOT SYSINFO_HEADER_COPY_RESULT STREQUAL "0")
   message(FATAL_ERROR "Unable to copy header 'sysinfo.h' from '${SYSINFO_HEADER_FILE_SOURCE}' to '${SYSINFO_HEADER_FILE_DESTINATION}': ${SYSINFO_HEADER_COPY_RESULT}")
 endif()
 
@@ -68,7 +62,7 @@ if(BUILD_SHARED_LIBS)
 endif()
 
 # Add a custom command to build the library and a custom target that depends on the output of the command
-set(SYSINFO_LIBRARY_PATH "${sysinfo_BINARY_DIR}/${SYSINFO_BUILD_TYPE}")
+set(SYSINFO_LIBRARY_PATH "${CMAKE_CURRENT_BINARY_DIR}/${SYSINFO_BUILD_TYPE}")
 set(SYSINFO_LIBRARY_NAME ${SYSINFO_LIBRARY_PREFIX}${TARGET_NAME})
 
 if(BUILD_SHARED_LIBS)
@@ -79,17 +73,17 @@ endif()
 
 add_custom_command(
   COMMAND ${CARGO_EXECUTABLE}
-  ARGS "rustc" "--manifest-path" "${sysinfo_SOURCE_DIR}/Cargo.toml"
+  ARGS "rustc" "--manifest-path" "${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml"
                "--features=c-interface" "$<$<CONFIG:RELEASE>:--release>"
                "--crate-type" $<IF:$<BOOL:${BUILD_SHARED_LIBS}>,"cdylib","staticlib">
-               "--target-dir" "${sysinfo_BINARY_DIR}"
+               "--target-dir" "${CMAKE_CURRENT_BINARY_DIR}"
   DEPENDS ${SYSINFO_HEADER_FILE_DESTINATION} # CMake will re-run the command whenever the file changes
   OUTPUT ${SYSINFO_LIBRARY_OUTPUT}
 )
 add_custom_target(${TARGET_NAME}_rust ALL DEPENDS ${SYSINFO_LIBRARY_OUTPUT})
 
 # Generate the imported library for sysinfo and link it to the custom target to ensure the custom command to be called
-add_library(${TARGET_NAME} ${SYSINFO_CMAKE_LIBRARY_TYPE} IMPORTED)
+add_library(${TARGET_NAME} ${SYSINFO_CMAKE_LIBRARY_TYPE} IMPORTED GLOBAL)
 add_library(${TARGET_NAME}::${TARGET_NAME} ALIAS ${TARGET_NAME})
 
 # Set Imported Library properties
