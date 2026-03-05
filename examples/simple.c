@@ -9,33 +9,30 @@
 
 void print_process(CProcess process) {
     RString exe = sysinfo_process_executable_path(process);
-    printf("process[%d]: parent: %d,\n"
-           "             cpu_usage: %f,\n"
-           "             memory: %ld,\n"
-           "             virtual memory: %ld,\n"
-           "             executable path: '%s'\n",
-           sysinfo_process_pid(process),
-           sysinfo_process_parent_pid(process),
-           sysinfo_process_cpu_usage(process),
-           sysinfo_process_memory(process),
-           sysinfo_process_virtual_memory(process),
-           exe);
+    printf(
+        "process[%d]: parent: %d,\n"
+        "             cpu_usage: %f,\n"
+        "             memory: %ld,\n"
+        "             virtual memory: %ld,\n"
+        "             executable path: '%s'\n",
+        sysinfo_process_pid(process), sysinfo_process_parent_pid(process), sysinfo_process_cpu_usage(process),
+        sysinfo_process_memory(process), sysinfo_process_virtual_memory(process), exe);
     sysinfo_rstring_free(exe);
 }
 
-void check_tasks(CSystem system) {
 #ifdef __linux__
-    bool task_loop(pid_t pid, CProcess process, void *data) {
-        (void)data;
-        printf("  ");
-        print_process(process);
-        return true;
-    }
+bool task_loop(pid_t /*pid*/, void* data) {
+    (void)data;
+    // printf("  ");
+    // print_process(process);
+    return true;
+}
 
-    void *sleeping_func(void *data) {
-        sleep(3);
-        return data;
-    }
+void* sleeping_func(void* data) {
+    sleep(3);
+    return data;
+}
+void check_tasks(CSystem system) {
     pthread_t thread;
     pthread_create(&thread, NULL, sleeping_func, NULL);
     sysinfo_refresh_processes(system);
@@ -43,13 +40,13 @@ void check_tasks(CSystem system) {
     printf("\n== Task(s) for current process: ==\n");
     print_process(process);
     printf("Got %ld task(s)\n", sysinfo_process_tasks(process, task_loop, NULL));
-#else
-    (void)system;
-#endif
 }
+#else
+void check_tasks(CSystem system) { (void)system; }
+#endif
 
-bool process_loop(pid_t pid, CProcess process, void *data) {
-    unsigned int *i = data;
+bool process_loop(pid_t /*pid*/, CProcess process, void* data) {
+    unsigned int* i = (unsigned int*)data;
 
     print_process(process);
     *i += 1;
@@ -63,25 +60,25 @@ int main() {
     sysinfo_refresh_all(system);
     sysinfo_networks_refresh(networks);
 
-    printf("os name:              %s\n", sysinfo_system_name(system));
-    printf("os version:           %s\n", sysinfo_system_version(system));
-    printf("kernel version:       %s\n", sysinfo_system_kernel_version(system));
-    printf("long os version:      %s\n", sysinfo_system_long_version(system));
-    printf("host name:            %s\n", sysinfo_system_host_name(system));
+    printf("os name:              %s\n", sysinfo_system_name());
+    printf("os version:           %s\n", sysinfo_system_version());
+    printf("kernel version:       %s\n", sysinfo_system_kernel_version());
+    printf("long os version:      %s\n", sysinfo_system_long_version());
+    printf("host name:            %s\n", sysinfo_system_host_name());
     printf("cpu vendor id:        %s\n", sysinfo_cpu_vendor_id(system));
     printf("cpu brand:            %s\n", sysinfo_cpu_brand(system));
     printf("cpu frequency:        %ld\n", sysinfo_cpu_frequency(system));
-    printf("cpu cores:            %d\n", sysinfo_cpu_physical_cores(system));
-    printf("total memory:         %ld\n", sysinfo_total_memory(system));
-    printf("free memory:          %ld\n", sysinfo_free_memory(system));
-    printf("used memory:          %ld\n", sysinfo_used_memory(system));
-    printf("total swap:           %ld\n", sysinfo_total_swap(system));
-    printf("free swap:            %ld\n", sysinfo_free_swap(system));
-    printf("used swap:            %ld\n", sysinfo_used_swap(system));
-    printf("networks received:    %ld\n", sysinfo_networks_received(networks));
-    printf("networks transmitted: %ld\n", sysinfo_networks_transmitted(networks));
+    printf("cpu cores:            %d\n", sysinfo_cpu_physical_cores());
+    printf("total memory:         %zd\n", sysinfo_total_memory(system));
+    printf("free memory:          %zd\n", sysinfo_free_memory(system));
+    printf("used memory:          %zd\n", sysinfo_used_memory(system));
+    printf("total swap:           %zd\n", sysinfo_total_swap(system));
+    printf("free swap:            %zd\n", sysinfo_free_swap(system));
+    printf("used swap:            %zd\n", sysinfo_used_swap(system));
+    printf("networks received:    %zd\n", sysinfo_networks_received(networks));
+    printf("networks transmitted: %zd\n", sysinfo_networks_transmitted(networks));
     unsigned int len = 0, i = 0;
-    float *procs = NULL;
+    float* procs = NULL;
     sysinfo_cpus_usage(system, &len, &procs);
     while (i < len) {
         printf("CPU #%d usage: %f%%\n", i, procs[i]);
