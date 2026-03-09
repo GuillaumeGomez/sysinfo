@@ -1,14 +1,16 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::Component;
-use crate::sys::macos::{ffi, utils::IOReleaser};
+use crate::sys::macos::{
+    ffi,
+    utils::{IOReleaser, MAIN_PORT},
+};
 
 use libc::{c_char, c_int, c_void};
 use objc2_core_foundation::{CFDictionary, CFRetained};
 use objc2_io_kit::{
     IOConnectCallStructMethod, IOIteratorNext, IOServiceClose, IOServiceGetMatchingServices,
-    IOServiceMatching, IOServiceOpen, io_connect_t, io_iterator_t, kIOMasterPortDefault,
-    kIOReturnSuccess,
+    IOServiceMatching, IOServiceOpen, io_connect_t, io_iterator_t, kIOReturnSuccess,
 };
 
 use std::mem;
@@ -335,8 +337,7 @@ impl IoService {
             };
             let matching = CFRetained::<CFDictionary>::from(&matching);
 
-            let result =
-                IOServiceGetMatchingServices(kIOMasterPortDefault, Some(matching), &mut iterator);
+            let result = IOServiceGetMatchingServices(*MAIN_PORT, Some(matching), &mut iterator);
             if result != kIOReturnSuccess {
                 sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
                 return None;
@@ -384,6 +385,6 @@ impl IoService {
 
 impl Drop for IoService {
     fn drop(&mut self) {
-        unsafe { IOServiceClose(self.0) };
+        IOServiceClose(self.0);
     }
 }

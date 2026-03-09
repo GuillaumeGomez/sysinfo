@@ -7,14 +7,13 @@ pub(crate) unsafe fn get_cpu_frequency(_brand: &str) -> u64 {
 
 #[cfg(not(feature = "apple-sandbox"))]
 pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
-    use crate::sys::macos::utils::IOReleaser;
+    use crate::sys::macos::utils::{IOReleaser, MAIN_PORT};
     use objc2_core_foundation::{
         CFData, CFDictionary, CFRange, CFRetained, CFString, kCFAllocatorDefault,
     };
     use objc2_io_kit::{
         IOIteratorNext, IORegistryEntryCreateCFProperty, IORegistryEntryGetName,
-        IOServiceGetMatchingServices, IOServiceMatching, io_iterator_t, kIOMasterPortDefault,
-        kIOReturnSuccess,
+        IOServiceGetMatchingServices, IOServiceMatching, io_iterator_t, kIOReturnSuccess,
     };
 
     unsafe {
@@ -28,8 +27,7 @@ pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
         // so we try to get it from another source. This code comes from
         // <https://github.com/giampaolo/psutil/pull/2222>.
         let mut iterator: io_iterator_t = 0;
-        let result =
-            IOServiceGetMatchingServices(kIOMasterPortDefault, Some(matching), &mut iterator);
+        let result = IOServiceGetMatchingServices(*MAIN_PORT, Some(matching), &mut iterator);
         if result != kIOReturnSuccess {
             sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
             return 0;

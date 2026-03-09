@@ -157,11 +157,10 @@ impl SystemTimeInfo {
 // Get a property value from the IOPlatformExpertDevice.
 #[cfg(not(feature = "apple-sandbox"))]
 pub(crate) fn get_io_platform_property(key: &str) -> Option<String> {
-    use crate::sys::macos::utils::IOReleaser;
+    use crate::sys::macos::utils::{IOReleaser, MAIN_PORT};
     use objc2_core_foundation::{CFData, CFGetTypeID, CFString, ConcreteType, kCFAllocatorDefault};
     use objc2_io_kit::{
         IORegistryEntryCreateCFProperty, IOServiceGetMatchingService, IOServiceMatching,
-        kIOMasterPortDefault,
     };
     use std::ffi::CStr;
 
@@ -173,9 +172,8 @@ pub(crate) fn get_io_platform_property(key: &str) -> Option<String> {
         }
     };
 
-    let result = unsafe {
-        IOServiceGetMatchingService(kIOMasterPortDefault, Some(matching.as_opaque().into()))
-    };
+    let result =
+        unsafe { IOServiceGetMatchingService(*MAIN_PORT, Some(matching.as_opaque().into())) };
     if result == 0 {
         sysinfo_debug!("IOServiceGetMatchingService failed");
         return None;

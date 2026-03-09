@@ -28,6 +28,15 @@ impl IOReleaser {
 
 impl Drop for IOReleaser {
     fn drop(&mut self) {
-        unsafe { IOObjectRelease(self.0.get() as _) };
+        IOObjectRelease(self.0.get() as _);
     }
 }
+
+// Use kIOMasterPortDefault on macOS to support older OS versions.
+#[allow(deprecated)]
+#[cfg(target_os = "macos")]
+pub(crate) static MAIN_PORT: &libc::mach_port_t = unsafe { &objc2_io_kit::kIOMasterPortDefault };
+
+// iOS, watchOS, tvOS and visionOS only have the newer symbol.
+#[cfg(not(target_os = "macos"))]
+pub(crate) static MAIN_PORT: &libc::mach_port_t = unsafe { &objc2_io_kit::kIOMainPortDefault };
