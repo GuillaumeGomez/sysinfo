@@ -1,3 +1,8 @@
+# 0.38.4
+
+ * macOS: Unpin `objc2-*` crates version.
+ * Linux: Fix computation of disk size.
+
 # 0.38.3
 
  * macOS: Improve accuracy of `System::available_memory` and `System::used_memory`.
