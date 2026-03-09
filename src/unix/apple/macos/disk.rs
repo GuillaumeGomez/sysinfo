@@ -3,28 +3,30 @@
 use crate::DiskKind;
 use crate::sys::{
     disk::{get_int_value, get_str_value},
-    macos::{ffi, utils::IOReleaser},
+    macos::{
+        ffi,
+        utils::{IOReleaser, MAIN_PORT},
+    },
 };
 
 use objc2_core_foundation::{CFDictionary, CFRetained, CFString, kCFAllocatorDefault};
 use objc2_io_kit::{
     IOBSDNameMatching, IOIteratorNext, IOObjectConformsTo, IORegistryEntryCreateCFProperty,
     IORegistryEntryGetParentEntry, IOServiceGetMatchingServices, io_iterator_t,
-    io_registry_entry_t, kIOMasterPortDefault, kIOServicePlane,
+    io_registry_entry_t, kIOServicePlane,
 };
 
 fn iterate_service_tree<T, F>(bsd_name: &[u8], key: &CFString, eval: F) -> Option<T>
 where
     F: Fn(io_registry_entry_t, &CFDictionary) -> Option<T>,
 {
-    let matching = unsafe { IOBSDNameMatching(kIOMasterPortDefault, 0, bsd_name.as_ptr().cast()) }?;
+    let matching = unsafe { IOBSDNameMatching(*MAIN_PORT, 0, bsd_name.as_ptr().cast()) }?;
     let matching = CFRetained::<CFDictionary>::from(&matching);
 
     let mut service_iterator: io_iterator_t = 0;
 
-    if unsafe {
-        IOServiceGetMatchingServices(kIOMasterPortDefault, Some(matching), &mut service_iterator)
-    } != libc::KERN_SUCCESS
+    if unsafe { IOServiceGetMatchingServices(*MAIN_PORT, Some(matching), &mut service_iterator) }
+        != libc::KERN_SUCCESS
     {
         return None;
     }
@@ -35,7 +37,7 @@ where
     let mut parent_entry: io_registry_entry_t = 0;
 
     while let Some(mut current_service_entry) =
-        IOReleaser::new(unsafe { IOIteratorNext(service_iterator.inner()) })
+        IOReleaser::new(IOIteratorNext(service_iterator.inner()))
     {
         // Note: This loop is required in a non-obvious way. Due to device properties existing as a tree
         // in IOKit, we may need an arbitrary number of calls to `IORegistryEntryCreateCFProperty` in order to find
