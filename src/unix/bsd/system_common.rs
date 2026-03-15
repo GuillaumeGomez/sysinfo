@@ -87,6 +87,10 @@ impl ProcessInner {
         self.pid
     }
 
+    pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
+        None
+    }
+
     pub(crate) fn environ(&self) -> &[OsString] {
         &self.environ
     }

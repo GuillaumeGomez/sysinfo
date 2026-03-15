@@ -4,6 +4,7 @@ pub(crate) mod utils;
 
 cfg_if! {
     if #[cfg(feature = "system")] {
+        pub mod cgroup;
         pub mod cpu;
         pub mod motherboard;
         pub mod process;
@@ -46,6 +47,8 @@ cfg_if! {
 pub const IS_SUPPORTED_SYSTEM: bool = true;
 
 // Make formattable by rustfmt.
+#[cfg(any())]
+mod cgroup;
 #[cfg(any())]
 mod component;
 #[cfg(any())]

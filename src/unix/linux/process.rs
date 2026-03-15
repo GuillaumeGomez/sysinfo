@@ -192,6 +192,10 @@ impl ProcessInner {
         self.pid
     }
 
+    pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
+        crate::sys::cgroup::limits_for_process(&self.proc_path)
+    }
+
     pub(crate) fn environ(&self) -> &[OsString] {
         &self.environ
     }
