@@ -77,10 +77,6 @@ impl From<i32> for ThreadStatus {
 }
 
 impl ProcessInner {
-    pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
-        None
-    }
-
     pub(crate) fn open_files(&self) -> Option<usize> {
         let buffer_size_bytes = unsafe {
             libc::proc_pidinfo(
