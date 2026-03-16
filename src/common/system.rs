@@ -624,7 +624,7 @@ impl System {
         self.inner.used_swap()
     }
 
-    /// Retrieves the limits for the system cgroup (if any), otherwise it returns `None`.
+    /// Retrieves the limits for the root cgroup (if any), otherwise it returns `None`.
     ///
     /// This information is computed every time the method is called.
     ///

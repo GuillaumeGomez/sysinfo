@@ -3,7 +3,7 @@
 use crate::sys::utils::get_all_utf8_data;
 
 use std::cmp::min;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 #[derive(Clone, Copy)]
@@ -14,18 +14,21 @@ struct CGroupLimitsContext {
 }
 
 pub(crate) fn limits_for_system() -> Option<crate::CGroupLimits> {
-    limits_for_base("/sys/fs/cgroup", "/sys/fs/cgroup/memory")
+    limits_for_base(
+        Path::new("/sys/fs/cgroup"),
+        Path::new("/sys/fs/cgroup/memory"),
+    )
 }
 
 pub(crate) fn limits_for_process(proc_path: &Path) -> Option<crate::CGroupLimits> {
-    let cgroup_path = get_cgroup_path(proc_path.join("cgroup"))?;
-    let v2_base = format!("/sys/fs/cgroup{cgroup_path}");
-    let v1_base = format!("/sys/fs/cgroup/memory{cgroup_path}");
+    let cgroup_path = get_cgroup_path(&proc_path.join("cgroup"))?;
+    let v2_base = Path::new("/sys/fs/cgroup").join(&cgroup_path);
+    let v1_base = Path::new("/sys/fs/cgroup/memory").join(&cgroup_path);
 
     limits_for_base(&v2_base, &v1_base)
 }
 
-fn limits_for_base(v2_base: &str, v1_base: &str) -> Option<crate::CGroupLimits> {
+fn limits_for_base(v2_base: &Path, v1_base: &Path) -> Option<crate::CGroupLimits> {
     let context = read_cgroup_limits_context()?;
     new_v2(v2_base, context).or_else(|| new_v1(v1_base, context))
 }
@@ -52,11 +55,11 @@ fn read_cgroup_limits_context() -> Option<CGroupLimitsContext> {
     })
 }
 
-fn new_v2(base: &str, context: CGroupLimitsContext) -> Option<crate::CGroupLimits> {
-    let mem_cur = read_u64(format!("{base}/memory.current"))?;
+fn new_v2(base: &Path, context: CGroupLimitsContext) -> Option<crate::CGroupLimits> {
+    let mem_cur = read_u64(&base.join("memory.current"))?;
     // `memory.max` contains `max` when no limit is set.
-    let mem_max = read_u64(format!("{base}/memory.max")).or(Some(u64::MAX))?;
-    let mem_rss = read_table_key(format!("{base}/memory.stat"), "anon", ' ')?;
+    let mem_max = read_u64(&base.join("memory.max")).or(Some(u64::MAX))?;
+    let mem_rss = read_table_key(&base.join("memory.stat"), "anon", ' ')?;
 
     let mut limits = crate::CGroupLimits {
         total_memory: min(mem_max, context.mem_total),
@@ -66,17 +69,17 @@ fn new_v2(base: &str, context: CGroupLimitsContext) -> Option<crate::CGroupLimit
     };
     limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
 
-    if let Some(swap_cur) = read_u64(format!("{base}/memory.swap.current")) {
+    if let Some(swap_cur) = read_u64(&base.join("memory.swap.current")) {
         limits.free_swap = context.swap_total.saturating_sub(swap_cur);
     }
 
     Some(limits)
 }
 
-fn new_v1(base: &str, context: CGroupLimitsContext) -> Option<crate::CGroupLimits> {
-    let mem_cur = read_u64(format!("{base}/memory.usage_in_bytes"))?;
-    let mem_max = read_u64(format!("{base}/memory.limit_in_bytes"))?;
-    let mem_rss = read_table_key(format!("{base}/memory.stat"), "total_rss", ' ')?;
+fn new_v1(base: &Path, context: CGroupLimitsContext) -> Option<crate::CGroupLimits> {
+    let mem_cur = read_u64(&base.join("memory.usage_in_bytes"))?;
+    let mem_max = read_u64(&base.join("memory.limit_in_bytes"))?;
+    let mem_rss = read_table_key(&base.join("memory.stat"), "total_rss", ' ')?;
 
     let mut limits = crate::CGroupLimits {
         total_memory: min(mem_max, context.mem_total),
@@ -89,14 +92,13 @@ fn new_v1(base: &str, context: CGroupLimitsContext) -> Option<crate::CGroupLimit
     Some(limits)
 }
 
-fn read_u64<P: AsRef<Path>>(filename: P) -> Option<u64> {
-    let path = filename.as_ref();
-    let result = get_all_utf8_data(path, 16_635)
+fn read_u64(filename: &Path) -> Option<u64> {
+    let result = get_all_utf8_data(filename, 16_635)
         .ok()
         .and_then(|d| u64::from_str(d.trim()).ok());
 
     if result.is_none() {
-        sysinfo_debug!("Failed to read u64 in filename {path:?}");
+        sysinfo_debug!("Failed to read u64 in filename {filename:?}");
     }
 
     result
@@ -121,7 +123,7 @@ where
     }
 }
 
-fn read_table_key<P: AsRef<Path>>(filename: P, target_key: &str, colsep: char) -> Option<u64> {
+fn read_table_key(filename: &Path, target_key: &str, colsep: char) -> Option<u64> {
     if let Ok(content) = get_all_utf8_data(filename, 16_635) {
         return content.split('\n').find_map(|line| {
             let mut split = line.split(colsep);
@@ -139,12 +141,12 @@ fn read_table_key<P: AsRef<Path>>(filename: P, target_key: &str, colsep: char) -
     None
 }
 
-fn get_cgroup_path<P: AsRef<Path>>(path: P) -> Option<String> {
+fn get_cgroup_path(path: &Path) -> Option<PathBuf> {
     let content = get_all_utf8_data(path, 4096).ok()?;
     parse_cgroup_path(&content)
 }
 
-fn parse_cgroup_path(content: &str) -> Option<String> {
+fn parse_cgroup_path(content: &str) -> Option<PathBuf> {
     for line in content.lines() {
         let mut fields = line.splitn(3, ':');
         let hierarchy_id = fields.next()?;
@@ -156,7 +158,7 @@ fn parse_cgroup_path(content: &str) -> Option<String> {
                 .split(',')
                 .any(|controller| controller == "memory")
         {
-            return Some(path.to_owned());
+            return Some(Path::new(path).strip_prefix("/").ok()?.to_path_buf());
         }
     }
     None
@@ -169,6 +171,7 @@ mod test {
     use super::read_table_key;
     use std::collections::HashMap;
     use std::io::Write;
+    use std::path::{Path, PathBuf};
     use tempfile::NamedTempFile;
 
     #[test]
@@ -232,7 +235,7 @@ mod test {
         writeln!(file, "KEY2:200 kB").unwrap();
         writeln!(file, "KEY3:300 kB").unwrap();
 
-        let file_path = file.path().to_str().unwrap();
+        let file_path = file.path();
 
         assert_eq!(read_table_key(file_path, "KEY1", ':'), Some(100));
         assert_eq!(read_table_key(file_path, "KEY2", ':'), Some(200));
@@ -243,18 +246,21 @@ mod test {
         writeln!(file, "KEY1 400 kB").unwrap();
         writeln!(file, "KEY2 500 kB").unwrap();
 
-        let file_path = file.path().to_str().unwrap();
+        let file_path = file.path();
 
         assert_eq!(read_table_key(file_path, "KEY1", ' '), Some(400));
         assert_eq!(read_table_key(file_path, "KEY2", ' '), Some(500));
-        assert_eq!(read_table_key("/nonexistent/file", "KEY1", ':'), None);
+        assert_eq!(
+            read_table_key(Path::new("/nonexistent/file"), "KEY1", ':'),
+            None
+        );
     }
 
     #[test]
     fn test_parse_cgroup_path_v2() {
         assert_eq!(
             parse_cgroup_path("0::/user.slice/session.scope"),
-            Some("/user.slice/session.scope".to_owned())
+            Some(PathBuf::from("user.slice/session.scope"))
         );
     }
 
@@ -262,7 +268,7 @@ mod test {
     fn test_parse_cgroup_path_v1_memory() {
         assert_eq!(
             parse_cgroup_path("12:cpuset:/\n11:memory:/system.slice/service.scope"),
-            Some("/system.slice/service.scope".to_owned()),
+            Some(PathBuf::from("system.slice/service.scope")),
         );
     }
 
