@@ -10,7 +10,6 @@ use crate::{
 
 use libc::{self, _SC_CLK_TCK, _SC_HOST_NAME_MAX, _SC_PAGESIZE, c_char, sysconf};
 
-use std::cmp::min;
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::fs::File;
@@ -269,7 +268,7 @@ impl SystemInner {
     }
 
     pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
-        crate::CGroupLimits::new(self)
+        crate::sys::cgroup::limits_for_system()
     }
 
     pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
@@ -604,18 +603,6 @@ impl SystemInner {
     }
 }
 
-fn read_u64(filename: &str) -> Option<u64> {
-    let result = get_all_utf8_data(filename, 16_635)
-        .ok()
-        .and_then(|d| u64::from_str(d.trim()).ok());
-
-    if result.is_none() {
-        sysinfo_debug!("Failed to read u64 in filename {}", filename);
-    }
-
-    result
-}
-
 fn read_table<F>(filename: &str, colsep: char, mut f: F)
 where
     F: FnMut(&str, u64),
@@ -632,75 +619,6 @@ where
                 Some((key, value0_u64))
             })
             .for_each(|(k, v)| f(k, v));
-    }
-}
-
-fn read_table_key(filename: &str, target_key: &str, colsep: char) -> Option<u64> {
-    if let Ok(content) = get_all_utf8_data(filename, 16_635) {
-        return content.split('\n').find_map(|line| {
-            let mut split = line.split(colsep);
-            let key = split.next()?;
-            if key != target_key {
-                return None;
-            }
-
-            let value = split.next()?;
-            let value0 = value.trim_start().split(' ').next()?;
-            u64::from_str(value0).ok()
-        });
-    }
-
-    None
-}
-
-impl crate::CGroupLimits {
-    fn new(sys: &SystemInner) -> Option<Self> {
-        assert!(
-            sys.mem_total != 0,
-            "You need to call System::refresh_memory before trying to get cgroup limits!",
-        );
-        if let (Some(mem_cur), Some(mem_max), Some(mem_rss)) = (
-            // cgroups v2
-            read_u64("/sys/fs/cgroup/memory.current"),
-            // memory.max contains `max` when no limit is set.
-            read_u64("/sys/fs/cgroup/memory.max").or(Some(u64::MAX)),
-            read_table_key("/sys/fs/cgroup/memory.stat", "anon", ' '),
-        ) {
-            let mut limits = Self {
-                total_memory: sys.mem_total,
-                free_memory: sys.mem_free,
-                free_swap: sys.swap_free,
-                rss: mem_rss,
-            };
-
-            limits.total_memory = min(mem_max, sys.mem_total);
-            limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
-
-            if let Some(swap_cur) = read_u64("/sys/fs/cgroup/memory.swap.current") {
-                limits.free_swap = sys.swap_total.saturating_sub(swap_cur);
-            }
-
-            Some(limits)
-        } else if let (Some(mem_cur), Some(mem_max), Some(mem_rss)) = (
-            // cgroups v1
-            read_u64("/sys/fs/cgroup/memory/memory.usage_in_bytes"),
-            read_u64("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
-            read_table_key("/sys/fs/cgroup/memory/memory.stat", "total_rss", ' '),
-        ) {
-            let mut limits = Self {
-                total_memory: sys.mem_total,
-                free_memory: sys.mem_free,
-                free_swap: sys.swap_free,
-                rss: mem_rss,
-            };
-
-            limits.total_memory = min(mem_max, sys.mem_total);
-            limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
-
-            Some(limits)
-        } else {
-            None
-        }
     }
 }
 
@@ -824,7 +742,6 @@ mod test {
     #[cfg(not(target_os = "android"))]
     use super::get_system_info_linux;
     use super::read_table;
-    use super::read_table_key;
     use super::system_info_as_list;
     use std::collections::HashMap;
     use std::io::Write;
@@ -887,38 +804,6 @@ mod test {
         });
 
         assert!(result.is_empty());
-    }
-
-    #[test]
-    fn test_read_table_key() {
-        // Create a temporary file with test content
-        let mut file = NamedTempFile::new().unwrap();
-        writeln!(file, "KEY1:100 kB").unwrap();
-        writeln!(file, "KEY2:200 kB").unwrap();
-        writeln!(file, "KEY3:300 kB").unwrap();
-
-        let file_path = file.path().to_str().unwrap();
-
-        // Test existing keys
-        assert_eq!(read_table_key(file_path, "KEY1", ':'), Some(100));
-        assert_eq!(read_table_key(file_path, "KEY2", ':'), Some(200));
-        assert_eq!(read_table_key(file_path, "KEY3", ':'), Some(300));
-
-        // Test non-existent key
-        assert_eq!(read_table_key(file_path, "KEY4", ':'), None);
-
-        // Test with different separator
-        let mut file = NamedTempFile::new().unwrap();
-        writeln!(file, "KEY1 400 kB").unwrap();
-        writeln!(file, "KEY2 500 kB").unwrap();
-
-        let file_path = file.path().to_str().unwrap();
-
-        assert_eq!(read_table_key(file_path, "KEY1", ' '), Some(400));
-        assert_eq!(read_table_key(file_path, "KEY2", ' '), Some(500));
-
-        // Test with invalid file
-        assert_eq!(read_table_key("/nonexistent/file", "KEY1", ':'), None);
     }
 
     #[test]

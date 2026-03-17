@@ -50,6 +50,10 @@ pub(crate) struct ProcessInner {
 }
 
 impl ProcessInner {
+    pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
+        None
+    }
+
     pub(crate) fn new_empty(pid: Pid) -> Self {
         Self {
             name: OsString::new(),

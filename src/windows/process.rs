@@ -292,6 +292,10 @@ impl ProcessInner {
         }
     }
 
+    pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
+        None
+    }
+
     pub(crate) fn update(
         &mut self,
         refresh_kind: crate::ProcessRefreshKind,
