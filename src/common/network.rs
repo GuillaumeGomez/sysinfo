@@ -406,6 +406,20 @@ impl NetworkData {
     pub fn mtu(&self) -> u64 {
         self.inner.mtu()
     }
+
+    /// Returns the operational state of the interface.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new_with_refreshed_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("operstate: {}", network.operational_state());
+    /// }
+    /// ```
+    pub fn operational_state(&self) -> InterfaceOperationalState {
+        self.inner.operational_state()
+    }
 }
 
 /// MAC address for network interface.
@@ -557,6 +571,47 @@ impl core::fmt::Display for IpNetworkFromStrError {
 }
 
 impl core::error::Error for IpNetworkFromStrError {}
+
+/// The operational state of some interface
+/// based on IfOperStatus from [RFC2863]  
+///
+/// [RFC2863]: https://datatracker.ietf.org/doc/html/rfc2863#section-3.1.12
+///
+// windows: https://learn.microsoft.com/en-us/dotnet/api/system.net.networkinformation.operationalstatus?view=net-10.0
+// linux: see operstate https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-net
+#[non_exhaustive]
+#[expect(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InterfaceOperationalState {
+    #[doc(hidden)]
+    #[non_exhaustive]
+    /// InterfaceOperationalState is unsupported or had an unrecognized value
+    Other,
+    // discriminants based on windows
+    Up = 1,
+    Down = 2,
+    Testing = 3,
+    Unknown = 4,
+    Dormant = 5,
+    NotPresent = 6,
+    LowerLayerDown = 7,
+}
+
+impl fmt::Display for InterfaceOperationalState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let txt = match self {
+            InterfaceOperationalState::Other => "other",
+            InterfaceOperationalState::Up => "up",
+            InterfaceOperationalState::Down => "down",
+            InterfaceOperationalState::Testing => "testing",
+            InterfaceOperationalState::Unknown => "unknown",
+            InterfaceOperationalState::Dormant => "dormant",
+            InterfaceOperationalState::NotPresent => "notpresent",
+            InterfaceOperationalState::LowerLayerDown => "lowerlayerdown",
+        };
+        f.write_str(txt)
+    }
+}
 
 #[cfg(test)]
 mod tests {

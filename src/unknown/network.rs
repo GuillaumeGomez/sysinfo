@@ -84,4 +84,8 @@ impl NetworkDataInner {
     pub(crate) fn mtu(&self) -> u64 {
         0
     }
+
+    pub(crate) fn operational_state(&self) -> InterfaceOperationalState {
+        InterfaceOperationalState::Other
+    }
 }

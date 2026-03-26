@@ -197,9 +197,11 @@ fn interpret_input(
                 println!(
                     "\
 {interface_name}:
+  operstate {}
   ether {}
   input data  (new / total): {} / {} B
   output data (new / total): {} / {} B",
+                    data.operational_state(),
                     data.mac_address(),
                     data.received(),
                     data.total_received(),

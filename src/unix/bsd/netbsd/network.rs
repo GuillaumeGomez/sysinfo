@@ -4,7 +4,7 @@ use std::collections::{HashMap, hash_map};
 
 use crate::network::refresh_networks_addresses;
 use crate::unix::bsd::NetworkDataInner;
-use crate::{MacAddr, NetworkData};
+use crate::{InterfaceOperationalState, MacAddr, NetworkData};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $data:expr) => {{
@@ -59,8 +59,13 @@ impl NetworksInner {
                     .ok()
                     .map(|s| s.to_string())
                 {
+                    let flags = ifa.ifa_flags;
                     let data: &libc::if_data = &*(ifa.ifa_data as *mut libc::if_data);
                     let mtu = data.ifi_mtu;
+                    let operational_state = InterfaceOperationalState::from_flag(
+                        flags as core::ffi::c_int,
+                        data.ifi_link_state,
+                    );
                     match self.interfaces.entry(name) {
                         hash_map::Entry::Occupied(mut e) => {
                             let interface = e.get_mut();
@@ -73,6 +78,9 @@ impl NetworksInner {
                             old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
                             old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
                             interface.mtu = mtu;
+                            if interface.operational_state != operational_state {
+                                interface.operational_state = operational_state;
+                            }
                             interface.updated = true;
                         }
                         hash_map::Entry::Vacant(e) => {
@@ -98,6 +106,7 @@ impl NetworksInner {
                                     mac_addr: MacAddr::UNSPECIFIED,
                                     ip_networks: vec![],
                                     mtu,
+                                    operational_state,
                                 },
                             });
                         }
