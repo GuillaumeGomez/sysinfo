@@ -188,9 +188,7 @@ impl NetworksInner {
                                 let data = mib_data.assume_init();
                                 update_network_data(interface, &data.ifmd_data);
                             }
-                            if interface.mtu != mtu {
-                                interface.mtu = mtu
-                            }
+                            interface.mtu = mtu;
                             interface.updated = true;
                         }
                         hash_map::Entry::Vacant(e) => {

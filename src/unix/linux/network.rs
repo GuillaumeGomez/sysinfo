@@ -80,9 +80,7 @@ fn refresh_networks_list_from_sysfs(
                     old_and_new!(interface, tx_errors, old_tx_errors);
                     // old_and_new!(e, rx_compressed, old_rx_compressed);
                     // old_and_new!(e, tx_compressed, old_tx_compressed);
-                    if interface.mtu != mtu {
-                        interface.mtu = mtu;
-                    }
+                    interface.mtu = mtu;
                     interface.updated = true;
                 }
                 hash_map::Entry::Vacant(e) => {
