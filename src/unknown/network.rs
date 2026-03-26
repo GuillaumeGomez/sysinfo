@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{IpNetwork, MacAddr, NetworkData};
+use crate::{InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
 
 use std::collections::HashMap;
 
