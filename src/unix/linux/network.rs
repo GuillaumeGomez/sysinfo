@@ -52,6 +52,7 @@ fn read_str<'data, P: AsRef<Path>>(parent: P, path: &str, data: &'data mut Vec<u
 
 impl InterfaceOperationalState {
     pub(crate) fn from_data(data: &[u8]) -> Self {
+        // see /sys/class/net/<iface>/operstate section at https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-net
         match data {
             b"unknown" => InterfaceOperationalState::Unknown,
             b"notpresent" => InterfaceOperationalState::NotPresent,
@@ -94,7 +95,6 @@ fn refresh_networks_list_from_sysfs(
             // let tx_compressed = read(parent, "tx_compressed", &mut data);
             let mtu = read(entry_path, "mtu", &mut data);
 
-            // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-net
             let operational_state = InterfaceOperationalState::from_data(
                 read_str(entry_path, "operstate", &mut data).trim_ascii(),
             );
