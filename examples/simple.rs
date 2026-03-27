@@ -197,7 +197,7 @@ fn interpret_input(
                 println!(
                     "\
 {interface_name}:
-  operstate {}
+  operational state {}
   ether {}
   input data  (new / total): {} / {} B
   output data (new / total): {} / {} B",

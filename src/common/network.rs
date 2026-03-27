@@ -575,15 +575,15 @@ impl core::fmt::Display for IpNetworkFromStrError {
 
 impl core::error::Error for IpNetworkFromStrError {}
 
-/// The operational state of some interface
-/// based on IfOperStatus from [RFC2863]  
+/// The operational state of some interface based on `IfOperStatus`
+/// from [RFC2863].
 ///
-/// Not all state are supported by all system.
+/// Not all states are supported by all systems.
 ///
-/// If you want to only distinguish between potentially operational and not operational you likely want to
-/// - treat `Up``, `Dormant`` and `Unknown`` as potentially operational
-/// - treat `Down`, `Testing`, `NotPresent` and `LowerLayerDown` as not operational
-///
+/// If you want to only distinguish between potentially operational and not operational you
+/// likely want to:
+/// - treat [`Up`][Self::Up], [`Dormant`][Self::Dormant] and [`Unknown`][Self::Unknown] as potentially operational
+/// - treat [`Down`][Self::Down], [`Testing`][Self::Testing], [`NotPresent`][Self::NotPresent] and [`LowerLayerDown`][Self::LowerLayerDown] as not operational
 ///
 /// [RFC2863]: https://datatracker.ietf.org/doc/html/rfc2863#section-3.1.12
 ///
