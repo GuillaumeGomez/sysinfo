@@ -409,6 +409,7 @@ impl NetworkData {
 
     /// Returns the operational state of the interface.
     ///
+    /// The operational state indicates whether the interface is able to pass packets or not.
     /// For details on the individual states see the documentation of the [`InterfaceOperationalState`] enum and its variants.
     ///
     /// ```no_run
