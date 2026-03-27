@@ -414,7 +414,7 @@ impl NetworkData {
     ///
     /// let mut networks = Networks::new_with_refreshed_list();
     /// for (interface_name, network) in &networks {
-    ///     println!("operstate: {}", network.operational_state());
+    ///     println!("operational state: {}", network.operational_state());
     /// }
     /// ```
     pub fn operational_state(&self) -> InterfaceOperationalState {
@@ -599,7 +599,7 @@ pub enum InterfaceOperationalState {
 
 impl fmt::Display for InterfaceOperationalState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let txt = match self {
+        f.write_str(match self {
             InterfaceOperationalState::Other => "other",
             InterfaceOperationalState::Up => "up",
             InterfaceOperationalState::Down => "down",
@@ -608,8 +608,7 @@ impl fmt::Display for InterfaceOperationalState {
             InterfaceOperationalState::Dormant => "dormant",
             InterfaceOperationalState::NotPresent => "notpresent",
             InterfaceOperationalState::LowerLayerDown => "lowerlayerdown",
-        };
-        f.write_str(txt)
+        })
     }
 }
 
