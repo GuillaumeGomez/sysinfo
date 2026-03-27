@@ -193,9 +193,7 @@ impl NetworksInner {
                                 update_network_data(interface, &data.ifmd_data);
                             }
                             interface.mtu = mtu;
-                            if interface.operational_state != operational_state {
-                                interface.operational_state = operational_state
-                            }
+                            interface.operational_state = operational_state;
                             interface.updated = true;
                         }
                         hash_map::Entry::Vacant(e) => {

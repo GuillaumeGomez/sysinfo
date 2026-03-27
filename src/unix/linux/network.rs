@@ -113,9 +113,7 @@ fn refresh_networks_list_from_sysfs(
                     // old_and_new!(e, rx_compressed, old_rx_compressed);
                     // old_and_new!(e, tx_compressed, old_tx_compressed);
                     interface.mtu = mtu;
-                    if interface.operational_state != operational_state {
-                        interface.operational_state = operational_state;
-                    }
+                    interface.operational_state = operational_state;
                     interface.updated = true;
                 }
                 hash_map::Entry::Vacant(e) => {

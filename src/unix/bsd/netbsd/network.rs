@@ -78,9 +78,7 @@ impl NetworksInner {
                             old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
                             old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
                             interface.mtu = mtu;
-                            if interface.operational_state != operational_state {
-                                interface.operational_state = operational_state;
-                            }
+                            interface.operational_state = operational_state;
                             interface.updated = true;
                         }
                         hash_map::Entry::Vacant(e) => {
