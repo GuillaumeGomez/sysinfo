@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use libc::{
-    self, CTL_NET, IFNAMSIZ, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2, c_char, c_int, c_uint,
-    if_data64, if_msghdr2, sysctl,
+    self, CTL_NET, IFF_RUNNING, IFF_UP, IFNAMSIZ, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2, c_char,
+    c_int, c_uint, if_data64, if_msghdr2, sysctl,
 };
 
 use std::collections::{HashMap, hash_map};
@@ -10,7 +10,7 @@ use std::mem::{MaybeUninit, size_of};
 use std::ptr::null_mut;
 
 use crate::network::refresh_networks_addresses;
-use crate::{IpNetwork, MacAddr, NetworkData};
+use crate::{InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
 
 // FIXME: To be removed once https://github.com/rust-lang/libc/pull/4022 is merged and released.
 #[repr(C)]
@@ -158,6 +158,10 @@ impl NetworksInner {
                     let name = String::from_utf8_unchecked(name);
                     let mtu = (*if2m).ifm_data.ifi_mtu as u64;
 
+                    // FIXME: the documentation I could find was rather spars and unclear, are these the right flags?
+                    let operational_state =
+                        InterfaceOperationalState::from_flags((*if2m).ifm_flags);
+
                     // Because data size is capped at 32 bits with the previous sysctl call for some
                     // reasons, we need to make another sysctl call to get the actual values
                     // we originally got into `ifm.ifm_data`...
@@ -189,6 +193,7 @@ impl NetworksInner {
                                 update_network_data(interface, &data.ifmd_data);
                             }
                             interface.mtu = mtu;
+                            interface.operational_state = operational_state;
                             interface.updated = true;
                         }
                         hash_map::Entry::Vacant(e) => {
@@ -240,12 +245,28 @@ impl NetworksInner {
                                     mac_addr: MacAddr::UNSPECIFIED,
                                     ip_networks: vec![],
                                     mtu,
+                                    operational_state,
                                 },
                             });
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+impl InterfaceOperationalState {
+    fn from_flags(flags: core::ffi::c_int) -> Self {
+        // based on the bsd version in src\unix\bsd\network_common.rs
+        if (flags & IFF_RUNNING) != 0 {
+            if (flags & IFF_UP) != 0 {
+                InterfaceOperationalState::Up
+            } else {
+                InterfaceOperationalState::Dormant
+            }
+        } else {
+            InterfaceOperationalState::Down
         }
     }
 }
@@ -271,6 +292,7 @@ pub(crate) struct NetworkDataInner {
     pub(crate) ip_networks: Vec<IpNetwork>,
     /// Interface Maximum Transfer Unit (MTU)
     mtu: u64,
+    operational_state: InterfaceOperationalState,
 }
 
 impl NetworkDataInner {
@@ -332,5 +354,9 @@ impl NetworkDataInner {
 
     pub(crate) fn mtu(&self) -> u64 {
         self.mtu
+    }
+
+    pub(crate) fn operational_state(&self) -> InterfaceOperationalState {
+        self.operational_state
     }
 }

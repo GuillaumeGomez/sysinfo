@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{IpNetwork, MacAddr};
+use crate::{InterfaceOperationalState, IpNetwork, MacAddr};
 
 pub(crate) struct NetworkDataInner {
     /// Total number of bytes received over interface.
@@ -31,6 +31,7 @@ pub(crate) struct NetworkDataInner {
     pub(crate) ip_networks: Vec<IpNetwork>,
     /// Interface Maximum Transfer Unit (MTU)
     pub(crate) mtu: u64,
+    pub(crate) operational_state: InterfaceOperationalState,
 }
 
 impl NetworkDataInner {
@@ -92,5 +93,25 @@ impl NetworkDataInner {
 
     pub(crate) fn mtu(&self) -> u64 {
         self.mtu
+    }
+
+    pub(crate) fn operational_state(&self) -> InterfaceOperationalState {
+        self.operational_state
+    }
+}
+
+impl InterfaceOperationalState {
+    pub(crate) fn from_flag(flags: core::ffi::c_int, link_state: core::ffi::c_int) -> Self {
+        // https://github.com/freebsd/freebsd-src/blob/7e7d4e711ff94d114c93fd522d4125aa9bd9f5cd/contrib/bsnmp/snmp_mibII/mibII_interfaces.c#L283-L298
+
+        if (flags & libc::IFF_RUNNING) != 0 {
+            if link_state != libc::LINK_STATE_UP {
+                InterfaceOperationalState::Dormant
+            } else {
+                InterfaceOperationalState::Up
+            }
+        } else {
+            InterfaceOperationalState::Down
+        }
     }
 }

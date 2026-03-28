@@ -6,7 +6,7 @@ use std::io::Read;
 use std::path::Path;
 
 use crate::network::refresh_networks_addresses;
-use crate::{IpNetwork, MacAddr, NetworkData};
+use crate::{InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident) => {{
@@ -38,6 +38,34 @@ fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
     0
 }
 
+#[allow(clippy::ptr_arg)]
+fn read_str<'data, P: AsRef<Path>>(parent: P, path: &str, data: &'data mut Vec<u8>) -> &'data [u8] {
+    data.clear();
+    if let Ok(mut f) = File::open(parent.as_ref().join(path))
+        && let Ok(size) = f.read_to_end(data)
+    {
+        &mut data[..size]
+    } else {
+        b""
+    }
+}
+
+impl InterfaceOperationalState {
+    pub(crate) fn from_data(data: &[u8]) -> Self {
+        // see /sys/class/net/<iface>/operstate section at https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-net
+        match data {
+            b"unknown" => InterfaceOperationalState::Unknown,
+            b"notpresent" => InterfaceOperationalState::NotPresent,
+            b"down" => InterfaceOperationalState::Down,
+            b"lowerlayerdown" => InterfaceOperationalState::LowerLayerDown,
+            b"testing" => InterfaceOperationalState::Testing,
+            b"dormant" => InterfaceOperationalState::Dormant,
+            b"up" => InterfaceOperationalState::Up,
+            _ => InterfaceOperationalState::Other,
+        }
+    }
+}
+
 fn refresh_networks_list_from_sysfs(
     interfaces: &mut HashMap<String, NetworkData>,
     remove_not_listed_interfaces: bool,
@@ -67,6 +95,10 @@ fn refresh_networks_list_from_sysfs(
             // let tx_compressed = read(parent, "tx_compressed", &mut data);
             let mtu = read(entry_path, "mtu", &mut data);
 
+            let operational_state = InterfaceOperationalState::from_data(
+                read_str(entry_path, "operstate", &mut data).trim_ascii(),
+            );
+
             match interfaces.entry(entry) {
                 hash_map::Entry::Occupied(mut e) => {
                     let interface = e.get_mut();
@@ -81,6 +113,7 @@ fn refresh_networks_list_from_sysfs(
                     // old_and_new!(e, rx_compressed, old_rx_compressed);
                     // old_and_new!(e, tx_compressed, old_tx_compressed);
                     interface.mtu = mtu;
+                    interface.operational_state = operational_state;
                     interface.updated = true;
                 }
                 hash_map::Entry::Vacant(e) => {
@@ -104,6 +137,7 @@ fn refresh_networks_list_from_sysfs(
                             // old_rx_compressed: rx_compressed,
                             // tx_compressed,
                             // old_tx_compressed: tx_compressed,
+                            operational_state,
                             mtu,
                             updated: true,
                         },
@@ -177,6 +211,7 @@ pub(crate) struct NetworkDataInner {
     pub(crate) ip_networks: Vec<IpNetwork>,
     /// Interface Maximum Transfer Unit (MTU)
     mtu: u64,
+    operational_state: InterfaceOperationalState,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
     // /// that support packet compression (e.g: PPP).
@@ -250,6 +285,10 @@ impl NetworkDataInner {
 
     pub(crate) fn mtu(&self) -> u64 {
         self.mtu
+    }
+
+    pub(crate) fn operational_state(&self) -> InterfaceOperationalState {
+        self.operational_state
     }
 }
 

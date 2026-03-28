@@ -1,12 +1,16 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::network::refresh_networks_addresses;
-use crate::{IpNetwork, MacAddr, NetworkData};
+use crate::{InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
 
 use std::collections::{HashMap, hash_map};
 
 use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, MIB_IF_TABLE2};
-use windows::Win32::NetworkManagement::Ndis::MediaConnectStateDisconnected;
+use windows::Win32::NetworkManagement::Ndis::{
+    IF_OPER_STATUS, IfOperStatusDormant, IfOperStatusDown, IfOperStatusLowerLayerDown,
+    IfOperStatusNotPresent, IfOperStatusTesting, IfOperStatusUnknown, IfOperStatusUp,
+    MediaConnectStateDisconnected,
+};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $new_val:expr) => {{
@@ -94,6 +98,8 @@ impl NetworksInner {
                 };
 
                 let mtu = ptr.Mtu as u64;
+                let operational_state = InterfaceOperationalState::from_enum(ptr.OperStatus);
+
                 match self.interfaces.entry(interface_name) {
                     hash_map::Entry::Occupied(mut e) => {
                         let interface = e.get_mut();
@@ -115,6 +121,7 @@ impl NetworksInner {
                         old_and_new!(interface, errors_in, old_errors_in, ptr.InErrors);
                         old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
                         interface.mtu = mtu;
+                        interface.operational_state = operational_state;
                         interface.updated = true;
                     }
                     hash_map::Entry::Vacant(e) => {
@@ -139,6 +146,7 @@ impl NetworksInner {
                                 ip_networks: vec![],
                                 mtu,
                                 updated: true,
+                                operational_state,
                             },
                         });
                     }
@@ -179,6 +187,7 @@ pub(crate) struct NetworkDataInner {
     pub(crate) ip_networks: Vec<IpNetwork>,
     /// Interface Maximum Transfer Unit (MTU)
     mtu: u64,
+    operational_state: InterfaceOperationalState,
 }
 
 impl NetworkDataInner {
@@ -240,5 +249,25 @@ impl NetworkDataInner {
 
     pub(crate) fn mtu(&self) -> u64 {
         self.mtu
+    }
+
+    pub(crate) fn operational_state(&self) -> InterfaceOperationalState {
+        self.operational_state
+    }
+}
+
+impl InterfaceOperationalState {
+    fn from_enum(value: IF_OPER_STATUS) -> Self {
+        #[allow(nonstandard_style)]
+        match value {
+            IfOperStatusUp => Self::Up,
+            IfOperStatusDown => Self::Down,
+            IfOperStatusTesting => Self::Testing,
+            IfOperStatusUnknown => Self::Unknown,
+            IfOperStatusDormant => Self::Dormant,
+            IfOperStatusNotPresent => Self::NotPresent,
+            IfOperStatusLowerLayerDown => Self::LowerLayerDown,
+            _ => Self::Other,
+        }
     }
 }

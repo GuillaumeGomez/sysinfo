@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{IpNetwork, MacAddr, NetworkData};
+use crate::{InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
 
 use std::collections::HashMap;
 
@@ -83,5 +83,9 @@ impl NetworkDataInner {
 
     pub(crate) fn mtu(&self) -> u64 {
         0
+    }
+
+    pub(crate) fn operational_state(&self) -> InterfaceOperationalState {
+        InterfaceOperationalState::Other
     }
 }

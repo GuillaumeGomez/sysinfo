@@ -406,6 +406,23 @@ impl NetworkData {
     pub fn mtu(&self) -> u64 {
         self.inner.mtu()
     }
+
+    /// Returns the operational state of the interface.
+    ///
+    /// The operational state indicates whether the interface is able to pass packets or not.
+    /// For details on the individual states see the documentation of the [`InterfaceOperationalState`] enum and its variants.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// let mut networks = Networks::new_with_refreshed_list();
+    /// for (interface_name, network) in &networks {
+    ///     println!("operational state: {}", network.operational_state());
+    /// }
+    /// ```
+    pub fn operational_state(&self) -> InterfaceOperationalState {
+        self.inner.operational_state()
+    }
 }
 
 /// MAC address for network interface.
@@ -550,13 +567,103 @@ impl core::fmt::Display for IpNetworkFromStrError {
             Self::PrefixError(error) => write!(f, "prefix is not an integer: {error}"),
             Self::AddrParseError(error) => write!(f, "failed to parse IP address: {error}"),
             Self::InvalidAddrFormat => {
-                f.write_str("invalid address format, should `[IP adress]/[number]`")
+                f.write_str("invalid address format, should `[IP address]/[number]`")
             }
         }
     }
 }
 
 impl core::error::Error for IpNetworkFromStrError {}
+
+/// The operational state of some interface based on `IfOperStatus`
+/// from [RFC2863].
+///
+/// Not all states are supported by all systems.
+///
+/// If you want to only distinguish between potentially operational and not operational you
+/// likely want to:
+/// - treat [`Up`][Self::Up], [`Dormant`][Self::Dormant] and [`Unknown`][Self::Unknown] as potentially operational
+/// - treat [`Down`][Self::Down], [`Testing`][Self::Testing], [`NotPresent`][Self::NotPresent] and [`LowerLayerDown`][Self::LowerLayerDown] as not operational
+///
+/// [RFC2863]: https://datatracker.ietf.org/doc/html/rfc2863#section-3.1.12
+///
+// windows: https://learn.microsoft.com/en-us/dotnet/api/system.net.networkinformation.operationalstatus?view=net-10.0
+// linux: https://docs.kernel.org/networking/operstates.html#tlv-ifla-operstate
+// discriminants based on windows
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InterfaceOperationalState {
+    #[doc(hidden)]
+    #[non_exhaustive]
+    /// InterfaceOperationalState is unsupported or had an unrecognized value
+    Other,
+    /// The interface is able to pass packets.
+    Up = 1,
+    /// The interface is unable to pass packets.
+    ///
+    /// ## Examples
+    /// - an error condition has occurred
+    /// - the interface is disabled
+    Down = 2,
+    /// The interface is unable to pass packets.
+    /// The interface is performing some test(s).
+    /// Presumably it will change into another appropriate state once testing completes.
+    ///
+    /// ## Examples
+    /// - driver self-test
+    /// - media (e.g. cable) test
+    Testing = 3,
+    /// The state of the interface is unknown.
+    /// The interface may or may not be usable.
+    ///
+    /// ## Examples
+    /// - on linux the loopback interface (localhost, 127.0.0.1/8, ::1/128) typically has this state
+    Unknown = 4,
+    /// The interface is unable to pass packets.
+    /// It is in a "pending state" waiting for some external event.
+    /// When the event occurs the interface will prusumably change into the `Up`` state.
+    ///
+    /// ## Examples
+    /// - an "on-demand" interface might be waiting for a package in the transmit queue to establish a connection.
+    /// - an interface might be waiting for the remote system to establish a connection
+    /// - waiting for 802.1X protocol to establish a connection
+    Dormant = 5,
+    /// The interface is unable to pass packets.
+    /// A (hardware) component is not present.
+    ///
+    /// This is a refinement on `Down`.
+    ///
+    /// ## Examples
+    /// - hot-swap module is currently not installed
+    /// - pre-configured interface is not yet installed
+    /// - an interface has been removed but is still configured
+    NotPresent = 6,
+    /// The interface is unable to pass packets.
+    /// This interface depends on one or more interfaces and at least one of these interfaces prevents this interface from being `Up`.
+    ///
+    /// This is a refinement on `Down`.
+    ///
+    /// ## Examples
+    /// - a VPN interface depends on any physical interface being up but the physical interface is testing the cable to determine the available speed
+    /// - a single virtual interface that aggregates multiple physical interfaces but all physical interfaces are down
+    LowerLayerDown = 7,
+}
+
+impl fmt::Display for InterfaceOperationalState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // see /sys/class/net/<iface>/operstate section at https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-net
+        f.write_str(match self {
+            InterfaceOperationalState::Other => "other",
+            InterfaceOperationalState::Up => "up",
+            InterfaceOperationalState::Down => "down",
+            InterfaceOperationalState::Testing => "testing",
+            InterfaceOperationalState::Unknown => "unknown",
+            InterfaceOperationalState::Dormant => "dormant",
+            InterfaceOperationalState::NotPresent => "notpresent",
+            InterfaceOperationalState::LowerLayerDown => "lowerlayerdown",
+        })
+    }
+}
 
 #[cfg(test)]
 mod tests {
