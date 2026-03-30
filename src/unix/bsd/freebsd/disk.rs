@@ -394,7 +394,9 @@ pub unsafe fn get_all_list(
         if mount_point == "/boot/efi" {
             continue;
         }
-        let name = if mount_point == "/" {
+        let name = if &fs_type[..] == b"zfs" {
+            OsString::from(c_buf_to_utf8_str(&fs_info.f_mntfromname).unwrap_or("")) // add zfs ds
+        } else if mount_point == "/" {
             OsString::from("root")
         } else {
             OsString::from(mount_point)
