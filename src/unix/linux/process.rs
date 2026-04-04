@@ -414,7 +414,11 @@ unsafe impl<T> Sync for Wrap<'_, T> {}
 
 #[inline(always)]
 fn start_time_raw(parts: &Parts<'_>) -> u64 {
-    u64::from_str(parts.str_parts[ProcIndex::StartTime as usize]).unwrap_or(0)
+    parts
+        .str_parts
+        .get(ProcIndex::StartTime as usize)
+        .and_then(|part| u64::from_str(part).ok())
+        .unwrap_or(0)
 }
 
 #[inline(always)]
@@ -477,7 +481,7 @@ fn update_proc_info(
 ) {
     update_parent_pid(p, parent_pid, str_parts);
 
-    get_status(p, str_parts[ProcIndex::State as usize]);
+    get_status(p, str_parts.get(ProcIndex::State as usize).unwrap_or(&""));
     refresh_user_group_ids(p, proc_path, refresh_kind);
 
     if refresh_kind.exe().needs_update(|| p.exe.is_none()) {
@@ -530,8 +534,11 @@ fn update_proc_info(
 fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, str_parts: &[&str]) {
     p.parent = match parent_pid {
         Some(parent_pid) if parent_pid.0 != 0 => Some(parent_pid),
-        _ => match Pid::from_str(str_parts[ProcIndex::ParentPid as usize]) {
-            Ok(p) if p.0 != 0 => Some(p),
+        _ => match str_parts
+            .get(ProcIndex::ParentPid as usize)
+            .and_then(|part| Pid::from_str(part).ok())
+        {
+            Some(p) if p.0 != 0 => Some(p),
             _ => None,
         },
     };
@@ -559,9 +566,10 @@ fn retrieve_all_new_process_info(
         .saturating_add(info.boot_time);
 
     p.name = OsStr::from_bytes(name).to_os_string();
-    if c_ulong::from_str(parts.str_parts[ProcIndex::Flags as usize])
-        .map(|flags| flags & libc::PF_KTHREAD as c_ulong != 0)
-        .unwrap_or(false)
+    if let Some(part) = parts.str_parts.get(ProcIndex::Flags as usize)
+        && c_ulong::from_str(part)
+            .map(|flags| flags & libc::PF_KTHREAD as c_ulong != 0)
+            .unwrap_or(false)
     {
         p.thread_kind = Some(ThreadKind::Kernel);
     } else if parent_pid.is_some() {
@@ -672,12 +680,17 @@ pub(crate) fn _get_process_data(
 
 fn old_get_memory(entry: &mut ProcessInner, str_parts: &[&str], info: &SystemInfo) {
     // rss
-    entry.memory = u64::from_str(str_parts[ProcIndex::ResidentSetSize as usize])
+    entry.memory = str_parts
+        .get(ProcIndex::ResidentSetSize as usize)
+        .and_then(|part| u64::from_str(part).ok())
         .unwrap_or(0)
         .saturating_mul(info.page_size_b);
     // vsz correspond to the Virtual memory size in bytes.
     // see: https://man7.org/linux/man-pages/man5/proc.5.html
-    entry.virtual_memory = u64::from_str(str_parts[ProcIndex::VirtualSize as usize]).unwrap_or(0);
+    entry.virtual_memory = str_parts
+        .get(ProcIndex::VirtualSize as usize)
+        .and_then(|part| u64::from_str(part).ok())
+        .unwrap_or(0);
 }
 
 fn slice_to_nb(s: &[u8]) -> u64 {
@@ -741,8 +754,14 @@ fn update_time_and_memory(
         }
         set_time(
             entry,
-            u64::from_str(str_parts[ProcIndex::UserTime as usize]).unwrap_or(0),
-            u64::from_str(str_parts[ProcIndex::SystemTime as usize]).unwrap_or(0),
+            str_parts
+                .get(ProcIndex::UserTime as usize)
+                .and_then(|part| u64::from_str(part).ok())
+                .unwrap_or(0),
+            str_parts
+                .get(ProcIndex::SystemTime as usize)
+                .and_then(|part| u64::from_str(part).ok())
+                .unwrap_or(0),
         );
         entry.run_time = uptime.saturating_sub(entry.start_time_without_boot_time);
     }
