@@ -306,10 +306,14 @@ pub(crate) fn update_cpu_usage<F: FnOnce(Arc<CpuData>, *mut i32) -> (f32, usize)
             &mut cpu_info as *mut *mut i32,
             &mut num_cpu_info as *mut u32,
         ) == libc::KERN_SUCCESS
+            && num_cpu_info > 0
+            && !cpu_info.is_null()
         {
             let (total_percentage, len) =
                 f(Arc::new(CpuData::new(cpu_info, num_cpu_info)), cpu_info);
             total_cpu_usage = total_percentage / len as f32;
+        } else {
+            sysinfo_debug!("host_processor_info failed, not updating CPU ticks usage...");
         }
         global_cpu.set_cpu_usage(total_cpu_usage);
     }
