@@ -171,11 +171,13 @@ fn read_v2_memory_max(filename: &Path) -> u64 {
         return u64::MAX;
     }
 
-    let result = u64::from_str(content).ok();
-    if result.is_none() {
-        sysinfo_debug!("Failed to read u64 in filename {filename:?}");
+    match u64::from_str(content).ok() {
+        Some(value) => value,
+        None => {
+            sysinfo_debug!("Failed to read u64 in filename {filename:?}");
+            u64::MAX
+        }
     }
-    result.unwrap_or(u64::MAX)
 }
 
 fn read_u64(filename: &Path) -> Option<u64> {
