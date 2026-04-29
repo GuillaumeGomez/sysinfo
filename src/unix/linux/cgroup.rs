@@ -14,23 +14,30 @@ struct CGroupLimitsContext {
 }
 
 pub(crate) fn limits_for_system() -> Option<crate::CGroupLimits> {
-    limits_for_base(
-        Path::new("/sys/fs/cgroup"),
-        Path::new("/sys/fs/cgroup/memory"),
-    )
+    let v2_base = Path::new("/sys/fs/cgroup");
+    let v1_base = Path::new("/sys/fs/cgroup/memory");
+
+    limits_for_base(v2_base, v2_base, v1_base, v1_base)
 }
 
 pub(crate) fn limits_for_process(proc_path: &Path) -> Option<crate::CGroupLimits> {
     let cgroup_path = get_cgroup_path(&proc_path.join("cgroup"))?;
-    let v2_base = Path::new("/sys/fs/cgroup").join(&cgroup_path);
-    let v1_base = Path::new("/sys/fs/cgroup/memory").join(&cgroup_path);
+    let v2_root = Path::new("/sys/fs/cgroup");
+    let v1_root = Path::new("/sys/fs/cgroup/memory");
+    let v2_base = v2_root.join(&cgroup_path);
+    let v1_base = v1_root.join(&cgroup_path);
 
-    limits_for_base(&v2_base, &v1_base)
+    limits_for_base(&v2_base, v2_root, &v1_base, v1_root)
 }
 
-fn limits_for_base(v2_base: &Path, v1_base: &Path) -> Option<crate::CGroupLimits> {
+fn limits_for_base(
+    v2_base: &Path,
+    v2_root: &Path,
+    v1_base: &Path,
+    v1_root: &Path,
+) -> Option<crate::CGroupLimits> {
     let context = read_cgroup_limits_context()?;
-    new_v2(v2_base, context).or_else(|| new_v1(v1_base, context))
+    v2_limits(v2_base, v2_root, context).or_else(|| v1_limits(v1_base, v1_root, context))
 }
 
 fn read_cgroup_limits_context() -> Option<CGroupLimitsContext> {
@@ -55,19 +62,29 @@ fn read_cgroup_limits_context() -> Option<CGroupLimitsContext> {
     })
 }
 
-fn new_v2(base: &Path, context: CGroupLimitsContext) -> Option<crate::CGroupLimits> {
-    let mem_cur = read_u64(&base.join("memory.current"))?;
-    // `memory.max` contains `max` when no limit is set.
-    let mem_max = read_u64(&base.join("memory.max")).or(Some(u64::MAX))?;
+fn v2_limits(
+    base: &Path,
+    root: &Path,
+    context: CGroupLimitsContext,
+) -> Option<crate::CGroupLimits> {
+    let mem_max = read_v2_memory_max(&base.join("memory.max"));
+    let (total_memory, free_memory) = memory_limits(
+        base,
+        root,
+        "memory.max",
+        "memory.current",
+        context.mem_total,
+        mem_max,
+        read_v2_memory_max,
+    )?;
     let mem_rss = read_table_key(&base.join("memory.stat"), "anon", ' ')?;
 
     let mut limits = crate::CGroupLimits {
-        total_memory: min(mem_max, context.mem_total),
-        free_memory: 0,
+        total_memory,
+        free_memory,
         free_swap: context.swap_free,
         rss: mem_rss,
     };
-    limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
 
     if let Some(swap_cur) = read_u64(&base.join("memory.swap.current")) {
         limits.free_swap = context.swap_total.saturating_sub(swap_cur);
@@ -76,20 +93,89 @@ fn new_v2(base: &Path, context: CGroupLimitsContext) -> Option<crate::CGroupLimi
     Some(limits)
 }
 
-fn new_v1(base: &Path, context: CGroupLimitsContext) -> Option<crate::CGroupLimits> {
-    let mem_cur = read_u64(&base.join("memory.usage_in_bytes"))?;
+fn v1_limits(
+    base: &Path,
+    root: &Path,
+    context: CGroupLimitsContext,
+) -> Option<crate::CGroupLimits> {
     let mem_max = read_u64(&base.join("memory.limit_in_bytes"))?;
+    let (total_memory, free_memory) = memory_limits(
+        base,
+        root,
+        "memory.limit_in_bytes",
+        "memory.usage_in_bytes",
+        context.mem_total,
+        mem_max,
+        |path| read_u64(path).unwrap_or(u64::MAX),
+    )?;
     let mem_rss = read_table_key(&base.join("memory.stat"), "total_rss", ' ')?;
 
-    let mut limits = crate::CGroupLimits {
-        total_memory: min(mem_max, context.mem_total),
-        free_memory: 0,
+    Some(crate::CGroupLimits {
+        total_memory,
+        free_memory,
         free_swap: context.swap_free,
         rss: mem_rss,
-    };
+    })
+}
 
-    limits.free_memory = limits.total_memory.saturating_sub(mem_cur);
-    Some(limits)
+fn memory_limits<F>(
+    base: &Path,
+    root: &Path,
+    limit_file: &str,
+    usage_file: &str,
+    mem_total: u64,
+    base_limit: u64,
+    mut read_limit: F,
+) -> Option<(u64, u64)>
+where
+    F: FnMut(&Path) -> u64,
+{
+    let mem_cur = read_u64(&base.join(usage_file))?;
+    let mut total_memory = mem_total;
+    let mut free_memory = mem_total.saturating_sub(mem_cur);
+
+    for (pos, path) in base.ancestors().enumerate() {
+        let is_base = pos == 0;
+        let mem_max = if is_base {
+            base_limit
+        } else {
+            read_limit(&path.join(limit_file))
+        };
+        if mem_max <= mem_total {
+            let mem_cur = if is_base {
+                mem_cur
+            } else {
+                read_u64(&path.join(usage_file))?
+            };
+            total_memory = min(total_memory, mem_max);
+            free_memory = min(free_memory, mem_max.saturating_sub(mem_cur));
+        }
+        if path == root {
+            return Some((total_memory, free_memory));
+        }
+    }
+
+    None
+}
+
+fn read_v2_memory_max(filename: &Path) -> u64 {
+    let content = match get_all_utf8_data(filename, 16_635) {
+        Ok(content) => content,
+        Err(_) => {
+            sysinfo_debug!("Failed to read u64 in filename {filename:?}");
+            return u64::MAX;
+        }
+    };
+    let content = content.trim();
+    if content == "max" {
+        return u64::MAX;
+    }
+
+    let result = u64::from_str(content).ok();
+    if result.is_none() {
+        sysinfo_debug!("Failed to read u64 in filename {filename:?}");
+    }
+    result.unwrap_or(u64::MAX)
 }
 
 fn read_u64(filename: &Path) -> Option<u64> {
@@ -166,13 +252,17 @@ fn parse_cgroup_path(content: &str) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod test {
+    use super::CGroupLimitsContext;
     use super::parse_cgroup_path;
     use super::read_table;
     use super::read_table_key;
+    use super::v1_limits;
+    use super::v2_limits;
     use std::collections::HashMap;
+    use std::fs::{create_dir_all, write};
     use std::io::Write;
     use std::path::{Path, PathBuf};
-    use tempfile::NamedTempFile;
+    use tempfile::{NamedTempFile, tempdir};
 
     #[test]
     fn test_read_table() {
@@ -254,6 +344,100 @@ mod test {
             read_table_key(Path::new("/nonexistent/file"), "KEY1", ':'),
             None
         );
+    }
+
+    #[test]
+    fn test_v2_parent_limit() {
+        let root = tempdir().unwrap();
+        let parent = root.path().join("parent");
+        let child = parent.join("child");
+
+        create_dir_all(&child).unwrap();
+        write(root.path().join("memory.max"), "max").unwrap();
+        write(parent.join("memory.max"), "500").unwrap();
+        write(parent.join("memory.current"), "350").unwrap();
+        write(child.join("memory.max"), "max").unwrap();
+        write(child.join("memory.current"), "100").unwrap();
+        write(child.join("memory.stat"), "anon 30\n").unwrap();
+
+        let limits = v2_limits(
+            &child,
+            root.path(),
+            CGroupLimitsContext {
+                mem_total: 2000,
+                swap_total: 1000,
+                swap_free: 700,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(limits.total_memory, 500);
+        assert_eq!(limits.free_memory, 150);
+        assert_eq!(limits.free_swap, 700);
+        assert_eq!(limits.rss, 30);
+    }
+
+    #[test]
+    fn test_v2_parent_free_memory() {
+        let root = tempdir().unwrap();
+        let parent = root.path().join("parent");
+        let child = parent.join("child");
+
+        create_dir_all(&child).unwrap();
+        write(root.path().join("memory.max"), "max").unwrap();
+        write(parent.join("memory.max"), "500").unwrap();
+        write(parent.join("memory.current"), "450").unwrap();
+        write(child.join("memory.max"), "200").unwrap();
+        write(child.join("memory.current"), "100").unwrap();
+        write(child.join("memory.stat"), "anon 30\n").unwrap();
+
+        let limits = v2_limits(
+            &child,
+            root.path(),
+            CGroupLimitsContext {
+                mem_total: 2000,
+                swap_total: 1000,
+                swap_free: 700,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(limits.total_memory, 200);
+        assert_eq!(limits.free_memory, 50);
+    }
+
+    #[test]
+    fn test_v1_parent_limit() {
+        let root = tempdir().unwrap();
+        let parent = root.path().join("parent");
+        let child = parent.join("child");
+
+        create_dir_all(&child).unwrap();
+        write(
+            root.path().join("memory.limit_in_bytes"),
+            u64::MAX.to_string(),
+        )
+        .unwrap();
+        write(parent.join("memory.limit_in_bytes"), "500").unwrap();
+        write(parent.join("memory.usage_in_bytes"), "350").unwrap();
+        write(child.join("memory.limit_in_bytes"), u64::MAX.to_string()).unwrap();
+        write(child.join("memory.usage_in_bytes"), "100").unwrap();
+        write(child.join("memory.stat"), "total_rss 30\n").unwrap();
+
+        let limits = v1_limits(
+            &child,
+            root.path(),
+            CGroupLimitsContext {
+                mem_total: 2000,
+                swap_total: 1000,
+                swap_free: 700,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(limits.total_memory, 500);
+        assert_eq!(limits.free_memory, 150);
+        assert_eq!(limits.rss, 30);
     }
 
     #[test]
