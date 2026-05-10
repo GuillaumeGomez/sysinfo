@@ -364,8 +364,7 @@ mod test {
                 fs::write(stats.join(f), rx).expect("failed to write stats");
             }
 
-            fs::write(dir.path().join(name).join("mtu"), "1500")
-                .expect("failed to write mtu");
+            fs::write(dir.path().join(name).join("mtu"), "1500").expect("failed to write mtu");
 
             fs::write(dir.path().join(name).join("operstate"), "up\n")
                 .expect("failed to write operstate");
