@@ -75,7 +75,8 @@ fn refresh_networks_list_from_sysfs(
     sysfs_net: &Path,
 ) {
     if let Ok(dir) = std::fs::read_dir(sysfs_net) {
-        let mut num_buf = [0u8; 32];
+        // ilog10 gives number of digits minus one; the extra +1 is for the newline character.
+        let mut num_buf = [0u8; u64::MAX.ilog(10) as usize + 2];
         let mut str_buf = Vec::with_capacity(32);
 
         for stats in interfaces.values_mut() {
@@ -351,6 +352,7 @@ mod test {
             ("if_a", "100"),
             ("if_b", "1234567890123"),
             ("if_c", "9876543210987"),
+            ("if_d", "18446744073709551615"),
         ] {
             let stats = dir.path().join(name).join("statistics");
 
@@ -387,8 +389,9 @@ mod test {
             interfaces.get("if_c").unwrap().inner.rx_bytes,
             9_876_543_210_987
         );
+        assert_eq!(interfaces.get("if_d").unwrap().inner.rx_bytes, u64::MAX);
 
-        for name in ["if_a", "if_b", "if_c"] {
+        for name in ["if_a", "if_b", "if_c", "if_d"] {
             let interface = interfaces.get(name).unwrap();
             assert_eq!(interface.inner.mtu, 1500, "{name}: mtu");
         }
