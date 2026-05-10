@@ -22,6 +22,7 @@ macro_rules! old_and_new {
 
 #[allow(clippy::ptr_arg)]
 fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
+    data.resize(30, 0);
     if let Ok(mut f) = File::open(parent.as_ref().join(path))
         && let Ok(size) = f.read(data)
     {
@@ -337,5 +338,57 @@ mod test {
 
         refresh_networks_list_from_sysfs(&mut interfaces, true, sys_net_dir.path());
         assert_eq!(interfaces.keys().collect::<Vec<_>>(), ["itf2"]);
+    }
+
+    #[test]
+    fn refresh_networks_list_with_multiple_interfaces() {
+        let dir = tempfile::tempdir().expect("failed to create temporary directory");
+
+        for (name, rx) in [
+            ("if_a", "100"),
+            ("if_b", "1234567890123"),
+            ("if_c", "9876543210987"),
+        ] {
+            let stats = dir.path().join(name).join("statistics");
+
+            fs::create_dir_all(&stats).expect("failed to create statistics dir");
+
+            for f in &[
+                "rx_bytes",
+                "tx_bytes",
+                "rx_packets",
+                "tx_packets",
+                "rx_errors",
+                "tx_errors",
+            ] {
+                fs::write(stats.join(f), rx).expect("failed to write stats");
+            }
+
+            fs::write(dir.path().join(name).join("mtu"), "1500")
+                .expect("failed to write mtu");
+
+            fs::write(dir.path().join(name).join("operstate"), "up\n")
+                .expect("failed to write operstate");
+        }
+
+        let mut interfaces = HashMap::new();
+
+        refresh_networks_list_from_sysfs(&mut interfaces, false, dir.path());
+        refresh_networks_list_from_sysfs(&mut interfaces, false, dir.path());
+
+        assert_eq!(interfaces.get("if_a").unwrap().inner.rx_bytes, 100);
+        assert_eq!(
+            interfaces.get("if_b").unwrap().inner.rx_bytes,
+            1_234_567_890_123
+        );
+        assert_eq!(
+            interfaces.get("if_c").unwrap().inner.rx_bytes,
+            9_876_543_210_987
+        );
+
+        for name in ["if_a", "if_b", "if_c"] {
+            let interface = interfaces.get(name).unwrap();
+            assert_eq!(interface.inner.mtu, 1500, "{name}: mtu");
+        }
     }
 }
