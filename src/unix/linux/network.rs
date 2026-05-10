@@ -20,9 +20,7 @@ macro_rules! old_and_new {
     }};
 }
 
-#[allow(clippy::ptr_arg)]
-fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
-    data.resize(30, 0);
+fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut [u8]) -> u64 {
     if let Ok(mut f) = File::open(parent.as_ref().join(path))
         && let Ok(size) = f.read(data)
     {
@@ -39,6 +37,10 @@ fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut Vec<u8>) -> u64 {
     0
 }
 
+// `read_str` clears and refills the Vec, so its length becomes the length of
+// the string just read. For example, reading "up\n" leaves the Vec length at 3.
+// Keep this buffer separate from numeric read buffers, otherwise counters could
+// be truncated to a few bytes.
 #[allow(clippy::ptr_arg)]
 fn read_str<'data, P: AsRef<Path>>(parent: P, path: &str, data: &'data mut Vec<u8>) -> &'data [u8] {
     data.clear();
@@ -73,7 +75,8 @@ fn refresh_networks_list_from_sysfs(
     sysfs_net: &Path,
 ) {
     if let Ok(dir) = std::fs::read_dir(sysfs_net) {
-        let mut data = vec![0; 30];
+        let mut num_buf = [0u8; 32];
+        let mut str_buf = Vec::with_capacity(32);
 
         for stats in interfaces.values_mut() {
             stats.inner.updated = false;
@@ -86,18 +89,18 @@ fn refresh_networks_list_from_sysfs(
                 Ok(entry) => entry,
                 Err(_) => continue,
             };
-            let rx_bytes = read(parent, "rx_bytes", &mut data);
-            let tx_bytes = read(parent, "tx_bytes", &mut data);
-            let rx_packets = read(parent, "rx_packets", &mut data);
-            let tx_packets = read(parent, "tx_packets", &mut data);
-            let rx_errors = read(parent, "rx_errors", &mut data);
-            let tx_errors = read(parent, "tx_errors", &mut data);
-            // let rx_compressed = read(parent, "rx_compressed", &mut data);
-            // let tx_compressed = read(parent, "tx_compressed", &mut data);
-            let mtu = read(entry_path, "mtu", &mut data);
+            let rx_bytes = read(parent, "rx_bytes", &mut num_buf);
+            let tx_bytes = read(parent, "tx_bytes", &mut num_buf);
+            let rx_packets = read(parent, "rx_packets", &mut num_buf);
+            let tx_packets = read(parent, "tx_packets", &mut num_buf);
+            let rx_errors = read(parent, "rx_errors", &mut num_buf);
+            let tx_errors = read(parent, "tx_errors", &mut num_buf);
+            // let rx_compressed = read(parent, "rx_compressed", &mut num_buf);
+            // let tx_compressed = read(parent, "tx_compressed", &mut num_buf);
+            let mtu = read(entry_path, "mtu", &mut num_buf);
 
             let operational_state = InterfaceOperationalState::from_data(
-                read_str(entry_path, "operstate", &mut data).trim_ascii(),
+                read_str(entry_path, "operstate", &mut str_buf).trim_ascii(),
             );
 
             match interfaces.entry(entry) {
