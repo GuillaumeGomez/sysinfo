@@ -1,3 +1,7 @@
+# 0.39.1
+
+ * Linux: Fix wrong network numbers computation.
+
 # 0.39.0
 
  * Update minimum supported rust version to `1.95`.
