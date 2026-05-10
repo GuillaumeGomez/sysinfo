@@ -109,6 +109,7 @@ pub(crate) use crate::sys::{DiskInner, DisksInner};
 #[cfg(feature = "network")]
 pub(crate) use crate::sys::{NetworkDataInner, NetworksInner};
 
+pub use crate::errors::Error;
 pub use crate::sys::IS_SUPPORTED_SYSTEM;
 
 #[cfg(feature = "c-interface")]
@@ -118,6 +119,7 @@ pub use crate::c_interface::*;
 mod c_interface;
 mod common;
 mod debug;
+mod errors;
 #[cfg(feature = "serde")]
 mod serde;
 pub(crate) mod utils;
