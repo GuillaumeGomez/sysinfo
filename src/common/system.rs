@@ -648,9 +648,12 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// println!("System running since {} seconds", System::uptime());
+    /// match System::uptime() {
+    ///     Ok(uptime) => println!("System running since {uptime} seconds"),
+    ///     Err(error) => eprintln!("Failed to get `uptime`: {error}"),
+    /// }
     /// ```
-    pub fn uptime() -> u64 {
+    pub fn uptime() -> Result<u64, crate::Error> {
         SystemInner::uptime()
     }
 
@@ -661,9 +664,12 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// println!("System booted at {} seconds", System::boot_time());
+    /// match System::boot_time() {
+    ///     Ok(boot_time) => println!("System booted at {boot_time} seconds"),
+    ///     Err(error) => eprintln!("Failed to get `boot_time`: {error}"),
+    /// }
     /// ```
-    pub fn boot_time() -> u64 {
+    pub fn boot_time() -> Result<u64, crate::Error> {
         SystemInner::boot_time()
     }
 
@@ -676,15 +682,19 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let load_avg = System::load_average();
-    /// println!(
-    ///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
-    ///     load_avg.one,
-    ///     load_avg.five,
-    ///     load_avg.fifteen,
-    /// );
+    /// match System::load_average() {
+    ///     Ok(load_avg) => {
+    ///         println!(
+    ///             "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
+    ///             load_avg.one,
+    ///             load_avg.five,
+    ///             load_avg.fifteen,
+    ///         );
+    ///     }
+    ///     Err(error) => eprintln!("Failed to get `load_average`: {error}"),
+    /// }
     /// ```
-    pub fn load_average() -> LoadAvg {
+    pub fn load_average() -> Result<LoadAvg, crate::Error> {
         SystemInner::load_average()
     }
 
@@ -1178,13 +1188,17 @@ impl Product {
 /// ```no_run
 /// use sysinfo::System;
 ///
-/// let load_avg = System::load_average();
-/// println!(
-///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
-///     load_avg.one,
-///     load_avg.five,
-///     load_avg.fifteen,
-/// );
+/// match System::load_average() {
+///     Ok(load_avg) => {
+///         println!(
+///             "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
+///             load_avg.one,
+///             load_avg.five,
+///             load_avg.fifteen,
+///         );
+///     }
+///     Err(error) => eprintln!("Failed to get `load_average`: {error}"),
+/// }
 /// ```
 #[repr(C)]
 #[derive(Default, Debug, Clone)]

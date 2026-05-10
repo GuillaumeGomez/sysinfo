@@ -113,7 +113,7 @@ pub const SUPPORTED_SIGNALS: &[crate::Signal] = supported_signals();
 #[doc = include_str!("../../../md_doc/minimum_cpu_update_interval.md")]
 pub const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
 
-fn boot_time() -> u64 {
+fn boot_time() -> Result<u64, crate::Error> {
     if let Ok(buf) = File::open("/proc/stat").and_then(|mut f| {
         let mut buf = Vec::new();
         f.read_to_end(&mut buf)?;
@@ -121,23 +121,25 @@ fn boot_time() -> u64 {
     }) {
         let line = buf.split(|c| *c == b'\n').find(|l| l.starts_with(b"btime"));
 
-        if let Some(line) = line {
-            return line
+        if let Some(line) = line
+            && let Some(btime) = line
                 .split(|x| *x == b' ')
                 .filter(|s| !s.is_empty())
                 .nth(1)
                 .map(to_u64)
-                .unwrap_or(0);
+        {
+            return Ok(btime);
         }
     }
     // Either we didn't find "btime" or "/proc/stat" wasn't available for some reason...
     unsafe {
         let mut up: libc::timespec = std::mem::zeroed();
         if libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut up) == 0 {
-            up.tv_sec as u64
+            Ok(up.tv_sec as u64)
         } else {
-            sysinfo_debug!("clock_gettime failed: boot time cannot be retrieve...");
-            0
+            Err(crate::Error::from(
+                "clock_gettime failed: boot time cannot be retrieved",
+            ))
         }
     }
 }
@@ -154,7 +156,7 @@ impl SystemInfo {
             Self {
                 page_size_b: sysconf(_SC_PAGESIZE) as _,
                 clock_cycle: sysconf(_SC_CLK_TCK) as _,
-                boot_time: boot_time(),
+                boot_time: boot_time().unwrap_or(0),
             }
         }
     }
@@ -280,7 +282,7 @@ impl SystemInner {
         processes_to_update: ProcessesToUpdate<'_>,
         refresh_kind: ProcessRefreshKind,
     ) -> usize {
-        let uptime = Self::uptime();
+        let uptime = Self::uptime().unwrap_or(0);
         let nb_updated = refresh_procs(
             &mut self.process_list,
             Path::new("/proc"),
@@ -346,46 +348,43 @@ impl SystemInner {
         self.swap_total - self.swap_free
     }
 
-    pub(crate) fn uptime() -> u64 {
+    pub(crate) fn uptime() -> Result<u64, crate::Error> {
         if cfg!(not(target_os = "android"))
             && let Ok(content) = get_all_utf8_data("/proc/uptime", 50)
             && let Some(uptime) = content.split('.').next().and_then(|t| t.parse().ok())
         {
-            return uptime;
+            Ok(uptime)
+        } else {
+            Self::uptime_with_sysinfo()
         }
-        Self::uptime_with_sysinfo()
     }
 
-    fn uptime_with_sysinfo() -> u64 {
+    fn uptime_with_sysinfo() -> Result<u64, crate::Error> {
         unsafe {
             let mut s = MaybeUninit::<libc::sysinfo>::uninit();
             if libc::sysinfo(s.as_mut_ptr()) != 0 {
-                return 0;
+                Err(crate::Error::from("sysinfo call failed"))
+            } else {
+                let s = s.assume_init();
+                Ok(if s.uptime < 1 { 0 } else { s.uptime as u64 })
             }
-            let s = s.assume_init();
-            if s.uptime < 1 { 0 } else { s.uptime as u64 }
         }
     }
 
-    pub(crate) fn boot_time() -> u64 {
+    pub(crate) fn boot_time() -> Result<u64, crate::Error> {
         boot_time()
     }
 
-    pub(crate) fn load_average() -> LoadAvg {
+    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
         let mut s = String::new();
-        if File::open("/proc/loadavg")
-            .and_then(|mut f| f.read_to_string(&mut s))
-            .is_err()
-        {
-            return LoadAvg::default();
-        }
+        File::open("/proc/loadavg").and_then(|mut f| f.read_to_string(&mut s))?;
         let loads = s
             .trim()
             .split(' ')
             .take(3)
             .filter_map(|val| val.parse::<f64>().ok())
             .collect::<Vec<f64>>();
-        match *loads.as_slice() {
+        Ok(match *loads.as_slice() {
             [one, five, fifteen, ..] => LoadAvg { one, five, fifteen },
             [one, five] => LoadAvg {
                 one,
@@ -402,7 +401,7 @@ impl SystemInner {
                 five: 0.,
                 fifteen: 0.,
             },
-        }
+        })
     }
 
     #[cfg(not(target_os = "android"))]

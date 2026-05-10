@@ -138,26 +138,29 @@ impl SystemInner {
         self.swap_used
     }
 
-    pub(crate) fn uptime() -> u64 {
+    pub(crate) fn uptime() -> Result<u64, crate::Error> {
         unsafe {
             let csec = libc::time(std::ptr::null_mut());
 
-            libc::difftime(csec, Self::boot_time() as _) as u64
+            Ok(libc::difftime(csec, Self::boot_time()? as _) as u64)
         }
     }
 
-    pub(crate) fn boot_time() -> u64 {
+    pub(crate) fn boot_time() -> Result<u64, crate::Error> {
         boot_time()
     }
 
-    pub(crate) fn load_average() -> LoadAvg {
+    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
         let mut loads = vec![0f64; 3];
         unsafe {
-            libc::getloadavg(loads.as_mut_ptr(), 3);
-            LoadAvg {
-                one: loads[0],
-                five: loads[1],
-                fifteen: loads[2],
+            if libc::getloadavg(loads.as_mut_ptr(), 3) == -1 {
+                Err(crate::Error::from("getloadavg failed"))
+            } else {
+                Ok(LoadAvg {
+                    one: loads[0],
+                    five: loads[1],
+                    fifteen: loads[2],
+                })
             }
         }
     }

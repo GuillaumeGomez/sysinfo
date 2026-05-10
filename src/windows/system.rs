@@ -56,21 +56,16 @@ impl SystemInner {
 /// Uses nanoseconds throughout to avoid rounding errors in uptime calculation,
 /// converting to seconds only at the end for stable results. Result is capped
 /// within u64 limits to handle edge cases.
-unsafe fn boot_time() -> u64 {
-    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => {
-            let system_time_ns = n.as_nanos();
-            // milliseconds to nanoseconds
-            let tick_count_ns = unsafe { GetTickCount64() } as u128 * 1_000_000;
-            // nanoseconds to seconds
-            let boot_time_sec = system_time_ns.saturating_sub(tick_count_ns) / 1_000_000_000;
-            boot_time_sec.try_into().unwrap_or(u64::MAX)
-        }
-        Err(_e) => {
-            sysinfo_debug!("Failed to compute boot time: {:?}", _e);
-            0
-        }
-    }
+unsafe fn boot_time() -> Result<u64, crate::Error> {
+    let n = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_err(|err| crate::Error::Other(Box::new(err)))?;
+    let system_time_ns = n.as_nanos();
+    // milliseconds to nanoseconds
+    let tick_count_ns = unsafe { GetTickCount64() } as u128 * 1_000_000;
+    // nanoseconds to seconds
+    let boot_time_sec = system_time_ns.saturating_sub(tick_count_ns) / 1_000_000_000;
+    Ok(boot_time_sec.try_into().unwrap_or(u64::MAX))
 }
 
 pub(crate) struct SystemInner {
@@ -348,15 +343,15 @@ impl SystemInner {
         self.swap_used
     }
 
-    pub(crate) fn uptime() -> u64 {
-        unsafe { GetTickCount64() / 1_000 }
+    pub(crate) fn uptime() -> Result<u64, crate::Error> {
+        unsafe { Ok(GetTickCount64() / 1_000) }
     }
 
-    pub(crate) fn boot_time() -> u64 {
+    pub(crate) fn boot_time() -> Result<u64, crate::Error> {
         unsafe { boot_time() }
     }
 
-    pub(crate) fn load_average() -> LoadAvg {
+    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
         get_load_average()
     }
 
