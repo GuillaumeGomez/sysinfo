@@ -107,12 +107,8 @@ impl SystemInner {
         0
     }
 
-    pub(crate) fn load_average() -> LoadAvg {
-        LoadAvg {
-            one: 0.,
-            five: 0.,
-            fifteen: 0.,
-        }
+    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
+        Err(crate::Error::Unsupported)
     }
 
     pub(crate) fn name() -> Option<String> {

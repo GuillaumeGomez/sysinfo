@@ -371,21 +371,16 @@ impl SystemInner {
         boot_time()
     }
 
-    pub(crate) fn load_average() -> LoadAvg {
+    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
         let mut s = String::new();
-        if File::open("/proc/loadavg")
-            .and_then(|mut f| f.read_to_string(&mut s))
-            .is_err()
-        {
-            return LoadAvg::default();
-        }
+        File::open("/proc/loadavg").and_then(|mut f| f.read_to_string(&mut s))?;
         let loads = s
             .trim()
             .split(' ')
             .take(3)
             .filter_map(|val| val.parse::<f64>().ok())
             .collect::<Vec<f64>>();
-        match *loads.as_slice() {
+        Ok(match *loads.as_slice() {
             [one, five, fifteen, ..] => LoadAvg { one, five, fifteen },
             [one, five] => LoadAvg {
                 one,
@@ -402,7 +397,7 @@ impl SystemInner {
                 five: 0.,
                 fifteen: 0.,
             },
-        }
+        })
     }
 
     #[cfg(not(target_os = "android"))]

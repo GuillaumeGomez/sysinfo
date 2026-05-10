@@ -45,13 +45,16 @@ fn load_avg() -> &'static Mutex<Option<LoadAvg>> {
     LOAD_AVG.get_or_init(|| unsafe { init_load_avg() })
 }
 
-pub(crate) fn get_load_average() -> LoadAvg {
+pub(crate) fn get_load_average() -> Result<LoadAvg, crate::Error> {
     if let Ok(avg) = load_avg().lock()
         && let Some(avg) = &*avg
     {
-        return avg.clone();
+        Ok(avg.clone())
+    } else {
+        Err(crate::Error::from(
+            "failed to lock mutex to get load average",
+        ))
     }
-    LoadAvg::default()
 }
 
 unsafe extern "system" fn load_avg_callback(counter: *mut c_void, _: bool) {

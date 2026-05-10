@@ -356,7 +356,7 @@ impl SystemInner {
         unsafe { boot_time() }
     }
 
-    pub(crate) fn load_average() -> LoadAvg {
+    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
         get_load_average()
     }
 

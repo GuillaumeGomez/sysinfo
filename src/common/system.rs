@@ -676,15 +676,19 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let load_avg = System::load_average();
-    /// println!(
-    ///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
-    ///     load_avg.one,
-    ///     load_avg.five,
-    ///     load_avg.fifteen,
-    /// );
+    /// match System::load_average() {
+    ///     Ok(load_avg) => {
+    ///         println!(
+    ///             "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
+    ///             load_avg.one,
+    ///             load_avg.five,
+    ///             load_avg.fifteen,
+    ///         );
+    ///     }
+    ///     Err(error) => eprintln!("Failed to get `load_average`: {error}"),
+    /// }
     /// ```
-    pub fn load_average() -> LoadAvg {
+    pub fn load_average() -> Result<LoadAvg, crate::Error> {
         SystemInner::load_average()
     }
 
@@ -1178,13 +1182,17 @@ impl Product {
 /// ```no_run
 /// use sysinfo::System;
 ///
-/// let load_avg = System::load_average();
-/// println!(
-///     "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
-///     load_avg.one,
-///     load_avg.five,
-///     load_avg.fifteen,
-/// );
+/// match System::load_average() {
+///     Ok(load_avg) => {
+///         println!(
+///             "one minute: {}%, five minutes: {}%, fifteen minutes: {}%",
+///             load_avg.one,
+///             load_avg.five,
+///             load_avg.fifteen,
+///         );
+///     }
+///     Err(error) => eprintln!("Failed to get `load_average`: {error}"),
+/// }
 /// ```
 #[repr(C)]
 #[derive(Default, Debug, Clone)]

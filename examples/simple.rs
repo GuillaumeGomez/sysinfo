@@ -153,12 +153,16 @@ fn interpret_input(
         "brand" => {
             println!("brand: {}", sys.cpus()[0].brand());
         }
-        "load_avg" => {
-            let load_avg = System::load_average();
-            println!("one minute     : {}%", load_avg.one);
-            println!("five minutes   : {}%", load_avg.five);
-            println!("fifteen minutes: {}%", load_avg.fifteen);
-        }
+        "load_avg" => match System::load_average() {
+            Ok(load_avg) => {
+                println!("one minute     : {}%", load_avg.one);
+                println!("five minutes   : {}%", load_avg.five);
+                println!("fifteen minutes: {}%", load_avg.fifteen);
+            }
+            Err(error) => {
+                eprintln!("Failed to get `load_average`: {error}");
+            }
+        },
         e if e.starts_with("show ") => {
             let tmp: Vec<&str> = e.split(' ').filter(|s| !s.is_empty()).collect();
 

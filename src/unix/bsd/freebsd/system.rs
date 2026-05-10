@@ -150,14 +150,17 @@ impl SystemInner {
         boot_time()
     }
 
-    pub(crate) fn load_average() -> LoadAvg {
+    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
         let mut loads = vec![0f64; 3];
         unsafe {
-            libc::getloadavg(loads.as_mut_ptr(), 3);
-            LoadAvg {
-                one: loads[0],
-                five: loads[1],
-                fifteen: loads[2],
+            if libc::getloadavg(loads.as_mut_ptr(), 3) == -1 {
+                Err(crate::Error::from("getloadavg failed"))
+            } else {
+                Ok(LoadAvg {
+                    one: loads[0],
+                    five: loads[1],
+                    fifteen: loads[2],
+                })
             }
         }
     }
