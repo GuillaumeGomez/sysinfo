@@ -145,9 +145,9 @@ impl serde::Serialize for crate::System {
         state.serialize_field("free_swap", &self.free_swap())?;
         state.serialize_field("used_swap", &self.used_swap())?;
 
-        state.serialize_field("uptime", &Self::uptime())?;
-        state.serialize_field("boot_time", &Self::boot_time())?;
-        state.serialize_field("load_average", &Self::load_average())?;
+        state.serialize_field("uptime", &Self::uptime().ok())?;
+        state.serialize_field("boot_time", &Self::boot_time().ok())?;
+        state.serialize_field("load_average", &Self::load_average().ok())?;
         state.serialize_field("name", &Self::name())?;
         state.serialize_field("kernel_version", &Self::kernel_version())?;
         state.serialize_field("os_version", &Self::os_version())?;

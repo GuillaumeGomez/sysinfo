@@ -138,15 +138,15 @@ impl SystemInner {
         self.swap_used
     }
 
-    pub(crate) fn uptime() -> u64 {
+    pub(crate) fn uptime() -> Result<u64, crate::Error> {
         unsafe {
             let csec = libc::time(std::ptr::null_mut());
 
-            libc::difftime(csec, Self::boot_time() as _) as u64
+            Ok(libc::difftime(csec, Self::boot_time()? as _) as u64)
         }
     }
 
-    pub(crate) fn boot_time() -> u64 {
+    pub(crate) fn boot_time() -> Result<u64, crate::Error> {
         boot_time()
     }
 

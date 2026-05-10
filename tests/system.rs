@@ -113,15 +113,15 @@ fn check_uptime() {
     let uptime = System::uptime();
     if sysinfo::IS_SUPPORTED_SYSTEM {
         std::thread::sleep(std::time::Duration::from_millis(1000));
-        let new_uptime = System::uptime();
-        assert!(uptime < new_uptime);
+        let new_uptime = System::uptime().unwrap();
+        assert!(uptime.unwrap() < new_uptime);
     }
 }
 
 #[test]
 fn check_boot_time() {
     if sysinfo::IS_SUPPORTED_SYSTEM {
-        assert_ne!(System::boot_time(), 0);
+        assert_ne!(System::boot_time().unwrap(), 0);
     }
 }
 

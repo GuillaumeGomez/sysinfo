@@ -99,12 +99,12 @@ impl SystemInner {
         0
     }
 
-    pub(crate) fn uptime() -> u64 {
-        0
+    pub(crate) fn uptime() -> Result<u64, crate::Error> {
+        Err(crate::Error::Unsupported)
     }
 
-    pub(crate) fn boot_time() -> u64 {
-        0
+    pub(crate) fn boot_time() -> Result<u64, crate::Error> {
+        Err(crate::Error::Unsupported)
     }
 
     pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {

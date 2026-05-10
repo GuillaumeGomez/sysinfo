@@ -10,7 +10,7 @@ pub unsafe fn init_mib(name: &[u8], mib: &mut [libc::c_int]) {
 }
 
 #[cfg(feature = "system")]
-pub(crate) fn boot_time() -> u64 {
+pub(crate) fn boot_time() -> Result<u64, crate::Error> {
     let mut boot_time = libc::timeval {
         tv_sec: 0,
         tv_usec: 0,
@@ -27,9 +27,9 @@ pub(crate) fn boot_time() -> u64 {
             0,
         ) < 0
         {
-            0
+            Err(crate::Error::from("sysctl failed"))
         } else {
-            boot_time.tv_sec as _
+            Ok(boot_time.tv_sec as _)
         }
     }
 }

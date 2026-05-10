@@ -291,7 +291,7 @@ fn test_process_times() {
     if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
         return;
     }
-    let boot_time = System::boot_time();
+    let boot_time = System::boot_time().unwrap();
     assert!(boot_time > 0);
     let mut p = start_proc!("3", "ProcessTimes");
 

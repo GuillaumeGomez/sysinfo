@@ -273,19 +273,22 @@ fn interpret_input(
                 println!("{group:?}");
             }
         }
-        "boot_time" => {
-            println!("{} seconds", System::boot_time());
-        }
-        "uptime" => {
-            let up = System::uptime();
-            let mut uptime = up;
-            let days = uptime / 86400;
-            uptime -= days * 86400;
-            let hours = uptime / 3600;
-            uptime -= hours * 3600;
-            let minutes = uptime / 60;
-            println!("{days} days {hours} hours {minutes} minutes ({up} seconds in total)");
-        }
+        "boot_time" => match System::boot_time() {
+            Ok(boot_time) => println!("{boot_time} seconds"),
+            Err(error) => eprintln!("Failed to get `boot_time`: {error}"),
+        },
+        "uptime" => match System::uptime() {
+            Ok(up) => {
+                let mut uptime = up;
+                let days = uptime / 86400;
+                uptime -= days * 86400;
+                let hours = uptime / 3600;
+                uptime -= hours * 3600;
+                let minutes = uptime / 60;
+                println!("{days} days {hours} hours {minutes} minutes ({up} seconds in total)");
+            }
+            Err(error) => eprintln!("Failed to get `uptime`: {error}"),
+        },
         x if x.starts_with("refresh") => {
             if x == "refresh" {
                 println!("Getting processes' information...");

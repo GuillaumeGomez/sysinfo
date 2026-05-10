@@ -648,9 +648,12 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// println!("System running since {} seconds", System::uptime());
+    /// match System::uptime() {
+    ///     Ok(uptime) => println!("System running since {uptime} seconds"),
+    ///     Err(error) => eprintln!("Failed to get `uptime`: {error}"),
+    /// }
     /// ```
-    pub fn uptime() -> u64 {
+    pub fn uptime() -> Result<u64, crate::Error> {
         SystemInner::uptime()
     }
 
@@ -661,9 +664,12 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// println!("System booted at {} seconds", System::boot_time());
+    /// match System::boot_time() {
+    ///     Ok(boot_time) => println!("System booted at {boot_time} seconds"),
+    ///     Err(error) => eprintln!("Failed to get `boot_time`: {error}"),
+    /// }
     /// ```
-    pub fn boot_time() -> u64 {
+    pub fn boot_time() -> Result<u64, crate::Error> {
         SystemInner::boot_time()
     }
 

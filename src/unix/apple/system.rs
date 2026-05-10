@@ -96,7 +96,7 @@ unsafe impl Send for Wrap<'_> {}
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 unsafe impl Sync for Wrap<'_> {}
 
-fn boot_time() -> u64 {
+fn boot_time() -> Result<u64, crate::Error> {
     let mut boot_time = timeval {
         tv_sec: 0,
         tv_usec: 0,
@@ -114,9 +114,9 @@ fn boot_time() -> u64 {
             0,
         ) < 0
         {
-            0
+            Err(crate::Error::from("sysctl failed"))
         } else {
-            boot_time.tv_sec as _
+            Ok(boot_time.tv_sec as _)
         }
     }
 }
@@ -368,11 +368,11 @@ impl SystemInner {
         self.swap_total - self.swap_free
     }
 
-    pub(crate) fn uptime() -> u64 {
+    pub(crate) fn uptime() -> Result<u64, crate::Error> {
         unsafe {
             let csec = libc::time(::std::ptr::null_mut());
 
-            libc::difftime(csec, Self::boot_time() as _) as _
+            Ok(libc::difftime(csec, Self::boot_time()? as _) as _)
         }
     }
 
@@ -392,7 +392,7 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn boot_time() -> u64 {
+    pub(crate) fn boot_time() -> Result<u64, crate::Error> {
         boot_time()
     }
 
