@@ -545,6 +545,7 @@ fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, str_parts: &
 }
 
 fn retrieve_all_new_process_info(
+    is_thread: bool,
     pid: Pid,
     parent_pid: Option<Pid>,
     parts: &Parts<'_>,
@@ -572,7 +573,7 @@ fn retrieve_all_new_process_info(
             .unwrap_or(false)
     {
         p.thread_kind = Some(ThreadKind::Kernel);
-    } else if parent_pid.is_some() {
+    } else if is_thread {
         p.thread_kind = Some(ThreadKind::Userland);
     }
 
@@ -590,6 +591,7 @@ fn retrieve_all_new_process_info(
 }
 
 fn update_existing_process(
+    is_thread: bool,
     proc: &mut Process,
     parent_pid: Option<Pid>,
     uptime: u64,
@@ -625,6 +627,12 @@ fn update_existing_process(
     if start_time_raw == entry.start_time_raw {
         let mut proc_path = PathHandler::new(&entry.proc_path);
 
+        // If the entry was first discovered without thread info
+        // (e.g. in ProcessesToUpdate::All mode), fix its thread_kind now.
+        if is_thread && entry.thread_kind.is_none() {
+            entry.thread_kind = Some(ThreadKind::Userland);
+        }
+
         update_proc_info(
             entry,
             parent_pid,
@@ -640,6 +648,7 @@ fn update_existing_process(
     }
     // If we're here, it means that the PID still exists but it's a different process.
     let p = retrieve_all_new_process_info(
+        is_thread,
         entry.pid,
         parent_pid,
         &parts,
@@ -658,6 +667,7 @@ pub(crate) fn _get_process_data(
     path: &Path,
     proc_list: &mut HashMap<Pid, Process>,
     pid: Pid,
+    is_thread: bool,
     parent_pid: Option<Pid>,
     uptime: u64,
     info: &SystemInfo,
@@ -665,14 +675,14 @@ pub(crate) fn _get_process_data(
     tasks: Option<HashSet<Pid>>,
 ) -> Result<Option<Process>, ()> {
     if let Some(ref mut entry) = proc_list.get_mut(&pid) {
-        return update_existing_process(entry, parent_pid, uptime, info, refresh_kind, tasks);
+        return update_existing_process(is_thread, entry, parent_pid, uptime, info, refresh_kind, tasks);
     }
     let mut stat_file = None;
     let data = _get_stat_data(path, &mut stat_file)?;
     let parts = parse_stat_file(&data).ok_or(())?;
 
     let mut new_process =
-        retrieve_all_new_process_info(pid, parent_pid, &parts, path, info, refresh_kind, uptime);
+        retrieve_all_new_process_info(is_thread, pid, parent_pid, &parts, path, info, refresh_kind, uptime);
     new_process.inner.stat_file = stat_file;
     new_process.inner.tasks = tasks;
     Ok(Some(new_process))
@@ -772,6 +782,7 @@ struct ProcAndTasks {
     parent_pid: Option<Pid>,
     path: PathBuf,
     tasks: Option<HashSet<Pid>>,
+    is_thread: bool,
 }
 
 #[cfg(feature = "multithread")]
@@ -843,6 +854,7 @@ pub(crate) fn refresh_procs(
                     e.path.as_path(),
                     proc_list,
                     e.pid,
+                    e.is_thread,
                     e.parent_pid,
                     uptime,
                     info,
@@ -881,6 +893,7 @@ fn get_proc_and_tasks(
     processes_to_update: ProcessesToUpdate<'_>,
 ) -> Vec<ProcAndTasks> {
     let mut parent_pid = None;
+    let mut is_thread = false;
     let (mut procs, mut tasks) = if refresh_kind.tasks() {
         let procs = get_proc_tasks(&path, pid);
         let tasks = procs.iter().map(|ProcAndTasks { pid, .. }| *pid).collect();
@@ -890,20 +903,23 @@ fn get_proc_and_tasks(
         (Vec::new(), None)
     };
 
-    if processes_to_update != ProcessesToUpdate::All {
-        // If the process' tgid doesn't match its pid, it is a task
-        if let Some(tgid) = get_tgid(&path.join("status"))
-            && tgid != pid
-        {
-            parent_pid = Some(tgid);
-            tasks = None;
-        }
-
+    // If the process' tgid doesn't match its pid, it is a task (thread).
+    // This check must apply in ALL modes, not just `Some`.
+    if let Some(tgid) = get_tgid(&path.join("status"))
+        && tgid != pid
+    {
+        parent_pid = Some(tgid);
+        tasks = None;
+        is_thread = true;
+        // Threads don't have meaningful tasks, clear whatever was fetched.
+        procs.clear();
+    } else if processes_to_update != ProcessesToUpdate::All {
         // Don't add the tasks to the list of processes to update
         procs.clear();
     }
 
     procs.push(ProcAndTasks {
+        is_thread,
         pid,
         parent_pid,
         path,
@@ -925,6 +941,7 @@ fn get_proc_tasks(path: &Path, parent_pid: Pid) -> Vec<ProcAndTasks> {
                 .filter(|(_, pid)| *pid != parent_pid)
                 .map(|(path, pid)| ProcAndTasks {
                     pid,
+                    is_thread: true,
                     path,
                     parent_pid: Some(parent_pid),
                     tasks: None,
