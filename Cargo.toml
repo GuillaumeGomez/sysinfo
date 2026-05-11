@@ -147,6 +147,11 @@ objc2-io-kit = { version = "0.3.2", optional = true, default-features = false, f
     "std",
     "libc",
 ] }
+
+# OpenDirectory framework is macOS-only; binding it on iOS triggers a linker
+# error (`framework 'OpenDirectory' not found`) because the framework does not
+# ship on iOS.
+[target.'cfg(target_os = "macos")'.dependencies]
 objc2-open-directory = { version = "0.3.2", optional = true, default-features = false, features = [
     "objc2-core-foundation",
     "std",
