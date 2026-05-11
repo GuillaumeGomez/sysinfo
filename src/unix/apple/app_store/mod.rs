@@ -4,3 +4,5 @@
 pub mod component;
 #[cfg(feature = "system")]
 pub mod process;
+#[cfg(all(feature = "user", target_os = "ios"))]
+pub mod users;

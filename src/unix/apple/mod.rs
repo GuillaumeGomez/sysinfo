@@ -61,10 +61,19 @@ cfg_select! {
 }
 cfg_select! {
     feature = "user" => {
+        // `users.rs` binds OpenDirectory, which is macOS-only. On iOS the
+        // framework does not exist, so we reuse the `app_store` stub the
+        // same way `component` and `process` do.
+        #[cfg(target_os = "macos")]
         pub mod users;
+        #[cfg(target_os = "ios")]
+        pub use crate::sys::app_store::users;
 
         pub(crate) use crate::unix::groups::get_groups;
+        #[cfg(target_os = "macos")]
         pub(crate) use crate::unix::users::UserInner;
+        #[cfg(target_os = "ios")]
+        pub(crate) use self::users::UserInner;
         pub(crate) use self::users::get_users;
     }
     _ => {}
