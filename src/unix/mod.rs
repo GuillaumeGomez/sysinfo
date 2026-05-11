@@ -55,6 +55,9 @@ pub(crate) mod network_helper;
 
 cfg_select! {
     feature = "user" => {
+        // On iOS the apple module provides its own `UserInner`/`get_users`
+        // stubs, so `unix::users` is unused there.
+        #[cfg(not(target_os = "ios"))]
         pub(crate) mod users;
         pub(crate) mod groups;
     }
