@@ -111,38 +111,45 @@ impl SystemInner {
     }
 
     pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
-        if self.query.is_none() {
-            self.query = Query::new(false);
-            self.initialize_cpu_counters(refresh_kind);
-        } else if self.cpus.global.key_used.is_none() {
-            self.query = Query::new(true);
-            self.initialize_cpu_counters(refresh_kind);
-        }
-        if let Some(ref mut query) = self.query {
-            query.refresh();
-            if let Some(ref key_used) = self.cpus.global.key_used {
-                #[allow(clippy::single_match)]
-                match query.get(&key_used.unique_id) {
-                    Some(total_idle_time) => {
-                        self.cpus.global.set_cpu_usage(100.0 - total_idle_time);
-                    }
-                    None => sysinfo_debug!("global_key_idle disappeared"),
-                }
+        self.cpus.init_if_needed(refresh_kind);
+
+        // the PDH query is used to compute cpu_usage, and opening it the
+        // first time is slow. skip it when usage wasn't requested.
+        if refresh_kind.cpu_usage() {
+            if self.query.is_none() {
+                self.query = Query::new(false);
+                self.initialize_cpu_counters(refresh_kind);
+            } else if self.cpus.global.key_used.is_none() {
+                self.query = Query::new(true);
+                self.initialize_cpu_counters(refresh_kind);
             }
-            for cpu in self.cpus.iter_mut(refresh_kind) {
-                if let Some(ref key_used) = *get_key_used(cpu) {
+            if let Some(ref mut query) = self.query {
+                query.refresh();
+                if let Some(ref key_used) = self.cpus.global.key_used {
                     #[allow(clippy::single_match)]
                     match query.get(&key_used.unique_id) {
-                        Some(idle_time) => {
-                            cpu.inner.set_cpu_usage(100.0 - idle_time);
+                        Some(total_idle_time) => {
+                            self.cpus.global.set_cpu_usage(100.0 - total_idle_time);
                         }
-                        None => sysinfo_debug!("key_used disappeared"),
+                        None => sysinfo_debug!("global_key_idle disappeared"),
+                    }
+                }
+                for cpu in self.cpus.iter_mut(refresh_kind) {
+                    if let Some(ref key_used) = *get_key_used(cpu) {
+                        #[allow(clippy::single_match)]
+                        match query.get(&key_used.unique_id) {
+                            Some(idle_time) => {
+                                cpu.inner.set_cpu_usage(100.0 - idle_time);
+                            }
+                            None => sysinfo_debug!("key_used disappeared"),
+                        }
                     }
                 }
             }
-            if refresh_kind.frequency() {
-                self.cpus.get_frequencies();
-            }
+        }
+
+        if refresh_kind.frequency() {
+            self.cpus.get_frequencies();
         }
     }
 
