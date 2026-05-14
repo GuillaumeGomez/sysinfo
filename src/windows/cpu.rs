@@ -287,7 +287,7 @@ impl CpusWrapper {
         &self.cpus
     }
 
-    fn init_if_needed(&mut self, refresh_kind: CpuRefreshKind) {
+    pub(crate) fn init_if_needed(&mut self, refresh_kind: CpuRefreshKind) {
         if self.cpus.is_empty() {
             self.cpus = init_cpus(refresh_kind);
         }
