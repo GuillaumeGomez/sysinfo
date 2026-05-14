@@ -116,6 +116,17 @@ impl SystemInner {
     }
 
     pub(crate) fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
+        self.cpus.init_if_needed(refresh_kind);
+        if refresh_kind.frequency() {
+            self.cpus.get_frequencies();
+        }
+
+        // The PDH query is used to compute cpu_usage, and opening it the
+        // first time is slow. Skip it when usage isn't requested.
+        if !refresh_kind.cpu_usage() {
+            return;
+        }
+
         if self.query.is_none() {
             self.query = Query::new(false);
             self.initialize_cpu_counters(refresh_kind);
@@ -144,9 +155,6 @@ impl SystemInner {
                         None => sysinfo_debug!("key_used disappeared"),
                     }
                 }
-            }
-            if refresh_kind.frequency() {
-                self.cpus.get_frequencies();
             }
         }
     }
