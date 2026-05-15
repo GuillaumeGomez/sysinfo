@@ -469,6 +469,15 @@ fn refresh_user_group_ids(
     }
 }
 
+/// Only overwrite if the new value is `Some` or the old value was `None`,
+/// to avoid wiping previously-read data if the process terminated mid-refresh.
+fn update_optional_path(target: &mut Option<PathBuf>, path: &std::path::Path) {
+    let new_val = realpath(path);
+    if new_val.is_some() || target.is_none() {
+        *target = new_val;
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn update_proc_info(
     p: &mut ProcessInner,
@@ -487,34 +496,44 @@ fn update_proc_info(
     if refresh_kind.exe().needs_update(|| p.exe.is_none()) {
         // Do not use cmd[0] because it is not the same thing.
         // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
-        p.exe = realpath(proc_path.replace_and_join("exe"));
-        // If the target executable file was modified or removed, linux appends ` (deleted)` at
-        // the end. We need to remove it.
-        // See https://github.com/GuillaumeGomez/sysinfo/issues/1585.
-        let deleted = b" (deleted)";
-        if let Some(exe) = &mut p.exe
-            && let Some(file_name) = exe.file_name()
-            && file_name.as_encoded_bytes().ends_with(deleted)
-        {
-            let mut file_name = file_name.as_encoded_bytes().to_vec();
-            file_name.truncate(file_name.len() - deleted.len());
-            unsafe {
-                exe.set_file_name(OsString::from_encoded_bytes_unchecked(file_name));
+        let new_exe = realpath(proc_path.replace_and_join("exe"));
+        // Avoid overwriting with None if the process terminated mid-refresh.
+        if new_exe.is_some() || p.exe.is_none() {
+            p.exe = new_exe;
+            // If the target executable file was modified or removed, linux appends ` (deleted)`
+            // at the end. We need to remove it.
+            // See https://github.com/GuillaumeGomez/sysinfo/issues/1585.
+            let deleted = b" (deleted)";
+            if let Some(exe) = &mut p.exe
+                && let Some(file_name) = exe.file_name()
+                && file_name.as_encoded_bytes().ends_with(deleted)
+            {
+                let mut file_name = file_name.as_encoded_bytes().to_vec();
+                file_name.truncate(file_name.len() - deleted.len());
+                unsafe {
+                    exe.set_file_name(OsString::from_encoded_bytes_unchecked(file_name));
+                }
             }
         }
     }
 
     if refresh_kind.cmd().needs_update(|| p.cmd.is_empty()) {
-        p.cmd = copy_from_file(proc_path.replace_and_join("cmdline"));
+        let new_cmd = copy_from_file(proc_path.replace_and_join("cmdline"));
+        if !new_cmd.is_empty() || p.cmd.is_empty() {
+            p.cmd = new_cmd;
+        }
     }
     if refresh_kind.environ().needs_update(|| p.environ.is_empty()) {
-        p.environ = copy_from_file(proc_path.replace_and_join("environ"));
+        let new_environ = copy_from_file(proc_path.replace_and_join("environ"));
+        if !new_environ.is_empty() || p.environ.is_empty() {
+            p.environ = new_environ;
+        }
     }
     if refresh_kind.cwd().needs_update(|| p.cwd.is_none()) {
-        p.cwd = realpath(proc_path.replace_and_join("cwd"));
+        update_optional_path(&mut p.cwd, proc_path.replace_and_join("cwd"));
     }
     if refresh_kind.root().needs_update(|| p.root.is_none()) {
-        p.root = realpath(proc_path.replace_and_join("root"));
+        update_optional_path(&mut p.root, proc_path.replace_and_join("root"));
     }
 
     update_time_and_memory(proc_path, p, str_parts, uptime, info, refresh_kind);
@@ -1113,6 +1132,7 @@ impl std::ops::Deref for FileCounter {
         &self.0
     }
 }
+
 impl std::ops::DerefMut for FileCounter {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
