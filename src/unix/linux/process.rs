@@ -569,9 +569,7 @@ fn retrieve_all_new_process_info(
 
     p.name = OsStr::from_bytes(name).to_os_string();
     if let Some(part) = parts.str_parts.get(ProcIndex::Flags as usize)
-        && c_ulong::from_str(part)
-            .map(|flags| flags & libc::PF_KTHREAD as c_ulong != 0)
-            .unwrap_or(false)
+        && c_ulong::from_str(part).is_ok_and(|flags| flags & libc::PF_KTHREAD as c_ulong != 0)
     {
         p.thread_kind = Some(ThreadKind::Kernel);
     } else if is_thread {
