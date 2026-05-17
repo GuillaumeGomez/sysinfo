@@ -1,3 +1,9 @@
+# 0.39.2
+
+ * Windows: Greatly improve performance of `System::refresh_cpu_specifics` when CPU usage is not requested.
+ * iOS: Fix compilation error when `user` feature is enabled.
+ * Linux: Correctly set thread information for processes.
+
 # 0.39.1
 
  * Linux: Fix wrong network numbers computation.
