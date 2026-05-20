@@ -13,31 +13,55 @@ struct CGroupLimitsContext {
     swap_free: u64,
 }
 
+#[derive(Debug, Default, PartialEq, Eq)]
+struct CGroupPath {
+    v2: Option<PathBuf>,
+    v1_memory: Option<PathBuf>,
+}
+
 pub(crate) fn limits_for_system() -> Option<crate::CGroupLimits> {
     let v2_base = Path::new("/sys/fs/cgroup");
     let v1_base = Path::new("/sys/fs/cgroup/memory");
 
-    limits_for_base(v2_base, v2_base, v1_base, v1_base)
+    limits_for_base(Some(v2_base), v2_base, Some(v1_base), v1_base)
 }
 
 pub(crate) fn limits_for_process(proc_path: &Path) -> Option<crate::CGroupLimits> {
     let cgroup_path = get_cgroup_path(&proc_path.join("cgroup"))?;
     let v2_root = Path::new("/sys/fs/cgroup");
     let v1_root = Path::new("/sys/fs/cgroup/memory");
-    let v2_base = v2_root.join(&cgroup_path);
-    let v1_base = v1_root.join(&cgroup_path);
+    let v2_base = cgroup_path.v2.as_ref().map(|path| v2_root.join(path));
+    let v1_base = cgroup_path
+        .v1_memory
+        .as_ref()
+        .map(|path| v1_root.join(path));
 
-    limits_for_base(&v2_base, v2_root, &v1_base, v1_root)
+    limits_for_base(v2_base.as_deref(), v2_root, v1_base.as_deref(), v1_root)
 }
 
+// A process may have only a cgroup v2 entry, only a v1 memory controller entry,
+// or both. Keep the bases optional so hybrid cgroups don't reuse the v2 path for
+// the v1 memory controller.
 fn limits_for_base(
-    v2_base: &Path,
+    v2_base: Option<&Path>,
     v2_root: &Path,
-    v1_base: &Path,
+    v1_base: Option<&Path>,
     v1_root: &Path,
 ) -> Option<crate::CGroupLimits> {
     let context = read_cgroup_limits_context()?;
-    v2_limits(v2_base, v2_root, context).or_else(|| v1_limits(v1_base, v1_root, context))
+    limits_for_base_with_context(v2_base, v2_root, v1_base, v1_root, context)
+}
+
+fn limits_for_base_with_context(
+    v2_base: Option<&Path>,
+    v2_root: &Path,
+    v1_base: Option<&Path>,
+    v1_root: &Path,
+    context: CGroupLimitsContext,
+) -> Option<crate::CGroupLimits> {
+    v1_base
+        .and_then(|v1_base| v1_limits(v1_base, v1_root, context))
+        .or_else(|| v2_base.and_then(|v2_base| v2_limits(v2_base, v2_root, context)))
 }
 
 fn read_cgroup_limits_context() -> Option<CGroupLimitsContext> {
@@ -131,8 +155,8 @@ where
     F: Fn(&Path) -> u64,
 {
     let mem_cur = read_u64(&base.join(usage_file))?;
-    let mut total_memory = mem_total;
-    let mut free_memory = mem_total.saturating_sub(mem_cur);
+    let mut total_memory = None;
+    let mut free_memory = None;
 
     for (pos, path) in base.ancestors().enumerate() {
         let is_base = pos == 0;
@@ -147,11 +171,17 @@ where
             } else {
                 read_u64(&path.join(usage_file))?
             };
-            total_memory = min(total_memory, mem_max);
-            free_memory = min(free_memory, mem_max.saturating_sub(mem_cur));
+            total_memory = Some(match total_memory {
+                Some(total_memory) => min(total_memory, mem_max),
+                None => mem_max,
+            });
+            free_memory = Some(match free_memory {
+                Some(free_memory) => min(free_memory, mem_max.saturating_sub(mem_cur)),
+                None => mem_max.saturating_sub(mem_cur),
+            });
         }
         if path == root {
-            return Some((total_memory, free_memory));
+            return Some((total_memory?, free_memory?));
         }
     }
 
@@ -229,32 +259,59 @@ fn read_table_key(filename: &Path, target_key: &str, colsep: char) -> Option<u64
     None
 }
 
-fn get_cgroup_path(path: &Path) -> Option<PathBuf> {
+fn get_cgroup_path(path: &Path) -> Option<CGroupPath> {
     let content = get_all_utf8_data(path, 4096).ok()?;
-    parse_cgroup_path(&content)
+    let cgroup_path = parse_cgroup_path(&content);
+    if cgroup_path.v2.is_none() && cgroup_path.v1_memory.is_none() {
+        return None;
+    }
+    Some(cgroup_path)
 }
 
-fn parse_cgroup_path(content: &str) -> Option<PathBuf> {
+fn parse_cgroup_path(content: &str) -> CGroupPath {
+    let mut cgroup_path = CGroupPath::default();
+
     for line in content.lines() {
         let mut fields = line.splitn(3, ':');
-        let hierarchy_id = fields.next()?;
-        let controllers = fields.next()?;
-        let path = fields.next()?;
+        let Some(hierarchy_id) = fields.next() else {
+            continue;
+        };
+        let Some(controllers) = fields.next() else {
+            continue;
+        };
+        let Some(path) = fields.next() else {
+            continue;
+        };
 
-        if (hierarchy_id == "0" && controllers.is_empty())
-            || controllers
-                .split(',')
-                .any(|controller| controller == "memory")
+        if hierarchy_id == "0" && controllers.is_empty() {
+            cgroup_path.v2 = Some(normalize_cgroup_path(path));
+            continue;
+        }
+
+        if controllers
+            .split(',')
+            .any(|controller| controller == "memory")
         {
-            return Some(Path::new(path).strip_prefix("/").ok()?.to_path_buf());
+            cgroup_path.v1_memory = Some(normalize_cgroup_path(path));
         }
     }
-    None
+
+    cgroup_path
+}
+
+fn normalize_cgroup_path(path: &str) -> PathBuf {
+    if let Ok(path) = Path::new(path).strip_prefix("/") {
+        return path.to_path_buf();
+    }
+
+    PathBuf::from(path)
 }
 
 #[cfg(test)]
 mod test {
     use super::CGroupLimitsContext;
+    use super::CGroupPath;
+    use super::limits_for_base_with_context;
     use super::parse_cgroup_path;
     use super::read_table;
     use super::read_table_key;
@@ -409,6 +466,31 @@ mod test {
     }
 
     #[test]
+    fn test_v2_unlimited_memory() {
+        let root = tempdir().unwrap();
+        let child = root.path().join("child");
+
+        create_dir_all(&child).unwrap();
+        write(root.path().join("memory.max"), "max").unwrap();
+        write(root.path().join("memory.current"), "350").unwrap();
+        write(child.join("memory.max"), "max").unwrap();
+        write(child.join("memory.current"), "100").unwrap();
+        write(child.join("memory.stat"), "anon 30\n").unwrap();
+
+        let limits = v2_limits(
+            &child,
+            root.path(),
+            CGroupLimitsContext {
+                mem_total: 2000,
+                swap_total: 1000,
+                swap_free: 700,
+            },
+        );
+
+        assert!(limits.is_none());
+    }
+
+    #[test]
     fn test_v1_parent_limit() {
         let root = tempdir().unwrap();
         let parent = root.path().join("parent");
@@ -443,10 +525,144 @@ mod test {
     }
 
     #[test]
+    fn test_v1_unlimited_memory() {
+        let root = tempdir().unwrap();
+        let child = root.path().join("child");
+
+        create_dir_all(&child).unwrap();
+        write(
+            root.path().join("memory.limit_in_bytes"),
+            u64::MAX.to_string(),
+        )
+        .unwrap();
+        write(root.path().join("memory.usage_in_bytes"), "350").unwrap();
+        write(child.join("memory.limit_in_bytes"), u64::MAX.to_string()).unwrap();
+        write(child.join("memory.usage_in_bytes"), "100").unwrap();
+        write(child.join("memory.stat"), "total_rss 30\n").unwrap();
+
+        let limits = v1_limits(
+            &child,
+            root.path(),
+            CGroupLimitsContext {
+                mem_total: 2000,
+                swap_total: 1000,
+                swap_free: 700,
+            },
+        );
+
+        assert!(limits.is_none());
+    }
+
+    #[test]
+    fn test_hybrid_cgroup_uses_v1_memory_path_when_v2_is_unlimited() {
+        let root = tempdir().unwrap();
+        let v2_root = root.path().join("unified");
+        let v2_child = v2_root.join("system.slice/service.scope");
+        let v1_root = root.path().join("memory");
+        let v1_child = v1_root.join("memory.slice/service.scope");
+        let host_memory = 32 * 1024 * 1024 * 1024;
+        let cgroup_limit = 8 * 1024 * 1024 * 1024;
+        let cgroup_usage = 1024 * 1024 * 1024;
+
+        create_dir_all(&v2_child).unwrap();
+        create_dir_all(&v1_child).unwrap();
+        write(v2_root.join("memory.max"), "max").unwrap();
+        write(v2_root.join("memory.current"), cgroup_usage.to_string()).unwrap();
+        write(v2_child.join("memory.max"), "max").unwrap();
+        write(v2_child.join("memory.current"), cgroup_usage.to_string()).unwrap();
+        write(v2_child.join("memory.stat"), "anon 1073741824\n").unwrap();
+        write(
+            v1_child.join("memory.limit_in_bytes"),
+            cgroup_limit.to_string(),
+        )
+        .unwrap();
+        write(
+            v1_child.join("memory.usage_in_bytes"),
+            cgroup_usage.to_string(),
+        )
+        .unwrap();
+        write(v1_child.join("memory.stat"), "total_rss 1073741824\n").unwrap();
+
+        let cgroup_path = parse_cgroup_path(
+            "0::/system.slice/service.scope\n\
+             11:memory:/memory.slice/service.scope\n",
+        );
+        let v2_base = cgroup_path.v2.as_ref().map(|path| v2_root.join(path));
+        let v1_base = cgroup_path
+            .v1_memory
+            .as_ref()
+            .map(|path| v1_root.join(path));
+
+        let limits = limits_for_base_with_context(
+            v2_base.as_deref(),
+            &v2_root,
+            v1_base.as_deref(),
+            &v1_root,
+            CGroupLimitsContext {
+                mem_total: host_memory,
+                swap_total: 0,
+                swap_free: 0,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(limits.total_memory, cgroup_limit);
+        assert_eq!(limits.free_memory, cgroup_limit - cgroup_usage);
+        assert_eq!(limits.rss, cgroup_usage);
+    }
+
+    #[test]
+    fn test_hybrid_cgroup_prefers_v1_memory_path_over_v2_limit() {
+        let root = tempdir().unwrap();
+        let v2_root = root.path().join("unified");
+        let v2_child = v2_root.join("system.slice/service.scope");
+        let v1_root = root.path().join("memory");
+        let v1_child = v1_root.join("memory.slice/service.scope");
+        let v2_limit = 32 * 1024 * 1024 * 1024;
+        let v1_limit = 8 * 1024 * 1024 * 1024;
+        let cgroup_usage = 1024 * 1024 * 1024;
+
+        create_dir_all(&v2_child).unwrap();
+        create_dir_all(&v1_child).unwrap();
+        write(v2_root.join("memory.max"), v2_limit.to_string()).unwrap();
+        write(v2_root.join("memory.current"), cgroup_usage.to_string()).unwrap();
+        write(v2_child.join("memory.max"), v2_limit.to_string()).unwrap();
+        write(v2_child.join("memory.current"), cgroup_usage.to_string()).unwrap();
+        write(v2_child.join("memory.stat"), "anon 1073741824\n").unwrap();
+        write(v1_child.join("memory.limit_in_bytes"), v1_limit.to_string()).unwrap();
+        write(
+            v1_child.join("memory.usage_in_bytes"),
+            cgroup_usage.to_string(),
+        )
+        .unwrap();
+        write(v1_child.join("memory.stat"), "total_rss 1073741824\n").unwrap();
+
+        let limits = limits_for_base_with_context(
+            Some(&v2_child),
+            &v2_root,
+            Some(&v1_child),
+            &v1_root,
+            CGroupLimitsContext {
+                mem_total: v2_limit,
+                swap_total: 0,
+                swap_free: 0,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(limits.total_memory, v1_limit);
+        assert_eq!(limits.free_memory, v1_limit - cgroup_usage);
+        assert_eq!(limits.rss, cgroup_usage);
+    }
+
+    #[test]
     fn test_parse_cgroup_path_v2() {
         assert_eq!(
             parse_cgroup_path("0::/user.slice/session.scope"),
-            Some(PathBuf::from("user.slice/session.scope"))
+            CGroupPath {
+                v2: Some(PathBuf::from("user.slice/session.scope")),
+                v1_memory: None,
+            }
         );
     }
 
@@ -454,12 +670,31 @@ mod test {
     fn test_parse_cgroup_path_v1_memory() {
         assert_eq!(
             parse_cgroup_path("12:cpuset:/\n11:memory:/system.slice/service.scope"),
-            Some(PathBuf::from("system.slice/service.scope")),
+            CGroupPath {
+                v2: None,
+                v1_memory: Some(PathBuf::from("system.slice/service.scope")),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_cgroup_path_hybrid() {
+        assert_eq!(
+            parse_cgroup_path(
+                "0::/system.slice/service.scope\n11:memory:/kubepods/pod/container\n"
+            ),
+            CGroupPath {
+                v2: Some(PathBuf::from("system.slice/service.scope")),
+                v1_memory: Some(PathBuf::from("kubepods/pod/container")),
+            }
         );
     }
 
     #[test]
     fn test_parse_cgroup_path_missing_memory_controller() {
-        assert_eq!(parse_cgroup_path("12:cpuset:/\n10:cpu:/"), None);
+        assert_eq!(
+            parse_cgroup_path("12:cpuset:/\n10:cpu:/"),
+            CGroupPath::default()
+        );
     }
 }
