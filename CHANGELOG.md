@@ -1,3 +1,8 @@
+# 0.39.3
+
+ * Unix: Fix retrieval of `Network::mac_addr`.
+ * Linux: Improve retrieval of process information if process terminates while doing so.
+
 # 0.39.2
 
  * Windows: Greatly improve performance of `System::refresh_cpu_specifics` when CPU usage is not requested.
