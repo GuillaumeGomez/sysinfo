@@ -105,11 +105,11 @@ impl<'a> Iterator for InterfaceAddressIterator<'a> {
     type Item = &'a InterfaceAddressHelper;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // Advance the pointer until a MAC address is found
+        if self.ifap.is_null() {
+            return None;
+        }
         unsafe {
-            // advance the pointer until a MAC address is found
-            if self.ifap.is_null() {
-                return None;
-            }
             // Safety: `ifap` is already checked as non-null in the above `if` condition.
             let ifap = self.ifap;
             self.ifap = (*ifap).ifa_next;
@@ -205,17 +205,18 @@ pub(crate) unsafe fn refresh_network_interfaces(
         if let Some(interface_name) = entry.name()
             // We only do work if the existing interfaces contain this one.
             && let Some(interface) = interfaces.get_mut(&interface_name)
-            && let Some(ip) = entry.ip()
         {
-            let prefix = entry.prefix();
-            ifaces
-                .entry(interface_name)
-                .and_modify(|values| {
-                    values.insert(IpNetwork { addr: ip, prefix });
-                })
-                .or_insert(HashSet::from([IpNetwork { addr: ip, prefix }]));
             if let Some(mac_addr) = entry.mac_addr() {
                 interface.inner.mac_addr = mac_addr;
+            }
+            if let Some(ip) = entry.ip() {
+                let prefix = entry.prefix();
+                ifaces
+                    .entry(interface_name)
+                    .and_modify(|values| {
+                        values.insert(IpNetwork { addr: ip, prefix });
+                    })
+                    .or_insert(HashSet::from([IpNetwork { addr: ip, prefix }]));
             }
         }
     }
