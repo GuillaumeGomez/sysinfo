@@ -75,6 +75,8 @@ cfg_select! {
 pub use crate::common::component::{Component, Components};
 #[cfg(feature = "disk")]
 pub use crate::common::disk::{Disk, DiskKind, DiskRefreshKind, Disks};
+#[cfg(feature = "gpu")]
+pub use crate::common::gpu::{Gpu, Gpus, PCI};
 #[cfg(feature = "network")]
 pub use crate::common::network::{
     InterfaceOperationalState, IpNetwork, IpNetworkFromStrError, MacAddr, MacAddrFromStrError,
@@ -106,6 +108,8 @@ pub(crate) use crate::sys::{ComponentInner, ComponentsInner};
 pub(crate) use crate::sys::{CpuInner, MotherboardInner, ProcessInner, ProductInner, SystemInner};
 #[cfg(feature = "disk")]
 pub(crate) use crate::sys::{DiskInner, DisksInner};
+#[cfg(feature = "gpu")]
+pub(crate) use crate::sys::{GpuInner, GpusInner};
 #[cfg(feature = "network")]
 pub(crate) use crate::sys::{NetworkDataInner, NetworksInner};
 

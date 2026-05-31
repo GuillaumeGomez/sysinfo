@@ -36,11 +36,11 @@ pub(crate) struct PathHandler(std::path::PathBuf);
 
 #[cfg(feature = "system")]
 impl PathHandler {
-    pub(crate) fn new(path: &Path) -> Self {
+    pub(crate) fn new<P: AsRef<Path>>(path: P) -> Self {
         // `path` is the "parent" for all paths which will follow so we add a fake element at
         // the end since every `PathHandler::replace_and_join` call will first call `pop`
         // internally.
-        Self(path.join("a"))
+        Self(path.as_ref().join("a"))
     }
 
     pub(crate) fn as_path(&self) -> &Path {
