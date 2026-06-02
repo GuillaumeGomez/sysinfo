@@ -110,7 +110,7 @@ let mut sys = System::new();
 loop {
     sys.refresh_cpu_usage(); // Refreshing CPU usage.
     for cpu in sys.cpus() {
-        print!("{}% ", cpu.cpu_usage());
+        print!("{}% ", cpu.usage());
     }
     // Sleeping to let time for the system to run for long
     // enough to have useful information.

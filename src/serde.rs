@@ -114,7 +114,7 @@ impl Serialize for crate::Cpu {
         // `5` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("Cpu", 5)?;
 
-        state.serialize_field("cpu_usage", &self.cpu_usage())?;
+        state.serialize_field("usage", &self.usage())?;
         state.serialize_field("name", &self.name())?;
         state.serialize_field("vendor_id", &self.vendor_id())?;
         state.serialize_field("brand", &self.brand())?;
