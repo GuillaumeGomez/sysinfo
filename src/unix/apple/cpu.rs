@@ -48,7 +48,7 @@ impl CpusWrapper {
             }
             self.got_cpu_frequency = true;
         }
-        if refresh_kind.cpu_usage() && need_cpu_usage_update {
+        if refresh_kind.usage() && need_cpu_usage_update {
             self.last_update = Some(Instant::now());
             update_cpu_usage(port, &mut self.global_cpu, |proc_data, cpu_info| {
                 let mut percentage = 0f32;
@@ -353,10 +353,10 @@ pub(crate) fn init_cpus(
                     brand.clone(),
                 ),
             };
-            if refresh_kind.cpu_usage() {
+            if refresh_kind.usage() {
                 let cpu_usage = compute_usage_of_cpu(&cpu, cpu_info, offset);
                 cpu.inner.set_cpu_usage(cpu_usage);
-                percentage += cpu.cpu_usage();
+                percentage += cpu.usage();
             }
             cpus.push(cpu);
 
@@ -478,7 +478,7 @@ mod test {
         let stdout = String::from_utf8(child.stdout).expect("Not valid UTF8");
 
         let sys = System::new_with_specifics(
-            crate::RefreshKind::nothing().with_cpu(CpuRefreshKind::nothing().with_cpu_usage()),
+            crate::RefreshKind::nothing().with_cpu(CpuRefreshKind::nothing().with_usage()),
         );
         let cpus = sys.cpus();
         assert!(!cpus.is_empty(), "no CPU found");

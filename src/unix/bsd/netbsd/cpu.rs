@@ -64,7 +64,7 @@ impl CpusWrapper {
             }
             self.got_cpu_frequency = true;
         }
-        if refresh_kind.cpu_usage() {
+        if refresh_kind.usage() {
             self.get_cpu_usage();
         }
     }

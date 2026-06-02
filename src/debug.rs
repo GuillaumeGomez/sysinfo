@@ -5,7 +5,7 @@ impl std::fmt::Debug for crate::Cpu {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Cpu")
             .field("name", &self.name())
-            .field("CPU usage", &self.cpu_usage())
+            .field("CPU usage", &self.usage())
             .field("frequency", &self.frequency())
             .field("vendor ID", &self.vendor_id())
             .field("brand", &self.brand())

@@ -118,7 +118,7 @@ impl SystemInner {
 
         // The PDH query is used to compute cpu_usage, and opening it the
         // first time is slow. Skip it when usage isn't requested.
-        if !refresh_kind.cpu_usage() {
+        if !refresh_kind.usage() {
             return;
         }
 

@@ -71,7 +71,7 @@ impl CpusWrapper {
             let mut i: usize = 0;
             let mut it = buf.split(b'\n');
 
-            if first || refresh_kind.cpu_usage() {
+            if first || refresh_kind.usage() {
                 if let Some(Ok(line)) = it.next() {
                     if line.len() < 4 || &line[..4] != b"cpu " {
                         return;
