@@ -177,7 +177,7 @@ impl System {
     /// to get accurate value as it uses previous results to compute the next value.
     ///
     /// Calling this method is the same as calling
-    /// `system.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage())`.
+    /// `system.refresh_cpu_specifics(CpuRefreshKind::nothing().with_usage())`.
     ///
     /// ```no_run
     /// use sysinfo::System;
@@ -191,7 +191,7 @@ impl System {
     ///
     /// [`MINIMUM_CPU_UPDATE_INTERVAL`]: crate::MINIMUM_CPU_UPDATE_INTERVAL
     pub fn refresh_cpu_usage(&mut self) {
-        self.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage())
+        self.refresh_cpu_specifics(CpuRefreshKind::nothing().with_usage())
     }
 
     /// Refreshes CPUs frequency information.
@@ -518,7 +518,7 @@ impl System {
     /// // Refresh CPUs again to get actual value.
     /// s.refresh_cpu_usage();
     /// for cpu in s.cpus() {
-    ///     println!("{}%", cpu.cpu_usage());
+    ///     println!("{}%", cpu.usage());
     /// }
     /// ```
     pub fn cpus(&self) -> &[Cpu] {
@@ -2569,7 +2569,7 @@ It will retrieve the following information:
 /// [`Cpu`]: crate::Cpu
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CpuRefreshKind {
-    cpu_usage: bool,
+    usage: bool,
     frequency: bool,
 }
 
@@ -2582,7 +2582,7 @@ impl CpuRefreshKind {
     /// let r = CpuRefreshKind::nothing();
     ///
     /// assert_eq!(r.frequency(), false);
-    /// assert_eq!(r.cpu_usage(), false);
+    /// assert_eq!(r.usage(), false);
     /// ```
     pub fn nothing() -> Self {
         Self::default()
@@ -2596,16 +2596,16 @@ impl CpuRefreshKind {
     /// let r = CpuRefreshKind::everything();
     ///
     /// assert_eq!(r.frequency(), true);
-    /// assert_eq!(r.cpu_usage(), true);
+    /// assert_eq!(r.usage(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
-            cpu_usage: true,
+            usage: true,
             frequency: true,
         }
     }
 
-    impl_get_set!(CpuRefreshKind, cpu_usage, with_cpu_usage, without_cpu_usage);
+    impl_get_set!(CpuRefreshKind, usage, with_usage, without_usage);
     impl_get_set!(CpuRefreshKind, frequency, with_frequency, without_frequency);
 }
 
@@ -2811,7 +2811,7 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 /// s.refresh_cpu_all();
 ///
 /// for cpu in s.cpus() {
-///     println!("{}%", cpu.cpu_usage());
+///     println!("{}%", cpu.usage());
 /// }
 /// ```
 pub struct Cpu {
@@ -2837,10 +2837,10 @@ impl Cpu {
     /// s.refresh_cpu_all();
     ///
     /// for cpu in s.cpus() {
-    ///     println!("{}%", cpu.cpu_usage());
+    ///     println!("{}%", cpu.usage());
     /// }
     /// ```
-    pub fn cpu_usage(&self) -> f32 {
+    pub fn usage(&self) -> f32 {
         self.inner.cpu_usage()
     }
 
@@ -3058,7 +3058,7 @@ mod test {
             s.refresh_cpu_usage();
             // Wait a bit to update CPU usage values
             std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL);
-            if s.cpus().iter().any(|c| c.cpu_usage() > 0.0) {
+            if s.cpus().iter().any(|c| c.usage() > 0.0) {
                 // All good!
                 return;
             }

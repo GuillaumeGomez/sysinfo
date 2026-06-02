@@ -337,7 +337,7 @@ pub extern "C" fn sysinfo_cpus_usage(
                     libc::malloc(::std::mem::size_of::<c_float>() * cpus.len()) as *mut c_float;
             }
             for (pos, cpu) in cpus.iter().skip(1).enumerate() {
-                (*(*procs).offset(pos as isize)) = cpu.cpu_usage();
+                (*(*procs).offset(pos as isize)) = cpu.usage();
             }
             *length = cpus.len() as c_uint - 1;
         }

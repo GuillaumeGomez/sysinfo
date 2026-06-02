@@ -48,5 +48,5 @@ fn test_too_rapid_cpu_refresh() {
     s.refresh_cpu_all();
     s.refresh_cpu_all();
 
-    assert!(s.cpus().iter().any(|c| !c.cpu_usage().is_nan()));
+    assert!(s.cpus().iter().any(|c| !c.usage().is_nan()));
 }
