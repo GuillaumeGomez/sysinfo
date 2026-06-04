@@ -157,7 +157,7 @@ impl SystemTimeInfo {
 // Get a property value from the IOPlatformExpertDevice.
 #[cfg(not(feature = "apple-sandbox"))]
 pub(crate) fn get_io_platform_property(key: &str) -> Option<String> {
-    use crate::sys::macos::utils::{IOReleaser, MAIN_PORT};
+    use crate::sys::utils::{IOReleaser, MAIN_PORT};
     use objc2_core_foundation::{CFData, CFGetTypeID, CFString, ConcreteType, kCFAllocatorDefault};
     use objc2_io_kit::{
         IORegistryEntryCreateCFProperty, IOServiceGetMatchingService, IOServiceMatching,

@@ -3,10 +3,8 @@
 use crate::DiskKind;
 use crate::sys::{
     disk::{get_int_value, get_str_value},
-    macos::{
-        ffi,
-        utils::{IOReleaser, MAIN_PORT},
-    },
+    macos::ffi,
+    utils::{IOReleaser, MAIN_PORT},
 };
 
 use objc2_core_foundation::{CFDictionary, CFRetained, CFString, kCFAllocatorDefault};

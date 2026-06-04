@@ -1,10 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::Component;
-use crate::sys::macos::{
-    ffi,
-    utils::{IOReleaser, MAIN_PORT},
-};
+use crate::sys::macos::ffi;
+use crate::sys::utils::{IOReleaser, MAIN_PORT};
 
 use libc::{c_char, c_int, c_void};
 use objc2_core_foundation::{CFDictionary, CFRetained};
@@ -339,14 +337,14 @@ impl IoService {
 
             let result = IOServiceGetMatchingServices(*MAIN_PORT, Some(matching), &mut iterator);
             if result != kIOReturnSuccess {
-                sysinfo_debug!("Error: IOServiceGetMatchingServices() = {}", result);
+                sysinfo_debug!("Error: IOServiceGetMatchingServices() = {result}");
                 return None;
             }
             let iterator = match IOReleaser::new(iterator) {
                 Some(i) => i,
                 None => {
                     sysinfo_debug!(
-                        "Error: IOServiceGetMatchingServices() succeeded but returned invalid descriptor"
+                        "Component error: IOServiceGetMatchingServices succeeded but returned invalid descriptor"
                     );
                     return None;
                 }

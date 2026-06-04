@@ -53,7 +53,13 @@ disk = [
     "objc2-core-foundation/CFURL",
     "dep:objc2-io-kit",
 ]
-gpu = []
+gpu = [
+    "dep:objc2-core-foundation",
+    "objc2-core-foundation/CFDictionary",
+    "objc2-core-foundation/CFNumber",
+    "objc2-core-foundation/CFString",
+    "dep:objc2-io-kit",
+]
 system = [
     "dep:windows",
     "windows/Win32_Foundation",
