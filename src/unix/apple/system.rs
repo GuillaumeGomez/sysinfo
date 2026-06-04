@@ -408,6 +408,7 @@ impl SystemInner {
             };
             // https://en.wikipedia.org/wiki/MacOS_version_history
             for (version_prefix, macos_spelling, friendly_name) in [
+                ("26", "macOS", "Tahoe"),
                 ("15", "macOS", "Sequoia"),
                 ("14", "macOS", "Sonoma"),
                 ("13", "macOS", "Ventura"),
