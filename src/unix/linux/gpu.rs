@@ -9,7 +9,7 @@ use std::path::Path;
 use crate::{Gpu, PCI};
 
 pub(crate) struct GpusInner {
-    gpus: Vec<Gpu>,
+    pub(crate) gpus: Vec<Gpu>,
     nvm_lib: Option<self::nvidia::NvmlLib>,
     vulkan_lib: Option<self::vulkan::Vulkan>,
     // The key is the vendor ID.
@@ -86,7 +86,7 @@ impl GpusInner {
         })
     }
 
-    pub(crate) fn refresh(&mut self, remove_not_listed_gpus: bool) {
+    pub(crate) fn refresh(&mut self) {
         let mut need_vulkan = false;
         let mut need_nvidia = false;
         self.get_non_nvidia_gpus(&mut need_vulkan, &mut need_nvidia);
@@ -103,16 +103,6 @@ impl GpusInner {
             if let Some(ref vulkan) = self.vulkan_lib {
                 vulkan.get_vulkan_memory(&mut self.gpus);
             }
-        }
-        if remove_not_listed_gpus {
-            // Remove interfaces which are gone.
-            self.gpus.retain_mut(|c| {
-                if !c.inner.updated {
-                    return false;
-                }
-                c.inner.updated = false;
-                true
-            });
         }
     }
 

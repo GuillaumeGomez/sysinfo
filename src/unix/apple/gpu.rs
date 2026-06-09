@@ -14,7 +14,7 @@ use objc2_io_kit::{
 use std::ffi::CStr;
 
 pub(crate) struct GpusInner {
-    gpus: Vec<Gpu>,
+    pub(crate) gpus: Vec<Gpu>,
 }
 
 impl GpusInner {
@@ -22,7 +22,7 @@ impl GpusInner {
         Ok(Self { gpus: Vec::new() })
     }
 
-    pub(crate) fn refresh(&mut self, remove_not_listed_gpus: bool) {
+    pub(crate) fn refresh(&mut self) {
         unsafe {
             let Some(matching) = IOServiceMatching(c"IOAccelerator".as_ptr()) else {
                 sysinfo_debug!("Failed to create IOAccelerator matching dictionary");
@@ -159,15 +159,6 @@ impl GpusInner {
                 }
             }
         }
-        if remove_not_listed_gpus {
-            self.gpus.retain_mut(|c| {
-                if !c.inner.updated {
-                    return false;
-                }
-                c.inner.updated = false;
-                true
-            });
-        }
     }
 }
 
@@ -212,7 +203,7 @@ pub(crate) struct GpuInner {
     vendor: Option<String>,
     model: Option<String>,
     usage: Option<f32>,
-    updated: bool,
+    pub(crate) updated: bool,
 }
 
 impl GpuInner {

@@ -85,7 +85,20 @@ impl Gpus {
     /// }
     /// ```
     pub fn refresh(&mut self, remove_not_listed_gpus: bool) {
-        self.inner.refresh(remove_not_listed_gpus);
+        self.inner.refresh();
+        if remove_not_listed_gpus {
+            self.inner.gpus.retain_mut(|c| {
+                if !c.inner.updated {
+                    return false;
+                }
+                c.inner.updated = false;
+                true
+            });
+        } else {
+            for gpu in &mut self.inner.gpus {
+                gpu.inner.updated = false;
+            }
+        }
     }
 }
 
