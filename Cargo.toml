@@ -54,6 +54,14 @@ disk = [
     "dep:objc2-io-kit",
 ]
 gpu = [
+    "dep:windows",
+    "windows/Wdk_Graphics",
+    "windows/Wdk_Graphics_Direct3D",
+    "windows/Win32_Devices_DeviceAndDriverInstallation",
+    "windows/Win32_Foundation",
+    "windows/Win32_Graphics",
+    "windows/Win32_Graphics_Dxgi",
+    "windows/Win32_System_Performance",
     "dep:objc2-core-foundation",
     "objc2-core-foundation/CFDictionary",
     "objc2-core-foundation/CFNumber",

@@ -214,6 +214,9 @@ impl Gpu {
     /// like NVIDIA's or AMD's provide this information.
     ///
     /// On macOS, the information should always be available.
+    ///
+    /// On Windows, the first time you query this information, it'll return `None` as it is
+    /// time-diff based.
     pub fn usage(&self) -> Option<f32> {
         self.inner.usage()
     }
