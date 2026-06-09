@@ -60,3 +60,17 @@ cfg_select! {
         // }
     }
 }
+
+#[cfg(all(
+    feature = "gpu",
+    any(
+        windows,
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "ios",
+    ),
+))]
+pub(crate) fn gpu_vendor_name(vendor_id: u32) -> Option<&'static str> {
+    include!("pcis.rs")
+}

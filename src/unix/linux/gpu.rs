@@ -86,6 +86,17 @@ impl GpusInner {
         })
     }
 
+    /// Returns the vendor name and the vendor's known devices.
+    fn get_vendor_and_devices(
+        &self,
+        vendor_id: u32,
+    ) -> Option<(&str, Option<&HashMap<u32, String>>)> {
+        match self.device_map.get(&vendor_id) {
+            Some(devices) => Some((&devices.name, Some(&devices.devices))),
+            None => crate::utils::gpu_vendor_name(vendor_id).map(|vendor| (vendor, None)),
+        }
+    }
+
     pub(crate) fn refresh(&mut self) {
         let mut need_vulkan = false;
         let mut need_nvidia = false;
@@ -166,18 +177,22 @@ impl GpusInner {
                 fill_device_map(&mut self.device_map, &mut buffer);
                 self.filled_device_map = true;
             }
-            if let Some(devices) = self.device_map.get(&vendor) {
-                if devices.name.contains("NVIDIA") {
+            if let Some((vendor, devices)) = self.get_vendor_and_devices(vendor) {
+                if vendor.contains("NVIDIA") {
                     // NVIDIA GPUs are retrieved elsewhere.
                     *need_nvidia = true;
                     continue;
                 }
-                let model = read_file(device.join("device"), &mut buffer)
-                    .ok()
-                    .and_then(|_| u32::from_str_radix(buffer.trim().strip_prefix("0x")?, 16).ok())
-                    .and_then(|device_id| devices.devices.get(&device_id));
-                let mut gpu = GpuInner::new(pci, &devices.name, model);
-                if devices.name.contains("AMD") {
+                let model = devices.and_then(|devices| {
+                    read_file(device.join("device"), &mut buffer)
+                        .ok()
+                        .and_then(|_| {
+                            u32::from_str_radix(buffer.trim().strip_prefix("0x")?, 16).ok()
+                        })
+                        .and_then(|device_id| devices.get(&device_id))
+                });
+                let mut gpu = GpuInner::new(pci, vendor, model);
+                if vendor.contains("AMD") {
                     // We special-case AMD since we know how to retrieve its information with the
                     // sysfs only.
                     get_amd_info(&mut gpu, &mut buffer, &device);
@@ -245,51 +260,36 @@ fn get_id_and_name(line: &str) -> Option<(u32, &str)> {
 }
 
 fn fill_device_map(device_map: &mut HashMap<u32, Devices>, buffer: &mut String) {
-    fn fill_device_map_inner(device_map: &mut HashMap<u32, Devices>, buffer: &mut String) {
-        let Ok(f) = File::open("/usr/share/hwdata/pci.ids") else {
-            return;
-        };
-        let mut reader = CustomBufReader {
-            buffer,
-            reader: BufReader::new(f),
-        };
-        let Some((mut vendor_id, mut devices)) = find_first_vendor(&mut reader) else {
-            return;
-        };
+    let Ok(f) = File::open("/usr/share/hwdata/pci.ids") else {
+        return;
+    };
+    let mut reader = CustomBufReader {
+        buffer,
+        reader: BufReader::new(f),
+    };
+    let Some((mut vendor_id, mut devices)) = find_first_vendor(&mut reader) else {
+        return;
+    };
 
-        for line in reader {
-            match line.strip_prefix('\t') {
-                None => {
-                    if let Some((id, vendor_name)) = get_id_and_name(line) {
-                        device_map.insert(vendor_id, devices);
-                        vendor_id = id;
-                        devices = Devices::new(vendor_name);
-                    }
+    for line in reader {
+        match line.strip_prefix('\t') {
+            None => {
+                if let Some((id, vendor_name)) = get_id_and_name(line) {
+                    device_map.insert(vendor_id, devices);
+                    vendor_id = id;
+                    devices = Devices::new(vendor_name);
                 }
-                Some(line) => {
-                    // We ignore sub-systems.
-                    if !line.starts_with('\t')
-                        && let Some((id, model_name)) = get_id_and_name(line)
-                    {
-                        devices.devices.insert(id, model_name.to_owned());
-                    }
+            }
+            Some(line) => {
+                // We ignore sub-systems.
+                if !line.starts_with('\t')
+                    && let Some((id, model_name)) = get_id_and_name(line)
+                {
+                    devices.devices.insert(id, model_name.to_owned());
                 }
             }
         }
     }
-
-    fill_device_map_inner(device_map, buffer);
-    if device_map.is_empty() {
-        fill_device_map_fallback(device_map);
-    }
-}
-
-// If we cannot find the list of devices for whatever reason, we fill the map with some known info.
-fn fill_device_map_fallback(device_map: &mut HashMap<u32, Devices>) {
-    device_map.insert(0x10de, Devices::new("NVIDIA Corporation"));
-    device_map.insert(0x1002, Devices::new("Advanced Micro Devices, Inc. [AMD]"));
-    device_map.insert(0x1022, Devices::new("Advanced Micro Devices, Inc. [AMD]"));
-    device_map.insert(0x8086, Devices::new("Intel Corporation"));
 }
 
 fn get_amd_info(gpu: &mut GpuInner, buffer: &mut String, path: &Path) {

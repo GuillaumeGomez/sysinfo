@@ -162,24 +162,6 @@ impl GpusInner {
     }
 }
 
-fn vendor_name(vendor_id: u32) -> Option<String> {
-    // Very restricted list. To get more, take a look at the `pci.ids` index.
-    Some(
-        match vendor_id {
-            0x106B => "Apple Inc.",
-            0x1002 => "Advanced Micro Devices, Inc. [AMD/ATI]",
-            0x10DE => "NVIDIA Corporation",
-            0x8086 => "Intel Corporation",
-            0x13b5 => "ARM",
-            0x168c | 0x1969 => "Qualcomm Atheros",
-            0x5143 => "Qualcomm Inc",
-            0x17cb => "Qualcomm Technologies, Inc",
-            _ => return None,
-        }
-        .to_owned(),
-    )
-}
-
 unsafe fn is_gpu(device: io_object_t, class_code_key: &CFString) -> bool {
     unsafe {
         if let Some(prop) =

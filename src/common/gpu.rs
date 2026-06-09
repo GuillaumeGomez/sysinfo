@@ -210,8 +210,10 @@ impl Gpu {
 
     /// Returns the % usage of this GPU.
     ///
-    /// It's generally very tricky to get this information, as such, even on Linux, only some GPUs
+    /// On Linux, it's generally very tricky to get this information, as such, only some GPUs
     /// like NVIDIA's or AMD's provide this information.
+    ///
+    /// On macOS, the information should always be available.
     pub fn usage(&self) -> Option<f32> {
         self.inner.usage()
     }
