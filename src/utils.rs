@@ -63,6 +63,7 @@ cfg_select! {
 
 #[cfg(all(
     feature = "gpu",
+    not(feature = "unknown-ci"),
     any(
         windows,
         target_os = "linux",

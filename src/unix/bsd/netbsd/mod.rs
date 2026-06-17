@@ -36,6 +36,15 @@ cfg_select! {
     _ => {}
 }
 cfg_select! {
+    feature = "gpu" => {
+        #[path = "../../../unknown/gpu.rs"]
+        pub mod gpu;
+
+        pub(crate) use self::gpu::{GpuInner, GpusInner};
+    }
+    _ => {}
+}
+cfg_select! {
     feature = "network" => {
         pub mod network;
 
