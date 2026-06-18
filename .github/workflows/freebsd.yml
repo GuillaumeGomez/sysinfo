@@ -1,0 +1,43 @@
+on:
+  pull_request:
+
+name: FreeBSD
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: A job to run tests in FreeBSD
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install VM
+      uses: vmactions/freebsd-vm@v1
+      with:
+        usesh: true
+        release: "13.5"
+    - name: setup
+      run: |
+        pkg install -y curl
+        sh rustup.sh -y --profile=minimal --default-toolchain=1.95
+        . $HOME/.cargo/env
+        rustup --version
+        rustup component add clippy
+    - name: test
+      run: |
+        . $HOME/.cargo/env
+        cargo check
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,system
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features disk
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,disk
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features component
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,component
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features network
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,network
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features user
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,user
+        cargo clippy --features serde -- -D warnings
+        cargo clippy --features multithread -- -D warnings
+        cargo check --example simple
+        FREEBSD_CI=1 cargo test -- --test-threads=1
+        FREEBSD_CI=1 cargo test --lib -- --ignored --test-threads=1

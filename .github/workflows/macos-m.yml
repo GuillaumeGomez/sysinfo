@@ -1,0 +1,36 @@
+on:
+  pull_request:
+
+name: macOS m*
+
+jobs:
+  test:
+    runs-on: macos-15-xlarge
+    name: A job to run tests in macOS M*
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.95.0"
+          components: clippy
+    - name: Test macOS M*
+      run: |
+        cargo check
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,system
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features disk
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,disk
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features component
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,component
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features network
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,network
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features user
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,user
+        RUSTFLAGS=-Dwarnings cargo check --no-default-features --features apple-sandbox
+        cargo clippy --features serde -- -D warnings
+        cargo clippy --features multithread -- -D warnings
+        cargo check --example simple
+        APPLE_CI=1 cargo test -- --test-threads=1
+        APPLE_CI=1 cargo test --lib -- --ignored --test-threads=1
