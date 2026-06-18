@@ -114,4 +114,8 @@ impl ProcessInner {
     pub(crate) fn exists(&self) -> bool {
         false
     }
+
+    pub(crate) fn open_files(&self) -> Option<usize> {
+        None
+    }
 }
