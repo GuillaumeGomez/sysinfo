@@ -1,6 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{GpuInner, GpusInner};
+
+use std::cmp::Ordering;
 use std::fmt;
 
 /// Type containing GPU information.
@@ -12,9 +14,10 @@ use std::fmt;
 /// ```no_run
 /// use sysinfo::Gpus;
 ///
-/// let gpus = Gpus::new_with_refreshed_list();
-/// for gpu in gpus.list() {
-///     println!("{gpu:?}");
+/// if let Ok(gpus) = Gpus::new_with_refreshed_list() {
+///     for gpu in gpus.list() {
+///         println!("{gpu:?}");
+///     }
 /// }
 /// ```
 pub struct Gpus {
@@ -102,6 +105,23 @@ impl Gpus {
     }
 }
 
+impl std::ops::Deref for Gpus {
+    type Target = [Gpu];
+
+    fn deref(&self) -> &Self::Target {
+        self.list()
+    }
+}
+
+impl<'a> IntoIterator for &'a Gpus {
+    type Item = &'a Gpu;
+    type IntoIter = std::slice::Iter<'a, Gpu>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.list().iter()
+    }
+}
+
 /// A PCI (Peripheral Component Interconnect) is an architecture used to identify and manage
 /// hardware devices.
 ///
@@ -110,7 +130,7 @@ impl Gpus {
 /// If you want to understand in details what a PCI is, I recommend:
 /// <https://en.wikipedia.org/wiki/Peripheral_Component_Interconnect>.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct PCI {
     /// A PCI domain, also called "segment".
     pub domain: u32,
@@ -189,6 +209,26 @@ impl core::str::FromStr for PCI {
 /// ```
 pub struct Gpu {
     pub(crate) inner: GpuInner,
+}
+
+impl PartialEq for Gpu {
+    fn eq(&self, other: &Self) -> bool {
+        self.pci() == other.pci()
+    }
+}
+
+impl Eq for Gpu {}
+
+impl PartialOrd for Gpu {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Gpu {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.pci().cmp(other.pci())
+    }
 }
 
 impl Gpu {

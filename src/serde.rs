@@ -3,9 +3,10 @@
 #[cfg(any(
     feature = "component",
     feature = "disk",
+    feature = "gpu",
     feature = "network",
     feature = "system",
-    feature = "user"
+    feature = "user",
 ))]
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 
@@ -125,10 +126,10 @@ impl Serialize for crate::Cpu {
 }
 
 #[cfg(feature = "system")]
-impl serde::Serialize for crate::System {
+impl Serialize for crate::System {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         // `19` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("System", 19)?;
@@ -159,10 +160,10 @@ impl serde::Serialize for crate::System {
     }
 }
 #[cfg(feature = "system")]
-impl serde::Serialize for crate::Motherboard {
+impl Serialize for crate::Motherboard {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         // `5` corresponds to the number of fields.
         let mut state = serializer.serialize_struct("Motherboard", 5)?;
@@ -178,10 +179,10 @@ impl serde::Serialize for crate::Motherboard {
 }
 
 #[cfg(feature = "system")]
-impl serde::Serialize for crate::Product {
+impl Serialize for crate::Product {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         // `7` corresponds to the number of "fields".
         let mut state = serializer.serialize_struct("Product", 5)?;
@@ -499,6 +500,36 @@ impl Serialize for crate::Uid {
         S: Serializer,
     {
         serializer.serialize_newtype_struct("Uid", &self.to_string())
+    }
+}
+
+#[cfg(feature = "gpu")]
+impl Serialize for crate::Gpus {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.iter())
+    }
+}
+
+#[cfg(feature = "gpu")]
+impl Serialize for crate::Gpu {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // `6` corresponds to the number of fields.
+        let mut state = serializer.serialize_struct("Gpu", 6)?;
+
+        state.serialize_field("pci", &self.pci())?;
+        state.serialize_field("vendor", &self.vendor())?;
+        state.serialize_field("model", &self.model())?;
+        state.serialize_field("usage", &self.usage())?;
+        state.serialize_field("total_memory", &self.total_memory())?;
+        state.serialize_field("used_memory", &self.used_memory())?;
+
+        state.end()
     }
 }
 
