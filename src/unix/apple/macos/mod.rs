@@ -14,21 +14,6 @@ cfg_select! {
     _ => {}
 }
 
-#[cfg(any(
-    feature = "disk",
-    all(
-        not(feature = "apple-sandbox"),
-        any(
-            feature = "system",
-            all(
-                feature = "component",
-                any(target_arch = "x86", target_arch = "x86_64")
-            )
-        )
-    ),
-))]
-pub(crate) mod utils;
-
 #[cfg(feature = "disk")]
 pub mod disk;
 

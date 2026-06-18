@@ -7,7 +7,7 @@ pub(crate) unsafe fn get_cpu_frequency(_brand: &str) -> u64 {
 
 #[cfg(not(feature = "apple-sandbox"))]
 pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
-    use crate::sys::macos::utils::{IOReleaser, MAIN_PORT};
+    use crate::sys::utils::{IOReleaser, MAIN_PORT};
     use objc2_core_foundation::{
         CFData, CFDictionary, CFRange, CFRetained, CFString, kCFAllocatorDefault,
     };
@@ -61,17 +61,14 @@ pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
 
         let node_name = CFString::from_static_str("voltage-states5-sram");
 
-        let core_ref = match IORegistryEntryCreateCFProperty(
+        let Some(core_ref) = IORegistryEntryCreateCFProperty(
             entry.inner(),
             Some(&node_name),
             kCFAllocatorDefault,
             0,
-        ) {
-            Some(c) => c,
-            None => {
-                sysinfo_debug!("`voltage-states5-sram` property not found");
-                return 0;
-            }
+        ) else {
+            sysinfo_debug!("`voltage-states5-sram` property not found");
+            return 0;
         };
 
         let Ok(core_ref) = core_ref.downcast::<CFData>() else {

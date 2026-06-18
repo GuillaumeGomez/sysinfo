@@ -4,6 +4,8 @@
 pub(crate) mod component;
 #[cfg(feature = "disk")]
 pub(crate) mod disk;
+#[cfg(feature = "gpu")]
+pub(crate) mod gpu;
 #[cfg(any(feature = "system", feature = "disk"))]
 pub(crate) mod impl_get_set;
 #[cfg(feature = "network")]

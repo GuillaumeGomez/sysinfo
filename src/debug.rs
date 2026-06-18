@@ -180,3 +180,24 @@ impl std::fmt::Debug for crate::User {
             .finish()
     }
 }
+
+#[cfg(feature = "gpu")]
+impl std::fmt::Debug for crate::Gpus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
+    }
+}
+
+#[cfg(feature = "gpu")]
+impl std::fmt::Debug for crate::Gpu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Gpu")
+            .field("pci", &self.pci())
+            .field("vendor", &self.vendor())
+            .field("model", &self.model())
+            .field("usage", &self.usage())
+            .field("total_memory", &self.total_memory())
+            .field("used_memory", &self.used_memory())
+            .finish()
+    }
+}

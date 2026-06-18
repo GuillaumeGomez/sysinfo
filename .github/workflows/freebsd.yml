@@ -1,0 +1,54 @@
+on:
+  pull_request:
+
+name: FreeBSD
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: A job to run tests in FreeBSD
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run FreeBSD tests
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          release: "15.0"
+          prepare: |
+            pkg install -y curl
+            curl https://sh.rustup.rs -sSf --output rustup.sh
+            sh rustup.sh -y --profile=minimal --default-toolchain=1.95
+            . $HOME/.cargo/env
+            rustup --version
+            rustup component add clippy
+          run: |
+            . $HOME/.cargo/env
+            cargo check
+            echo "===== no-default-features ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features
+            echo "===== system ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,system
+            echo "===== disk ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features disk
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,disk
+            echo "===== component ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features component
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,component
+            echo "===== network ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features network
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,network
+            echo "===== user ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features user
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,user
+            echo "===== gpu ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features gpu
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,gpu
+            echo "===== clippy ===="
+            cargo clippy --features serde -- -D warnings
+            cargo clippy --features multithread -- -D warnings
+            echo "===== example ===="
+            cargo check --example simple
+            echo "===== tests ===="
+            FREEBSD_CI=1 cargo test -- --test-threads=1
+            FREEBSD_CI=1 cargo test --lib -- --ignored --test-threads=1

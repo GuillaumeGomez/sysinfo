@@ -7,8 +7,8 @@
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::{
-    Components, Disks, Groups, Motherboard, Networks, Pid, Product, SUPPORTED_SIGNALS, System,
-    Users,
+    Components, Disks, Gpus, Groups, Motherboard, Networks, Pid, Product, SUPPORTED_SIGNALS,
+    System, Users,
 };
 
 fn print_help() {
@@ -44,6 +44,10 @@ cpus               : displays CPUs state
 frequency          : displays CPU frequency
 vendor_id          : displays CPU vendor id
 
+= GPU commands =
+
+gpus               : displays all GPUs
+
 = Users and groups commands =
 
 groups             : displays all groups
@@ -70,6 +74,7 @@ temperature        : displays components' temperature"
 fn interpret_input(
     input: &str,
     sys: &mut System,
+    gpus: Result<&mut Gpus, &mut sysinfo::Error>,
     networks: &mut Networks,
     disks: &mut Disks,
     components: &mut Components,
@@ -121,6 +126,33 @@ fn interpret_input(
                 println!("{cpu:?}");
             }
         }
+        "gpus" => match gpus {
+            Ok(gpus) => {
+                gpus.refresh(true);
+                for gpu in gpus.list() {
+                    println!(
+                        "GPU (PCI: {}): Vendor: {}",
+                        gpu.pci(),
+                        gpu.vendor().unwrap_or("Unknown")
+                    );
+                    if let Some(model) = gpu.model() {
+                        println!("  model: {model}");
+                    }
+                    match gpu.usage() {
+                        Some(usage) => println!("  usage: {usage}%"),
+                        None => println!("  usage: N/A"),
+                    }
+                    if let (Some(used), Some(total)) = (gpu.used_memory(), gpu.total_memory()) {
+                        println!("  memory: {}/{} KB", used / 1_000, total / 1_000);
+                    } else {
+                        println!("  memory: N/A");
+                    }
+                }
+            }
+            Err(error) => {
+                println!("GPU information cannot be retrieved on this system: {error}");
+            }
+        },
         "memory" => {
             println!("total memory:     {: >10} KB", sys.total_memory() / 1_000);
             println!(
@@ -363,6 +395,7 @@ fn main() {
     let mut disks = Disks::new_with_refreshed_list();
     let mut components = Components::new_with_refreshed_list();
     let mut users = Users::new_with_refreshed_list();
+    let mut gpus = Gpus::new();
 
     println!("Done.");
     let t_stin = io::stdin();
@@ -388,6 +421,7 @@ fn main() {
         done = interpret_input(
             input.as_ref(),
             &mut system,
+            gpus.as_mut(),
             &mut networks,
             &mut disks,
             &mut components,

@@ -34,6 +34,14 @@ cfg_select! {
     _ => {}
 }
 cfg_select! {
+    feature = "gpu" => {
+        pub mod gpu;
+
+        pub(crate) use self::gpu::{GpuInner, GpusInner};
+    }
+    _ => {}
+}
+cfg_select! {
     feature = "network" => {
         pub mod network;
 
@@ -62,6 +70,8 @@ mod component;
 mod cpu;
 #[cfg(any())]
 mod disk;
+#[cfg(any())]
+mod gpu;
 #[cfg(any())]
 mod groups;
 #[cfg(any())]
