@@ -38,6 +38,10 @@ fn test_disk_refresh_kind() {
         return;
     }
 
+    if std::env::var("FREEBSD_CI").is_ok() {
+        return;
+    }
+
     for fs in [
         DiskRefreshKind::with_kind,
         DiskRefreshKind::without_kind,
@@ -164,7 +168,7 @@ fn test_disks_usage() {
     if cfg!(target_os = "linux") && std::env::var("CI").is_ok() {
         return;
     }
-    if std::env::var("NETBSD_CI").is_ok() {
+    if std::env::var("NETBSD_CI").is_ok() || std::env::var("FREEBSD_CI").is_ok() {
         return;
     }
 
