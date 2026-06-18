@@ -73,7 +73,7 @@ temperature        : displays components' temperature"
 
 fn interpret_input(
     input: &str,
-    sys: &mut System,
+    sys: Result<&mut System, &mut sysinfo::Error>,
     gpus: Result<&mut Gpus, &mut sysinfo::Error>,
     networks: &mut Networks,
     disks: &mut Disks,
@@ -102,28 +102,40 @@ fn interpret_input(
             components.refresh(true);
             println!("Done.");
         }
-        "refresh_cpu" => {
-            println!("Refreshing CPUs...");
-            sys.refresh_cpu_all();
-            println!("Done.");
-        }
+        "refresh_cpu" => match sys {
+            Ok(sys) => {
+                println!("Refreshing CPUs...");
+                sys.refresh_cpu_all();
+                println!("Done.");
+            }
+            Err(error) => {
+                println!("System information cannot be retrieved: {error}");
+            }
+        },
         "signals" => {
             for (nb, sig) in SUPPORTED_SIGNALS.iter().enumerate() {
                 println!("{:2}:{sig:?}", nb + 1);
             }
         }
         "cpus" => {
-            // Note: you should refresh a few times before using this, so that usage statistics
-            // can be ascertained
-            println!(
-                "number of physical cores: {}",
-                System::physical_core_count()
-                    .map(|c| c.to_string())
-                    .unwrap_or_else(|| "Unknown".to_owned()),
-            );
-            println!("total CPU usage: {}%", sys.global_cpu_usage());
-            for cpu in sys.cpus() {
-                println!("{cpu:?}");
+            match sys {
+                Ok(sys) => {
+                    // Note: you should refresh a few times before using this, so that usage statistics
+                    // can be ascertained
+                    println!(
+                        "number of physical cores: {}",
+                        System::physical_core_count()
+                            .map(|c| c.to_string())
+                            .unwrap_or_else(|| "Unknown".to_owned()),
+                    );
+                    println!("total CPU usage: {}%", sys.global_cpu_usage());
+                    for cpu in sys.cpus() {
+                        println!("{cpu:?}");
+                    }
+                }
+                Err(error) => {
+                    println!("System information cannot be retrieved: {error}");
+                }
             }
         }
         "gpus" => match gpus {
@@ -153,38 +165,63 @@ fn interpret_input(
                 println!("GPU information cannot be retrieved on this system: {error}");
             }
         },
-        "memory" => {
-            println!("total memory:     {: >10} KB", sys.total_memory() / 1_000);
-            println!(
-                "available memory: {: >10} KB",
-                sys.available_memory() / 1_000
-            );
-            println!("used memory:      {: >10} KB", sys.used_memory() / 1_000);
-            println!("total swap:       {: >10} KB", sys.total_swap() / 1_000);
-            println!("used swap:        {: >10} KB", sys.used_swap() / 1_000);
-        }
-        "quit" | "exit" => return true,
-        "all" => {
-            for (pid, proc_) in sys.processes() {
+        "memory" => match sys {
+            Ok(sys) => {
+                println!("total memory:     {: >10} KB", sys.total_memory() / 1_000);
                 println!(
-                    "{}:{} status={:?}",
-                    pid,
-                    proc_.name().to_string_lossy(),
-                    proc_.status()
+                    "available memory: {: >10} KB",
+                    sys.available_memory() / 1_000
                 );
+                println!("used memory:      {: >10} KB", sys.used_memory() / 1_000);
+                println!("total swap:       {: >10} KB", sys.total_swap() / 1_000);
+                println!("used swap:        {: >10} KB", sys.used_swap() / 1_000);
             }
-        }
-        "frequency" => {
-            for cpu in sys.cpus() {
-                println!("[{}] {} MHz", cpu.name(), cpu.frequency());
+            Err(error) => {
+                println!("System information cannot be retrieved: {error}");
             }
-        }
-        "vendor_id" => {
-            println!("vendor ID: {}", sys.cpus()[0].vendor_id());
-        }
-        "brand" => {
-            println!("brand: {}", sys.cpus()[0].brand());
-        }
+        },
+        "quit" | "exit" => return true,
+        "all" => match sys {
+            Ok(sys) => {
+                for (pid, proc_) in sys.processes() {
+                    println!(
+                        "{}:{} status={:?}",
+                        pid,
+                        proc_.name().to_string_lossy(),
+                        proc_.status()
+                    );
+                }
+            }
+            Err(error) => {
+                println!("System information cannot be retrieved: {error}");
+            }
+        },
+        "frequency" => match sys {
+            Ok(sys) => {
+                for cpu in sys.cpus() {
+                    println!("[{}] {} MHz", cpu.name(), cpu.frequency());
+                }
+            }
+            Err(error) => {
+                println!("System information cannot be retrieved: {error}");
+            }
+        },
+        "vendor_id" => match sys {
+            Ok(sys) => {
+                println!("vendor ID: {}", sys.cpus()[0].vendor_id());
+            }
+            Err(error) => {
+                println!("System information cannot be retrieved: {error}");
+            }
+        },
+        "brand" => match sys {
+            Ok(sys) => {
+                println!("brand: {}", sys.cpus()[0].brand());
+            }
+            Err(error) => {
+                println!("System information cannot be retrieved: {error}");
+            }
+        },
         "load_avg" => match System::load_average() {
             Ok(load_avg) => {
                 println!("one minute     : {}%", load_avg.one);
@@ -201,25 +238,34 @@ fn interpret_input(
             if tmp.len() != 2 {
                 println!("show command takes a pid or a name in parameter!");
                 println!("example: show 1254");
-            } else if let Ok(pid) = Pid::from_str(tmp[1]) {
-                match sys.process(pid) {
-                    Some(p) => {
-                        println!("{:?}", *p);
-                        println!(
-                            "Files open/limit: {:?}/{:?}",
-                            p.open_files(),
-                            p.open_files_limit(),
-                        );
-                    }
-                    None => {
-                        println!("pid \"{pid:?}\" not found");
-                    }
-                }
             } else {
-                let proc_name = tmp[1];
-                for proc_ in sys.processes_by_name(proc_name.as_ref()) {
-                    println!("==== {} ====", proc_.name().to_string_lossy());
-                    println!("{proc_:?}");
+                match sys {
+                    Ok(sys) => {
+                        if let Ok(pid) = Pid::from_str(tmp[1]) {
+                            match sys.process(pid) {
+                                Some(p) => {
+                                    println!("{:?}", *p);
+                                    println!(
+                                        "Files open/limit: {:?}/{:?}",
+                                        p.open_files(),
+                                        p.open_files_limit(),
+                                    );
+                                }
+                                None => {
+                                    println!("pid \"{pid:?}\" not found");
+                                }
+                            }
+                        } else {
+                            let proc_name = tmp[1];
+                            for proc_ in sys.processes_by_name(proc_name.as_ref()) {
+                                println!("==== {} ====", proc_.name().to_string_lossy());
+                                println!("{proc_:?}");
+                            }
+                        }
+                    }
+                    Err(error) => {
+                        println!("System information cannot be retrieved: {error}");
+                    }
                 }
             }
         }
@@ -276,16 +322,21 @@ fn interpret_input(
                     return false;
                 };
 
-                match sys.process(pid) {
-                    Some(p) => {
-                        if let Some(res) = p.kill_with(*signal) {
-                            println!("kill: {res}");
-                        } else {
-                            eprintln!("kill: signal not supported on this platform");
+                match sys {
+                    Ok(sys) => match sys.process(pid) {
+                        Some(p) => {
+                            if let Some(res) = p.kill_with(*signal) {
+                                println!("kill: {res}");
+                            } else {
+                                eprintln!("kill: signal not supported on this platform");
+                            }
                         }
-                    }
-                    None => {
-                        eprintln!("pid not found");
+                        None => {
+                            eprintln!("pid not found");
+                        }
+                    },
+                    Err(error) => {
+                        println!("System information cannot be retrieved: {error}");
                     }
                 }
             }
@@ -323,9 +374,16 @@ fn interpret_input(
         },
         x if x.starts_with("refresh") => {
             if x == "refresh" {
-                println!("Getting processes' information...");
-                sys.refresh_all();
-                println!("Done.");
+                match sys {
+                    Ok(sys) => {
+                        println!("Getting processes' information...");
+                        sys.refresh_all();
+                        println!("Done.");
+                    }
+                    Err(error) => {
+                        println!("System information cannot be retrieved: {error}");
+                    }
+                }
             } else if x.starts_with("refresh ") {
                 println!("Getting process' information...");
                 if let Some(pid) = x
@@ -334,10 +392,19 @@ fn interpret_input(
                     .take(1)
                     .next()
                 {
-                    if sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true) != 0 {
-                        println!("Process `{pid}` updated successfully");
-                    } else {
-                        println!("Process `{pid}` couldn't be updated...");
+                    match sys {
+                        Ok(sys) => {
+                            if sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true)
+                                != 0
+                            {
+                                println!("Process `{pid}` updated successfully");
+                            } else {
+                                println!("Process `{pid}` couldn't be updated...");
+                            }
+                        }
+                        Err(error) => {
+                            println!("System information cannot be retrieved: {error}");
+                        }
                     }
                 } else {
                     println!("Invalid [pid] received...");
@@ -420,7 +487,7 @@ fn main() {
         }
         done = interpret_input(
             input.as_ref(),
-            &mut system,
+            system.as_mut(),
             gpus.as_mut(),
             &mut networks,
             &mut disks,

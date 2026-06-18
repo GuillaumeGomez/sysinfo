@@ -7,26 +7,22 @@ use sysinfo::{ProcessesToUpdate, System};
 
 #[test]
 fn test_refresh_system() {
-    let mut sys = System::new();
+    let Ok(mut sys) = System::new() else { return };
     sys.refresh_memory();
     sys.refresh_cpu_usage();
-    // We don't want to test on unsupported systems.
-    if sysinfo::IS_SUPPORTED_SYSTEM {
-        assert!(sys.total_memory() != 0);
-        assert!(sys.free_memory() != 0);
-    }
+    assert!(sys.total_memory() != 0);
+    assert!(sys.free_memory() != 0);
     assert!(sys.total_memory() >= sys.free_memory());
     assert!(sys.total_swap() >= sys.free_swap());
 }
 
 #[test]
 fn test_refresh_process() {
-    let mut sys = System::new();
+    let Ok(mut sys) = System::new() else { return };
     assert!(sys.processes().is_empty(), "no process should be listed!");
     // We don't want to test on unsupported systems.
 
-    #[cfg(not(feature = "apple-sandbox"))]
-    if sysinfo::IS_SUPPORTED_SYSTEM {
+    if cfg!(not(feature = "apple-sandbox")) {
         assert_eq!(
             sys.refresh_processes(
                 ProcessesToUpdate::Some(&[
@@ -47,7 +43,7 @@ fn test_refresh_process() {
 
 #[test]
 fn test_get_process() {
-    let mut sys = System::new();
+    let Ok(mut sys) = System::new() else { return };
     sys.refresh_processes(ProcessesToUpdate::All, false);
     let current_pid = match sysinfo::get_current_pid() {
         Ok(pid) => pid,
@@ -79,14 +75,11 @@ fn check_if_send_and_sync() {
 
     impl<T> Bar for T where T: Sync {}
 
-    let mut sys = System::new();
+    let Ok(mut sys) = System::new() else { return };
     sys.refresh_processes(ProcessesToUpdate::All, false);
     let current_pid = match sysinfo::get_current_pid() {
         Ok(pid) => pid,
         _ => {
-            if !sysinfo::IS_SUPPORTED_SYSTEM {
-                return;
-            }
             panic!("get_current_pid should work!");
         }
     };
@@ -134,15 +127,14 @@ fn test_consecutive_cpu_usage_update() {
     use std::time::Duration;
     use sysinfo::{Pid, ProcessRefreshKind, System};
 
-    if !sysinfo::IS_SUPPORTED_SYSTEM {
-        return;
-    }
     if std::env::var("NETBSD_CI").is_ok() {
         // FIXME
         return;
     }
 
-    let mut sys = System::new_all();
+    let Ok(mut sys) = System::new_all() else {
+        return;
+    };
     assert!(!sys.cpus().is_empty());
     sys.refresh_processes_specifics(
         ProcessesToUpdate::All,
@@ -194,12 +186,9 @@ fn test_consecutive_cpu_usage_update() {
 
 #[test]
 fn test_refresh_memory() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM {
-        return;
-    }
     // On linux, since it's the same file, memory information are always retrieved.
     let is_linux = cfg!(any(target_os = "linux", target_os = "android"));
-    let mut s = System::new();
+    let Ok(mut s) = System::new() else { return };
     assert_eq!(s.total_memory(), 0);
     assert_eq!(s.free_memory(), 0);
 
@@ -215,7 +204,7 @@ fn test_refresh_memory() {
         assert_eq!(s.free_swap(), 0);
     }
 
-    let mut s = System::new();
+    let mut s = System::new().unwrap();
     assert_eq!(s.total_swap(), 0);
     assert_eq!(s.free_swap(), 0);
 
@@ -240,7 +229,7 @@ fn test_refresh_memory() {
         assert_eq!(s.free_memory(), 0);
     }
 
-    let mut s = System::new();
+    let mut s = System::new().unwrap();
     s.refresh_memory();
     // SWAP can be 0 on macOS so this test is disabled
     #[cfg(not(target_os = "macos"))]

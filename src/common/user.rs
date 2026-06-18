@@ -336,12 +336,13 @@ impl Users {
     #[cfg_attr(not(feature = "system"), doc = "```ignore")]
     /// use sysinfo::{Pid, System, Users};
     ///
-    /// let mut s = System::new_all();
-    /// let users = Users::new_with_refreshed_list();
+    /// if let Ok(mut s) = System::new_all() {
+    ///     let users = Users::new_with_refreshed_list();
     ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     if let Some(user_id) = process.user_id() {
-    ///         println!("User for process 1337: {:?}", users.get_user_by_id(user_id));
+    ///     if let Some(process) = s.process(Pid::from(1337)) {
+    ///         if let Some(user_id) = process.user_id() {
+    ///             println!("User for process 1337: {:?}", users.get_user_by_id(user_id));
+    ///         }
     ///     }
     /// }
     /// ```

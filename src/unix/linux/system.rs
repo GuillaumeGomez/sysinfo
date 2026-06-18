@@ -4,7 +4,7 @@ use crate::sys::cpu::{CpusWrapper, get_physical_core_count};
 use crate::sys::process::{compute_cpu_usage, refresh_procs};
 use crate::sys::utils::{get_all_utf8_data, to_u64};
 use crate::{
-    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
+    Cpu, CpuRefreshKind, Error, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
     ProcessesToUpdate,
 };
 
@@ -113,7 +113,7 @@ pub const SUPPORTED_SIGNALS: &[crate::Signal] = supported_signals();
 #[doc = include_str!("../../../md_doc/minimum_cpu_update_interval.md")]
 pub const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(200);
 
-fn boot_time() -> Result<u64, crate::Error> {
+fn boot_time() -> Result<u64, Error> {
     if let Ok(buf) = File::open("/proc/stat").and_then(|mut f| {
         let mut buf = Vec::new();
         f.read_to_end(&mut buf)?;
@@ -137,7 +137,7 @@ fn boot_time() -> Result<u64, crate::Error> {
         if libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut up) == 0 {
             Ok(up.tv_sec as u64)
         } else {
-            Err(crate::Error::from(
+            Err(Error::from(
                 "clock_gettime failed: boot time cannot be retrieved",
             ))
         }
@@ -214,8 +214,8 @@ impl SystemInner {
 }
 
 impl SystemInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             process_list: HashMap::new(),
             mem_total: 0,
             mem_free: 0,
@@ -228,7 +228,7 @@ impl SystemInner {
             swap_free: 0,
             cpus: CpusWrapper::new(),
             info: SystemInfo::new(),
-        }
+        })
     }
 
     pub(crate) fn refresh_memory_specifics(&mut self, refresh_kind: MemoryRefreshKind) {
@@ -348,7 +348,7 @@ impl SystemInner {
         self.swap_total - self.swap_free
     }
 
-    pub(crate) fn uptime() -> Result<u64, crate::Error> {
+    pub(crate) fn uptime() -> Result<u64, Error> {
         if cfg!(not(target_os = "android"))
             && let Ok(content) = get_all_utf8_data("/proc/uptime", 50)
             && let Some(uptime) = content.split('.').next().and_then(|t| t.parse().ok())
@@ -359,11 +359,11 @@ impl SystemInner {
         }
     }
 
-    fn uptime_with_sysinfo() -> Result<u64, crate::Error> {
+    fn uptime_with_sysinfo() -> Result<u64, Error> {
         unsafe {
             let mut s = MaybeUninit::<libc::sysinfo>::uninit();
             if libc::sysinfo(s.as_mut_ptr()) != 0 {
-                Err(crate::Error::from("sysinfo call failed"))
+                Err(Error::from("sysinfo call failed"))
             } else {
                 let s = s.assume_init();
                 Ok(if s.uptime < 1 { 0 } else { s.uptime as u64 })
@@ -371,11 +371,11 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn boot_time() -> Result<u64, crate::Error> {
+    pub(crate) fn boot_time() -> Result<u64, Error> {
         boot_time()
     }
 
-    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
+    pub(crate) fn load_average() -> Result<LoadAvg, Error> {
         let mut s = String::new();
         File::open("/proc/loadavg").and_then(|mut f| f.read_to_string(&mut s))?;
         let loads = s

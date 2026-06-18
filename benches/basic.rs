@@ -6,7 +6,7 @@ extern crate test;
 #[bench]
 fn bench_new(b: &mut test::Bencher) {
     b.iter(|| {
-        sysinfo::System::new();
+        let _ = sysinfo::System::new();
     });
 }
 
@@ -14,15 +14,16 @@ fn bench_new(b: &mut test::Bencher) {
 #[bench]
 fn bench_new_all(b: &mut test::Bencher) {
     b.iter(|| {
-        sysinfo::System::new_all();
+        let _ = sysinfo::System::new_all();
     });
 }
 
 #[cfg(feature = "system")]
 #[bench]
 fn bench_refresh_all(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new_all();
-
+    let Ok(mut s) = sysinfo::System::new_all() else {
+        return;
+    };
     b.iter(move || {
         s.refresh_all();
     });
@@ -31,7 +32,9 @@ fn bench_refresh_all(b: &mut test::Bencher) {
 #[cfg(feature = "system")]
 #[bench]
 fn bench_refresh_processes(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new();
+    let Ok(mut s) = sysinfo::System::new() else {
+        return;
+    };
 
     s.refresh_processes(sysinfo::ProcessesToUpdate::All, true); // to load the whole processes list a first time.
     b.iter(move || {
@@ -42,8 +45,11 @@ fn bench_refresh_processes(b: &mut test::Bencher) {
 #[cfg(feature = "system")]
 #[bench]
 fn bench_first_refresh_processes(b: &mut test::Bencher) {
+    if sysinfo::System::new().is_err() {
+        return;
+    }
     b.iter(move || {
-        let mut s = sysinfo::System::new();
+        let mut s = sysinfo::System::new().unwrap();
         s.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
     });
 }
@@ -51,7 +57,9 @@ fn bench_first_refresh_processes(b: &mut test::Bencher) {
 #[cfg(feature = "system")]
 #[bench]
 fn bench_refresh_process(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new();
+    let Ok(mut s) = sysinfo::System::new() else {
+        return;
+    };
 
     s.refresh_all();
     // to be sure it'll exist for at least as long as we run
@@ -94,7 +102,9 @@ fn bench_refresh_networks(b: &mut test::Bencher) {
 #[cfg(feature = "system")]
 #[bench]
 fn bench_refresh_memory(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new();
+    let Ok(mut s) = sysinfo::System::new() else {
+        return;
+    };
 
     b.iter(move || {
         s.refresh_memory();
@@ -104,7 +114,9 @@ fn bench_refresh_memory(b: &mut test::Bencher) {
 #[cfg(feature = "system")]
 #[bench]
 fn bench_refresh_cpu_usage(b: &mut test::Bencher) {
-    let mut s = sysinfo::System::new();
+    let Ok(mut s) = sysinfo::System::new() else {
+        return;
+    };
 
     s.refresh_cpu_usage();
     b.iter(move || {

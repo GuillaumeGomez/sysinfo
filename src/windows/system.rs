@@ -1,7 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate,
+    Cpu, CpuRefreshKind, Error, LoadAvg, MemoryRefreshKind, Pid, ProcessRefreshKind,
+    ProcessesToUpdate,
 };
 
 use crate::sys::cpu::*;
@@ -56,10 +57,10 @@ impl SystemInner {
 /// Uses nanoseconds throughout to avoid rounding errors in uptime calculation,
 /// converting to seconds only at the end for stable results. Result is capped
 /// within u64 limits to handle edge cases.
-unsafe fn boot_time() -> Result<u64, crate::Error> {
+unsafe fn boot_time() -> Result<u64, Error> {
     let n = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .map_err(|err| crate::Error::Other(Box::new(err)))?;
+        .map_err(|err| Error::Other(Box::new(err)))?;
     let system_time_ns = n.as_nanos();
     // milliseconds to nanoseconds
     let tick_count_ns = unsafe { GetTickCount64() } as u128 * 1_000_000;
@@ -79,8 +80,8 @@ pub(crate) struct SystemInner {
 }
 
 impl SystemInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             process_list: HashMap::with_capacity(500),
             mem_total: 0,
             mem_available: 0,
@@ -88,7 +89,7 @@ impl SystemInner {
             swap_used: 0,
             cpus: CpusWrapper::new(),
             query: None,
-        }
+        })
     }
 
     fn initialize_cpu_counters(&mut self, refresh_kind: CpuRefreshKind) {
@@ -351,15 +352,15 @@ impl SystemInner {
         self.swap_used
     }
 
-    pub(crate) fn uptime() -> Result<u64, crate::Error> {
+    pub(crate) fn uptime() -> Result<u64, Error> {
         unsafe { Ok(GetTickCount64() / 1_000) }
     }
 
-    pub(crate) fn boot_time() -> Result<u64, crate::Error> {
+    pub(crate) fn boot_time() -> Result<u64, Error> {
         unsafe { boot_time() }
     }
 
-    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
+    pub(crate) fn load_average() -> Result<LoadAvg, Error> {
         get_load_average()
     }
 

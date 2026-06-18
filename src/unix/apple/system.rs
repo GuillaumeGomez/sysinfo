@@ -6,7 +6,7 @@ use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
 
 use crate::{
-    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
+    Cpu, CpuRefreshKind, Error, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
     ProcessesToUpdate,
 };
 
@@ -96,7 +96,7 @@ unsafe impl Send for Wrap<'_> {}
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 unsafe impl Sync for Wrap<'_> {}
 
-fn boot_time() -> Result<u64, crate::Error> {
+fn boot_time() -> Result<u64, Error> {
     let mut boot_time = timeval {
         tv_sec: 0,
         tv_usec: 0,
@@ -114,7 +114,7 @@ fn boot_time() -> Result<u64, crate::Error> {
             0,
         ) < 0
         {
-            Err(crate::Error::from("sysctl failed"))
+            Err(Error::from("sysctl failed"))
         } else {
             Ok(boot_time.tv_sec as _)
         }
@@ -130,12 +130,12 @@ fn get_now() -> u64 {
 }
 
 impl SystemInner {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new() -> Result<Self, Error> {
         unsafe {
             #[allow(deprecated)]
             let port = libc::mach_host_self();
 
-            Self {
+            Ok(Self {
                 process_list: HashMap::with_capacity(200),
                 mem_total: 0,
                 mem_free: 0,
@@ -148,7 +148,7 @@ impl SystemInner {
                 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
                 clock_info: crate::sys::macos::system::SystemTimeInfo::new(port),
                 cpus: CpusWrapper::new(),
-            }
+            })
         }
     }
 
@@ -368,7 +368,7 @@ impl SystemInner {
         self.swap_total - self.swap_free
     }
 
-    pub(crate) fn uptime() -> Result<u64, crate::Error> {
+    pub(crate) fn uptime() -> Result<u64, Error> {
         unsafe {
             let csec = libc::time(::std::ptr::null_mut());
 
@@ -376,12 +376,12 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
+    pub(crate) fn load_average() -> Result<LoadAvg, Error> {
         let mut loads = vec![0f64; 3];
 
         unsafe {
             if libc::getloadavg(loads.as_mut_ptr(), 3) == -1 {
-                Err(crate::Error::from("getloadavg failed"))
+                Err(Error::from("getloadavg failed"))
             } else {
                 Ok(LoadAvg {
                     one: loads[0],
@@ -392,7 +392,7 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn boot_time() -> Result<u64, crate::Error> {
+    pub(crate) fn boot_time() -> Result<u64, Error> {
         boot_time()
     }
 

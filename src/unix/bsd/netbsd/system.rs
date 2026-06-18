@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
+    Cpu, CpuRefreshKind, Error, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
     ProcessesToUpdate,
 };
 
@@ -33,8 +33,8 @@ pub(crate) struct SystemInner {
 }
 
 impl SystemInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             process_list: HashMap::with_capacity(200),
             mem_total: 0,
             mem_free: 0,
@@ -43,7 +43,7 @@ impl SystemInner {
             swap_used: 0,
             system_info: SystemInfo::new(),
             cpus: CpusWrapper::new(),
-        }
+        })
     }
 
     pub(crate) fn refresh_memory_specifics(&mut self, refresh_kind: MemoryRefreshKind) {
@@ -150,7 +150,7 @@ impl SystemInner {
         self.swap_used
     }
 
-    pub(crate) fn uptime() -> Result<u64, crate::Error> {
+    pub(crate) fn uptime() -> Result<u64, Error> {
         unsafe {
             let csec = libc::time(std::ptr::null_mut());
 
@@ -158,15 +158,15 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn boot_time() -> Result<u64, crate::Error> {
+    pub(crate) fn boot_time() -> Result<u64, Error> {
         boot_time()
     }
 
-    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
+    pub(crate) fn load_average() -> Result<LoadAvg, Error> {
         let mut loads = vec![0f64; 3];
         unsafe {
             if libc::getloadavg(loads.as_mut_ptr(), 3) == -1 {
-                Err(crate::Error::from("getloadavg failed"))
+                Err(Error::from("getloadavg failed"))
             } else {
                 Ok(LoadAvg {
                     one: loads[0],

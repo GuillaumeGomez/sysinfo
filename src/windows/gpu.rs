@@ -132,6 +132,8 @@ impl GpusInner {
                         if let Some(ref pcis) = pcis
                             && let Some(addr) = LUIDAdapter::new(desc.AdapterLuid)
                                 .and_then(|adapter| adapter.query())
+                            // Why not using the `addr` info instead of iterating through PCIs?
+                            // Because it might return a "fake" GPU, and PCIs allow us to filter.
                             && let Some(pci) = pcis.iter().find(|pci| {
                                 pci.bus == addr.BusNumber
                                     && pci.device == addr.DeviceNumber

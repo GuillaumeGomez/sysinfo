@@ -537,10 +537,9 @@ impl Serialize for crate::Gpu {
 mod tests {
     #[test]
     fn test_serde_process_name() {
-        if !crate::IS_SUPPORTED_SYSTEM {
+        let Ok(mut s) = crate::System::new() else {
             return;
-        }
-        let mut s = crate::System::new();
+        };
         s.refresh_processes_specifics(
             crate::ProcessesToUpdate::All,
             false,

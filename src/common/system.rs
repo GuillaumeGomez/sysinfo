@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 use crate::common::DiskUsage;
 use crate::common::impl_get_set::impl_get_set;
-use crate::{CpuInner, Gid, MotherboardInner, ProcessInner, ProductInner, SystemInner, Uid};
+use crate::{CpuInner, Error, Gid, MotherboardInner, ProcessInner, ProductInner, SystemInner, Uid};
 
 /// Type containing system's information such as processes, memory and CPU.
 ///
@@ -19,20 +19,13 @@ use crate::{CpuInner, Gid, MotherboardInner, ProcessInner, ProductInner, SystemI
 /// ```
 /// use sysinfo::System;
 ///
-/// if sysinfo::IS_SUPPORTED_SYSTEM {
-///     println!("System: {:?}", System::new_all());
-/// } else {
-///     println!("This OS isn't supported (yet?).");
+/// match System::new_all() {
+///     Ok(system) => println!("System: {system:?}"),
+///     Err(error) => println!("Failed to initialize system: {error:?}"),
 /// }
 /// ```
 pub struct System {
     pub(crate) inner: SystemInner,
-}
-
-impl Default for System {
-    fn default() -> System {
-        System::new()
-    }
 }
 
 impl System {
@@ -46,9 +39,12 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new();
+    /// let Ok(s) = System::new() else {
+    ///     println!("Failed to initialize `System`");
+    ///     return;
+    /// };
     /// ```
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, Error> {
         Self::new_with_specifics(RefreshKind::nothing())
     }
 
@@ -61,9 +57,12 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
+    /// let Ok(s) = System::new_all() else {
+    ///     println!("Failed to initialize `System`");
+    ///     return;
+    /// };
     /// ```
-    pub fn new_all() -> Self {
+    pub fn new_all() -> Result<Self, Error> {
         Self::new_with_specifics(RefreshKind::everything())
     }
 
@@ -76,20 +75,20 @@ impl System {
     /// use sysinfo::{ProcessRefreshKind, RefreshKind, System};
     ///
     /// // We want to only refresh processes.
-    /// let mut system = System::new_with_specifics(
+    /// if let Ok(mut system) = System::new_with_specifics(
     ///      RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
-    /// );
-    ///
-    /// # if sysinfo::IS_SUPPORTED_SYSTEM && !cfg!(feature = "apple-sandbox") {
-    /// assert!(!system.processes().is_empty());
+    /// ) {
+    /// # if !cfg!(feature = "apple-sandbox") {
+    ///     assert!(!system.processes().is_empty());
     /// # }
+    /// }
     /// ```
-    pub fn new_with_specifics(refreshes: RefreshKind) -> Self {
+    pub fn new_with_specifics(refreshes: RefreshKind) -> Result<Self, Error> {
         let mut s = Self {
-            inner: SystemInner::new(),
+            inner: SystemInner::new()?,
         };
         s.refresh_specifics(refreshes);
-        s
+        Ok(s)
     }
 
     /// Refreshes according to the given [`RefreshKind`]. It calls the corresponding
@@ -102,12 +101,12 @@ impl System {
     /// ```
     /// use sysinfo::{ProcessRefreshKind, RefreshKind, System};
     ///
-    /// let mut s = System::new_all();
-    ///
-    /// // Let's just update processes:
-    /// s.refresh_specifics(
-    ///     RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
-    /// );
+    /// if let Ok(mut s) = System::new_all() {
+    ///     // Let's just update processes:
+    ///     s.refresh_specifics(
+    ///         RefreshKind::nothing().with_processes(ProcessRefreshKind::everything()),
+    ///     );
+    /// }
     /// ```
     pub fn refresh_specifics(&mut self, refreshes: RefreshKind) {
         if let Some(kind) = refreshes.memory() {
@@ -134,8 +133,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new();
-    /// s.refresh_all();
+    /// if let Ok(mut s) = System::new() {
+    ///     s.refresh_all();
+    /// }
     /// ```
     pub fn refresh_all(&mut self) {
         self.refresh_specifics(RefreshKind::everything());
@@ -150,8 +150,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new();
-    /// s.refresh_memory();
+    /// if let Ok(mut s) = System::new() {
+    ///     s.refresh_memory();
+    /// }
     /// ```
     pub fn refresh_memory(&mut self) {
         self.refresh_memory_specifics(MemoryRefreshKind::everything())
@@ -162,8 +163,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::{MemoryRefreshKind, System};
     ///
-    /// let mut s = System::new();
-    /// s.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
+    /// if let Ok(mut s) = System::new() {
+    ///     s.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
+    /// }
     /// ```
     pub fn refresh_memory_specifics(&mut self, refresh_kind: MemoryRefreshKind) {
         self.inner.refresh_memory_specifics(refresh_kind)
@@ -182,11 +184,12 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new_all();
-    /// // Wait a bit because CPU usage is based on diff.
-    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-    /// // Refresh CPUs again.
-    /// s.refresh_cpu_usage();
+    /// if let Ok(mut s) = System::new_all() {
+    ///     // Wait a bit because CPU usage is based on diff.
+    ///     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    ///     // Refresh CPUs again.
+    ///     s.refresh_cpu_usage();
+    /// }
     /// ```
     ///
     /// [`MINIMUM_CPU_UPDATE_INTERVAL`]: crate::MINIMUM_CPU_UPDATE_INTERVAL
@@ -202,8 +205,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new_all();
-    /// s.refresh_cpu_frequency();
+    /// if let Ok(mut s) = System::new_all() {
+    ///     s.refresh_cpu_frequency();
+    /// }
     /// ```
     pub fn refresh_cpu_frequency(&mut self) {
         self.refresh_cpu_specifics(CpuRefreshKind::nothing().with_frequency())
@@ -221,10 +225,11 @@ impl System {
     /// ```no_run
     /// use sysinfo::{CpuRefreshKind, System};
     ///
-    /// let mut s = System::new_all();
-    /// // We already have the list of CPU filled, but we want to recompute it
-    /// // in case new CPUs were added.
-    /// s.refresh_cpu_list(CpuRefreshKind::everything());
+    /// if let Ok(mut s) = System::new_all() {
+    ///     // We already have the list of CPU filled, but we want to recompute it
+    ///     // in case new CPUs were added.
+    ///     s.refresh_cpu_list(CpuRefreshKind::everything());
+    /// }
     /// ```
     pub fn refresh_cpu_list(&mut self, refresh_kind: CpuRefreshKind) {
         self.inner.refresh_cpu_list(refresh_kind);
@@ -246,8 +251,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let mut s = System::new_all();
-    /// s.refresh_cpu_all();
+    /// if let Ok(mut s) = System::new_all() {
+    ///     s.refresh_cpu_all();
+    /// }
     /// ```
     ///
     /// [`MINIMUM_CPU_UPDATE_INTERVAL`]: crate::MINIMUM_CPU_UPDATE_INTERVAL
@@ -261,8 +267,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::{System, CpuRefreshKind};
     ///
-    /// let mut s = System::new_all();
-    /// s.refresh_cpu_specifics(CpuRefreshKind::everything());
+    /// if let Ok(mut s) = System::new_all() {
+    ///     s.refresh_cpu_specifics(CpuRefreshKind::everything());
+    /// }
     /// ```
     pub fn refresh_cpu_specifics(&mut self, refresh_kind: CpuRefreshKind) {
         self.inner.refresh_cpu_specifics(refresh_kind)
@@ -274,7 +281,7 @@ impl System {
     ///
     /// ```no_run
     /// # use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System, UpdateKind};
-    /// # let mut system = System::new();
+    /// # if let Ok(mut system) = System::new() {
     /// system.refresh_processes_specifics(
     ///     ProcessesToUpdate::All,
     ///     true,
@@ -284,6 +291,7 @@ impl System {
     ///         .with_disk_usage()
     ///         .with_exe(UpdateKind::OnlyIfNotSet)
     /// );
+    /// # }
     /// ```
     ///
     /// ⚠️ `remove_dead_processes` works as follows: if an updated process is dead, then it is
@@ -303,8 +311,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::{ProcessesToUpdate, System};
     ///
-    /// let mut s = System::new_all();
-    /// s.refresh_processes(ProcessesToUpdate::All, true);
+    /// if let Ok(mut s) = System::new_all() {
+    ///     s.refresh_processes(ProcessesToUpdate::All, true);
+    /// }
     /// ```
     pub fn refresh_processes(
         &mut self,
@@ -337,12 +346,13 @@ impl System {
     /// ```no_run
     /// use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System};
     ///
-    /// let mut s = System::new_all();
-    /// s.refresh_processes_specifics(
-    ///     ProcessesToUpdate::All,
-    ///     true,
-    ///     ProcessRefreshKind::everything(),
-    /// );
+    /// if let Ok(mut s) = System::new_all() {
+    ///     s.refresh_processes_specifics(
+    ///         ProcessesToUpdate::All,
+    ///         true,
+    ///         ProcessRefreshKind::everything(),
+    ///     );
+    /// }
     /// ```
     pub fn refresh_processes_specifics(
         &mut self,
@@ -401,9 +411,10 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// for (pid, process) in s.processes() {
-    ///     println!("{} {:?}", pid, process.name());
+    /// if let Ok(s) = System::new_all() {
+    ///     for (pid, process) in s.processes() {
+    ///         println!("{} {:?}", pid, process.name());
+    ///     }
     /// }
     /// ```
     pub fn processes(&self) -> &HashMap<Pid, Process> {
@@ -415,9 +426,10 @@ impl System {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("{:?}", process.name());
+    /// if let Ok(s) = System::new_all() {
+    ///     if let Some(process) = s.process(Pid::from(1337)) {
+    ///         println!("{:?}", process.name());
+    ///     }
     /// }
     /// ```
     pub fn process(&self, pid: Pid) -> Option<&Process> {
@@ -438,9 +450,10 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// for process in s.processes_by_name("htop".as_ref()) {
-    ///     println!("{} {:?}", process.pid(), process.name());
+    /// if let Ok(s) = System::new_all() {
+    ///     for process in s.processes_by_name("htop".as_ref()) {
+    ///         println!("{} {:?}", process.pid(), process.name());
+    ///     }
     /// }
     /// ```
     pub fn processes_by_name<'a: 'b, 'b>(
@@ -467,9 +480,10 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// for process in s.processes_by_exact_name("htop".as_ref()) {
-    ///     println!("{} {:?}", process.pid(), process.name());
+    /// if let Ok(s) = System::new_all() {
+    ///     for process in s.processes_by_exact_name("htop".as_ref()) {
+    ///         println!("{} {:?}", process.pid(), process.name());
+    ///     }
     /// }
     /// ```
     pub fn processes_by_exact_name<'a: 'b, 'b>(
@@ -489,14 +503,15 @@ impl System {
     /// ```no_run
     /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
     ///
-    /// let mut s = System::new_with_specifics(
+    /// if let Ok(mut s) = System::new_with_specifics(
     ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
-    /// );
-    /// // Wait a bit because CPU usage is based on diff.
-    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-    /// // Refresh CPUs again to get actual value.
-    /// s.refresh_cpu_usage();
-    /// println!("{}%", s.global_cpu_usage());
+    /// ) {
+    ///     // Wait a bit because CPU usage is based on diff.
+    ///     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    ///     // Refresh CPUs again to get actual value.
+    ///     s.refresh_cpu_usage();
+    ///     println!("{}%", s.global_cpu_usage());
+    /// }
     /// ```
     pub fn global_cpu_usage(&self) -> f32 {
         self.inner.global_cpu_usage()
@@ -510,15 +525,16 @@ impl System {
     /// ```no_run
     /// use sysinfo::{CpuRefreshKind, RefreshKind, System};
     ///
-    /// let mut s = System::new_with_specifics(
+    /// if let Ok(mut s) = System::new_with_specifics(
     ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
-    /// );
-    /// // Wait a bit because CPU usage is based on diff.
-    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-    /// // Refresh CPUs again to get actual value.
-    /// s.refresh_cpu_usage();
-    /// for cpu in s.cpus() {
-    ///     println!("{}%", cpu.usage());
+    /// ) {
+    ///     // Wait a bit because CPU usage is based on diff.
+    ///     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    ///     // Refresh CPUs again to get actual value.
+    ///     s.refresh_cpu_usage();
+    ///     for cpu in s.cpus() {
+    ///         println!("{}%", cpu.usage());
+    ///     }
     /// }
     /// ```
     pub fn cpus(&self) -> &[Cpu] {
@@ -530,8 +546,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// println!("{} bytes", s.total_memory());
+    /// if let Ok(s) = System::new_all() {
+    ///     println!("{} bytes", s.total_memory());
+    /// }
     /// ```
     ///
     /// On Linux, if you want to see this information with the limit of your cgroup, take a look
@@ -551,8 +568,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// println!("{} bytes", s.free_memory());
+    /// if let Ok(s) = System::new_all() {
+    ///     println!("{} bytes", s.free_memory());
+    /// }
     /// ```
     pub fn free_memory(&self) -> u64 {
         self.inner.free_memory()
@@ -569,8 +587,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// println!("{} bytes", s.available_memory());
+    /// if let Ok(s) = System::new_all() {
+    ///     println!("{} bytes", s.available_memory());
+    /// }
     /// ```
     pub fn available_memory(&self) -> u64 {
         self.inner.available_memory()
@@ -581,8 +600,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// println!("{} bytes", s.used_memory());
+    /// if let Ok(s) = System::new_all() {
+    ///     println!("{} bytes", s.used_memory());
+    /// }
     /// ```
     pub fn used_memory(&self) -> u64 {
         self.inner.used_memory()
@@ -593,8 +613,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// println!("{} bytes", s.total_swap());
+    /// if let Ok(s) = System::new_all() {
+    ///     println!("{} bytes", s.total_swap());
+    /// }
     /// ```
     pub fn total_swap(&self) -> u64 {
         self.inner.total_swap()
@@ -605,8 +626,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// println!("{} bytes", s.free_swap());
+    /// if let Ok(s) = System::new_all() {
+    ///     println!("{} bytes", s.free_swap());
+    /// }
     /// ```
     pub fn free_swap(&self) -> u64 {
         self.inner.free_swap()
@@ -617,8 +639,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// println!("{} bytes", s.used_swap());
+    /// if let Ok(s) = System::new_all() {
+    ///     println!("{} bytes", s.used_swap());
+    /// }
     /// ```
     pub fn used_swap(&self) -> u64 {
         self.inner.used_swap()
@@ -634,8 +657,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    /// println!("limits: {:?}", s.cgroup_limits());
+    /// if let Ok(s) = System::new_all() {
+    ///     println!("limits: {:?}", s.cgroup_limits());
+    /// }
     /// ```
     pub fn cgroup_limits(&self) -> Option<CGroupLimits> {
         self.inner.cgroup_limits()
@@ -901,8 +925,9 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new();
-    /// println!("{:?}", System::physical_core_count());
+    /// if let Ok(s) = System::new() {
+    ///     println!("{:?}", System::physical_core_count());
+    /// }
     /// ```
     pub fn physical_core_count() -> Option<usize> {
         SystemInner::physical_core_count()
@@ -1517,8 +1542,9 @@ impl core::error::Error for KillError {}
 /// ```no_run
 /// use sysinfo::{Pid, System};
 ///
-/// let s = System::new_all();
-/// if let Some(process) = s.process(Pid::from(1337)) {
+/// if let Ok(s) = System::new_all()
+///     && let Some(process) = s.process(Pid::from(1337))
+/// {
 ///     println!("{:?}", process.name());
 /// }
 /// ```
@@ -1547,8 +1573,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     process.kill();
     /// }
     /// ```
@@ -1572,8 +1599,10 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, Signal, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
+    ///     println!("Trying to send `kill` signal to {}", process.pid());
     ///     if process.kill_with(Signal::Kill).is_none() {
     ///         println!("This signal isn't supported on this platform");
     ///     }
@@ -1594,8 +1623,10 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
+    ///     println!("Trying to kill and wait for process {}", process.pid());
     ///     if let Err(error) = process.kill_and_wait() {
     ///         println!("`kill_and_wait` failed: {error:?}");
     ///     }
@@ -1619,8 +1650,10 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
+    ///     println!("Trying to kill and wait process {}", process.pid());
     ///     if let Err(error) = process.kill_and_wait() {
     ///         println!("`kill_and_wait` failed: {error:?}");
     ///     }
@@ -1655,12 +1688,13 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("Waiting for pid 1337");
-    ///     let exit_status = process.wait();
-    ///     println!("Pid 1337 exited with: {exit_status:?}");
+    /// if let Ok(mut s) = System::new_all() {
+    ///     println!("Looking for process 1337");
+    ///     if let Some(process) = s.process(Pid::from(1337)) {
+    ///         println!("Waiting for pid 1337");
+    ///         let exit_status = process.wait();
+    ///         println!("Pid 1337 exited with: {exit_status:?}");
+    ///     }
     /// }
     /// ```
     pub fn wait(&self) -> Option<ExitStatus> {
@@ -1682,8 +1716,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{:?}", process.name());
     /// }
     /// ```
@@ -1701,8 +1736,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{:?}", process.cmd());
     /// }
     /// ```
@@ -1715,8 +1751,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{:?}", process.exe());
     /// }
     /// ```
@@ -1741,8 +1778,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{}", process.pid());
     /// }
     /// ```
@@ -1760,8 +1798,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("limits: {:?}", process.cgroup_limits());
     /// }
     /// ```
@@ -1774,8 +1813,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{:?}", process.environ());
     /// }
     /// ```
@@ -1788,8 +1828,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{:?}", process.cwd());
     /// }
     /// ```
@@ -1804,8 +1845,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{:?}", process.root());
     /// }
     /// ```
@@ -1827,8 +1869,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{} bytes", process.memory());
     /// }
     /// ```
@@ -1855,8 +1898,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{} bytes", process.virtual_memory());
     /// }
     /// ```
@@ -1871,8 +1915,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{:?}", process.parent());
     /// }
     /// ```
@@ -1885,8 +1930,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{:?}", process.status());
     /// }
     /// ```
@@ -1899,8 +1945,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("Started at {} seconds", process.start_time());
     /// }
     /// ```
@@ -1913,8 +1960,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("Running since {} seconds", process.run_time());
     /// }
     /// ```
@@ -1941,17 +1989,18 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, ProcessesToUpdate, ProcessRefreshKind, System};
     ///
-    /// let mut s = System::new_all();
-    /// // Wait a bit because CPU usage is based on diff.
-    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-    /// // Refresh CPU usage to get actual value.
-    /// s.refresh_processes_specifics(
-    ///     ProcessesToUpdate::All,
-    ///     true,
-    ///     ProcessRefreshKind::nothing().with_cpu()
-    /// );
-    /// if let Some(process) = s.process(Pid::from(1337)) {
-    ///     println!("{}%", process.cpu_usage());
+    /// if let Ok(mut s) = System::new_all() {
+    ///     // Wait a bit because CPU usage is based on diff.
+    ///     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    ///     // Refresh CPU usage to get actual value.
+    ///     s.refresh_processes_specifics(
+    ///         ProcessesToUpdate::All,
+    ///         true,
+    ///         ProcessRefreshKind::nothing().with_cpu()
+    ///     );
+    ///     if let Some(process) = s.process(Pid::from(1337)) {
+    ///         println!("{}%", process.cpu_usage());
+    ///     }
     /// }
     /// ```
     pub fn cpu_usage(&self) -> f32 {
@@ -1965,8 +2014,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("{}", process.accumulated_cpu_time());
     /// }
     /// ```
@@ -1986,8 +2036,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let s = System::new_all();
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     let disk_usage = process.disk_usage();
     ///     println!("read bytes   : new/total => {}/{}",
     ///         disk_usage.read_bytes,
@@ -2013,9 +2064,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(mut s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("User id for process 1337: {:?}", process.user_id());
     /// }
     /// ```
@@ -2039,9 +2090,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(mut s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("User id for process 1337: {:?}", process.effective_user_id());
     /// }
     /// ```
@@ -2056,9 +2107,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(mut s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("Group ID for process 1337: {:?}", process.group_id());
     /// }
     /// ```
@@ -2077,9 +2128,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(mut s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("User id for process 1337: {:?}", process.effective_group_id());
     /// }
     /// ```
@@ -2095,9 +2146,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(mut s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     println!("Session ID for process 1337: {:?}", process.session_id());
     /// }
     /// ```
@@ -2112,9 +2163,9 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{Pid, System};
     ///
-    /// let mut s = System::new_all();
-    ///
-    /// if let Some(process) = s.process(Pid::from(1337)) {
+    /// if let Ok(mut s) = System::new_all()
+    ///     && let Some(process) = s.process(Pid::from(1337))
+    /// {
     ///     if let Some(tasks) = process.tasks() {
     ///         println!("Listing tasks for process {:?}", process.pid());
     ///         for task_pid in tasks {
@@ -2147,11 +2198,11 @@ impl Process {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    ///
-    /// for (_, process) in s.processes() {
-    ///     if let Some(thread_kind) = process.thread_kind() {
-    ///         println!("Process {:?} is a {thread_kind:?} thread", process.pid());
+    /// if let Ok(s) = System::new_all() {
+    ///     for (_, process) in s.processes() {
+    ///         if let Some(thread_kind) = process.thread_kind() {
+    ///             println!("Process {:?} is a {thread_kind:?} thread", process.pid());
+    ///         }
     ///     }
     /// }
     /// ```
@@ -2172,16 +2223,17 @@ impl Process {
     /// ```no_run
     /// use sysinfo::{ProcessesToUpdate, System};
     ///
-    /// let mut s = System::new_all();
-    /// // We set the `remove_dead_processes` to `false`.
-    /// s.refresh_processes(ProcessesToUpdate::All, false);
+    /// if let Ok(mut s) = System::new_all() {
+    ///     // We set the `remove_dead_processes` to `false`.
+    ///     s.refresh_processes(ProcessesToUpdate::All, false);
     ///
-    /// for (_, process) in s.processes() {
-    ///     println!(
-    ///         "Process {:?} {}",
-    ///         process.pid(),
-    ///         if process.exists() { "exists" } else { "doesn't exist" },
-    ///     );
+    ///     for (_, process) in s.processes() {
+    ///         println!(
+    ///             "Process {:?} {}",
+    ///             process.pid(),
+    ///             if process.exists() { "exists" } else { "doesn't exist" },
+    ///         );
+    ///     }
     /// }
     /// ```
     pub fn exists(&self) -> bool {
@@ -2200,14 +2252,14 @@ impl Process {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    ///
-    /// for (_, process) in s.processes() {
-    ///     println!(
-    ///         "Process {:?} {:?}",
-    ///         process.pid(),
-    ///         process.open_files(),
-    ///     );
+    /// if let Ok(s) = System::new_all() {
+    ///     for (_, process) in s.processes() {
+    ///         println!(
+    ///             "Process {:?} {:?}",
+    ///             process.pid(),
+    ///             process.open_files(),
+    ///         );
+    ///     }
     /// }
     /// ```
     pub fn open_files(&self) -> Option<usize> {
@@ -2224,14 +2276,14 @@ impl Process {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// let s = System::new_all();
-    ///
-    /// for (_, process) in s.processes() {
-    ///     println!(
-    ///         "Process {:?} {:?}",
-    ///         process.pid(),
-    ///         process.open_files_limit(),
-    ///     );
+    /// if let Ok(s) = System::new_all() {
+    ///     for (_, process) in s.processes() {
+    ///         println!(
+    ///             "Process {:?} {:?}",
+    ///             process.pid(),
+    ///             process.open_files_limit(),
+    ///         );
+    ///     }
     /// }
     /// ```
     pub fn open_files_limit(&self) -> Option<usize> {
@@ -2322,12 +2374,14 @@ cfg_select! {
 /// ```no_run
 /// use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System, UpdateKind};
 ///
-/// let mut system = System::new();
-/// system.refresh_processes_specifics(
-///     ProcessesToUpdate::All,
-///     true,
-///     ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
-/// );
+/// if let Ok(mut system) = System::new() {
+///     system.refresh_processes_specifics(
+///         ProcessesToUpdate::All,
+///         true,
+///         ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
+///     );
+///     // Do something with processes...
+/// }
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum UpdateKind {
@@ -2360,15 +2414,16 @@ impl UpdateKind {
 /// ```no_run
 /// use sysinfo::{ProcessesToUpdate, System, get_current_pid};
 ///
-/// let mut system = System::new();
-/// // To refresh all processes:
-/// system.refresh_processes(ProcessesToUpdate::All, true);
+/// if let Ok(mut system) = System::new() {
+///     // To refresh all processes:
+///     system.refresh_processes(ProcessesToUpdate::All, true);
 ///
-/// // To refresh only the current one:
-/// system.refresh_processes(
-///     ProcessesToUpdate::Some(&[get_current_pid().unwrap()]),
-///     true,
-/// );
+///     // To refresh only the current one:
+///     system.refresh_processes(
+///         ProcessesToUpdate::Some(&[get_current_pid().unwrap()]),
+///         true,
+///     );
+/// }
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProcessesToUpdate<'a> {
@@ -2404,18 +2459,18 @@ pub enum ProcessesToUpdate<'a> {
 /// ```
 /// use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System};
 ///
-/// let mut system = System::new();
+/// if let Ok(mut system) = System::new() {
+///     // We don't want to update the CPU information.
+///     system.refresh_processes_specifics(
+///         ProcessesToUpdate::All,
+///         true,
+///         ProcessRefreshKind::everything().without_cpu(),
+///     );
 ///
-/// // We don't want to update the CPU information.
-/// system.refresh_processes_specifics(
-///     ProcessesToUpdate::All,
-///     true,
-///     ProcessRefreshKind::everything().without_cpu(),
-/// );
-///
-/// for (_, proc_) in system.processes() {
-///     // We use a `==` comparison on float only because we know it's set to 0 here.
-///     assert_eq!(proc_.cpu_usage(), 0.);
+///     for (_, proc_) in system.processes() {
+///         // We use a `==` comparison on float only because we know it's set to 0 here.
+///         assert_eq!(proc_.cpu_usage(), 0.);
+///     }
 /// }
 /// ```
 ///
@@ -2556,13 +2611,13 @@ It will retrieve the following information:
 /// ```
 /// use sysinfo::{CpuRefreshKind, System};
 ///
-/// let mut system = System::new();
+/// if let Ok(mut system) = System::new() {
+///     // We don't want to update all the CPU information.
+///     system.refresh_cpu_specifics(CpuRefreshKind::everything().without_frequency());
 ///
-/// // We don't want to update all the CPU information.
-/// system.refresh_cpu_specifics(CpuRefreshKind::everything().without_frequency());
-///
-/// for cpu in system.cpus() {
-///     assert_eq!(cpu.frequency(), 0);
+///     for cpu in system.cpus() {
+///         assert_eq!(cpu.frequency(), 0);
+///     }
 /// }
 /// ```
 ///
@@ -2618,13 +2673,13 @@ impl CpuRefreshKind {
 /// ```
 /// use sysinfo::{MemoryRefreshKind, System};
 ///
-/// let mut system = System::new();
+/// if let Ok(mut system) = System::new() {
+///     // We don't want to update all memories information.
+///     system.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
 ///
-/// // We don't want to update all memories information.
-/// system.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
-///
-/// println!("total RAM: {}", system.total_memory());
-/// println!("free RAM:  {}", system.free_memory());
+///     println!("total RAM: {}", system.total_memory());
+///     println!("free RAM:  {}", system.free_memory());
+/// }
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct MemoryRefreshKind {
@@ -2678,12 +2733,12 @@ impl MemoryRefreshKind {
 /// use sysinfo::{RefreshKind, System};
 ///
 /// // We want everything except memory.
-/// let mut system = System::new_with_specifics(RefreshKind::everything().without_memory());
-///
-/// assert_eq!(system.total_memory(), 0);
-/// # if sysinfo::IS_SUPPORTED_SYSTEM && !cfg!(feature = "apple-sandbox") {
-/// assert!(system.processes().len() > 0);
-/// # }
+/// if let Ok(mut system) = System::new_with_specifics(RefreshKind::everything().without_memory()) {
+///     assert_eq!(system.total_memory(), 0);
+///     # if sysinfo::IS_SUPPORTED_SYSTEM && !cfg!(feature = "apple-sandbox") {
+///     assert!(system.processes().len() > 0);
+///     # }
+/// }
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RefreshKind {
@@ -2801,17 +2856,17 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
 /// ```no_run
 /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
 ///
-/// let mut s = System::new_with_specifics(
+/// if let Ok(mut s) = System::new_with_specifics(
 ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
-/// );
+/// ) {
+///     // Wait a bit because CPU usage is based on diff.
+///     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+///     // Refresh CPUs again to get actual value.
+///     s.refresh_cpu_all();
 ///
-/// // Wait a bit because CPU usage is based on diff.
-/// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-/// // Refresh CPUs again to get actual value.
-/// s.refresh_cpu_all();
-///
-/// for cpu in s.cpus() {
-///     println!("{}%", cpu.usage());
+///     for cpu in s.cpus() {
+///         println!("{}%", cpu.usage());
+///     }
 /// }
 /// ```
 pub struct Cpu {
@@ -2827,17 +2882,17 @@ impl Cpu {
     /// ```no_run
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
-    /// let mut s = System::new_with_specifics(
+    /// if let Ok(mut s) = System::new_with_specifics(
     ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
-    /// );
+    /// ) {
+    ///     // Wait a bit because CPU usage is based on diff.
+    ///     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    ///     // Refresh CPUs again to get actual value.
+    ///     s.refresh_cpu_all();
     ///
-    /// // Wait a bit because CPU usage is based on diff.
-    /// std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-    /// // Refresh CPUs again to get actual value.
-    /// s.refresh_cpu_all();
-    ///
-    /// for cpu in s.cpus() {
-    ///     println!("{}%", cpu.usage());
+    ///     for cpu in s.cpus() {
+    ///         println!("{}%", cpu.usage());
+    ///     }
     /// }
     /// ```
     pub fn usage(&self) -> f32 {
@@ -2849,11 +2904,12 @@ impl Cpu {
     /// ```no_run
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
-    /// let s = System::new_with_specifics(
+    /// if let Ok(s) = System::new_with_specifics(
     ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
-    /// );
-    /// for cpu in s.cpus() {
-    ///     println!("{}", cpu.name());
+    /// ) {
+    ///     for cpu in s.cpus() {
+    ///         println!("{}", cpu.name());
+    ///     }
     /// }
     /// ```
     pub fn name(&self) -> &str {
@@ -2865,11 +2921,12 @@ impl Cpu {
     /// ```no_run
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
-    /// let s = System::new_with_specifics(
+    /// if let Ok(s) = System::new_with_specifics(
     ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
-    /// );
-    /// for cpu in s.cpus() {
-    ///     println!("{}", cpu.vendor_id());
+    /// ) {
+    ///     for cpu in s.cpus() {
+    ///         println!("{}", cpu.vendor_id());
+    ///     }
     /// }
     /// ```
     pub fn vendor_id(&self) -> &str {
@@ -2881,11 +2938,12 @@ impl Cpu {
     /// ```no_run
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
-    /// let s = System::new_with_specifics(
+    /// if let Ok(s) = System::new_with_specifics(
     ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
-    /// );
-    /// for cpu in s.cpus() {
-    ///     println!("{}", cpu.brand());
+    /// ) {
+    ///     for cpu in s.cpus() {
+    ///         println!("{}", cpu.brand());
+    ///     }
     /// }
     /// ```
     pub fn brand(&self) -> &str {
@@ -2897,11 +2955,12 @@ impl Cpu {
     /// ```no_run
     /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
     ///
-    /// let s = System::new_with_specifics(
+    /// if let Ok(s) = System::new_with_specifics(
     ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
-    /// );
-    /// for cpu in s.cpus() {
-    ///     println!("{}", cpu.frequency());
+    /// ) {
+    ///     for cpu in s.cpus() {
+    ///         println!("{}", cpu.frequency());
+    ///     }
     /// }
     /// ```
     pub fn frequency(&self) -> u64 {
@@ -2918,19 +2977,17 @@ mod test {
     // so this test ensures that it doesn't happen.
     #[test]
     fn check_refresh_process_update() {
-        if !IS_SUPPORTED_SYSTEM {
-            return;
+        if let Ok(mut s) = System::new_all() {
+            let total = s.processes().len() as isize;
+            s.refresh_processes(ProcessesToUpdate::All, false);
+            let new_total = s.processes().len() as isize;
+            // There should be almost no difference in the processes count.
+            assert!(
+                (new_total - total).abs() <= 5,
+                "{} <= 5",
+                (new_total - total).abs()
+            );
         }
-        let mut s = System::new_all();
-        let total = s.processes().len() as isize;
-        s.refresh_processes(ProcessesToUpdate::All, false);
-        let new_total = s.processes().len() as isize;
-        // There should be almost no difference in the processes count.
-        assert!(
-            (new_total - total).abs() <= 5,
-            "{} <= 5",
-            (new_total - total).abs()
-        );
     }
 
     #[test]
@@ -2941,10 +2998,7 @@ mod test {
     // Ensure that the CPUs frequency isn't retrieved until we ask for it.
     #[test]
     fn check_cpu_frequency() {
-        if !IS_SUPPORTED_SYSTEM {
-            return;
-        }
-        let mut s = System::new();
+        let Ok(mut s) = System::new() else { return };
         s.refresh_processes(ProcessesToUpdate::All, false);
         for proc_ in s.cpus() {
             assert_eq!(proc_.frequency(), 0);
@@ -2968,7 +3022,7 @@ mod test {
 
     #[test]
     fn check_process_memory_usage() {
-        let mut s = System::new();
+        let Ok(mut s) = System::new() else { return };
         s.refresh_specifics(RefreshKind::everything());
 
         if IS_SUPPORTED_SYSTEM {
@@ -2983,14 +3037,16 @@ mod test {
 
     #[test]
     fn check_system_implemented_traits() {
-        fn check<T: Sized + std::fmt::Debug + Default + Send + Sync>(_: T) {}
+        fn check<T: Sized + std::fmt::Debug + Send + Sync>(_: T) {}
 
-        check(System::new());
+        if let Ok(s) = System::new() {
+            check(s);
+        }
     }
 
     #[test]
     fn check_memory_usage() {
-        let mut s = System::new();
+        let Ok(mut s) = System::new() else { return };
 
         assert_eq!(s.total_memory(), 0);
         assert_eq!(s.free_memory(), 0);
@@ -3019,10 +3075,7 @@ mod test {
     #[cfg(target_os = "linux")]
     #[test]
     fn check_processes_cpu_usage() {
-        if !IS_SUPPORTED_SYSTEM {
-            return;
-        }
-        let mut s = System::new();
+        let Ok(mut s) = System::new() else { return };
 
         s.refresh_processes(ProcessesToUpdate::All, false);
         // All CPU usage will start at zero until the second refresh
@@ -3050,10 +3103,7 @@ mod test {
 
     #[test]
     fn check_cpu_usage() {
-        if !IS_SUPPORTED_SYSTEM {
-            return;
-        }
-        let mut s = System::new();
+        let Ok(mut s) = System::new() else { return };
         for _ in 0..10 {
             s.refresh_cpu_usage();
             // Wait a bit to update CPU usage values
@@ -3114,7 +3164,7 @@ mod test {
 
             #[cfg(not(feature = "apple-sandbox"))]
             {
-                let mut s = System::new();
+                let Ok(mut s) = System::new() else { return };
                 // First check what happens in case the process isn't already in our process list.
                 assert_eq!(
                     s.refresh_processes(ProcessesToUpdate::Some(&[_pid]), true),
@@ -3131,7 +3181,7 @@ mod test {
 
     #[test]
     fn check_cpus_number() {
-        let mut s = System::new();
+        let Ok(mut s) = System::new() else { return };
 
         // This information isn't retrieved by default.
         assert!(s.cpus().is_empty());
@@ -3200,8 +3250,9 @@ mod doctest {
     /// ```no_run
     /// use sysinfo::{Process, System};
     ///
-    /// let mut s = System::new_all();
-    /// let p: &Process = s.processes().values().next().unwrap();
+    /// if let Ok(mut s) = System::new_all() {
+    ///     let p: &Process = s.processes().values().next().unwrap();
+    /// }
     /// ```
     ///
     /// And now we check if it fails when we try to clone it:
@@ -3209,9 +3260,10 @@ mod doctest {
     /// ```compile_fail
     /// use sysinfo::{Process, System};
     ///
-    /// let mut s = System::new_all();
-    /// let p: &Process = s.processes().values().next().unwrap();
-    /// let p = (*p).clone();
+    /// if let Ok(mut s) = System::new_all() {
+    ///     let p: &Process = s.processes().values().next().unwrap();
+    ///     let p = (*p).clone();
+    /// }
     /// ```
     mod process_clone {}
 
@@ -3223,7 +3275,7 @@ mod doctest {
     /// ```no_run
     /// use sysinfo::{Process, System};
     ///
-    /// let s = System::new();
+    /// if let Ok(s) = System::new() {}
     /// ```
     ///
     /// And now we check if it fails when we try to clone it:
@@ -3231,8 +3283,9 @@ mod doctest {
     /// ```compile_fail
     /// use sysinfo::{Process, System};
     ///
-    /// let s = System::new();
-    /// let s = s.clone();
+    /// if let Ok(s) = System::new() {
+    ///     let s = s.clone();
+    /// }
     /// ```
     mod system_clone {}
 }
