@@ -257,10 +257,22 @@ impl ProcessInner {
 
         if buffer_size_bytes < 0 {
             sysinfo_debug!("proc_pidinfo failed");
-            None
-        } else {
-            Some(buffer_size_bytes as usize / std::mem::size_of::<libc::proc_fdinfo>())
+            return None;
         }
+
+        let mut buffer = vec![0u8; buffer_size_bytes as usize];
+
+        let buffer_filled_bytes = unsafe {
+            libc::proc_pidinfo(
+                self.pid.0,
+                libc::PROC_PIDLISTFDS,
+                0,
+                buffer.as_mut_ptr() as *mut std::ffi::c_void,
+                buffer_size_bytes,
+            )
+        };
+
+        Some(buffer_filled_bytes as usize / std::mem::size_of::<libc::proc_fdinfo>())
     }
 }
 
