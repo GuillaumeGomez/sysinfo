@@ -257,7 +257,7 @@ impl ProcessInner {
 
         if buffer_size_bytes < 0 {
             sysinfo_debug!("proc_pidinfo failed");
-            return None
+            return None;
         }
 
         let mut buffer = vec![0u8; buffer_size_bytes as usize];
@@ -268,7 +268,7 @@ impl ProcessInner {
                 libc::PROC_PIDLISTFDS,
                 0,
                 buffer.as_mut_ptr() as *mut std::ffi::c_void,
-                buffer_size_bytes
+                buffer_size_bytes,
             )
         };
 
