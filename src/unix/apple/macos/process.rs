@@ -272,6 +272,11 @@ impl ProcessInner {
             )
         };
 
+        if buffer_filled_bytes < 0 {
+            sysinfo_debug!("proc_pidinfo failed");
+            return None;
+        }
+
         Some(buffer_filled_bytes as usize / std::mem::size_of::<libc::proc_fdinfo>())
     }
 }
