@@ -1044,6 +1044,7 @@ mod vulkan {
 
                         let mut total_memory: u64 = 0;
                         let mut used_memory: u64 = 0;
+                        let mut found_vram = false;
                         for h in 0..heap_count {
                             let heap = &mem_props2.memory_properties.memory_heaps[h];
                             let is_vram = (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0;
@@ -1054,12 +1055,18 @@ mod vulkan {
                                 continue;
                             }
 
+                            found_vram = true;
                             total_memory = total_memory.saturating_add(heap.size);
                             used_memory =
                                 used_memory.saturating_add(budget_properties.heap_usage[h]);
                         }
-                        gpu.inner.total_memory = Some(total_memory);
-                        gpu.inner.used_memory = Some(used_memory);
+                        if found_vram {
+                            gpu.inner.total_memory = Some(total_memory);
+                            gpu.inner.used_memory = Some(used_memory);
+                        } else {
+                            gpu.inner.total_memory = None;
+                            gpu.inner.used_memory = None;
+                        }
                     } else {
                         // When we don't have access to used memory.
                         let mut mem_props =
@@ -1071,6 +1078,7 @@ mod vulkan {
                         let mem_props = mem_props.assume_init();
 
                         let mut total_memory: u64 = 0;
+                        let mut found_total = false;
                         for h in 0..(mem_props.memory_heap_count as usize) {
                             let heap = &mem_props.memory_heaps[h];
                             let is_vram = (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0;
@@ -1080,10 +1088,15 @@ mod vulkan {
                             if !is_vram {
                                 continue;
                             }
+                            found_total = true;
                             total_memory =
                                 total_memory.saturating_add(mem_props.memory_heaps[h].size);
                         }
-                        gpu.inner.total_memory = Some(total_memory);
+                        if found_total {
+                            gpu.inner.total_memory = Some(total_memory);
+                        } else {
+                            gpu.inner.total_memory = None;
+                        }
                     }
                 }
             }
