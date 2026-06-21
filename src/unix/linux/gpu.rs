@@ -51,7 +51,7 @@ impl GpuInner {
             model: model.cloned(),
             vendor: vendor.to_owned(),
             pci,
-            updated: true,
+            updated: false,
         }
     }
 
@@ -112,7 +112,7 @@ impl GpusInner {
                 self.vulkan_lib = vulkan::Vulkan::load();
             }
             if let Some(ref vulkan) = self.vulkan_lib {
-                vulkan.get_vulkan_memory(&mut self.gpus);
+                vulkan.get_vulkan_info(&mut self.gpus);
             }
         }
     }
@@ -144,11 +144,7 @@ impl GpusInner {
                 if gpu.inner.vendor.contains("AMD") {
                     get_amd_info(&mut gpu.inner, &mut buffer, &device);
                 }
-                // Since NVIDIA GPUs are updated outside of this function, we don't change the
-                // `updated` field for them here.
-                if !gpu.inner.vendor.contains("NVIDIA") {
-                    gpu.inner.updated = true;
-                } else {
+                if gpu.inner.vendor.contains("NVIDIA") {
                     *need_nvidia = true;
                 }
                 continue;
@@ -302,6 +298,7 @@ fn get_amd_info(gpu: &mut GpuInner, buffer: &mut String, path: &Path) {
     if read_file(path.join("mem_info_vram_total"), buffer).is_ok() {
         gpu.total_memory = buffer.trim().parse::<u64>().ok();
     }
+    gpu.updated = true;
 }
 
 macro_rules! load_sym {
@@ -511,7 +508,10 @@ mod nvidia {
                         continue;
                     };
 
-                    let gpu = match gpus.iter_mut().find(|gpu| gpu.inner.pci == pci) {
+                    let gpu = match gpus
+                        .iter_mut()
+                        .find(|gpu| !gpu.inner.updated && gpu.inner.pci == pci)
+                    {
                         Some(gpu) => &mut gpu.inner,
                         None => {
                             let mut gpu = GpuInner::new(pci.to_owned(), "NVIDIA Corporation", None);
@@ -546,6 +546,7 @@ mod nvidia {
                         gpu.total_memory = Some(mem_info.total);
                         gpu.used_memory = Some(mem_info.used);
                     }
+                    gpu.updated = true;
                 }
             }
         }
@@ -968,7 +969,7 @@ mod vulkan {
             }
         }
 
-        pub(crate) fn get_vulkan_memory(&self, gpus: &mut [Gpu]) {
+        pub(crate) fn get_vulkan_info(&self, gpus: &mut [Gpu]) {
             unsafe {
                 let mut device_count: u32 = 0;
                 (self.enumerate_physical_devices)(self.instance, &mut device_count, null_mut());
@@ -1012,13 +1013,12 @@ mod vulkan {
 
                     // We don't want to discover new GPUs, just to add extra info to existing
                     // ones.
-                    let Some(gpu) = gpus.iter_mut().find(|gpu| gpu.inner.pci == pci) else {
+                    let Some(gpu) = gpus
+                        .iter_mut()
+                        .find(|gpu| !gpu.inner.updated && gpu.inner.pci == pci)
+                    else {
                         continue;
                     };
-                    if gpu.inner.total_memory.is_some() && gpu.inner.used_memory.is_some() {
-                        // All information is already here, ignoring it.
-                        continue;
-                    }
 
                     if gpu.inner.model.is_none() {
                         gpu.inner.model = convert_to_string(&props2.properties.device_name);
@@ -1085,6 +1085,7 @@ mod vulkan {
                         }
                         gpu.inner.total_memory = Some(total_memory);
                     }
+                    gpu.inner.updated = true;
                 }
             }
         }
