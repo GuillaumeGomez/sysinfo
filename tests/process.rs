@@ -27,14 +27,16 @@ macro_rules! start_proc {
 
 #[test]
 fn test_cwd() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
+
+    let Ok(mut s) = System::new() else { return };
+
     let mut p = start_proc!("3", "CwdSignal");
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
-    let mut s = System::new();
     s.refresh_processes_specifics(
         ProcessesToUpdate::All,
         false,
@@ -55,12 +57,13 @@ fn test_cwd() {
 
 #[test]
 fn test_cmd() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
+    let Ok(mut s) = System::new() else { return };
+
     let mut p = start_proc!("3", "CmdSignal");
     std::thread::sleep(std::time::Duration::from_millis(500));
-    let mut s = System::new();
     assert!(s.processes().is_empty());
     s.refresh_processes_specifics(
         ProcessesToUpdate::All,
@@ -98,9 +101,10 @@ fn build_test_binary(file_name: &str) {
 #[test]
 #[allow(clippy::zombie_processes)]
 fn test_environ() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
+    let Ok(mut s) = System::new() else { return };
     let file_name = "target/test_binary";
     build_test_binary(file_name);
     let mut p = std::process::Command::new(format!("./{file_name}"))
@@ -111,7 +115,6 @@ fn test_environ() {
 
     std::thread::sleep(std::time::Duration::from_secs(1));
     let pid = Pid::from_u32(p.id() as _);
-    let mut s = System::new();
 
     s.refresh_processes_specifics(
         ProcessesToUpdate::Some(&[pid]),
@@ -145,7 +148,7 @@ fn test_environ() {
 
     std::thread::sleep(std::time::Duration::from_secs(1));
     let pid = Pid::from_u32(p.id() as _);
-    let mut s = System::new();
+    let mut s = System::new().unwrap();
 
     s.refresh_processes_specifics(
         ProcessesToUpdate::All,
@@ -168,10 +171,10 @@ fn test_environ() {
 
 #[test]
 fn test_process_refresh() {
-    let mut s = System::new();
+    let Ok(mut s) = System::new() else { return };
     assert_eq!(s.processes().len(), 0);
 
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
     s.refresh_processes(
@@ -202,7 +205,7 @@ fn test_process_disk_usage() {
     use std::io::prelude::*;
     use sysinfo::get_current_pid;
 
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
     if std::env::var("FREEBSD_CI").is_ok() || std::env::var("NETBSD_CI").is_ok() {
@@ -211,7 +214,7 @@ fn test_process_disk_usage() {
         return;
     }
 
-    fn inner() -> System {
+    fn inner(system: &mut System) {
         {
             let mut file = File::create("test.txt").expect("failed to create file");
             file.write_all(b"This is a test file\nwith test data.\n")
@@ -220,14 +223,15 @@ fn test_process_disk_usage() {
         fs::remove_file("test.txt").expect("failed to remove file");
         // Waiting a bit just in case...
         std::thread::sleep(std::time::Duration::from_millis(250));
-        let mut system = System::new();
         assert!(system.processes().is_empty());
         system.refresh_processes(ProcessesToUpdate::All, false);
         assert!(!system.processes().is_empty());
-        system
     }
 
-    let mut system = inner();
+    let Ok(mut system) = System::new() else {
+        return;
+    };
+    inner(&mut system);
     let mut p = system
         .process(get_current_pid().expect("Failed retrieving current pid."))
         .expect("failed to get process");
@@ -237,7 +241,8 @@ fn test_process_disk_usage() {
         // For whatever reason, sometimes, mac doesn't work on the first time when running
         // `cargo test`. Two solutions, either run with "cargo test -- --test-threads 1", or
         // check twice...
-        system = inner();
+        system = System::new().unwrap();
+        inner(&mut system);
         p = system
             .process(get_current_pid().expect("Failed retrieving current pid."))
             .expect("failed to get process");
@@ -257,12 +262,14 @@ fn test_process_disk_usage() {
 
 #[test]
 fn cpu_usage_is_not_nan() {
-    let mut system = System::new();
-    system.refresh_processes(ProcessesToUpdate::All, false);
-
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
+
+    let Ok(mut system) = System::new() else {
+        return;
+    };
+    system.refresh_processes(ProcessesToUpdate::All, false);
 
     // We need `collect` otherwise we can't have mutable access to `system`.
     #[allow(clippy::needless_collect)]
@@ -288,16 +295,16 @@ fn cpu_usage_is_not_nan() {
 fn test_process_times() {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
+    let Ok(mut s) = System::new() else { return };
     let boot_time = System::boot_time().unwrap();
     assert!(boot_time > 0);
     let mut p = start_proc!("3", "ProcessTimes");
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
-    let mut s = System::new();
     s.refresh_processes(ProcessesToUpdate::All, false);
     p.kill().expect("Unable to kill process.");
 
@@ -324,10 +331,10 @@ fn test_process_times() {
 // Checks that `session_id` is working.
 #[test]
 fn test_process_session_id() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
-    let mut s = System::new();
+    let Ok(mut s) = System::new() else { return };
     s.refresh_processes(ProcessesToUpdate::All, false);
     assert!(s.processes().values().any(|p| p.session_id().is_some()));
 }
@@ -335,20 +342,21 @@ fn test_process_session_id() {
 // Checks that `refresh_processes` is removing dead processes.
 #[test]
 fn test_refresh_processes() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
+    let Ok(mut s) = System::new() else { return };
+
     let mut p = start_proc!("300", "RefreshProcesses");
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
 
     // Checks that the process is listed as it should.
-    let mut s = System::new();
     s.refresh_processes(ProcessesToUpdate::All, false);
     assert!(s.process(pid).is_some());
     // We will use this `System` instance for another check.
-    let mut old_system = System::new();
+    let mut old_system = System::new().unwrap();
     old_system.refresh_processes(ProcessesToUpdate::All, false);
     assert!(old_system.process(pid).is_some());
 
@@ -361,7 +369,7 @@ fn test_refresh_processes() {
     // Let's give some time to the system to clean up...
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    let mut new_system = sysinfo::System::new_with_specifics(RefreshKind::nothing());
+    let mut new_system = sysinfo::System::new_with_specifics(RefreshKind::nothing()).unwrap();
     new_system.refresh_processes_specifics(
         ProcessesToUpdate::Some(&[pid]),
         true,
@@ -388,7 +396,7 @@ fn test_refresh_processes() {
 // This test ensures that if we refresh only one process, then only this process is removed.
 #[test]
 fn test_refresh_process_doesnt_remove() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") || System::new().is_err() {
         return;
     }
     let mut p1 = start_proc!("300", "RefreshProcessRemove1");
@@ -401,7 +409,8 @@ fn test_refresh_process_doesnt_remove() {
     // Checks that the process is listed as it should.
     let mut s = System::new_with_specifics(
         RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing()),
-    );
+    )
+    .unwrap();
     s.refresh_processes(ProcessesToUpdate::All, false);
 
     assert!(s.process(pid1).is_some());
@@ -443,9 +452,11 @@ fn test_refresh_process_doesnt_remove() {
 ))]
 fn test_refresh_tasks() {
     // Skip if unsupported.
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
+
+    let Ok(mut sys) = System::new() else { return };
 
     // 1) Spawn a thread that waits on a channel, so we control when it exits.
     let task_name = "controlled_test_thread";
@@ -460,7 +471,6 @@ fn test_refresh_tasks() {
         .unwrap();
 
     let pid = Pid::from_u32(std::process::id() as _);
-    let mut sys = System::new();
 
     // Wait until the new thread shows up in the process/tasks list.
     // We do a short loop and check each time by refreshing processes.
@@ -515,7 +525,7 @@ fn test_refresh_tasks() {
         (ProcessRefreshKind::everything().without_tasks(), false),
     ];
     for (kind, expect_tasks) in expectations.iter() {
-        let mut sys_new = System::new();
+        let mut sys_new = System::new().unwrap();
         sys_new.refresh_processes_specifics(ProcessesToUpdate::All, true, *kind);
         let proc = sys_new.process(pid).unwrap();
         assert_eq!(proc.tasks().is_some(), *expect_tasks);
@@ -556,16 +566,17 @@ fn test_refresh_tasks() {
 // Checks that `refresh_process` is removing dead processes when asked.
 #[test]
 fn test_refresh_process() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
+    let Ok(mut s) = System::new() else { return };
+
     let mut p = start_proc!("300", "RefreshProcess");
 
     let pid = Pid::from_u32(p.id() as _);
     std::thread::sleep(std::time::Duration::from_secs(1));
 
     // Checks that the process is listed as it should.
-    let mut s = System::new();
     s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     assert!(s.process(pid).is_some());
 
@@ -595,15 +606,16 @@ fn test_refresh_process() {
 
 #[test]
 fn test_wait_child() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
+    let Ok(mut s) = System::new() else { return };
+
     let p = start_proc!("300", "WaitChild");
 
     let before = std::time::Instant::now();
     let pid = Pid::from_u32(p.id() as _);
 
-    let mut s = System::new();
     s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let process = s.process(pid).unwrap();
 
@@ -624,29 +636,26 @@ fn test_wait_child() {
     assert!(before.elapsed() < std::time::Duration::from_millis(1000));
 }
 
+#[allow(clippy::zombie_processes)]
 #[test]
 fn test_wait_non_child() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if !cfg!(target_os = "linux") || cfg!(feature = "apple-sandbox") {
         return;
     }
+    let Ok(mut s) = System::new() else { return };
 
     let before = std::time::Instant::now();
 
     // spawn non child process.
-    let p = if !cfg!(target_os = "linux") {
-        return;
-    } else {
-        std::process::Command::new("setsid")
-            .arg("-w")
-            .arg("sleep")
-            .arg("2")
-            .stdout(std::process::Stdio::null())
-            .spawn()
-            .unwrap()
-    };
+    let p = std::process::Command::new("setsid")
+        .arg("-w")
+        .arg("sleep")
+        .arg("2")
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
     let pid = Pid::from_u32(p.id());
 
-    let mut s = System::new();
     s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let process = s.process(pid).expect("Process not found!");
 
@@ -674,13 +683,15 @@ fn test_wait_non_child() {
 
 #[test]
 fn test_process_iterator_lifetimes() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
 
-    let s = System::new_with_specifics(
+    let Ok(s) = System::new_with_specifics(
         RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing()),
-    );
+    ) else {
+        return;
+    };
 
     let process: Option<&sysinfo::Process>;
     {
@@ -701,11 +712,13 @@ fn test_process_iterator_lifetimes() {
 // Regression test for <https://github.com/GuillaumeGomez/sysinfo/issues/918>.
 #[test]
 fn test_process_cpu_usage() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
 
-    let mut sys = System::new_all();
+    let Ok(mut sys) = System::new_all() else {
+        return;
+    };
     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     sys.refresh_all();
 
@@ -718,11 +731,13 @@ fn test_process_cpu_usage() {
 
 #[test]
 fn test_process_creds() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
 
-    let mut sys = System::new_all();
+    let Ok(mut sys) = System::new_all() else {
+        return;
+    };
     sys.refresh_all();
 
     // Just ensure there is at least one process on the system whose credentials can be retrieved.
@@ -761,7 +776,7 @@ fn test_process_creds() {
 // This test ensures that only the requested information is retrieved.
 #[test]
 fn test_process_specific_refresh() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
 
@@ -785,7 +800,7 @@ fn test_process_specific_refresh() {
         assert_eq!(p.cpu_usage(), 0.);
     }
 
-    let mut s = System::new();
+    let Ok(mut s) = System::new() else { return };
     let pid = Pid::from_u32(std::process::id());
 
     macro_rules! update_specific_and_check {
@@ -869,11 +884,13 @@ fn test_process_specific_refresh() {
 
 #[test]
 fn test_refresh_pids() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
-    let self_pid = sysinfo::get_current_pid().expect("failed to get current pid");
-    let mut s = System::new();
+    let Ok(self_pid) = sysinfo::get_current_pid() else {
+        return;
+    };
+    let Ok(mut s) = System::new() else { return };
 
     let mut p = start_proc!("3", "RefreshPids");
 
@@ -891,10 +908,10 @@ fn test_refresh_pids() {
 
 #[test]
 fn test_process_run_time() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
-    let mut s = System::new();
+    let Ok(mut s) = System::new() else { return };
     let current_pid = sysinfo::get_current_pid().expect("failed to get current pid");
     s.refresh_processes(ProcessesToUpdate::Some(&[current_pid]), false);
     let run_time = s.process(current_pid).expect("no process found").run_time();
@@ -911,10 +928,11 @@ fn test_process_run_time() {
 // updated as well.
 #[test]
 fn test_parent_change() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") || cfg!(windows) {
+    if cfg!(feature = "apple-sandbox") || cfg!(windows) {
         // Windows never updates its parent PID so no need to check anything.
         return;
     }
+    let Ok(mut s) = System::new() else { return };
 
     let file_name = "target/test_binary2";
     build_test_binary(file_name);
@@ -926,7 +944,6 @@ fn test_parent_change() {
     std::thread::sleep(std::time::Duration::from_secs(1));
 
     let pid = Pid::from_u32(p.id() as _);
-    let mut s = System::new();
     s.refresh_processes(ProcessesToUpdate::All, false);
 
     assert_eq!(
@@ -960,10 +977,11 @@ fn test_parent_change() {
 // one after the other, it won't badly impact the CPU usage computation.
 #[test]
 fn test_multiple_single_process_refresh() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") || cfg!(windows) {
+    if cfg!(feature = "apple-sandbox") || cfg!(windows) {
         // Windows never updates its parent PID so no need to check anything.
         return;
     }
+    let Ok(mut s) = System::new() else { return };
 
     let file_name = "target/test_binary3";
     build_test_binary(file_name);
@@ -979,7 +997,6 @@ fn test_multiple_single_process_refresh() {
     let pid_a = Pid::from_u32(p_a.id() as _);
     let pid_b = Pid::from_u32(p_b.id() as _);
 
-    let mut s = System::new();
     let process_refresh_kind = ProcessRefreshKind::nothing().with_cpu();
     s.refresh_processes_specifics(
         ProcessesToUpdate::Some(&[pid_a]),
@@ -1025,22 +1042,19 @@ fn accumulated_cpu_time() {
         let thread_atomic = atomic.clone();
         std::thread::spawn(move || {
             while !thread_atomic.load(Ordering::Relaxed) {
-                System::new_all();
+                let _ = System::new_all();
             }
         });
         std::thread::sleep(std::time::Duration::from_millis(250));
         atomic.store(true, Ordering::Relaxed);
     }
 
-    if !sysinfo::IS_SUPPORTED_SYSTEM
-        || cfg!(feature = "apple-sandbox")
-        || cfg!(target_os = "freebsd")
-        || cfg!(target_os = "netbsd")
+    if cfg!(feature = "apple-sandbox") || cfg!(target_os = "freebsd") || cfg!(target_os = "netbsd")
     {
         return;
     }
 
-    let mut s = System::new();
+    let Ok(mut s) = System::new() else { return };
     let current_pid = sysinfo::get_current_pid().expect("failed to get current pid");
     let refresh_kind = ProcessRefreshKind::nothing().with_cpu();
     generate_cpu_usage();
@@ -1065,9 +1079,10 @@ fn accumulated_cpu_time() {
 
 #[test]
 fn test_exists() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
+    let Ok(mut s) = System::new() else { return };
 
     let file_name = "target/test_binary4";
     build_test_binary(file_name);
@@ -1077,7 +1092,6 @@ fn test_exists() {
         .unwrap();
     let pid = Pid::from_u32(p.id() as _);
 
-    let mut s = System::new();
     let process_refresh_kind = ProcessRefreshKind::nothing().with_memory();
     s.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, process_refresh_kind);
     assert!(s.process(pid).unwrap().exists());
@@ -1097,10 +1111,6 @@ fn test_exists() {
 fn test_tasks() {
     use std::collections::HashSet;
 
-    if !sysinfo::IS_SUPPORTED_SYSTEM {
-        return;
-    }
-
     fn get_tasks(system: &System, pid: Pid) -> HashSet<Pid> {
         let mut task_pids: HashSet<Pid> = HashSet::new();
         if let Some(process) = system.process(pid)
@@ -1111,7 +1121,9 @@ fn test_tasks() {
         task_pids
     }
 
-    let mut system = System::new_with_specifics(RefreshKind::nothing());
+    let Ok(mut system) = System::new_with_specifics(RefreshKind::nothing()) else {
+        return;
+    };
     system.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
     let pid = sysinfo::get_current_pid().expect("failed to get current pid");
     let old_tasks = get_tasks(&system, pid);
@@ -1127,7 +1139,7 @@ fn test_tasks() {
         // Try to remove flakyness a bit.
         std::thread::sleep(std::time::Duration::from_millis(50));
 
-        let mut system_new = System::new_with_specifics(RefreshKind::nothing());
+        let mut system_new = System::new_with_specifics(RefreshKind::nothing()).unwrap();
         system_new.refresh_processes_specifics(
             ProcessesToUpdate::All,
             true,
@@ -1143,13 +1155,15 @@ fn test_tasks() {
 
 #[test]
 fn open_files() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
-    let pid = sysinfo::get_current_pid().expect("failed to get current pid");
+    let Ok(pid) = sysinfo::get_current_pid() else {
+        return;
+    };
     let _file =
         std::fs::File::create(std::env::temp_dir().join("sysinfo-open-files.test")).unwrap();
-    let mut s = System::new();
+    let Ok(mut s) = System::new() else { return };
     s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let cur_process = s.process(pid).unwrap();
     assert!(
@@ -1168,19 +1182,19 @@ fn open_files() {
 
 #[test]
 fn test_wait() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
     let p = start_proc!("2", "TestWait");
     let pid = Pid::from_u32(p.id() as _);
-    let mut s = System::new();
+    let Ok(mut s) = System::new() else { return };
     s.refresh_processes_specifics(ProcessesToUpdate::All, false, ProcessRefreshKind::nothing());
     // We check the result of the exiting process.
     let exit_status = s.process(pid).unwrap().wait();
     assert!(exit_status.is_some());
 
     // Now we check that it doesn't exist anymore.
-    let mut s2 = System::new();
+    let mut s2 = System::new().unwrap();
     s2.refresh_processes_specifics(ProcessesToUpdate::All, false, ProcessRefreshKind::nothing());
     assert!(s2.process(pid).is_none());
     // And we check that waiting for it will return `None`.
@@ -1200,7 +1214,7 @@ fn test_wait() {
 // that we can get CPU usage only on the third try.
 #[test]
 fn test_cpu_processes_usage() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(feature = "apple-sandbox") {
+    if cfg!(feature = "apple-sandbox") {
         return;
     }
     if std::env::var("FREEBSD_CI").is_ok() {
@@ -1213,7 +1227,9 @@ fn test_cpu_processes_usage() {
         return;
     }
 
-    let mut sys = System::new_all();
+    let Ok(mut sys) = System::new_all() else {
+        return;
+    };
 
     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
 

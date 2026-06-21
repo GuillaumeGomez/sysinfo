@@ -5,17 +5,15 @@
 // This test is used to ensure that the CPUs are not loaded by default.
 #[test]
 fn test_cpu() {
-    let mut s = sysinfo::System::new();
-    assert!(s.cpus().is_empty());
-
-    if !sysinfo::IS_SUPPORTED_SYSTEM {
+    let Ok(mut s) = sysinfo::System::new() else {
         return;
-    }
+    };
+    assert!(s.cpus().is_empty());
 
     s.refresh_cpu_all();
     assert!(!s.cpus().is_empty());
 
-    let s = sysinfo::System::new_all();
+    let s = sysinfo::System::new_all().unwrap();
     assert!(!s.cpus().is_empty());
 
     assert!(!s.cpus()[0].brand().chars().any(|c| c == '\0'));
@@ -38,12 +36,10 @@ fn test_physical_core_numbers() {
 
 #[test]
 fn test_too_rapid_cpu_refresh() {
-    let mut s = sysinfo::System::new();
-    assert!(s.cpus().is_empty());
-
-    if !sysinfo::IS_SUPPORTED_SYSTEM {
+    let Ok(mut s) = sysinfo::System::new() else {
         return;
-    }
+    };
+    assert!(s.cpus().is_empty());
 
     s.refresh_cpu_all();
     s.refresh_cpu_all();

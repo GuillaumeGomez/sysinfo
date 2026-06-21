@@ -479,7 +479,8 @@ mod test {
 
         let sys = System::new_with_specifics(
             crate::RefreshKind::nothing().with_cpu(CpuRefreshKind::nothing().with_usage()),
-        );
+        )
+        .unwrap();
         let cpus = sys.cpus();
         assert!(!cpus.is_empty(), "no CPU found");
         if let Some(line) = stdout.lines().find(|l| l.contains("machdep.cpu.vendor")) {

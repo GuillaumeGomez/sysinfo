@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{
-    Cpu, CpuRefreshKind, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
+    Cpu, CpuRefreshKind, Error, LoadAvg, MemoryRefreshKind, Pid, Process, ProcessRefreshKind,
     ProcessesToUpdate,
 };
 
@@ -18,21 +18,17 @@ pub const SUPPORTED_SIGNALS: &[crate::Signal] = supported_signals();
 #[doc = include_str!("../../md_doc/minimum_cpu_update_interval.md")]
 pub const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(0);
 
-pub(crate) struct SystemInner {
-    process_list: HashMap<Pid, Process>,
-}
+pub(crate) struct SystemInner;
 
 impl SystemInner {
-    pub(crate) fn new() -> Self {
-        Self {
-            process_list: Default::default(),
-        }
+    pub(crate) fn new() -> Result<Self, Error> {
+        Err(Error::Unsupported)
     }
 
     pub(crate) fn refresh_memory_specifics(&mut self, _refresh_kind: MemoryRefreshKind) {}
 
     pub(crate) fn cgroup_limits(&self) -> Option<crate::CGroupLimits> {
-        None
+        unreachable!()
     }
 
     pub(crate) fn refresh_cpu_specifics(&mut self, _refresh_kind: CpuRefreshKind) {}
@@ -44,7 +40,7 @@ impl SystemInner {
         _processes_to_update: ProcessesToUpdate<'_>,
         _refresh_kind: ProcessRefreshKind,
     ) -> usize {
-        0
+        unreachable!()
     }
 
     // COMMON PART
@@ -52,51 +48,51 @@ impl SystemInner {
     // Need to be moved into a "common" file to avoid duplication.
 
     pub(crate) fn processes(&self) -> &HashMap<Pid, Process> {
-        &self.process_list
+        unreachable!()
     }
 
     pub(crate) fn processes_mut(&mut self) -> &mut HashMap<Pid, Process> {
-        &mut self.process_list
+        unreachable!()
     }
 
     pub(crate) fn process(&self, _pid: Pid) -> Option<&Process> {
-        None
+        unreachable!()
     }
 
     pub(crate) fn global_cpu_usage(&self) -> f32 {
-        0.
+        unreachable!()
     }
 
     pub(crate) fn cpus(&self) -> &[Cpu] {
-        &[]
+        unreachable!()
     }
 
     pub(crate) fn total_memory(&self) -> u64 {
-        0
+        unreachable!()
     }
 
     pub(crate) fn free_memory(&self) -> u64 {
-        0
+        unreachable!()
     }
 
     pub(crate) fn available_memory(&self) -> u64 {
-        0
+        unreachable!()
     }
 
     pub(crate) fn used_memory(&self) -> u64 {
-        0
+        unreachable!()
     }
 
     pub(crate) fn total_swap(&self) -> u64 {
-        0
+        unreachable!()
     }
 
     pub(crate) fn free_swap(&self) -> u64 {
-        0
+        unreachable!()
     }
 
     pub(crate) fn used_swap(&self) -> u64 {
-        0
+        unreachable!()
     }
 
     pub(crate) fn uptime() -> Result<u64, crate::Error> {
@@ -142,6 +138,7 @@ impl SystemInner {
     pub(crate) fn host_name() -> Option<String> {
         None
     }
+
     pub(crate) fn cpu_arch() -> Option<String> {
         None
     }

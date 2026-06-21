@@ -160,7 +160,9 @@ mod windows;
 ///     // It'll always return false on non-linux targets.
 ///     eprintln!("failed to update the open files limit...");
 /// }
-/// let s = System::new_all();
+/// if let Ok(s) = System::new_all() {
+///     // ...
+/// }
 /// ```
 pub fn set_open_files_limit(mut _new_limit: usize) -> bool {
     cfg_select! {
@@ -321,16 +323,18 @@ mod test {
             #[cfg(feature = "system")]
             {
                 // And now check that our `get_user_by_id` method works.
-                let s =
+                if let Ok(s) =
                     System::new_with_specifics(RefreshKind::nothing().with_processes(
                         ProcessRefreshKind::nothing().with_user(UpdateKind::Always),
-                    ));
-                assert!(
-                    s.processes()
-                        .values()
-                        .filter_map(|p| p.user_id())
-                        .any(|uid| users.get_user_by_id(uid).is_some())
-                );
+                    ))
+                {
+                    assert!(
+                        s.processes()
+                            .values()
+                            .filter_map(|p| p.user_id())
+                            .any(|uid| users.get_user_by_id(uid).is_some())
+                    );
+                }
             }
         }
     }
@@ -340,11 +344,12 @@ mod test {
     fn check_all_process_uids_resolvable() {
         // On linux, some user IDs don't have an associated user (no idea why though).
         // If `getent` doesn't find them, we can assume it's a dark secret from the linux land.
-        if IS_SUPPORTED_SYSTEM && cfg!(not(target_os = "linux")) {
-            let s = System::new_with_specifics(
+        if cfg!(not(target_os = "linux"))
+            && let Ok(s) = System::new_with_specifics(
                 RefreshKind::nothing()
                     .with_processes(ProcessRefreshKind::nothing().with_user(UpdateKind::Always)),
-            );
+            )
+        {
             let users = Users::new_with_refreshed_list();
 
             // For every process where we can get a user ID, we should also be able

@@ -23,19 +23,20 @@ pub(crate) mod user;
 /// ```no_run
 /// use sysinfo::{Disks, System};
 ///
-/// let s = System::new_all();
-/// for (pid, process) in s.processes() {
-///     let disk_usage = process.disk_usage();
-///     println!("[{}] read bytes   : new/total => {}/{} B",
-///         pid,
-///         disk_usage.read_bytes,
-///         disk_usage.total_read_bytes,
-///     );
-///     println!("[{}] written bytes: new/total => {}/{} B",
-///         pid,
-///         disk_usage.written_bytes,
-///         disk_usage.total_written_bytes,
-///     );
+/// if let Ok(s) = System::new_all() {
+///     for (pid, process) in s.processes() {
+///         let disk_usage = process.disk_usage();
+///         println!("[{}] read bytes   : new/total => {}/{} B",
+///             pid,
+///             disk_usage.read_bytes,
+///             disk_usage.total_read_bytes,
+///         );
+///         println!("[{}] written bytes: new/total => {}/{} B",
+///             pid,
+///             disk_usage.written_bytes,
+///             disk_usage.total_written_bytes,
+///         );
+///     }
 /// }
 ///
 /// let disks = Disks::new_with_refreshed_list();

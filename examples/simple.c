@@ -24,11 +24,12 @@ void print_process(CProcess process) {
 }
 
 void check_tasks(CSystem system) {
-#ifdef __linux__
-    bool task_loop(pid_t pid, CProcess process, void *data) {
-        (void)data;
-        printf("  ");
-        print_process(process);
+    bool task_loop(pid_t pid, void *system) {
+        CProcess process = sysinfo_process_by_pid((CSystem*)system, pid);
+        if (process) {
+            printf("  ");
+            print_process(process);
+        }
         return true;
     }
 
@@ -42,12 +43,10 @@ void check_tasks(CSystem system) {
     CProcess process = sysinfo_process_by_pid(system, getpid());
     printf("\n== Task(s) for current process: ==\n");
     print_process(process);
-    printf("Got %ld task(s)\n", sysinfo_process_tasks(process, task_loop, NULL));
-#else
-    (void)system;
-#endif
+    printf("Got %ld task(s)\n", sysinfo_process_tasks(process, task_loop, system));
 }
 
+// Show only 10 processes.
 bool process_loop(pid_t pid, CProcess process, void *data) {
     unsigned int *i = data;
 
@@ -63,15 +62,15 @@ int main() {
     sysinfo_refresh_all(system);
     sysinfo_networks_refresh(networks);
 
-    printf("os name:              %s\n", sysinfo_system_name(system));
-    printf("os version:           %s\n", sysinfo_system_version(system));
-    printf("kernel version:       %s\n", sysinfo_system_kernel_version(system));
-    printf("long os version:      %s\n", sysinfo_system_long_version(system));
-    printf("host name:            %s\n", sysinfo_system_host_name(system));
+    printf("os name:              %s\n", sysinfo_system_name());
+    printf("os version:           %s\n", sysinfo_system_version());
+    printf("kernel version:       %s\n", sysinfo_system_kernel_version());
+    printf("long os version:      %s\n", sysinfo_system_long_version());
+    printf("host name:            %s\n", sysinfo_system_host_name());
     printf("cpu vendor id:        %s\n", sysinfo_cpu_vendor_id(system));
     printf("cpu brand:            %s\n", sysinfo_cpu_brand(system));
     printf("cpu frequency:        %ld\n", sysinfo_cpu_frequency(system));
-    printf("cpu cores:            %d\n", sysinfo_cpu_physical_cores(system));
+    printf("cpu cores:            %d\n", sysinfo_cpu_physical_cores());
     printf("total memory:         %ld\n", sysinfo_total_memory(system));
     printf("free memory:          %ld\n", sysinfo_free_memory(system));
     printf("used memory:          %ld\n", sysinfo_used_memory(system));
@@ -81,17 +80,22 @@ int main() {
     printf("networks received:    %ld\n", sysinfo_networks_received(networks));
     printf("networks transmitted: %ld\n", sysinfo_networks_transmitted(networks));
     unsigned int len = 0, i = 0;
-    float *procs = NULL;
-    sysinfo_cpus_usage(system, &len, &procs);
+    float *cpus = NULL;
+    sysinfo_cpus_usage(system, &len, &cpus);
     while (i < len) {
-        printf("CPU #%d usage: %f%%\n", i, procs[i]);
+        printf("CPU #%d usage: %f%%\n", i, cpus[i]);
         i += 1;
     }
-    free(procs);
+    free(cpus);
 
     // processes part
     i = 0;
-    printf("For a total of %ld processes.\n", sysinfo_processes(system, process_loop, &i));
+    size_t nb_processes = sysinfo_processes(system, process_loop, &i);
+    printf(
+        "Showed %d processes (out of a total of %ld processes).\n",
+        i,
+        nb_processes
+    );
     check_tasks(system);
     // we can now free the CSystem and the CNetworks objects.
     sysinfo_destroy(system);
