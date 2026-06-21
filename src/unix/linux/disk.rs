@@ -177,6 +177,7 @@ impl crate::DisksInner {
         get_all_list(
             &mut self.disks,
             &get_all_utf8_data("/proc/mounts", 16_385).unwrap_or_default(),
+            &get_all_utf8_data("/proc/partitions", 16_385).unwrap_or_default(),
             refresh_kind,
         );
 
@@ -357,7 +358,12 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
     }
 }
 
-fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefreshKind) {
+fn get_all_list(
+    container: &mut Vec<Disk>,
+    content_mounts: &str,
+    content_partitions: &str,
+    refresh_kind: DiskRefreshKind,
+) {
     // The goal of this array is to list all removable devices (the ones whose name starts with
     // "usb-").
     let removable_entries = match fs::read_dir("/dev/disk/by-id/") {
@@ -379,7 +385,7 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
 
     let procfs_disk_stats = disk_stats(&refresh_kind);
 
-    for (fs_spec, fs_file, fs_vfstype) in content
+    for (fs_spec, fs_file, fs_vfstype) in content_mounts
         .lines()
         .map(|line| {
             let line = line.trim_start();
@@ -443,6 +449,39 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
             fs_spec.as_ref(),
             mount_point,
             fs_vfstype.as_ref(),
+            &removable_entries,
+            &procfs_disk_stats,
+            refresh_kind,
+        ));
+    }
+
+    for fs_spec in content_partitions
+        .lines()
+        .skip(2)
+        .map(|line| {
+            let line = line.trim_start();
+            let fields = line.split_whitespace();
+            let vec = fields.into_iter().collect::<Vec<&str>>();
+            vec.get(3).unwrap().to_owned()
+        })
+        .filter(|fs_spec| !(fs_spec.starts_with("sr")))
+    {
+        let mount_point = Path::new("");
+        let disk_name = format!("/dev/{}", fs_spec);
+
+        if let Some(disk) = container
+            .iter_mut()
+            .find(|d| d.inner.device_name == disk_name.as_str())
+        {
+            disk.inner
+                .efficient_refresh(refresh_kind, &procfs_disk_stats, false);
+            disk.inner.updated = true;
+            continue;
+        }
+        container.push(new_disk(
+            disk_name.as_ref(),
+            mount_point,
+            "<unknown>".as_ref(),
             &removable_entries,
             &procfs_disk_stats,
             refresh_kind,
