@@ -4,7 +4,7 @@ use crate::{
     Group,
     common::{Gid, Uid},
 };
-use libc::{getgrgid_r, getgrouplist};
+use libc::{c_int, getgrgid_r, getgrouplist};
 
 pub(crate) struct UserInner {
     pub(crate) uid: Uid,
@@ -84,20 +84,23 @@ pub(crate) unsafe fn get_user_groups(
     let mut buffer = Vec::with_capacity(2048);
     let mut groups = Vec::with_capacity(256);
 
+    let mut nb_groups = groups.capacity() as c_int;
+    let mut old_nb_groups = nb_groups;
     loop {
         unsafe {
-            let mut nb_groups = groups.capacity();
-            if getgrouplist(
-                name,
-                group_id as _,
-                groups.as_mut_ptr(),
-                &mut nb_groups as *mut _ as *mut _,
-            ) == -1
-            {
-                // Ensure the length matches the number of returned groups.
-                // Needs to be updated for `Vec::reserve` to actually add additional capacity.
-                groups.set_len(nb_groups as _);
-                groups.reserve(256);
+            if getgrouplist(name, group_id as _, groups.as_mut_ptr(), &mut nb_groups) == -1 {
+                // prevent infinite looping.
+                if old_nb_groups >= nb_groups {
+                    sysinfo_debug!(
+                        "getgrouplist failed but buffer size requested was not larger than existing buffer"
+                    );
+                    return Vec::new();
+                }
+                groups.reserve(nb_groups as usize);
+                // reserve could reserve more capacity than requestes, so this could
+                // overflow c_int.
+                nb_groups = groups.capacity().try_into().unwrap_or(c_int::MAX);
+                old_nb_groups = nb_groups;
                 continue;
             }
             groups.set_len(nb_groups as _);
