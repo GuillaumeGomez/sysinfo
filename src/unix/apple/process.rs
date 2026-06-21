@@ -80,6 +80,6 @@ impl ProcessInner {
     // FIXME: Should query the value, because it can be changed with setrlimit and other means.
     // For now, cannot find where to get this information sadly...
     pub(crate) fn open_files_limit(&self) -> Option<usize> {
-        crate::System::open_files_limit()
+        crate::System::open_files_limit().ok()
     }
 }

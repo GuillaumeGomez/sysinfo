@@ -1,13 +1,14 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::Error;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::sys::macos::system::get_io_platform_property;
 
 pub(crate) struct MotherboardInner;
 
 impl MotherboardInner {
-    pub(crate) fn new() -> Option<Self> {
-        Some(Self)
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self)
     }
 
     pub(crate) fn name(&self) -> Option<String> {

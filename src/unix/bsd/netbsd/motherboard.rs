@@ -1,13 +1,14 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use super::utils::get_sys_value_str_by_name;
+use crate::Error;
 
 pub(crate) struct MotherboardInner;
 
 impl MotherboardInner {
-    pub(crate) fn new() -> Option<Self> {
+    pub(crate) fn new() -> Result<Self, Error> {
         // FIXME
-        None
+        Err(Error::Unsupported)
     }
 
     pub(crate) fn asset_tag(&self) -> Option<String> {

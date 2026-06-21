@@ -151,18 +151,6 @@ impl CpuInner {
     }
 }
 
-pub(crate) fn physical_core_count() -> Option<usize> {
-    let mut physical_core_count: u32 = 0;
-
-    unsafe {
-        if get_sys_value_by_name(b"hw.ncpu\0", &mut physical_core_count) {
-            Some(physical_core_count as _)
-        } else {
-            None
-        }
-    }
-}
-
 unsafe fn get_frequency_for_cpu(cpu_nb: usize) -> u64 {
     let mut frequency: c_int = 0;
 

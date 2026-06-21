@@ -364,39 +364,47 @@ impl SystemInner {
         get_load_average()
     }
 
-    pub(crate) fn name() -> Option<String> {
-        Some("Windows".to_owned())
+    pub(crate) fn name() -> Result<String, Error> {
+        Ok("Windows".to_owned())
     }
 
-    pub(crate) fn long_os_version() -> Option<String> {
+    pub(crate) fn long_os_version() -> Result<String, Error> {
         if Self::is_windows_eleven() {
-            return get_reg_string_value(
+            return match get_reg_string_value(
                 HKEY_LOCAL_MACHINE,
                 r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
                 "ProductName",
-            )
-            .map(|product_name| product_name.replace("Windows 10 ", "Windows 11 "));
+            ) {
+                Some(product_name) => Ok(product_name.replace("Windows 10 ", "Windows 11 ")),
+                None => Err(Error::Other("failed to retrieve long OS version".into())),
+            };
         }
-        get_reg_string_value(
+        match get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
             "ProductName",
-        )
+        ) {
+            Some(info) => Ok(info),
+            None => Err(Error::Other("failed to retrieve long OS version".into())),
+        }
     }
 
-    pub(crate) fn host_name() -> Option<String> {
+    pub(crate) fn host_name() -> Result<String, Error> {
         get_dns_hostname()
     }
 
-    pub(crate) fn kernel_version() -> Option<String> {
-        get_reg_string_value(
+    pub(crate) fn kernel_version() -> Result<String, Error> {
+        match get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
             "CurrentBuildNumber",
-        )
+        ) {
+            Some(info) => Ok(info),
+            None => Err(Error::Other("failed to retrieve kernel version".into())),
+        }
     }
 
-    pub(crate) fn os_version() -> Option<String> {
+    pub(crate) fn os_version() -> Result<String, Error> {
         let build_number = get_reg_string_value(
             HKEY_LOCAL_MACHINE,
             r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
@@ -415,7 +423,7 @@ impl SystemInner {
                 .unwrap_or_default(),
             )
         };
-        Some(format!("{major} ({build_number})"))
+        Ok(format!("{major} ({build_number})"))
     }
 
     pub(crate) fn distribution_id() -> String {
@@ -455,11 +463,11 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn physical_core_count() -> Option<usize> {
+    pub(crate) fn physical_core_count() -> Result<usize, Error> {
         get_physical_core_count()
     }
 
-    pub(crate) fn open_files_limit() -> Option<usize> {
+    pub(crate) fn open_files_limit() -> Result<usize, Error> {
         // Apparently when using C run-time libraries, it's limited by _NHANDLE_.
         // It's a define:
         //
@@ -471,7 +479,7 @@ impl SystemInner {
         // ```
         //
         // So 128 * (1 << 6) = 8192
-        Some(8192)
+        Ok(8192)
     }
 }
 
@@ -481,7 +489,7 @@ pub(crate) fn is_proc_running(handle: HANDLE) -> bool {
         && exit_code == STILL_ACTIVE.0 as u32
 }
 
-fn get_dns_hostname() -> Option<String> {
+fn get_dns_hostname() -> Result<String, Error> {
     let mut buffer_size = 0;
     // Running this first to get the buffer size since the DNS name can be longer than MAX_COMPUTERNAME_LENGTH
     // setting the `lpBuffer` to null will return the buffer size
@@ -504,12 +512,14 @@ fn get_dns_hostname() -> Option<String> {
                 buffer.resize(pos, 0);
             }
 
-            return String::from_utf16(&buffer).ok();
+            if let Ok(info) = String::from_utf16(&buffer) {
+                return Ok(info);
+            }
         }
     }
 
     sysinfo_debug!("Failed to get computer hostname");
-    None
+    Err(Error::Other("failed to retrieve host name".into()))
 }
 
 fn add_english_counter(

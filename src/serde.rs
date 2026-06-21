@@ -1,14 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#[cfg(any(
-    feature = "component",
-    feature = "disk",
-    feature = "gpu",
-    feature = "network",
-    feature = "system",
-    feature = "user",
-))]
-use serde::{Serialize, Serializer, ser::SerializeStruct};
+#[allow(unused_imports)]
+use serde::{Serialize, Serializer, ser::SerializeStruct, ser::SerializeTupleVariant};
 
 #[cfg(feature = "disk")]
 impl Serialize for crate::Disk {
@@ -530,6 +523,27 @@ impl Serialize for crate::Gpu {
         state.serialize_field("used_memory", &self.used_memory())?;
 
         state.end()
+    }
+}
+
+impl Serialize for crate::Error {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Self::Unsupported => serializer.serialize_unit_variant("Error", 0, "Unsupported"),
+            Self::Io(io) => {
+                let mut state = serializer.serialize_tuple_variant("Error", 1, "Io", 1)?;
+                state.serialize_field(&io.to_string())?;
+                state.end()
+            }
+            Self::Other(other) => {
+                let mut state = serializer.serialize_tuple_variant("Error", 2, "Other", 1)?;
+                state.serialize_field(&other.to_string())?;
+                state.end()
+            }
+        }
     }
 }
 

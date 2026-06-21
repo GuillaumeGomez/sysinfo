@@ -1,12 +1,13 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::Error;
 use crate::sys::utils::get_kenv_var;
 
 pub(crate) struct MotherboardInner;
 
 impl MotherboardInner {
-    pub(crate) fn new() -> Option<Self> {
-        Some(Self)
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self)
     }
 
     pub(crate) fn asset_tag(&self) -> Option<String> {

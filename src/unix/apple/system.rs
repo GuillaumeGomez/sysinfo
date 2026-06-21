@@ -396,15 +396,18 @@ impl SystemInner {
         boot_time()
     }
 
-    pub(crate) fn name() -> Option<String> {
-        get_system_info(libc::KERN_OSTYPE, Some("Darwin"))
+    pub(crate) fn name() -> Result<String, Error> {
+        match get_system_info(libc::KERN_OSTYPE) {
+            Some(v) => Ok(v),
+            None => Ok("Darwin".to_owned()),
+        }
     }
 
-    pub(crate) fn long_os_version() -> Option<String> {
+    pub(crate) fn long_os_version() -> Result<String, Error> {
         #[cfg(target_os = "macos")]
         {
-            let Some(os_version) = Self::os_version() else {
-                return Some("macOS".to_owned());
+            let Ok(os_version) = Self::os_version() else {
+                return Ok("macOS".to_owned());
             };
             // https://en.wikipedia.org/wiki/MacOS_version_history
             for (version_prefix, macos_spelling, friendly_name) in [
@@ -435,32 +438,34 @@ impl SystemInner {
                 ("10.0", "Mac OS X", "Cheetah"),
             ] {
                 if os_version.starts_with(version_prefix) {
-                    return Some(format!("{macos_spelling} {os_version} {friendly_name}"));
+                    return Ok(format!("{macos_spelling} {os_version} {friendly_name}"));
                 }
             }
-            Some(format!("macOS {os_version}"))
+            Ok(format!("macOS {os_version}"))
         }
 
         #[cfg(target_os = "ios")]
         {
             let mut long_name = "iOS".to_owned();
-            if let Some(os_version) = Self::os_version() {
+            if let Ok(os_version) = Self::os_version() {
                 long_name.push(' ');
                 long_name.push_str(&os_version);
             }
-            Some(long_name)
+            Ok(long_name)
         }
     }
 
-    pub(crate) fn host_name() -> Option<String> {
-        get_system_info(libc::KERN_HOSTNAME, None)
+    pub(crate) fn host_name() -> Result<String, Error> {
+        get_system_info(libc::KERN_HOSTNAME)
+            .ok_or_else(|| Error::Other("failed to retrieve host name".into()))
     }
 
-    pub(crate) fn kernel_version() -> Option<String> {
-        get_system_info(libc::KERN_OSRELEASE, None)
+    pub(crate) fn kernel_version() -> Result<String, Error> {
+        get_system_info(libc::KERN_OSRELEASE)
+            .ok_or_else(|| Error::Other("failed to retrieve kernel version".into()))
     }
 
-    pub(crate) fn os_version() -> Option<String> {
+    pub(crate) fn os_version() -> Result<String, Error> {
         unsafe {
             // get the size for the buffer first
             let mut size = 0;
@@ -480,15 +485,12 @@ impl SystemInner {
                         buf.resize(pos, 0);
                     }
 
-                    String::from_utf8(buf).ok()
-                } else {
-                    // getting the system value failed
-                    None
+                    if let Ok(value) = String::from_utf8(buf) {
+                        return Ok(value);
+                    }
                 }
-            } else {
-                // getting the system value failed, or did not return a buffer size
-                None
             }
+            Err(Error::Other("failed to retrieve OS version".into()))
         }
     }
 
@@ -526,24 +528,38 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn physical_core_count() -> Option<usize> {
-        physical_core_count()
+    pub(crate) fn physical_core_count() -> Result<usize, Error> {
+        let mut physical_core_count = 0;
+
+        unsafe {
+            if get_sys_value_by_name(
+                b"hw.physicalcpu\0",
+                &mut mem::size_of::<u32>(),
+                &mut physical_core_count as *mut usize as *mut c_void,
+            ) {
+                Ok(physical_core_count)
+            } else {
+                Err(Error::Other(
+                    "failed to retrieve physical core count".into(),
+                ))
+            }
+        }
     }
 
     // FIXME: Would be better to query this information instead of using a "default" value like this.
-    pub(crate) fn open_files_limit() -> Option<usize> {
+    pub(crate) fn open_files_limit() -> Result<usize, Error> {
         #[cfg(target_os = "ios")]
         {
-            Some(256)
+            Ok(256)
         }
         #[cfg(not(target_os = "ios"))]
         {
-            Some(10_240)
+            Ok(10_240)
         }
     }
 }
 
-fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
+fn get_system_info(value: c_int) -> Option<String> {
     let mut mib: [c_int; 2] = [libc::CTL_KERN, value];
     let mut size = 0;
 
@@ -559,9 +575,7 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
         );
 
         // exit early if we did not update the size
-        if size == 0 {
-            default.map(|s| s.to_owned())
-        } else {
+        if size != 0 {
             // set the buffer to the correct size
             let mut buf = vec![0_u8; size as _];
 
@@ -572,18 +586,16 @@ fn get_system_info(value: c_int, default: Option<&str>) -> Option<String> {
                 &mut size,
                 std::ptr::null_mut(),
                 0,
-            ) == -1
+            ) != -1
             {
-                // If command fails return default
-                default.map(|s| s.to_owned())
-            } else {
                 if let Some(pos) = buf.iter().position(|x| *x == 0) {
                     // Shrink buffer to terminate the null bytes
                     buf.resize(pos, 0);
                 }
 
-                String::from_utf8(buf).ok()
+                return String::from_utf8(buf).ok();
             }
         }
+        None
     }
 }

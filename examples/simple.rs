@@ -126,7 +126,7 @@ fn interpret_input(
                         "number of physical cores: {}",
                         System::physical_core_count()
                             .map(|c| c.to_string())
-                            .unwrap_or_else(|| "Unknown".to_owned()),
+                            .unwrap_or_else(|_| "Unknown".to_owned()),
                     );
                     println!("total CPU usage: {}%", sys.global_cpu_usage());
                     for cpu in sys.cpus() {
@@ -430,17 +430,17 @@ fn interpret_input(
                  System OS (long) version: {}\n\
                  System host name:         {}\n\
                  System kernel:            {}",
-                System::name().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::kernel_version().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::os_version().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::long_os_version().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::host_name().unwrap_or_else(|| "<unknown>".to_owned()),
-                System::kernel_long_version(),
+                System::name().unwrap_or_else(|_| "<unknown>".to_owned()),
+                System::kernel_version().unwrap_or_else(|_| "<unknown>".to_owned()),
+                System::os_version().unwrap_or_else(|_| "<unknown>".to_owned()),
+                System::long_os_version().unwrap_or_else(|_| "<unknown>".to_owned()),
+                System::host_name().unwrap_or_else(|_| "<unknown>".to_owned()),
+                System::kernel_long_version().unwrap_or_else(|_| "<unknown>".to_owned()),
             );
         }
         "motherboard" => match Motherboard::new() {
-            Some(m) => println!("{m:#?}"),
-            None => println!("No motherboard information available"),
+            Ok(m) => println!("{m:#?}"),
+            Err(error) => println!("Cannot retrieve motherboard information: {error:?}"),
         },
         "product" => {
             println!("{:#?}", Product);

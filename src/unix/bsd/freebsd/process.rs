@@ -103,7 +103,7 @@ impl ProcessInner {
     }
 
     pub(crate) fn open_files_limit(&self) -> Option<usize> {
-        crate::System::open_files_limit()
+        crate::System::open_files_limit().ok()
     }
 }
 

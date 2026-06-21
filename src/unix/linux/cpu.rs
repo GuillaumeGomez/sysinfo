@@ -8,7 +8,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::time::Instant;
 
 use crate::sys::utils::to_u64;
-use crate::{Cpu, CpuRefreshKind};
+use crate::{Cpu, CpuRefreshKind, Error};
 
 macro_rules! to_str {
     ($e:expr) => {
@@ -475,11 +475,13 @@ pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
 }
 
 #[allow(unused_assignments)]
-pub(crate) fn get_physical_core_count() -> Option<usize> {
+pub(crate) fn get_physical_core_count() -> Result<usize, Error> {
     let mut s = String::new();
     if let Err(_e) = File::open("/proc/cpuinfo").and_then(|mut f| f.read_to_string(&mut s)) {
         sysinfo_debug!("Cannot read `/proc/cpuinfo` file: {:?}", _e);
-        return None;
+        return Err(Error::Other(
+            "failed to retrieve physical core count".into(),
+        ));
     }
 
     macro_rules! add_core {
@@ -528,7 +530,7 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
     }
     add_core!(core_ids_and_physical_ids, core_id, physical_id, cpu);
 
-    Some(core_ids_and_physical_ids.len())
+    Ok(core_ids_and_physical_ids.len())
 }
 
 /// Obtain the implementer of this CPU core.
