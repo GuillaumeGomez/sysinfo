@@ -5,12 +5,12 @@
 #
 
 #
-# Please note that this Makefile only generates the c example.
+# Please note that this Makefile only generates the C example.
 #
 
 IDIR = ./src
 CC = gcc
-CFLAGS = -I$(IDIR)
+CFLAGS = -I$(IDIR) -Werror
 
 ODIR = examples/
 LDIR = ./target/debug/
@@ -19,10 +19,10 @@ LDIR-RELEASE = ./target/release/
 LIBS = -lsysinfo -lpthread
 
 _DEPS = sysinfo.h
-DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
+DEPS = $(patsubst %,$(IDIR)%,$(_DEPS))
 
 _OBJ = simple.o
-OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+OBJ = $(patsubst %,$(ODIR)%,$(_OBJ))
 
 
 simple: $(OBJ)
