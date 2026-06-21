@@ -1,3 +1,9 @@
+# 0.39.4
+
+ * Unix: Fix soundness issue when retrieving user's groups.
+ * macOS: Add new macOS version name.
+ * macOS: Fix inaccurate `open_files` returned value.
+
 # 0.39.3
 
  * Unix: Fix retrieval of `Network::mac_addr`.
