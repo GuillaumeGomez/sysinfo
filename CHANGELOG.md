@@ -1,3 +1,7 @@
+# 0.39.5
+
+ * macOS: Fix build for apple app store
+
 # 0.39.4
 
  * Unix: Fix soundness issue when retrieving user's groups.
