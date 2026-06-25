@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::Error;
+
 use super::ffi::SMBIOSBaseboardInformation;
 use super::utils::{get_smbios_table, parse_smbios};
 
@@ -8,10 +10,12 @@ pub(crate) struct MotherboardInner {
 }
 
 impl MotherboardInner {
-    pub(crate) fn new() -> Option<Self> {
-        Some(Self {
-            smbios_table: get_smbios_table()?,
-        })
+    pub(crate) fn new() -> Result<Self, Error> {
+        if let Some(smbios_table) = get_smbios_table() {
+            Ok(Self { smbios_table })
+        } else {
+            Err(Error::Other("failed to instantiate Motherboard".into()))
+        }
     }
 
     pub(crate) fn asset_tag(&self) -> Option<String> {

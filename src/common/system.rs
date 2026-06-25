@@ -677,7 +677,7 @@ impl System {
     ///     Err(error) => eprintln!("Failed to get `uptime`: {error}"),
     /// }
     /// ```
-    pub fn uptime() -> Result<u64, crate::Error> {
+    pub fn uptime() -> Result<u64, Error> {
         SystemInner::uptime()
     }
 
@@ -693,7 +693,7 @@ impl System {
     ///     Err(error) => eprintln!("Failed to get `boot_time`: {error}"),
     /// }
     /// ```
-    pub fn boot_time() -> Result<u64, crate::Error> {
+    pub fn boot_time() -> Result<u64, Error> {
         SystemInner::boot_time()
     }
 
@@ -718,7 +718,7 @@ impl System {
     ///     Err(error) => eprintln!("Failed to get `load_average`: {error}"),
     /// }
     /// ```
-    pub fn load_average() -> Result<LoadAvg, crate::Error> {
+    pub fn load_average() -> Result<LoadAvg, Error> {
         SystemInner::load_average()
     }
 
@@ -738,7 +738,7 @@ impl System {
     ///
     /// println!("OS: {:?}", System::name());
     /// ```
-    pub fn name() -> Option<String> {
+    pub fn name() -> Result<String, Error> {
         SystemInner::name()
     }
 
@@ -758,7 +758,7 @@ impl System {
     ///
     /// println!("kernel version: {:?}", System::kernel_version());
     /// ```
-    pub fn kernel_version() -> Option<String> {
+    pub fn kernel_version() -> Result<String, Error> {
         SystemInner::kernel_version()
     }
 
@@ -779,7 +779,7 @@ impl System {
     ///
     /// println!("OS version: {:?}", System::os_version());
     /// ```
-    pub fn os_version() -> Option<String> {
+    pub fn os_version() -> Result<String, Error> {
         SystemInner::os_version()
     }
 
@@ -799,7 +799,7 @@ impl System {
     ///
     /// println!("Long OS Version: {:?}", System::long_os_version());
     /// ```
-    pub fn long_os_version() -> Option<String> {
+    pub fn long_os_version() -> Result<String, Error> {
         SystemInner::long_os_version()
     }
 
@@ -872,22 +872,22 @@ impl System {
     /// ```no_run
     /// use sysinfo::System;
     ///
-    /// println!("Kernel long version: {}", System::kernel_long_version());
+    /// println!("Kernel long version: {:?}", System::kernel_long_version());
     /// ```
     ///
     /// [distribution_id]: System::distribution_id
     /// [kernel_version]: System::kernel_version
-    pub fn kernel_long_version() -> String {
-        let kernel_version = match System::kernel_version() {
-            None => "unknown".to_string(),
-            Some(s) => s,
+    pub fn kernel_long_version() -> Result<String, Error> {
+        let Some(kernel_name) = SystemInner::kernel_name() else {
+            return Err(Error::Unsupported);
         };
-        let kernel_name = SystemInner::kernel_name().unwrap_or("Unknown");
-        if cfg!(windows) {
+        let kernel_version = System::kernel_version();
+        let kernel_version = kernel_version.as_deref().unwrap_or("Unknown");
+        Ok(if cfg!(windows) {
             format!("{kernel_name} OS Build {kernel_version}")
         } else {
             format!("{kernel_name} {kernel_version}")
-        }
+        })
     }
 
     /// Returns the system hostname based off DNS.
@@ -899,7 +899,7 @@ impl System {
     ///
     /// println!("Hostname: {:?}", System::host_name());
     /// ```
-    pub fn host_name() -> Option<String> {
+    pub fn host_name() -> Result<String, Error> {
         SystemInner::host_name()
     }
 
@@ -916,7 +916,7 @@ impl System {
         SystemInner::cpu_arch().unwrap_or_else(|| std::env::consts::ARCH.to_owned())
     }
 
-    /// Returns the number of physical cores on the CPU or `None` if it couldn't get it.
+    /// Returns the number of physical cores on the CPU.
     ///
     /// In case there are multiple CPUs, it will combine the physical core count of all the CPUs.
     ///
@@ -929,14 +929,11 @@ impl System {
     ///     println!("{:?}", System::physical_core_count());
     /// }
     /// ```
-    pub fn physical_core_count() -> Option<usize> {
+    pub fn physical_core_count() -> Result<usize, Error> {
         SystemInner::physical_core_count()
     }
 
     /// Returns the (default) maximum number of open files for a process.
-    ///
-    /// Returns `None` if it failed retrieving the information or if the current system is not
-    /// supported.
     ///
     /// **Important**: this information is computed every time this function is called.
     ///
@@ -945,7 +942,7 @@ impl System {
     ///
     /// println!("Max open files: {:?}", System::open_files_limit());
     /// ```
-    pub fn open_files_limit() -> Option<usize> {
+    pub fn open_files_limit() -> Result<usize, Error> {
         SystemInner::open_files_limit()
     }
 }
@@ -957,7 +954,7 @@ impl System {
 /// ```
 /// use sysinfo::Motherboard;
 ///
-/// if let Some(m) = Motherboard::new() {
+/// if let Ok(m) = Motherboard::new() {
 ///     println!("{m:?}");
 /// }
 /// ```
@@ -971,12 +968,12 @@ impl Motherboard {
     /// ```
     /// use sysinfo::Motherboard;
     ///
-    /// if let Some(m) = Motherboard::new() {
+    /// if let Ok(m) = Motherboard::new() {
     ///     println!("{m:?}");
     /// }
     /// ```
-    pub fn new() -> Option<Self> {
-        Some(Self {
+    pub fn new() -> Result<Self, Error> {
+        Ok(Self {
             inner: MotherboardInner::new()?,
         })
     }
@@ -992,7 +989,7 @@ impl Motherboard {
     /// ```no_run
     /// use sysinfo::Motherboard;
     ///
-    /// if let Some(m) = Motherboard::new() {
+    /// if let Ok(m) = Motherboard::new() {
     ///     println!("Motherboard name: {:?}", m.name());
     /// }
     /// ```
@@ -1009,7 +1006,7 @@ impl Motherboard {
     /// ```no_run
     /// use sysinfo::Motherboard;
     ///
-    /// if let Some(m) = Motherboard::new() {
+    /// if let Ok(m) = Motherboard::new() {
     ///     println!("Motherboard vendor: {:?}", m.vendor_name());
     /// }
     /// ```
@@ -1028,7 +1025,7 @@ impl Motherboard {
     /// ```no_run
     /// use sysinfo::Motherboard;
     ///
-    /// if let Some(m) = Motherboard::new() {
+    /// if let Ok(m) = Motherboard::new() {
     ///     println!("Motherboard version: {:?}", m.version());
     /// }
     /// ```
@@ -1046,7 +1043,7 @@ impl Motherboard {
     /// ```no_run
     /// use sysinfo::Motherboard;
     ///
-    /// if let Some(m) = Motherboard::new() {
+    /// if let Ok(m) = Motherboard::new() {
     ///     println!("Motherboard serial number: {:?}", m.serial_number());
     /// }
     /// ```
@@ -1066,7 +1063,7 @@ impl Motherboard {
     /// ```no_run
     /// use sysinfo::Motherboard;
     ///
-    /// if let Some(m) = Motherboard::new() {
+    /// if let Ok(m) = Motherboard::new() {
     ///     println!("Motherboard asset tag: {:?}", m.asset_tag());
     /// }
     /// ```
@@ -1099,7 +1096,7 @@ impl Product {
     ///
     /// println!("Product name: {:?}", Product::name());
     /// ```
-    pub fn name() -> Option<String> {
+    pub fn name() -> Result<String, Error> {
         ProductInner::name()
     }
 
@@ -1115,7 +1112,7 @@ impl Product {
     ///
     /// println!("Product family: {:?}", Product::family());
     /// ```
-    pub fn family() -> Option<String> {
+    pub fn family() -> Result<String, Error> {
         ProductInner::family()
     }
 
@@ -1131,7 +1128,7 @@ impl Product {
     ///
     /// println!("Product serial: {:?}", Product::serial_number());
     /// ```
-    pub fn serial_number() -> Option<String> {
+    pub fn serial_number() -> Result<String, Error> {
         ProductInner::serial_number()
     }
 
@@ -1151,7 +1148,7 @@ impl Product {
     /// println!("Product sku: {:?}", Product::stock_keeping_unit());
     /// ```
     #[doc(alias = "sku")]
-    pub fn stock_keeping_unit() -> Option<String> {
+    pub fn stock_keeping_unit() -> Result<String, Error> {
         ProductInner::stock_keeping_unit()
     }
 
@@ -1168,7 +1165,7 @@ impl Product {
     ///
     /// println!("Product UUID: {:?}", Product::uuid());
     /// ```
-    pub fn uuid() -> Option<String> {
+    pub fn uuid() -> Result<String, Error> {
         ProductInner::uuid()
     }
 
@@ -1185,7 +1182,7 @@ impl Product {
     ///
     /// println!("Product version: {:?}", Product::version());
     /// ```
-    pub fn version() -> Option<String> {
+    pub fn version() -> Result<String, Error> {
         ProductInner::version()
     }
 
@@ -1201,7 +1198,7 @@ impl Product {
     ///
     /// println!("Vendor name: {:?}", Product::vendor_name());
     /// ```
-    pub fn vendor_name() -> Option<String> {
+    pub fn vendor_name() -> Result<String, Error> {
         ProductInner::vendor_name()
     }
 }
@@ -2816,11 +2813,11 @@ impl RefreshKind {
 /// }
 /// ```
 #[allow(clippy::unnecessary_wraps)]
-pub fn get_current_pid() -> Result<Pid, &'static str> {
+pub fn get_current_pid() -> Result<Pid, Error> {
     cfg_select! {
         feature = "unknown-ci" => {
-            fn inner() -> Result<Pid, &'static str> {
-                Err("Unknown platform (CI)")
+            fn inner() -> Result<Pid, Error> {
+                Err(Error::Unsupported)
             }
         }
         any(
@@ -2831,20 +2828,20 @@ pub fn get_current_pid() -> Result<Pid, &'static str> {
             target_os = "macos",
             target_os = "ios",
         ) => {
-            fn inner() -> Result<Pid, &'static str> {
+            fn inner() -> Result<Pid, Error> {
                 unsafe { Ok(Pid(libc::getpid())) }
             }
         }
         windows => {
-            fn inner() -> Result<Pid, &'static str> {
+            fn inner() -> Result<Pid, Error> {
                 use windows::Win32::System::Threading::GetCurrentProcessId;
 
                 unsafe { Ok(Pid(GetCurrentProcessId() as _)) }
             }
         }
         _ => {
-            fn inner() -> Result<Pid, &'static str> {
-                Err("Unknown platform")
+            fn inner() -> Result<Pid, Error> {
+                Err(Error::Unsupported)
             }
         }
     }
@@ -3152,7 +3149,7 @@ mod test {
     fn check_host_name() {
         // We don't want to test on unsupported systems.
         if IS_SUPPORTED_SYSTEM {
-            assert!(System::host_name().is_some());
+            assert!(System::host_name().is_ok());
         }
     }
 
@@ -3202,7 +3199,10 @@ mod test {
             assert!(physical_cores_count2 <= s.cpus().len());
             assert_eq!(physical_cores_count, physical_cores_count2);
         } else {
-            assert_eq!(System::physical_core_count(), None);
+            assert!(matches!(
+                System::physical_core_count(),
+                Err(crate::Error::Unsupported)
+            ));
         }
         assert!(System::physical_core_count().unwrap_or(0) <= s.cpus().len());
     }

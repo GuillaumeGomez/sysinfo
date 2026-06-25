@@ -405,47 +405,53 @@ impl SystemInner {
     }
 
     #[cfg(not(target_os = "android"))]
-    pub(crate) fn name() -> Option<String> {
-        get_system_info_linux(
+    pub(crate) fn name() -> Result<String, Error> {
+        match get_system_info_linux(
             InfoType::Name,
             Path::new("/etc/os-release"),
             Path::new("/etc/lsb-release"),
-        )
+        ) {
+            Some(info) => Ok(info),
+            None => Err(Error::Other("failed to retrieve system name".into())),
+        }
     }
 
     #[cfg(target_os = "android")]
-    pub(crate) fn name() -> Option<String> {
-        get_system_info_android(InfoType::Name)
+    pub(crate) fn name() -> Result<String, Error> {
+        match get_system_info_android(InfoType::Name) {
+            Some(info) => Ok(info),
+            None => Err(Error::Other("failed to retrieve system name".into())),
+        }
     }
 
     #[cfg(not(target_os = "android"))]
-    pub(crate) fn long_os_version() -> Option<String> {
+    pub(crate) fn long_os_version() -> Result<String, Error> {
         let mut long_name = "Linux".to_owned();
 
         let distro_name = Self::name();
         let distro_version = Self::os_version();
-        if let Some(distro_version) = &distro_version {
+        if let Ok(distro_version) = &distro_version {
             // "Linux (Ubuntu 24.04)"
             long_name.push_str(" (");
             long_name.push_str(distro_name.as_deref().unwrap_or("unknown"));
             long_name.push(' ');
             long_name.push_str(distro_version);
             long_name.push(')');
-        } else if let Some(distro_name) = &distro_name {
+        } else if let Ok(distro_name) = &distro_name {
             // "Linux (Ubuntu)"
             long_name.push_str(" (");
             long_name.push_str(distro_name);
             long_name.push(')');
         }
 
-        Some(long_name)
+        Ok(long_name)
     }
 
     #[cfg(target_os = "android")]
-    pub(crate) fn long_os_version() -> Option<String> {
+    pub(crate) fn long_os_version() -> Result<String, Error> {
         let mut long_name = "Android".to_owned();
 
-        if let Some(os_version) = Self::os_version() {
+        if let Ok(os_version) = Self::os_version() {
             long_name.push(' ');
             long_name.push_str(&os_version);
         }
@@ -453,15 +459,15 @@ impl SystemInner {
         // Android's name() is extracted from the system property "ro.product.model"
         // which is documented as "The end-user-visible name for the end product."
         // So this produces a long_os_version like "Android 15 on Pixel 9 Pro".
-        if let Some(product_name) = Self::name() {
+        if let Ok(product_name) = Self::name() {
             long_name.push_str(" on ");
             long_name.push_str(&product_name);
         }
 
-        Some(long_name)
+        Ok(long_name)
     }
 
-    pub(crate) fn host_name() -> Option<String> {
+    pub(crate) fn host_name() -> Result<String, Error> {
         unsafe {
             let hostname_max = sysconf(_SC_HOST_NAME_MAX);
             let mut buffer = vec![0_u8; hostname_max as usize];
@@ -470,15 +476,17 @@ impl SystemInner {
                     // Shrink buffer to terminate the null bytes
                     buffer.resize(pos, 0);
                 }
-                String::from_utf8(buffer).ok()
+                if let Ok(info) = String::from_utf8(buffer) {
+                    return Ok(info);
+                }
             } else {
                 sysinfo_debug!("gethostname failed: hostname cannot be retrieved...");
-                None
             }
         }
+        Err(Error::Other("failed to retrieve host name".into()))
     }
 
-    pub(crate) fn kernel_version() -> Option<String> {
+    pub(crate) fn kernel_version() -> Result<String, Error> {
         let mut raw = MaybeUninit::<libc::utsname>::zeroed();
 
         unsafe {
@@ -492,25 +500,31 @@ impl SystemInner {
                     .map(|c| *c as u8 as char)
                     .collect::<String>();
 
-                Some(release)
+                Ok(release)
             } else {
-                None
+                Err(Error::Other("failed to retrieve kernel version".into()))
             }
         }
     }
 
     #[cfg(not(target_os = "android"))]
-    pub(crate) fn os_version() -> Option<String> {
-        get_system_info_linux(
+    pub(crate) fn os_version() -> Result<String, Error> {
+        match get_system_info_linux(
             InfoType::OsVersion,
             Path::new("/etc/os-release"),
             Path::new("/etc/lsb-release"),
-        )
+        ) {
+            Some(info) => Ok(info),
+            None => Err(Error::Other("failed to retrieve OS version".into())),
+        }
     }
 
     #[cfg(target_os = "android")]
-    pub(crate) fn os_version() -> Option<String> {
-        get_system_info_android(InfoType::OsVersion)
+    pub(crate) fn os_version() -> Result<String, Error> {
+        match get_system_info_android(InfoType::OsVersion) {
+            Some(info) => Ok(info),
+            None => Err(Error::Other("failed to retrieve OS version".into())),
+        }
     }
 
     #[cfg(not(target_os = "android"))]
@@ -580,7 +594,7 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn physical_core_count() -> Option<usize> {
+    pub(crate) fn physical_core_count() -> Result<usize, Error> {
         get_physical_core_count()
     }
 
@@ -589,13 +603,13 @@ impl SystemInner {
         self.refresh_cpu_specifics(refresh_kind);
     }
 
-    pub(crate) fn open_files_limit() -> Option<usize> {
+    pub(crate) fn open_files_limit() -> Result<usize, Error> {
         unsafe {
             match getrlimit() {
-                Some(limits) => Some(limits.rlim_cur as _),
+                Some(limits) => Ok(limits.rlim_cur as _),
                 None => {
                     sysinfo_debug!("getrlimit failed");
-                    None
+                    Err(Error::Other("failed to retrieve open files limit".into()))
                 }
             }
         }

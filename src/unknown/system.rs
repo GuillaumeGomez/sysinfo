@@ -95,32 +95,32 @@ impl SystemInner {
         unreachable!()
     }
 
-    pub(crate) fn uptime() -> Result<u64, crate::Error> {
-        Err(crate::Error::Unsupported)
+    pub(crate) fn uptime() -> Result<u64, Error> {
+        Err(Error::Unsupported)
     }
 
-    pub(crate) fn boot_time() -> Result<u64, crate::Error> {
-        Err(crate::Error::Unsupported)
+    pub(crate) fn boot_time() -> Result<u64, Error> {
+        Err(Error::Unsupported)
     }
 
-    pub(crate) fn load_average() -> Result<LoadAvg, crate::Error> {
-        Err(crate::Error::Unsupported)
+    pub(crate) fn load_average() -> Result<LoadAvg, Error> {
+        Err(Error::Unsupported)
     }
 
-    pub(crate) fn name() -> Option<String> {
-        None
+    pub(crate) fn name() -> Result<String, Error> {
+        Err(Error::Unsupported)
     }
 
-    pub(crate) fn long_os_version() -> Option<String> {
-        None
+    pub(crate) fn long_os_version() -> Result<String, Error> {
+        Err(Error::Unsupported)
     }
 
-    pub(crate) fn kernel_version() -> Option<String> {
-        None
+    pub(crate) fn kernel_version() -> Result<String, Error> {
+        Err(Error::Unsupported)
     }
 
-    pub(crate) fn os_version() -> Option<String> {
-        None
+    pub(crate) fn os_version() -> Result<String, Error> {
+        Err(Error::Unsupported)
     }
 
     pub(crate) fn distribution_id() -> String {
@@ -135,19 +135,19 @@ impl SystemInner {
         None
     }
 
-    pub(crate) fn host_name() -> Option<String> {
-        None
+    pub(crate) fn host_name() -> Result<String, Error> {
+        Err(Error::Unsupported)
     }
 
     pub(crate) fn cpu_arch() -> Option<String> {
         None
     }
 
-    pub(crate) fn physical_core_count() -> Option<usize> {
-        None
+    pub(crate) fn physical_core_count() -> Result<usize, Error> {
+        Err(Error::Unsupported)
     }
 
-    pub(crate) fn open_files_limit() -> Option<usize> {
-        None
+    pub(crate) fn open_files_limit() -> Result<usize, Error> {
+        Err(Error::Unsupported)
     }
 }

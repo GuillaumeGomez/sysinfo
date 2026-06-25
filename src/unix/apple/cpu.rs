@@ -1,11 +1,11 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
+use crate::sys::utils::get_sys_value;
 use crate::{Cpu, CpuRefreshKind};
 
 #[allow(deprecated)]
 use libc::mach_task_self;
-use libc::{c_char, c_void, host_processor_info, mach_port_t};
+use libc::{c_char, host_processor_info, mach_port_t};
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -226,22 +226,6 @@ pub(crate) unsafe fn get_cpu_frequency(#[allow(unused_variables)] brand: &str) -
     }
 }
 
-pub(crate) fn physical_core_count() -> Option<usize> {
-    let mut physical_core_count = 0;
-
-    unsafe {
-        if get_sys_value_by_name(
-            b"hw.physicalcpu\0",
-            &mut mem::size_of::<u32>(),
-            &mut physical_core_count as *mut usize as *mut c_void,
-        ) {
-            Some(physical_core_count)
-        } else {
-            None
-        }
-    }
-}
-
 #[inline]
 fn get_in_use(cpu_info: *mut i32, offset: isize) -> i64 {
     unsafe {
@@ -366,7 +350,7 @@ pub(crate) fn init_cpus(
     });
 }
 
-pub(crate) fn get_sysctl_str(s: &[u8]) -> String {
+pub(crate) fn get_sysctl_str(s: &[u8]) -> Option<String> {
     let mut len = 0;
 
     unsafe {
@@ -377,43 +361,36 @@ pub(crate) fn get_sysctl_str(s: &[u8]) -> String {
             std::ptr::null_mut(),
             0,
         );
-        if len < 1 {
-            return String::new();
-        }
-
-        let mut buf = Vec::with_capacity(len);
-        libc::sysctlbyname(
-            s.as_ptr() as *const c_char,
-            buf.as_mut_ptr() as _,
-            &mut len,
-            std::ptr::null_mut(),
-            0,
-        );
         if len > 0 {
-            buf.set_len(len);
-            while buf.last() == Some(&b'\0') {
-                buf.pop();
+            let mut buf = Vec::with_capacity(len);
+            libc::sysctlbyname(
+                s.as_ptr() as *const c_char,
+                buf.as_mut_ptr() as _,
+                &mut len,
+                std::ptr::null_mut(),
+                0,
+            );
+            if len > 0 {
+                buf.set_len(len);
+                while buf.last() == Some(&b'\0') {
+                    buf.pop();
+                }
+                return String::from_utf8(buf).ok();
             }
-            String::from_utf8(buf).unwrap_or_else(|_| String::new())
-        } else {
-            String::new()
         }
+        None
     }
 }
 
 pub(crate) fn get_vendor_id_and_brand() -> (String, String) {
     // On apple M1, `sysctl machdep.cpu.vendor` returns "", so fallback to "Apple" if the result
     // is empty.
-    let mut vendor = get_sysctl_str(b"machdep.cpu.vendor\0");
-    if vendor.is_empty() {
-        vendor = "Apple".to_string();
-    }
+    let vendor = get_sysctl_str(b"machdep.cpu.vendor\0").unwrap_or_else(|| "Apple".to_owned());
 
-    let brand = get_sysctl_str(b"machdep.cpu.brand_string\0");
-    if !brand.is_empty() {
+    if let Some(brand) = get_sysctl_str(b"machdep.cpu.brand_string\0") {
         return (vendor, brand);
     }
-    let full_brand = get_sysctl_str(b"hw.machine\0");
+    let full_brand = get_sysctl_str(b"hw.machine\0").unwrap_or_default();
     // This is a fallback when the `sysctl` to get the CPU brand returns an empty string.
     let mut iter = full_brand.split(',');
     let brand = match (iter.next().unwrap_or(""), iter.next()) {

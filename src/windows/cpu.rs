@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Cpu, CpuRefreshKind, LoadAvg};
+use crate::{Cpu, CpuRefreshKind, Error as SError, LoadAvg};
 
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -517,7 +517,7 @@ pub(crate) fn get_frequencies(nb_cpus: usize) -> Vec<u64> {
     vec![0; nb_cpus]
 }
 
-pub(crate) fn get_physical_core_count() -> Option<usize> {
+pub(crate) fn get_physical_core_count() -> Result<usize, SError> {
     // We cannot use the number of cpus here to pre calculate the buf size.
     // `GetLogicalCpuInformationEx` with `RelationProcessorCore` passed to it not only returns
     // the logical cores but also numa nodes.
@@ -554,7 +554,9 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
                         sysinfo_debug!(
                             "get_physical_core_count: GetLogicalCpuInformationEx failed"
                         );
-                        return None;
+                        return Err(SError::Other(
+                            "failed to retrieve physical core count".into(),
+                        ));
                     }
                 }
             }
@@ -571,7 +573,9 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
                         needed_size,
                         reserve,
                     );
-                    return None;
+                    return Err(SError::Other(
+                        "failed to retrieve physical core count".into(),
+                    ));
                 }
             };
             buf.reserve(reserve);
@@ -590,7 +594,7 @@ pub(crate) fn get_physical_core_count() -> Option<usize> {
                 count += 1;
             }
         }
-        Some(count)
+        Ok(count)
     }
 }
 

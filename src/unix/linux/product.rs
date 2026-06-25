@@ -1,61 +1,61 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+use crate::Error;
+
 pub(crate) struct ProductInner;
 
 impl ProductInner {
-    pub(crate) fn family() -> Option<String> {
+    pub(crate) fn family() -> Result<String, Error> {
         std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_family")
-            .ok()
             .map(|s| s.trim().to_owned())
+            .map_err(|_| Error::Other("failed to retrieve product family".into()))
     }
 
-    pub(crate) fn name() -> Option<String> {
+    pub(crate) fn name() -> Result<String, Error> {
         std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_name")
-            .ok()
-            .or_else(|| {
+            .or_else(|_| {
                 std::fs::read_to_string("/sys/firmware/devicetree/base/model")
-                    .ok()
-                    .or_else(|| {
-                        std::fs::read_to_string("/sys/firmware/devicetree/base/banner-name").ok()
+                    .or_else(|_| {
+                        std::fs::read_to_string("/sys/firmware/devicetree/base/banner-name")
                     })
-                    .or_else(|| std::fs::read_to_string("/tmp/sysinfo/model").ok())
+                    .or_else(|_| std::fs::read_to_string("/tmp/sysinfo/model"))
                     .map(|s| s.trim_end_matches('\0').to_owned())
             })
             .map(|s| s.trim().to_owned())
+            .map_err(|_| Error::Other("failed to retrieve product name".into()))
     }
 
-    pub(crate) fn serial_number() -> Option<String> {
+    pub(crate) fn serial_number() -> Result<String, Error> {
         std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_serial")
-            .ok()
-            .or_else(|| {
+            .or_else(|_| {
                 std::fs::read_to_string("/sys/firmware/devicetree/base/serial-number")
-                    .ok()
                     .map(|s| s.trim_end_matches('\0').to_owned())
             })
             .map(|s| s.trim().to_owned())
+            .map_err(|_| Error::Other("failed to retrieve product serial number".into()))
     }
 
-    pub(crate) fn stock_keeping_unit() -> Option<String> {
+    pub(crate) fn stock_keeping_unit() -> Result<String, Error> {
         std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_sku")
-            .ok()
             .map(|s| s.trim().to_owned())
+            .map_err(|_| Error::Other("failed to retrieve product stock keeping unit".into()))
     }
 
-    pub(crate) fn uuid() -> Option<String> {
+    pub(crate) fn uuid() -> Result<String, Error> {
         std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_uuid")
-            .ok()
             .map(|s| s.trim().to_owned())
+            .map_err(|_| Error::Other("failed to retrieve product uuid".into()))
     }
 
-    pub(crate) fn version() -> Option<String> {
+    pub(crate) fn version() -> Result<String, Error> {
         std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_version")
-            .ok()
             .map(|s| s.trim().to_owned())
+            .map_err(|_| Error::Other("failed to retrieve product version".into()))
     }
 
-    pub(crate) fn vendor_name() -> Option<String> {
+    pub(crate) fn vendor_name() -> Result<String, Error> {
         std::fs::read_to_string("/sys/devices/virtual/dmi/id/sys_vendor")
-            .ok()
             .map(|s| s.trim().to_owned())
+            .map_err(|_| Error::Other("failed to retrieve product vendor name".into()))
     }
 }

@@ -13,7 +13,7 @@ use std::ptr::NonNull;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::SystemTime;
 
-use crate::sys::cpu::{CpusWrapper, physical_core_count};
+use crate::sys::cpu::CpusWrapper;
 use crate::sys::utils::{self, c_buf_to_utf8_string, get_sys_value, get_sys_value_by_name};
 
 use super::ffi;
@@ -177,47 +177,57 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn name() -> Option<String> {
+    pub(crate) fn name() -> Result<String, Error> {
         let mut os_type: [c_int; 2] = [0; 2];
         unsafe {
             init_mib(b"kern.ostype\0", &mut os_type);
-            get_system_info(&os_type, Some("NetBSD"))
+            Ok(get_system_info(&os_type).unwrap_or_else(|| "NetBSD".to_owned()))
         }
     }
 
-    pub(crate) fn os_version() -> Option<String> {
+    pub(crate) fn os_version() -> Result<String, Error> {
         let mut os_release: [c_int; 2] = [0; 2];
         unsafe {
             init_mib(b"kern.osrelease\0", &mut os_release);
             // It returns something like "13.0-RELEASE". We want to keep everything until the "-".
-            get_system_info(&os_release, None)
+            match get_system_info(&os_release)
                 .and_then(|s| s.split('-').next().map(|s| s.to_owned()))
+            {
+                Some(info) => Ok(info),
+                None => Err(Error::Other("failed to retrieve OS version".into())),
+            }
         }
     }
 
-    pub(crate) fn long_os_version() -> Option<String> {
+    pub(crate) fn long_os_version() -> Result<String, Error> {
         let mut os_release: [c_int; 2] = [0; 2];
         unsafe {
             init_mib(b"kern.version\0", &mut os_release);
-            get_system_info(&os_release, None)
+            match get_system_info(&os_release) {
+                Some(info) => Ok(info),
+                None => Err(Error::Other("failed to retrieve long OS version".into())),
+            }
         }
     }
 
-    pub(crate) fn host_name() -> Option<String> {
+    pub(crate) fn host_name() -> Result<String, Error> {
         let mut hostname: [c_int; 2] = [0; 2];
         unsafe {
             init_mib(b"kern.hostname\0", &mut hostname);
-            get_system_info(&hostname, None)
+            match get_system_info(&hostname) {
+                Some(info) => Ok(info),
+                None => Err(Error::Other("failed to retrieve host name".into())),
+            }
         }
     }
 
-    pub(crate) fn kernel_version() -> Option<String> {
+    pub(crate) fn kernel_version() -> Result<String, Error> {
         unsafe {
             let mut kern_version: libc::c_int = 0;
             if get_sys_value_by_name(b"kern.osrevision\0", &mut kern_version) {
-                Some(kern_version.to_string())
+                Ok(kern_version.to_string())
             } else {
-                None
+                Err(Error::Other("failed to retrieve kernel version".into()))
             }
         }
     }
@@ -252,17 +262,27 @@ impl SystemInner {
         }
     }
 
-    pub(crate) fn physical_core_count() -> Option<usize> {
-        physical_core_count()
+    pub(crate) fn physical_core_count() -> Result<usize, Error> {
+        let mut physical_core_count: u32 = 0;
+
+        unsafe {
+            if get_sys_value_by_name(b"hw.ncpu\0", &mut physical_core_count) {
+                Ok(physical_core_count as _)
+            } else {
+                Err(Error::Other(
+                    "failed to retrieve physical core count".into(),
+                ))
+            }
+        }
     }
 
-    pub(crate) fn open_files_limit() -> Option<usize> {
+    pub(crate) fn open_files_limit() -> Result<usize, Error> {
         let mut value = 0u32;
         unsafe {
             if get_sys_value_by_name(b"kern.maxfilesper\0", &mut value) {
-                Some(value as _)
+                Ok(value as _)
             } else {
-                None
+                Err(Error::Other("failed to retrieve open files limit".into()))
             }
         }
     }
@@ -427,7 +447,7 @@ impl Drop for SystemInfo {
     }
 }
 
-fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
+fn get_system_info(mib: &[c_int]) -> Option<String> {
     let mut size = 0;
 
     unsafe {
@@ -442,9 +462,7 @@ fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
         );
 
         // exit early if we did not update the size
-        if size == 0 {
-            default.map(|s| s.to_owned())
-        } else {
+        if size != 0 {
             // set the buffer to the correct size
             let mut buf: Vec<libc::c_char> = vec![0; size as _];
 
@@ -455,15 +473,13 @@ fn get_system_info(mib: &[c_int], default: Option<&str>) -> Option<String> {
                 &mut size,
                 std::ptr::null_mut(),
                 0,
-            ) == -1
+            ) != -1
             {
-                // If command fails return default
-                default.map(|s| s.to_owned())
-            } else {
-                c_buf_to_utf8_string(&buf)
+                return c_buf_to_utf8_string(&buf);
             }
         }
     }
+    None
 }
 
 fn get_now() -> u64 {
