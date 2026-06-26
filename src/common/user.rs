@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 
-use crate::{Gid, Uid, UserInner};
+use crate::{Error, Gid, Uid, UserInner};
 
 /// Type containing user information.
 ///
@@ -11,9 +11,10 @@ use crate::{Gid, Uid, UserInner};
 /// ```no_run
 /// use sysinfo::Users;
 ///
-/// let users = Users::new_with_refreshed_list();
-/// for user in users.list() {
-///     println!("{:?}", user);
+/// if let Ok(users) = Users::new_with_refreshed_list() {
+///     for user in users.list() {
+///         println!("{:?}", user);
+///     }
 /// }
 /// ```
 pub struct User {
@@ -48,9 +49,10 @@ impl User {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{:?}", *user.id());
+    /// if let Ok(users) = Users::new_with_refreshed_list() {
+    ///     for user in users.list() {
+    ///         println!("{:?}", *user.id());
+    ///     }
     /// }
     /// ```
     pub fn id(&self) -> &Uid {
@@ -69,9 +71,10 @@ impl User {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{}", *user.group_id());
+    /// if let Ok(users) = Users::new_with_refreshed_list() {
+    ///     for user in users.list() {
+    ///         println!("{}", *user.group_id());
+    ///     }
     /// }
     /// ```
     pub fn group_id(&self) -> Gid {
@@ -83,9 +86,10 @@ impl User {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{}", user.name());
+    /// if let Ok(users) = Users::new_with_refreshed_list() {
+    ///     for user in users.list() {
+    ///         println!("{}", user.name());
+    ///     }
     /// }
     /// ```
     pub fn name(&self) -> &str {
@@ -99,9 +103,10 @@ impl User {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{} is in {:?}", user.name(), user.groups());
+    /// if let Ok(users) = Users::new_with_refreshed_list() {
+    ///     for user in users.list() {
+    ///         println!("{} is in {:?}", user.name(), user.groups());
+    ///     }
     /// }
     /// ```
     pub fn groups(&self) -> Vec<Group> {
@@ -122,17 +127,17 @@ pub(crate) struct GroupInner {
 /// ```no_run
 /// use sysinfo::Users;
 ///
-/// let mut users = Users::new_with_refreshed_list();
-///
-/// for user in users.list() {
-///     println!(
-///         "user: (ID: {:?}, group ID: {:?}, name: {:?})",
-///         user.id(),
-///         user.group_id(),
-///         user.name(),
-///     );
-///     for group in user.groups() {
-///         println!("group: (ID: {:?}, name: {:?})", group.id(), group.name());
+/// if let Ok(users) = Users::new_with_refreshed_list() {
+///     for user in users.list() {
+///         println!(
+///             "user: (ID: {:?}, group ID: {:?}, name: {:?})",
+///             user.id(),
+///             user.group_id(),
+///             user.name(),
+///         );
+///         for group in user.groups() {
+///             println!("group: (ID: {:?}, name: {:?})", group.id(), group.name());
+///         }
 ///     }
 /// }
 /// ```
@@ -149,11 +154,11 @@ impl Group {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new_with_refreshed_list();
-    ///
-    /// for user in users.list() {
-    ///     for group in user.groups() {
-    ///         println!("{:?}", group.id());
+    /// if let Ok(users) = Users::new_with_refreshed_list() {
+    ///     for user in users.list() {
+    ///         for group in user.groups() {
+    ///             println!("{:?}", group.id());
+    ///         }
     ///     }
     /// }
     /// ```
@@ -166,11 +171,11 @@ impl Group {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new_with_refreshed_list();
-    ///
-    /// for user in users.list() {
-    ///     for group in user.groups() {
-    ///         println!("{}", group.name());
+    /// if let Ok(users) = Users::new_with_refreshed_list() {
+    ///     for user in users.list() {
+    ///         for group in user.groups() {
+    ///             println!("{}", group.name());
+    ///         }
     ///     }
     /// }
     /// ```
@@ -184,19 +189,14 @@ impl Group {
 /// ```no_run
 /// use sysinfo::Users;
 ///
-/// let mut users = Users::new();
-/// for user in users.list() {
-///     println!("{} is in {} groups", user.name(), user.groups().len());
+/// if let Ok(users) = Users::new_with_refreshed_list() {
+///     for user in users.list() {
+///         println!("{} is in {} groups", user.name(), user.groups().len());
+///     }
 /// }
 /// ```
 pub struct Users {
     users: Vec<User>,
-}
-
-impl Default for Users {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl From<Users> for Vec<User> {
@@ -251,14 +251,17 @@ impl Users {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new();
-    /// users.refresh();
-    /// for user in users.list() {
-    ///     println!("{user:?}");
+    /// if let Ok(mut users) = Users::new() {
+    ///     users.refresh();
+    ///     for user in users.list() {
+    ///         println!("{user:?}");
+    ///     }
     /// }
     /// ```
-    pub fn new() -> Self {
-        Self { users: Vec::new() }
+    pub fn new() -> Result<Self, Error> {
+        Ok(Self {
+            users: crate::sys::new_users()?,
+        })
     }
 
     /// Creates a new [`Users`][crate::Users] type with the user list loaded.
@@ -266,15 +269,16 @@ impl Users {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{user:?}");
+    /// if let Ok(users) = Users::new_with_refreshed_list() {
+    ///     for user in users.list() {
+    ///         println!("{user:?}");
+    ///     }
     /// }
     /// ```
-    pub fn new_with_refreshed_list() -> Self {
-        let mut users = Self::new();
+    pub fn new_with_refreshed_list() -> Result<Self, Error> {
+        let mut users = Self::new()?;
         users.refresh();
-        users
+        Ok(users)
     }
 
     /// Returns the users list.
@@ -282,9 +286,10 @@ impl Users {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let users = Users::new_with_refreshed_list();
-    /// for user in users.list() {
-    ///     println!("{user:?}");
+    /// if let Ok(users) = Users::new_with_refreshed_list() {
+    ///     for user in users.list() {
+    ///         println!("{user:?}");
+    ///     }
     /// }
     /// ```
     pub fn list(&self) -> &[User] {
@@ -296,10 +301,11 @@ impl Users {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new_with_refreshed_list();
-    /// users.list_mut().sort_by(|user1, user2| {
-    ///     user1.name().partial_cmp(user2.name()).unwrap()
-    /// });
+    /// if let Ok(mut users) = Users::new_with_refreshed_list() {
+    ///     users.list_mut().sort_by(|user1, user2| {
+    ///         user1.name().partial_cmp(user2.name()).unwrap()
+    ///     });
+    /// }
     /// ```
     pub fn list_mut(&mut self) -> &mut [User] {
         &mut self.users
@@ -310,8 +316,9 @@ impl Users {
     /// ```no_run
     /// use sysinfo::Users;
     ///
-    /// let mut users = Users::new();
-    /// users.refresh();
+    /// if let Ok(mut users) = Users::new() {
+    ///     users.refresh();
+    /// }
     /// ```
     pub fn refresh(&mut self) {
         crate::sys::get_users(&mut self.users);
@@ -326,8 +333,9 @@ impl Users {
     ///
     /// ```ignore
     /// # use sysinfo::Users;
-    /// let users = Users::new_with_refreshed_list();
-    /// users.list().find(|user| user.id() == user_id);
+    /// if let Ok(users) = Users::new_with_refreshed_list() {
+    ///     users.list().find(|user| user.id() == user_id);
+    /// }
     /// ```
     ///
     /// Full example:
@@ -336,14 +344,12 @@ impl Users {
     #[cfg_attr(not(feature = "system"), doc = "```ignore")]
     /// use sysinfo::{Pid, System, Users};
     ///
-    /// if let Ok(mut s) = System::new_all() {
-    ///     let users = Users::new_with_refreshed_list();
-    ///
-    ///     if let Some(process) = s.process(Pid::from(1337)) {
-    ///         if let Some(user_id) = process.user_id() {
-    ///             println!("User for process 1337: {:?}", users.get_user_by_id(user_id));
-    ///         }
-    ///     }
+    /// if let Ok(mut s) = System::new_all()
+    ///     && let Ok(users) = Users::new_with_refreshed_list()
+    ///     && let Some(process) = s.process(Pid::from(1337)) {
+    ///     && let Some(user_id) = process.user_id()
+    /// {
+    ///     println!("User for process 1337: {:?}", users.get_user_by_id(user_id));
     /// }
     /// ```
     pub fn get_user_by_id(&self, user_id: &Uid) -> Option<&User> {
@@ -356,19 +362,14 @@ impl Users {
 /// ```no_run
 /// use sysinfo::Groups;
 ///
-/// let mut groups = Groups::new();
-/// for group in groups.list() {
-///     println!("{}", group.name());
+/// if let Ok(groups) = Groups::new_with_refreshed_list() {
+///     for group in groups.list() {
+///         println!("{}", group.name());
+///     }
 /// }
 /// ```
 pub struct Groups {
     groups: Vec<Group>,
-}
-
-impl Default for Groups {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl From<Groups> for Vec<Group> {
@@ -423,14 +424,17 @@ impl Groups {
     /// ```no_run
     /// use sysinfo::Groups;
     ///
-    /// let mut groups = Groups::new();
-    /// groups.refresh();
-    /// for group in groups.list() {
-    ///     println!("{group:?}");
+    /// if let Ok(mut groups) = Groups::new() {
+    ///     groups.refresh();
+    ///     for group in groups.list() {
+    ///         println!("{group:?}");
+    ///     }
     /// }
     /// ```
-    pub fn new() -> Self {
-        Self { groups: Vec::new() }
+    pub fn new() -> Result<Self, Error> {
+        Ok(Self {
+            groups: crate::sys::new_groups()?,
+        })
     }
 
     /// Creates a new [`Groups`][crate::Groups] type with the group list loaded.
@@ -438,15 +442,16 @@ impl Groups {
     /// ```no_run
     /// use sysinfo::Groups;
     ///
-    /// let mut groups = Groups::new_with_refreshed_list();
-    /// for group in groups.list() {
-    ///     println!("{group:?}");
+    /// if let Ok(groups) = Groups::new_with_refreshed_list() {
+    ///     for group in groups.list() {
+    ///         println!("{group:?}");
+    ///     }
     /// }
     /// ```
-    pub fn new_with_refreshed_list() -> Self {
-        let mut groups = Self::new();
+    pub fn new_with_refreshed_list() -> Result<Self, Error> {
+        let mut groups = Self::new()?;
         groups.refresh();
-        groups
+        Ok(groups)
     }
 
     /// Returns the groups list.
@@ -454,9 +459,10 @@ impl Groups {
     /// ```no_run
     /// use sysinfo::Groups;
     ///
-    /// let groups = Groups::new_with_refreshed_list();
-    /// for group in groups.list() {
-    ///     println!("{group:?}");
+    /// if let Ok(groups) = Groups::new_with_refreshed_list() {
+    ///     for group in groups.list() {
+    ///         println!("{group:?}");
+    ///     }
     /// }
     /// ```
     pub fn list(&self) -> &[Group] {
@@ -468,10 +474,11 @@ impl Groups {
     /// ```no_run
     /// use sysinfo::Groups;
     ///
-    /// let mut groups = Groups::new_with_refreshed_list();
-    /// groups.list_mut().sort_by(|user1, user2| {
-    ///     user1.name().partial_cmp(user2.name()).unwrap()
-    /// });
+    /// if let Ok(mut groups) = Groups::new_with_refreshed_list() {
+    ///     groups.list_mut().sort_by(|user1, user2| {
+    ///         user1.name().partial_cmp(user2.name()).unwrap()
+    ///     });
+    /// }
     /// ```
     pub fn list_mut(&mut self) -> &mut [Group] {
         &mut self.groups
@@ -482,8 +489,9 @@ impl Groups {
     /// ```no_run
     /// use sysinfo::Groups;
     ///
-    /// let mut groups = Groups::new();
-    /// groups.refresh();
+    /// if let Ok(mut groups) = Groups::new() {
+    ///     groups.refresh();
+    /// }
     /// ```
     pub fn refresh(&mut self) {
         crate::sys::get_groups(&mut self.groups);
@@ -496,7 +504,13 @@ mod tests {
 
     #[test]
     fn check_list() {
-        let mut users = Users::new();
+        let mut users = match Users::new() {
+            Ok(users) => users,
+            Err(err) => {
+                assert_matches!(err, Error::Unsupported);
+                return;
+            }
+        };
         assert!(users.list().is_empty());
         users.refresh();
         assert!(users.list().len() >= MIN_USERS);
@@ -527,9 +541,9 @@ mod tests {
 
     #[test]
     fn check_groups() {
-        if !crate::IS_SUPPORTED_SYSTEM {
-            return;
+        match Groups::new_with_refreshed_list() {
+            Ok(groups) => assert!(!groups.is_empty()),
+            Err(err) => assert_matches!(err, Error::Unsupported),
         }
-        assert!(!Groups::new_with_refreshed_list().is_empty());
     }
 }

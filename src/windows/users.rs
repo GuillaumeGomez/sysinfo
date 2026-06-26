@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::to_utf8_str;
-use crate::{Gid, Group, GroupInner, Uid, User, windows::sid::Sid};
+use crate::{Error, Gid, Group, GroupInner, Uid, User, windows::sid::Sid};
 
 use std::ptr::null_mut;
 use windows::Win32::Foundation::{ERROR_MORE_DATA, LUID};
@@ -276,4 +276,8 @@ pub(crate) fn get_users(users: &mut Vec<User>) {
             }
         }
     }
+}
+
+pub(crate) fn new_users() -> Result<Vec<User>, Error> {
+    Ok(Vec::new())
 }

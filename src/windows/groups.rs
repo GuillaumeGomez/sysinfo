@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::to_utf8_str;
-use crate::{Gid, Group, GroupInner};
+use crate::{Error, Gid, Group, GroupInner};
 
 use std::ptr::null_mut;
 use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS};
@@ -79,4 +79,8 @@ pub(crate) fn get_groups(groups: &mut Vec<Group>) {
             }
         }
     }
+}
+
+pub(crate) fn new_groups() -> Result<Vec<Group>, Error> {
+    Ok(Vec::new())
 }

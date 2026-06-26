@@ -167,3 +167,8 @@ pub(crate) fn get_users(users: &mut Vec<crate::User>) {
         });
     }
 }
+
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+pub(crate) fn new_users() -> Result<Vec<crate::User>, crate::Error> {
+    Ok(Vec::new())
+}

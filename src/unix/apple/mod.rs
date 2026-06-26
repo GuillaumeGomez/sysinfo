@@ -77,12 +77,12 @@ cfg_select! {
         #[cfg(target_os = "ios")]
         pub use crate::sys::app_store::users;
 
-        pub(crate) use crate::unix::groups::get_groups;
+        pub(crate) use crate::unix::groups::{get_groups, new_groups};
         #[cfg(target_os = "macos")]
         pub(crate) use crate::unix::users::UserInner;
         #[cfg(target_os = "ios")]
         pub(crate) use self::users::UserInner;
-        pub(crate) use self::users::get_users;
+        pub(crate) use self::users::{get_users, new_users};
     }
     _ => {}
 }
