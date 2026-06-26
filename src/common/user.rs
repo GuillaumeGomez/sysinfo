@@ -507,7 +507,7 @@ mod tests {
         let mut users = match Users::new() {
             Ok(users) => users,
             Err(err) => {
-                assert_matches!(err, Error::Unsupported);
+                std::assert_matches!(err, Error::Unsupported);
                 return;
             }
         };
@@ -543,7 +543,7 @@ mod tests {
     fn check_groups() {
         match Groups::new_with_refreshed_list() {
             Ok(groups) => assert!(!groups.is_empty()),
-            Err(err) => assert_matches!(err, Error::Unsupported),
+            Err(err) => std::assert_matches!(err, Error::Unsupported),
         }
     }
 }

@@ -762,7 +762,7 @@ mod tests {
         let networks = match Networks::new_with_refreshed_list() {
             Ok(n) => n,
             Err(error) => {
-                assert_matches!(error, Error::Unsupported);
+                std::assert_matches!(error, Error::Unsupported);
                 return;
             }
         };

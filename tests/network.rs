@@ -11,7 +11,7 @@ fn test_networks() {
     let mut networks = match Networks::new() {
         Ok(n) => n,
         Err(error) => {
-            assert_matches!(error, Error::Unsupported);
+            std::assert_matches!(error, Error::Unsupported);
             return;
         }
     };
@@ -25,7 +25,7 @@ fn test_mac_addr() {
     let mut networks = match Networks::new() {
         Ok(n) => n,
         Err(error) => {
-            assert_matches!(error, Error::Unsupported);
+            std::assert_matches!(error, Error::Unsupported);
             return;
         }
     };

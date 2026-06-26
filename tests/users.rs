@@ -18,7 +18,7 @@ fn test_users() {
     let mut users = match Users::new() {
         Ok(u) => u,
         Err(error) => {
-            assert_matches!(error, Error::Unsupported);
+            std::assert_matches!(error, Error::Unsupported);
             return;
         }
     };
@@ -39,7 +39,7 @@ fn test_groups() {
     let mut groups = match Groups::new() {
         Ok(g) => g,
         Err(error) => {
-            assert_matches!(error, Error::Unsupported);
+            std::assert_matches!(error, Error::Unsupported);
             return;
         }
     };

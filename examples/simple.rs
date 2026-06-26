@@ -75,7 +75,7 @@ fn interpret_input(
     input: &str,
     sys: Result<&mut System, &mut sysinfo::Error>,
     gpus: Result<&mut Gpus, &mut sysinfo::Error>,
-    networks: &mut Networks,
+    networks: Result<&mut Networks, &mut sysinfo::Error>,
     disks: &mut Disks,
     components: &mut Components,
     users: Result<&mut Users, &mut sysinfo::Error>,
@@ -97,11 +97,16 @@ fn interpret_input(
                 println!("Users information cannot be retrieved: {error}");
             }
         },
-        "refresh_networks" => {
-            println!("Refreshing network list...");
-            networks.refresh(true);
-            println!("Done.");
-        }
+        "refresh_networks" => match networks {
+            Ok(networks) => {
+                println!("Refreshing network list...");
+                networks.refresh(true);
+                println!("Done.");
+            }
+            Err(error) => {
+                println!("Networks information cannot be retrieved: {error}");
+            }
+        },
         "refresh_components" => {
             println!("Refreshing component list...");
             components.refresh(true);
@@ -279,24 +284,29 @@ fn interpret_input(
                 println!("{component:?}");
             }
         }
-        "network" => {
-            for (interface_name, data) in networks.iter() {
-                println!(
-                    "\
-{interface_name}:
-  operational state {}
-  ether {}
-  input data  (new / total): {} / {} B
-  output data (new / total): {} / {} B",
-                    data.operational_state(),
-                    data.mac_address(),
-                    data.received(),
-                    data.total_received(),
-                    data.transmitted(),
-                    data.total_transmitted(),
-                );
+        "network" => match networks {
+            Ok(networks) => {
+                for (interface_name, data) in networks.iter() {
+                    println!(
+                        "\
+    {interface_name}:
+      operational state {}
+      ether {}
+      input data  (new / total): {} / {} B
+      output data (new / total): {} / {} B",
+                        data.operational_state(),
+                        data.mac_address(),
+                        data.received(),
+                        data.total_received(),
+                        data.transmitted(),
+                        data.total_transmitted(),
+                    );
+                }
             }
-        }
+            Err(error) => {
+                println!("Networks information cannot be retrieved: {error}");
+            }
+        },
         "show" => {
             println!("'show' command expects a pid number or a process name");
         }
@@ -504,7 +514,7 @@ fn main() {
             input.as_ref(),
             system.as_mut(),
             gpus.as_mut(),
-            &mut networks,
+            networks.as_mut(),
             &mut disks,
             &mut components,
             users.as_mut(),
