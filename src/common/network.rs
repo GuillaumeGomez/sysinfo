@@ -759,13 +759,7 @@ mod tests {
 
     #[test]
     fn check_ip_networks() {
-        let networks = match Networks::new_with_refreshed_list() {
-            Ok(n) => n,
-            Err(error) => {
-                std::assert_matches!(error, Error::Unsupported);
-                return;
-            }
-        };
+        let networks = check_unsupported!(Networks::new_with_refreshed_list());
         if networks.iter().any(|(_, n)| !n.ip_networks().is_empty()) {
             return;
         }

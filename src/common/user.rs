@@ -346,7 +346,7 @@ impl Users {
     ///
     /// if let Ok(mut s) = System::new_all()
     ///     && let Ok(users) = Users::new_with_refreshed_list()
-    ///     && let Some(process) = s.process(Pid::from(1337)) {
+    ///     && let Some(process) = s.process(Pid::from(1337))
     ///     && let Some(user_id) = process.user_id()
     /// {
     ///     println!("User for process 1337: {:?}", users.get_user_by_id(user_id));
@@ -504,13 +504,7 @@ mod tests {
 
     #[test]
     fn check_list() {
-        let mut users = match Users::new() {
-            Ok(users) => users,
-            Err(err) => {
-                std::assert_matches!(err, Error::Unsupported);
-                return;
-            }
-        };
+        let mut users = check_unsupported!(Users::new());
         assert!(users.list().is_empty());
         users.refresh();
         assert!(users.list().len() >= MIN_USERS);
@@ -541,9 +535,7 @@ mod tests {
 
     #[test]
     fn check_groups() {
-        match Groups::new_with_refreshed_list() {
-            Ok(groups) => assert!(!groups.is_empty()),
-            Err(err) => std::assert_matches!(err, Error::Unsupported),
-        }
+        let groups = check_unsupported!(Groups::new_with_refreshed_list());
+        assert!(!groups.is_empty());
     }
 }

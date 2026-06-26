@@ -93,3 +93,19 @@ macro_rules! retry_eintr {
         }
     }};
 }
+
+#[cfg(test)]
+#[allow(unused_macros)]
+macro_rules! check_unsupported {
+    ($e:expr) => {
+        match $e {
+            Ok(a) => a,
+            Err(error) => {
+                if !matches!(error, crate::Error::Unsupported) {
+                    panic!("Expected `Error::Unsupported`, found {error:?}");
+                }
+                return;
+            }
+        }
+    };
+}

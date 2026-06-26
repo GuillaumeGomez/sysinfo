@@ -2,6 +2,8 @@
 
 #![cfg(feature = "user")]
 
+use sysinfo::{Error, Groups, Users};
+
 // This test is used to ensure that the users are not loaded by default.
 //
 // Calling users.groups() multiple times doesn't return the same output https://github.com/GuillaumeGomez/sysinfo/issues/1233
@@ -13,12 +15,12 @@
 // user: Administrator group:[]
 #[test]
 fn test_users() {
-    use sysinfo::Users;
-
     let mut users = match Users::new() {
         Ok(u) => u,
         Err(error) => {
-            std::assert_matches!(error, Error::Unsupported);
+            if !matches!(error, crate::Error::Unsupported) {
+                panic!("Expected `Error::Unsupported`, found {error:?}");
+            }
             return;
         }
     };
@@ -34,12 +36,12 @@ fn test_users() {
 // This test ensures that there are actually groups listed, in particular for Windows.
 #[test]
 fn test_groups() {
-    use sysinfo::Groups;
-
     let mut groups = match Groups::new() {
         Ok(g) => g,
         Err(error) => {
-            std::assert_matches!(error, Error::Unsupported);
+            if !matches!(error, crate::Error::Unsupported) {
+                panic!("Expected `Error::Unsupported`, found {error:?}");
+            }
             return;
         }
     };

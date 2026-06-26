@@ -4,14 +4,16 @@
 
 #![cfg(feature = "network")]
 
-use sysinfo::Networks;
+use sysinfo::{Error, Networks};
 
 #[test]
 fn test_networks() {
     let mut networks = match Networks::new() {
         Ok(n) => n,
         Err(error) => {
-            std::assert_matches!(error, Error::Unsupported);
+            if !matches!(error, Error::Unsupported) {
+                panic!("Expected `Error::Unsupported`, found {error:?}");
+            }
             return;
         }
     };
@@ -25,7 +27,9 @@ fn test_mac_addr() {
     let mut networks = match Networks::new() {
         Ok(n) => n,
         Err(error) => {
-            std::assert_matches!(error, Error::Unsupported);
+            if !matches!(error, Error::Unsupported) {
+                panic!("Expected `Error::Unsupported`, found {error:?}");
+            }
             return;
         }
     };
