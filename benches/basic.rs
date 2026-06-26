@@ -92,7 +92,9 @@ fn bench_refresh_disks(b: &mut test::Bencher) {
 #[cfg(feature = "network")]
 #[bench]
 fn bench_refresh_networks(b: &mut test::Bencher) {
-    let mut n = sysinfo::Networks::new_with_refreshed_list();
+    let Ok(mut n) = sysinfo::Networks::new_with_refreshed_list() else {
+        return;
+    };
 
     b.iter(move || {
         n.refresh(true);
@@ -136,7 +138,9 @@ fn bench_refresh_components(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_refresh_users_list(b: &mut test::Bencher) {
-    let mut users = sysinfo::Users::new_with_refreshed_list();
+    let Ok(mut users) = sysinfo::Users::new_with_refreshed_list() else {
+        return;
+    };
 
     b.iter(move || {
         users.refresh();
