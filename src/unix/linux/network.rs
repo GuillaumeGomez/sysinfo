@@ -6,7 +6,7 @@ use std::io::Read;
 use std::path::Path;
 
 use crate::network::refresh_networks_addresses;
-use crate::{InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
+use crate::{Error, InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident) => {{
@@ -170,10 +170,10 @@ pub(crate) struct NetworksInner {
 }
 
 impl NetworksInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             interfaces: HashMap::new(),
-        }
+        })
     }
 
     pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {

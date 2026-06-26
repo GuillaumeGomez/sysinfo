@@ -78,7 +78,7 @@ fn interpret_input(
     networks: &mut Networks,
     disks: &mut Disks,
     components: &mut Components,
-    users: &mut Users,
+    users: Result<&mut Users, &mut sysinfo::Error>,
 ) -> bool {
     match input.trim() {
         "help" => print_help(),
@@ -87,11 +87,16 @@ fn interpret_input(
             disks.refresh(true);
             println!("Done.");
         }
-        "refresh_users" => {
-            println!("Refreshing user list...");
-            users.refresh();
-            println!("Done.");
-        }
+        "refresh_users" => match users {
+            Ok(users) => {
+                println!("Refreshing user list...");
+                users.refresh();
+                println!("Done.");
+            }
+            Err(error) => {
+                println!("Users information cannot be retrieved: {error}");
+            }
+        },
         "refresh_networks" => {
             println!("Refreshing network list...");
             networks.refresh(true);
@@ -346,16 +351,26 @@ fn interpret_input(
                 println!("{disk:?}");
             }
         }
-        "users" => {
-            for user in users {
-                println!("{:?} => {:?}", user.name(), user.groups());
+        "users" => match users {
+            Ok(users) => {
+                for user in users {
+                    println!("{:?} => {:?}", user.name(), user.groups());
+                }
             }
-        }
-        "groups" => {
-            for group in Groups::new_with_refreshed_list().list() {
-                println!("{group:?}");
+            Err(error) => {
+                println!("Users information cannot be retrieved: {error}");
             }
-        }
+        },
+        "groups" => match Groups::new_with_refreshed_list() {
+            Ok(groups) => {
+                for group in groups.list() {
+                    println!("{group:?}");
+                }
+            }
+            Err(error) => {
+                println!("Groups information cannot be retrieved: {error}");
+            }
+        },
         "boot_time" => match System::boot_time() {
             Ok(boot_time) => println!("{boot_time} seconds"),
             Err(error) => eprintln!("Failed to get `boot_time`: {error}"),
@@ -492,7 +507,7 @@ fn main() {
             &mut networks,
             &mut disks,
             &mut components,
-            &mut users,
+            users.as_mut(),
         );
     }
 }

@@ -6,7 +6,7 @@ use std::mem::MaybeUninit;
 use super::utils;
 use crate::network::refresh_networks_addresses;
 use crate::unix::bsd::NetworkDataInner;
-use crate::{InterfaceOperationalState, MacAddr, NetworkData};
+use crate::{Error, InterfaceOperationalState, MacAddr, NetworkData};
 
 macro_rules! old_and_new {
     ($ty_:expr, $name:ident, $old:ident, $data:expr) => {{
@@ -20,10 +20,10 @@ pub(crate) struct NetworksInner {
 }
 
 impl NetworksInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             interfaces: HashMap::new(),
-        }
+        })
     }
 
     pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
