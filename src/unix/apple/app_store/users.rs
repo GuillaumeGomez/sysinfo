@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Gid, Group, Uid, User};
+use crate::{Error, Gid, Group, Uid, User};
 
 pub(crate) struct UserInner;
 
@@ -23,3 +23,6 @@ impl UserInner {
 }
 
 pub(crate) fn get_users(_: &mut Vec<User>) {}
+pub(crate) fn new_users() -> Result<Vec<User>, Error> {
+    Err(Error::Unsupported)
+}

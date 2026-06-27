@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::unix::users::UserInner;
-use crate::{Gid, Uid, User};
+use crate::{Error, Gid, Uid, User};
 
 use libc::c_void;
 use objc2_core_foundation::{
@@ -115,4 +115,8 @@ fn add_user(result: *const c_void) -> Option<User> {
             inner: UserInner::new(Uid(uid), Gid(gid), name),
         })
     }
+}
+
+pub(crate) fn new_users() -> Result<Vec<User>, Error> {
+    Ok(Vec::new())
 }

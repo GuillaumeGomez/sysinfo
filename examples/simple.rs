@@ -75,10 +75,10 @@ fn interpret_input(
     input: &str,
     sys: Result<&mut System, &mut sysinfo::Error>,
     gpus: Result<&mut Gpus, &mut sysinfo::Error>,
-    networks: &mut Networks,
+    networks: Result<&mut Networks, &mut sysinfo::Error>,
     disks: &mut Disks,
     components: &mut Components,
-    users: &mut Users,
+    users: Result<&mut Users, &mut sysinfo::Error>,
 ) -> bool {
     match input.trim() {
         "help" => print_help(),
@@ -87,16 +87,26 @@ fn interpret_input(
             disks.refresh(true);
             println!("Done.");
         }
-        "refresh_users" => {
-            println!("Refreshing user list...");
-            users.refresh();
-            println!("Done.");
-        }
-        "refresh_networks" => {
-            println!("Refreshing network list...");
-            networks.refresh(true);
-            println!("Done.");
-        }
+        "refresh_users" => match users {
+            Ok(users) => {
+                println!("Refreshing user list...");
+                users.refresh();
+                println!("Done.");
+            }
+            Err(error) => {
+                println!("Users information cannot be retrieved: {error}");
+            }
+        },
+        "refresh_networks" => match networks {
+            Ok(networks) => {
+                println!("Refreshing network list...");
+                networks.refresh(true);
+                println!("Done.");
+            }
+            Err(error) => {
+                println!("Networks information cannot be retrieved: {error}");
+            }
+        },
         "refresh_components" => {
             println!("Refreshing component list...");
             components.refresh(true);
@@ -274,24 +284,29 @@ fn interpret_input(
                 println!("{component:?}");
             }
         }
-        "network" => {
-            for (interface_name, data) in networks.iter() {
-                println!(
-                    "\
-{interface_name}:
-  operational state {}
-  ether {}
-  input data  (new / total): {} / {} B
-  output data (new / total): {} / {} B",
-                    data.operational_state(),
-                    data.mac_address(),
-                    data.received(),
-                    data.total_received(),
-                    data.transmitted(),
-                    data.total_transmitted(),
-                );
+        "network" => match networks {
+            Ok(networks) => {
+                for (interface_name, data) in networks.iter() {
+                    println!(
+                        "\
+    {interface_name}:
+      operational state {}
+      ether {}
+      input data  (new / total): {} / {} B
+      output data (new / total): {} / {} B",
+                        data.operational_state(),
+                        data.mac_address(),
+                        data.received(),
+                        data.total_received(),
+                        data.transmitted(),
+                        data.total_transmitted(),
+                    );
+                }
             }
-        }
+            Err(error) => {
+                println!("Networks information cannot be retrieved: {error}");
+            }
+        },
         "show" => {
             println!("'show' command expects a pid number or a process name");
         }
@@ -346,16 +361,26 @@ fn interpret_input(
                 println!("{disk:?}");
             }
         }
-        "users" => {
-            for user in users {
-                println!("{:?} => {:?}", user.name(), user.groups());
+        "users" => match users {
+            Ok(users) => {
+                for user in users {
+                    println!("{:?} => {:?}", user.name(), user.groups());
+                }
             }
-        }
-        "groups" => {
-            for group in Groups::new_with_refreshed_list().list() {
-                println!("{group:?}");
+            Err(error) => {
+                println!("Users information cannot be retrieved: {error}");
             }
-        }
+        },
+        "groups" => match Groups::new_with_refreshed_list() {
+            Ok(groups) => {
+                for group in groups.list() {
+                    println!("{group:?}");
+                }
+            }
+            Err(error) => {
+                println!("Groups information cannot be retrieved: {error}");
+            }
+        },
         "boot_time" => match System::boot_time() {
             Ok(boot_time) => println!("{boot_time} seconds"),
             Err(error) => eprintln!("Failed to get `boot_time`: {error}"),
@@ -489,10 +514,10 @@ fn main() {
             input.as_ref(),
             system.as_mut(),
             gpus.as_mut(),
-            &mut networks,
+            networks.as_mut(),
             &mut disks,
             &mut components,
-            &mut users,
+            users.as_mut(),
         );
     }
 }

@@ -6,16 +6,17 @@ use std::net::{AddrParseError, IpAddr};
 use std::num::ParseIntError;
 use std::str::FromStr;
 
-use crate::{NetworkDataInner, NetworksInner};
+use crate::{Error, NetworkDataInner, NetworksInner};
 
 /// Interacting with network interfaces.
 ///
 /// ```no_run
 /// use sysinfo::Networks;
 ///
-/// let networks = Networks::new_with_refreshed_list();
-/// for (interface_name, network) in &networks {
-///     println!("[{interface_name}]: {network:?}");
+/// if let Ok(networks) = Networks::new_with_refreshed_list() {
+///     for (interface_name, network) in &networks {
+///         println!("[{interface_name}]: {network:?}");
+///     }
 /// }
 /// ```
 pub struct Networks {
@@ -31,12 +32,6 @@ impl<'a> IntoIterator for &'a Networks {
     }
 }
 
-impl Default for Networks {
-    fn default() -> Self {
-        Networks::new()
-    }
-}
-
 impl Networks {
     /// Creates a new empty [`Networks`][crate::Networks] type.
     ///
@@ -45,16 +40,17 @@ impl Networks {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new();
-    /// networks.refresh(true);
-    /// for (interface_name, network) in &networks {
-    ///     println!("[{interface_name}]: {network:?}");
+    /// if let Ok(mut networks) = Networks::new() {
+    ///     networks.refresh(true);
+    ///     for (interface_name, network) in &networks {
+    ///         println!("[{interface_name}]: {network:?}");
+    ///     }
     /// }
     /// ```
-    pub fn new() -> Self {
-        Self {
-            inner: NetworksInner::new(),
-        }
+    pub fn new() -> Result<Self, Error> {
+        Ok(Self {
+            inner: NetworksInner::new()?,
+        })
     }
 
     /// Creates a new [`Networks`][crate::Networks] type with the network interfaces
@@ -63,15 +59,16 @@ impl Networks {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for network in &networks {
-    ///     println!("{network:?}");
+    /// if let Ok(networks) = Networks::new_with_refreshed_list() {
+    ///     for network in &networks {
+    ///         println!("{network:?}");
+    ///     }
     /// }
     /// ```
-    pub fn new_with_refreshed_list() -> Self {
-        let mut networks = Self::new();
+    pub fn new_with_refreshed_list() -> Result<Self, Error> {
+        let mut networks = Self::new()?;
         networks.refresh(false);
-        networks
+        Ok(networks)
     }
 
     /// Returns the network interfaces map.
@@ -79,9 +76,10 @@ impl Networks {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for network in networks.list() {
-    ///     println!("{network:?}");
+    /// if let Ok(networks) = Networks::new_with_refreshed_list() {
+    ///     for network in networks.list() {
+    ///         println!("{network:?}");
+    ///     }
     /// }
     /// ```
     pub fn list(&self) -> &HashMap<String, NetworkData> {
@@ -93,9 +91,10 @@ impl Networks {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Wait some time...? Then refresh the data of each network.
-    /// networks.refresh(true);
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     // Wait some time...? Then refresh the data of each network.
+    ///     networks.refresh(true);
+    /// }
     /// ```
     pub fn refresh(&mut self, remove_not_listed_interfaces: bool) {
         self.inner.refresh(remove_not_listed_interfaces)
@@ -115,9 +114,10 @@ impl std::ops::Deref for Networks {
 /// ```no_run
 /// use sysinfo::Networks;
 ///
-/// let networks = Networks::new_with_refreshed_list();
-/// for (interface_name, network) in &networks {
-///     println!("[{interface_name}] {network:?}");
+/// if let Ok(networks) = Networks::new_with_refreshed_list() {
+///     for (interface_name, network) in &networks {
+///         println!("[{interface_name}] {network:?}");
+///     }
 /// }
 /// ```
 pub struct NetworkData {
@@ -134,14 +134,15 @@ impl NetworkData {
     /// use sysinfo::Networks;
     /// use std::{thread, time};
     ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh(true);
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     // Waiting a bit to get data from network...
+    ///     thread::sleep(time::Duration::from_millis(10));
+    ///     // Refreshing again to generate diff.
+    ///     networks.refresh(true);
     ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {} B", network.received());
+    ///     for (interface_name, network) in &networks {
+    ///         println!("in: {} B", network.received());
+    ///     }
     /// }
     /// ```
     pub fn received(&self) -> u64 {
@@ -156,9 +157,10 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {} B", network.total_received());
+    /// if let Ok(networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("in: {} B", network.total_received());
+    ///     }
     /// }
     /// ```
     pub fn total_received(&self) -> u64 {
@@ -174,14 +176,15 @@ impl NetworkData {
     /// use sysinfo::Networks;
     /// use std::{thread, time};
     ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh(true);
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     // Waiting a bit to get data from network...
+    ///     thread::sleep(time::Duration::from_millis(10));
+    ///     // Refreshing again to generate diff.
+    ///     networks.refresh(true);
     ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {} B", network.transmitted());
+    ///     for (interface_name, network) in &networks {
+    ///         println!("out: {} B", network.transmitted());
+    ///     }
     /// }
     /// ```
     pub fn transmitted(&self) -> u64 {
@@ -196,9 +199,10 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {} B", network.total_transmitted());
+    /// if let Ok(networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("out: {} B", network.total_transmitted());
+    ///     }
     /// }
     /// ```
     pub fn total_transmitted(&self) -> u64 {
@@ -214,14 +218,15 @@ impl NetworkData {
     /// use sysinfo::Networks;
     /// use std::{thread, time};
     ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh(true);
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     // Waiting a bit to get data from network...
+    ///     thread::sleep(time::Duration::from_millis(10));
+    ///     // Refreshing again to generate diff.
+    ///     networks.refresh(true);
     ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {}", network.packets_received());
+    ///     for (interface_name, network) in &networks {
+    ///         println!("in: {}", network.packets_received());
+    ///     }
     /// }
     /// ```
     pub fn packets_received(&self) -> u64 {
@@ -236,9 +241,10 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {}", network.total_packets_received());
+    /// if let Ok(networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("in: {}", network.total_packets_received());
+    ///     }
     /// }
     /// ```
     pub fn total_packets_received(&self) -> u64 {
@@ -254,14 +260,15 @@ impl NetworkData {
     /// use sysinfo::Networks;
     /// use std::{thread, time};
     ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh(true);
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     // Waiting a bit to get data from network...
+    ///     thread::sleep(time::Duration::from_millis(10));
+    ///     // Refreshing again to generate diff.
+    ///     networks.refresh(true);
     ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {}", network.packets_transmitted());
+    ///     for (interface_name, network) in &networks {
+    ///         println!("out: {}", network.packets_transmitted());
+    ///     }
     /// }
     /// ```
     pub fn packets_transmitted(&self) -> u64 {
@@ -276,9 +283,10 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {}", network.total_packets_transmitted());
+    /// if let Ok(networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("out: {}", network.total_packets_transmitted());
+    ///     }
     /// }
     /// ```
     pub fn total_packets_transmitted(&self) -> u64 {
@@ -294,14 +302,15 @@ impl NetworkData {
     /// use sysinfo::Networks;
     /// use std::{thread, time};
     ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh(true);
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     // Waiting a bit to get data from network...
+    ///     thread::sleep(time::Duration::from_millis(10));
+    ///     // Refreshing again to generate diff.
+    ///     networks.refresh(true);
     ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {}", network.errors_on_received());
+    ///     for (interface_name, network) in &networks {
+    ///         println!("in: {}", network.errors_on_received());
+    ///     }
     /// }
     /// ```
     pub fn errors_on_received(&self) -> u64 {
@@ -316,9 +325,10 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("in: {}", network.total_errors_on_received());
+    /// if let Ok(networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("in: {}", network.total_errors_on_received());
+    ///     }
     /// }
     /// ```
     pub fn total_errors_on_received(&self) -> u64 {
@@ -334,14 +344,15 @@ impl NetworkData {
     /// use sysinfo::Networks;
     /// use std::{thread, time};
     ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// // Waiting a bit to get data from network...
-    /// thread::sleep(time::Duration::from_millis(10));
-    /// // Refreshing again to generate diff.
-    /// networks.refresh(true);
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     // Waiting a bit to get data from network...
+    ///     thread::sleep(time::Duration::from_millis(10));
+    ///     // Refreshing again to generate diff.
+    ///     networks.refresh(true);
     ///
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {}", network.errors_on_transmitted());
+    ///     for (interface_name, network) in &networks {
+    ///         println!("out: {}", network.errors_on_transmitted());
+    ///     }
     /// }
     /// ```
     pub fn errors_on_transmitted(&self) -> u64 {
@@ -356,9 +367,10 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("out: {}", network.total_errors_on_transmitted());
+    /// if let Ok(networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("out: {}", network.total_errors_on_transmitted());
+    ///     }
     /// }
     /// ```
     pub fn total_errors_on_transmitted(&self) -> u64 {
@@ -370,9 +382,10 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("MAC address: {}", network.mac_address());
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("MAC address: {}", network.mac_address());
+    ///     }
     /// }
     /// ```
     pub fn mac_address(&self) -> MacAddr {
@@ -384,9 +397,10 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("Ip Networks: {:?}", network.ip_networks());
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("Ip Networks: {:?}", network.ip_networks());
+    ///     }
     /// }
     /// ```
     pub fn ip_networks(&self) -> &[IpNetwork] {
@@ -398,9 +412,10 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("mtu: {}", network.mtu());
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("mtu: {}", network.mtu());
+    ///     }
     /// }
     /// ```
     pub fn mtu(&self) -> u64 {
@@ -415,9 +430,10 @@ impl NetworkData {
     /// ```no_run
     /// use sysinfo::Networks;
     ///
-    /// let mut networks = Networks::new_with_refreshed_list();
-    /// for (interface_name, network) in &networks {
-    ///     println!("operational state: {}", network.operational_state());
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("operational state: {}", network.operational_state());
+    ///     }
     /// }
     /// ```
     pub fn operational_state(&self) -> InterfaceOperationalState {
@@ -743,10 +759,7 @@ mod tests {
 
     #[test]
     fn check_ip_networks() {
-        if !IS_SUPPORTED_SYSTEM {
-            return;
-        }
-        let networks = Networks::new_with_refreshed_list();
+        let networks = check_unsupported!(Networks::new_with_refreshed_list());
         if networks.iter().any(|(_, n)| !n.ip_networks().is_empty()) {
             return;
         }

@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Gid, Group, GroupInner};
+use crate::{Error, Gid, Group, GroupInner};
 
 impl GroupInner {
     pub(crate) fn new(id: crate::Gid, name: String) -> Self {
@@ -49,4 +49,8 @@ pub(crate) fn get_groups(groups: &mut Vec<Group>) {
             inner: GroupInner::new(gid, name),
         });
     }
+}
+
+pub(crate) fn new_groups() -> Result<Vec<Group>, Error> {
+    Ok(Vec::new())
 }

@@ -4,14 +4,19 @@
 
 #![cfg(feature = "network")]
 
-use sysinfo::Networks;
+use sysinfo::{Error, Networks};
 
 #[test]
 fn test_networks() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM {
-        return;
-    }
-    let mut networks = Networks::new();
+    let mut networks = match Networks::new() {
+        Ok(n) => n,
+        Err(error) => {
+            if !matches!(error, Error::Unsupported) {
+                panic!("Expected `Error::Unsupported`, found {error:?}");
+            }
+            return;
+        }
+    };
     assert_eq!(networks.list().len(), 0);
     networks.refresh(false);
     assert_ne!(networks.list().len(), 0);
@@ -19,10 +24,15 @@ fn test_networks() {
 
 #[test]
 fn test_mac_addr() {
-    if !sysinfo::IS_SUPPORTED_SYSTEM {
-        return;
-    }
-    let mut networks = Networks::new();
+    let mut networks = match Networks::new() {
+        Ok(n) => n,
+        Err(error) => {
+            if !matches!(error, Error::Unsupported) {
+                panic!("Expected `Error::Unsupported`, found {error:?}");
+            }
+            return;
+        }
+    };
     networks.refresh(false);
     assert_ne!(networks.list().len(), 0);
     networks

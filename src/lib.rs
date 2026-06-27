@@ -298,7 +298,7 @@ mod test {
     #[cfg(feature = "user")]
     #[test]
     fn check_uid_gid() {
-        let mut users = Users::new();
+        let mut users = check_unsupported!(Users::new());
         assert!(users.list().is_empty());
         users.refresh();
         let user_list = users.list();
@@ -344,20 +344,20 @@ mod test {
     fn check_all_process_uids_resolvable() {
         // On linux, some user IDs don't have an associated user (no idea why though).
         // If `getent` doesn't find them, we can assume it's a dark secret from the linux land.
-        if cfg!(not(target_os = "linux"))
-            && let Ok(s) = System::new_with_specifics(
-                RefreshKind::nothing()
-                    .with_processes(ProcessRefreshKind::nothing().with_user(UpdateKind::Always)),
-            )
-        {
-            let users = Users::new_with_refreshed_list();
+        if cfg!(target_os = "linux") {
+            return;
+        }
+        let s = check_unsupported!(System::new_with_specifics(
+            RefreshKind::nothing()
+                .with_processes(ProcessRefreshKind::nothing().with_user(UpdateKind::Always)),
+        ));
+        let users = check_unsupported!(Users::new_with_refreshed_list());
 
-            // For every process where we can get a user ID, we should also be able
-            // to find that user ID in the global user list
-            for process in s.processes().values() {
-                if let Some(uid) = process.user_id() {
-                    assert!(users.get_user_by_id(uid).is_some(), "No UID {uid:?} found");
-                }
+        // For every process where we can get a user ID, we should also be able
+        // to find that user ID in the global user list
+        for process in s.processes().values() {
+            if let Some(uid) = process.user_id() {
+                assert!(users.get_user_by_id(uid).is_some(), "No UID {uid:?} found");
             }
         }
     }

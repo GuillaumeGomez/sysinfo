@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::network::refresh_networks_addresses;
-use crate::{InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
+use crate::{Error, InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
 
 use std::collections::{HashMap, hash_map};
 
@@ -24,10 +24,10 @@ pub(crate) struct NetworksInner {
 }
 
 impl NetworksInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             interfaces: HashMap::new(),
-        }
+        })
     }
 
     pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {

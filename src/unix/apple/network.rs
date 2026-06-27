@@ -10,7 +10,7 @@ use std::mem::{MaybeUninit, size_of};
 use std::ptr::null_mut;
 
 use crate::network::refresh_networks_addresses;
-use crate::{InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
+use crate::{Error, InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
 
 // FIXME: To be removed once https://github.com/rust-lang/libc/pull/4022 is merged and released.
 #[repr(C)]
@@ -69,10 +69,10 @@ pub(crate) struct NetworksInner {
 }
 
 impl NetworksInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             interfaces: HashMap::new(),
-        }
+        })
     }
 
     pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
@@ -95,6 +95,7 @@ impl NetworksInner {
 
     #[allow(clippy::cast_ptr_alignment)]
     #[allow(clippy::uninit_vec)]
+    #[allow(clippy::needless_late_init)]
     fn update_networks(&mut self) {
         let mib = &mut [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0];
         let mib2 = &mut [

@@ -54,8 +54,8 @@ cfg_select! {
 }
 cfg_select! {
     feature = "user" => {
-        pub(crate) use crate::unix::groups::get_groups;
-        pub(crate) use crate::unix::users::{get_users, UserInner};
+        pub(crate) use crate::unix::groups::{get_groups, new_groups};
+        pub(crate) use crate::unix::users::{get_users, new_users, UserInner};
     }
     _ => {}
 }
