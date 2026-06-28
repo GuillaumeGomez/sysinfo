@@ -1,23 +1,36 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#[cfg(all(feature = "system", feature = "disk"))]
-fn should_skip() -> bool {
-    if !sysinfo::IS_SUPPORTED_SYSTEM {
-        return true;
-    }
+#![cfg(all(feature = "system", feature = "disk"))]
 
+use std::fs::{File, remove_file};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::thread::sleep;
+
+use itertools::Itertools;
+use sysinfo::{DiskKind, DiskRefreshKind, Disks, Error};
+
+fn should_skip() -> bool {
+    match Disks::new() {
+        Ok(_) => {}
+        Err(error) => {
+            if !matches!(error, Error::Unsupported) {
+                panic!("Expected `Error::Unsupported`, found {error:?}");
+            }
+            return true;
+        }
+    };
     // If we don't have any physical core present, it's very likely that we're inside a VM...
     sysinfo::System::physical_core_count().unwrap_or_default() == 0
 }
 
 #[test]
-#[cfg(all(feature = "system", feature = "disk"))]
 fn test_disks() {
     if should_skip() {
         return;
     }
 
-    let mut disks = sysinfo::Disks::new();
+    let mut disks = Disks::new().unwrap();
     assert!(disks.list().is_empty());
     disks.refresh(false);
     // Sometimes some disks are not retrieved on NetBSD. No clue why...
@@ -28,12 +41,7 @@ fn test_disks() {
 }
 
 #[test]
-#[cfg(all(feature = "system", feature = "disk"))]
 fn test_disk_refresh_kind() {
-    use itertools::Itertools;
-
-    use sysinfo::{DiskKind, DiskRefreshKind, Disks};
-
     if should_skip() {
         return;
     }
@@ -138,26 +146,19 @@ fn test_disk_refresh_kind() {
         };
 
         // load and refresh with the desired details should work
-        let disks = Disks::new_with_refreshed_list_specifics(refreshes);
+        let disks = Disks::new_with_refreshed_list_specifics(refreshes).unwrap();
         assertions("full", &disks);
 
         // load with minimal `DiskRefreshKind`, then refresh for added detail should also work!
-        let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing());
+        let mut disks =
+            Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing()).unwrap();
         disks.refresh_specifics(false, refreshes);
         assertions("incremental", &disks);
     }
 }
 
 #[test]
-#[cfg(all(feature = "system", feature = "disk"))]
 fn test_disks_usage() {
-    use std::fs::{File, remove_file};
-    use std::io::Write;
-    use std::path::{Path, PathBuf};
-    use std::thread::sleep;
-
-    use sysinfo::Disks;
-
     if should_skip() {
         return;
     }
@@ -172,7 +173,7 @@ fn test_disks_usage() {
         return;
     }
 
-    let mut disks = Disks::new_with_refreshed_list();
+    let mut disks = Disks::new_with_refreshed_list().unwrap();
 
     let path = match std::env::var("CARGO_TARGET_DIR") {
         Ok(p) => Path::new(&p).join("data.tmp"),

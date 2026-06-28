@@ -9,7 +9,7 @@ use libc::c_char;
 
 use super::ffi;
 use super::utils::c_buf_to_utf8_str;
-use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
+use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage, DisksInner, Error};
 
 #[derive(Debug)]
 pub(crate) struct DiskInner {
@@ -104,11 +104,11 @@ impl DiskInner {
     }
 }
 
-impl crate::DisksInner {
-    pub(crate) fn new() -> Self {
-        Self {
+impl DisksInner {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             disks: Vec::with_capacity(2),
-        }
+        })
     }
 
     pub(crate) fn refresh_specifics(

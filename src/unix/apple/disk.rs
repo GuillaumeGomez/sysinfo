@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, DiskKind, DiskRefreshKind};
-use crate::{DiskUsage, sys::ffi};
+use crate::sys::ffi;
+use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage, DisksInner, Error};
 
 use objc2_core_foundation::{
     CFArray, CFBoolean, CFDictionary, CFNumber, CFRetained, CFString, CFURL, kCFAllocatorDefault,
@@ -196,11 +196,11 @@ impl DiskInner {
     fn refresh_io(&mut self, _refresh_kind: DiskRefreshKind) {}
 }
 
-impl crate::DisksInner {
-    pub(crate) fn new() -> Self {
-        Self {
+impl DisksInner {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             disks: Vec::with_capacity(2),
-        }
+        })
     }
 
     pub(crate) fn refresh_specifics(

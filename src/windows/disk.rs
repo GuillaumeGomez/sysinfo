@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::HandleWrapper;
-use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
+use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage, Error as SError};
 
 use std::ffi::{OsStr, OsString};
 use std::mem::size_of;
@@ -243,10 +243,10 @@ pub(crate) struct DisksInner {
 }
 
 impl DisksInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, SError> {
+        Ok(Self {
             disks: Vec::with_capacity(2),
-        }
+        })
     }
 
     pub(crate) fn from_vec(disks: Vec<Disk>) -> Self {

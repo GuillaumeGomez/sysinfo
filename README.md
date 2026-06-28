@@ -74,9 +74,10 @@ if let Ok(mut sys) = System::new_all() {
 
 // We display all disks' information:
 println!("=> disks:");
-let disks = Disks::new_with_refreshed_list();
-for disk in &disks {
-    println!("{disk:?}");
+if let Ok(disks) = Disks::new_with_refreshed_list() {
+    for disk in &disks {
+        println!("{disk:?}");
+    }
 }
 
 // Network interfaces name, total data received and total data transmitted:
