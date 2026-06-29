@@ -7,7 +7,7 @@
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::{
-    Components, Disks, Gpus, Groups, Motherboard, Networks, Pid, Product, SUPPORTED_SIGNALS,
+    Components, Disks, Error, Gpus, Groups, Motherboard, Networks, Pid, Product, SUPPORTED_SIGNALS,
     System, Users,
 };
 
@@ -73,20 +73,25 @@ temperature        : displays components' temperature"
 
 fn interpret_input(
     input: &str,
-    sys: Result<&mut System, &mut sysinfo::Error>,
-    gpus: Result<&mut Gpus, &mut sysinfo::Error>,
-    networks: Result<&mut Networks, &mut sysinfo::Error>,
-    disks: &mut Disks,
+    sys: Result<&mut System, &mut Error>,
+    gpus: Result<&mut Gpus, &mut Error>,
+    networks: Result<&mut Networks, &mut Error>,
+    disks: Result<&mut Disks, &mut Error>,
     components: &mut Components,
-    users: Result<&mut Users, &mut sysinfo::Error>,
+    users: Result<&mut Users, &mut Error>,
 ) -> bool {
     match input.trim() {
         "help" => print_help(),
-        "refresh_disks" => {
-            println!("Refreshing disk list...");
-            disks.refresh(true);
-            println!("Done.");
-        }
+        "refresh_disks" => match disks {
+            Ok(disks) => {
+                println!("Refreshing disk list...");
+                disks.refresh(true);
+                println!("Done.");
+            }
+            Err(error) => {
+                println!("Disks information cannot be retrieved: {error}");
+            }
+        },
         "refresh_users" => match users {
             Ok(users) => {
                 println!("Refreshing user list...");
@@ -356,11 +361,16 @@ fn interpret_input(
                 }
             }
         }
-        "disks" => {
-            for disk in disks {
-                println!("{disk:?}");
+        "disks" => match disks {
+            Ok(disks) => {
+                for disk in disks {
+                    println!("{disk:?}");
+                }
             }
-        }
+            Err(error) => {
+                println!("Disks information cannot be retrieved: {error}");
+            }
+        },
         "users" => match users {
             Ok(users) => {
                 for user in users {
@@ -515,7 +525,7 @@ fn main() {
             system.as_mut(),
             gpus.as_mut(),
             networks.as_mut(),
-            &mut disks,
+            disks.as_mut(),
             &mut components,
             users.as_mut(),
         );

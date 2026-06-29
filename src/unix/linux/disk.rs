@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::{get_all_utf8_data, to_cpath};
-use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
+use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage, DisksInner, Error};
 
 use libc::statvfs;
 use std::collections::HashMap;
@@ -162,11 +162,11 @@ impl DiskInner {
     }
 }
 
-impl crate::DisksInner {
-    pub(crate) fn new() -> Self {
-        Self {
+impl DisksInner {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             disks: Vec::with_capacity(2),
-        }
+        })
     }
 
     pub(crate) fn refresh_specifics(

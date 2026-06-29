@@ -4,17 +4,18 @@ use std::ffi::OsStr;
 use std::fmt;
 use std::path::Path;
 
-use crate::DiskUsage;
 use crate::common::impl_get_set::impl_get_set;
+use crate::{DiskUsage, Error};
 
 /// Struct containing a disk information.
 ///
 /// ```no_run
 /// use sysinfo::Disks;
 ///
-/// let disks = Disks::new_with_refreshed_list();
-/// for disk in disks.list() {
-///     println!("{:?}: {:?}", disk.name(), disk.kind());
+/// if let Ok(disks) = Disks::new_with_refreshed_list() {
+///     for disk in disks.list() {
+///         println!("{:?}: {:?}", disk.name(), disk.kind());
+///     }
 /// }
 /// ```
 pub struct Disk {
@@ -27,9 +28,10 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {:?}", disk.name(), disk.kind());
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("[{:?}] {:?}", disk.name(), disk.kind());
+    ///     }
     /// }
     /// ```
     pub fn kind(&self) -> DiskKind {
@@ -41,9 +43,10 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("{:?}", disk.name());
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("{:?}", disk.name());
+    ///     }
     /// }
     /// ```
     pub fn name(&self) -> &OsStr {
@@ -55,9 +58,10 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {:?}", disk.name(), disk.file_system());
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("[{:?}] {:?}", disk.name(), disk.file_system());
+    ///     }
     /// }
     /// ```
     pub fn file_system(&self) -> &OsStr {
@@ -69,9 +73,10 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {:?}", disk.name(), disk.mount_point());
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("[{:?}] {:?}", disk.name(), disk.mount_point());
+    ///     }
     /// }
     /// ```
     pub fn mount_point(&self) -> &Path {
@@ -83,9 +88,10 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {}B", disk.name(), disk.total_space());
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("[{:?}] {}B", disk.name(), disk.total_space());
+    ///     }
     /// }
     /// ```
     pub fn total_space(&self) -> u64 {
@@ -97,9 +103,10 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {}B", disk.name(), disk.available_space());
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("[{:?}] {}B", disk.name(), disk.available_space());
+    ///     }
     /// }
     /// ```
     pub fn available_space(&self) -> u64 {
@@ -111,9 +118,10 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] {}", disk.name(), disk.is_removable());
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("[{:?}] {}", disk.name(), disk.is_removable());
+    ///     }
     /// }
     /// ```
     pub fn is_removable(&self) -> bool {
@@ -125,9 +133,10 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] is read-only: {}", disk.name(), disk.is_read_only());
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("[{:?}] is read-only: {}", disk.name(), disk.is_read_only());
+    ///     }
     /// }
     /// ```
     pub fn is_read_only(&self) -> bool {
@@ -141,9 +150,10 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list_mut() {
-    ///     disk.refresh();
+    /// if let Ok(mut disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list_mut() {
+    ///         disk.refresh();
+    ///     }
     /// }
     /// ```
     pub fn refresh(&mut self) -> bool {
@@ -155,9 +165,10 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::{Disks, DiskRefreshKind};
     ///
-    /// let mut disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list_mut() {
-    ///     disk.refresh_specifics(DiskRefreshKind::nothing());
+    /// if let Ok(mut disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list_mut() {
+    ///         disk.refresh_specifics(DiskRefreshKind::nothing());
+    ///     }
     /// }
     /// ```
     pub fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) -> bool {
@@ -169,9 +180,10 @@ impl Disk {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("[{:?}] disk usage: {:?}", disk.name(), disk.usage());
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("[{:?}] disk usage: {:?}", disk.name(), disk.usage());
+    ///     }
     /// }
     /// ```
     pub fn usage(&self) -> DiskUsage {
@@ -184,9 +196,10 @@ impl Disk {
 /// ```no_run
 /// use sysinfo::Disks;
 ///
-/// let disks = Disks::new_with_refreshed_list();
-/// for disk in disks.list() {
-///     println!("{disk:?}");
+/// if let Ok(disks) = Disks::new_with_refreshed_list() {
+///     for disk in disks.list() {
+///         println!("{disk:?}");
+///     }
 /// }
 /// ```
 ///
@@ -200,12 +213,6 @@ impl Disk {
 /// the _hard_ option, but the connection has an error, such as the share server has stopped.
 pub struct Disks {
     inner: crate::DisksInner,
-}
-
-impl Default for Disks {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl From<Disks> for Vec<Disk> {
@@ -248,16 +255,17 @@ impl Disks {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new();
-    /// disks.refresh(false);
-    /// for disk in disks.list() {
-    ///     println!("{disk:?}");
+    /// if let Ok(mut disks) = Disks::new() {
+    ///     disks.refresh(false);
+    ///     for disk in disks.list() {
+    ///         println!("{disk:?}");
+    ///     }
     /// }
     /// ```
-    pub fn new() -> Self {
-        Self {
-            inner: crate::DisksInner::new(),
-        }
+    pub fn new() -> Result<Self, Error> {
+        Ok(Self {
+            inner: crate::DisksInner::new()?,
+        })
     }
 
     /// Creates a new [`Disks`][crate::Disks] type with the disk list loaded.
@@ -267,12 +275,13 @@ impl Disks {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("{disk:?}");
+    /// if let Ok(mut disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("{disk:?}");
+    ///     }
     /// }
     /// ```
-    pub fn new_with_refreshed_list() -> Self {
+    pub fn new_with_refreshed_list() -> Result<Self, Error> {
         Self::new_with_refreshed_list_specifics(DiskRefreshKind::everything())
     }
 
@@ -282,15 +291,16 @@ impl Disks {
     /// ```no_run
     /// use sysinfo::{Disks, DiskRefreshKind};
     ///
-    /// let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing());
-    /// for disk in disks.list() {
-    ///     println!("{disk:?}");
+    /// if let Ok(mut disks) = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing()) {
+    ///     for disk in disks.list() {
+    ///         println!("{disk:?}");
+    ///     }
     /// }
     /// ```
-    pub fn new_with_refreshed_list_specifics(refreshes: DiskRefreshKind) -> Self {
-        let mut disks = Self::new();
+    pub fn new_with_refreshed_list_specifics(refreshes: DiskRefreshKind) -> Result<Self, Error> {
+        let mut disks = Self::new()?;
         disks.refresh_specifics(false, refreshes);
-        disks
+        Ok(disks)
     }
 
     /// Returns the disks list.
@@ -298,9 +308,10 @@ impl Disks {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list() {
-    ///     println!("{disk:?}");
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("{disk:?}");
+    ///     }
     /// }
     /// ```
     pub fn list(&self) -> &[Disk] {
@@ -312,10 +323,11 @@ impl Disks {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new_with_refreshed_list();
-    /// for disk in disks.list_mut() {
-    ///     disk.refresh();
-    ///     println!("{disk:?}");
+    /// if let Ok(mut disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list_mut() {
+    ///         disk.refresh();
+    ///         println!("{disk:?}");
+    ///     }
     /// }
     /// ```
     pub fn list_mut(&mut self) -> &mut [Disk] {
@@ -335,9 +347,10 @@ impl Disks {
     /// ```no_run
     /// use sysinfo::Disks;
     ///
-    /// let mut disks = Disks::new_with_refreshed_list();
-    /// // We wait some time...?
-    /// disks.refresh(true);
+    /// if let Ok(mut disks) = Disks::new_with_refreshed_list() {
+    ///     // We wait some time...?
+    ///     disks.refresh(true);
+    /// }
     /// ```
     pub fn refresh_specifics(&mut self, remove_not_listed_disks: bool, refreshes: DiskRefreshKind) {
         self.inner
@@ -366,9 +379,10 @@ impl std::ops::DerefMut for Disks {
 /// ```no_run
 /// use sysinfo::Disks;
 ///
-/// let disks = Disks::new_with_refreshed_list();
-/// for disk in disks.list() {
-///     println!("{:?}: {:?}", disk.name(), disk.kind());
+/// if let Ok(disks) = Disks::new_with_refreshed_list() {
+///     for disk in disks.list() {
+///         println!("{:?}: {:?}", disk.name(), disk.kind());
+///     }
 /// }
 /// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -401,10 +415,10 @@ impl fmt::Display for DiskKind {
 /// ```no_run
 /// use sysinfo::{Disks, DiskRefreshKind};
 ///
-/// let mut disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::everything());
-///
-/// for disk in disks.list() {
-///     assert!(disk.total_space() != 0);
+/// if let Ok(disks) = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::everything()) {
+///     for disk in disks.list() {
+///         assert!(disk.total_space() != 0);
+///     }
 /// }
 /// ```
 #[derive(Clone, Copy, Debug, Default)]

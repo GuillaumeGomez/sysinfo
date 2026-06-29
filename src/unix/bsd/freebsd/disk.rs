@@ -15,7 +15,7 @@ use super::ffi::{
     geom_stats_snapshot_get, geom_stats_snapshot_next, geom_stats_snapshot_reset,
 };
 use super::utils::{c_buf_to_utf8_str, get_sys_value_str_by_name};
-use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
+use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage, DisksInner, Error};
 
 #[derive(Debug)]
 pub(crate) struct DiskInner {
@@ -105,11 +105,11 @@ impl DiskInner {
     }
 }
 
-impl crate::DisksInner {
-    pub(crate) fn new() -> Self {
-        Self {
+impl DisksInner {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             disks: Vec::with_capacity(2),
-        }
+        })
     }
 
     pub(crate) fn refresh_specifics(

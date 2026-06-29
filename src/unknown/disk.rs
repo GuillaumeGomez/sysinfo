@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage};
+use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage, Error};
 
 use std::{ffi::OsStr, path::Path};
 
@@ -61,21 +61,19 @@ impl DiskInner {
     }
 }
 
-pub(crate) struct DisksInner {
-    pub(crate) disks: Vec<Disk>,
-}
+pub(crate) struct DisksInner;
 
 impl DisksInner {
-    pub(crate) fn new() -> Self {
-        Self { disks: Vec::new() }
+    pub(crate) fn new() -> Result<Self, Error> {
+        Err(Error::Unsupported)
     }
 
-    pub(crate) fn from_vec(disks: Vec<Disk>) -> Self {
-        Self { disks }
+    pub(crate) fn from_vec(_: Vec<Disk>) -> Self {
+        Self
     }
 
     pub(crate) fn into_vec(self) -> Vec<Disk> {
-        self.disks
+        Vec::new()
     }
 
     pub(crate) fn refresh_specifics(
@@ -87,10 +85,10 @@ impl DisksInner {
     }
 
     pub(crate) fn list(&self) -> &[Disk] {
-        &self.disks
+        &[]
     }
 
     pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
-        &mut self.disks
+        &mut []
     }
 }

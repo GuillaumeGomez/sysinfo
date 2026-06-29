@@ -121,8 +121,12 @@ pub extern "C" fn sysinfo_refresh_process(system: CSystem, pid: PID) {
 /// Equivalent of [`Disks::new()`][crate::Disks#method.new].
 #[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_disks_init() -> CDisks {
-    let disks = Box::new(Disks::new());
-    Box::into_raw(disks) as CDisks
+    if let Ok(disks) = Disks::new() {
+        let disks = Box::new(disks);
+        Box::into_raw(disks) as CDisks
+    } else {
+        std::ptr::null_mut()
+    }
 }
 
 /// Equivalent of `Disks::drop()`. Important in C to cleanup memory.
