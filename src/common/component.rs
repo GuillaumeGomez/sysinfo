@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{ComponentInner, ComponentsInner};
+use crate::{ComponentInner, ComponentsInner, Error};
 
 /// Interacting with components.
 ///
@@ -9,33 +9,14 @@ use crate::{ComponentInner, ComponentsInner};
 /// ```no_run
 /// use sysinfo::Components;
 ///
-/// let components = Components::new_with_refreshed_list();
-/// for component in &components {
-///     println!("{component:?}");
+/// if let Ok(components) = Components::new_with_refreshed_list() {
+///     for component in &components {
+///         println!("{component:?}");
+///     }
 /// }
 /// ```
 pub struct Components {
     pub(crate) inner: ComponentsInner,
-}
-
-impl Default for Components {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl From<Components> for Vec<Component> {
-    fn from(components: Components) -> Self {
-        components.inner.into_vec()
-    }
-}
-
-impl From<Vec<Component>> for Components {
-    fn from(components: Vec<Component>) -> Self {
-        Self {
-            inner: ComponentsInner::from_vec(components),
-        }
-    }
 }
 
 impl std::ops::Deref for Components {
@@ -79,16 +60,17 @@ impl Components {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let mut components = Components::new();
-    /// components.refresh(false);
-    /// for component in &components {
-    ///     println!("{component:?}");
+    /// if let Ok(mut components) = Components::new() {
+    ///     components.refresh(false);
+    ///     for component in &components {
+    ///         println!("{component:?}");
+    ///     }
     /// }
     /// ```
-    pub fn new() -> Self {
-        Self {
-            inner: ComponentsInner::new(),
-        }
+    pub fn new() -> Result<Self, Error> {
+        Ok(Self {
+            inner: ComponentsInner::new()?,
+        })
     }
 
     /// Creates a new [`Components`][crate::Components] type with the components list
@@ -97,15 +79,16 @@ impl Components {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let mut components = Components::new_with_refreshed_list();
-    /// for component in components.list() {
-    ///     println!("{component:?}");
+    /// if let Ok(mut components) = Components::new_with_refreshed_list() {
+    ///     for component in components.list() {
+    ///         println!("{component:?}");
+    ///     }
     /// }
     /// ```
-    pub fn new_with_refreshed_list() -> Self {
-        let mut components = Self::new();
+    pub fn new_with_refreshed_list() -> Result<Self, Error> {
+        let mut components = Self::new()?;
         components.refresh(true);
-        components
+        Ok(components)
     }
 
     /// Returns the components list.
@@ -113,9 +96,10 @@ impl Components {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let components = Components::new_with_refreshed_list();
-    /// for component in components.list() {
-    ///     println!("{component:?}");
+    /// if let Ok(components) = Components::new_with_refreshed_list() {
+    ///     for component in components.list() {
+    ///         println!("{component:?}");
+    ///     }
     /// }
     /// ```
     pub fn list(&self) -> &[Component] {
@@ -127,10 +111,11 @@ impl Components {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let mut components = Components::new_with_refreshed_list();
-    /// for component in components.list_mut() {
-    ///     component.refresh();
-    ///     println!("{component:?}");
+    /// if let Ok(mut components) = Components::new_with_refreshed_list() {
+    ///     for component in components.list_mut() {
+    ///         component.refresh();
+    ///         println!("{component:?}");
+    ///     }
     /// }
     /// ```
     pub fn list_mut(&mut self) -> &mut [Component] {
@@ -142,9 +127,10 @@ impl Components {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let mut components = Components::new_with_refreshed_list();
-    /// // We wait some time...?
-    /// components.refresh(false);
+    /// if let Ok(mut components) = Components::new_with_refreshed_list() {
+    ///     // We wait some time...?
+    ///     components.refresh(false);
+    /// }
     /// ```
     pub fn refresh(&mut self, remove_not_listed_components: bool) {
         self.inner.refresh();
@@ -166,12 +152,13 @@ impl Components {
 /// ```no_run
 /// use sysinfo::Components;
 ///
-/// let components = Components::new_with_refreshed_list();
-/// for component in &components {
-///     if let Some(temperature) = component.temperature() {
-///         println!("{} {temperature}°C", component.label());
-///     } else {
-///         println!("{} (unknown temperature)", component.label());
+/// if let Ok(components) = Components::new_with_refreshed_list() {
+///     for component in &components {
+///         if let Some(temperature) = component.temperature() {
+///             println!("{} {temperature}°C", component.label());
+///         } else {
+///             println!("{} (unknown temperature)", component.label());
+///         }
 ///     }
 /// }
 /// ```
@@ -189,10 +176,11 @@ impl Component {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let components = Components::new_with_refreshed_list();
-    /// for component in &components {
-    ///     if let Some(temperature) = component.temperature() {
-    ///         println!("{temperature}°C");
+    /// if let Ok(components) = Components::new_with_refreshed_list() {
+    ///     for component in &components {
+    ///         if let Some(temperature) = component.temperature() {
+    ///             println!("{temperature}°C");
+    ///         }
     ///     }
     /// }
     /// ```
@@ -213,10 +201,11 @@ impl Component {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let components = Components::new_with_refreshed_list();
-    /// for component in &components {
-    ///     if let Some(max) = component.max() {
-    ///         println!("{max}°C");
+    /// if let Ok(components) = Components::new_with_refreshed_list() {
+    ///     for component in &components {
+    ///         if let Some(max) = component.max() {
+    ///             println!("{max}°C");
+    ///         }
     ///     }
     /// }
     /// ```
@@ -233,10 +222,11 @@ impl Component {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let components = Components::new_with_refreshed_list();
-    /// for component in &components {
-    ///     if let Some(critical) = component.critical() {
-    ///         println!("{critical}°C");
+    /// if let Ok(components) = Components::new_with_refreshed_list() {
+    ///     for component in &components {
+    ///         if let Some(critical) = component.critical() {
+    ///             println!("{critical}°C");
+    ///         }
     ///     }
     /// }
     /// ```
@@ -262,9 +252,10 @@ impl Component {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let components = Components::new_with_refreshed_list();
-    /// for component in &components {
-    ///     println!("{}", component.label());
+    /// if let Ok(components) = Components::new_with_refreshed_list() {
+    ///     for component in &components {
+    ///         println!("{}", component.label());
+    ///     }
     /// }
     /// ```
     pub fn label(&self) -> &str {
@@ -296,10 +287,11 @@ impl Component {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let components = Components::new_with_refreshed_list();
-    /// for component in &components {
-    ///     if let Some(id) = component.id() {
-    ///         println!("{id}");
+    /// if let Ok(components) = Components::new_with_refreshed_list() {
+    ///     for component in &components {
+    ///         if let Some(id) = component.id() {
+    ///             println!("{id}");
+    ///         }
     ///     }
     /// }
     /// ```
@@ -312,9 +304,10 @@ impl Component {
     /// ```no_run
     /// use sysinfo::Components;
     ///
-    /// let mut components = Components::new_with_refreshed_list();
-    /// for component in components.iter_mut() {
-    ///     component.refresh();
+    /// if let Ok(mut components) = Components::new_with_refreshed_list() {
+    ///     for component in components.iter_mut() {
+    ///         component.refresh();
+    ///     }
     /// }
     /// ```
     pub fn refresh(&mut self) {
@@ -328,8 +321,9 @@ mod tests {
 
     #[test]
     fn test_components_mac_m1() {
-        let mut components = Components::new();
-        components.refresh(false);
-        components.refresh(false);
+        if let Ok(mut components) = Components::new() {
+            components.refresh(false);
+            components.refresh(false);
+        }
     }
 }

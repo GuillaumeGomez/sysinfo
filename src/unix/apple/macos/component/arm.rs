@@ -5,7 +5,6 @@ use objc2_core_foundation::{
 };
 use objc2_io_kit::{IOHIDEventSystemClient, IOHIDServiceClient};
 
-use crate::Component;
 use crate::sys::inner::ffi::{
     HID_DEVICE_PROPERTY_PRIMARY_USAGE, HID_DEVICE_PROPERTY_PRIMARY_USAGE_PAGE,
     HID_DEVICE_PROPERTY_PRODUCT, IOHIDEventFieldBase, IOHIDEventGetFloatValue,
@@ -13,6 +12,7 @@ use crate::sys::inner::ffi::{
     kHIDPage_AppleVendor, kHIDUsage_AppleVendor_TemperatureSensor, kIOHIDEventTypeTemperature,
     kIOHIDSerialNumberKey,
 };
+use crate::{Component, Error};
 
 pub(crate) struct ComponentsInner {
     pub(crate) components: Vec<Component>,
@@ -25,22 +25,11 @@ unsafe impl Send for ComponentsInner {}
 unsafe impl Sync for ComponentsInner {}
 
 impl ComponentsInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             components: vec![],
             client: None,
-        }
-    }
-
-    pub(crate) fn from_vec(components: Vec<Component>) -> Self {
-        Self {
-            components,
-            client: None,
-        }
-    }
-
-    pub(crate) fn into_vec(self) -> Vec<Component> {
-        self.components
+        })
     }
 
     pub(crate) fn list(&self) -> &[Component] {

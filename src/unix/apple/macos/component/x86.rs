@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::Component;
 use crate::sys::macos::ffi;
 use crate::sys::utils::{IOReleaser, MAIN_PORT};
+use crate::{Component, Error};
 
 use libc::{c_char, c_int, c_void};
 use objc2_core_foundation::{CFDictionary, CFRetained};
@@ -70,22 +70,11 @@ pub(crate) struct ComponentsInner {
 }
 
 impl ComponentsInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             components: Vec::with_capacity(2),
             connection: IoService::new_connection(),
-        }
-    }
-
-    pub(crate) fn from_vec(components: Vec<Component>) -> Self {
-        Self {
-            components,
-            connection: IoService::new_connection(),
-        }
-    }
-
-    pub(crate) fn into_vec(self) -> Vec<Component> {
-        self.components
+        })
     }
 
     pub(crate) fn list(&self) -> &[Component] {

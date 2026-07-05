@@ -95,10 +95,11 @@ if let Ok(networks) = Networks::new_with_refreshed_list() {
 }
 
 // Components temperature:
-let components = Components::new_with_refreshed_list();
-println!("=> components:");
-for component in &components {
-    println!("{component:?}");
+if let Ok(components) = Components::new_with_refreshed_list() {
+    println!("=> components:");
+    for component in &components {
+        println!("{component:?}");
+    }
 }
 ```
 

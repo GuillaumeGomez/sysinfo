@@ -4,7 +4,8 @@
 //
 // Values in /sys/class/hwmonN are `c_long` or `c_ulong`
 // transposed to rust we only read `u32` or `i32` values.
-use crate::Component;
+
+use crate::{Component, Error};
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -411,18 +412,10 @@ pub(crate) struct ComponentsInner {
 }
 
 impl ComponentsInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             components: Vec::with_capacity(4),
-        }
-    }
-
-    pub(crate) fn from_vec(components: Vec<Component>) -> Self {
-        Self { components }
-    }
-
-    pub(crate) fn into_vec(self) -> Vec<Component> {
-        self.components
+        })
     }
 
     pub(crate) fn list(&self) -> &[Component] {
@@ -466,6 +459,7 @@ impl ComponentsInner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Components;
     use std::fs;
     use tempfile;
 
@@ -481,9 +475,9 @@ mod tests {
         fs::write(hwmon0_dir.join("temp1_input"), "1234")
             .expect("failed to write to temp1_input file");
 
-        let mut components = ComponentsInner::new();
+        let mut components = ComponentsInner::new().unwrap();
         components.refresh_from_sys_class_path(temp_dir.path());
-        let components = components.into_vec();
+        let components = Components { inner: components };
 
         assert_eq!(components.len(), 1);
         assert_eq!(components[0].inner.name, "test_name");
@@ -511,9 +505,9 @@ mod tests {
             .expect("failed to write to temp1_input file");
         fs::write(hwmon0_dir.join("temp1_crit"), "100").expect("failed to write to temp1_min file");
 
-        let mut components = ComponentsInner::new();
+        let mut components = ComponentsInner::new().unwrap();
         components.refresh_from_sys_class_path(temp_dir.path());
-        let components = components.into_vec();
+        let components = Components { inner: components };
 
         assert_eq!(components.len(), 1);
         assert_eq!(components[0].inner.name, "test_name");
@@ -544,9 +538,9 @@ mod tests {
             .expect("failed to write to temp2_input file");
         fs::write(hwmon0_dir.join("temp2_crit"), "200").expect("failed to write to temp2_min file");
 
-        let mut components = ComponentsInner::new();
+        let mut components = ComponentsInner::new().unwrap();
         components.refresh_from_sys_class_path(temp_dir.path());
-        let mut components = components.into_vec();
+        let mut components = Components { inner: components };
         components.sort_by_key(|c| c.inner.label.clone());
 
         assert_eq!(components.len(), 2);
@@ -590,9 +584,9 @@ mod tests {
             .expect("failed to write to temp2_input file");
         fs::write(hwmon0_dir.join("temp2_crit"), "200").expect("failed to write to temp2_min file");
 
-        let mut components = ComponentsInner::new();
+        let mut components = ComponentsInner::new().unwrap();
         components.refresh_from_sys_class_path(temp_dir.path());
-        let mut components = components.into_vec();
+        let mut components = Components { inner: components };
         components.sort_by_key(|c| c.inner.label.clone());
 
         assert_eq!(components.len(), 2);
@@ -633,9 +627,9 @@ mod tests {
             .expect("failed to write to name file");
         fs::write(thermal_zone1_dir.join("temp"), "5678").expect("failed to write to temp file");
 
-        let mut components = ComponentsInner::new();
+        let mut components = ComponentsInner::new().unwrap();
         components.refresh_from_sys_class_path(temp_dir.path());
-        let mut components = components.into_vec();
+        let mut components = Components { inner: components };
         components.sort_by_key(|c| c.inner.name.clone());
 
         assert_eq!(components.len(), 2);
