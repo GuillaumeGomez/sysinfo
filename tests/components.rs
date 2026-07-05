@@ -1,15 +1,25 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#[cfg(feature = "component")]
+#![cfg(feature = "component")]
+
+use std::env::var;
+use sysinfo::Error;
+
 #[test]
 fn test_components() {
-    use std::env::var;
-
-    let mut c = sysinfo::Components::new();
+    let mut c = match sysinfo::Components::new() {
+        Ok(c) => c,
+        Err(error) => {
+            if !matches!(error, Error::Unsupported) {
+                panic!("Failed to initialize `Components`");
+            }
+            return;
+        }
+    };
     assert!(c.is_empty());
 
     // Unfortunately, we can't get components in the CI...
-    if !sysinfo::IS_SUPPORTED_SYSTEM || cfg!(windows) || var("CI").is_ok() {
+    if cfg!(windows) || var("CI").is_ok() {
         return;
     }
 

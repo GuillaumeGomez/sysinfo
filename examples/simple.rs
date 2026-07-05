@@ -77,7 +77,7 @@ fn interpret_input(
     gpus: Result<&mut Gpus, &mut Error>,
     networks: Result<&mut Networks, &mut Error>,
     disks: Result<&mut Disks, &mut Error>,
-    components: &mut Components,
+    components: Result<&mut Components, &mut Error>,
     users: Result<&mut Users, &mut Error>,
 ) -> bool {
     match input.trim() {
@@ -112,11 +112,16 @@ fn interpret_input(
                 println!("Networks information cannot be retrieved: {error}");
             }
         },
-        "refresh_components" => {
-            println!("Refreshing component list...");
-            components.refresh(true);
-            println!("Done.");
-        }
+        "refresh_components" => match components {
+            Ok(components) => {
+                println!("Refreshing component list...");
+                components.refresh(true);
+                println!("Done.");
+            }
+            Err(error) => {
+                println!("Components information cannot be retrieved: {error}");
+            }
+        },
         "refresh_cpu" => match sys {
             Ok(sys) => {
                 println!("Refreshing CPUs...");
@@ -284,11 +289,16 @@ fn interpret_input(
                 }
             }
         }
-        "temperature" => {
-            for component in components.iter() {
-                println!("{component:?}");
+        "temperature" => match components {
+            Ok(components) => {
+                for component in components.iter() {
+                    println!("{component:?}");
+                }
             }
-        }
+            Err(error) => {
+                println!("Components information cannot be retrieved: {error}");
+            }
+        },
         "network" => match networks {
             Ok(networks) => {
                 for (interface_name, data) in networks.iter() {
@@ -526,7 +536,7 @@ fn main() {
             gpus.as_mut(),
             networks.as_mut(),
             disks.as_mut(),
-            &mut components,
+            components.as_mut(),
             users.as_mut(),
         );
     }

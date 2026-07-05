@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::Component;
+use crate::{Component, Error};
 
 use windows::Win32::Foundation::{SysAllocString, SysFreeString};
 use windows::Win32::Security::PSECURITY_DESCRIPTOR;
@@ -97,18 +97,10 @@ pub(crate) struct ComponentsInner {
 }
 
 impl ComponentsInner {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn new() -> Result<Self, Error> {
+        Ok(Self {
             components: Vec::new(),
-        }
-    }
-
-    pub(crate) fn from_vec(components: Vec<Component>) -> Self {
-        Self { components }
-    }
-
-    pub(crate) fn into_vec(self) -> Vec<Component> {
-        self.components
+        })
     }
 
     pub(crate) fn list(&self) -> &[Component] {

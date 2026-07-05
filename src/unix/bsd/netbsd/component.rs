@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use super::utils::get_sys_value_by_name;
-use crate::Component;
+use crate::{Component, Error};
 
 pub(crate) struct ComponentInner {
     id: Vec<u8>,
@@ -72,23 +72,12 @@ pub(crate) struct ComponentsInner {
 }
 
 impl ComponentsInner {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new() -> Result<Self, Error> {
         let nb_cpus = unsafe { super::utils::get_nb_cpus() };
-        Self {
+        Ok(Self {
             nb_cpus,
             components: Vec::with_capacity(nb_cpus),
-        }
-    }
-
-    pub(crate) fn from_vec(components: Vec<Component>) -> Self {
-        Self {
-            nb_cpus: unsafe { super::utils::get_nb_cpus() },
-            components,
-        }
-    }
-
-    pub(crate) fn into_vec(self) -> Vec<Component> {
-        self.components
+        })
     }
 
     pub(crate) fn list(&self) -> &[Component] {
