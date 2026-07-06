@@ -1112,7 +1112,7 @@ struct FileCounter(File);
 impl FileCounter {
     fn new(f: File) -> Option<Self> {
         let any_remaining =
-            remaining_files().fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
+            remaining_files().try_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
                 if remaining > 0 {
                     Some(remaining - 1)
                 } else {
