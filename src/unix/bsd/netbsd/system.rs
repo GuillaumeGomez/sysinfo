@@ -392,6 +392,11 @@ pub(crate) struct SystemInfo {
     /// From NetBSD manual: "The kernel fixed-point scale factor". It's used when computing
     /// processes' CPU usage.
     pub(crate) fscale: f32,
+    /// NetBSD does not expose the block size per process, only the total
+    /// blocks in and out. We use the User-preferred display block size
+    /// `getbsize(3)` to convert `struct rusage` block-op counts to bytes
+    /// for per-process disk-usage reporting.
+    pub(crate) block_size: u64,
 }
 
 // This is needed because `kd: *mut libc::kvm_t` isn't thread-safe.
@@ -417,6 +422,7 @@ impl SystemInfo {
                 page_size: 0,
                 kd,
                 fscale: 0.,
+                block_size: 512,
             };
             let mut fscale: c_int = 0;
             if !get_sys_value(&[libc::CTL_KERN, libc::KERN_FSCALE], &mut fscale) || fscale < 0 {
@@ -430,6 +436,14 @@ impl SystemInfo {
                 sysinfo_debug!("failed to get page size, cannot retrieve memory information");
             } else {
                 si.page_size = page_size as _;
+            }
+
+            let mut block_size: libc::c_long = 0;
+            // `getbsize` isn't thread-safe because it returns a `static char*`. However
+            // we don't read from this `char*` so it's all fine.
+            ffi::getbsize(std::ptr::null_mut(), &mut block_size);
+            if block_size > 0 {
+                si.block_size = block_size as u64;
             }
 
             si

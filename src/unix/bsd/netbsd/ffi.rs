@@ -2,7 +2,7 @@
 
 #![allow(non_camel_case_types, dead_code)]
 
-use libc::{c_char, c_int, c_ulong, c_void, kinfo_proc2, size_t};
+use libc::{c_char, c_int, c_long, c_ulong, c_void, kinfo_proc2, size_t};
 
 pub(crate) const SIDL: u64 = 1;
 pub(crate) const SACTIVE: u64 = 2;
@@ -228,4 +228,16 @@ unsafe extern "C" {
 #[link(name = "c")]
 unsafe extern "C" {
     pub(crate) fn err(status: c_int, fmt: *const c_char);
+
+    // The `#[link_name = "__getmntinfo13"]` on `getmntinfo` was accidentally
+    // dropped in libc 0.2.174 and restored by rust-lang/libc#5251.
+    // Can be removed once libc makes a new release.
+    #[link_name = "__getmntinfo13"]
+    pub(crate) fn getmntinfo(mntbufp: *mut *mut libc::statvfs, flags: c_int) -> c_int;
+
+    // Reads the user-preferred display block size (BLOCKSIZE env var, or the
+    // system default DEV_BSIZE = 512). Used to convert `struct rusage`
+    // block-op counts into bytes; matches the historical BSD convention
+    // (`time(1)`, `ps -o inblk`).
+    pub(crate) fn getbsize(headerlenp: *mut c_int, blocksizep: *mut c_long) -> *const c_char;
 }
