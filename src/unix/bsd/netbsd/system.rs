@@ -439,6 +439,8 @@ impl SystemInfo {
             }
 
             let mut block_size: libc::c_long = 0;
+            // `getbsize` isn't thread-safe because it returns a `static char*`. However
+            // we don't read from this `char*` so it's all fine.
             ffi::getbsize(std::ptr::null_mut(), &mut block_size);
             if block_size > 0 {
                 si.block_size = block_size as u64;
