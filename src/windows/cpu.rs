@@ -11,17 +11,17 @@ use std::sync::{Mutex, OnceLock};
 
 use windows::Win32::Foundation::{CloseHandle, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS, HANDLE};
 use windows::Win32::System::Performance::{
-    PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY, PERF_DETAIL_NOVICE,
-    PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData, PdhCollectQueryDataEx,
-    PdhEnumObjectsW, PdhGetFormattedCounterValue, PdhOpenQueryW, PdhRemoveCounter,
+    PDH_FMT_COUNTERVALUE, PDH_FMT_COUNTERVALUE_ITEM_W, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY,
+    PERF_DETAIL_NOVICE, PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData,
+    PdhCollectQueryDataEx, PdhEnumObjectsW, PdhGetFormattedCounterArrayW,
+    PdhGetFormattedCounterValue, PdhOpenQueryW, PdhRemoveCounter,
 };
 use windows::Win32::System::Power::{
     CallNtPowerInformation, PROCESSOR_POWER_INFORMATION, ProcessorInformation,
 };
-use windows::Win32::System::SystemInformation::{self, GetSystemInfo};
 use windows::Win32::System::SystemInformation::{
-    GetLogicalProcessorInformationEx, RelationAll, RelationProcessorCore, SYSTEM_INFO,
-    SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
+    self, GetLogicalProcessorInformationEx, GetSystemInfo, RelationAll, RelationProcessorCore,
+    SYSTEM_INFO, SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
 };
 use windows::Win32::System::Threading::{
     CreateEventW, INFINITE, RegisterWaitForSingleObject, WT_EXECUTEDEFAULT,
@@ -143,10 +143,29 @@ unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
     }
 }
 
+struct Counter {
+    /// Number of users for this counter.
+    count: usize,
+    /// Counter key.
+    key: PDH_HCOUNTER,
+}
+
+unsafe impl Send for Counter {}
+unsafe impl Sync for Counter {}
+
+impl Drop for Counter {
+    fn drop(&mut self) {
+        unsafe {
+            PdhRemoveCounter(self.key);
+        }
+    }
+}
+
 struct InternalQuery {
     query: PDH_HQUERY,
     event: HANDLE,
-    data: HashMap<String, PDH_HCOUNTER>,
+    /// The key is the "counter query", the value is the `(number of users, counter)`.
+    data: HashMap<String, Counter>,
 }
 
 unsafe impl Send for InternalQuery {}
@@ -155,9 +174,8 @@ unsafe impl Sync for InternalQuery {}
 impl Drop for InternalQuery {
     fn drop(&mut self) {
         unsafe {
-            for counter in self.data.values() {
-                PdhRemoveCounter(*counter);
-            }
+            // We remove all counters because closing the rest.
+            self.data.clear();
 
             if !self.event.is_invalid() {
                 let _err = CloseHandle(self.event);
@@ -203,13 +221,13 @@ impl Query {
     }
 
     #[allow(clippy::ptr_arg)]
-    pub fn get(&self, name: &String) -> Option<f32> {
+    pub fn get(&self, name: &str) -> Option<f32> {
         if let Some(counter) = self.internal.data.get(name) {
             unsafe {
                 let mut display_value = mem::MaybeUninit::<PDH_FMT_COUNTERVALUE>::uninit();
 
                 return if PdhGetFormattedCounterValue(
-                    *counter,
+                    counter.key,
                     PDH_FMT_DOUBLE,
                     None,
                     display_value.as_mut_ptr(),
@@ -226,32 +244,93 @@ impl Query {
         None
     }
 
+    pub fn get_array(&self, name: &str) -> Option<Vec<f32>> {
+        let Some(counter) = self.internal.data.get(name) else {
+            return None;
+        };
+
+        let mut buffer_size = 0u32;
+        let mut item_count = 0u32;
+
+        unsafe {
+            PdhGetFormattedCounterArrayW(
+                counter.key,
+                PDH_FMT_DOUBLE,
+                &mut buffer_size,
+                &mut item_count,
+                None,
+            );
+
+            if buffer_size == 0 || item_count == 0 {
+                return None;
+            }
+
+            let mut buffer = vec![0u8; buffer_size as usize];
+
+            let status = PdhGetFormattedCounterArrayW(
+                counter.key,
+                PDH_FMT_DOUBLE,
+                &mut buffer_size,
+                &mut item_count,
+                Some(buffer.as_mut_ptr() as *mut PDH_FMT_COUNTERVALUE_ITEM_W),
+            );
+
+            if status != ERROR_SUCCESS.0 {
+                return None;
+            }
+            let items = std::slice::from_raw_parts(
+                buffer.as_ptr() as *const PDH_FMT_COUNTERVALUE_ITEM_W,
+                item_count as usize,
+            );
+            let mut output = Vec::with_capacity(items.len());
+            for item in items {
+                output.push(item.FmtValue.Anonymous.doubleValue as f32)
+            }
+            Some(output)
+        }
+    }
+
     #[allow(clippy::ptr_arg)]
-    pub fn add_english_counter(&mut self, name: &String, getter: Vec<u16>) -> bool {
-        if self.internal.data.contains_key(name) {
-            sysinfo_debug!("Query::add_english_counter: doesn't have key `{:?}`", name);
-            return false;
+    pub fn add_english_counter(&mut self, name: &str) -> bool {
+        if let Some(counter) = self.internal.data.get_mut(name) {
+            counter.count += 1;
+            return true;
         }
         unsafe {
-            let mut counter = PDH_HCOUNTER::default();
+            let mut key = PDH_HCOUNTER::default();
+            let counter_key = name
+                .encode_utf16()
+                .chain(std::iter::once(0))
+                .collect::<Vec<_>>();
             let ret = PdhAddEnglishCounterW(
                 self.internal.query,
-                PCWSTR::from_raw(getter.as_ptr()),
+                PCWSTR::from_raw(counter_key.as_ptr()),
                 0,
-                &mut counter,
+                &mut key,
             );
             if ret == ERROR_SUCCESS.0 {
-                self.internal.data.insert(name.clone(), counter);
+                self.internal
+                    .data
+                    .insert(name.to_owned(), Counter { count: 1, key });
             } else {
                 sysinfo_debug!(
-                    "Query::add_english_counter: failed to add counter '{}': {:x}...",
-                    name,
-                    ret,
+                    "Query::add_english_counter: failed to add counter {name:?}: {ret:x}...",
                 );
                 return false;
             }
         }
         true
+    }
+
+    pub fn remove_counter(&mut self, name: &str) {
+        let mut need_removal = false;
+        if let Some(counter) = self.internal.data.get_mut(name) {
+            counter.count -= 1;
+            need_removal = counter.count < 1;
+        }
+        if need_removal {
+            self.internal.data.remove(name);
+        }
     }
 
     pub fn refresh(&self) {

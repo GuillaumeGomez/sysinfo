@@ -318,6 +318,9 @@ unsafe fn query_gpu_utilization(
             None,
         );
 
+        if buffer_size == 0 || item_count == 0 {
+            return result;
+        }
         let mut buffer = vec![0u8; buffer_size as usize];
 
         let status = PdhGetFormattedCounterArrayW(
@@ -328,34 +331,35 @@ unsafe fn query_gpu_utilization(
             Some(buffer.as_mut_ptr() as *mut PDH_FMT_COUNTERVALUE_ITEM_W),
         );
 
-        if status == ERROR_SUCCESS.0 {
-            let items = std::slice::from_raw_parts(
-                buffer.as_ptr() as *const PDH_FMT_COUNTERVALUE_ITEM_W,
-                item_count as usize,
-            );
+        if status != ERROR_SUCCESS.0 {
+            return result;
+        }
+        let items = std::slice::from_raw_parts(
+            buffer.as_ptr() as *const PDH_FMT_COUNTERVALUE_ITEM_W,
+            item_count as usize,
+        );
 
-            for item in items {
-                let name = PCWSTR(item.szName.0).to_string().unwrap_or_default();
+        for item in items {
+            let name = PCWSTR(item.szName.0).to_string().unwrap_or_default();
 
-                let value = item.FmtValue.Anonymous.doubleValue as f32;
+            let value = item.FmtValue.Anonymous.doubleValue as f32;
 
-                if let Some(pos) = name.find("luid_0x") {
-                    let s = &name[pos + 7..];
+            if let Some(pos) = name.find("luid_0x") {
+                let s = &name[pos + 7..];
 
-                    let mut parts = s.split('_');
+                let mut parts = s.split('_');
 
-                    let high_hex = parts.next().unwrap_or("0");
-                    let low_hex = parts
-                        .next()
-                        .and_then(|s| s.strip_prefix("0x"))
-                        .unwrap_or("0");
+                let high_hex = parts.next().unwrap_or("0");
+                let low_hex = parts
+                    .next()
+                    .and_then(|s| s.strip_prefix("0x"))
+                    .unwrap_or("0");
 
-                    if let (Ok(high), Ok(low)) = (
-                        u32::from_str_radix(high_hex, 16),
-                        u32::from_str_radix(low_hex, 16),
-                    ) {
-                        *result.entry((high as i32, low)).or_insert(0.0) += value;
-                    }
+                if let (Ok(high), Ok(low)) = (
+                    u32::from_str_radix(high_hex, 16),
+                    u32::from_str_radix(low_hex, 16),
+                ) {
+                    *result.entry((high as i32, low)).or_insert(0.0) += value;
                 }
             }
         }

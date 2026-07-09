@@ -360,46 +360,110 @@ impl System {
         remove_dead_processes: bool,
         refresh_kind: ProcessRefreshKind,
     ) -> usize {
-        fn update_and_remove(pid: &Pid, processes: &mut HashMap<Pid, Process>) {
-            let updated = if let Some(proc) = processes.get_mut(pid) {
-                proc.inner.switch_updated()
-            } else {
-                return;
-            };
-            if !updated {
-                processes.remove(pid);
-            }
-        }
-        fn update(pid: &Pid, processes: &mut HashMap<Pid, Process>) {
-            if let Some(proc) = processes.get_mut(pid)
-                && !proc.inner.switch_updated()
-            {
-                proc.inner.set_nonexistent();
-            }
-        }
-
         let nb_updated = self
             .inner
             .refresh_processes_specifics(processes_to_update, refresh_kind);
-        let processes = self.inner.processes_mut();
-        match processes_to_update {
-            ProcessesToUpdate::All => {
-                if remove_dead_processes {
-                    processes.retain(|_, v| v.inner.switch_updated());
-                } else {
-                    for proc in processes.values_mut() {
-                        proc.inner.switch_updated();
+
+        // FIXME: This code is absolutely awful, find a better way to do the same (ie remove GPU
+        // counters when removing a process) in a code which doesn't need all that...
+        cfg_select! {
+            all(windows, feature = "gpu") => {
+                fn update_and_remove(
+                    pid: &Pid,
+                    processes: &mut HashMap<Pid, Process>,
+                    gpu_query: &mut Option<crate::sys::cpu::Query>,
+                ) {
+                    if let Some(proc) = processes.get_mut(pid) {
+                        let updated = proc.inner.switch_updated();
+                        if !updated {
+                            proc.inner.remove_counter(gpu_query);
+                            processes.remove(pid);
+                        }
                     }
                 }
+                fn update(
+                    pid: &Pid,
+                    processes: &mut HashMap<Pid, Process>,
+                    _gpu_query: &mut Option<crate::sys::cpu::Query>,
+                ) {
+                    if let Some(proc) = processes.get_mut(pid)
+                        && !proc.inner.switch_updated()
+                    {
+                        proc.inner.set_nonexistent();
+                    }
+                }
+
+                let mut gpu_query = self.inner.gpu_query.take();
+                let processes = self.inner.processes_mut();
+                match processes_to_update {
+                    ProcessesToUpdate::All => {
+                        if remove_dead_processes {
+                            processes.retain(|_, v| {
+                                let to_keep = v.inner.switch_updated();
+                                if !to_keep {
+                                    v.inner.remove_counter(&mut gpu_query);
+                                }
+                                to_keep
+                            });
+                        } else {
+                            for proc in processes.values_mut() {
+                                proc.inner.switch_updated();
+                            }
+                        }
+                    }
+                    ProcessesToUpdate::Some(pids) => {
+                        let call = if remove_dead_processes {
+                            update_and_remove
+                        } else {
+                            update
+                        };
+                        for pid in pids {
+                            call(pid, processes, &mut gpu_query);
+                        }
+                    }
+                }
+                self.inner.gpu_query = gpu_query;
             }
-            ProcessesToUpdate::Some(pids) => {
-                let call = if remove_dead_processes {
-                    update_and_remove
-                } else {
-                    update
-                };
-                for pid in pids {
-                    call(pid, processes);
+            _ => {
+                fn update_and_remove(pid: &Pid, processes: &mut HashMap<Pid, Process>) {
+                    let updated = if let Some(proc) = processes.get_mut(pid) {
+                        proc.inner.switch_updated()
+                    } else {
+                        return;
+                    };
+                    if !updated {
+                        processes.remove(pid);
+                    }
+                }
+                fn update(pid: &Pid, processes: &mut HashMap<Pid, Process>) {
+                    if let Some(proc) = processes.get_mut(pid)
+                        && !proc.inner.switch_updated()
+                    {
+                        proc.inner.set_nonexistent();
+                    }
+                }
+
+                let processes = self.inner.processes_mut();
+                match processes_to_update {
+                    ProcessesToUpdate::All => {
+                        if remove_dead_processes {
+                            processes.retain(|_, v| v.inner.switch_updated());
+                        } else {
+                            for proc in processes.values_mut() {
+                                proc.inner.switch_updated();
+                            }
+                        }
+                    }
+                    ProcessesToUpdate::Some(pids) => {
+                        let call = if remove_dead_processes {
+                            update_and_remove
+                        } else {
+                            update
+                        };
+                        for pid in pids {
+                            call(pid, processes);
+                        }
+                    }
                 }
             }
         }
@@ -2286,6 +2350,53 @@ impl Process {
     pub fn open_files_limit(&self) -> Option<usize> {
         self.inner.open_files_limit()
     }
+
+    /// Returns the total % usage of all GPUs by this process.
+    ///
+    /// Returns `None` if it failed retrieving the information or if the current system is not
+    /// supported.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// if let Ok(s) = System::new_all() {
+    ///     for (_, process) in s.processes() {
+    ///         println!(
+    ///             "[Process {:?}] GPU usage: {:?}%",
+    ///             process.pid(),
+    ///             process.gpu_usage(),
+    ///         );
+    ///     }
+    /// }
+    /// ```
+    #[cfg(feature = "gpu")]
+    pub fn gpu_usage(&self) -> Option<f32> {
+        self.inner.gpu_usage()
+    }
+
+    /// Returns the GPU memory usage of all GPUs by this process in bytes. It doesn't necessarily
+    /// mean the VRAM, just the memory used by the GPU(s).
+    ///
+    /// Returns `None` if it failed retrieving the information or if the current system is not
+    /// supported.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// if let Ok(s) = System::new_all() {
+    ///     for (_, process) in s.processes() {
+    ///         println!(
+    ///             "[Process {:?}] GPU memory usage: {:?} bytes",
+    ///             process.pid(),
+    ///             process.gpu_memory(),
+    ///         );
+    ///     }
+    /// }
+    /// ```
+    #[cfg(feature = "gpu")]
+    pub fn gpu_memory(&self) -> Option<u64> {
+        self.inner.gpu_memory()
+    }
 }
 
 macro_rules! pid_decl {
@@ -2440,6 +2551,9 @@ pub enum ProcessesToUpdate<'a> {
 ///  * Process name
 ///  * Start time
 ///
+/// ⚠️ For the `gpu_usage` and `gpu_memory` refreshes, they won't do anything unless the `gpu`
+/// feature is enabled.
+///
 /// ⚠️ Just like all other refresh types, ruling out a refresh doesn't assure you that
 /// the information won't be retrieved if the information is accessible without needing
 /// extra computation.
@@ -2449,7 +2563,7 @@ pub enum ProcessesToUpdate<'a> {
 /// information from `/proc/<pid>/` as well as all the information from `/proc/<pid>/task/<tid>/`
 /// folders. This makes the refresh mechanism a lot slower depending on the number of tasks
 /// each process has.
-///  
+///
 /// If you don't care about tasks information, use `ProcessRefreshKind::everything().without_tasks()`
 /// as much as possible.
 ///
@@ -2484,6 +2598,8 @@ pub struct ProcessRefreshKind {
     cmd: UpdateKind,
     exe: UpdateKind,
     tasks: bool,
+    gpu_usage: bool,
+    gpu_memory: bool,
 }
 
 /// Creates a new `ProcessRefreshKind` with every refresh set to `false`, except for `tasks`.
@@ -2503,6 +2619,8 @@ impl Default for ProcessRefreshKind {
             cmd: UpdateKind::default(),
             exe: UpdateKind::default(),
             tasks: true, // Process by default includes all tasks.
+            gpu_usage: false,
+            gpu_memory: false,
         }
     }
 }
@@ -2547,6 +2665,8 @@ impl ProcessRefreshKind {
             cmd: UpdateKind::OnlyIfNotSet,
             exe: UpdateKind::OnlyIfNotSet,
             tasks: true,
+            gpu_usage: true,
+            gpu_memory: true,
         }
     }
 
@@ -2597,6 +2717,18 @@ It will retrieve the following information:
     impl_get_set!(ProcessRefreshKind, cmd, with_cmd, without_cmd, UpdateKind);
     impl_get_set!(ProcessRefreshKind, exe, with_exe, without_exe, UpdateKind);
     impl_get_set!(ProcessRefreshKind, tasks, with_tasks, without_tasks);
+    impl_get_set!(
+        ProcessRefreshKind,
+        gpu_usage,
+        with_gpu_usage,
+        without_gpu_usage
+    );
+    impl_get_set!(
+        ProcessRefreshKind,
+        gpu_memory,
+        with_gpu_memory,
+        without_gpu_memory
+    );
 }
 
 /// Used to determine what you want to refresh specifically on the [`Cpu`] type.

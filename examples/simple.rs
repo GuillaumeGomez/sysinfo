@@ -264,7 +264,7 @@ fn interpret_input(
                         if let Ok(pid) = Pid::from_str(tmp[1]) {
                             match sys.process(pid) {
                                 Some(p) => {
-                                    println!("{:?}", *p);
+                                    println!("{:#?}", *p);
                                     println!(
                                         "Files open/limit: {:?}/{:?}",
                                         p.open_files(),

@@ -341,6 +341,16 @@ impl ProcessInner {
             }
         }
     }
+
+    #[cfg(feature = "gpu")]
+    pub(crate) fn gpu_usage(&self) -> Option<f32> {
+        None
+    }
+
+    #[cfg(feature = "gpu")]
+    pub fn gpu_memory(&self) -> Option<u64> {
+        None
+    }
 }
 
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, total_time: f32, max_value: f32) {

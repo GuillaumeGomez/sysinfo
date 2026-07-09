@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#[cfg(feature = "gpu")]
+use crate::sys::cpu::Query;
 use crate::sys::system::is_proc_running;
 use crate::sys::utils::HandleWrapper;
 use crate::windows::Sid;
@@ -205,6 +207,28 @@ pub(crate) struct ProcessInner {
     written_bytes: u64,
     accumulated_cpu_time: u64,
     exists: bool,
+    #[cfg(feature = "gpu")]
+    gpu_info: GpuInfo,
+}
+
+#[cfg(feature = "gpu")]
+struct GpuInfo {
+    gpu_usage: Option<f32>,
+    gpu_memory: Option<u64>,
+    percent_key: Option<String>,
+    memory_key: Option<String>,
+}
+
+#[cfg(feature = "gpu")]
+impl GpuInfo {
+    fn new() -> Self {
+        Self {
+            gpu_usage: None,
+            gpu_memory: None,
+            percent_key: None,
+            memory_key: None,
+        }
+    }
 }
 
 struct CPUsageCalculationValues {
@@ -289,6 +313,8 @@ impl ProcessInner {
             written_bytes: 0,
             accumulated_cpu_time: 0,
             exists: true,
+            #[cfg(feature = "gpu")]
+            gpu_info: GpuInfo::new(),
         }
     }
 
@@ -302,6 +328,7 @@ impl ProcessInner {
         nb_cpus: u64,
         now: u64,
         refresh_parent: bool,
+        gpu_query: &mut Option<Query>,
     ) {
         if refresh_kind.cpu() {
             compute_cpu_usage(self, nb_cpus);
@@ -337,6 +364,9 @@ impl ProcessInner {
                     None => get_executable_path(self.pid),
                 };
             }
+        }
+        if cfg!(feature = "gpu") {
+            refresh_gpu(self, refresh_kind, gpu_query);
         }
         self.run_time = now.saturating_sub(self.start_time());
         self.updated = true;
@@ -533,6 +563,31 @@ impl ProcessInner {
 
     pub(crate) fn open_files_limit(&self) -> Option<usize> {
         crate::System::open_files_limit().ok()
+    }
+
+    #[cfg(feature = "gpu")]
+    pub(crate) fn gpu_usage(&self) -> Option<f32> {
+        self.gpu_info.gpu_usage
+    }
+
+    #[cfg(feature = "gpu")]
+    pub fn gpu_memory(&self) -> Option<u64> {
+        self.gpu_info.gpu_memory
+    }
+}
+
+// Voluntarily split out on its own as it's only for internal (and ugly) cleanup.
+#[cfg(feature = "gpu")]
+impl ProcessInner {
+    pub(crate) fn remove_counter(&self, gpu_query: &mut Option<Query>) {
+        if let Some(gpu_query) = gpu_query {
+            if let Some(ref percent_key) = self.gpu_info.percent_key {
+                gpu_query.remove_counter(percent_key);
+            }
+            if let Some(ref memory_key) = self.gpu_info.memory_key {
+                gpu_query.remove_counter(memory_key);
+            }
+        }
     }
 }
 
@@ -1126,4 +1181,43 @@ pub(crate) fn update_disk_usage(p: &mut ProcessInner) {
 #[inline(always)]
 const fn filetime_to_u64(ft: FILETIME) -> u64 {
     ((ft.dwHighDateTime as u64) << 32) | (ft.dwLowDateTime as u64)
+}
+
+#[cfg(feature = "gpu")]
+fn refresh_gpu(
+    p: &mut ProcessInner,
+    refresh_kind: crate::ProcessRefreshKind,
+    gpu_query: &mut Option<Query>,
+) {
+    if !refresh_kind.gpu_usage() && !refresh_kind.gpu_memory() {
+        return;
+    }
+    if gpu_query.is_none() {
+        *gpu_query = Query::new(false);
+    }
+    if let Some(gpu_query) = gpu_query {
+        if refresh_kind.gpu_usage() {
+            if p.gpu_info.percent_key.is_none() {
+                let key = format!(r"\GPU Engine(pid_{}_*)\Utilization Percentage", p.pid.0);
+                if gpu_query.add_english_counter(&key) {
+                    p.gpu_info.percent_key = Some(key);
+                }
+            // We don't query the first time because it needs some time.
+            } else if let Some(ref key) = p.gpu_info.percent_key {
+                p.gpu_info.gpu_usage = gpu_query.get_array(key).map(|arr| arr.into_iter().sum());
+            }
+        }
+
+        if refresh_kind.gpu_memory() {
+            if p.gpu_info.memory_key.is_none() {
+                let key = format!(r"\GPU Process Memory(pid_{}_*)\Local Usage", p.pid.0);
+                if gpu_query.add_english_counter(&key) {
+                    p.gpu_info.memory_key = Some(key);
+                }
+            // We don't query the first time because it needs some time.
+            } else if let Some(ref key) = p.gpu_info.memory_key {
+                p.gpu_info.gpu_memory = gpu_query.get(key).map(|v| v as u64);
+            }
+        }
+    }
 }
