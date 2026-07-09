@@ -1,3 +1,8 @@
+# 0.39.6
+
+ * NetBSD: Add support for disk I/O usage.
+ * NetBSD: Improve retrieval of disk information.
+
 # 0.39.5
 
  * macOS: Fix build for apple app store
