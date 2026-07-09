@@ -60,8 +60,8 @@ impl std::fmt::Debug for crate::Product {
 #[cfg(feature = "system")]
 impl std::fmt::Debug for crate::Process {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Process")
-            .field("pid", &self.pid())
+        let mut f = f.debug_struct("Process");
+        f.field("pid", &self.pid())
             .field("parent", &self.parent())
             .field("name", &self.name())
             .field("environ", &self.environ())
@@ -76,8 +76,12 @@ impl std::fmt::Debug for crate::Process {
             .field("root", &self.root())
             .field("disk_usage", &self.disk_usage())
             .field("user_id", &self.user_id())
-            .field("effective_user_id", &self.effective_user_id())
-            .finish()
+            .field("effective_user_id", &self.effective_user_id());
+        if cfg!(feature = "gpu") {
+            f.field("gpu_usage", &self.gpu_usage())
+                .field("gpu_memory", &self.gpu_memory());
+        }
+        f.finish()
     }
 }
 

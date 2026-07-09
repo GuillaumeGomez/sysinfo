@@ -4,7 +4,7 @@ mod utils;
 
 cfg_select! {
     feature = "system" => {
-        mod cpu;
+        pub(crate) mod cpu;
         mod ffi;
         mod motherboard;
         mod process;
