@@ -77,6 +77,7 @@ pub(crate) struct SystemInner {
     swap_used: u64,
     cpus: CpusWrapper,
     query: Option<Query>,
+    pub(crate) gpu_query: Option<Query>,
 }
 
 impl SystemInner {
@@ -89,24 +90,21 @@ impl SystemInner {
             swap_used: 0,
             cpus: CpusWrapper::new(),
             query: None,
+            gpu_query: None,
         })
     }
 
     fn initialize_cpu_counters(&mut self, refresh_kind: CpuRefreshKind) {
         if let Some(ref mut query) = self.query {
-            add_english_counter(
-                r"\Processor(_Total)\% Idle Time".to_string(),
-                query,
-                &mut self.cpus.global.key_used,
-                "tot_0".to_owned(),
-            );
+            let total_key = r"\Processor(_Total)\% Idle Time";
+            if query.add_english_counter(total_key) {
+                self.cpus.global.key_used = Some(KeyHandler::new(total_key.to_owned()));
+            }
             for (pos, proc_) in self.cpus.iter_mut(refresh_kind).enumerate() {
-                add_english_counter(
-                    format!(r"\Processor({pos})\% Idle Time"),
-                    query,
-                    get_key_used(proc_),
-                    format!("{pos}_0"),
-                );
+                let key = format!(r"\Processor({pos})\% Idle Time");
+                if query.add_english_counter(&key) {
+                    *get_key_used(proc_) = Some(KeyHandler::new(key));
+                }
             }
         }
     }
@@ -126,6 +124,9 @@ impl SystemInner {
         if self.query.is_none() {
             self.query = Query::new(false);
             self.initialize_cpu_counters(refresh_kind);
+        // When the CPU performance counters cannot be opened because the performance counter
+        // registry is in an invalid state, recreate the query at the next CPU information refresh,
+        // adding a request to the performance library to reload the performance counter registry.
         } else if self.cpus.global.key_used.is_none() {
             self.query = Query::new(true);
             self.initialize_cpu_counters(refresh_kind);
@@ -264,6 +265,13 @@ impl SystemInner {
             }
         }
 
+        if cfg!(feature = "gpu")
+            && (refresh_kind.gpu_usage() || refresh_kind.gpu_memory())
+            && let Some(gpu_query) = self.gpu_query.as_mut()
+        {
+            gpu_query.refresh();
+        }
+
         // Iterate over processes in the snapshot.
         // Use Process32NextW to process the next PROCESSENTRY32W in the snapshot
         loop {
@@ -274,7 +282,7 @@ impl SystemInner {
                 if let Some(p) = process_list.get_mut(&proc_id) {
                     // Update with the most recent information
                     let p = &mut p.inner;
-                    p.update(refresh_kind, nb_cpus, now, false);
+                    p.update(refresh_kind, nb_cpus, now, false, &mut self.gpu_query);
 
                     // Update parent process
                     let parent = if process_entry.th32ParentProcessID == 0 {
@@ -287,7 +295,7 @@ impl SystemInner {
                 } else {
                     // Make a new 'ProcessInner' using the Windows PROCESSENTRY32W struct.
                     let mut p = ProcessInner::from_process_entry(&process_entry, now);
-                    p.update(refresh_kind, nb_cpus, now, false);
+                    p.update(refresh_kind, nb_cpus, now, false, &mut self.gpu_query);
                     process_list.insert(proc_id, Process { inner: p });
                 }
 
@@ -520,19 +528,6 @@ fn get_dns_hostname() -> Result<String, Error> {
 
     sysinfo_debug!("Failed to get computer hostname");
     Err(Error::Other("failed to retrieve host name".into()))
-}
-
-fn add_english_counter(
-    s: String,
-    query: &mut super::cpu::Query,
-    keys: &mut Option<KeyHandler>,
-    counter_name: String,
-) {
-    let mut full = s.encode_utf16().collect::<Vec<_>>();
-    full.push(0);
-    if query.add_english_counter(&counter_name, full) {
-        *keys = Some(KeyHandler::new(counter_name));
-    }
 }
 
 fn get_now() -> u64 {
