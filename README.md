@@ -122,9 +122,9 @@ loop {
 }
 ```
 
-By default, `sysinfo` uses multiple threads. However, this can increase the memory usage on some
-platforms (macOS for example). The behavior can be disabled by setting `default-features = false`
-in `Cargo.toml` (which disables the `multithread` cargo feature).
+With the `multithread` feature (which is not enabled by default), `sysinfo`
+uses multiple threads.
+However, this can increase the memory usage on some platforms (macOS for example).
 
 ### Good practice / Performance tips
 
