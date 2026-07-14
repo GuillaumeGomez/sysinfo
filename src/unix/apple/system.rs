@@ -309,6 +309,10 @@ impl SystemInner {
             entries.into_iter().for_each(|entry| {
                 self.process_list.insert(entry.pid(), entry);
             });
+            if cfg!(feature = "gpu") && refresh_kind.gpu_usage() {
+                // For now, when we refresh GPU usage, we refresh it for all processes at once.
+                self::gpu::get_processes_gpu_usage(&mut self.process_list);
+            }
             nb_updated.into_inner()
         } else {
             0
@@ -597,5 +601,177 @@ fn get_system_info(value: c_int) -> Option<String> {
             }
         }
         None
+    }
+}
+
+// Retrieving a process GPU usage is a nightmare on macOS. The way the information is "provided" by
+// the OS changes at every version and is undocumented. And to make things better, the only thing
+// we have is the "accumululated GPU time", so we divide by the time elapsed since the last refresh
+// and make the % usage from that.
+//
+// If your macOS version is not supported, run the command `ioreg -lw0` and try to look for
+// "accumulatedGPUtime" or "AppUsage". Based on that, you will know which keys to look for in the
+// Rust implementation since we recurse through the entire graph.
+#[cfg(feature = "gpu")]
+#[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
+mod gpu {
+    use crate::sys::utils::IOReleaser;
+    use crate::{Pid, Process};
+
+    use std::collections::{HashMap, HashSet};
+    use std::ffi::CStr;
+
+    use objc2_core_foundation::{CFArray, CFDictionary, CFNumber, CFRetained, CFString, CFType};
+
+    use objc2_io_kit::{
+        IOIteratorNext, IORegistryEntryCreateCFProperties, IORegistryEntryGetChildIterator,
+        IORegistryGetRootEntry, kIODeviceTreePlane, kIOMainPortDefault, kIOReturnSuccess,
+        kIOServicePlane,
+    };
+
+    struct Keys {
+        accumulated_gpu_time: CFRetained<CFString>,
+        app_usage: CFRetained<CFString>,
+        io_user: CFRetained<CFString>,
+    }
+
+    impl Keys {
+        fn new() -> Self {
+            Self {
+                accumulated_gpu_time: CFString::from_str("accumulatedGPUTime"),
+                app_usage: CFString::from_str("AppUsage"),
+                io_user: CFString::from_str("IOUserClientCreator"),
+            }
+        }
+    }
+
+    pub fn get_processes_gpu_usage(processes: &mut HashMap<Pid, Process>) {
+        let mut result = HashMap::new();
+
+        unsafe {
+            let root = IORegistryGetRootEntry(kIOMainPortDefault);
+
+            let Some(root) = IOReleaser::new(root) else {
+                sysinfo_debug!("processes GPU: IORegistryGetRootEntry failed");
+                return;
+            };
+
+            let keys = Keys::new();
+            let mut visited = HashSet::new();
+
+            // If the information is stored inside other "planes", we'll need to iterate through
+            // more of them. Just add them in this array.
+            for plane in [kIODeviceTreePlane, kIOServicePlane] {
+                walk_plane(&root, plane, &mut visited, &mut result, &keys);
+            }
+        }
+
+        if !result.is_empty() {
+            let instant = std::time::Instant::now();
+
+            for (pid, gpu_time) in result {
+                if let Some(proc) = processes.get_mut(&pid) {
+                    proc.inner.compute_gpu_usage(gpu_time, instant);
+                }
+            }
+        }
+    }
+
+    unsafe fn walk_plane(
+        entry: &IOReleaser,
+        plane: &CStr,
+        visited: &mut HashSet<(u32, u32)>,
+        result: &mut HashMap<Pid, u64>,
+        keys: &Keys,
+    ) {
+        unsafe {
+            inspect(entry, result, keys);
+
+            let mut iter = 0;
+            if IORegistryEntryGetChildIterator(entry.inner(), plane.as_ptr() as *mut _, &mut iter)
+                != kIOReturnSuccess
+            {
+                return;
+            }
+            let Some(iter) = IOReleaser::new(iter) else {
+                return;
+            };
+            while let Some(child) = IOReleaser::new(IOIteratorNext(iter.inner())) {
+                walk_plane(&child, plane, visited, result, keys);
+            }
+        }
+    }
+
+    unsafe fn inspect(entry: &IOReleaser, result: &mut HashMap<Pid, u64>, keys: &Keys) {
+        let mut props: Option<std::ptr::NonNull<CFDictionary<CFString, CFType>>> = None;
+
+        unsafe {
+            if IORegistryEntryCreateCFProperties(
+                entry.inner(),
+                &mut props as *mut _ as *mut _,
+                None,
+                0,
+            ) == kIOReturnSuccess
+                && let Some(props) = props
+                && let props = CFRetained::<CFDictionary<CFString, CFType>>::from_raw(props)
+                && let Some(pid) = props.get(&keys.io_user)
+                && let Some(pid) = pid.downcast::<CFString>().ok().map(|s| s.to_string())
+                && let Some(pid) = pid.strip_prefix("pid ")
+                && let Some(pid) = pid.split(',').next()
+                && let Ok(pid) = pid.trim().parse::<libc::pid_t>().map(|p| Pid(p))
+            {
+                // Implementation for macOS 12.6 and 15.7 (on non-`mac M*`). "accumulatedGPUtime" and
+                // "IOUserClientCreator" are stored at the same level so if both are present, it's
+                // all good for us.
+                if let Some(gpu_time) = get_u64(&props, &keys.accumulated_gpu_time) {
+                    if gpu_time != 0 {
+                        result
+                            .entry(pid)
+                            .and_modify(|v| *v += gpu_time)
+                            .or_insert(gpu_time);
+                    }
+                // For now, every other mac configs.
+                // "IOUserClientCreator" is stored at the same level as "AppUsage" which contains
+                // "accumulatedGPUtime".
+                } else if let Some(array) = get_array(&props, &keys.app_usage) {
+                    let array = array.cast_unchecked::<CFType>();
+                    for item in array.iter() {
+                        if let Ok(item) = item.downcast::<CFDictionary>()
+                            && let Some(gpu_time) = get_u64(
+                                item.cast_unchecked::<CFString, CFType>(),
+                                &keys.accumulated_gpu_time,
+                            )
+                            && gpu_time != 0
+                        {
+                            result
+                                .entry(pid)
+                                .and_modify(|v| *v += gpu_time)
+                                .or_insert(gpu_time);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    unsafe fn get_u64(dict: &CFDictionary<CFString, CFType>, key: &CFString) -> Option<u64> {
+        unsafe {
+            let dict = dict.cast_unchecked::<CFString, CFType>();
+            dict.get(key)?
+                .downcast::<CFNumber>()
+                .ok()?
+                .as_i64()
+                .map(|x| x as u64)
+        }
+    }
+
+    unsafe fn get_array(
+        dict: &CFDictionary<CFString, CFType>,
+        key: &CFString,
+    ) -> Option<CFRetained<CFArray>> {
+        unsafe {
+            let dict = dict.cast_unchecked::<CFString, CFType>();
+            dict.get(key)?.downcast::<CFArray>().ok()
+        }
     }
 }
