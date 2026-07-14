@@ -47,6 +47,12 @@ pub(crate) struct ProcessInner {
     pub(crate) written_bytes: u64,
     accumulated_cpu_time: u64,
     exists: bool,
+    #[cfg(feature = "gpu")]
+    pub(crate) gpu_usage: Option<f32>,
+    #[cfg(feature = "gpu")]
+    pub(crate) gpu_time: u64,
+    #[cfg(feature = "gpu")]
+    pub(crate) gpu_instant: Option<std::time::Instant>,
 }
 
 impl ProcessInner {
@@ -84,6 +90,12 @@ impl ProcessInner {
             written_bytes: 0,
             accumulated_cpu_time: 0,
             exists: true,
+            #[cfg(feature = "gpu")]
+            gpu_usage: None,
+            #[cfg(feature = "gpu")]
+            gpu_time: 0,
+            #[cfg(feature = "gpu")]
+            gpu_instant: None,
         }
     }
 
@@ -117,6 +129,12 @@ impl ProcessInner {
             written_bytes: 0,
             accumulated_cpu_time: 0,
             exists: true,
+            #[cfg(feature = "gpu")]
+            gpu_usage: None,
+            #[cfg(feature = "gpu")]
+            gpu_time: 0,
+            #[cfg(feature = "gpu")]
+            gpu_instant: None,
         }
     }
 
@@ -278,6 +296,34 @@ impl ProcessInner {
         }
 
         Some(buffer_filled_bytes as usize / std::mem::size_of::<libc::proc_fdinfo>())
+    }
+
+    #[cfg(feature = "gpu")]
+    pub(crate) fn gpu_usage(&self) -> Option<f32> {
+        self.gpu_usage
+    }
+
+    #[cfg(feature = "gpu")]
+    pub fn gpu_memory(&self) -> Option<u64> {
+        // Not supported on macOS.
+        None
+    }
+}
+
+#[cfg(feature = "gpu")]
+impl ProcessInner {
+    pub(crate) fn compute_gpu_usage(&mut self, new_gpu_time: u64, new_instant: std::time::Instant) {
+        let old_gpu_time = std::mem::replace(&mut self.gpu_time, new_gpu_time);
+        if let Some(instant) = self.gpu_instant {
+            let diff = self.gpu_time.saturating_sub(old_gpu_time) as f64;
+            let time_diff = new_instant.duration_since(instant).as_nanos();
+            if time_diff != 0 {
+                self.gpu_usage = Some((diff as f64 / time_diff as f64) as f32 * 100.);
+            } else {
+                self.gpu_usage = Some(0.);
+            }
+        }
+        self.gpu_instant = Some(new_instant);
     }
 }
 
