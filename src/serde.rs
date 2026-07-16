@@ -178,7 +178,7 @@ impl Serialize for crate::Product {
         S: Serializer,
     {
         // `7` corresponds to the number of "fields".
-        let mut state = serializer.serialize_struct("Product", 5)?;
+        let mut state = serializer.serialize_struct("Product", 7)?;
 
         state.serialize_field("name", &Self::name())?;
         state.serialize_field("family", &Self::family())?;
@@ -378,8 +378,8 @@ impl Serialize for crate::NetworkData {
     where
         S: Serializer,
     {
-        // `14` corresponds to the number of fields.
-        let mut state = serializer.serialize_struct("NetworkData", 14)?;
+        // `15` corresponds to the number of fields.
+        let mut state = serializer.serialize_struct("NetworkData", 15)?;
 
         state.serialize_field("received", &self.received())?;
         state.serialize_field("total_received", &self.total_received())?;
