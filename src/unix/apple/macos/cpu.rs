@@ -92,7 +92,7 @@ pub(crate) unsafe fn get_cpu_frequency(brand: &str) -> u64 {
 
         // Check taken from https://github.com/vladkens/macmon/commit/9e05a6f6e9aee01c4cd6e01e0639ac23f5820f18.
         // Not sure if there is a better way to differentiate this.
-        if brand.contains("M1") || brand.contains("M2") | brand.contains("M3") {
+        if brand.contains("M1") || brand.contains("M2") || brand.contains("M3") {
             max / 1_000_000
         } else {
             max / 1_000

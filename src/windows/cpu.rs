@@ -229,7 +229,10 @@ impl Query {
     #[allow(clippy::ptr_arg)]
     pub fn add_english_counter(&mut self, name: &String, getter: Vec<u16>) -> bool {
         if self.internal.data.contains_key(name) {
-            sysinfo_debug!("Query::add_english_counter: doesn't have key `{:?}`", name);
+            sysinfo_debug!(
+                "Query::add_english_counter: key `{:?}` already exists",
+                name
+            );
             return false;
         }
         unsafe {
