@@ -1,7 +1,14 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 #![cfg_attr(
-    all(feature = "system", feature = "disk", feature = "component", feature = "network"),
+    all(
+        feature = "system",
+        feature = "disk",
+        feature = "component",
+        feature = "gpu",
+        feature = "network",
+        feature = "user"
+    ),
     doc = include_str!("../README.md")
 )]
 #![cfg_attr(
@@ -9,7 +16,9 @@
         feature = "system",
         feature = "disk",
         feature = "component",
-        feature = "network"
+        feature = "gpu",
+        feature = "network",
+        feature = "user"
     )),
     doc = "For crate-level documentation, all features need to be enabled."
 )]
