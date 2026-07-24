@@ -76,7 +76,6 @@ jobs:
           - { os: 'ubuntu-latest', target: 'i686-linux-android', cross: true }
         toolchain:
           - "1.95.0"  # minimum supported rust version
-          - nightly
     steps:
       - uses: actions/checkout@v4
       - name: Install toolchain
