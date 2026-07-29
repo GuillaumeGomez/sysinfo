@@ -1086,6 +1086,14 @@ impl Motherboard {
     pub fn asset_tag(&self) -> Option<String> {
         self.inner.asset_tag()
     }
+
+    /// Returns the motherboard's temperature sensors in degrees Celsius.
+    ///
+    /// Currently only implemented on Linux.
+    /// Returns an empty `Vec` if the information is not available.
+    pub fn temperatures(&self) -> Vec<f32> {
+        self.inner.temperatures()
+    }
 }
 
 /// This type allows to retrieve product-related information.
