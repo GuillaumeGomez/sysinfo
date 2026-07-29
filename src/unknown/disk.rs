@@ -59,6 +59,18 @@ impl DiskInner {
     pub(crate) fn usage(&self) -> DiskUsage {
         DiskUsage::default()
     }
+
+    pub(crate) fn temperature(&self) -> Option<f32> {
+        None
+    }
+
+    pub(crate) fn max(&self) -> Option<f32> {
+        None
+    }
+
+    pub(crate) fn critical(&self) -> Option<f32> {
+        None
+    }
 }
 
 pub(crate) struct DisksInner;
