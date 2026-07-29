@@ -3,8 +3,9 @@
 #![allow(clippy::too_many_arguments)]
 
 use std::collections::{HashMap, HashSet};
-use std::fs::File;
+use std::fs::{File, read_dir};
 use std::io::{BufRead, BufReader, Read};
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use crate::sys::utils::to_u64;
@@ -22,6 +23,8 @@ pub(crate) struct CpusWrapper {
     got_cpu_frequency: bool,
     /// This field is needed to prevent updating when not enough time passed since last update.
     last_update: Option<Instant>,
+    /// Resolved once when `self.cpus` is first populated.
+    cpu_temperature_sensor: Option<CpuTemperatureSensor>,
 }
 
 impl CpusWrapper {
@@ -31,6 +34,7 @@ impl CpusWrapper {
             cpus: Vec::with_capacity(4),
             got_cpu_frequency: false,
             last_update: None,
+            cpu_temperature_sensor: None,
         }
     }
 
@@ -179,6 +183,18 @@ impl CpusWrapper {
                 .for_each(|(pos, proc_)| proc_.inner.frequency = get_cpu_frequency(pos));
 
             self.got_cpu_frequency = true;
+        }
+
+        if first || refresh_kind.temperature() {
+            if first {
+                self.cpu_temperature_sensor =
+                    find_cpu_temperature_sensor(Path::new("/sys/class/hwmon"));
+            }
+            if let Some(sensor) = &self.cpu_temperature_sensor {
+                for cpu in &mut self.cpus {
+                    cpu.inner.update_temperature(sensor);
+                }
+            }
         }
     }
 
@@ -366,6 +382,9 @@ pub(crate) struct CpuInner {
     usage: CpuUsage,
     pub(crate) name: String,
     pub(crate) frequency: u64,
+    pub(crate) temperature: f32,
+    pub(crate) temperature_max: Option<f32>,
+    pub(crate) temperature_critical: Option<f32>,
     pub(crate) vendor_id: String,
     pub(crate) brand: String,
 }
@@ -393,6 +412,9 @@ impl CpuInner {
             ),
             name: name.to_owned(),
             frequency,
+            temperature: 0.0,
+            temperature_max: None,
+            temperature_critical: None,
             vendor_id,
             brand,
         }
@@ -429,12 +451,37 @@ impl CpuInner {
         self.frequency
     }
 
+    /// Returns the CPU temperature in degrees Celsius.
+    pub(crate) fn temperature(&self) -> f32 {
+        self.temperature
+    }
+
+    /// Returns the highest temperature (in degrees Celsius) recorded for this CPU.
+    pub(crate) fn max(&self) -> Option<f32> {
+        self.temperature_max
+    }
+
+    /// Returns the critical temperature threshold (in degrees Celsius) for this CPU, if known.
+    pub(crate) fn critical(&self) -> Option<f32> {
+        self.temperature_critical
+    }
+
     pub(crate) fn vendor_id(&self) -> &str {
         &self.vendor_id
     }
 
     pub(crate) fn brand(&self) -> &str {
         &self.brand
+    }
+
+    fn update_temperature(&mut self, sensor: &CpuTemperatureSensor) {
+        let Some(current) = read_temperature_celsius(&sensor.input) else {
+            return;
+        };
+        self.temperature = current;
+        self.temperature_max = read_temperature_celsius(&sensor.highest)
+            .or_else(|| Some(self.temperature_max.unwrap_or(current).max(current)));
+        self.temperature_critical = sensor.critical;
     }
 }
 
@@ -472,6 +519,93 @@ pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
         .and_then(|val| val.replace("MHz", "").trim().parse::<f64>().ok())
         .map(|speed| speed as u64)
         .unwrap_or_default()
+}
+
+/// Names of the `hwmon` drivers which expose **CPU** temperature sensors, in order of preference
+const CPU_HWMON_DRIVERS: &[&str] = &["coretemp", "k10temp", "zenpower", "cpu_thermal", "acpitz"];
+/// Labels of a sensor reporting a whole-package temperature, in order of preference.
+const CPU_PACKAGE_TEMP_LABELS: &[&str] = &["Package id 0", "Tctl", "Tdie"];
+
+fn read_line(path: &Path) -> Option<String> {
+    let mut buf = String::with_capacity(32);
+    File::open(path).ok()?.read_to_string(&mut buf).ok()?;
+    let len = buf.trim_end().len();
+    buf.truncate(len);
+    Some(buf)
+}
+
+/// Reads a `tempN_input`/`tempN_highest` sysfs file and converts it to Celsius.
+fn read_temperature_celsius(path: &Path) -> Option<f32> {
+    let mut buf = [0u8; 32];
+    let n = File::open(path).ok()?.read(&mut buf).ok()?;
+    std::str::from_utf8(&buf[..n])
+        .ok()?
+        .trim()
+        .parse::<i32>()
+        .ok()
+        .map(|milli_celsius| milli_celsius as f32 / 1000.0)
+}
+
+/// The sysfs files backing the CPU's temperature.
+#[derive(Clone, Debug, PartialEq)]
+struct CpuTemperatureSensor {
+    input: PathBuf,
+    /// May not exist, in which case `update_temperature` falls back to a running maximum.
+    highest: PathBuf,
+    critical: Option<f32>,
+}
+
+fn find_cpu_temperature_sensor(hwmon_root: &Path) -> Option<CpuTemperatureSensor> {
+    let hwmon_dir = read_dir(hwmon_root)
+        .ok()?
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let name = read_line(&path.join("name"))?;
+            let priority = CPU_HWMON_DRIVERS
+                .iter()
+                .position(|&driver| driver == name)?;
+            Some((priority, path))
+        })
+        .min_by_key(|(priority, _)| *priority)
+        .map(|(_, path)| path)?;
+
+    let mut sensors: Vec<(u32, Option<String>, CpuTemperatureSensor)> = read_dir(&hwmon_dir)
+        .ok()?
+        .flatten()
+        .filter_map(|entry| {
+            let input = entry.path();
+            let id = input
+                .file_name()?
+                .to_str()?
+                .strip_prefix("temp")?
+                .strip_suffix("_input")?
+                .parse::<u32>()
+                .ok()?;
+            let label = read_line(&hwmon_dir.join(format!("temp{id}_label")));
+            let critical = read_temperature_celsius(&hwmon_dir.join(format!("temp{id}_crit")));
+            Some((
+                id,
+                label,
+                CpuTemperatureSensor {
+                    input,
+                    highest: hwmon_dir.join(format!("temp{id}_highest")),
+                    critical,
+                },
+            ))
+        })
+        .collect();
+    sensors.sort_by_key(|(id, ..)| *id);
+
+    CPU_PACKAGE_TEMP_LABELS
+        .iter()
+        .find_map(|&wanted| {
+            sensors
+                .iter()
+                .find(|(_, label, _)| label.as_deref() == Some(wanted))
+        })
+        .or_else(|| sensors.first())
+        .map(|(_, _, sensor)| sensor.clone())
 }
 
 #[allow(unused_assignments)]
@@ -971,7 +1105,7 @@ BogoMIPS        : 38.40
 processor       : 7
 BogoMIPS        : 38.40
 
-Features        : swp half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 idiva idivt 
+Features        : swp half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 idiva idivt
 CPU implementer : 0x41
 CPU architecture: 7
 CPU variant     : 0x0 & 0x3
