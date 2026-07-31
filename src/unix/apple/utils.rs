@@ -56,14 +56,6 @@ cfg_select! {
                 IoObject::new(obj).map(Self)
             }
 
-            #[cfg(feature = "disk")]
-            #[cfg(target_os = "macos")]
-            pub(crate) unsafe fn new_unchecked(obj: u32) -> Self {
-                // Chance at catching in-development mistakes
-                debug_assert_ne!(obj, 0);
-                unsafe { Self(IoObject::new_unchecked(obj)) }
-            }
-
             #[inline]
             pub(crate) fn inner(&self) -> u32 {
                 self.0.get()

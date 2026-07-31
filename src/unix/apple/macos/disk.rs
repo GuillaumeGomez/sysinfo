@@ -29,8 +29,15 @@ where
         return None;
     }
 
-    // Safety: We checked for success, so there is always a valid iterator, even if its empty.
-    let service_iterator = unsafe { IOReleaser::new_unchecked(service_iterator) };
+    // IOServiceGetMatchingServices can return success with a null iterator on some macOS
+    // setups. Never construct a NonZero io_object_t from 0 (debug panic / release UB).
+    let service_iterator = match IOReleaser::new(service_iterator) {
+        Some(iterator) => iterator,
+        None => {
+            sysinfo_debug!("IOServiceGetMatchingServices succeeded but returned a null iterator");
+            return None;
+        }
+    };
 
     let mut parent_entry: io_registry_entry_t = 0;
 
