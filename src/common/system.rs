@@ -2864,7 +2864,7 @@ impl MemoryRefreshKind {
 /// // We want everything except memory.
 /// if let Ok(mut system) = System::new_with_specifics(RefreshKind::everything().without_memory()) {
 ///     assert_eq!(system.total_memory(), 0);
-///     # if sysinfo::IS_SUPPORTED_SYSTEM && !cfg!(feature = "apple-sandbox") {
+///     # if !cfg!(feature = "apple-sandbox") {
 ///     assert!(system.processes().len() > 0);
 ///     # }
 /// }
@@ -3154,9 +3154,8 @@ mod test {
         let Ok(mut s) = System::new() else { return };
         s.refresh_specifics(RefreshKind::everything());
 
-        if IS_SUPPORTED_SYSTEM {
+        if !cfg!(feature = "apple-sandbox") {
             // No process should have 0 as memory usage.
-            #[cfg(not(feature = "apple-sandbox"))]
             assert!(!s.processes().iter().all(|(_, proc_)| proc_.memory() == 0));
         } else {
             // There should be no process, but if there is one, its memory usage should be 0.
@@ -3186,7 +3185,7 @@ mod test {
         assert_eq!(s.used_swap(), 0);
 
         s.refresh_memory();
-        if IS_SUPPORTED_SYSTEM {
+        if !cfg!(feature = "apple-sandbox") {
             assert!(s.total_memory() > 0);
             assert!(s.used_memory() > 0);
             if s.total_swap() > 0 {

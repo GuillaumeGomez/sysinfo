@@ -1,5 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
+#[cfg(feature = "system")]
+use std::ffi::OsStr;
 #[cfg(any(feature = "disk", feature = "system"))]
 use std::fs::File;
 #[cfg(any(feature = "disk", feature = "system"))]
@@ -32,7 +34,7 @@ pub(crate) fn get_all_utf8_data<P: AsRef<Path>>(file_path: P, size: usize) -> io
 /// This type is used in `retrieve_all_new_process_info` because we have a "parent" path and
 /// from it, we `pop`/`join` every time because it's more memory efficient than using `Path::join`.
 #[cfg(feature = "system")]
-pub(crate) struct PathHandler(std::path::PathBuf);
+pub(crate) struct PathHandler(pub(crate) std::path::PathBuf);
 
 #[cfg(feature = "system")]
 impl PathHandler {
@@ -50,14 +52,14 @@ impl PathHandler {
 
 #[cfg(feature = "system")]
 pub(crate) trait PathPush {
-    fn replace_and_join(&mut self, p: &str) -> &Path;
+    fn replace_and_join<S: AsRef<OsStr> + ?Sized>(&mut self, p: &S) -> &Path;
 }
 
 #[cfg(feature = "system")]
 impl PathPush for PathHandler {
-    fn replace_and_join(&mut self, p: &str) -> &Path {
+    fn replace_and_join<S: AsRef<OsStr> + ?Sized>(&mut self, p: &S) -> &Path {
         self.0.pop();
-        self.0.push(p);
+        self.0.push(p.as_ref());
         self.as_path()
     }
 }
@@ -65,8 +67,8 @@ impl PathPush for PathHandler {
 // This implementation allows to skip one allocation that is done in `PathHandler`.
 #[cfg(feature = "system")]
 impl PathPush for std::path::PathBuf {
-    fn replace_and_join(&mut self, p: &str) -> &Path {
-        self.push(p);
+    fn replace_and_join<S: AsRef<OsStr> + ?Sized>(&mut self, p: &S) -> &Path {
+        self.push(p.as_ref());
         self.as_path()
     }
 }
