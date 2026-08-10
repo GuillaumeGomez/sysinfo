@@ -207,28 +207,17 @@ impl Connection {
     fn connect_server(mut self) -> Option<Connection> {
         let instance = self.instance.as_ref()?;
         let svc = unsafe {
-            let s = bstr!("root\\WMI");
-            let res = instance.ConnectServer(
-                &s,
+            instance.ConnectServer(
+                &bstr!("root\\WMI"),
                 &Default::default(),
                 &Default::default(),
                 &Default::default(),
                 0,
                 &Default::default(),
                 None,
-            );
-            // s is automatically freed when it goes out of scope
-            res
+            )
         }
-        let svc = instance.ConnectServer(
-            &bstr!("root\\WMI"),
-            &Default::default(),
-            &Default::default(),
-            &Default::default(),
-            0,
-            &Default::default(),
-            None,
-        ).ok()?;
+        .ok()?;
 
         self.server_connection = Some(svc);
         Some(self)
@@ -256,16 +245,12 @@ impl Connection {
         let server_connection = self.server_connection.as_ref()?;
 
         let enumerator = unsafe {
-            let s = bstr!("WQL"); // query kind
-            let query = bstr!("SELECT * FROM MSAcpi_ThermalZoneTemperature");
-            let hres = server_connection.ExecQuery(
-                &s,
-                &query,
+            server_connection.ExecQuery(
+                &bstr!("WQL"),
+                &bstr!("SELECT * FROM MSAcpi_ThermalZoneTemperature"),
                 WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
                 None,
-            );
-            // s & query are automatically freed when they go out of scope
-            hres
+            )
         }
         .ok()?;
 
