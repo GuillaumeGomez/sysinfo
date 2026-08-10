@@ -2,7 +2,7 @@
 
 use crate::{Component, Error};
 
-use windows::Win32::Foundation::{SysAllocString, SysFreeString};
+use windows::Win32::Foundation::SysAllocString;
 use windows::Win32::Security::PSECURITY_DESCRIPTOR;
 use windows::Win32::System::Com::{
     CLSCTX_INPROC_SERVER, CoCreateInstance, CoInitializeEx, CoInitializeSecurity,
@@ -217,7 +217,7 @@ impl Connection {
                 &Default::default(),
                 None,
             );
-            SysFreeString(&s);
+            // s is automatically freed when it goes out of scope
             res
         }
         .ok()?;
@@ -256,8 +256,7 @@ impl Connection {
                 WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
                 None,
             );
-            SysFreeString(&s);
-            SysFreeString(&query);
+            // s & query are automatically freed when they go out of scope
             hres
         }
         .ok()?;
