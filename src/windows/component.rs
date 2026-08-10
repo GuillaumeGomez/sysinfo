@@ -2,7 +2,7 @@
 
 use crate::{Component, Error};
 
-use windows::Win32::Foundation::{SysAllocString, SysFreeString};
+use windows::Win32::Foundation::SysAllocString;
 use windows::Win32::Security::PSECURITY_DESCRIPTOR;
 use windows::Win32::System::Com::{
     CLSCTX_INPROC_SERVER, CoCreateInstance, CoInitializeEx, CoInitializeSecurity,
@@ -207,18 +207,15 @@ impl Connection {
     fn connect_server(mut self) -> Option<Connection> {
         let instance = self.instance.as_ref()?;
         let svc = unsafe {
-            let s = bstr!("root\\WMI");
-            let res = instance.ConnectServer(
-                &s,
+            instance.ConnectServer(
+                &bstr!("root\\WMI"),
                 &Default::default(),
                 &Default::default(),
                 &Default::default(),
                 0,
                 &Default::default(),
                 None,
-            );
-            SysFreeString(&s);
-            res
+            )
         }
         .ok()?;
 
@@ -248,17 +245,12 @@ impl Connection {
         let server_connection = self.server_connection.as_ref()?;
 
         let enumerator = unsafe {
-            let s = bstr!("WQL"); // query kind
-            let query = bstr!("SELECT * FROM MSAcpi_ThermalZoneTemperature");
-            let hres = server_connection.ExecQuery(
-                &s,
-                &query,
+            server_connection.ExecQuery(
+                &bstr!("WQL"),
+                &bstr!("SELECT * FROM MSAcpi_ThermalZoneTemperature"),
                 WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
                 None,
-            );
-            SysFreeString(&s);
-            SysFreeString(&query);
-            hres
+            )
         }
         .ok()?;
 
