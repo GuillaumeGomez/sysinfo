@@ -220,7 +220,15 @@ impl Connection {
             // s is automatically freed when it goes out of scope
             res
         }
-        .ok()?;
+        let svc = instance.ConnectServer(
+            &bstr!("root\\WMI"),
+            &Default::default(),
+            &Default::default(),
+            &Default::default(),
+            0,
+            &Default::default(),
+            None,
+        ).ok()?;
 
         self.server_connection = Some(svc);
         Some(self)
