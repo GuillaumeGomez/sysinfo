@@ -122,10 +122,6 @@ pub(crate) fn get_users(users: &mut Vec<crate::User>) {
     use std::io::{BufRead, BufReader};
     use std::str::FromStr;
 
-    fn filter(shell: &str, uid: libc::uid_t) -> bool {
-        uid < 65536 && !shell.ends_with("/false") && !shell.ends_with("/uucico")
-    }
-
     users.clear();
 
     // We cannot use `getpwent`, `setpwent` and `endpwent` because they're not thread-safe. The
@@ -151,13 +147,8 @@ pub(crate) fn get_users(users: &mut Vec<crate::User>) {
         let Some(gid) = parts.next().and_then(|v| libc::gid_t::from_str(v).ok()) else {
             continue;
         };
-        parts.next(); // We skip the "comment" field.
-        parts.next(); // We skip the directory field.
-        let Some(shell) = parts.next() else { continue };
+        // We don't need the rest of the fields (comment, directory, shell).
 
-        if !filter(shell, uid) {
-            continue;
-        }
         users_map.insert(name.into(), (Uid(uid), Gid(gid)));
     }
 
