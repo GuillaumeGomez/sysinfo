@@ -34,7 +34,7 @@ pub(crate) fn get_all_utf8_data<P: AsRef<Path>>(file_path: P, size: usize) -> io
 /// This type is used in `retrieve_all_new_process_info` because we have a "parent" path and
 /// from it, we `pop`/`join` every time because it's more memory efficient than using `Path::join`.
 #[cfg(feature = "system")]
-pub(crate) struct PathHandler(std::path::PathBuf);
+pub(crate) struct PathHandler(pub(crate) std::path::PathBuf);
 
 #[cfg(feature = "system")]
 impl PathHandler {

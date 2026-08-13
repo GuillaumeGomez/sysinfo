@@ -368,6 +368,23 @@ impl ProcessInner {
     }
 }
 
+#[cfg(feature = "gpu")]
+fn read_link(path: &Path, buf: &mut [u8; 4096]) -> Option<usize> {
+    let Ok(c_path) = std::ffi::CString::new(path.as_os_str().as_bytes()) else {
+        return None;
+    };
+
+    let res = unsafe {
+        retry_eintr!(libc::readlink(
+            c_path.as_ptr(),
+            buf.as_mut_ptr() as *mut libc::c_char,
+            buf.len(),
+        ))
+    };
+
+    if res < 1 { None } else { Some(res as usize) }
+}
+
 // Maybe something to do in the future: if it's not an AMD or NVIDIA GPU, we can still compute the
 // total % usage by adding all processes GPU time. However: we need to have access to `Gpus` all the
 // time, so likely needs to be part of `System`, just like `Cpu`. Not really worth it since it comes
@@ -380,7 +397,6 @@ fn compute_gpu_usage(
     now: Instant,
     refresh_kind: ProcessRefreshKind,
 ) {
-    use std::borrow::Cow;
     use std::fs::File;
 
     let Ok(dir) = read_dir(proc_path.replace_and_join("fdinfo")) else {
@@ -389,22 +405,32 @@ fn compute_gpu_usage(
     };
     // 4096 is the limit used in htop so why not.
     let mut buf = [0u8; 4096];
-    let mut gpus = HashSet::new();
+    let mut gpus: Vec<(String, String)> = Vec::with_capacity(2);
     let mut total_time: u64 = 0;
     let mut total_memory: u64 = 0;
     let mut found_memory = false;
 
     let mut fd_proc_path = PathHandler::new(proc_path.replace_and_join("fd"));
 
-    'main: for entry in dir.flatten().filter(|entry| {
+    // We add an extra file name that will replaced at every iteration.
+    proc_path.replace_and_join("fdinfo/0");
+
+    'main: for entry in dir.flatten() {
         let file_name = entry.file_name();
-        let Ok(target) = fs::read_link(fd_proc_path.replace_and_join(&file_name)) else {
-            return false;
+        if file_name.as_bytes().get(0) == Some(&b'.') {
+            continue;
+        }
+        let Some(size) = read_link(fd_proc_path.replace_and_join(&file_name), &mut buf) else {
+            continue;
         };
-        let target_bytes = target.as_os_str().as_bytes();
-        matches!(target_bytes.strip_prefix(b"/dev/"), Some(part) if part != b"null")
-    }) {
-        let buf = if let Ok(mut file) = File::open(entry.path())
+        let target_bytes = &buf[..size];
+        if !matches!(
+            target_bytes.strip_prefix(b"/dev/"),
+            Some(part) if part.starts_with(b"dri/") || part.starts_with(b"accel/")
+        ) {
+            continue;
+        }
+        let buf = if let Ok(mut file) = File::open(proc_path.replace_and_join(&file_name))
             && let Ok(read) = file.read(&mut buf)
         {
             &buf[..read]
@@ -460,7 +486,7 @@ fn compute_gpu_usage(
                         b'M' | b'm' => Some(value / 1024 / 1024),
                         b'G' | b'g' => Some(value / 1024 / 1024 / 1024),
                         _ => {
-                            eprintln!("Unknown GPU memory unit {unit:?}");
+                            eprintln!("Unknown GPU memory unit {unit:?} in {:?}", entry.path());
                             None
                         }
                     };
@@ -473,7 +499,10 @@ fn compute_gpu_usage(
                 && let Some(ref gpu_id) = gpu_id
                 && let Some(ref pci) = pci
             {
-                if gpus.contains(&(Cow::Borrowed(gpu_id), Cow::Borrowed(pci))) {
+                if gpus
+                    .iter()
+                    .any(|(s_id, s_pci)| s_id == gpu_id && s_pci == pci)
+                {
                     // We already checked this GPU so ignoring it.
                     continue 'main;
                 }
@@ -483,8 +512,11 @@ fn compute_gpu_usage(
         // This is the fallback in case the gpu memory or time wasn't retrieved.
         if let Some(gpu_id) = gpu_id
             && let Some(pci) = pci
-            && gpus.insert((Cow::Owned(gpu_id), Cow::Owned(pci)))
+            && !gpus
+                .iter()
+                .any(|(s_id, s_pci)| *s_id == gpu_id && *s_pci == pci)
         {
+            gpus.push((gpu_id, pci));
             if let Some(gpu_time) = gpu_time {
                 total_time = total_time.saturating_add(gpu_time);
             }
