@@ -371,17 +371,13 @@ impl ProcessInner {
 #[cfg(feature = "gpu")]
 mod gpu {
     use super::*;
-    use std::ffi::CString;
 
     // Faster `readlink` implementation which skips allocations by reusing a same buffer.
-    fn read_link(path: &Path, buf: &mut [u8; 4096]) -> Option<usize> {
-        let Ok(c_path) = CString::new(path.as_os_str().as_bytes()) else {
-            return None;
-        };
-
+    fn read_link(dir: &Dir, file_name: &[libc::c_char], buf: &mut [u8; 4096]) -> Option<usize> {
         let res = unsafe {
-            retry_eintr!(libc::readlink(
-                c_path.as_ptr(),
+            retry_eintr!(libc::readlinkat(
+                dir.dir_fd,
+                file_name.as_ptr(),
                 buf.as_mut_ptr() as *mut libc::c_char,
                 buf.len(),
             ))
@@ -392,39 +388,31 @@ mod gpu {
 
     struct Dir {
         dir_fd: libc::c_int,
-        // If we use an array instead of a Vec here, we get unaligned memory errors when we go
-        // through the `dirent64` entries. So sadly, we need to go through the allocation...
-        buf: Vec<u8>,
     }
 
     impl Dir {
-        fn new(path: &Path) -> Option<Self> {
+        fn new(path: &[u8]) -> Option<Self> {
             unsafe {
-                let c_path = CString::new(path.as_os_str().as_bytes()).ok()?;
-                let dir_fd = libc::open(
-                    c_path.as_ptr(),
+                let dir_fd = retry_eintr!(libc::open(
+                    path.as_ptr() as *const _,
                     libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_DIRECTORY | libc::O_CLOEXEC,
-                );
+                ));
                 if dir_fd < 0 {
                     None
                 } else {
-                    Some(Self {
-                        dir_fd,
-                        // 20 dir entries at once should be enough.
-                        buf: vec![0; std::mem::size_of::<libc::dirent64>() * 20],
-                    })
+                    Some(Self { dir_fd })
                 }
             }
         }
 
-        fn update_dents_buf(&mut self) -> Result<Option<usize>, ()> {
+        fn update_dents_buf(&self, buf: &mut [u8]) -> Result<Option<usize>, ()> {
             unsafe {
-                let read = libc::syscall(
+                let read = retry_eintr!(libc::syscall(
                     libc::SYS_getdents64,
                     self.dir_fd,
-                    self.buf.as_mut_ptr() as *mut _,
-                    self.buf.len() as libc::c_int,
-                );
+                    buf.as_mut_ptr() as *mut _,
+                    buf.len() as libc::c_int,
+                ));
                 if read < 0 {
                     sysinfo_debug!("getdents64 failed");
                     Err(())
@@ -436,12 +424,15 @@ mod gpu {
             }
         }
 
-        fn iter(&mut self) -> Result<Option<DirIter<'_>>, ()> {
-            if let Some(read) = self.update_dents_buf()? {
+        fn iter(&self) -> Result<Option<DirIter<'_>>, ()> {
+            // 20 dir entries at once should be enough.
+            let mut buf = vec![0; std::mem::size_of::<libc::dirent64>() * 20];
+            if let Some(read) = self.update_dents_buf(&mut buf)? {
                 Ok(Some(DirIter {
                     read,
                     pos: 0,
                     dir: self,
+                    buf,
                 }))
             } else {
                 Ok(None)
@@ -460,17 +451,20 @@ mod gpu {
     struct DirIter<'a> {
         pos: usize,
         read: usize,
-        dir: &'a mut Dir,
+        dir: &'a Dir,
+        // If we use an array instead of a Vec here, we get unaligned memory errors when we go
+        // through the `dirent64` entries. So sadly, we need to go through the allocation...
+        buf: Vec<u8>,
     }
 
     impl<'a> Iterator for DirIter<'a> {
-        type Item = &'a [u8];
+        type Item = &'a [libc::c_char];
 
         fn next(&mut self) -> Option<Self::Item> {
             loop {
                 unsafe {
                     if self.pos >= self.read {
-                        if let Ok(Some(read)) = self.dir.update_dents_buf() {
+                        if let Ok(Some(read)) = self.dir.update_dents_buf(&mut self.buf) {
                             self.read = read;
                             self.pos = 0;
                         } else {
@@ -478,7 +472,7 @@ mod gpu {
                             return None;
                         }
                     }
-                    let dir_entry = self.dir.buf.as_ptr().add(self.pos) as *const libc::dirent64;
+                    let dir_entry = self.buf.as_ptr().add(self.pos) as *const libc::dirent64;
                     let dir_entry = &*dir_entry;
                     self.pos += dir_entry.d_reclen as usize;
 
@@ -486,21 +480,9 @@ mod gpu {
                     if dir_entry.d_name[0] == b'.' as i8 {
                         continue;
                     }
-                    // If it's an invalid name, we ignore it.
-                    if let Some(name) = slice_to_slice_without_0(&dir_entry.d_name) {
-                        return Some(name);
-                    }
+                    return Some(&dir_entry.d_name);
                 }
             }
-        }
-    }
-
-    fn slice_to_slice_without_0(slice: &[libc::c_char]) -> Option<&[u8]> {
-        unsafe {
-            slice
-                .split(|c| *c == 0)
-                .next()
-                .map(|s| std::slice::from_raw_parts(s.as_ptr() as *const u8, s.len()))
         }
     }
 
@@ -516,30 +498,36 @@ mod gpu {
         refresh_kind: ProcessRefreshKind,
     ) {
         use std::fs::File;
+        use std::os::fd::FromRawFd;
 
-        let Some(mut dir) = Dir::new(proc_path.replace_and_join("fdinfo")) else {
-            return;
-        };
+        // CString is apparently expensive, so we do our own...
+        let path = proc_path.replace_and_join("fdinfo").as_os_str().as_bytes();
+        let mut c_path = Vec::with_capacity(path.len() + 1);
+        c_path.extend_from_slice(path);
+        c_path.push(0);
+        let Some(dir) = Dir::new(&c_path) else { return };
 
         let mut total_time: u64 = 0;
         let mut total_memory: u64 = 0;
         let mut found_memory = false;
-        if let Ok(Some(dir_iter)) = dir.iter() {
+        let dir_fd = dir.dir_fd;
+        if let Ok(Some(dir_iter)) = dir.iter()
+            && let Some(fd_dir) = {
+                // We remove the `info\0` part.
+                c_path.truncate(c_path.len() - 5);
+                c_path.push(0);
+                Dir::new(&c_path)
+            }
+        {
             // 4096 is the limit used in htop so why not.
             let mut buf = [0u8; 4096];
             let mut gpus: Vec<(String, String)> = Vec::with_capacity(2);
 
-            let mut fd_proc_path = PathHandler::new(proc_path.replace_and_join("fd"));
-
-            // We add an extra file name that will replaced at every iteration.
-            proc_path.replace_and_join("fdinfo/0");
-
             'main: for file_name in dir_iter {
                 // SAFETY: `d_name` is always valid UTF8 if it comes from `getdents64`/`readdir`
                 // otherwise rust always provide valid UTF8 strings.
-                let file_name = unsafe { std::ffi::OsStr::from_encoded_bytes_unchecked(file_name) };
-                let Some(size) = read_link(fd_proc_path.replace_and_join(&file_name), &mut buf)
-                else {
+
+                let Some(size) = read_link(&fd_dir, file_name, &mut buf) else {
                     continue;
                 };
                 let target_bytes = &buf[..size];
@@ -549,12 +537,18 @@ mod gpu {
                 ) {
                     continue;
                 }
-                let buf = if let Ok(mut file) = File::open(proc_path.replace_and_join(&file_name))
-                    && let Ok(read) = file.read(&mut buf)
-                {
-                    &buf[..read]
-                } else {
-                    continue;
+                let buf = unsafe {
+                    let fd = retry_eintr!(libc::openat(dir_fd, file_name.as_ptr(), libc::O_RDONLY));
+                    if fd < 0 {
+                        continue;
+                    }
+                    if let mut file = File::from_raw_fd(fd)
+                        && let Ok(read) = file.read(&mut buf)
+                    {
+                        &buf[..read]
+                    } else {
+                        continue;
+                    }
                 };
                 let mut gpu_id = None;
                 let mut pci = None;
