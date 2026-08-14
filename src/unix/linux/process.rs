@@ -535,8 +535,8 @@ mod gpu {
             proc_path.replace_and_join("fdinfo/0");
 
             'main: for file_name in dir_iter {
-                // SAFETY: `d_name` is always valid UTF8 if it comes from `getents64`/`readdir` otherwise
-                // rust always provide valid UTF8 strings.
+                // SAFETY: `d_name` is always valid UTF8 if it comes from `getdents64`/`readdir`
+                // otherwise rust always provide valid UTF8 strings.
                 let file_name = unsafe { std::ffi::OsStr::from_encoded_bytes_unchecked(file_name) };
                 let Some(size) = read_link(fd_proc_path.replace_and_join(&file_name), &mut buf)
                 else {
@@ -582,7 +582,7 @@ mod gpu {
                     } else if let Some(line) = line.strip_prefix(b"engine-") {
                         if refresh_kind.gpu_usage()
                             && !line.starts_with(b"capacity-")
-                            && line.ends_with(b" ns")
+                            && let Some(line) = line.strip_suffix(b" ns")
                             && let Some(nb) = line.split(|c| *c == b':').nth(1)
                             && let Ok(nb) = str::from_utf8(nb)
                             && let Ok(nb) = nb.trim().parse::<u64>()
@@ -593,7 +593,9 @@ mod gpu {
                     } else if let Some(line) = line.strip_prefix(b"total-") {
                         if refresh_kind.gpu_memory()
                             && let Some(nb) = line.splitn(2, |c| *c == b':').nth(1)
-                            && let mut nb = nb.split(|c| *c == b' ')
+                            && let mut nb = nb
+                                .split(|c| *c == b' ' || *c == b'\t')
+                                .filter(|s| !s.is_empty())
                             && let Some(value) = nb.next()
                             && let Some(unit) = nb.next()
                             && let Ok(value) = str::from_utf8(value)
@@ -601,9 +603,9 @@ mod gpu {
                             && unit.len() > 0
                         {
                             gpu_memory = match unit[0] {
-                                b'K' | b'k' => Some(value / 1024),
-                                b'M' | b'm' => Some(value / 1024 / 1024),
-                                b'G' | b'g' => Some(value / 1024 / 1024 / 1024),
+                                b'K' | b'k' => Some(value * 1024),
+                                b'M' | b'm' => Some(value * 1024 * 1024),
+                                b'G' | b'g' => Some(value * 1024 * 1024 * 1024),
                                 _ => {
                                     eprintln!(
                                         "Unknown GPU memory unit {unit:?} in {:?}",
