@@ -527,8 +527,8 @@ pub fn compute_gpu_usage(
         proc_path.replace_and_join("fdinfo/0");
 
         'main: for file_name in dir_iter {
-            // SAFETY: `d_name` is always valid UTF8 if it comes from `getents64`/`readdir` otherwise
-            // rust always provide valid UTF8 strings.
+            // SAFETY: `d_name` is always valid UTF8 if it comes from `getdents64`/`readdir`
+            // otherwise rust always provide valid UTF8 strings.
             let file_name = unsafe { std::ffi::OsStr::from_encoded_bytes_unchecked(file_name) };
             let Some(size) = read_link(fd_proc_path.replace_and_join(&file_name), &mut buf) else {
                 continue;

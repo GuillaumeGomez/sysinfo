@@ -290,6 +290,7 @@ impl System {
     ///         .with_cpu()
     ///         .with_disk_usage()
     ///         .with_exe(UpdateKind::OnlyIfNotSet)
+    ///         .with_tasks()
     /// );
     /// # }
     /// ```
