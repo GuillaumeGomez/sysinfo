@@ -45,6 +45,7 @@ impl PathHandler {
         Self(path.as_ref().join("a"))
     }
 
+    #[inline(always)]
     pub(crate) fn as_path(&self) -> &Path {
         &self.0
     }
@@ -57,6 +58,7 @@ pub(crate) trait PathPush {
 
 #[cfg(feature = "system")]
 impl PathPush for PathHandler {
+    #[inline(always)]
     fn replace_and_join<S: AsRef<OsStr> + ?Sized>(&mut self, p: &S) -> &Path {
         self.0.pop();
         self.0.push(p.as_ref());
@@ -67,6 +69,7 @@ impl PathPush for PathHandler {
 // This implementation allows to skip one allocation that is done in `PathHandler`.
 #[cfg(feature = "system")]
 impl PathPush for std::path::PathBuf {
+    #[inline(always)]
     fn replace_and_join<S: AsRef<OsStr> + ?Sized>(&mut self, p: &S) -> &Path {
         self.push(p.as_ref());
         self.as_path()
