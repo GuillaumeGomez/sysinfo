@@ -374,16 +374,16 @@ mod gpu {
 
     // Faster `readlink` implementation which skips allocations by reusing a same buffer.
     fn read_link(dir: &Dir, file_name: &[libc::c_char], buf: &mut [u8; 4096]) -> Option<usize> {
-        let res = unsafe {
-            retry_eintr!(libc::readlinkat(
+        unsafe {
+            let res = libc::readlinkat(
                 dir.dir_fd,
                 file_name.as_ptr(),
                 buf.as_mut_ptr() as *mut libc::c_char,
                 buf.len(),
-            ))
-        };
+            );
 
-        if res < 1 { None } else { Some(res as usize) }
+            if res < 1 { None } else { Some(res as usize) }
+        }
     }
 
     struct Dir {
@@ -407,12 +407,12 @@ mod gpu {
 
         fn update_dents_buf(&self, buf: &mut [u8]) -> Result<Option<usize>, ()> {
             unsafe {
-                let read = retry_eintr!(libc::syscall(
+                let read = libc::syscall(
                     libc::SYS_getdents64,
                     self.dir_fd,
                     buf.as_mut_ptr() as *mut _,
                     buf.len() as libc::c_int,
-                ));
+                );
                 if read < 0 {
                     sysinfo_debug!("getdents64 failed");
                     Err(())
