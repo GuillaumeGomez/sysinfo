@@ -63,6 +63,11 @@ impl CpusWrapper {
                 Ok(f) => f,
                 Err(_e) => {
                     sysinfo_debug!("failed to retrieve CPU information: {:?}", _e);
+                    #[cfg(target_os = "android")]
+                    if first {
+                        self.cpus =
+                            build_cpus_from_cpuinfo(vendors_brands, refresh_kind.frequency());
+                    }
                     return;
                 }
             };
@@ -753,6 +758,49 @@ fn get_arm_part(implementer: u32, part: u32) -> Option<&'static str> {
 
         _ => return None,
     })
+}
+
+/// Builds a CPU list from `/proc/cpuinfo` when `/proc/stat` is unreadable
+/// (blocked by SELinux for apps since Android 8).
+///
+/// Note: `cpu_usage()` will remain `0.0` for these CPUs — usage percentages
+/// require successive `/proc/stat` snapshots, and there is no public
+/// Android API providing equivalent per-CPU tick counters.
+#[cfg(target_os = "android")]
+fn build_cpus_from_cpuinfo(
+    vendors_brands: HashMap<usize, (String, String)>,
+    refresh_frequency: bool,
+) -> Vec<Cpu> {
+    let mut cpus = vendors_brands.into_iter().collect::<Vec<_>>();
+    cpus.sort_unstable_by_key(|(index, _)| *index);
+
+    cpus.into_iter()
+        .map(|(index, (vendor_id, brand))| {
+            let name = format!("cpu{index}");
+            Cpu {
+                inner: CpuInner::new_with_values(
+                    &name,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    if refresh_frequency {
+                        get_cpu_frequency(index)
+                    } else {
+                        0
+                    },
+                    vendor_id,
+                    brand,
+                ),
+            }
+        })
+        .collect()
 }
 
 /// Returns the brand/vendor string for the first CPU (which should be the same for all CPUs).
