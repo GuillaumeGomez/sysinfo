@@ -117,6 +117,45 @@ pub(crate) unsafe fn get_user_groups(
     }
 }
 
+#[cfg(target_os = "android")]
+fn add_current_user(users: &mut Vec<crate::User>) {
+    let uid = unsafe { libc::getuid() };
+    if users.iter().any(|user| user.inner.uid.0 == uid) {
+        return;
+    }
+
+    let mut passwd = std::mem::MaybeUninit::<libc::passwd>::uninit();
+    let mut result = std::ptr::null_mut();
+    let mut buffer = Vec::<libc::c_char>::with_capacity(2048);
+
+    unsafe {
+        loop {
+            let ret = libc::getpwuid_r(
+                uid,
+                passwd.as_mut_ptr(),
+                buffer.as_mut_ptr(),
+                buffer.capacity(),
+                &mut result,
+            );
+            if ret == libc::ERANGE {
+                buffer = Vec::with_capacity(buffer.capacity().saturating_mul(2).max(2048));
+                continue;
+            }
+            if ret != 0 || result.is_null() {
+                return;
+            }
+            break;
+        }
+
+        let passwd = passwd.assume_init();
+        if let Some(name) = super::utils::cstr_to_rust(passwd.pw_name) {
+            users.push(crate::User {
+                inner: UserInner::new(Uid(passwd.pw_uid), Gid(passwd.pw_gid), name),
+            });
+        }
+    }
+}
+
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub(crate) fn get_users(users: &mut Vec<crate::User>) {
     use std::io::{BufRead, BufReader};
@@ -133,6 +172,8 @@ pub(crate) fn get_users(users: &mut Vec<crate::User>) {
     // ourselves...
     let Ok(file) = std::fs::File::open("/etc/passwd") else {
         sysinfo_debug!("failed to open `/etc/passwd`");
+        #[cfg(target_os = "android")]
+        add_current_user(users);
         return;
     };
     let mut users_map = std::collections::HashMap::with_capacity(10);
@@ -166,6 +207,9 @@ pub(crate) fn get_users(users: &mut Vec<crate::User>) {
             inner: UserInner::new(uid, gid, name),
         });
     }
+
+    #[cfg(target_os = "android")]
+    add_current_user(users);
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
