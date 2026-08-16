@@ -62,11 +62,15 @@ impl CpusWrapper {
             let f = match File::open("/proc/stat") {
                 Ok(f) => f,
                 Err(_e) => {
+                    #[cfg(not(target_os = "android"))]
                     sysinfo_debug!("failed to retrieve CPU information: {:?}", _e);
                     #[cfg(target_os = "android")]
-                    if first {
-                        self.cpus =
-                            build_cpus_from_cpuinfo(vendors_brands, refresh_kind.frequency());
+                    {
+                        sysinfo_debug!("failed to retrieve CPU usage information: {:?}", _e);
+                        if first {
+                            self.cpus =
+                                build_cpus_from_cpuinfo(vendors_brands, refresh_kind.frequency());
+                        }
                     }
                     return;
                 }
