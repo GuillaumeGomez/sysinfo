@@ -127,18 +127,26 @@ fn add_current_user(users: &mut Vec<crate::User>) {
     let mut passwd = std::mem::MaybeUninit::<libc::passwd>::uninit();
     let mut result = std::ptr::null_mut();
     let mut buffer = Vec::<libc::c_char>::with_capacity(2048);
+    let mut last_errno: libc::c_int;
 
     unsafe {
         loop {
-            let ret = libc::getpwuid_r(
+            last_errno = 0;
+            let ret = retry_eintr!(set_to_0 => last_errno => libc::getpwuid_r(
                 uid,
                 passwd.as_mut_ptr(),
                 buffer.as_mut_ptr(),
                 buffer.capacity(),
                 &mut result,
-            );
-            if ret == libc::ERANGE {
-                buffer = Vec::with_capacity(buffer.capacity().saturating_mul(2).max(2048));
+            ));
+            if ret == libc::EINTR {
+                continue;
+            }
+            if ret == libc::ERANGE || last_errno == libc::ERANGE {
+                let Some(capacity) = buffer.capacity().checked_mul(2) else {
+                    return;
+                };
+                buffer = Vec::with_capacity(capacity);
                 continue;
             }
             if ret != 0 || result.is_null() {
