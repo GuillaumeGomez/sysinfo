@@ -34,6 +34,7 @@ use windows::Win32::Foundation::{
 use windows::Win32::Security::{GetTokenInformation, TOKEN_QUERY, TOKEN_USER, TokenUser};
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::Diagnostics::ToolHelp::PROCESSENTRY32W;
+use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
 use windows::Win32::System::Memory::{
     GetProcessHeap, HEAP_ZERO_MEMORY, HeapAlloc, HeapFree, MEMORY_BASIC_INFORMATION, VirtualQueryEx,
 };
@@ -46,10 +47,14 @@ use windows::Win32::System::Threading::{
     CREATE_NO_WINDOW, GetExitCodeProcess, GetProcessHandleCount, GetProcessIoCounters,
     GetProcessTimes, GetSystemTimes, IO_COUNTERS, OpenProcess, OpenProcessToken, PEB,
     PROCESS_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
-    PROCESS_VM_READ,
+    PROCESS_SUSPEND_RESUME, PROCESS_TERMINATE, PROCESS_VM_READ, TerminateProcess,
 };
 use windows::Win32::UI::Shell::CommandLineToArgvW;
 use windows::core::PCWSTR;
+use windows::core::{PCSTR, s, w};
+
+type NtSuspendProcess = unsafe extern "system" fn(HANDLE) -> i32;
+type NtResumeProcess = unsafe extern "system" fn(HANDLE) -> i32;
 
 use super::MINIMUM_CPU_UPDATE_INTERVAL;
 
@@ -64,30 +69,73 @@ impl fmt::Display for ProcessStatus {
     }
 }
 
+fn call_ntdll(handle: HANDLE, name: PCSTR, is_suspend: bool) -> Result<(), ()> {
+    unsafe {
+        let ntdll = GetModuleHandleW(w!("ntdll.dll")).map_err(|_| ())?;
+
+        let proc = GetProcAddress(ntdll, name).ok_or(())?;
+
+        let status = if is_suspend {
+            let f: NtSuspendProcess = std::mem::transmute(proc);
+            f(handle)
+        } else {
+            let f: NtResumeProcess = std::mem::transmute(proc);
+            f(handle)
+        };
+
+        if status != 0 {
+            return Err(());
+        }
+        Ok(())
+    }
+}
+
 fn get_process_handler(pid: Pid) -> Option<HandleWrapper> {
     if pid.0 == 0 {
         return None;
     }
-    let options = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
 
-    HandleWrapper::new(unsafe { OpenProcess(options, false, pid.0 as u32).unwrap_or_default() })
-        .or_else(|| {
-            sysinfo_debug!(
-                "OpenProcess failed, error: {:?}",
-                io::Error::last_os_error()
-            );
-            HandleWrapper::new(unsafe {
-                OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid.0 as u32)
-                    .unwrap_or_default()
-            })
+    HandleWrapper::new(unsafe {
+        OpenProcess(
+            PROCESS_QUERY_INFORMATION
+                | PROCESS_VM_READ
+                | PROCESS_SUSPEND_RESUME
+                | PROCESS_TERMINATE,
+            false,
+            pid.0 as u32,
+        )
+        .unwrap_or_default()
+    })
+    .or_else(|| {
+        sysinfo_debug!(
+            "OpenProcess query failed, error: {:?}",
+            io::Error::last_os_error()
+        );
+        HandleWrapper::new(unsafe {
+            OpenProcess(
+                PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+                false,
+                pid.0 as u32,
+            )
+            .unwrap_or_default()
         })
-        .or_else(|| {
-            sysinfo_debug!(
-                "OpenProcess limited failed, error: {:?}",
-                io::Error::last_os_error()
-            );
-            None
+    })
+    .or_else(|| {
+        sysinfo_debug!(
+            "OpenProcess failed, error: {:?}",
+            io::Error::last_os_error()
+        );
+        HandleWrapper::new(unsafe {
+            OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid.0 as u32).unwrap_or_default()
         })
+    })
+    .or_else(|| {
+        sysinfo_debug!(
+            "OpenProcess limited failed, error: {:?}",
+            io::Error::last_os_error()
+        );
+        None
+    })
 }
 
 unsafe fn get_process_user_id(process: &mut ProcessInner, refresh_kind: ProcessRefreshKind) {
@@ -366,7 +414,29 @@ impl ProcessInner {
         self.handle.as_ref().map(|h| ***h)
     }
 
+    pub fn kill_with_win32(&self, signal: Signal) -> Option<bool> {
+        let Some(h) = self.handle.as_ref().map(|handle| handle.0) else {
+            return Some(false);
+        };
+
+        let res = match signal {
+            Signal::Kill => unsafe { TerminateProcess(h, 1) }.map_err(|_| ()),
+            Signal::Stop => call_ntdll(h, s!("NtSuspendProcess"), true).map_err(|_| ()),
+            Signal::Continue => call_ntdll(h, s!("NtResumeProcess"), false).map_err(|_| ()),
+            _ => Err(()),
+        };
+
+        match res {
+            Ok(()) => Some(true),
+            Err(()) => Some(false),
+        }
+    }
+
     pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
+        if let Some(true) = self.kill_with_win32(signal) {
+            return Some(true);
+        };
+
         crate::sys::system::convert_signal(signal)?;
         let mut kill = process::Command::new("taskkill.exe");
         kill.arg("/PID").arg(self.pid.to_string()).arg("/F");
