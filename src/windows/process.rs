@@ -108,7 +108,7 @@ fn get_process_handler(pid: Pid) -> Option<HandleWrapper> {
     })
     .or_else(|| {
         sysinfo_debug!(
-            "OpenProcess query failed, error: {:?}",
+            "OpenProcess failed, error: {:?}",
             io::Error::last_os_error()
         );
         HandleWrapper::new(unsafe {
@@ -122,7 +122,7 @@ fn get_process_handler(pid: Pid) -> Option<HandleWrapper> {
     })
     .or_else(|| {
         sysinfo_debug!(
-            "OpenProcess failed, error: {:?}",
+            "OpenProcess query failed, error: {:?}",
             io::Error::last_os_error()
         );
         HandleWrapper::new(unsafe {
