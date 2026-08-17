@@ -42,6 +42,7 @@ pid                : displays this example's PID
 brand              : displays CPU brand
 cpus               : displays CPUs state
 frequency          : displays CPU frequency
+cpu_temperature    : displays CPU temperature
 vendor_id          : displays CPU vendor id
 
 = GPU commands =
@@ -174,6 +175,10 @@ fn interpret_input(
                         Some(usage) => println!("  usage: {usage}%"),
                         None => println!("  usage: N/A"),
                     }
+                    match gpu.temperature() {
+                        Some(temp) => println!("  temperature: {temp}C"),
+                        None => println!("  temperature: N/A"),
+                    }
                     if let (Some(used), Some(total)) = (gpu.used_memory(), gpu.total_memory()) {
                         println!("  memory: {}/{} KB", used / 1_000, total / 1_000);
                     } else {
@@ -220,6 +225,23 @@ fn interpret_input(
             Ok(sys) => {
                 for cpu in sys.cpus() {
                     println!("[{}] {} MHz", cpu.name(), cpu.frequency());
+                }
+            }
+            Err(error) => {
+                println!("System information cannot be retrieved: {error}");
+            }
+        },
+        "cpu_temperature" => match sys {
+            Ok(sys) => {
+                for cpu in sys.cpus() {
+                    print!("[{}] {}C", cpu.name(), cpu.temperature());
+                    if let Some(max) = cpu.max() {
+                        print!(" (max: {max}C)");
+                    }
+                    if let Some(critical) = cpu.critical() {
+                        print!(" (critical: {critical}C)");
+                    }
+                    println!();
                 }
             }
             Err(error) => {
@@ -375,6 +397,16 @@ fn interpret_input(
             Ok(disks) => {
                 for disk in disks {
                     println!("{disk:?}");
+                    if let Some(temp) = disk.temperature() {
+                        print!("  temperature: {temp}C");
+                        if let Some(max) = disk.max() {
+                            print!(" (max: {max}C)");
+                        }
+                        if let Some(critical) = disk.critical() {
+                            print!(" (critical: {critical}C)");
+                        }
+                        println!();
+                    }
                 }
             }
             Err(error) => {
@@ -484,7 +516,17 @@ fn interpret_input(
             );
         }
         "motherboard" => match Motherboard::new() {
-            Ok(m) => println!("{m:#?}"),
+            Ok(m) => {
+                println!("{m:#?}");
+                let temps = m.temperatures();
+                if !temps.is_empty() {
+                    print!("  temperatures:");
+                    for t in &temps {
+                        print!(" {}C", t);
+                    }
+                    println!();
+                }
+            }
             Err(error) => println!("Cannot retrieve motherboard information: {error:?}"),
         },
         "product" => {
