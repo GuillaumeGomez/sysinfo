@@ -414,26 +414,21 @@ impl ProcessInner {
         self.handle.as_ref().map(|h| ***h)
     }
 
-    fn kill_with_win32(&self, signal: Signal) -> Option<bool> {
+    fn kill_with_win32(&self, signal: Signal) -> Result<(), ()> {
         let Some(h) = self.handle.as_ref().map(|handle| handle.0) else {
-            return Some(false);
+            return Err(());
         };
 
-        let res = match signal {
+        match signal {
             Signal::Kill => unsafe { TerminateProcess(h, 1) }.map_err(|_| ()),
             Signal::Stop => call_ntdll(h, s!("NtSuspendProcess"), true).map_err(|_| ()),
             Signal::Continue => call_ntdll(h, s!("NtResumeProcess"), false).map_err(|_| ()),
             _ => Err(()),
-        };
-
-        match res {
-            Ok(()) => Some(true),
-            Err(()) => Some(false),
         }
     }
 
     pub(crate) fn kill_with(&self, signal: Signal) -> Option<bool> {
-        if let Some(true) = self.kill_with_win32(signal) {
+        if self.kill_with_win32(signal).is_ok() {
             return Some(true);
         };
 
