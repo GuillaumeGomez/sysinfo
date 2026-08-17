@@ -624,6 +624,9 @@ fn test_wait_child() {
     // Wait for child process should work.
     process.wait();
 
+    #[cfg(windows)]
+    std::thread::sleep(std::time::Duration::from_millis(150));
+
     // Child process should not be present.
     assert_eq!(
         s.refresh_processes(ProcessesToUpdate::Some(&[pid]), true),
