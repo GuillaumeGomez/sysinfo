@@ -34,7 +34,6 @@ use windows::Win32::Foundation::{
 use windows::Win32::Security::{GetTokenInformation, TOKEN_QUERY, TOKEN_USER, TokenUser};
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::Diagnostics::ToolHelp::PROCESSENTRY32W;
-use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
 use windows::Win32::System::Memory::{
     GetProcessHeap, HEAP_ZERO_MEMORY, HeapAlloc, HeapFree, MEMORY_BASIC_INFORMATION, VirtualQueryEx,
 };
@@ -51,10 +50,6 @@ use windows::Win32::System::Threading::{
 };
 use windows::Win32::UI::Shell::CommandLineToArgvW;
 use windows::core::PCWSTR;
-use windows::core::{PCSTR, s, w};
-
-type NtSuspendProcess = unsafe extern "system" fn(HANDLE) -> i32;
-type NtResumeProcess = unsafe extern "system" fn(HANDLE) -> i32;
 
 use super::MINIMUM_CPU_UPDATE_INTERVAL;
 
@@ -66,27 +61,6 @@ impl fmt::Display for ProcessStatus {
             ProcessStatus::Run => "Runnable",
             _ => "Unknown",
         })
-    }
-}
-
-fn call_ntdll(handle: HANDLE, name: PCSTR, is_suspend: bool) -> Result<(), ()> {
-    unsafe {
-        let ntdll = GetModuleHandleW(w!("ntdll.dll")).map_err(|_| ())?;
-
-        let proc = GetProcAddress(ntdll, name).ok_or(())?;
-
-        let status = if is_suspend {
-            let f: NtSuspendProcess = std::mem::transmute(proc);
-            f(handle)
-        } else {
-            let f: NtResumeProcess = std::mem::transmute(proc);
-            f(handle)
-        };
-
-        if status != 0 {
-            return Err(());
-        }
-        Ok(())
     }
 }
 
@@ -421,8 +395,6 @@ impl ProcessInner {
 
         match signal {
             Signal::Kill => unsafe { TerminateProcess(h, 1) }.map_err(|_| ()),
-            Signal::Stop => call_ntdll(h, s!("NtSuspendProcess"), true).map_err(|_| ()),
-            Signal::Continue => call_ntdll(h, s!("NtResumeProcess"), false).map_err(|_| ()),
             _ => Err(()),
         }
     }

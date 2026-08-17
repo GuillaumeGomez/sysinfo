@@ -70,7 +70,6 @@ gpu = [
 ]
 system = [
     "dep:windows",
-    "windows/Win32_System_LibraryLoader",
     "windows/Win32_Foundation",
     "windows/Win32_System_Diagnostics_ToolHelp",
     "windows/Wdk_System_SystemInformation",
