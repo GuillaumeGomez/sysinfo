@@ -414,7 +414,7 @@ impl ProcessInner {
         self.handle.as_ref().map(|h| ***h)
     }
 
-    pub fn kill_with_win32(&self, signal: Signal) -> Option<bool> {
+    fn kill_with_win32(&self, signal: Signal) -> Option<bool> {
         let Some(h) = self.handle.as_ref().map(|handle| handle.0) else {
             return Some(false);
         };
