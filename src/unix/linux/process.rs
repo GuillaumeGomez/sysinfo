@@ -373,7 +373,8 @@ mod gpu {
     use super::*;
 
     // Faster `readlink` implementation which skips allocations by reusing a same buffer.
-    fn read_link(dir: &Dir, file_name: &[libc::c_char], buf: &mut [u8; 4096]) -> Option<usize> {
+    #[inline(always)]
+    fn read_link(dir: &Dir, file_name: &[libc::c_char], buf: &mut [u8]) -> Option<usize> {
         unsafe {
             let res = libc::readlinkat(
                 dir.dir_fd,
@@ -426,7 +427,11 @@ mod gpu {
 
         fn iter(&self) -> Result<Option<DirIter<'_>>, ()> {
             // 20 dir entries at once should be enough.
-            let mut buf = vec![0; std::mem::size_of::<libc::dirent64>() * 20];
+            let mut buf = Vec::with_capacity(std::mem::size_of::<libc::dirent64>() * 20);
+            // SAFETY: Data is set by syscalls, so no need to initialize it ourselves.
+            unsafe {
+                buf.set_len(buf.capacity());
+            }
             if let Some(read) = self.update_dents_buf(&mut buf)? {
                 Ok(Some(DirIter {
                     read,
@@ -517,10 +522,13 @@ mod gpu {
                 c_path.truncate(c_path.len() - 5);
                 c_path.push(0);
                 Dir::new(&c_path)
-            } {
+            }
+        {
             // 4096 is the limit used in htop so why not.
-            let mut buf = [0u8; 4096];
-            let mut gpus: Vec<(String, String)> = Vec::with_capacity(2);
+            let mut buf = Vec::with_capacity(4096);
+            // SAFETY: `read_link` and `openat` will initialize the values.
+            unsafe { buf.set_len(buf.capacity()); }
+            let mut gpus: Vec<(String, String)> = Vec::new();
 
             'main: for file_name in dir_iter {
                 // SAFETY: `d_name` is always valid UTF8 if it comes from `getdents64`/`readdir`
