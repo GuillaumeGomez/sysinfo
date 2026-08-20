@@ -482,10 +482,9 @@ mod gpu {
                     self.pos += dir_entry.d_reclen as usize;
 
                     // It's only supposed to contain digits in any case, but that filters very well too.
-                    if dir_entry.d_name[0] == b'.' as i8 {
-                        continue;
+                    if dir_entry.d_name[0] != b'.' as i8 {
+                        return Some(&dir_entry.d_name);
                     }
-                    return Some(&dir_entry.d_name);
                 }
             }
         }
@@ -503,6 +502,7 @@ mod gpu {
         refresh_kind: ProcessRefreshKind,
     ) {
         use std::fs::File;
+        use std::mem::MaybeUninit;
         use std::os::fd::FromRawFd;
 
         // CString is apparently expensive, so we do our own...
@@ -518,17 +518,18 @@ mod gpu {
         let dir_fd = dir.dir_fd;
         if let Ok(Some(dir_iter)) = dir.iter()
             && let Some(fd_dir) = {
-                // We remove the `info\0` part.
-                c_path.truncate(c_path.len() - 5);
-                c_path.push(0);
+                // We replace `/fdinfo\0` with `/fd\0nfo\0` to the folder name becomes `fd`.
+                // So 4 characters for `info` and 1 for the `\0`.
+                let index = c_path.len() - 5;
+                c_path[index] = 0;
                 Dir::new(&c_path)
             }
         {
             // 4096 is the limit used in htop so why not.
-            let mut buf = Vec::with_capacity(4096);
+            let buf: MaybeUninit<[u8; 4096]> = MaybeUninit::uninit();
             // SAFETY: `read_link` and `openat` will initialize the values.
-            unsafe { buf.set_len(buf.capacity()); }
-            let mut gpus: Vec<(String, String)> = Vec::new();
+            let mut buf: [u8; 4096] = unsafe { buf.assume_init() };
+            let mut gpus: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
 
             'main: for file_name in dir_iter {
                 // SAFETY: `d_name` is always valid UTF8 if it comes from `getdents64`/`readdir`
@@ -569,16 +570,12 @@ mod gpu {
                     .filter_map(|line| line.strip_prefix(b"drm-"))
                 {
                     if line.starts_with(b"client-id:") {
-                        if let Some(id) = line.splitn(2, |c| *c == b':').nth(1)
-                            && let Ok(id) = str::from_utf8(id)
-                        {
-                            gpu_id = Some(id.trim().to_owned());
+                        if let Some(id) = line.splitn(2, |c| *c == b':').nth(1) {
+                            gpu_id = Some(id.trim_ascii().to_vec());
                         }
                     } else if line.starts_with(b"pdev:") {
-                        if let Some(dev) = line.splitn(2, |c| *c == b':').nth(1)
-                            && let Ok(dev) = str::from_utf8(dev)
-                        {
-                            pci = Some(dev.trim().to_owned());
+                        if let Some(dev) = line.splitn(2, |c| *c == b':').nth(1) {
+                            pci = Some(dev.trim_ascii().to_vec());
                         }
                     } else if let Some(line) = line.strip_prefix(b"engine-") {
                         if refresh_kind.gpu_usage()
