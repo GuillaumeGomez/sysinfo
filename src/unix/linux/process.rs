@@ -531,7 +531,7 @@ mod gpu {
             let mut buf: [u8; 4096] = unsafe { buf.assume_init() };
             let mut gpus: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
 
-            'main: for file_name in dir_iter {
+            for file_name in dir_iter {
                 // SAFETY: `d_name` is always valid UTF8 if it comes from `getdents64`/`readdir`
                 // otherwise rust always provide valid UTF8 strings.
 
@@ -562,7 +562,6 @@ mod gpu {
                 let mut pci = None;
                 let mut gpu_time: Option<u64> = None;
                 let mut gpu_memory: Option<u64> = None;
-                let mut checked = false;
                 // All the keys are listed in
                 // <https://www.kernel.org/doc/html/latest/gpu/drm-usage-stats.html>.
                 for line in buf
@@ -582,11 +581,10 @@ mod gpu {
                             && !line.starts_with(b"capacity-")
                             && let Some(line) = line.strip_suffix(b" ns")
                             && let Some(nb) = line.split(|c| *c == b':').nth(1)
-                            && let Ok(nb) = str::from_utf8(nb)
-                            && let Ok(nb) = nb.trim().parse::<u64>()
+                            && let Ok(nb) = str::from_utf8(nb.trim_ascii())
+                            && let Ok(nb) = nb.parse::<u64>()
                         {
                             *gpu_time.get_or_insert(0) += nb;
-                            continue;
                         }
                     } else if let Some(line) = line.strip_prefix(b"total-") {
                         if refresh_kind.gpu_memory()
@@ -596,8 +594,8 @@ mod gpu {
                                 .filter(|s| !s.is_empty())
                             && let Some(value) = nb.next()
                             && let Some(unit) = nb.next()
-                            && let Ok(value) = str::from_utf8(value)
-                            && let Ok(value) = value.trim().parse::<u64>()
+                            && let Ok(value) = str::from_utf8(value.trim_ascii())
+                            && let Ok(value) = value.parse::<u64>()
                             && unit.len() > 0
                         {
                             gpu_memory = match unit[0] {
@@ -612,23 +610,7 @@ mod gpu {
                                     None
                                 }
                             };
-                            continue;
                         }
-                    } else {
-                        continue;
-                    }
-                    if !checked
-                        && let Some(ref gpu_id) = gpu_id
-                        && let Some(ref pci) = pci
-                    {
-                        if gpus
-                            .iter()
-                            .any(|(s_id, s_pci)| s_id == gpu_id && s_pci == pci)
-                        {
-                            // We already checked this GPU so ignoring it.
-                            continue 'main;
-                        }
-                        checked = true;
                     }
                 }
                 // This is the fallback in case the gpu memory or time wasn't retrieved.
