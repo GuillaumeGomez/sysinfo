@@ -425,6 +425,7 @@ mod gpu {
             }
         }
 
+        #[allow(clippy::uninit_vec)]
         fn iter(&self) -> Result<Option<DirIter<'_>>, ()> {
             // 20 dir entries at once should be enough.
             let mut buf = Vec::with_capacity(std::mem::size_of::<libc::dirent64>() * 20);
@@ -488,6 +489,17 @@ mod gpu {
                 }
             }
         }
+    }
+
+    fn parse_ascii_checked(bytes: &[u8]) -> Option<u64> {
+        let mut num = 0u64;
+        for &b in bytes {
+            if !b.is_ascii_digit() {
+                return None;
+            }
+            num = num.checked_mul(10)?.checked_add((b - b'0') as u64)?;
+        }
+        Some(num)
     }
 
     // Maybe something to do in the future: if it's not an AMD or NVIDIA GPU, we can still compute the
@@ -581,12 +593,12 @@ mod gpu {
                             && !line.starts_with(b"capacity-")
                             && let Some(line) = line.strip_suffix(b" ns")
                             && let Some(nb) = line.split(|c| *c == b':').nth(1)
-                            && let Ok(nb) = str::from_utf8(nb.trim_ascii())
-                            && let Ok(nb) = nb.parse::<u64>()
+                            && let Some(nb) = parse_ascii_checked(nb.trim_ascii())
                         {
                             *gpu_time.get_or_insert(0) += nb;
                         }
                     } else if let Some(line) = line.strip_prefix(b"total-") {
+                        #[allow(clippy::collapsible_if)]
                         if refresh_kind.gpu_memory()
                             && let Some(nb) = line.splitn(2, |c| *c == b':').nth(1)
                             && let mut nb = nb
@@ -594,9 +606,8 @@ mod gpu {
                                 .filter(|s| !s.is_empty())
                             && let Some(value) = nb.next()
                             && let Some(unit) = nb.next()
-                            && let Ok(value) = str::from_utf8(value.trim_ascii())
-                            && let Ok(value) = value.parse::<u64>()
-                            && unit.len() > 0
+                            && !unit.is_empty()
+                            && let Some(value) = parse_ascii_checked(value.trim_ascii())
                         {
                             gpu_memory = match unit[0] {
                                 b'K' | b'k' => Some(value * 1024),
