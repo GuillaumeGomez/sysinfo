@@ -417,7 +417,7 @@ fn compute_gpu_usage(
 
     'main: for entry in dir.flatten() {
         let file_name = entry.file_name();
-        if file_name.as_bytes().get(0) == Some(&b'.') {
+        if file_name.as_bytes().first() == Some(&b'.') {
             continue;
         }
         let Some(size) = read_link(fd_proc_path.replace_and_join(&file_name), &mut buf) else {
@@ -479,7 +479,7 @@ fn compute_gpu_usage(
                     && let Some(unit) = nb.next()
                     && let Ok(value) = str::from_utf8(value)
                     && let Ok(value) = value.trim().parse::<u64>()
-                    && unit.len() > 0
+                    && !unit.is_empty()
                 {
                     gpu_memory = match unit[0] {
                         b'K' | b'k' => Some(value / 1024),
@@ -826,6 +826,7 @@ fn retrieve_all_new_process_info(
     Process { inner: p }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_existing_process(
     is_thread: bool,
     proc: &mut Process,
