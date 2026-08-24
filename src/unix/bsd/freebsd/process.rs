@@ -52,7 +52,7 @@ pub(crate) struct ProcessInner {
 }
 
 impl ProcessInner {
-    // Other methods are defined in `../system.rs`.
+    // Other methods are defined in `../system_common.rs`.
 
     pub(crate) fn disk_usage(&self) -> DiskUsage {
         DiskUsage {
