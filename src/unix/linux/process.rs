@@ -369,187 +369,304 @@ impl ProcessInner {
 }
 
 #[cfg(feature = "gpu")]
-fn read_link(path: &Path, buf: &mut [u8; 4096]) -> Option<usize> {
-    let Ok(c_path) = std::ffi::CString::new(path.as_os_str().as_bytes()) else {
-        return None;
-    };
+mod gpu {
+    use super::*;
 
-    let res = unsafe {
-        retry_eintr!(libc::readlink(
-            c_path.as_ptr(),
-            buf.as_mut_ptr() as *mut libc::c_char,
-            buf.len(),
-        ))
-    };
+    // Faster `readlink` implementation which skips allocations by reusing a same buffer.
+    #[inline(always)]
+    fn read_link(dir: &Dir, file_name: &[libc::c_char], buf: &mut [u8]) -> Option<usize> {
+        unsafe {
+            let res = libc::readlinkat(
+                dir.dir_fd,
+                file_name.as_ptr(),
+                buf.as_mut_ptr() as *mut libc::c_char,
+                buf.len(),
+            );
 
-    if res < 1 { None } else { Some(res as usize) }
-}
-
-// Maybe something to do in the future: if it's not an AMD or NVIDIA GPU, we can still compute the
-// total % usage by adding all processes GPU time. However: we need to have access to `Gpus` all the
-// time, so likely needs to be part of `System`, just like `Cpu`. Not really worth it since it comes
-// with limitations (such as: only gives information for current user, unless it's an admin), so for
-// now ignoring it.
-#[cfg(feature = "gpu")]
-fn compute_gpu_usage(
-    proc_path: &mut PathHandler,
-    gpu_info: &mut GpuInfo,
-    now: Instant,
-    refresh_kind: ProcessRefreshKind,
-) {
-    use std::fs::File;
-
-    let Ok(dir) = read_dir(proc_path.replace_and_join("fdinfo")) else {
-        gpu_info.gpu_usage = None;
-        return;
-    };
-    // 4096 is the limit used in htop so why not.
-    let mut buf = [0u8; 4096];
-    let mut gpus: Vec<(String, String)> = Vec::with_capacity(2);
-    let mut total_time: u64 = 0;
-    let mut total_memory: u64 = 0;
-    let mut found_memory = false;
-
-    let mut fd_proc_path = PathHandler::new(proc_path.replace_and_join("fd"));
-
-    // We add an extra file name that will replaced at every iteration.
-    proc_path.replace_and_join("fdinfo/0");
-
-    'main: for entry in dir.flatten() {
-        let file_name = entry.file_name();
-        if file_name.as_bytes().first() == Some(&b'.') {
-            continue;
+            if res < 1 { None } else { Some(res as usize) }
         }
-        let Some(size) = read_link(fd_proc_path.replace_and_join(&file_name), &mut buf) else {
-            continue;
-        };
-        let target_bytes = &buf[..size];
-        if !matches!(
-            target_bytes.strip_prefix(b"/dev/"),
-            Some(part) if part.starts_with(b"dri/") || part.starts_with(b"accel/")
-        ) {
-            continue;
+    }
+
+    struct Dir {
+        dir_fd: libc::c_int,
+    }
+
+    impl Dir {
+        fn new(path: &[u8]) -> Option<Self> {
+            unsafe {
+                let dir_fd = retry_eintr!(libc::open(
+                    path.as_ptr() as *const _,
+                    libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_DIRECTORY | libc::O_CLOEXEC,
+                ));
+                if dir_fd < 0 {
+                    None
+                } else {
+                    Some(Self { dir_fd })
+                }
+            }
         }
-        let buf = if let Ok(mut file) = File::open(proc_path.replace_and_join(&file_name))
-            && let Ok(read) = file.read(&mut buf)
-        {
-            &buf[..read]
-        } else {
-            continue;
-        };
-        let mut gpu_id = None;
-        let mut pci = None;
-        let mut gpu_time: Option<u64> = None;
-        let mut gpu_memory: Option<u64> = None;
-        let mut checked = false;
-        // All the keys are listed in
-        // <https://www.kernel.org/doc/html/latest/gpu/drm-usage-stats.html>.
-        for line in buf
-            .split(|c| *c == b'\n')
-            .filter_map(|line| line.strip_prefix(b"drm-"))
-        {
-            if line.starts_with(b"client-id:") {
-                if let Some(id) = line.splitn(2, |c| *c == b':').nth(1)
-                    && let Ok(id) = str::from_utf8(id)
-                {
-                    gpu_id = Some(id.trim().to_owned());
+
+        fn update_dents_buf(&self, buf: &mut [u8]) -> Result<Option<usize>, ()> {
+            unsafe {
+                let read = libc::syscall(
+                    libc::SYS_getdents64,
+                    self.dir_fd,
+                    buf.as_mut_ptr() as *mut _,
+                    buf.len() as libc::c_int,
+                );
+                if read < 0 {
+                    sysinfo_debug!("getdents64 failed");
+                    Err(())
+                } else if read == 0 {
+                    Ok(None)
+                } else {
+                    Ok(Some(read as usize))
                 }
-            } else if line.starts_with(b"pdev:") {
-                if let Some(dev) = line.splitn(2, |c| *c == b':').nth(1)
-                    && let Ok(dev) = str::from_utf8(dev)
-                {
-                    pci = Some(dev.trim().to_owned());
-                }
-            } else if let Some(line) = line.strip_prefix(b"engine-") {
-                if refresh_kind.gpu_usage()
-                    && !line.starts_with(b"capacity-")
-                    && line.ends_with(b" ns")
-                    && let Some(nb) = line.split(|c| *c == b':').nth(1)
-                    && let Ok(nb) = str::from_utf8(nb)
-                    && let Ok(nb) = nb.trim().parse::<u64>()
-                {
-                    *gpu_time.get_or_insert(0) += nb;
-                    continue;
-                }
-            } else if let Some(line) = line.strip_prefix(b"total-") {
-                if refresh_kind.gpu_memory()
-                    && let Some(nb) = line.splitn(2, |c| *c == b':').nth(1)
-                    && let mut nb = nb.split(|c| *c == b' ')
-                    && let Some(value) = nb.next()
-                    && let Some(unit) = nb.next()
-                    && let Ok(value) = str::from_utf8(value)
-                    && let Ok(value) = value.trim().parse::<u64>()
-                    && !unit.is_empty()
-                {
-                    gpu_memory = match unit[0] {
-                        b'K' | b'k' => Some(value / 1024),
-                        b'M' | b'm' => Some(value / 1024 / 1024),
-                        b'G' | b'g' => Some(value / 1024 / 1024 / 1024),
-                        _ => {
-                            eprintln!("Unknown GPU memory unit {unit:?} in {:?}", entry.path());
-                            None
-                        }
-                    };
-                    continue;
-                }
+            }
+        }
+
+        #[allow(clippy::uninit_vec)]
+        fn iter(&self) -> Result<Option<DirIter<'_>>, ()> {
+            // 20 dir entries at once should be enough.
+            let mut buf = Vec::with_capacity(std::mem::size_of::<libc::dirent64>() * 20);
+            // SAFETY: Data is set by syscalls, so no need to initialize it ourselves.
+            unsafe {
+                buf.set_len(buf.capacity());
+            }
+            if let Some(read) = self.update_dents_buf(&mut buf)? {
+                Ok(Some(DirIter {
+                    read,
+                    pos: 0,
+                    dir: self,
+                    buf,
+                }))
             } else {
-                continue;
-            }
-            if !checked
-                && let Some(ref gpu_id) = gpu_id
-                && let Some(ref pci) = pci
-            {
-                if gpus
-                    .iter()
-                    .any(|(s_id, s_pci)| s_id == gpu_id && s_pci == pci)
-                {
-                    // We already checked this GPU so ignoring it.
-                    continue 'main;
-                }
-                checked = true;
-            }
-        }
-        // This is the fallback in case the gpu memory or time wasn't retrieved.
-        if let Some(gpu_id) = gpu_id
-            && let Some(pci) = pci
-            && !gpus
-                .iter()
-                .any(|(s_id, s_pci)| *s_id == gpu_id && *s_pci == pci)
-        {
-            gpus.push((gpu_id, pci));
-            if let Some(gpu_time) = gpu_time {
-                total_time = total_time.saturating_add(gpu_time);
-            }
-            if let Some(gpu_memory) = gpu_memory {
-                total_memory = total_memory.saturating_add(gpu_memory);
-                found_memory = true;
+                Ok(None)
             }
         }
     }
-    if found_memory {
-        gpu_info.memory = Some(total_memory);
-    } else {
-        gpu_info.memory = None;
-    }
-    if total_time != 0 {
-        let elapsed_time = if let Some(last_update) = gpu_info.last_update {
-            now.duration_since(last_update).as_millis()
-        } else {
-            0
-        };
-        let gpu_time_delta = total_time.saturating_sub(gpu_info.gpu_time);
 
-        if gpu_time_delta == 0 || elapsed_time == 0 {
-            gpu_info.gpu_usage = None;
-        } else {
-            // We need to convert from nanos to millis, hence the `/ 1_000_000.`.
-            gpu_info.gpu_usage =
-                Some(100. * (gpu_time_delta as f32) / 1_000_000. / (elapsed_time as f32));
+    impl Drop for Dir {
+        fn drop(&mut self) {
+            unsafe {
+                libc::close(self.dir_fd);
+            }
         }
-        gpu_info.last_update = Some(now);
-        gpu_info.gpu_time = total_time;
-    } else {
-        gpu_info.gpu_usage = Some(0.);
+    }
+
+    struct DirIter<'a> {
+        pos: usize,
+        read: usize,
+        dir: &'a Dir,
+        // If we use an array instead of a Vec here, we get unaligned memory errors when we go
+        // through the `dirent64` entries. So sadly, we need to go through the allocation...
+        buf: Vec<u8>,
+    }
+
+    impl<'a> Iterator for DirIter<'a> {
+        type Item = &'a [libc::c_char];
+
+        fn next(&mut self) -> Option<Self::Item> {
+            loop {
+                unsafe {
+                    if self.pos >= self.read {
+                        if let Ok(Some(read)) = self.dir.update_dents_buf(&mut self.buf) {
+                            self.read = read;
+                            self.pos = 0;
+                        } else {
+                            // Reached the end!
+                            return None;
+                        }
+                    }
+                    let dir_entry = self.buf.as_ptr().add(self.pos) as *const libc::dirent64;
+                    let dir_entry = &*dir_entry;
+                    self.pos += dir_entry.d_reclen as usize;
+
+                    // It's only supposed to contain digits in any case, but that filters very well too.
+                    if dir_entry.d_name[0] != b'.' as libc::c_char {
+                        return Some(&dir_entry.d_name);
+                    }
+                }
+            }
+        }
+    }
+
+    fn parse_ascii_checked(bytes: &[u8]) -> Option<u64> {
+        let mut num = 0u64;
+        for &b in bytes {
+            if !b.is_ascii_digit() {
+                return None;
+            }
+            num = num.checked_mul(10)?.checked_add((b - b'0') as u64)?;
+        }
+        Some(num)
+    }
+
+    // Maybe something to do in the future: if it's not an AMD or NVIDIA GPU, we can still compute the
+    // total % usage by adding all processes GPU time. However: we need to have access to `Gpus` all the
+    // time, so likely needs to be part of `System`, just like `Cpu`. Not really worth it since it comes
+    // with limitations (such as: only gives information for current user, unless it's an admin), so for
+    // now ignoring it.
+    pub fn compute_gpu_usage(
+        proc_path: &mut PathHandler,
+        gpu_info: &mut GpuInfo,
+        now: Instant,
+        refresh_kind: ProcessRefreshKind,
+    ) {
+        use std::fs::File;
+        use std::mem::MaybeUninit;
+        use std::os::fd::FromRawFd;
+
+        // CString is apparently expensive, so we do our own...
+        let path = proc_path.replace_and_join("fdinfo").as_os_str().as_bytes();
+        let mut c_path = Vec::with_capacity(path.len() + 1);
+        c_path.extend_from_slice(path);
+        c_path.push(0);
+        let Some(dir) = Dir::new(&c_path) else { return };
+
+        let mut total_time: u64 = 0;
+        let mut total_memory: u64 = 0;
+        let mut found_memory = false;
+        let dir_fd = dir.dir_fd;
+        if let Ok(Some(dir_iter)) = dir.iter()
+            && let Some(fd_dir) = {
+                // We replace `/fdinfo\0` with `/fd\0nfo\0` to the folder name becomes `fd`.
+                // So 4 characters for `info` and 1 for the `\0`.
+                let index = c_path.len() - 5;
+                c_path[index] = 0;
+                Dir::new(&c_path)
+            }
+        {
+            // 4096 is the limit used in htop so why not.
+            let buf: MaybeUninit<[u8; 4096]> = MaybeUninit::uninit();
+            // SAFETY: `read_link` and `openat` will initialize the values.
+            let mut buf: [u8; 4096] = unsafe { buf.assume_init() };
+            let mut gpus: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
+
+            for file_name in dir_iter {
+                // SAFETY: `d_name` is always valid UTF8 if it comes from `getdents64`/`readdir`
+                // otherwise rust always provide valid UTF8 strings.
+
+                let Some(size) = read_link(&fd_dir, file_name, &mut buf) else {
+                    continue;
+                };
+                let target_bytes = &buf[..size];
+                if !matches!(
+                    target_bytes.strip_prefix(b"/dev/"),
+                    Some(part) if part.starts_with(b"dri/") || part.starts_with(b"accel/")
+                ) {
+                    continue;
+                }
+                let buf = unsafe {
+                    let fd = retry_eintr!(libc::openat(dir_fd, file_name.as_ptr(), libc::O_RDONLY));
+                    if fd < 0 {
+                        continue;
+                    }
+                    if let mut file = File::from_raw_fd(fd)
+                        && let Ok(read) = file.read(&mut buf)
+                    {
+                        &buf[..read]
+                    } else {
+                        continue;
+                    }
+                };
+                let mut gpu_id = None;
+                let mut pci = None;
+                let mut gpu_time: Option<u64> = None;
+                let mut gpu_memory: Option<u64> = None;
+                // All the keys are listed in
+                // <https://www.kernel.org/doc/html/latest/gpu/drm-usage-stats.html>.
+                for line in buf
+                    .split(|c| *c == b'\n')
+                    .filter_map(|line| line.strip_prefix(b"drm-"))
+                {
+                    if line.starts_with(b"client-id:") {
+                        if let Some(id) = line.splitn(2, |c| *c == b':').nth(1) {
+                            gpu_id = Some(id.trim_ascii().to_vec());
+                        }
+                    } else if line.starts_with(b"pdev:") {
+                        if let Some(dev) = line.splitn(2, |c| *c == b':').nth(1) {
+                            pci = Some(dev.trim_ascii().to_vec());
+                        }
+                    } else if let Some(line) = line.strip_prefix(b"engine-") {
+                        if refresh_kind.gpu_usage()
+                            && !line.starts_with(b"capacity-")
+                            && let Some(line) = line.strip_suffix(b" ns")
+                            && let Some(nb) = line.split(|c| *c == b':').nth(1)
+                            && let Some(nb) = parse_ascii_checked(nb.trim_ascii())
+                        {
+                            *gpu_time.get_or_insert(0) += nb;
+                        }
+                    } else if let Some(line) = line.strip_prefix(b"total-") {
+                        #[allow(clippy::collapsible_if)]
+                        if refresh_kind.gpu_memory()
+                            && let Some(nb) = line.splitn(2, |c| *c == b':').nth(1)
+                            && let mut nb = nb
+                                .split(|c| *c == b' ' || *c == b'\t')
+                                .filter(|s| !s.is_empty())
+                            && let Some(value) = nb.next()
+                            && let Some(unit) = nb.next()
+                            && !unit.is_empty()
+                            && let Some(value) = parse_ascii_checked(value.trim_ascii())
+                        {
+                            gpu_memory = match unit[0] {
+                                b'K' | b'k' => Some(value * 1024),
+                                b'M' | b'm' => Some(value * 1024 * 1024),
+                                b'G' | b'g' => Some(value * 1024 * 1024 * 1024),
+                                _ => {
+                                    eprintln!(
+                                        "Unknown GPU memory unit {unit:?} in {:?}",
+                                        proc_path.as_path()
+                                    );
+                                    None
+                                }
+                            };
+                        }
+                    }
+                }
+                // This is the fallback in case the gpu memory or time wasn't retrieved.
+                if let Some(gpu_id) = gpu_id
+                    && let Some(pci) = pci
+                    && !gpus
+                        .iter()
+                        .any(|(s_id, s_pci)| *s_id == gpu_id && *s_pci == pci)
+                {
+                    gpus.push((gpu_id, pci));
+                    if let Some(gpu_time) = gpu_time {
+                        total_time = total_time.saturating_add(gpu_time);
+                    }
+                    if let Some(gpu_memory) = gpu_memory {
+                        total_memory = total_memory.saturating_add(gpu_memory);
+                        found_memory = true;
+                    }
+                }
+            }
+        }
+        if found_memory {
+            gpu_info.memory = Some(total_memory);
+        } else {
+            gpu_info.memory = None;
+        }
+        if total_time != 0 {
+            let elapsed_time = if let Some(last_update) = gpu_info.last_update {
+                now.duration_since(last_update).as_millis()
+            } else {
+                0
+            };
+            let gpu_time_delta = total_time.saturating_sub(gpu_info.gpu_time);
+
+            if gpu_time_delta == 0 || elapsed_time == 0 {
+                gpu_info.gpu_usage = None;
+            } else {
+                // We need to convert from nanos to millis, hence the `/ 1_000_000.`.
+                gpu_info.gpu_usage =
+                    Some(100. * (gpu_time_delta as f32) / 1_000_000. / (elapsed_time as f32));
+            }
+            gpu_info.last_update = Some(now);
+            gpu_info.gpu_time = total_time;
+        } else {
+            gpu_info.gpu_usage = Some(0.);
+        }
     }
 }
 
@@ -760,7 +877,7 @@ fn update_proc_info(
     }
     #[cfg(feature = "gpu")]
     if refresh_kind.gpu_usage() || refresh_kind.gpu_memory() {
-        compute_gpu_usage(proc_path, &mut p.gpu_info, now, refresh_kind);
+        self::gpu::compute_gpu_usage(proc_path, &mut p.gpu_info, now, refresh_kind);
     }
     p.updated = true;
 }

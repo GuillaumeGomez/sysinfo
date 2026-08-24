@@ -7,8 +7,8 @@
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 use sysinfo::{
-    Components, Disks, Error, Gpus, Groups, Motherboard, Networks, Pid, Product, SUPPORTED_SIGNALS,
-    System, Users,
+    Components, Disks, Error, Gpus, Groups, Motherboard, Networks, Pid, ProcessRefreshKind,
+    Product, SUPPORTED_SIGNALS, System, Users,
 };
 
 fn print_help() {
@@ -439,8 +439,11 @@ fn interpret_input(
                 {
                     match sys {
                         Ok(sys) => {
-                            if sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true)
-                                != 0
+                            if sys.refresh_processes_specifics(
+                                sysinfo::ProcessesToUpdate::Some(&[pid]),
+                                true,
+                                ProcessRefreshKind::everything(),
+                            ) != 0
                             {
                                 println!("Process `{pid}` updated successfully");
                             } else {
