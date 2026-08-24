@@ -132,4 +132,14 @@ impl ProcessInner {
     pub(crate) fn open_files_limit(&self) -> Option<usize> {
         None
     }
+
+    #[cfg(feature = "gpu")]
+    pub(crate) fn gpu_usage(&self) -> Option<f32> {
+        None
+    }
+
+    #[cfg(feature = "gpu")]
+    pub fn gpu_memory(&self) -> Option<u64> {
+        None
+    }
 }
