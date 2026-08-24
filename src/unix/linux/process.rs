@@ -758,7 +758,8 @@ fn update_proc_info(
         p.accumulated_cpu_time =
             p.utime.saturating_add(p.stime).saturating_mul(1_000) / info.clock_cycle;
     }
-    if cfg!(feature = "gpu") && (refresh_kind.gpu_usage() || refresh_kind.gpu_memory()) {
+    #[cfg(feature = "gpu")]
+    if refresh_kind.gpu_usage() || refresh_kind.gpu_memory() {
         compute_gpu_usage(proc_path, &mut p.gpu_info, now, refresh_kind);
     }
     p.updated = true;

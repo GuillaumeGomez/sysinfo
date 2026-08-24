@@ -77,7 +77,8 @@ impl std::fmt::Debug for crate::Process {
             .field("disk_usage", &self.disk_usage())
             .field("user_id", &self.user_id())
             .field("effective_user_id", &self.effective_user_id());
-        if cfg!(feature = "gpu") {
+        #[cfg(feature = "gpu")]
+        {
             f.field("gpu_usage", &self.gpu_usage())
                 .field("gpu_memory", &self.gpu_memory());
         }
