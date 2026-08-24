@@ -483,7 +483,7 @@ mod gpu {
                     self.pos += dir_entry.d_reclen as usize;
 
                     // It's only supposed to contain digits in any case, but that filters very well too.
-                    if dir_entry.d_name[0] != b'.' as i8 {
+                    if dir_entry.d_name[0] != b'.' as libc::c_char {
                         return Some(&dir_entry.d_name);
                     }
                 }
