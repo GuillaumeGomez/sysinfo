@@ -378,12 +378,10 @@ impl ComponentInner {
             .highest_file
             .as_ref()
             .and_then(|file| get_temperature_from_file(file.as_path()))
-            .or_else(|| {
-                let last = self.temperature?;
-                let current = current?;
-                Some(last.max(current))
-            });
-        self.max = max;
+            .or(current);
+        if let Some(new_max) = max {
+            self.max = Some(self.max.map_or(new_max, |old_max| old_max.max(new_max)));
+        }
         self.temperature = current;
     }
 }
@@ -603,6 +601,31 @@ mod tests {
         assert_eq!(components[1].max(), Some(5.678));
         assert_eq!(components[1].critical(), Some(0.2));
         assert_eq!(components[1].id(), Some("hwmon0_2"));
+    }
+
+    #[test]
+    fn test_component_max_kept_across_refreshes() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temporary directory");
+        let hwmon0_dir = temp_dir.path().join("hwmon/hwmon0");
+        fs::create_dir_all(&hwmon0_dir).expect("failed to create hwmon/hwmon0 directory");
+
+        fs::write(hwmon0_dir.join("name"), "test_name").expect("failed to write to name file");
+        fs::write(hwmon0_dir.join("temp1_input"), "80000")
+            .expect("failed to write to temp1_input file");
+
+        let mut components = ComponentsInner::new().unwrap();
+        components.refresh_from_sys_class_path(temp_dir.path());
+        let mut components = Components { inner: components };
+
+        fs::write(hwmon0_dir.join("temp1_input"), "45000")
+            .expect("failed to write to temp1_input file");
+        components[0].refresh();
+        fs::write(hwmon0_dir.join("temp1_input"), "42000")
+            .expect("failed to write to temp1_input file");
+        components[0].refresh();
+
+        assert_eq!(components[0].temperature(), Some(42.0));
+        assert_eq!(components[0].max(), Some(80.0));
     }
 
     #[test]
