@@ -9,7 +9,6 @@ use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
-use std::str::{self, FromStr};
 use std::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(feature = "gpu")]
 use std::time::Instant;
@@ -27,20 +26,20 @@ use crate::{
 use crate::sys::system::remaining_files;
 
 #[doc(hidden)]
-impl From<char> for ProcessStatus {
-    fn from(status: char) -> ProcessStatus {
+impl From<u8> for ProcessStatus {
+    fn from(status: u8) -> ProcessStatus {
         match status {
-            'R' => ProcessStatus::Run,
-            'S' => ProcessStatus::Sleep,
-            'I' => ProcessStatus::Idle,
-            'D' => ProcessStatus::UninterruptibleDiskSleep,
-            'Z' => ProcessStatus::Zombie,
-            'T' => ProcessStatus::Stop,
-            't' => ProcessStatus::Tracing,
-            'X' | 'x' => ProcessStatus::Dead,
-            'K' => ProcessStatus::Wakekill,
-            'W' => ProcessStatus::Waking,
-            'P' => ProcessStatus::Parked,
+            b'R' => ProcessStatus::Run,
+            b'S' => ProcessStatus::Sleep,
+            b'I' => ProcessStatus::Idle,
+            b'D' => ProcessStatus::UninterruptibleDiskSleep,
+            b'Z' => ProcessStatus::Zombie,
+            b'T' => ProcessStatus::Stop,
+            b't' => ProcessStatus::Tracing,
+            b'X' | b'x' => ProcessStatus::Dead,
+            b'K' => ProcessStatus::Wakekill,
+            b'W' => ProcessStatus::Waking,
+            b'P' => ProcessStatus::Parked,
             x => ProcessStatus::Unknown(x as u32),
         }
     }
@@ -92,6 +91,9 @@ enum ProcIndex {
     VirtualSize,
     ResidentSetSize,
     // More exist but we only use the listed ones. For more, take a look at `man proc`.
+
+    // Must ALWAYS be last!!
+    Max,
 }
 
 #[cfg(feature = "gpu")]
@@ -336,13 +338,13 @@ impl ProcessInner {
 
     pub(crate) fn open_files_limit(&self) -> Option<usize> {
         let limits_files = self.proc_path.as_path().join("limits");
-        match fs::read_to_string(&limits_files) {
+        match fs::read(&limits_files) {
             Ok(content) => {
-                for line in content.lines() {
-                    if let Some(line) = line.strip_prefix("Max open files ")
-                        && let Some(nb) = line.split_whitespace().find(|p| !p.is_empty())
+                for line in content.split(|c| *c == b'\n') {
+                    if let Some(line) = line.strip_prefix(b"Max open files ")
+                        && let Some(nb) = line.split(|c| *c == b' ').find(|p| !p.is_empty())
                     {
-                        return usize::from_str(nb).ok();
+                        return parse_ascii_checked_usize(nb);
                     }
                 }
                 None
@@ -366,6 +368,56 @@ impl ProcessInner {
     pub fn gpu_memory(&self) -> Option<u64> {
         self.gpu_info.memory
     }
+}
+
+fn parse_ascii_checked_u64(bytes: &[u8]) -> Option<u64> {
+    let mut num: u64 = 0;
+    for &b in bytes {
+        if !b.is_ascii_digit() {
+            return None;
+        }
+        num = num.checked_mul(10)?.checked_add((b - b'0') as u64)?;
+    }
+    Some(num)
+}
+
+// Yes, it's ugly to duplicate this code and makes me very sad... I could implement a trait for
+// both `c_ulong` and `u64`. However, it's possible on some platforms that `c_ulong` and `u64` are
+// the same type, so implementing this trait would fail compilation. Would be much simpler if all
+// integers implemented `checked_` into a common trait instead...
+fn parse_ascii_checked_culong(bytes: &[u8]) -> Option<c_ulong> {
+    let mut num: c_ulong = 0;
+    for &b in bytes {
+        if !b.is_ascii_digit() {
+            return None;
+        }
+        num = num.checked_mul(10)?.checked_add((b - b'0') as c_ulong)?;
+    }
+    Some(num)
+}
+
+fn parse_ascii_checked_usize(bytes: &[u8]) -> Option<usize> {
+    let mut num: usize = 0;
+    for &b in bytes {
+        if !b.is_ascii_digit() {
+            return None;
+        }
+        num = num.checked_mul(10)?.checked_add((b - b'0') as usize)?;
+    }
+    Some(num)
+}
+
+fn parse_ascii_checked_pid_t(bytes: &[u8]) -> Option<Pid> {
+    let mut num: libc::pid_t = 0;
+    for &b in bytes {
+        if !b.is_ascii_digit() {
+            return None;
+        }
+        num = num
+            .checked_mul(10)?
+            .checked_add((b - b'0') as libc::pid_t)?;
+    }
+    Some(Pid(num))
 }
 
 #[cfg(feature = "gpu")]
@@ -491,17 +543,6 @@ mod gpu {
         }
     }
 
-    fn parse_ascii_checked(bytes: &[u8]) -> Option<u64> {
-        let mut num = 0u64;
-        for &b in bytes {
-            if !b.is_ascii_digit() {
-                return None;
-            }
-            num = num.checked_mul(10)?.checked_add((b - b'0') as u64)?;
-        }
-        Some(num)
-    }
-
     // Maybe something to do in the future: if it's not an AMD or NVIDIA GPU, we can still compute the
     // total % usage by adding all processes GPU time. However: we need to have access to `Gpus` all the
     // time, so likely needs to be part of `System`, just like `Cpu`. Not really worth it since it comes
@@ -593,7 +634,7 @@ mod gpu {
                             && !line.starts_with(b"capacity-")
                             && let Some(line) = line.strip_suffix(b" ns")
                             && let Some(nb) = line.split(|c| *c == b':').nth(1)
-                            && let Some(nb) = parse_ascii_checked(nb.trim_ascii())
+                            && let Some(nb) = parse_ascii_checked_u64(nb.trim_ascii())
                         {
                             *gpu_time.get_or_insert(0) += nb;
                         }
@@ -607,7 +648,7 @@ mod gpu {
                             && let Some(value) = nb.next()
                             && let Some(unit) = nb.next()
                             && !unit.is_empty()
-                            && let Some(value) = parse_ascii_checked(value.trim_ascii())
+                            && let Some(value) = parse_ascii_checked_u64(value.trim_ascii())
                         {
                             gpu_memory = match unit[0] {
                                 b'K' | b'k' => Some(value * 1024),
@@ -744,7 +785,7 @@ fn start_time_raw(parts: &Parts<'_>) -> u64 {
     parts
         .str_parts
         .get(ProcIndex::StartTime as usize)
-        .and_then(|part| u64::from_str(part).ok())
+        .and_then(|part| parse_ascii_checked_u64(part))
         .unwrap_or(0)
 }
 
@@ -769,10 +810,10 @@ fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<Ve
 }
 
 #[inline(always)]
-fn get_status(p: &mut ProcessInner, part: &str) {
+fn get_status(p: &mut ProcessInner, part: &[u8]) {
     p.status = part
-        .chars()
-        .next()
+        .first()
+        .copied()
         .map(ProcessStatus::from)
         .unwrap_or_else(|| ProcessStatus::Unknown(0));
 }
@@ -811,14 +852,22 @@ fn update_proc_info(
     parent_pid: Option<Pid>,
     refresh_kind: ProcessRefreshKind,
     proc_path: &mut PathHandler,
-    str_parts: &[&str],
+    str_parts: &[&[u8]],
     uptime: u64,
     info: &SystemInfo,
     #[cfg(feature = "gpu")] now: Instant,
 ) {
     update_parent_pid(p, parent_pid, str_parts);
 
-    get_status(p, str_parts.get(ProcIndex::State as usize).unwrap_or(&""));
+    get_status(
+        p,
+        str_parts.get(ProcIndex::State as usize).unwrap_or(
+            const {
+                const X: &[u8] = &[];
+                &X
+            },
+        ),
+    );
     refresh_user_group_ids(p, proc_path, refresh_kind);
 
     if refresh_kind.exe().needs_update(|| p.exe.is_none()) {
@@ -882,12 +931,12 @@ fn update_proc_info(
     p.updated = true;
 }
 
-fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, str_parts: &[&str]) {
+fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, str_parts: &[&[u8]]) {
     p.parent = match parent_pid {
         Some(parent_pid) if parent_pid.0 != 0 => Some(parent_pid),
         _ => match str_parts
             .get(ProcIndex::ParentPid as usize)
-            .and_then(|part| Pid::from_str(part).ok())
+            .and_then(|part| parse_ascii_checked_pid_t(part))
         {
             Some(p) if p.0 != 0 => Some(p),
             _ => None,
@@ -921,7 +970,8 @@ fn retrieve_all_new_process_info(
 
     p.name = OsStr::from_bytes(name).to_os_string();
     if let Some(part) = parts.str_parts.get(ProcIndex::Flags as usize)
-        && c_ulong::from_str(part).is_ok_and(|flags| flags & libc::PF_KTHREAD as c_ulong != 0)
+        && parse_ascii_checked_culong(part)
+            .is_some_and(|flags| flags & libc::PF_KTHREAD as c_ulong != 0)
     {
         p.thread_kind = Some(ThreadKind::Kernel);
     } else if is_thread {
@@ -1068,18 +1118,18 @@ pub(crate) fn _get_process_data(
     Ok(Some(new_process))
 }
 
-fn old_get_memory(entry: &mut ProcessInner, str_parts: &[&str], info: &SystemInfo) {
+fn old_get_memory(entry: &mut ProcessInner, str_parts: &[&[u8]], info: &SystemInfo) {
     // rss
     entry.memory = str_parts
         .get(ProcIndex::ResidentSetSize as usize)
-        .and_then(|part| u64::from_str(part).ok())
+        .and_then(|part| parse_ascii_checked_u64(part))
         .unwrap_or(0)
         .saturating_mul(info.page_size_b);
     // vsz correspond to the Virtual memory size in bytes.
     // see: https://man7.org/linux/man-pages/man5/proc.5.html
     entry.virtual_memory = str_parts
         .get(ProcIndex::VirtualSize as usize)
-        .and_then(|part| u64::from_str(part).ok())
+        .and_then(|part| parse_ascii_checked_u64(part))
         .unwrap_or(0);
 }
 
@@ -1129,7 +1179,7 @@ fn get_memory(path: &Path, entry: &mut ProcessInner, info: &SystemInfo) -> bool 
 fn update_time_and_memory(
     path: &mut PathHandler,
     entry: &mut ProcessInner,
-    str_parts: &[&str],
+    str_parts: &[&[u8]],
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
@@ -1146,11 +1196,11 @@ fn update_time_and_memory(
             entry,
             str_parts
                 .get(ProcIndex::UserTime as usize)
-                .and_then(|part| u64::from_str(part).ok())
+                .and_then(|part| parse_ascii_checked_u64(part))
                 .unwrap_or(0),
             str_parts
                 .get(ProcIndex::SystemTime as usize)
-                .and_then(|part| u64::from_str(part).ok())
+                .and_then(|part| parse_ascii_checked_u64(part))
                 .unwrap_or(0),
         );
         entry.run_time = uptime.saturating_sub(entry.start_time_without_boot_time);
@@ -1259,10 +1309,8 @@ pub(crate) fn refresh_procs(
 
 fn filter_pid_entries(entry: Result<DirEntry, std::io::Error>) -> Option<(PathBuf, Pid)> {
     if let Ok(entry) = entry
-        && let Ok(file_type) = entry.file_type()
-        && file_type.is_dir()
-        && let Some(name) = entry.file_name().to_str()
-        && let Ok(pid) = usize::from_str(name)
+        && entry.file_type().is_ok_and(|file_type| file_type.is_dir())
+        && let Some(pid) = parse_ascii_checked_usize(entry.file_name().as_bytes())
     {
         Some((entry.path(), Pid::from(pid)))
     } else {
@@ -1429,7 +1477,7 @@ fn get_tgid(file_path: &Path) -> Option<Pid> {
 }
 
 struct Parts<'a> {
-    str_parts: Vec<&'a str>,
+    str_parts: Vec<&'a [u8]>,
     short_exe: &'a [u8],
 }
 
@@ -1443,13 +1491,17 @@ fn parse_stat_file(data: &[u8]) -> Option<Parts<'_>> {
     // in the entire string. All other fields are delimited by
     // whitespace.
 
-    let mut str_parts = Vec::with_capacity(51);
+    let mut str_parts = Vec::with_capacity(ProcIndex::Max as usize);
     let mut data_it = data.splitn(2, |&b| b == b' ');
-    str_parts.push(str::from_utf8(data_it.next()?).ok()?);
-    let mut data_it = data_it.next()?.rsplitn(2, |&b| b == b')');
-    let data = str::from_utf8(data_it.next()?).ok()?;
+    str_parts.push(data_it.next()?);
+    let mut data_it = data_it.next()?.splitn(2, |&b| b == b')');
     let short_exe = data_it.next()?;
-    str_parts.extend(data.split_whitespace());
+    let data = data_it.next()?;
+    str_parts.extend(
+        data.split(|c| *c == b' ' || *c == b'\t')
+            .filter(|d| !d.is_empty())
+            .take(ProcIndex::Max as usize),
+    );
     Some(Parts {
         str_parts,
         short_exe: short_exe.strip_prefix(b"(").unwrap_or(short_exe),

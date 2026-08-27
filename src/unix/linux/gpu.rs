@@ -1079,6 +1079,7 @@ mod vulkan {
 
                         let mut total_memory: u64 = 0;
                         let mut found_total = false;
+                        #[allow(clippy::needless_range_loop)]
                         for h in 0..(mem_props.memory_heap_count as usize) {
                             let heap = &mem_props.memory_heaps[h];
                             let is_vram = (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0;

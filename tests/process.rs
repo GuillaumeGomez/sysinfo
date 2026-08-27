@@ -729,6 +729,7 @@ fn test_process_cpu_usage() {
     }
 }
 
+#[allow(clippy::needless_bool)]
 #[test]
 fn test_process_creds() {
     if cfg!(feature = "apple-sandbox") {
