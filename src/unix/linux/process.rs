@@ -812,7 +812,7 @@ fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<Ve
 #[inline(always)]
 fn get_status(p: &mut ProcessInner, part: &[u8]) {
     p.status = part
-        .get(0)
+        .first()
         .copied()
         .map(ProcessStatus::from)
         .unwrap_or_else(|| ProcessStatus::Unknown(0));
