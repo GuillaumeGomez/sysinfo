@@ -1488,14 +1488,16 @@ fn parse_stat_file(data: &[u8]) -> Option<Parts<'_>> {
     // in the entire string. All other fields are delimited by
     // whitespace.
 
-    let mut data_it = data.splitn(2, |&b| b == b' ');
-    // We skip the `Pid` field here.
-    let mut data_it = data_it.nth(1)?.splitn(2, |&b| b == b')');
-    let short_exe = data_it.next()?;
+    // We ignore the first field (`pid`).
+    let data = data.splitn(2, |&b| b == b' ').nth(1)?;
+    let pos = data
+        .iter()
+        .rposition(|&b| b == b')')
+        .or_else(|| data.iter().rposition(|&b| b == b')'))?;
+    let short_exe = &data[1..pos];
 
-    let mut data = data_it
-        .next()?
-        .split(|c| *c == b' ' || *c == b'\t')
+    let mut data = data[pos + 1..]
+        .split(|c| *c == b' ')
         .filter(|p| !p.is_empty());
 
     // This code is awful, but couldn't find a better way. We ensure that the parsing is done
@@ -1529,7 +1531,7 @@ fn parse_stat_file(data: &[u8]) -> Option<Parts<'_>> {
         start_time,
         virtual_size,
         resident_set_size,
-        short_exe: short_exe.strip_prefix(b"(").unwrap_or(short_exe),
+        short_exe,
     })
 }
 
@@ -1562,6 +1564,50 @@ mod tests {
             data,
             Parts {
                 short_exe: b"blob",
+                status: crate::ProcessStatus::Sleep,
+                parent_pid: Some(b"2"),
+                flags: Some(b"2129984"),
+                user_time: 14,
+                start_time: 21,
+                system_time: 28,
+                virtual_size: Some(b"66"),
+                resident_set_size: Some(b"77"),
+            }
+        );
+    }
+
+    // This test ensures that even if we have a `(`/`)` char in the short exe name, we still make
+    // it works.
+    #[test]
+    fn test_parse_stat_file_short_exe() {
+        // The (trimmed) content of a stat file.
+        let content = b"1 (bl()ob) S 2 0 0 0 -1 2129984 0 0 0 0 14 28 0 0 20 0 1 0 21 66 77";
+        let data = parse_stat_file(content).unwrap();
+        assert_eq!(
+            data,
+            Parts {
+                short_exe: b"bl()ob",
+                status: crate::ProcessStatus::Sleep,
+                parent_pid: Some(b"2"),
+                flags: Some(b"2129984"),
+                user_time: 14,
+                start_time: 21,
+                system_time: 28,
+                virtual_size: Some(b"66"),
+                resident_set_size: Some(b"77"),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_stat_file_long_exe() {
+        // In case you wonder: yes, it's a real "short" exe name.
+        let content = b"1 (nvidia-modeset/deferred_close_kthread_q) S 2 0 0 0 -1 2129984 0 0 0 0 14 28 0 0 20 0 1 0 21 66 77";
+        let data = parse_stat_file(content).unwrap();
+        assert_eq!(
+            data,
+            Parts {
+                short_exe: b"nvidia-modeset/deferred_close_kthread_q",
                 status: crate::ProcessStatus::Sleep,
                 parent_pid: Some(b"2"),
                 flags: Some(b"2129984"),
