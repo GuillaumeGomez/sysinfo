@@ -54,10 +54,17 @@ struct CGroupMounts {
 }
 
 pub(crate) fn limits_for_system() -> Option<crate::CGroupLimits> {
-    let v2_base = Path::new("/sys/fs/cgroup");
-    let v1_base = Path::new("/sys/fs/cgroup/memory");
+    let v2_root = Path::new("/sys/fs/cgroup");
+    let v1_root = Path::new("/sys/fs/cgroup/memory");
+    let v2_bases = [CGroupBase::root(v2_root)];
+    let v1_bases = [CGroupBase::root(v1_root)];
+    let v1_bases = if v1_root.join("memory.limit_in_bytes").exists() {
+        &v1_bases[..]
+    } else {
+        &[]
+    };
 
-    limits_for_base(&[CGroupBase::root(v2_base)], &[CGroupBase::root(v1_base)])
+    limits_for_base(&v2_bases, v1_bases)
 }
 
 pub(crate) fn limits_for_process(proc_path: &Path) -> Option<crate::CGroupLimits> {
@@ -409,7 +416,10 @@ fn parse_cgroup_mounts(content: &str) -> CGroupMounts {
         };
 
         let mut found_separator = false;
-        for field in fields.by_ref() {
+        // Skipping optional fields (the end is marked with "-").
+        // Keep this explicit because parsing resumes from `fields` after the separator.
+        #[allow(clippy::while_let_on_iterator)]
+        while let Some(field) = fields.next() {
             if field == "-" {
                 found_separator = true;
                 break;
@@ -431,7 +441,7 @@ fn parse_cgroup_mounts(content: &str) -> CGroupMounts {
 
         let mount = CGroupMount {
             root: normalize_mountinfo_path(root),
-            mount_point: PathBuf::from(decode_cgroup_path(mount_point)),
+            mount_point: Path::new(mount_point).to_path_buf(),
         };
 
         match filesystem_type {
@@ -486,48 +496,11 @@ fn normalize_cgroup_path(path: &str) -> PathBuf {
 }
 
 fn normalize_mountinfo_path(path: &str) -> PathBuf {
-    let path = decode_cgroup_path(path);
-
-    if let Ok(path) = Path::new(&path).strip_prefix("/") {
+    if let Ok(path) = Path::new(path).strip_prefix("/") {
         return path.to_path_buf();
     }
 
     PathBuf::from(path)
-}
-
-fn decode_cgroup_path(path: &str) -> String {
-    let bytes = path.as_bytes();
-    let mut decoded = Vec::with_capacity(bytes.len());
-    let mut pos = 0;
-
-    while pos < bytes.len() {
-        if bytes[pos] == b'\\'
-            && pos + 3 < bytes.len()
-            && let Some(value) = decode_octal_escape(&bytes[pos + 1..pos + 4])
-        {
-            decoded.push(value);
-            pos += 4;
-            continue;
-        }
-
-        decoded.push(bytes[pos]);
-        pos += 1;
-    }
-
-    String::from_utf8(decoded).unwrap_or_else(|_| path.to_owned())
-}
-
-fn decode_octal_escape(digits: &[u8]) -> Option<u8> {
-    let mut value = 0;
-
-    for digit in digits {
-        if !(b'0'..=b'7').contains(digit) {
-            return None;
-        }
-        value = value * 8 + (digit - b'0');
-    }
-
-    Some(value)
 }
 
 #[cfg(test)]
@@ -996,8 +969,8 @@ mod test {
                     mount_point: PathBuf::from("/sys/fs/cgroup"),
                 }],
                 v1_memory: vec![CGroupMount {
-                    root: PathBuf::from("kubepods burstable"),
-                    mount_point: PathBuf::from("/sys/fs/cgroup/memory controller"),
+                    root: PathBuf::from("kubepods\\040burstable"),
+                    mount_point: PathBuf::from("/sys/fs/cgroup/memory\\040controller"),
                 }],
             }
         );
