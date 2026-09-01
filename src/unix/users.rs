@@ -47,7 +47,7 @@ pub(crate) unsafe fn get_group_name(
     buffer: &mut Vec<libc::c_char>,
 ) -> Option<String> {
     let mut g = std::mem::MaybeUninit::<libc::group>::uninit();
-    let mut tmp_ptr = std::ptr::null_mut();
+    let mut tmp_ptr: *mut libc::group = std::ptr::null_mut();
     let mut last_errno = 0;
 
     unsafe {
@@ -71,6 +71,11 @@ pub(crate) unsafe fn get_group_name(
                 return None;
             }
             break;
+        }
+        // If no group with this ID was found, the `tmp_ptr` is still NULL and we should not try
+        // to read it.
+        if tmp_ptr.is_null() {
+            return None;
         }
         let g = g.assume_init();
         super::utils::cstr_to_rust(g.gr_name)
@@ -171,4 +176,17 @@ pub(crate) fn get_users(users: &mut Vec<crate::User>) {
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub(crate) fn new_users() -> Result<Vec<crate::User>, crate::Error> {
     Ok(Vec::new())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_get_group_name() {
+        let mut buffer = Vec::with_capacity(2048);
+        unsafe {
+            // If it doesn't crash, then all good. Also, I hope that `4242424` will never match
+            // any existing group ID.
+            assert_eq!(super::get_group_name(4242424, &mut buffer), None);
+        }
+    }
 }
