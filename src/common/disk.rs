@@ -189,6 +189,30 @@ impl Disk {
     pub fn usage(&self) -> DiskUsage {
         self.inner.usage()
     }
+
+    /// Returns the disk's temperature in degrees Celsius.
+    ///
+    /// Currently only implemented on Linux (NVMe drives).
+    /// Returns `None` if the temperature information is not available.
+    pub fn temperature(&self) -> Option<f32> {
+        self.inner.temperature()
+    }
+
+    /// Returns the highest temperature (in degrees Celsius) recorded for this disk.
+    ///
+    /// Currently only implemented on Linux (NVMe drives).
+    /// Returns `None` if this information isn't available.
+    pub fn max(&self) -> Option<f32> {
+        self.inner.max()
+    }
+
+    /// Returns the critical temperature threshold (in degrees Celsius) for this disk.
+    ///
+    /// Currently only implemented on Linux (NVMe drives).
+    /// Returns `None` if this information isn't available.
+    pub fn critical(&self) -> Option<f32> {
+        self.inner.critical()
+    }
 }
 
 /// Disks interface.
@@ -411,6 +435,7 @@ impl fmt::Display for DiskKind {
 /// * `kind` is about refreshing the [`Disk::kind`] information.
 /// * `storage` is about refreshing the [`Disk::available_space`] and [`Disk::total_space`] information.
 /// * `io_usage` is about refreshing the [`Disk::usage`] information.
+/// * `temperature` is about refreshing the [`Disk::temperature`] information.
 ///
 /// ```no_run
 /// use sysinfo::{Disks, DiskRefreshKind};
@@ -426,6 +451,7 @@ pub struct DiskRefreshKind {
     kind: bool,
     storage: bool,
     io_usage: bool,
+    temperature: bool,
 }
 
 impl DiskRefreshKind {
@@ -439,6 +465,7 @@ impl DiskRefreshKind {
     /// assert_eq!(r.kind(), false);
     /// assert_eq!(r.storage(), false);
     /// assert_eq!(r.io_usage(), false);
+    /// assert_eq!(r.temperature(), false);
     /// ```
     pub fn nothing() -> Self {
         Self::default()
@@ -454,18 +481,26 @@ impl DiskRefreshKind {
     /// assert_eq!(r.kind(), true);
     /// assert_eq!(r.storage(), true);
     /// assert_eq!(r.io_usage(), true);
+    /// assert_eq!(r.temperature(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
             kind: true,
             storage: true,
             io_usage: true,
+            temperature: true,
         }
     }
 
     impl_get_set!(DiskRefreshKind, kind, with_kind, without_kind);
     impl_get_set!(DiskRefreshKind, storage, with_storage, without_storage);
     impl_get_set!(DiskRefreshKind, io_usage, with_io_usage, without_io_usage);
+    impl_get_set!(
+        DiskRefreshKind,
+        temperature,
+        with_temperature,
+        without_temperature
+    );
 }
 
 #[cfg(test)]

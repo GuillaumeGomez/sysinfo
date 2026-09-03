@@ -49,6 +49,9 @@ impl GpusInner {
             let class_code_key = CFString::from_str("class-code");
             let pcidebug_key = CFString::from_str("pcidebug");
             let perf_key = CFString::from_str("PerformanceStatistics");
+            let usage_percent_key = CFString::from_str("Device Utilization %");
+            let usage_key = CFString::from_str("Device Utilization");
+            let temperature_key = CFString::from_str("Temperature(C)");
 
             while let Some(accelerator) = IOReleaser::new(IOIteratorNext(iterator.inner())) {
                 let mut device = 0;
@@ -99,6 +102,7 @@ impl GpusInner {
                                 model: None,
                                 vendor: None,
                                 usage: None,
+                                temperature: None,
                                 updated: true,
                             },
                         });
@@ -149,13 +153,18 @@ impl GpusInner {
                     0,
                 ) && let Some(usage_dict) = usage.downcast_ref::<CFDictionary>()
                     && let usage_dict = usage_dict.cast_unchecked::<CFString, CFNumber>()
-                    && let Some(usage) = usage_dict
-                        .get(&CFString::from_str("Device Utilization %"))
-                        .or_else(|| usage_dict.get(&CFString::from_str("Device Utilization")))
-                    && let Ok(usage) = usage.downcast::<CFNumber>()
-                    && let Some(usage) = usage.as_i64()
                 {
-                    gpu.usage = Some(usage as f32);
+                    if let Some(usage) = usage_dict
+                        .get(&usage_percent_key)
+                        .or_else(|| usage_dict.get(&usage_key))
+                        .and_then(|usage| usage.as_i64())
+                    {
+                        gpu.usage = Some(usage as f32);
+                    }
+                    gpu.temperature = usage_dict
+                        .get(&temperature_key)
+                        .and_then(|temperature| temperature.as_f32())
+                        .filter(|temperature| temperature.is_finite() && *temperature > 0.0);
                 }
             }
         }
@@ -185,6 +194,7 @@ pub(crate) struct GpuInner {
     vendor: Option<String>,
     model: Option<String>,
     usage: Option<f32>,
+    temperature: Option<f32>,
     pub(crate) updated: bool,
 }
 
@@ -206,5 +216,8 @@ impl GpuInner {
     }
     pub(crate) fn used_memory(&self) -> Option<u64> {
         None
+    }
+    pub(crate) fn temperature(&self) -> Option<f32> {
+        self.temperature
     }
 }
