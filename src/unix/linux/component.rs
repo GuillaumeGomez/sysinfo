@@ -432,7 +432,7 @@ impl ComponentsInner {
         read_temp_dir(&path.join("hwmon"), "hwmon", |path| {
             ComponentInner::from_hwmon(&mut self.components, &path);
         });
-        if self.components.is_empty() {
+        if self.components.iter().all(|c| !c.inner.updated) {
             // Normally should only be used by raspberry pi.
             read_temp_dir(&path.join("thermal"), "thermal_", |path| {
                 let temp = path.join("temp");
@@ -447,7 +447,16 @@ impl ComponentsInner {
                         ..Default::default()
                     };
                     fill_component(&mut component, "input", &path, "temp");
-                    self.components.push(Component { inner: component });
+                    if let Some(comp) = self
+                        .components
+                        .iter_mut()
+                        .find(|comp| comp.inner.id == component.id)
+                    {
+                        comp.inner.update_from(Component { inner: component });
+                    } else {
+                        component.updated = true;
+                        self.components.push(Component { inner: component });
+                    }
                 }
             });
         }
