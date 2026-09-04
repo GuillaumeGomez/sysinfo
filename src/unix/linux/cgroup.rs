@@ -441,7 +441,7 @@ fn parse_cgroup_mounts(content: &str) -> CGroupMounts {
 
         let mount = CGroupMount {
             root: normalize_mountinfo_path(root),
-            mount_point: Path::new(mount_point).to_path_buf(),
+            mount_point: PathBuf::from(decode_mountinfo_path(mount_point)),
         };
 
         match filesystem_type {
@@ -496,11 +496,52 @@ fn normalize_cgroup_path(path: &str) -> PathBuf {
 }
 
 fn normalize_mountinfo_path(path: &str) -> PathBuf {
-    if let Ok(path) = Path::new(path).strip_prefix("/") {
+    let path = decode_mountinfo_path(path);
+
+    if let Ok(path) = Path::new(&path).strip_prefix("/") {
         return path.to_path_buf();
     }
 
     PathBuf::from(path)
+}
+
+// The kernel renders mountinfo root and mount point fields with octal
+// escapes for space, tab, newline and backslash (seq_escape() via
+// show_mountinfo() in fs/proc_namespace.c), e.g. `\040` for a space.
+// Decode them so the paths can actually be looked up on the filesystem.
+fn decode_mountinfo_path(path: &str) -> String {
+    let bytes = path.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut pos = 0;
+
+    while pos < bytes.len() {
+        if bytes[pos] == b'\\'
+            && pos + 3 < bytes.len()
+            && let Some(value) = decode_octal_escape(&bytes[pos + 1..pos + 4])
+        {
+            decoded.push(value);
+            pos += 4;
+            continue;
+        }
+
+        decoded.push(bytes[pos]);
+        pos += 1;
+    }
+
+    String::from_utf8(decoded).unwrap_or_else(|_| path.to_owned())
+}
+
+fn decode_octal_escape(digits: &[u8]) -> Option<u8> {
+    let mut value = 0;
+
+    for digit in digits {
+        if !(b'0'..=b'7').contains(digit) {
+            return None;
+        }
+        value = value * 8 + (digit - b'0');
+    }
+
+    Some(value)
 }
 
 #[cfg(test)]
@@ -511,6 +552,7 @@ mod test {
     use super::CGroupMounts;
     use super::CGroupPath;
     use super::cgroup_base_paths;
+    use super::decode_mountinfo_path;
     use super::limits_for_base_with_context;
     use super::parse_cgroup_mounts;
     use super::parse_cgroup_path;
@@ -969,11 +1011,29 @@ mod test {
                     mount_point: PathBuf::from("/sys/fs/cgroup"),
                 }],
                 v1_memory: vec![CGroupMount {
-                    root: PathBuf::from("kubepods\\040burstable"),
-                    mount_point: PathBuf::from("/sys/fs/cgroup/memory\\040controller"),
+                    root: PathBuf::from("kubepods burstable"),
+                    mount_point: PathBuf::from("/sys/fs/cgroup/memory controller"),
                 }],
             }
         );
+    }
+
+    #[test]
+    fn test_decode_mountinfo_path() {
+        assert_eq!(
+            decode_mountinfo_path("/sys/fs/cgroup/memory\\040controller"),
+            "/sys/fs/cgroup/memory controller"
+        );
+        assert_eq!(decode_mountinfo_path("tab\\011path"), "tab\tpath");
+        assert_eq!(decode_mountinfo_path("newline\\012path"), "newline\npath");
+        assert_eq!(
+            decode_mountinfo_path("backslash\\134path"),
+            "backslash\\path"
+        );
+        assert_eq!(decode_mountinfo_path("plain/path"), "plain/path");
+        // Incomplete or non-octal escapes are kept as-is.
+        assert_eq!(decode_mountinfo_path("trailing\\04"), "trailing\\04");
+        assert_eq!(decode_mountinfo_path("invalid\\099"), "invalid\\099");
     }
 
     #[test]
