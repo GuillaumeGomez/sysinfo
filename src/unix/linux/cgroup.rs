@@ -310,7 +310,7 @@ fn get_cgroup_path(path: &Path) -> Option<CGroupPath> {
 }
 
 fn get_cgroup_mounts(path: &Path) -> Option<CGroupMounts> {
-    let content = get_all_utf8_data(path, 1_048_576).ok()?;
+    let content = get_all_utf8_data(path, 16_385).ok()?;
     Some(parse_cgroup_mounts(&content))
 }
 
