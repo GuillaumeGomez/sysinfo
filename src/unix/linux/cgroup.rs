@@ -365,7 +365,7 @@ fn cgroup_bases_for_path(
 }
 
 fn push_unique_base(bases: &mut Vec<CGroupBase>, candidate: CGroupBase) {
-    if !bases.iter().any(|existing| existing == &candidate) {
+    if !bases.contains(&candidate) {
         bases.push(candidate);
     }
 }
