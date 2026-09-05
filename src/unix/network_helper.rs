@@ -8,7 +8,6 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::raw::c_char;
 use std::ptr::null_mut;
-use std::str::from_utf8_unchecked;
 use std::{io, mem};
 
 use crate::{IpNetwork, MacAddr};
@@ -58,6 +57,12 @@ pub(crate) struct InterfaceAddressHelper {
     ifap: *mut libc::ifaddrs,
 }
 
+fn interface_name_from_bytes(bytes: &[u8]) -> Option<String> {
+    let name = String::from_utf8_lossy(bytes);
+    // Interfaces names may be formatted as <interface name>:<sub-interface index>
+    name.split(':').next().map(|v| v.to_string())
+}
+
 impl InterfaceAddressHelper {
     pub(crate) fn name(&self) -> Option<String> {
         // Safety: We assume that addr is valid for the lifetime of this body, and is not mutated.
@@ -68,14 +73,7 @@ impl InterfaceAddressHelper {
         // Safety: ifa_name is a null terminated interface name
         let bytes = unsafe { CStr::from_ptr(c_str).to_bytes() };
 
-        // Safety: Interfaces on unix must be valid UTF-8
-        let name = unsafe { from_utf8_unchecked(bytes).to_owned() };
-        // Interfaces names may be formatted as <interface name>:<sub-interface index>
-        if name.contains(':') {
-            name.split(':').next().map(|v| v.to_string())
-        } else {
-            Some(name)
-        }
+        interface_name_from_bytes(bytes)
     }
 
     pub(crate) fn ip(&self) -> Option<IpAddr> {
@@ -375,6 +373,24 @@ pub(crate) fn ipv6_mask_to_prefix(mask: Ipv6Addr) -> Result<u8, &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn interface_name_non_utf8() {
+        let bytes = b"abc\xffdef";
+        assert_eq!(
+            interface_name_from_bytes(bytes),
+            Some("abc\u{fffd}def".to_string())
+        );
+    }
+
+    #[test]
+    fn interface_name_sub_interface() {
+        assert_eq!(
+            interface_name_from_bytes(b"eth0:1"),
+            Some("eth0".to_string())
+        );
+        assert_eq!(interface_name_from_bytes(b"eth0"), Some("eth0".to_string()));
+    }
 
     #[test]
     fn ipv4_mask() {
