@@ -4,6 +4,8 @@ use crate::network::refresh_networks_addresses;
 use crate::{Error, InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
 
 use std::collections::{HashMap, hash_map};
+use std::ffi::OsString;
+use std::os::windows::ffi::OsStringExt;
 
 use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, MIB_IF_TABLE2};
 use windows::Win32::NetworkManagement::Ndis::{
@@ -20,7 +22,7 @@ macro_rules! old_and_new {
 }
 
 pub(crate) struct NetworksInner {
-    pub(crate) interfaces: HashMap<String, NetworkData>,
+    pub(crate) interfaces: HashMap<OsString, NetworkData>,
 }
 
 impl NetworksInner {
@@ -30,7 +32,7 @@ impl NetworksInner {
         })
     }
 
-    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+    pub(crate) fn list(&self) -> &HashMap<OsString, NetworkData> {
         &self.interfaces
     }
 
@@ -92,10 +94,7 @@ impl NetworksInner {
                     }
                     pos += 1;
                 }
-                let interface_name = match String::from_utf16(&ptr.Alias[..pos]) {
-                    Ok(s) => s,
-                    _ => continue,
-                };
+                let interface_name = OsString::from_wide(&ptr.Alias[..pos]);
 
                 let mtu = ptr.Mtu as u64;
                 let operational_state = InterfaceOperationalState::from_enum(ptr.OperStatus);

@@ -6,7 +6,9 @@ use libc::{
 };
 
 use std::collections::{HashMap, hash_map};
+use std::ffi::OsString;
 use std::mem::{MaybeUninit, size_of};
+use std::os::unix::ffi::OsStringExt;
 use std::ptr::null_mut;
 
 use crate::network::refresh_networks_addresses;
@@ -65,7 +67,7 @@ fn update_network_data(inner: &mut NetworkDataInner, data: &if_data64) {
 }
 
 pub(crate) struct NetworksInner {
-    pub(crate) interfaces: HashMap<String, NetworkData>,
+    pub(crate) interfaces: HashMap<OsString, NetworkData>,
 }
 
 impl NetworksInner {
@@ -75,7 +77,7 @@ impl NetworksInner {
         })
     }
 
-    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+    pub(crate) fn list(&self) -> &HashMap<OsString, NetworkData> {
         &self.interfaces
     }
 
@@ -156,7 +158,7 @@ impl NetworksInner {
                         continue;
                     }
                     name.set_len(libc::strlen(pname));
-                    let name = String::from_utf8_unchecked(name);
+                    let name = OsString::from_vec(name);
                     let mtu = (*if2m).ifm_data.ifi_mtu as u64;
 
                     // FIXME: the documentation I could find was rather spars and unclear, are these the right flags?

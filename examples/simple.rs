@@ -304,11 +304,12 @@ fn interpret_input(
                 for (interface_name, data) in networks.iter() {
                     println!(
                         "\
-    {interface_name}:
+    {}:
       operational state {}
       ether {}
       input data  (new / total): {} / {} B
       output data (new / total): {} / {} B",
+                        interface_name.display(),
                         data.operational_state(),
                         data.mac_address(),
                         data.received(),

@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::collections::{HashMap, hash_map};
+use std::ffi::OsString;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -70,7 +71,7 @@ impl InterfaceOperationalState {
 }
 
 fn refresh_networks_list_from_sysfs(
-    interfaces: &mut HashMap<String, NetworkData>,
+    interfaces: &mut HashMap<OsString, NetworkData>,
     remove_not_listed_interfaces: bool,
     sysfs_net: &Path,
 ) {
@@ -86,10 +87,6 @@ fn refresh_networks_list_from_sysfs(
         for entry in dir.flatten() {
             let parent = &entry.path().join("statistics");
             let entry_path = &entry.path();
-            let entry = match entry.file_name().into_string() {
-                Ok(entry) => entry,
-                Err(_) => continue,
-            };
             let rx_bytes = read(parent, "rx_bytes", &mut num_buf);
             let tx_bytes = read(parent, "tx_bytes", &mut num_buf);
             let rx_packets = read(parent, "rx_packets", &mut num_buf);
@@ -104,7 +101,7 @@ fn refresh_networks_list_from_sysfs(
                 read_str(entry_path, "operstate", &mut str_buf).trim_ascii(),
             );
 
-            match interfaces.entry(entry) {
+            match interfaces.entry(entry.file_name()) {
                 hash_map::Entry::Occupied(mut e) => {
                     let interface = e.get_mut();
                     let interface = &mut interface.inner;
@@ -166,7 +163,7 @@ fn refresh_networks_list_from_sysfs(
 }
 
 pub(crate) struct NetworksInner {
-    pub(crate) interfaces: HashMap<String, NetworkData>,
+    pub(crate) interfaces: HashMap<OsString, NetworkData>,
 }
 
 impl NetworksInner {
@@ -176,7 +173,7 @@ impl NetworksInner {
         })
     }
 
-    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+    pub(crate) fn list(&self) -> &HashMap<OsString, NetworkData> {
         &self.interfaces
     }
 
@@ -301,6 +298,7 @@ impl NetworkDataInner {
 mod test {
     use super::refresh_networks_list_from_sysfs;
     use std::collections::HashMap;
+    use std::ffi::{OsStr, OsString};
     use std::fs;
 
     #[test]
@@ -317,7 +315,7 @@ mod test {
         fs::create_dir(sys_net_dir.path().join("itf2")).expect("failed to create subdirectory");
 
         refresh_networks_list_from_sysfs(&mut interfaces, false, sys_net_dir.path());
-        let mut itf_names: Vec<String> = interfaces.keys().map(|n| n.to_owned()).collect();
+        let mut itf_names: Vec<OsString> = interfaces.keys().map(|n| n.to_owned()).collect();
         itf_names.sort();
         assert_eq!(itf_names, ["itf1", "itf2"]);
     }
@@ -334,7 +332,7 @@ mod test {
         let mut interfaces = HashMap::new();
 
         refresh_networks_list_from_sysfs(&mut interfaces, false, sys_net_dir.path());
-        let mut itf_names: Vec<String> = interfaces.keys().map(|n| n.to_owned()).collect();
+        let mut itf_names: Vec<OsString> = interfaces.keys().map(|n| n.to_owned()).collect();
         itf_names.sort();
         assert_eq!(itf_names, ["itf1", "itf2"]);
 
@@ -380,19 +378,25 @@ mod test {
         refresh_networks_list_from_sysfs(&mut interfaces, false, dir.path());
         refresh_networks_list_from_sysfs(&mut interfaces, false, dir.path());
 
-        assert_eq!(interfaces.get("if_a").unwrap().inner.rx_bytes, 100);
         assert_eq!(
-            interfaces.get("if_b").unwrap().inner.rx_bytes,
+            interfaces.get(OsStr::new("if_a")).unwrap().inner.rx_bytes,
+            100
+        );
+        assert_eq!(
+            interfaces.get(OsStr::new("if_b")).unwrap().inner.rx_bytes,
             1_234_567_890_123
         );
         assert_eq!(
-            interfaces.get("if_c").unwrap().inner.rx_bytes,
+            interfaces.get(OsStr::new("if_c")).unwrap().inner.rx_bytes,
             9_876_543_210_987
         );
-        assert_eq!(interfaces.get("if_d").unwrap().inner.rx_bytes, u64::MAX);
+        assert_eq!(
+            interfaces.get(OsStr::new("if_d")).unwrap().inner.rx_bytes,
+            u64::MAX
+        );
 
         for name in ["if_a", "if_b", "if_c", "if_d"] {
-            let interface = interfaces.get(name).unwrap();
+            let interface = interfaces.get(OsStr::new(name)).unwrap();
             assert_eq!(interface.inner.mtu, 1500, "{name}: mtu");
         }
     }

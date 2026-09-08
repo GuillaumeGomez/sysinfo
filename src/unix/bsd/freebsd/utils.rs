@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#[cfg(feature = "system")]
-use std::ffi::{CStr, OsStr, OsString};
-#[cfg(feature = "system")]
+#[cfg(any(feature = "system", feature = "network"))]
+use std::ffi::{OsStr, OsString};
+#[cfg(any(feature = "system", feature = "network"))]
 use std::os::unix::ffi::OsStrExt;
 
 #[cfg(any(feature = "system", feature = "network"))]
@@ -35,7 +35,7 @@ pub(crate) unsafe fn get_sys_value_array<T: Sized>(mib: &[libc::c_int], value: &
     }
 }
 
-#[cfg(any(feature = "disk", feature = "system", feature = "network"))]
+#[cfg(any(feature = "disk", feature = "system"))]
 pub(crate) fn c_buf_to_utf8_str(buf: &[libc::c_char]) -> Option<&str> {
     unsafe {
         let buf: &[u8] = std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
@@ -49,12 +49,12 @@ pub(crate) fn c_buf_to_utf8_str(buf: &[libc::c_char]) -> Option<&str> {
     }
 }
 
-#[cfg(any(feature = "disk", feature = "system", feature = "network"))]
+#[cfg(any(feature = "disk", feature = "system"))]
 pub(crate) fn c_buf_to_utf8_string(buf: &[libc::c_char]) -> Option<String> {
     c_buf_to_utf8_str(buf).map(|s| s.to_owned())
 }
 
-#[cfg(feature = "system")]
+#[cfg(any(feature = "system", feature = "network"))]
 pub(crate) fn c_buf_to_os_str(buf: &[libc::c_char]) -> &OsStr {
     unsafe {
         let buf: &[u8] = std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
@@ -67,7 +67,7 @@ pub(crate) fn c_buf_to_os_str(buf: &[libc::c_char]) -> &OsStr {
     }
 }
 
-#[cfg(feature = "system")]
+#[cfg(any(feature = "system", feature = "network"))]
 pub(crate) fn c_buf_to_os_string(buf: &[libc::c_char]) -> OsString {
     c_buf_to_os_str(buf).to_owned()
 }
@@ -196,7 +196,7 @@ pub(crate) unsafe fn from_cstr_array(ptr: *const *const libc::c_char) -> Vec<OsS
     for pos in 0..max {
         unsafe {
             let p = ptr.add(pos);
-            ret.push(OsStr::from_bytes(CStr::from_ptr(*p).to_bytes()).to_os_string());
+            ret.push(OsStr::from_bytes(std::ffi::CStr::from_ptr(*p).to_bytes()).to_os_string());
         }
     }
     ret

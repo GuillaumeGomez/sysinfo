@@ -5,7 +5,6 @@ authors = ["Guillaume Gomez <guillaume1.gomez@gmail.com>"]
 description = "Library to get system information such as processes, CPUs, disks, components and networks"
 repository = "https://github.com/GuillaumeGomez/sysinfo"
 license = "MIT"
-readme = "README.md"
 rust-version = "1.95"
 exclude = ["/test-unknown"]
 keywords = ["system-information", "disk", "process", "network", "cpu"]

@@ -85,7 +85,8 @@ if let Ok(networks) = Networks::new_with_refreshed_list() {
     println!("=> networks:");
     for (interface_name, data) in &networks {
         println!(
-            "{interface_name}: {} B (down) / {} B (up)",
+            "{}: {} B (down) / {} B (up)",
+            interface_name.display(),
             data.total_received(),
             data.total_transmitted(),
         );

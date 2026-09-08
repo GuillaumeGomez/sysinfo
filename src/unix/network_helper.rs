@@ -2,13 +2,13 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::ffi::CStr;
+use std::ffi::{CStr, OsString};
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::raw::c_char;
+use std::os::unix::ffi::OsStringExt;
 use std::ptr::null_mut;
-use std::str::from_utf8_unchecked;
 use std::{io, mem};
 
 use crate::{IpNetwork, MacAddr};
@@ -59,7 +59,7 @@ pub(crate) struct InterfaceAddressHelper {
 }
 
 impl InterfaceAddressHelper {
-    pub(crate) fn name(&self) -> Option<String> {
+    pub(crate) fn name(&self) -> Option<OsString> {
         // Safety: We assume that addr is valid for the lifetime of this body, and is not mutated.
         let addr_ref: &libc::ifaddrs = unsafe { &*self.ifap };
 
@@ -67,14 +67,16 @@ impl InterfaceAddressHelper {
 
         // Safety: ifa_name is a null terminated interface name
         let bytes = unsafe { CStr::from_ptr(c_str).to_bytes() };
-
-        // Safety: Interfaces on unix must be valid UTF-8
-        let name = unsafe { from_utf8_unchecked(bytes).to_owned() };
         // Interfaces names may be formatted as <interface name>:<sub-interface index>
-        if name.contains(':') {
-            name.split(':').next().map(|v| v.to_string())
+        let bytes = if let Some(pos) = bytes.iter().rposition(|b| *b == b':') {
+            bytes[..pos].to_owned()
         } else {
-            Some(name)
+            bytes.to_owned()
+        };
+        if bytes.is_empty() {
+            None
+        } else {
+            Some(OsString::from_vec(bytes))
         }
     }
 
@@ -194,12 +196,12 @@ unsafe fn parse_interface_address(ifap: &libc::ifaddrs) -> Option<MacAddr> {
 }
 
 pub(crate) unsafe fn refresh_network_interfaces(
-    interfaces: &mut HashMap<String, crate::NetworkData>,
+    interfaces: &mut HashMap<OsString, crate::NetworkData>,
 ) {
     let Some(interface_iter) = InterfaceAddress::new() else {
         return;
     };
-    let mut ifaces: HashMap<String, HashSet<IpNetwork>> = HashMap::new();
+    let mut ifaces: HashMap<OsString, HashSet<IpNetwork>> = HashMap::new();
 
     for entry in interface_iter.iter() {
         if let Some(interface_name) = entry.name()

@@ -3,9 +3,10 @@
 use crate::{Error, InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
 
 use std::collections::HashMap;
+use std::ffi::OsString;
 
 pub(crate) struct NetworksInner {
-    pub(crate) interfaces: HashMap<String, NetworkData>,
+    pub(crate) interfaces: HashMap<OsString, NetworkData>,
 }
 
 impl NetworksInner {
@@ -13,7 +14,7 @@ impl NetworksInner {
         Err(Error::Unsupported)
     }
 
-    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+    pub(crate) fn list(&self) -> &HashMap<OsString, NetworkData> {
         &self.interfaces
     }
 
