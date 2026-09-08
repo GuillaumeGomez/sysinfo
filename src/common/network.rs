@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fmt;
 use std::net::{AddrParseError, IpAddr};
 use std::num::ParseIntError;
@@ -15,7 +16,7 @@ use crate::{Error, NetworkDataInner, NetworksInner};
 ///
 /// if let Ok(networks) = Networks::new_with_refreshed_list() {
 ///     for (interface_name, network) in &networks {
-///         println!("[{interface_name}]: {network:?}");
+///         println!("[{}]: {network:?}", interface_name.display());
 ///     }
 /// }
 /// ```
@@ -24,8 +25,8 @@ pub struct Networks {
 }
 
 impl<'a> IntoIterator for &'a Networks {
-    type Item = (&'a String, &'a NetworkData);
-    type IntoIter = std::collections::hash_map::Iter<'a, String, NetworkData>;
+    type Item = (&'a OsString, &'a NetworkData);
+    type IntoIter = std::collections::hash_map::Iter<'a, OsString, NetworkData>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -43,7 +44,7 @@ impl Networks {
     /// if let Ok(mut networks) = Networks::new() {
     ///     networks.refresh(true);
     ///     for (interface_name, network) in &networks {
-    ///         println!("[{interface_name}]: {network:?}");
+    ///         println!("[{}]: {network:?}", interface_name.display());
     ///     }
     /// }
     /// ```
@@ -82,7 +83,7 @@ impl Networks {
     ///     }
     /// }
     /// ```
-    pub fn list(&self) -> &HashMap<String, NetworkData> {
+    pub fn list(&self) -> &HashMap<OsString, NetworkData> {
         self.inner.list()
     }
 
@@ -102,7 +103,7 @@ impl Networks {
 }
 
 impl std::ops::Deref for Networks {
-    type Target = HashMap<String, NetworkData>;
+    type Target = HashMap<OsString, NetworkData>;
 
     fn deref(&self) -> &Self::Target {
         self.list()
@@ -116,7 +117,7 @@ impl std::ops::Deref for Networks {
 ///
 /// if let Ok(networks) = Networks::new_with_refreshed_list() {
 ///     for (interface_name, network) in &networks {
-///         println!("[{interface_name}] {network:?}");
+///         println!("[{}] {network:?}", interface_name.display());
 ///     }
 /// }
 /// ```

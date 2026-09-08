@@ -1,7 +1,9 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsString;
 use std::net::IpAddr;
+use std::os::windows::ffi::OsStringExt;
 use std::ptr::{NonNull, null_mut};
 
 use windows::Win32::Foundation::{ERROR_BUFFER_OVERFLOW, ERROR_SUCCESS};
@@ -46,7 +48,7 @@ impl InterfaceAddressIterator {
 }
 
 impl Iterator for InterfaceAddressIterator {
-    type Item = (String, MacAddr);
+    type Item = (OsString, MacAddr);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.adapter.is_null() {
@@ -56,37 +58,32 @@ impl Iterator for InterfaceAddressIterator {
             let adapter = self.adapter;
             // Move to the next adapter
             self.adapter = (*adapter).Next;
-            if let Ok(interface_name) = (*adapter).FriendlyName.to_string() {
-                // take the first 6 bytes and return the MAC address instead
-                let [mac @ .., _, _] = (*adapter).PhysicalAddress;
-                Some((interface_name, MacAddr(mac)))
-            } else {
-                // Not sure whether error can occur when parsing adapter name.
-                self.next()
-            }
+            let interface_name = OsString::from_wide((*adapter).FriendlyName.as_wide());
+            // take the first 6 bytes and return the MAC address instead
+            let [mac @ .., _, _] = (*adapter).PhysicalAddress;
+            Some((interface_name, MacAddr(mac)))
         }
     }
 }
 
 impl InterfaceAddressIterator {
-    pub fn generate_ip_networks(&mut self) -> HashMap<String, HashSet<IpNetwork>> {
+    pub fn generate_ip_networks(&mut self) -> HashMap<OsString, HashSet<IpNetwork>> {
         let mut results = HashMap::new();
         while !self.adapter.is_null() {
             unsafe {
                 let adapter = self.adapter;
                 // Move to the next adapter
                 self.adapter = (*adapter).Next;
-                if let Ok(interface_name) = (*adapter).FriendlyName.to_string() {
-                    let ip_networks = get_ip_networks((*adapter).FirstUnicastAddress);
-                    results.insert(interface_name, ip_networks);
-                }
+                let interface_name = OsString::from_wide((*adapter).FriendlyName.as_wide());
+                let ip_networks = get_ip_networks((*adapter).FirstUnicastAddress);
+                results.insert(interface_name, ip_networks);
             }
         }
         results
     }
 }
 
-pub(crate) unsafe fn get_interface_ip_networks() -> HashMap<String, HashSet<IpNetwork>> {
+pub(crate) unsafe fn get_interface_ip_networks() -> HashMap<OsString, HashSet<IpNetwork>> {
     match unsafe { get_interface_address() } {
         Ok(mut interface_iter) => interface_iter.generate_ip_networks(),
         _ => HashMap::new(),

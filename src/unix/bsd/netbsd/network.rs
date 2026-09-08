@@ -1,6 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use std::collections::{HashMap, hash_map};
+use std::ffi::{CStr, OsString};
+use std::os::unix::ffi::OsStringExt;
 
 use crate::network::refresh_networks_addresses;
 use crate::unix::bsd::NetworkDataInner;
@@ -14,7 +16,7 @@ macro_rules! old_and_new {
 }
 
 pub(crate) struct NetworksInner {
-    pub(crate) interfaces: HashMap<String, NetworkData>,
+    pub(crate) interfaces: HashMap<OsString, NetworkData>,
 }
 
 impl NetworksInner {
@@ -24,7 +26,7 @@ impl NetworksInner {
         })
     }
 
-    pub(crate) fn list(&self) -> &HashMap<String, NetworkData> {
+    pub(crate) fn list(&self) -> &HashMap<OsString, NetworkData> {
         &self.interfaces
     }
 
@@ -56,60 +58,60 @@ impl NetworksInner {
 
             for ifa in ifaddrs {
                 let ifa = &*ifa;
-                if let Some(name) = std::ffi::CStr::from_ptr(ifa.ifa_name)
-                    .to_str()
-                    .ok()
-                    .map(|s| s.to_string())
-                {
-                    let flags = ifa.ifa_flags;
-                    let data: &libc::if_data = &*(ifa.ifa_data as *mut libc::if_data);
-                    let mtu = data.ifi_mtu;
-                    let operational_state = InterfaceOperationalState::from_flag(
-                        flags as core::ffi::c_int,
-                        data.ifi_link_state,
-                    );
-                    match self.interfaces.entry(name) {
-                        hash_map::Entry::Occupied(mut e) => {
-                            let interface = e.get_mut();
-                            let interface = &mut interface.inner;
+                if ifa.ifa_name.is_null() {
+                    continue;
+                }
+                // SAFETY: `ifa_name` is terminated by `\0`.
+                let bytes = CStr::from_ptr(ifa.ifa_name).to_bytes();
+                let name = OsString::from_vec(bytes.to_owned());
+                let flags = ifa.ifa_flags;
+                let data: &libc::if_data = &*(ifa.ifa_data as *mut libc::if_data);
+                let mtu = data.ifi_mtu;
+                let operational_state = InterfaceOperationalState::from_flag(
+                    flags as core::ffi::c_int,
+                    data.ifi_link_state,
+                );
+                match self.interfaces.entry(name) {
+                    hash_map::Entry::Occupied(mut e) => {
+                        let interface = e.get_mut();
+                        let interface = &mut interface.inner;
 
-                            old_and_new!(interface, ifi_ibytes, old_ifi_ibytes, data);
-                            old_and_new!(interface, ifi_obytes, old_ifi_obytes, data);
-                            old_and_new!(interface, ifi_ipackets, old_ifi_ipackets, data);
-                            old_and_new!(interface, ifi_opackets, old_ifi_opackets, data);
-                            old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
-                            old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
-                            interface.mtu = mtu;
-                            interface.operational_state = operational_state;
-                            interface.updated = true;
+                        old_and_new!(interface, ifi_ibytes, old_ifi_ibytes, data);
+                        old_and_new!(interface, ifi_obytes, old_ifi_obytes, data);
+                        old_and_new!(interface, ifi_ipackets, old_ifi_ipackets, data);
+                        old_and_new!(interface, ifi_opackets, old_ifi_opackets, data);
+                        old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
+                        old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
+                        interface.mtu = mtu;
+                        interface.operational_state = operational_state;
+                        interface.updated = true;
+                    }
+                    hash_map::Entry::Vacant(e) => {
+                        if !refresh_all {
+                            // This is simply a refresh, we don't want to add new interfaces!
+                            continue;
                         }
-                        hash_map::Entry::Vacant(e) => {
-                            if !refresh_all {
-                                // This is simply a refresh, we don't want to add new interfaces!
-                                continue;
-                            }
-                            e.insert(NetworkData {
-                                inner: NetworkDataInner {
-                                    ifi_ibytes: data.ifi_ibytes,
-                                    old_ifi_ibytes: 0,
-                                    ifi_obytes: data.ifi_obytes,
-                                    old_ifi_obytes: 0,
-                                    ifi_ipackets: data.ifi_ipackets,
-                                    old_ifi_ipackets: 0,
-                                    ifi_opackets: data.ifi_opackets,
-                                    old_ifi_opackets: 0,
-                                    ifi_ierrors: data.ifi_ierrors,
-                                    old_ifi_ierrors: 0,
-                                    ifi_oerrors: data.ifi_oerrors,
-                                    old_ifi_oerrors: 0,
-                                    updated: true,
-                                    mac_addr: MacAddr::UNSPECIFIED,
-                                    ip_networks: vec![],
-                                    mtu,
-                                    operational_state,
-                                },
-                            });
-                        }
+                        e.insert(NetworkData {
+                            inner: NetworkDataInner {
+                                ifi_ibytes: data.ifi_ibytes,
+                                old_ifi_ibytes: 0,
+                                ifi_obytes: data.ifi_obytes,
+                                old_ifi_obytes: 0,
+                                ifi_ipackets: data.ifi_ipackets,
+                                old_ifi_ipackets: 0,
+                                ifi_opackets: data.ifi_opackets,
+                                old_ifi_opackets: 0,
+                                ifi_ierrors: data.ifi_ierrors,
+                                old_ifi_ierrors: 0,
+                                ifi_oerrors: data.ifi_oerrors,
+                                old_ifi_oerrors: 0,
+                                updated: true,
+                                mac_addr: MacAddr::UNSPECIFIED,
+                                ip_networks: vec![],
+                                mtu,
+                                operational_state,
+                            },
+                        });
                     }
                 }
             }
