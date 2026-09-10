@@ -677,4 +677,30 @@ mod tests {
         assert_eq!(components[1].max(), Some(5.678));
         assert_eq!(components[1].id(), Some("thermal_zone1"));
     }
+
+    #[test]
+    fn test_thermal_zone_used_when_hwmon_has_no_temperature() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temporary directory");
+        let hwmon0_dir = temp_dir.path().join("hwmon/hwmon0");
+        let thermal_zone0_dir = temp_dir.path().join("thermal/thermal_zone0");
+
+        // An `hwmon` device with no `tempN_input` file, like the voltage monitor on a
+        // Raspberry Pi: there is an `hwmon` folder, but no temperature to read from it.
+        fs::create_dir_all(&hwmon0_dir).expect("failed to create hwmon/hwmon0 directory");
+        fs::write(hwmon0_dir.join("name"), "test_volt").expect("failed to write to name file");
+        fs::write(hwmon0_dir.join("in0_input"), "5000").expect("failed to write to in0_input file");
+
+        fs::create_dir_all(&thermal_zone0_dir)
+            .expect("failed to create thermal/thermal_zone0 directory");
+        fs::write(thermal_zone0_dir.join("type"), "test_name")
+            .expect("failed to write to type file");
+        fs::write(thermal_zone0_dir.join("temp"), "1234").expect("failed to write to temp file");
+
+        let mut components = ComponentsInner::new().unwrap();
+        components.refresh_from_sys_class_path(temp_dir.path());
+
+        assert_eq!(components.list().len(), 1);
+        assert_eq!(components.list()[0].id(), Some("thermal_zone0"));
+        assert_eq!(components.list()[0].temperature(), Some(1.234));
+    }
 }

@@ -143,6 +143,10 @@ impl Components {
                 c.inner.updated = false;
                 true
             });
+        } else {
+            for c in self.inner.components.iter_mut() {
+                c.inner.updated = false;
+            }
         }
     }
 }
