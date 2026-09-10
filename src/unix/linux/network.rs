@@ -159,6 +159,10 @@ fn refresh_networks_list_from_sysfs(
             i.inner.updated = false;
             true
         });
+    } else {
+        for i in interfaces.values_mut() {
+            i.inner.updated = false;
+        }
     }
 }
 

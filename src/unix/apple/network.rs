@@ -91,6 +91,10 @@ impl NetworksInner {
                 i.inner.updated = false;
                 true
             });
+        } else {
+            for i in self.interfaces.values_mut() {
+                i.inner.updated = false;
+            }
         }
         refresh_networks_addresses(&mut self.interfaces);
     }
