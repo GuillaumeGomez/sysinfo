@@ -43,6 +43,10 @@ impl NetworksInner {
                 i.inner.updated = false;
                 true
             });
+        } else {
+            for i in self.interfaces.values_mut() {
+                i.inner.updated = false;
+            }
         }
         // FIXME: Try to find a way to call `getifaddrs` only once. Currently it's called in
         // `Self::refresh_interfaces` and in `refresh_networks_addresses`.

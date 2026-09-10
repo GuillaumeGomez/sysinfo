@@ -98,7 +98,9 @@ impl Networks {
     /// }
     /// ```
     pub fn refresh(&mut self, remove_not_listed_interfaces: bool) {
-        self.inner.refresh(remove_not_listed_interfaces)
+        // Most supported system first list all interfaces, then `retain` only the one that got
+        // refreshed, then get data for each interface. So sadly, we can't do the cleanup here...
+        self.inner.refresh(remove_not_listed_interfaces);
     }
 }
 

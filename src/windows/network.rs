@@ -162,6 +162,10 @@ impl NetworksInner {
                 i.inner.updated = false;
                 true
             });
+        } else {
+            for i in self.interfaces.values_mut() {
+                i.inner.updated = false;
+            }
         }
         // Refresh all interfaces' addresses.
         refresh_networks_addresses(&mut self.interfaces);
