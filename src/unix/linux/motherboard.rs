@@ -1,7 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::Error;
-use std::fs::{read, read_to_string};
+use std::fs::{read, read_dir, read_to_string};
+use std::path::Path;
 
 pub(crate) struct MotherboardInner;
 
@@ -45,6 +46,44 @@ impl MotherboardInner {
             .ok()
             .map(|s| s.trim().to_owned())
     }
+
+    pub(crate) fn temperatures(&self) -> Vec<f32> {
+        read_motherboard_temperatures()
+    }
+}
+
+fn read_motherboard_temperatures() -> Vec<f32> {
+    let hwmon_root = Path::new("/sys/class/hwmon");
+    let Ok(entries) = read_dir(hwmon_root) else {
+        return Vec::new();
+    };
+
+    let mut temps = Vec::new();
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = read_to_string(path.join("name")).ok();
+        if name.as_deref().map(|n| n.trim()) != Some("acpitz") {
+            continue;
+        }
+
+        let Ok(sensors) = read_dir(&path) else {
+            continue;
+        };
+        for sensor in sensors.flatten() {
+            let fname = sensor.file_name();
+            let fname_str = fname.to_string_lossy();
+            if fname_str.starts_with("temp")
+                && fname_str.ends_with("_input")
+                && let Ok(raw) = read_to_string(sensor.path())
+                && let Ok(milli) = raw.trim().parse::<i32>()
+            {
+                temps.push(milli as f32 / 1000.0);
+            }
+        }
+    }
+
+    temps
 }
 
 // Parses the first entry of the file `/proc/device-tree/compatible`, to extract the vendor and

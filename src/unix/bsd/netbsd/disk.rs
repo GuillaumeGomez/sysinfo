@@ -27,6 +27,9 @@ pub(crate) struct DiskInner {
     written_bytes: u64,
     old_written_bytes: u64,
     updated: bool,
+    temperature: Option<f32>,
+    temperature_max: Option<f32>,
+    temperature_critical: Option<f32>,
 }
 
 #[cfg(test)]
@@ -47,6 +50,9 @@ impl Default for DiskInner {
             written_bytes: 0,
             old_written_bytes: 0,
             updated: false,
+            temperature: None,
+            temperature_max: None,
+            temperature_critical: None,
         }
     }
 }
@@ -96,6 +102,18 @@ impl DiskInner {
             written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
             total_written_bytes: self.written_bytes,
         }
+    }
+
+    pub(crate) fn temperature(&self) -> Option<f32> {
+        self.temperature
+    }
+
+    pub(crate) fn max(&self) -> Option<f32> {
+        self.temperature_max
+    }
+
+    pub(crate) fn critical(&self) -> Option<f32> {
+        self.temperature_critical
     }
 
     fn update_old(&mut self) {
@@ -401,6 +419,9 @@ pub unsafe fn get_all_list(
                 written_bytes: 0,
                 old_written_bytes: 0,
                 updated: true,
+                temperature: None,
+                temperature_max: None,
+                temperature_critical: None,
             };
             // I/O usage is updated for all disks at once at the end.
             refresh_disk(&mut disk, refresh_kind.without_io_usage());

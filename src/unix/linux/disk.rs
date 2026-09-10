@@ -49,6 +49,9 @@ pub(crate) struct DiskInner {
     written_bytes: u64,
     read_bytes: u64,
     updated: bool,
+    temperature: Option<f32>,
+    temperature_max: Option<f32>,
+    temperature_critical: Option<f32>,
 }
 
 #[cfg(test)]
@@ -69,6 +72,9 @@ impl Default for DiskInner {
             written_bytes: 0,
             read_bytes: 0,
             updated: false,
+            temperature: None,
+            temperature_max: None,
+            temperature_critical: None,
         }
     }
 }
@@ -149,6 +155,13 @@ impl DiskInner {
             }
         }
 
+        if refresh_kind.temperature() {
+            let (temp, max, critical) = get_disk_temperature(&self.device_name);
+            self.temperature = temp;
+            self.temperature_max = max;
+            self.temperature_critical = critical;
+        }
+
         true
     }
 
@@ -159,6 +172,18 @@ impl DiskInner {
             written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
             total_written_bytes: self.written_bytes,
         }
+    }
+
+    pub(crate) fn temperature(&self) -> Option<f32> {
+        self.temperature
+    }
+
+    pub(crate) fn max(&self) -> Option<f32> {
+        self.temperature_max
+    }
+
+    pub(crate) fn critical(&self) -> Option<f32> {
+        self.temperature_critical
     }
 }
 
@@ -279,6 +304,9 @@ fn new_disk(
             read_bytes: 0,
             written_bytes: 0,
             updated: true,
+            temperature: None,
+            temperature_max: None,
+            temperature_critical: None,
         },
     };
     disk.inner
@@ -531,6 +559,69 @@ fn disk_stats_inner(content: &str) -> HashMap<String, DiskStat> {
         }
     }
     data
+}
+
+/// Reads a `tempN_input` sysfs file and converts it to Celsius.
+fn read_temperature_celsius(path: &Path) -> Option<f32> {
+    let s = std::fs::read_to_string(path).ok()?;
+    let milli = s.trim().parse::<i32>().ok()?;
+    Some(milli as f32 / 1000.0)
+}
+
+/// Strips the partition suffix from a device name (e.g. `nvme0n1p1` → `nvme0n1`, `sda1` → `sda`).
+fn strip_partition_suffix(name: &str) -> &str {
+    // NVMe: nvme0n1p1 → nvme0n1
+    if let Some(pos) = name.rfind('p')
+        && pos > 0
+        && name[pos + 1..].chars().all(|c| c.is_ascii_digit())
+    {
+        return &name[..pos];
+    }
+    // Other: sda1 → sda, vda1 → vda
+    let trimmed = name.trim_end_matches(|c: char| c.is_ascii_digit());
+    if trimmed.is_empty() { name } else { trimmed }
+}
+
+fn get_disk_temperature(device_name: &OsStr) -> (Option<f32>, Option<f32>, Option<f32>) {
+    let name = match device_name.to_str() {
+        Some(n) => n.strip_prefix("/dev/").unwrap_or(n),
+        None => return (None, None, None),
+    };
+
+    let read_all = |base: &str| -> (Option<f32>, Option<f32>, Option<f32>) {
+        let device_dir = Path::new("/sys/block").join(base).join("device");
+        // NVMe drives expose temperature under device/hwmonN/.
+        let dir = std::fs::read_dir(&device_dir)
+            .ok()
+            .and_then(|entries| {
+                entries.flatten().map(|e| e.path()).find(|p| {
+                    p.is_dir()
+                        && p.file_name()
+                            .and_then(|n| n.to_str())
+                            .map(|n| n.starts_with("hwmon"))
+                            .unwrap_or(false)
+                })
+            })
+            .unwrap_or(device_dir);
+        let temp = read_temperature_celsius(&dir.join("temp1_input"));
+        let max = read_temperature_celsius(&dir.join("temp1_max"));
+        let critical = read_temperature_celsius(&dir.join("temp1_crit"));
+        (temp, max, critical)
+    };
+
+    // Try the full name first (for non-partitioned devices).
+    let (temp, max, critical) = read_all(name);
+    if temp.is_some() {
+        return (temp, max, critical);
+    }
+
+    // Try the base device name (strip partition suffix).
+    let base = strip_partition_suffix(name);
+    if base != name {
+        return read_all(base);
+    }
+
+    (None, None, None)
 }
 
 #[cfg(test)]

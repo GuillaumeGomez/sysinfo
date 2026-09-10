@@ -39,4 +39,7 @@ impl GpuInner {
     pub(crate) fn used_memory(&self) -> Option<u64> {
         unreachable!()
     }
+    pub(crate) fn temperature(&self) -> Option<f32> {
+        unreachable!()
+    }
 }

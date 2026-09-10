@@ -35,6 +35,9 @@ pub(crate) struct DiskInner {
     pub(crate) written_bytes: u64,
     pub(crate) read_bytes: u64,
     updated: bool,
+    temperature: Option<f32>,
+    temperature_max: Option<f32>,
+    temperature_critical: Option<f32>,
     uuid: OsString,
 }
 
@@ -58,6 +61,9 @@ impl Default for DiskInner {
             written_bytes: 0,
             read_bytes: 0,
             updated: false,
+            temperature: None,
+            temperature_max: None,
+            temperature_critical: None,
             uuid: OsString::new(),
         }
     }
@@ -147,6 +153,18 @@ impl DiskInner {
             written_bytes: self.written_bytes.saturating_sub(self.old_written_bytes),
             total_written_bytes: self.written_bytes,
         }
+    }
+
+    pub(crate) fn temperature(&self) -> Option<f32> {
+        self.temperature
+    }
+
+    pub(crate) fn max(&self) -> Option<f32> {
+        self.temperature_max
+    }
+
+    pub(crate) fn critical(&self) -> Option<f32> {
+        self.temperature_critical
     }
 
     fn refresh_kind(&mut self, refresh_kind: DiskRefreshKind) {
@@ -529,6 +547,9 @@ unsafe fn new_disk(
         old_written_bytes: 0,
         updated: true,
         uuid,
+        temperature: None,
+        temperature_max: None,
+        temperature_critical: None,
     };
 
     disk.refresh_kind(refresh_kind);

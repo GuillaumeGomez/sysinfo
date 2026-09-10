@@ -36,6 +36,7 @@ pub(crate) struct GpuInner {
     total_memory: Option<u64>,
     used_memory: Option<u64>,
     usage: Option<f32>,
+    temperature: Option<f32>,
     model: Option<String>,
     vendor: String,
     pci: PCI,
@@ -48,6 +49,7 @@ impl GpuInner {
             total_memory: None,
             used_memory: None,
             usage: None,
+            temperature: None,
             model: model.cloned(),
             vendor: vendor.to_owned(),
             pci,
@@ -72,6 +74,9 @@ impl GpuInner {
     }
     pub(crate) fn used_memory(&self) -> Option<u64> {
         self.used_memory
+    }
+    pub(crate) fn temperature(&self) -> Option<f32> {
+        self.temperature
     }
 }
 
@@ -298,6 +303,15 @@ fn get_amd_info(gpu: &mut GpuInner, buffer: &mut String, path: &Path) {
     if read_file(path.join("mem_info_vram_total"), buffer).is_ok() {
         gpu.total_memory = buffer.trim().parse::<u64>().ok();
     }
+    gpu.temperature = read_dir(path.join("hwmon"))
+        .ok()
+        .and_then(|dir| {
+            dir.flatten().find_map(|entry| {
+                read_file(entry.path().join("temp1_input"), buffer).ok()?;
+                buffer.trim().parse::<f32>().ok()
+            })
+        })
+        .map(|milli_c| milli_c / 1_000.0);
     gpu.updated = true;
 }
 
@@ -331,6 +345,7 @@ fn convert_to_str(data: &[libc::c_char]) -> Option<Cow<'_, str>> {
 mod nvidia {
     use super::*;
     use libc::{c_char, c_int, c_uint, c_ulonglong, c_void};
+    use std::ffi::CStr;
     use std::mem::MaybeUninit;
     use std::ptr::null_mut;
 
@@ -372,11 +387,14 @@ mod nvidia {
         unsafe extern "C" fn(NvmlDeviceHandle, *mut NvmlUtilization) -> NvmlReturn;
     type NvmlDeviceGetMemoryInfoFn =
         unsafe extern "C" fn(NvmlDeviceHandle, *mut NvmlMemory) -> NvmlReturn;
+    type NvmlDeviceGetTemperatureFn =
+        unsafe extern "C" fn(NvmlDeviceHandle, c_uint, *mut c_uint) -> NvmlReturn;
     type NvmlDeviceGetPciInfo =
         unsafe extern "C" fn(NvmlDeviceHandle, *mut NvmlPciInfo) -> NvmlReturn;
 
     const NVML_SUCCESS: NvmlReturn = 0;
     const NVML_DEVICE_NAME_V2_BUFFER_SIZE: usize = 96;
+    const NVML_TEMPERATURE_GPU: c_uint = 0;
 
     pub(crate) struct NvmlLib {
         lib_handle: *mut c_void,
@@ -387,25 +405,31 @@ mod nvidia {
         get_name: NvmlDeviceGetNameFn,
         get_utilization: NvmlDeviceGetUtilizationRatesFn,
         get_memory_info: NvmlDeviceGetMemoryInfoFn,
+        get_temperature: NvmlDeviceGetTemperatureFn,
         get_pci_info: NvmlDeviceGetPciInfo,
     }
 
     impl NvmlLib {
         pub(crate) unsafe fn load() -> Option<Self> {
-            let lib_name = c"libnvidia-ml.so.1";
+            const LIB_PATHS: &[&CStr] = &[
+                c"libnvidia-ml.so.1",
+                c"/run/opengl-driver/lib/libnvidia-ml.so.1",
+            ];
             unsafe {
-                let lib_handle = libc::dlopen(lib_name.as_ptr(), libc::RTLD_NOW);
-                if lib_handle.is_null() {
-                    sysinfo_debug!("Failed to find or load {lib_name:?}");
-                    return None;
-                }
-                match Self::load_symbols(lib_handle) {
-                    Some(ret) => Some(ret),
-                    None => {
-                        libc::dlclose(lib_handle);
-                        None
+                for lib_name in LIB_PATHS {
+                    let lib_handle = libc::dlopen(lib_name.as_ptr(), libc::RTLD_NOW);
+                    if lib_handle.is_null() {
+                        sysinfo_debug!("Failed to find or load {lib_name:?}");
+                        continue;
+                    }
+                    match Self::load_symbols(lib_handle) {
+                        Some(ret) => return Some(ret),
+                        None => {
+                            libc::dlclose(lib_handle);
+                        }
                     }
                 }
+                None
             }
         }
 
@@ -435,6 +459,11 @@ mod nvidia {
                         lib_handle,
                         c"nvmlDeviceGetMemoryInfo",
                         NvmlDeviceGetMemoryInfoFn,
+                    )?,
+                    get_temperature: load_sym!(
+                        lib_handle,
+                        c"nvmlDeviceGetTemperature",
+                        NvmlDeviceGetTemperatureFn,
                     )?,
                     get_pci_info: load_sym!(
                         lib_handle,
@@ -546,6 +575,17 @@ mod nvidia {
                         gpu.total_memory = Some(mem_info.total);
                         gpu.used_memory = Some(mem_info.used);
                     }
+
+                    let mut temperature: c_uint = 0;
+                    if (self.inner.get_temperature)(
+                        device_handle,
+                        NVML_TEMPERATURE_GPU,
+                        &mut temperature,
+                    ) == NVML_SUCCESS
+                    {
+                        gpu.temperature = Some(temperature as f32);
+                    }
+
                     gpu.updated = true;
                 }
             }
