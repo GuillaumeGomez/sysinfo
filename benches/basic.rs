@@ -1,12 +1,16 @@
 #![feature(test)]
+// Needed for `black_box`.
+#![allow(clippy::unit_arg)]
 
 extern crate test;
+
+use std::hint::black_box;
 
 #[cfg(feature = "system")]
 #[bench]
 fn bench_new(b: &mut test::Bencher) {
     b.iter(|| {
-        let _ = sysinfo::System::new();
+        let _ = black_box(sysinfo::System::new());
     });
 }
 
@@ -14,7 +18,7 @@ fn bench_new(b: &mut test::Bencher) {
 #[bench]
 fn bench_new_all(b: &mut test::Bencher) {
     b.iter(|| {
-        let _ = sysinfo::System::new_all();
+        let _ = black_box(sysinfo::System::new_all());
     });
 }
 
@@ -25,7 +29,7 @@ fn bench_refresh_all(b: &mut test::Bencher) {
         return;
     };
     b.iter(move || {
-        s.refresh_all();
+        black_box(s.refresh_all());
     });
 }
 
@@ -38,7 +42,7 @@ fn bench_refresh_processes(b: &mut test::Bencher) {
 
     s.refresh_processes(sysinfo::ProcessesToUpdate::All, true); // to load the whole processes list a first time.
     b.iter(move || {
-        s.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        black_box(s.refresh_processes(sysinfo::ProcessesToUpdate::All, true));
     });
 }
 
@@ -50,7 +54,7 @@ fn bench_first_refresh_processes(b: &mut test::Bencher) {
     }
     b.iter(move || {
         let mut s = sysinfo::System::new().unwrap();
-        s.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        black_box(s.refresh_processes(sysinfo::ProcessesToUpdate::All, true));
     });
 }
 
@@ -65,7 +69,7 @@ fn bench_refresh_process(b: &mut test::Bencher) {
     // to be sure it'll exist for at least as long as we run
     let pid = sysinfo::get_current_pid().expect("failed to get current pid");
     b.iter(move || {
-        s.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
+        black_box(s.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true));
     });
 }
 
@@ -78,7 +82,7 @@ fn bench_refresh_disk(b: &mut test::Bencher) {
     let disks = disks.list_mut();
     let disk = &mut disks[0];
     b.iter(move || {
-        disk.refresh();
+        black_box(disk.refresh());
     });
 }
 
@@ -89,7 +93,7 @@ fn bench_refresh_disks(b: &mut test::Bencher) {
     };
 
     b.iter(move || {
-        disks.refresh(true);
+        black_box(disks.refresh(true));
     });
 }
 
@@ -101,7 +105,7 @@ fn bench_refresh_networks(b: &mut test::Bencher) {
     };
 
     b.iter(move || {
-        n.refresh(true);
+        black_box(n.refresh(true));
     });
 }
 
@@ -113,7 +117,7 @@ fn bench_refresh_memory(b: &mut test::Bencher) {
     };
 
     b.iter(move || {
-        s.refresh_memory();
+        black_box(s.refresh_memory());
     });
 }
 
@@ -126,7 +130,7 @@ fn bench_refresh_cpu_usage(b: &mut test::Bencher) {
 
     s.refresh_cpu_usage();
     b.iter(move || {
-        s.refresh_cpu_usage();
+        black_box(s.refresh_cpu_usage());
     });
 }
 
@@ -138,7 +142,7 @@ fn bench_refresh_components(b: &mut test::Bencher) {
     };
 
     b.iter(move || {
-        c.refresh(false);
+        black_box(c.refresh(false));
     });
 }
 
@@ -149,6 +153,6 @@ fn bench_refresh_users_list(b: &mut test::Bencher) {
     };
 
     b.iter(move || {
-        users.refresh();
+        black_box(users.refresh());
     });
 }

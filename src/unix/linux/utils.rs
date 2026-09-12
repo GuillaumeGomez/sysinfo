@@ -5,30 +5,34 @@ use std::ffi::OsStr;
 #[cfg(any(feature = "disk", feature = "system"))]
 use std::fs::File;
 #[cfg(any(feature = "disk", feature = "system"))]
-use std::io::{self, Read, Seek};
+use std::io::{self, Read};
 #[cfg(any(feature = "disk", feature = "system"))]
 use std::path::Path;
 
 #[cfg(feature = "system")]
 pub(crate) fn get_all_data_from_file(file: &mut File, size: usize) -> io::Result<Vec<u8>> {
+    use std::io::Seek;
+
     let mut buf = Vec::with_capacity(size);
     file.rewind()?;
     file.read_to_end(&mut buf)?;
     Ok(buf)
 }
 
-#[cfg(any(feature = "disk", feature = "system"))]
-pub(crate) fn get_all_utf8_data_from_file(file: &mut File, size: usize) -> io::Result<String> {
-    let mut buf = String::with_capacity(size);
-    file.rewind()?;
-    file.read_to_string(&mut buf)?;
+#[cfg(feature = "system")]
+pub(crate) fn get_all_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<Vec<u8>> {
+    let mut file = File::open(file_path.as_ref())?;
+    let mut buf = Vec::with_capacity(size);
+    file.read_to_end(&mut buf)?;
     Ok(buf)
 }
 
 #[cfg(any(feature = "disk", feature = "system"))]
 pub(crate) fn get_all_utf8_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
     let mut file = File::open(file_path.as_ref())?;
-    get_all_utf8_data_from_file(&mut file, size)
+    let mut buf = String::with_capacity(size);
+    file.read_to_string(&mut buf)?;
+    Ok(buf)
 }
 
 /// This type is used in `retrieve_all_new_process_info` because we have a "parent" path and
