@@ -26,9 +26,17 @@ pub(crate) fn get_all_utf8_data_from_file(file: &mut File, size: usize) -> io::R
 }
 
 #[cfg(any(feature = "disk", feature = "system"))]
+#[inline]
 pub(crate) fn get_all_utf8_data<P: AsRef<Path>>(file_path: P, size: usize) -> io::Result<String> {
     let mut file = File::open(file_path.as_ref())?;
     get_all_utf8_data_from_file(&mut file, size)
+}
+
+#[cfg(feature = "system")]
+#[inline]
+pub(crate) fn get_all_data_buffer<P: AsRef<Path>>(file_path: P, buf: &mut Vec<u8>) -> io::Result<usize> {
+    let mut file = File::open(file_path.as_ref())?;
+    file.read_to_end(buf)
 }
 
 /// This type is used in `retrieve_all_new_process_info` because we have a "parent" path and

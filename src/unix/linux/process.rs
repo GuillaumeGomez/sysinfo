@@ -13,10 +13,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(feature = "gpu")]
 use std::time::Instant;
 
-use libc::{c_ulong, gid_t, uid_t};
+use libc::{c_ulong, gid_t, pid_t, uid_t};
 
 use crate::sys::system::SystemInfo;
-use crate::sys::utils::{PathHandler, PathPush, get_all_data_from_file, get_all_utf8_data};
+use crate::sys::utils::{PathHandler, PathPush, get_all_data_from_file, get_all_data_buffer, get_all_utf8_data};
 use crate::unix::utils::realpath;
 use crate::{
     DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, Signal,
@@ -367,55 +367,41 @@ impl ProcessInner {
     }
 }
 
-fn parse_ascii_checked_u64(bytes: &[u8]) -> Option<u64> {
-    let mut num: u64 = 0;
-    for &b in bytes {
-        if !b.is_ascii_digit() {
-            return None;
-        }
-        num = num.checked_mul(10)?.checked_add((b - b'0') as u64)?;
+macro_rules! parse_integers {
+    ($($ty:ident: $name:ident),+) => {
+        $(
+            fn $name(bytes: &[u8]) -> Option<$ty> {
+                // Could be an issue if we parse a negative number.
+                const MAX_DIGITS: usize = const { $ty::ilog10($ty::MAX) as usize + 1 };
+                let mut num: $ty = 0;
+                if bytes.len() <= MAX_DIGITS {
+                    for &b in bytes {
+                        if !b.is_ascii_digit() {
+                            return None;
+                        }
+                        num = num * 10 + ((b - b'0') as $ty);
+                    }
+                } else {
+                    for &b in bytes {
+                        if !b.is_ascii_digit() {
+                            return None;
+                        }
+                        num = num.checked_mul(10)?.checked_add((b - b'0') as $ty)?;
+                    }
+                };
+                Some(num)
+            }
+        )+
     }
-    Some(num)
 }
 
-// Yes, it's ugly to duplicate this code and makes me very sad... I could implement a trait for
-// both `c_ulong` and `u64`. However, it's possible on some platforms that `c_ulong` and `u64` are
-// the same type, so implementing this trait would fail compilation. Would be much simpler if all
-// integers implemented `checked_` into a common trait instead...
-fn parse_ascii_checked_culong(bytes: &[u8]) -> Option<c_ulong> {
-    let mut num: c_ulong = 0;
-    for &b in bytes {
-        if !b.is_ascii_digit() {
-            return None;
-        }
-        num = num.checked_mul(10)?.checked_add((b - b'0') as c_ulong)?;
-    }
-    Some(num)
-}
-
-fn parse_ascii_checked_usize(bytes: &[u8]) -> Option<usize> {
-    let mut num: usize = 0;
-    for &b in bytes {
-        if !b.is_ascii_digit() {
-            return None;
-        }
-        num = num.checked_mul(10)?.checked_add((b - b'0') as usize)?;
-    }
-    Some(num)
-}
-
-fn parse_ascii_checked_pid_t(bytes: &[u8]) -> Option<Pid> {
-    let mut num: libc::pid_t = 0;
-    for &b in bytes {
-        if !b.is_ascii_digit() {
-            return None;
-        }
-        num = num
-            .checked_mul(10)?
-            .checked_add((b - b'0') as libc::pid_t)?;
-    }
-    Some(Pid(num))
-}
+parse_integers!(
+    u64: parse_ascii_checked_u64,
+    c_ulong: parse_ascii_checked_culong,
+    usize: parse_ascii_checked_usize,
+    pid_t: parse_ascii_checked_pid_t,
+    uid_t: parse_ascii_checked_uid_t
+);
 
 #[cfg(feature = "gpu")]
 mod gpu {
@@ -792,14 +778,10 @@ fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<Ve
 fn refresh_user_group_ids(
     p: &mut ProcessInner,
     path: &mut PathHandler,
-    refresh_kind: ProcessRefreshKind,
+    data: &mut Vec<u8>,
 ) {
-    if !refresh_kind.user().needs_update(|| p.user_id.is_none()) {
-        return;
-    }
-
     if let Some(((user_id, effective_user_id), (group_id, effective_group_id))) =
-        get_uid_and_gid(path.replace_and_join("status"))
+        get_uid_and_gid(path.replace_and_join("status"), data)
     {
         p.user_id = Some(Uid(user_id));
         p.effective_user_id = Some(Uid(effective_user_id));
@@ -831,7 +813,29 @@ fn update_proc_info(
     update_parent_pid(p, parent_pid, parts);
 
     p.status = parts.status;
-    refresh_user_group_ids(p, proc_path, refresh_kind);
+
+    let user_groups_needs_update = refresh_kind.user().needs_update(|| p.user_id.is_none());
+    let cmd_needs_update = refresh_kind.cmd().needs_update(|| p.cmd.is_empty());
+    let environ_needs_update = refresh_kind.environ().needs_update(|| p.environ.is_empty());
+    if cmd_needs_update || environ_needs_update || user_groups_needs_update {
+        let mut data = Vec::with_capacity(16_384);
+
+        if user_groups_needs_update {
+            refresh_user_group_ids(p, proc_path, &mut data);
+        }
+        if cmd_needs_update {
+            let new_cmd = copy_from_file(proc_path.replace_and_join("cmdline"), &mut data);
+            if !new_cmd.is_empty() || p.cmd.is_empty() {
+                p.cmd = new_cmd;
+            }
+        }
+        if environ_needs_update {
+            let new_environ = copy_from_file(proc_path.replace_and_join("environ"), &mut data);
+            if !new_environ.is_empty() || p.environ.is_empty() {
+                p.environ = new_environ;
+            }
+        }
+    }
 
     if refresh_kind.exe().needs_update(|| p.exe.is_none()) {
         // Do not use cmd[0] because it is not the same thing.
@@ -857,18 +861,6 @@ fn update_proc_info(
         }
     }
 
-    if refresh_kind.cmd().needs_update(|| p.cmd.is_empty()) {
-        let new_cmd = copy_from_file(proc_path.replace_and_join("cmdline"));
-        if !new_cmd.is_empty() || p.cmd.is_empty() {
-            p.cmd = new_cmd;
-        }
-    }
-    if refresh_kind.environ().needs_update(|| p.environ.is_empty()) {
-        let new_environ = copy_from_file(proc_path.replace_and_join("environ"));
-        if !new_environ.is_empty() || p.environ.is_empty() {
-            p.environ = new_environ;
-        }
-    }
     if refresh_kind.cwd().needs_update(|| p.cwd.is_none()) {
         update_optional_path(&mut p.cwd, proc_path.replace_and_join("cwd"));
     }
@@ -898,7 +890,7 @@ fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, parts: &Part
     p.parent = match parent_pid {
         Some(parent_pid) if parent_pid.0 != 0 => Some(parent_pid),
         _ => match parts.parent_pid.and_then(parse_ascii_checked_pid_t) {
-            Some(p) if p.0 != 0 => Some(p),
+            Some(p) if p != 0 => Some(Pid(p)),
             _ => None,
         },
     };
@@ -1010,7 +1002,6 @@ fn update_existing_process(
             now,
         );
 
-        refresh_user_group_ids(entry, &mut proc_path, refresh_kind);
         return Ok(None);
     }
     // If we're here, it means that the PID still exists but it's a different process.
@@ -1333,30 +1324,20 @@ fn get_proc_tasks(path: &Path, parent_pid: Pid) -> Vec<ProcAndTasks> {
         .unwrap_or_default()
 }
 
-fn split_content(mut data: &[u8]) -> Vec<OsString> {
+fn split_content(data: &[u8]) -> Vec<OsString> {
     let mut out = Vec::with_capacity(10);
-    while let Some(pos) = data.iter().position(|c| *c == 0) {
-        let s = &data[..pos].trim_ascii();
-        if !s.is_empty() {
-            out.push(OsStr::from_bytes(s).to_os_string());
-        }
-        data = &data[pos + 1..];
-    }
-    if !data.is_empty() {
-        let s = data.trim_ascii();
-        if !s.is_empty() {
-            out.push(OsStr::from_bytes(s).to_os_string());
+    for part in data.split(|c| *c == 0) {
+        if !part.is_empty() {
+            out.push(OsStr::from_bytes(part).to_os_string());
         }
     }
     out
 }
 
-fn copy_from_file(entry: &Path) -> Vec<OsString> {
+fn copy_from_file(entry: &Path, data: &mut Vec<u8>) -> Vec<OsString> {
     match File::open(entry) {
         Ok(mut f) => {
-            let mut data = Vec::with_capacity(16_384);
-
-            if let Err(_e) = f.read_to_end(&mut data) {
+            if let Err(_e) = f.read_to_end(data) {
                 sysinfo_debug!("Failed to read file in `copy_from_file`: {:?}", _e);
                 Vec::new()
             } else {
@@ -1371,18 +1352,18 @@ fn copy_from_file(entry: &Path) -> Vec<OsString> {
 }
 
 // Fetch tuples of real and effective UID and GID.
-fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))> {
-    let status_data = get_all_utf8_data(file_path, 16_385).ok()?;
+fn get_uid_and_gid(file_path: &Path, data: &mut Vec<u8>) -> Option<((uid_t, uid_t), (gid_t, gid_t))> {
+    get_all_data_buffer(file_path, data).ok()?;
 
     // We're only interested in the lines starting with Uid: and Gid:
     // here. From these lines, we're looking at the first and second entries to get
     // the real u/gid.
 
-    let f = |h: &str, n: &str| -> (Option<uid_t>, Option<uid_t>) {
-        if h.starts_with(n) {
-            let mut ids = h.split_whitespace();
-            let real = ids.nth(1).unwrap_or("0").parse().ok();
-            let effective = ids.next().unwrap_or("0").parse().ok();
+    let f = |h: &[u8], n: &[u8]| -> (Option<uid_t>, Option<uid_t>) {
+        if let Some(part) = h.strip_prefix(n) {
+            let mut ids = part.split(|c| *c == b'\t' || *c == b' ');
+            let real = ids.next().and_then(parse_ascii_checked_uid_t);
+            let effective = ids.next().and_then(parse_ascii_checked_uid_t);
 
             (real, effective)
         } else {
@@ -1393,28 +1374,28 @@ fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))>
     let mut effective_uid = None;
     let mut gid = None;
     let mut effective_gid = None;
-    for line in status_data.lines() {
-        if let (Some(real), Some(effective)) = f(line, "Uid:") {
+    for line in data.split(|c| *c == b'\n') {
+        if let (Some(real), Some(effective)) = f(line, b"Uid:") {
             debug_assert!(uid.is_none() && effective_uid.is_none());
             uid = Some(real);
             effective_uid = Some(effective);
-        } else if let (Some(real), Some(effective)) = f(line, "Gid:") {
+        } else if let (Some(real), Some(effective)) = f(line, b"Gid:") {
             debug_assert!(gid.is_none() && effective_gid.is_none());
             gid = Some(real);
             effective_gid = Some(effective);
         } else {
             continue;
         }
-        if uid.is_some() && gid.is_some() {
-            break;
+        // `effective_id` is set at the same time as `uid` and `effective_gid` is set at the same
+        // time as `gid`, so if `uid` and `gid` are `Some`, then we can `unwrap` the two others
+        // without problem.
+        if let Some(uid) = uid &&
+            let Some(gid) = gid
+        {
+            return Some(((uid, effective_uid.unwrap()), (gid, effective_gid.unwrap())));
         }
     }
-    match (uid, effective_uid, gid, effective_gid) {
-        (Some(uid), Some(effective_uid), Some(gid), Some(effective_gid)) => {
-            Some(((uid, effective_uid), (gid, effective_gid)))
-        }
-        _ => None,
-    }
+    None
 }
 
 fn get_tgid(file_path: &Path) -> Option<Pid> {
