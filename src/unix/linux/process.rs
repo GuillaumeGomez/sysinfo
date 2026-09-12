@@ -1345,9 +1345,9 @@ fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))>
     // the real u/gid.
 
     let f = |h: &str, n: &str| -> (Option<uid_t>, Option<uid_t>) {
-        if h.starts_with(n) {
-            let mut ids = h.split_whitespace();
-            let real = ids.nth(1).unwrap_or("0").parse().ok();
+        if let Some(h) = h.strip_prefix(n) {
+            let mut ids = h.split_whitespace().filter(|s| !s.is_empty());
+            let real = ids.next().unwrap_or("0").parse().ok();
             let effective = ids.next().unwrap_or("0").parse().ok();
 
             (real, effective)
