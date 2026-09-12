@@ -16,7 +16,9 @@ use std::time::Instant;
 use libc::{c_ulong, gid_t, pid_t, uid_t};
 
 use crate::sys::system::SystemInfo;
-use crate::sys::utils::{PathHandler, PathPush, get_all_data_from_file, get_all_utf8_data};
+use crate::sys::utils::{
+    PathHandler, PathPush, get_all_data, get_all_data_from_file, get_all_utf8_data,
+};
 use crate::unix::utils::realpath;
 use crate::{
     DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, Signal,
@@ -388,7 +390,8 @@ parse_integers!(
     u64: parse_ascii_checked_u64,
     c_ulong: parse_ascii_checked_culong,
     usize: parse_ascii_checked_usize,
-    pid_t: parse_ascii_checked_pid_t
+    pid_t: parse_ascii_checked_pid_t,
+    uid_t: parse_ascii_checked_uid_t
 );
 
 #[cfg(feature = "gpu")]
@@ -1338,17 +1341,19 @@ fn copy_from_file(entry: &Path) -> Vec<OsString> {
 
 // Fetch tuples of real and effective UID and GID.
 fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))> {
-    let status_data = get_all_utf8_data(file_path, 16_385).ok()?;
+    let status_data = get_all_data(file_path, 16_385).ok()?;
 
     // We're only interested in the lines starting with Uid: and Gid:
     // here. From these lines, we're looking at the first and second entries to get
     // the real u/gid.
 
-    let f = |h: &str, n: &str| -> (Option<uid_t>, Option<uid_t>) {
+    let f = |h: &[u8], n: &[u8]| -> (Option<uid_t>, Option<uid_t>) {
         if let Some(h) = h.strip_prefix(n) {
-            let mut ids = h.split_whitespace().filter(|s| !s.is_empty());
-            let real = ids.next().and_then(|i| i.parse::<uid_t>().ok());
-            let effective = ids.next().and_then(|i| i.parse::<uid_t>().ok());
+            let mut ids = h
+                .split(|c| *c == b'\t' || *c == b' ')
+                .filter(|s| !s.is_empty());
+            let real = ids.next().and_then(parse_ascii_checked_uid_t);
+            let effective = ids.next().and_then(parse_ascii_checked_uid_t);
 
             (real, effective)
         } else {
@@ -1359,12 +1364,12 @@ fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))>
     let mut effective_uid = None;
     let mut gid = None;
     let mut effective_gid = None;
-    for line in status_data.lines() {
-        if let (Some(real), Some(effective)) = f(line, "Uid:") {
+    for line in status_data.split(|c| *c == b'\n') {
+        if let (Some(real), Some(effective)) = f(line, b"Uid:") {
             debug_assert!(uid.is_none() && effective_uid.is_none());
             uid = Some(real);
             effective_uid = Some(effective);
-        } else if let (Some(real), Some(effective)) = f(line, "Gid:") {
+        } else if let (Some(real), Some(effective)) = f(line, b"Gid:") {
             debug_assert!(gid.is_none() && effective_gid.is_none());
             gid = Some(real);
             effective_gid = Some(effective);
