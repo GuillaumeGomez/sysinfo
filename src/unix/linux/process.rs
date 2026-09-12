@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(feature = "gpu")]
 use std::time::Instant;
 
-use libc::{c_ulong, gid_t, uid_t};
+use libc::{c_ulong, gid_t, pid_t, uid_t};
 
 use crate::sys::system::SystemInfo;
 use crate::sys::utils::{PathHandler, PathPush, get_all_data_from_file, get_all_utf8_data};
@@ -367,55 +367,29 @@ impl ProcessInner {
     }
 }
 
-fn parse_ascii_checked_u64(bytes: &[u8]) -> Option<u64> {
-    let mut num: u64 = 0;
-    for &b in bytes {
-        if !b.is_ascii_digit() {
-            return None;
-        }
-        num = num.checked_mul(10)?.checked_add((b - b'0') as u64)?;
+macro_rules! parse_integers {
+    ($($ty:ident: $name:ident),+) => {
+        $(
+            fn $name(bytes: &[u8]) -> Option<$ty> {
+                let mut num: $ty = 0;
+                for &b in bytes {
+                    if !b.is_ascii_digit() {
+                        return None;
+                    }
+                    num = num.checked_mul(10)?.checked_add((b - b'0') as $ty)?;
+                }
+                Some(num)
+            }
+        )+
     }
-    Some(num)
 }
 
-// Yes, it's ugly to duplicate this code and makes me very sad... I could implement a trait for
-// both `c_ulong` and `u64`. However, it's possible on some platforms that `c_ulong` and `u64` are
-// the same type, so implementing this trait would fail compilation. Would be much simpler if all
-// integers implemented `checked_` into a common trait instead...
-fn parse_ascii_checked_culong(bytes: &[u8]) -> Option<c_ulong> {
-    let mut num: c_ulong = 0;
-    for &b in bytes {
-        if !b.is_ascii_digit() {
-            return None;
-        }
-        num = num.checked_mul(10)?.checked_add((b - b'0') as c_ulong)?;
-    }
-    Some(num)
-}
-
-fn parse_ascii_checked_usize(bytes: &[u8]) -> Option<usize> {
-    let mut num: usize = 0;
-    for &b in bytes {
-        if !b.is_ascii_digit() {
-            return None;
-        }
-        num = num.checked_mul(10)?.checked_add((b - b'0') as usize)?;
-    }
-    Some(num)
-}
-
-fn parse_ascii_checked_pid_t(bytes: &[u8]) -> Option<Pid> {
-    let mut num: libc::pid_t = 0;
-    for &b in bytes {
-        if !b.is_ascii_digit() {
-            return None;
-        }
-        num = num
-            .checked_mul(10)?
-            .checked_add((b - b'0') as libc::pid_t)?;
-    }
-    Some(Pid(num))
-}
+parse_integers!(
+    u64: parse_ascii_checked_u64,
+    c_ulong: parse_ascii_checked_culong,
+    usize: parse_ascii_checked_usize,
+    pid_t: parse_ascii_checked_pid_t
+);
 
 #[cfg(feature = "gpu")]
 mod gpu {
@@ -898,7 +872,7 @@ fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, parts: &Part
     p.parent = match parent_pid {
         Some(parent_pid) if parent_pid.0 != 0 => Some(parent_pid),
         _ => match parts.parent_pid.and_then(parse_ascii_checked_pid_t) {
-            Some(p) if p.0 != 0 => Some(p),
+            Some(p) if p != 0 => Some(Pid(p)),
             _ => None,
         },
     };
