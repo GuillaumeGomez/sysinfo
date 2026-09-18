@@ -38,9 +38,11 @@ impl Disk {
         self.inner.kind()
     }
 
-    /// Returns the Unix device ID.
+    /// On Unix, returns the Unix device ID.
     ///
-    /// Returns `None` on Windows or if the device ID cannot be retrieved.
+    /// On Windows, returns the Volume Serial Number.
+    ///`
+    /// Returns `None` if the device ID cannot be retrieved.
     ///
     /// ```no_run
     /// use sysinfo::Disks;
