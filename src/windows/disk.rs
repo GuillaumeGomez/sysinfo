@@ -170,6 +170,10 @@ impl DiskInner {
         &self.name
     }
 
+    pub(crate) fn id(&self) -> Option<u64> {
+        None
+    }
+
     pub(crate) fn file_system(&self) -> &OsStr {
         &self.file_system
     }

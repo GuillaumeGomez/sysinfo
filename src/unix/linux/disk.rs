@@ -36,6 +36,7 @@ macro_rules! cast {
 
 pub(crate) struct DiskInner {
     type_: DiskKind,
+    device_id: Option<u64>,
     device_name: OsString,
     actual_device_name: Option<String>,
     pub(crate) file_system: OsString,
@@ -56,6 +57,7 @@ impl Default for DiskInner {
     fn default() -> Self {
         Self {
             type_: DiskKind::Unknown(0),
+            device_id: None,
             device_name: OsString::new(),
             actual_device_name: None,
             file_system: OsString::new(),
@@ -76,6 +78,10 @@ impl Default for DiskInner {
 impl DiskInner {
     pub(crate) fn kind(&self) -> DiskKind {
         self.type_
+    }
+
+    pub(crate) fn id(&self) -> u64 {
+        self.device_id
     }
 
     pub(crate) fn name(&self) -> &OsStr {
@@ -263,9 +269,14 @@ fn new_disk(
         .iter()
         .any(|e| e.as_os_str() == device_name);
 
+    let device_id = std::fs::metadata(mount_point)
+        .ok()
+        .map(|metadata| metadata.dev());
+
     let mut disk = Disk {
         inner: DiskInner {
             type_: DiskKind::Unknown(-1),
+            device_id,
             device_name: device_name.to_owned(),
             actual_device_name: None,
             file_system: file_system.to_owned(),

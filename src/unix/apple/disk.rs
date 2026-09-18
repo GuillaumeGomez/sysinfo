@@ -15,11 +15,13 @@ use libc::c_void;
 
 use std::ffi::{CStr, OsStr, OsString};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::ptr;
 
 pub(crate) struct DiskInner {
     pub(crate) type_: DiskKind,
+    pub(crate) id: Option<u64>,
     pub(crate) name: OsString,
     #[cfg(target_os = "macos")]
     bsd_name: Option<Vec<u8>>,
@@ -44,6 +46,7 @@ impl Default for DiskInner {
         Self {
             type_: DiskKind::HDD,
             name: OsString::new(),
+            id: None,
             #[cfg(target_os = "macos")]
             bsd_name: None,
             file_system: OsString::new(),
@@ -71,6 +74,10 @@ unsafe impl Send for DiskInner {}
 impl DiskInner {
     pub(crate) fn kind(&self) -> DiskKind {
         self.type_
+    }
+
+    pub(crate) fn id(&self) -> Option<u64> {
+        self.id
     }
 
     pub(crate) fn name(&self) -> &OsStr {
@@ -509,11 +516,16 @@ unsafe fn new_disk(
         !internal
     };
 
+    let device_id = std::fs::metadata(mount_point.as_path())
+        .ok()
+        .map(|metadata| metadata.dev());
+
     let is_read_only = (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0;
 
     let mut disk = DiskInner {
         type_: DiskKind::Unknown(-1),
         name,
+        id: device_id,
         #[cfg(target_os = "macos")]
         bsd_name,
         file_system,

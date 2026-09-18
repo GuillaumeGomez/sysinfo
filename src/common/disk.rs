@@ -38,6 +38,23 @@ impl Disk {
         self.inner.kind()
     }
 
+    /// Returns the Unix device ID.
+    ///
+    /// Returns `None` on Windows.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("[{:?}] {:?}", disk.name(), disk.id());
+    ///     }
+    /// }
+    /// ```
+    pub fn id(&self) -> Option<u64> {
+        self.inner.id()
+    }
+
     /// Returns the disk name.
     ///
     /// ```no_run
