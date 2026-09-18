@@ -172,6 +172,7 @@ impl DiskInner {
 
     pub(crate) fn id(&self) -> Option<u64> {
         //  FIXME: wait until `std::os::windows::fs::MetadataExt::volume_serial_number` is stable
+        //  https://github.com/rust-lang/rust/issues/63010
         None
     }
 
