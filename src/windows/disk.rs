@@ -171,6 +171,7 @@ impl DiskInner {
     }
 
     pub(crate) fn id(&self) -> Option<u64> {
+        //  FIXME: wait until `std::os::windows::fs::MetadataExt::volume_serial_number` is stable
         None
     }
 
