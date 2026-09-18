@@ -8,10 +8,12 @@ use std::mem::size_of;
 use std::os::windows::ffi::OsStringExt;
 use std::path::Path;
 
-use windows::Win32::Foundation::MAX_PATH;
+use windows::Win32::Foundation::{CloseHandle, MAX_PATH};
 use windows::Win32::Storage::FileSystem::{
-    FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDiskFreeSpaceExW, GetDriveTypeW,
-    GetVolumeInformationW, GetVolumePathNamesForVolumeNameW,
+    BY_HANDLE_FILE_INFORMATION, CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE,
+    FILE_SHARE_READ, FILE_SHARE_WRITE, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose,
+    GetDiskFreeSpaceExW, GetDriveTypeW, GetFileInformationByHandle, GetVolumeInformationW,
+    GetVolumePathNamesForVolumeNameW, OPEN_EXISTING,
 };
 use windows::Win32::System::IO::DeviceIoControl;
 use windows::Win32::System::Ioctl::{
@@ -123,6 +125,7 @@ pub(crate) unsafe fn get_volume_path_names_for_volume_name(
 pub(crate) struct DiskInner {
     type_: DiskKind,
     name: OsString,
+    volume_serial_number: Option<u32>,
     pub(crate) file_system: OsString,
     mount_point: Vec<u16>,
     s_mount_point: OsString,
@@ -144,6 +147,7 @@ impl Default for DiskInner {
         Self {
             type_: DiskKind::Unknown(0),
             name: OsString::new(),
+            volume_serial_number: None,
             file_system: OsString::new(),
             mount_point: Vec::new(),
             s_mount_point: OsString::new(),
@@ -171,9 +175,7 @@ impl DiskInner {
     }
 
     pub(crate) fn id(&self) -> Option<u64> {
-        //  FIXME: wait until `std::os::windows::fs::MetadataExt::volume_serial_number` is stable
-        //  https://github.com/rust-lang/rust/issues/63010
-        None
+        self.volume_serial_number.map(|v| v as u64)
     }
 
     pub(crate) fn file_system(&self) -> &OsStr {
@@ -363,9 +365,36 @@ pub(crate) unsafe fn get_list(
                 disk.inner.updated = true;
                 continue;
             }
+
+            //  FIXME: replace with `std::os::windows::fs::MetadataExt::volume_serial_number` when stable
+            //  https://github.com/rust-lang/rust/issues/63010
+            let volume_serial_number = unsafe {
+                if let Ok(handle) = CreateFileW(
+                    PCWSTR(mount_path.as_ptr()),
+                    0,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                    None,
+                    OPEN_EXISTING,
+                    FILE_FLAG_BACKUP_SEMANTICS,
+                    None,
+                ) {
+                    let mut info: BY_HANDLE_FILE_INFORMATION = std::mem::zeroed();
+                    if GetFileInformationByHandle(handle, &mut info).is_ok() {
+                        let _ = CloseHandle(handle);
+                        Some(info.dwVolumeSerialNumber)
+                    } else {
+                        let _ = CloseHandle(handle);
+                        None
+                    }
+                } else {
+                    None
+                }
+            };
+
             let mut disk = DiskInner {
                 type_: DiskKind::Unknown(-1),
                 name: name.clone(),
+                volume_serial_number,
                 file_system: file_system.clone(),
                 s_mount_point: OsString::from_wide(&mount_path[..mount_path.len() - 1]),
                 mount_point: mount_path,
