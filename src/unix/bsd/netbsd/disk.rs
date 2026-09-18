@@ -393,7 +393,7 @@ pub unsafe fn get_all_list(
                 false
             };
 
-            let device_id = std::fs::metadata(mount_point.as_path())
+            let device_id = std::fs::metadata(mount_point)
                 .ok()
                 .map(|metadata| metadata.dev());
 

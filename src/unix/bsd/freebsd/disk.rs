@@ -432,7 +432,7 @@ pub unsafe fn get_all_list(
                 false
             };
 
-            let device_id = std::fs::metadata(mount_point.as_path())
+            let device_id = std::fs::metadata(mount_point)
                 .ok()
                 .map(|metadata| metadata.dev());
 
@@ -440,6 +440,7 @@ pub unsafe fn get_all_list(
                 name,
                 c_mount_point: fs_info.f_mntonname.to_vec(),
                 mount_point: PathBuf::from(mount_point),
+                device_id,
                 dev_id: disk_mapping.get(dev_mount_point).map(ToString::to_string),
                 total_space: 0,
                 available_space: 0,
