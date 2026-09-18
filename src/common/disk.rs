@@ -41,8 +41,8 @@ impl Disk {
     /// On Unix, returns the Unix device ID.
     ///
     /// On Windows, returns the Volume Serial Number.
-    ///`
-    /// Returns `None` if the device ID cannot be retrieved.
+    ///
+    /// Returns `None` if the device ID or the Volume Serial Number cannot be retrieved.
     ///
     /// ```no_run
     /// use sysinfo::Disks;
