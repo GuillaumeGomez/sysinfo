@@ -40,7 +40,7 @@ impl Disk {
 
     /// Returns the Unix device ID.
     ///
-    /// Returns `None` on Windows.
+    /// Returns `None` on Windows or if the device ID cannot be retrieved.
     ///
     /// ```no_run
     /// use sysinfo::Disks;

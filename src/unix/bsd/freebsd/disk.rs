@@ -70,7 +70,7 @@ impl DiskInner {
         &self.name
     }
 
-    pub(crate) fn id(&self) -> u64 {
+    pub(crate) fn id(&self) -> Option<u64> {
         self.device_id
     }
 

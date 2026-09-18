@@ -9,6 +9,7 @@ use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::mem::MaybeUninit;
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -80,7 +81,7 @@ impl DiskInner {
         self.type_
     }
 
-    pub(crate) fn id(&self) -> u64 {
+    pub(crate) fn id(&self) -> Option<u64> {
         self.device_id
     }
 
