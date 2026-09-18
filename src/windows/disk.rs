@@ -8,7 +8,7 @@ use std::mem::size_of;
 use std::os::windows::ffi::OsStringExt;
 use std::path::Path;
 
-use windows::Win32::Foundation::MAX_PATH;
+use windows::Win32::Foundation::{CloseHandle, MAX_PATH};
 use windows::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE,
     FILE_SHARE_READ, FILE_SHARE_WRITE, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose,
@@ -380,8 +380,10 @@ pub(crate) unsafe fn get_list(
                 ) {
                     let mut info: BY_HANDLE_FILE_INFORMATION = std::mem::zeroed();
                     if GetFileInformationByHandle(handle, &mut info).is_ok() {
+                        let _ = CloseHandle(handle);
                         Some(info.dwVolumeSerialNumber)
                     } else {
+                        let _ = CloseHandle(handle);
                         None
                     }
                 } else {
