@@ -84,6 +84,10 @@ impl NetworkDataInner {
         0
     }
 
+    pub(crate) fn link_speed(&self) -> Option<u64> {
+        None
+    }
+
     pub(crate) fn operational_state(&self) -> InterfaceOperationalState {
         InterfaceOperationalState::Other
     }
