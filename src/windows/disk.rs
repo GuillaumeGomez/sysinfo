@@ -379,13 +379,14 @@ pub(crate) unsafe fn get_list(
                     None,
                 ) {
                     let mut info: BY_HANDLE_FILE_INFORMATION = std::mem::zeroed();
-                    if GetFileInformationByHandle(handle, &mut info).is_ok() {
-                        let _ = CloseHandle(handle);
-                        Some(info.dwVolumeSerialNumber)
-                    } else {
-                        let _ = CloseHandle(handle);
-                        None
-                    }
+                    let volume_serial_number =
+                        if GetFileInformationByHandle(handle, &mut info).is_ok() {
+                            Some(info.dwVolumeSerialNumber)
+                        } else {
+                            None
+                        };
+                    let _ = CloseHandle(handle);
+                    volume_serial_number
                 } else {
                     None
                 }
