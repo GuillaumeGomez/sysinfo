@@ -28,6 +28,10 @@ impl DiskInner {
         OsStr::new("")
     }
 
+    pub(crate) fn id(&self) -> Option<u64> {
+        None
+    }
+
     pub(crate) fn file_system(&self) -> &OsStr {
         Default::default()
     }

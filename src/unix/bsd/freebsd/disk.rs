@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::marker::PhantomData;
 use std::os::unix::ffi::OsStringExt;
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::ptr::{NonNull, null_mut};
 use std::sync::OnceLock;
@@ -21,6 +22,7 @@ use crate::{Disk, DiskKind, DiskRefreshKind, DiskUsage, DisksInner, Error};
 pub(crate) struct DiskInner {
     name: OsString,
     c_mount_point: Vec<libc::c_char>,
+    device_id: Option<u64>, //  Unix device id (st_dev)
     dev_id: Option<String>,
     mount_point: PathBuf,
     total_space: u64,
@@ -41,6 +43,7 @@ impl Default for DiskInner {
         Self {
             name: OsString::new(),
             c_mount_point: Vec::new(),
+            device_id: None,
             dev_id: None,
             mount_point: PathBuf::new(),
             total_space: 0,
@@ -65,6 +68,10 @@ impl DiskInner {
 
     pub(crate) fn name(&self) -> &OsStr {
         &self.name
+    }
+
+    pub(crate) fn id(&self) -> Option<u64> {
+        self.device_id
     }
 
     pub(crate) fn file_system(&self) -> &OsStr {
@@ -425,10 +432,15 @@ pub unsafe fn get_all_list(
                 false
             };
 
+            let device_id = std::fs::metadata(mount_point)
+                .ok()
+                .map(|metadata| metadata.dev());
+
             let mut disk = DiskInner {
                 name,
                 c_mount_point: fs_info.f_mntonname.to_vec(),
                 mount_point: PathBuf::from(mount_point),
+                device_id,
                 dev_id: disk_mapping.get(dev_mount_point).map(ToString::to_string),
                 total_space: 0,
                 available_space: 0,
