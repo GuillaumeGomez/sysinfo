@@ -107,6 +107,11 @@ fn refresh_networks_list_from_sysfs(
         }
 
         for entry in dir.flatten() {
+            let link_speed = match read_signed(&entry.path(), "speed", &mut num_buf) {
+                ..0 => None,
+                speed => Some(speed as u64),
+            };
+
             let parent = &entry.path().join("statistics");
             let entry_path = &entry.path();
             let rx_bytes = read(parent, "rx_bytes", &mut num_buf);
@@ -118,11 +123,6 @@ fn refresh_networks_list_from_sysfs(
             // let rx_compressed = read(parent, "rx_compressed", &mut num_buf);
             // let tx_compressed = read(parent, "tx_compressed", &mut num_buf);
             let mtu = read(entry_path, "mtu", &mut num_buf);
-
-            let link_speed = match read_signed(parent, "speed", &mut num_buf) {
-                ..0 => None,
-                speed => Some(speed as u64),
-            };
 
             let operational_state = InterfaceOperationalState::from_data(
                 read_str(entry_path, "operstate", &mut str_buf).trim_ascii(),
