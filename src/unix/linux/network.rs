@@ -107,7 +107,7 @@ fn refresh_networks_list_from_sysfs(
         }
 
         for entry in dir.flatten() {
-            let link_speed = match read_signed(&entry.path(), "speed", &mut num_buf) {
+            let link_speed = match read_signed(entry.path(), "speed", &mut num_buf) {
                 ..0 => None,
                 speed => Some(speed as u64),
             };
