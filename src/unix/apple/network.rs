@@ -164,6 +164,7 @@ impl NetworksInner {
                     name.set_len(libc::strlen(pname));
                     let name = OsString::from_vec(name);
                     let mtu = (*if2m).ifm_data.ifi_mtu as u64;
+                    let link_speed = (*if2m).ifm_data.ifi_baudrate;
 
                     // FIXME: the documentation I could find was rather spars and unclear, are these the right flags?
                     let operational_state =
@@ -202,6 +203,7 @@ impl NetworksInner {
                             interface.mtu = mtu;
                             interface.operational_state = operational_state;
                             interface.updated = true;
+                            interface.link_speed = link_speed;
                         }
                         hash_map::Entry::Vacant(e) => {
                             let current_in;
@@ -252,6 +254,7 @@ impl NetworksInner {
                                     mac_addr: MacAddr::UNSPECIFIED,
                                     ip_networks: vec![],
                                     mtu,
+                                    link_speed,
                                     operational_state,
                                 },
                             });
@@ -299,6 +302,8 @@ pub(crate) struct NetworkDataInner {
     pub(crate) ip_networks: Vec<IpNetwork>,
     /// Interface Maximum Transfer Unit (MTU)
     mtu: u64,
+    /// Link speed in bits
+    link_speed: u64,
     operational_state: InterfaceOperationalState,
 }
 
@@ -361,6 +366,10 @@ impl NetworkDataInner {
 
     pub(crate) fn mtu(&self) -> u64 {
         self.mtu
+    }
+
+    pub(crate) fn link_speed(&self) -> Option<u64> {
+        Some(self.link_speed)
     }
 
     pub(crate) fn operational_state(&self) -> InterfaceOperationalState {

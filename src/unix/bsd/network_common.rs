@@ -31,6 +31,8 @@ pub(crate) struct NetworkDataInner {
     pub(crate) ip_networks: Vec<IpNetwork>,
     /// Interface Maximum Transfer Unit (MTU)
     pub(crate) mtu: u64,
+    /// Link speed in bits
+    pub(crate) link_speed: u64,
     pub(crate) operational_state: InterfaceOperationalState,
 }
 
@@ -93,6 +95,10 @@ impl NetworkDataInner {
 
     pub(crate) fn mtu(&self) -> u64 {
         self.mtu
+    }
+
+    pub(crate) fn link_speed(&self) -> Option<u64> {
+        Some(self.link_speed)
     }
 
     pub(crate) fn operational_state(&self) -> InterfaceOperationalState {

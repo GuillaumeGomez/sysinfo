@@ -425,6 +425,21 @@ impl NetworkData {
         self.inner.mtu()
     }
 
+    /// Returns the negotiated link speed of the interface.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("link speed: {:?}", network.link_speed());
+    ///     }
+    /// }
+    /// ```
+    pub fn link_speed(&self) -> Option<u64> {
+        self.inner.link_speed()
+    }
+
     /// Returns the operational state of the interface.
     ///
     /// The operational state indicates whether the interface is able to pass packets or not.

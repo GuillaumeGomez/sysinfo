@@ -97,6 +97,7 @@ impl NetworksInner {
                 let interface_name = OsString::from_wide(&ptr.Alias[..pos]);
 
                 let mtu = ptr.Mtu as u64;
+                let link_speed = std::cmp::min(ptr.TransmitLinkSpeed, ptr.ReceiveLinkSpeed); //  TODO: determine link speed api design
                 let operational_state = InterfaceOperationalState::from_enum(ptr.OperStatus);
 
                 match self.interfaces.entry(interface_name) {
@@ -120,6 +121,7 @@ impl NetworksInner {
                         old_and_new!(interface, errors_in, old_errors_in, ptr.InErrors);
                         old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
                         interface.mtu = mtu;
+                        interface.link_speed = link_speed;
                         interface.operational_state = operational_state;
                         interface.updated = true;
                     }
@@ -144,6 +146,7 @@ impl NetworksInner {
                                 mac_addr: MacAddr::UNSPECIFIED,
                                 ip_networks: vec![],
                                 mtu,
+                                link_speed,
                                 updated: true,
                                 operational_state,
                             },
@@ -190,6 +193,8 @@ pub(crate) struct NetworkDataInner {
     pub(crate) ip_networks: Vec<IpNetwork>,
     /// Interface Maximum Transfer Unit (MTU)
     mtu: u64,
+    /// Link speed in bits
+    link_speed: u64,
     operational_state: InterfaceOperationalState,
 }
 
@@ -252,6 +257,10 @@ impl NetworkDataInner {
 
     pub(crate) fn mtu(&self) -> u64 {
         self.mtu
+    }
+
+    pub(crate) fn link_speed(&self) -> Option<u64> {
+        Some(self.link_speed)
     }
 
     pub(crate) fn operational_state(&self) -> InterfaceOperationalState {

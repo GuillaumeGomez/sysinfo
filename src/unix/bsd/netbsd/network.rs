@@ -71,6 +71,7 @@ impl NetworksInner {
                 let flags = ifa.ifa_flags;
                 let data: &libc::if_data = &*(ifa.ifa_data as *mut libc::if_data);
                 let mtu = data.ifi_mtu;
+                let link_speed = data.ifi_baudrate;
                 let operational_state = InterfaceOperationalState::from_flag(
                     flags as core::ffi::c_int,
                     data.ifi_link_state,
@@ -87,6 +88,7 @@ impl NetworksInner {
                         old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
                         old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
                         interface.mtu = mtu;
+                        interface.link_speed = link_speed;
                         interface.operational_state = operational_state;
                         interface.updated = true;
                     }
@@ -113,6 +115,7 @@ impl NetworksInner {
                                 mac_addr: MacAddr::UNSPECIFIED,
                                 ip_networks: vec![],
                                 mtu,
+                                link_speed,
                                 operational_state,
                             },
                         });
