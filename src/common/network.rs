@@ -425,19 +425,34 @@ impl NetworkData {
         self.inner.mtu()
     }
 
-    /// Returns the negotiated link speed of the interface.
+    /// Returns the negotiated transmit link speed of the interface.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
     ///
     /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
     ///     for (interface_name, network) in &networks {
-    ///         println!("link speed: {:?}", network.link_speed());
+    ///         println!("transmit link speed: {}", network.transmit_link_speed());
     ///     }
     /// }
     /// ```
-    pub fn link_speed(&self) -> Option<u64> {
-        self.inner.link_speed()
+    pub fn transmit_link_speed(&self) -> u64 {
+        self.inner.transmit_link_speed()
+    }
+
+    /// Returns the negotiated receive link speed of the interface.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("receive link speed: {}", network.receive_link_speed());
+    ///     }
+    /// }
+    /// ```
+    pub fn receive_link_speed(&self) -> u64 {
+        self.inner.receive_link_speed()
     }
 
     /// Returns the operational state of the interface.

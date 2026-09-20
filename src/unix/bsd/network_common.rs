@@ -97,8 +97,12 @@ impl NetworkDataInner {
         self.mtu
     }
 
-    pub(crate) fn link_speed(&self) -> Option<u64> {
-        Some(self.link_speed)
+    pub(crate) fn transmit_link_speed(&self) -> u64 {
+        self.link_speed
+    }
+
+    pub(crate) fn receive_link_speed(&self) -> u64 {
+        self.link_speed
     }
 
     pub(crate) fn operational_state(&self) -> InterfaceOperationalState {
