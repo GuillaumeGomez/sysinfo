@@ -31,7 +31,7 @@ pub(crate) struct NetworkDataInner {
     pub(crate) ip_networks: Vec<IpNetwork>,
     /// Interface Maximum Transfer Unit (MTU)
     pub(crate) mtu: u64,
-    /// Link speed in bits
+    /// Link speed in bits per second
     pub(crate) link_speed: u64,
     pub(crate) operational_state: InterfaceOperationalState,
 }

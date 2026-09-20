@@ -246,7 +246,7 @@ pub(crate) struct NetworkDataInner {
     pub(crate) ip_networks: Vec<IpNetwork>,
     /// Interface Maximum Transfer Unit (MTU)
     mtu: u64,
-    /// Link speed in megabits
+    /// Link speed in megabits per second
     link_speed: u64,
     operational_state: InterfaceOperationalState,
     // /// Indicates the number of compressed packets received by this

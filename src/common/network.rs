@@ -425,7 +425,16 @@ impl NetworkData {
         self.inner.mtu()
     }
 
-    /// Returns the negotiated transmit link speed of the interface.
+    //  FIXME: update once testing is done for Windows and BSD
+    /// Returns the transmit link speed of the interface in bits per second.
+    ///
+    /// For Ethernet interfaces, this is the negotiated link speed.
+    ///
+    /// For Wi-Fi interfaces, this is the link speed reported by the OS. On Linux, this value is `0`.
+    ///
+    /// Returns the same value as [Self::receive_link_speed] on Unix systems.
+    ///
+    /// Returns `0` if the link speed is not available.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
@@ -440,7 +449,16 @@ impl NetworkData {
         self.inner.transmit_link_speed()
     }
 
-    /// Returns the negotiated receive link speed of the interface.
+    //  FIXME: update once testing is done for Windows and BSD
+    /// Returns the receive link speed of the interface in bits per second.
+    ///
+    /// For Ethernet interfaces, this is the negotiated link speed.
+    ///
+    /// For Wi-Fi interfaces, this is the link speed reported by the OS. On Linux, this value is `0`.
+    ///
+    /// Returns the same value as [Self::transmit_link_speed] on Unix systems.
+    ///
+    /// Returns `0` if the link speed is not available.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
