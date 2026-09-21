@@ -396,60 +396,27 @@ fn parse_cgroup_mounts(content: &str) -> CGroupMounts {
 
     for line in content.lines() {
         let mut fields = line.split(' ');
-        let Some(_mount_id) = fields.next() else {
-            continue;
-        };
-        let Some(_parent_id) = fields.next() else {
-            continue;
-        };
-        let Some(_major_minor) = fields.next() else {
-            continue;
-        };
-        let Some(root) = fields.next() else {
-            continue;
-        };
-        let Some(mount_point) = fields.next() else {
-            continue;
-        };
-        let Some(_mount_options) = fields.next() else {
-            continue;
-        };
+        // Skip the mount ID, parent ID and major:minor fields.
+        if let Some(root) = fields.nth(3)
+            && let Some(mount_point) = fields.next()
+            // Skip mount options and optional fields.
+            && fields.by_ref().skip(1).any(|field| field == "-")
+            && let Some(filesystem_type) = fields.next()
+            // Skip the mount source field.
+            && let Some(super_options) = fields.nth(1)
+        {
+            let mount = CGroupMount {
+                root: normalize_mountinfo_path(root),
+                mount_point: PathBuf::from(decode_mountinfo_path(mount_point)),
+            };
 
-        let mut found_separator = false;
-        // Skipping optional fields (the end is marked with "-").
-        // Keep this explicit because parsing resumes from `fields` after the separator.
-        #[allow(clippy::while_let_on_iterator)]
-        while let Some(field) = fields.next() {
-            if field == "-" {
-                found_separator = true;
-                break;
+            match filesystem_type {
+                "cgroup2" => mounts.v2.push(mount),
+                "cgroup" if super_options.split(',').any(|option| option == "memory") => {
+                    mounts.v1_memory.push(mount)
+                }
+                _ => (),
             }
-        }
-        if !found_separator {
-            continue;
-        }
-
-        let Some(filesystem_type) = fields.next() else {
-            continue;
-        };
-        let Some(_mount_source) = fields.next() else {
-            continue;
-        };
-        let Some(super_options) = fields.next() else {
-            continue;
-        };
-
-        let mount = CGroupMount {
-            root: normalize_mountinfo_path(root),
-            mount_point: PathBuf::from(decode_mountinfo_path(mount_point)),
-        };
-
-        match filesystem_type {
-            "cgroup2" => mounts.v2.push(mount),
-            "cgroup" if super_options.split(',').any(|option| option == "memory") => {
-                mounts.v1_memory.push(mount)
-            }
-            _ => (),
         }
     }
 
