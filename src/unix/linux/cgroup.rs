@@ -428,26 +428,18 @@ fn parse_cgroup_path(content: &str) -> CGroupPath {
 
     for line in content.lines() {
         let mut fields = line.splitn(3, ':');
-        let Some(hierarchy_id) = fields.next() else {
-            continue;
-        };
-        let Some(controllers) = fields.next() else {
-            continue;
-        };
-        let Some(path) = fields.next() else {
-            continue;
-        };
-
-        if hierarchy_id == "0" && controllers.is_empty() {
-            cgroup_path.v2 = Some(normalize_cgroup_path(path));
-            continue;
-        }
-
-        if controllers
-            .split(',')
-            .any(|controller| controller == "memory")
+        if let Some(hierarchy_id) = fields.next()
+            && let Some(controllers) = fields.next()
+            && let Some(path) = fields.next()
         {
-            cgroup_path.v1_memory = Some(normalize_cgroup_path(path));
+            if hierarchy_id == "0" && controllers.is_empty() {
+                cgroup_path.v2 = Some(normalize_cgroup_path(path));
+            } else if controllers
+                .split(',')
+                .any(|controller| controller == "memory")
+            {
+                cgroup_path.v1_memory = Some(normalize_cgroup_path(path));
+            }
         }
     }
 
