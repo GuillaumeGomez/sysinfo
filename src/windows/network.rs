@@ -97,8 +97,11 @@ impl NetworksInner {
                 let interface_name = OsString::from_wide(&ptr.Alias[..pos]);
 
                 let mtu = ptr.Mtu as u64;
-                let transmit_link_speed = ptr.TransmitLinkSpeed;
-                let receive_link_speed = ptr.ReceiveLinkSpeed;
+
+                //  Definition of `0` value for `TransmitLinkSpeed` and `ReceiveLinkSpeed` is not explicitly mentioned in Windows docs
+                let transmit_link_speed = Some(ptr.TransmitLinkSpeed);
+                let receive_link_speed = Some(ptr.ReceiveLinkSpeed);
+
                 let operational_state = InterfaceOperationalState::from_enum(ptr.OperStatus);
 
                 match self.interfaces.entry(interface_name) {
@@ -197,8 +200,8 @@ pub(crate) struct NetworkDataInner {
     /// Interface Maximum Transfer Unit (MTU)
     mtu: u64,
     /// Link speed in bits per second
-    transmit_link_speed: u64,
-    receive_link_speed: u64,
+    transmit_link_speed: Option<u64>,
+    receive_link_speed: Option<u64>,
     operational_state: InterfaceOperationalState,
 }
 
@@ -264,11 +267,11 @@ impl NetworkDataInner {
     }
 
     pub(crate) fn transmit_link_speed(&self) -> Option<u64> {
-        Some(self.transmit_link_speed)
+        self.transmit_link_speed
     }
 
     pub(crate) fn receive_link_speed(&self) -> Option<u64> {
-        Some(self.receive_link_speed)
+        self.receive_link_speed
     }
 
     pub(crate) fn operational_state(&self) -> InterfaceOperationalState {

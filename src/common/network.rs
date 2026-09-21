@@ -430,11 +430,17 @@ impl NetworkData {
     ///
     /// For Ethernet interfaces, this is the negotiated link speed.
     ///
-    /// For Wi-Fi interfaces, this is the link speed reported by the OS. On Linux, this value is `None`.
+    /// For Wi-Fi interfaces, this is the link speed reported by the OS.
     ///
     /// Returns the same value as [Self::receive_link_speed] on Unix systems.
     ///
-    /// Returns `None` if the link speed is not available.
+    /// On Linux, returns `None` when the OS indicates that the link speed is not available.
+    /// On other systems, this value is always `Some`.
+    ///
+    /// Confirmed special, platform-specific cases:
+    /// - Linux: loopback and Wi-Fi interfaces return `None`.
+    /// - macOS: loopback, vlan, fake (feth), redirect and headless interfaces return `Some(0)`.
+    /// - FreeBSD: loopback returns `Some(0)`.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
@@ -454,11 +460,17 @@ impl NetworkData {
     ///
     /// For Ethernet interfaces, this is the negotiated link speed.
     ///
-    /// For Wi-Fi interfaces, this is the link speed reported by the OS. On Linux, this value is `None`.
+    /// For Wi-Fi interfaces, this is the link speed reported by the OS.
     ///
     /// Returns the same value as [Self::transmit_link_speed] on Unix systems.
     ///
-    /// Returns `None` if the link speed is not available.
+    /// On Linux, returns `None` when the OS indicates that the link speed is not available.
+    /// On other systems, this value is always `Some`.
+    ///
+    /// Confirmed special, platform-specific cases:
+    /// - Linux: loopback and Wi-Fi interfaces return `None`.
+    /// - macOS: loopback, vlan, fake (feth), redirect and headless interfaces return `Some(0)`.
+    /// - FreeBSD: loopback returns `Some(0)`.
     ///
     /// ```no_run
     /// use sysinfo::Networks;

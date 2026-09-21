@@ -164,7 +164,9 @@ impl NetworksInner {
                     name.set_len(libc::strlen(pname));
                     let name = OsString::from_vec(name);
                     let mtu = (*if2m).ifm_data.ifi_mtu as u64;
-                    let link_speed = (*if2m).ifm_data.ifi_baudrate;
+
+                    //  Definition of `0` value for `ifi_baudrate` is not explicitly mentioned in XNU docs
+                    let link_speed = Some((*if2m).ifm_data.ifi_baudrate);
 
                     // FIXME: the documentation I could find was rather spars and unclear, are these the right flags?
                     let operational_state =
@@ -303,7 +305,7 @@ pub(crate) struct NetworkDataInner {
     /// Interface Maximum Transfer Unit (MTU)
     mtu: u64,
     /// Link speed in bits per second
-    link_speed: u64,
+    link_speed: Option<u64>,
     operational_state: InterfaceOperationalState,
 }
 
@@ -369,11 +371,11 @@ impl NetworkDataInner {
     }
 
     pub(crate) fn transmit_link_speed(&self) -> Option<u64> {
-        Some(self.link_speed)
+        self.link_speed
     }
 
     pub(crate) fn receive_link_speed(&self) -> Option<u64> {
-        Some(self.link_speed)
+        self.link_speed
     }
 
     pub(crate) fn operational_state(&self) -> InterfaceOperationalState {

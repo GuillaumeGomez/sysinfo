@@ -71,11 +71,13 @@ impl NetworksInner {
                 let flags = ifa.ifa_flags;
                 let data: &libc::if_data = &*(ifa.ifa_data as *mut libc::if_data);
                 let mtu = data.ifi_mtu;
-                let link_speed = data.ifi_baudrate;
+                //  Definition of `0` value for `ifi_baudrate` is not explicitly mentioned in BSD docs
+                let link_speed = Some(data.ifi_baudrate);
                 let operational_state = InterfaceOperationalState::from_flag(
                     flags as core::ffi::c_int,
                     data.ifi_link_state,
                 );
+
                 match self.interfaces.entry(name) {
                     hash_map::Entry::Occupied(mut e) => {
                         let interface = e.get_mut();
