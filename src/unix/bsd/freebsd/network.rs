@@ -96,7 +96,7 @@ impl NetworksInner {
             let data = &data.ifmd_data;
             let mtu = data.ifi_mtu as u64;
             //  Definition of `0` value for `ifi_baudrate` is not explicitly mentioned in BSD docs
-            let link_speed = Some(baudrate);
+            let link_speed = Some(data.ifi_baudrate);
             let operational_state =
                 InterfaceOperationalState::from_flag(flags, data.ifi_link_state.into());
 
