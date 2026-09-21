@@ -399,7 +399,7 @@ fn parse_cgroup_mounts(content: &str) -> CGroupMounts {
         // Skip the mount ID, parent ID and major:minor fields.
         if let Some(root) = fields.nth(3)
             && let Some(mount_point) = fields.next()
-            // Skip mount options and optional fields.
+            // Skip mount options and optional fields up to the standalone "-" separator.
             && fields.by_ref().skip(1).any(|field| field == "-")
             && let Some(filesystem_type) = fields.next()
             // Skip the mount source field.
@@ -961,7 +961,7 @@ mod test {
         assert_eq!(
             parse_cgroup_mounts(
                 "29 23 0:28 /kubepods\\040burstable /sys/fs/cgroup/memory\\040controller rw,nosuid,nodev,noexec - cgroup cgroup rw,memory\n\
-                 30 23 0:29 / /sys/fs/cgroup rw,nosuid,nodev,noexec shared:1 master:2 propagate_from:3 unbindable x-extra:y - cgroup2 cgroup rw\n\
+                 30 23 0:29 / /sys/fs/cgroup rw,nosuid,nodev,noexec shared:1 master:2 propagate_from:3 unbindable x-extra:y- - cgroup2 cgroup rw\n\
                  31 23 0:30 / /sys/fs/cgroup/cpu rw,nosuid,nodev,noexec - cgroup cgroup rw,cpu\n",
             ),
             CGroupMounts {
