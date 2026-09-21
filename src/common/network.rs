@@ -430,22 +430,22 @@ impl NetworkData {
     ///
     /// For Ethernet interfaces, this is the negotiated link speed.
     ///
-    /// For Wi-Fi interfaces, this is the link speed reported by the OS. On Linux, this value is `0`.
+    /// For Wi-Fi interfaces, this is the link speed reported by the OS. On Linux, this value is `None`.
     ///
     /// Returns the same value as [Self::receive_link_speed] on Unix systems.
     ///
-    /// Returns `0` if the link speed is not available.
+    /// Returns `None` if the link speed is not available.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
     ///
     /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
     ///     for (interface_name, network) in &networks {
-    ///         println!("transmit link speed: {}", network.transmit_link_speed());
+    ///         println!("transmit link speed: {:?}", network.transmit_link_speed());
     ///     }
     /// }
     /// ```
-    pub fn transmit_link_speed(&self) -> u64 {
+    pub fn transmit_link_speed(&self) -> Option<u64> {
         self.inner.transmit_link_speed()
     }
 
@@ -454,22 +454,22 @@ impl NetworkData {
     ///
     /// For Ethernet interfaces, this is the negotiated link speed.
     ///
-    /// For Wi-Fi interfaces, this is the link speed reported by the OS. On Linux, this value is `0`.
+    /// For Wi-Fi interfaces, this is the link speed reported by the OS. On Linux, this value is `None`.
     ///
     /// Returns the same value as [Self::transmit_link_speed] on Unix systems.
     ///
-    /// Returns `0` if the link speed is not available.
+    /// Returns `None` if the link speed is not available.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
     ///
     /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
     ///     for (interface_name, network) in &networks {
-    ///         println!("receive link speed: {}", network.receive_link_speed());
+    ///         println!("receive link speed: {:?}", network.receive_link_speed());
     ///     }
     /// }
     /// ```
-    pub fn receive_link_speed(&self) -> u64 {
+    pub fn receive_link_speed(&self) -> Option<u64> {
         self.inner.receive_link_speed()
     }
 

@@ -108,8 +108,8 @@ fn refresh_networks_list_from_sysfs(
 
         for entry in dir.flatten() {
             let link_speed = match read_signed(entry.path(), "speed", &mut num_buf) {
-                ..0 => 0,
-                speed => speed as u64,
+                ..0 => None,
+                speed => Some(speed as u64),
             };
 
             let parent = &entry.path().join("statistics");
@@ -247,7 +247,7 @@ pub(crate) struct NetworkDataInner {
     /// Interface Maximum Transfer Unit (MTU)
     mtu: u64,
     /// Link speed in megabits per second
-    link_speed: u64,
+    link_speed: Option<u64>,
     operational_state: InterfaceOperationalState,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
@@ -324,12 +324,12 @@ impl NetworkDataInner {
         self.mtu
     }
 
-    pub(crate) fn transmit_link_speed(&self) -> u64 {
-        self.link_speed * 1_000_000
+    pub(crate) fn transmit_link_speed(&self) -> Option<u64> {
+        self.link_speed.map(|v| v * 1_000_000)
     }
 
-    pub(crate) fn receive_link_speed(&self) -> u64 {
-        self.link_speed * 1_000_000
+    pub(crate) fn receive_link_speed(&self) -> Option<u64> {
+        self.link_speed.map(|v| v * 1_000_000)
     }
 
     pub(crate) fn operational_state(&self) -> InterfaceOperationalState {
