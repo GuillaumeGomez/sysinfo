@@ -1,0 +1,57 @@
+on:
+  pull_request:
+
+name: illumos
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    name: A job to run tests in OmniOS
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run illumos tests in OmniOS
+        uses: vmactions/omnios-vm@v1
+        with:
+          usesh: true
+          release: "r151058-build"
+          copyback: false
+          cache-after-prepare: true
+          prepare: |
+            pkg install curl
+            curl https://sh.rustup.rs -sSf --output rustup.sh
+            sh rustup.sh -y --profile=minimal --default-toolchain=1.95
+            . "$HOME/.cargo/env"
+            rustup --version
+            rustup component add clippy
+          run: |
+            . "$HOME/.cargo/env"
+            cargo check
+            echo "===== no-default-features ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features
+            echo "===== system ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features system
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,system
+            echo "===== disk ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features disk
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,disk
+            echo "===== component ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features component
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,component
+            echo "===== network ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features network
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,network
+            echo "===== user ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features user
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,user
+            echo "===== gpu ===="
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features gpu
+            RUSTFLAGS=-Dwarnings cargo check --no-default-features --features debug,serde,gpu
+            echo "===== clippy ===="
+            cargo clippy --features serde -- -D warnings
+            cargo clippy --features multithread -- -D warnings
+            echo "===== example ===="
+            cargo check --example simple
+            echo "===== tests ===="
+            cargo test -- --test-threads=1
+            cargo test --lib -- --ignored --test-threads=1

@@ -5,6 +5,15 @@
 
 use sysinfo::{ProcessesToUpdate, System};
 
+#[cfg(target_os = "illumos")]
+#[test]
+fn check_smbios_apis_are_supported() {
+    use sysinfo::{Error, Motherboard, Product};
+
+    assert!(!matches!(Product::name(), Err(Error::Unsupported)));
+    assert!(!matches!(Motherboard::new(), Err(Error::Unsupported)));
+}
+
 #[test]
 fn test_refresh_system() {
     let Ok(mut sys) = System::new() else { return };
