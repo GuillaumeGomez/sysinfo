@@ -646,7 +646,7 @@ impl System {
     /// Generally, "free" memory refers to unallocated memory whereas "available" memory refers to
     /// memory that is available for (re)use.
     ///
-    /// ⚠️ Windows and FreeBSD don't report "available" memory so [`System::free_memory`]
+    /// ⚠️ Windows doesn't report "available" memory so [`System::free_memory`]
     /// returns the same value as this method.
     ///
     /// ```no_run
