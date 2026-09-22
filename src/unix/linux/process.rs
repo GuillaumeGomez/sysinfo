@@ -397,19 +397,34 @@ parse_integers!(
 #[cfg(feature = "gpu")]
 mod gpu {
     use super::*;
+    use std::mem::MaybeUninit;
 
-    // Faster `readlink` implementation which skips allocations by reusing a same buffer.
+    const DRM_MAJOR: u32 = 226; // `/dev/dri/*`
+    const ACCEL_MAJOR: u32 = 261; // `/dev/accel/*`
+
     #[inline(always)]
-    fn read_link(dir: &Dir, file_name: &[libc::c_char], buf: &mut [u8]) -> Option<usize> {
-        unsafe {
-            let res = libc::readlinkat(
-                dir.dir_fd,
-                file_name.as_ptr(),
-                buf.as_mut_ptr() as *mut libc::c_char,
-                buf.len(),
-            );
+    fn device_major(device: libc::dev_t) -> u32 {
+        // Equivalent to Linux's `major` macro, which `libc` doesn't expose on every target.
+        #[allow(clippy::unnecessary_cast)]
+        let device = device as u64;
+        (((device >> 32) & 0xffff_f000) | ((device >> 8) & 0x0000_0fff)) as u32
+    }
 
-            if res < 1 { None } else { Some(res as usize) }
+    #[inline(always)]
+    fn is_gpu_device(
+        dir: &Dir,
+        file_name: &[libc::c_char],
+        stat: &mut MaybeUninit<libc::stat>,
+    ) -> bool {
+        unsafe {
+            // Flags must be 0 so that we inspect the target of the `/proc/<pid>/fd` symlink.
+            if libc::fstatat(dir.dir_fd, file_name.as_ptr(), stat.as_mut_ptr(), 0) < 0 {
+                return false;
+            }
+
+            let stat = stat.assume_init_ref();
+            stat.st_mode & libc::S_IFMT == libc::S_IFCHR
+                && matches!(device_major(stat.st_rdev), DRM_MAJOR | ACCEL_MAJOR)
         }
     }
 
@@ -529,7 +544,6 @@ mod gpu {
         refresh_kind: ProcessRefreshKind,
     ) {
         use std::fs::File;
-        use std::mem::MaybeUninit;
         use std::os::fd::FromRawFd;
 
         // CString is apparently expensive, so we do our own...
@@ -537,43 +551,39 @@ mod gpu {
         let mut c_path = Vec::with_capacity(path.len() + 1);
         c_path.extend_from_slice(path);
         c_path.push(0);
-        let Some(dir) = Dir::new(&c_path) else { return };
+        let Some(fdinfo_dir) = Dir::new(&c_path) else {
+            return;
+        };
 
         let mut total_time: u64 = 0;
         let mut total_memory: u64 = 0;
         let mut found_memory = false;
-        let dir_fd = dir.dir_fd;
-        if let Ok(Some(dir_iter)) = dir.iter()
-            && let Some(fd_dir) = {
-                // We replace `/fdinfo\0` with `/fd\0nfo\0` to the folder name becomes `fd`.
-                // So 4 characters for `info` and 1 for the `\0`.
-                let index = c_path.len() - 5;
-                c_path[index] = 0;
-                Dir::new(&c_path)
-            }
+        let fdinfo_dir_fd = fdinfo_dir.dir_fd;
+        if let Some(fd_dir) = {
+            // We replace `/fdinfo\0` with `/fd\0nfo\0` to the folder name becomes `fd`.
+            // So 4 characters for `info` and 1 for the `\0`.
+            let index = c_path.len() - 5;
+            c_path[index] = 0;
+            Dir::new(&c_path)
+        } && let Ok(Some(dir_iter)) = fd_dir.iter()
         {
             // 4096 is the limit used in htop so why not.
             let buf: MaybeUninit<[u8; 4096]> = MaybeUninit::uninit();
-            // SAFETY: `read_link` and `openat` will initialize the values.
+            // SAFETY: `openat` will initialize the values.
             let mut buf: [u8; 4096] = unsafe { buf.assume_init() };
+            let mut stat = MaybeUninit::<libc::stat>::uninit();
             let mut gpus: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
 
             for file_name in dir_iter {
-                // SAFETY: `d_name` is always valid UTF8 if it comes from `getdents64`/`readdir`
-                // otherwise rust always provide valid UTF8 strings.
-
-                let Some(size) = read_link(&fd_dir, file_name, &mut buf) else {
-                    continue;
-                };
-                let target_bytes = &buf[..size];
-                if !matches!(
-                    target_bytes.strip_prefix(b"/dev/"),
-                    Some(part) if part.starts_with(b"dri/") || part.starts_with(b"accel/")
-                ) {
+                if !is_gpu_device(&fd_dir, file_name, &mut stat) {
                     continue;
                 }
                 let buf = unsafe {
-                    let fd = retry_eintr!(libc::openat(dir_fd, file_name.as_ptr(), libc::O_RDONLY));
+                    let fd = retry_eintr!(libc::openat(
+                        fdinfo_dir_fd,
+                        file_name.as_ptr(),
+                        libc::O_RDONLY,
+                    ));
                     if fd < 0 {
                         continue;
                     }
