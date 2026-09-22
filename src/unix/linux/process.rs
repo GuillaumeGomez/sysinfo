@@ -22,7 +22,7 @@ use crate::sys::utils::{
 use crate::unix::utils::realpath;
 use crate::{
     DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, Signal,
-    ThreadKind, Uid,
+    ThreadKind, Uid, UpdateKind,
 };
 
 use crate::sys::system::remaining_files;
@@ -1276,7 +1276,10 @@ fn get_proc_and_tasks(
     // Threads don't have meaningful tasks, so no need to fetch `procs` and `tasks`.
     let (mut procs, tasks) = if refresh_kind.tasks() && !is_a_task {
         let update_processes_list = processes_to_update == ProcessesToUpdate::All;
-        let mut procs = get_proc_tasks(&path, pid, update_processes_list);
+        // The `status` file allows to retrieve user info and tgid. If we're not interested in any,
+        // then we don't read it.
+        let retrieve_ids = update_processes_list && refresh_kind.user() != UpdateKind::Never;
+        let mut procs = get_proc_tasks(&path, pid, retrieve_ids);
         let tasks = procs.iter().map(|ProcAndTasks { pid, .. }| *pid).collect();
 
         if !update_processes_list {

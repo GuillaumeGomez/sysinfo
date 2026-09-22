@@ -321,7 +321,7 @@ pub extern "C" fn sysinfo_networks_transmitted(networks: CNetworks) -> size_t {
 /// Equivalent of [`System::cpus_usage()`][crate::System#method.cpus_usage].
 ///
 /// * `length` will contain the number of CPU usage added into `procs`.
-/// * `procs` will be allocated if it's null and will contain of CPU usage.
+/// * `procs` will be allocated if it's null and will contain CPU usage.
 #[unsafe(no_mangle)]
 pub extern "C" fn sysinfo_cpus_usage(
     system: CSystem,
@@ -340,7 +340,7 @@ pub extern "C" fn sysinfo_cpus_usage(
                 (*procs) =
                     libc::malloc(::std::mem::size_of::<c_float>() * cpus.len()) as *mut c_float;
             }
-            for (pos, cpu) in cpus.iter().skip(1).enumerate() {
+            for (pos, cpu) in cpus.iter().enumerate() {
                 (*(*procs).offset(pos as isize)) = cpu.usage();
             }
             *length = cpus.len() as c_uint;
