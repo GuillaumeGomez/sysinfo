@@ -768,15 +768,19 @@ fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<Ve
 
 fn refresh_user_group_ids(
     p: &mut ProcessInner,
-    path: &mut PathHandler,
+    ids: Option<Ids>,
     refresh_kind: ProcessRefreshKind,
 ) {
     if !refresh_kind.user().needs_update(|| p.user_id.is_none()) {
         return;
     }
 
-    if let Some(((user_id, effective_user_id), (group_id, effective_group_id))) =
-        get_uid_and_gid(path.replace_and_join("status"))
+    if let Some(Ids {
+        user_id,
+        effective_user_id,
+        group_id,
+        effective_group_id,
+    }) = ids
     {
         p.user_id = Some(Uid(user_id));
         p.effective_user_id = Some(Uid(effective_user_id));
@@ -803,12 +807,13 @@ fn update_proc_info(
     parts: &Parts<'_>,
     uptime: u64,
     info: &SystemInfo,
+    ids: Option<Ids>,
     #[cfg(feature = "gpu")] now: Instant,
 ) {
     update_parent_pid(p, parent_pid, parts);
 
     p.status = parts.status;
-    refresh_user_group_ids(p, proc_path, refresh_kind);
+    refresh_user_group_ids(p, ids, refresh_kind);
 
     if refresh_kind.exe().needs_update(|| p.exe.is_none()) {
         // Do not use cmd[0] because it is not the same thing.
@@ -891,6 +896,7 @@ fn retrieve_all_new_process_info(
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
     uptime: u64,
+    ids: Option<Ids>,
     #[cfg(feature = "gpu")] now: Instant,
 ) -> Process {
     let mut p = ProcessInner::new(pid, path.to_owned());
@@ -924,6 +930,7 @@ fn retrieve_all_new_process_info(
         parts,
         uptime,
         info,
+        ids,
         #[cfg(feature = "gpu")]
         now,
     );
@@ -940,6 +947,7 @@ fn update_existing_process(
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
     tasks: Option<HashSet<Pid>>,
+    ids: Option<Ids>,
     #[cfg(feature = "gpu")] now: Instant,
 ) -> Result<Option<Process>, ()> {
     let entry = &mut proc.inner;
@@ -983,11 +991,11 @@ fn update_existing_process(
             &parts,
             uptime,
             info,
+            ids,
             #[cfg(feature = "gpu")]
             now,
         );
 
-        refresh_user_group_ids(entry, &mut proc_path, refresh_kind);
         return Ok(None);
     }
     // If we're here, it means that the PID still exists but it's a different process.
@@ -1000,6 +1008,7 @@ fn update_existing_process(
         info,
         refresh_kind,
         uptime,
+        ids,
         #[cfg(feature = "gpu")]
         now,
     );
@@ -1019,6 +1028,7 @@ pub(crate) fn _get_process_data(
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
     tasks: Option<HashSet<Pid>>,
+    ids: Option<Ids>,
     #[cfg(feature = "gpu")] now: Instant,
 ) -> Result<Option<Process>, ()> {
     if let Some(ref mut entry) = proc_list.get_mut(&pid) {
@@ -1030,6 +1040,7 @@ pub(crate) fn _get_process_data(
             info,
             refresh_kind,
             tasks,
+            ids,
             #[cfg(feature = "gpu")]
             now,
         );
@@ -1047,6 +1058,7 @@ pub(crate) fn _get_process_data(
         info,
         refresh_kind,
         uptime,
+        ids,
         #[cfg(feature = "gpu")]
         now,
     );
@@ -1140,6 +1152,7 @@ struct ProcAndTasks {
     path: PathBuf,
     tasks: Option<HashSet<Pid>>,
     is_thread: bool,
+    ids: Option<Ids>,
 }
 
 #[cfg(feature = "multithread")]
@@ -1219,6 +1232,7 @@ pub(crate) fn refresh_procs(
                     info,
                     refresh_kind,
                     e.tasks,
+                    e.ids,
                     #[cfg(feature = "gpu")]
                     now,
                 )
@@ -1253,10 +1267,22 @@ fn get_proc_and_tasks(
 ) -> Vec<ProcAndTasks> {
     let mut parent_pid = None;
     let mut is_thread = false;
-    let (mut procs, mut tasks) = if refresh_kind.tasks() {
-        let procs = get_proc_tasks(&path, pid);
+
+    let (ids, tgid) = match get_uid_and_gid_and_tgid(&path.join("status")) {
+        Some((ids, tgid)) => (Some(ids), Some(tgid)),
+        None => (None, None),
+    };
+    let is_a_task = tgid.is_some_and(|tgid| tgid != pid);
+    // Threads don't have meaningful tasks, so no need to fetch `procs` and `tasks`.
+    let (mut procs, tasks) = if refresh_kind.tasks() && !is_a_task {
+        let update_processes_list = processes_to_update == ProcessesToUpdate::All;
+        let mut procs = get_proc_tasks(&path, pid, update_processes_list);
         let tasks = procs.iter().map(|ProcAndTasks { pid, .. }| *pid).collect();
 
+        if !update_processes_list {
+            // Don't add the tasks to the list of processes to update.
+            procs.clear();
+        }
         (procs, Some(tasks))
     } else {
         (Vec::new(), None)
@@ -1264,17 +1290,9 @@ fn get_proc_and_tasks(
 
     // If the process' tgid doesn't match its pid, it is a task (thread).
     // This check must apply in ALL modes, not just `Some`.
-    if let Some(tgid) = get_tgid(&path.join("status"))
-        && tgid != pid
-    {
-        parent_pid = Some(tgid);
-        tasks = None;
+    if is_a_task {
+        parent_pid = tgid;
         is_thread = true;
-        // Threads don't have meaningful tasks, clear whatever was fetched.
-        procs.clear();
-    } else if processes_to_update != ProcessesToUpdate::All {
-        // Don't add the tasks to the list of processes to update
-        procs.clear();
     }
 
     procs.push(ProcAndTasks {
@@ -1283,27 +1301,36 @@ fn get_proc_and_tasks(
         parent_pid,
         path,
         tasks,
+        ids,
     });
 
     procs
 }
 
-fn get_proc_tasks(path: &Path, parent_pid: Pid) -> Vec<ProcAndTasks> {
+fn get_proc_tasks(path: &Path, parent_pid: Pid, retrieve_ids: bool) -> Vec<ProcAndTasks> {
     let task_path = path.join("task");
 
-    read_dir(task_path)
+    read_dir(&task_path)
         .ok()
         .map(|task_entries| {
             task_entries
                 .filter_map(filter_pid_entries)
                 // Needed because tasks have their own PID listed in the "task" folder.
                 .filter(|(_, pid)| *pid != parent_pid)
-                .map(|(path, pid)| ProcAndTasks {
-                    pid,
-                    is_thread: true,
-                    path,
-                    parent_pid: Some(parent_pid),
-                    tasks: None,
+                .map(|(path, pid)| {
+                    let ids = if retrieve_ids {
+                        get_uid_and_gid_and_tgid(&path.join("status")).map(|(ids, _)| ids)
+                    } else {
+                        None
+                    };
+                    ProcAndTasks {
+                        pid,
+                        is_thread: true,
+                        path,
+                        parent_pid: Some(parent_pid),
+                        tasks: None,
+                        ids,
+                    }
                 })
                 .collect()
         })
@@ -1339,8 +1366,16 @@ fn copy_from_file(entry: &Path) -> Vec<OsString> {
     }
 }
 
-// Fetch tuples of real and effective UID and GID.
-fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))> {
+pub(crate) struct Ids {
+    user_id: uid_t,
+    effective_user_id: uid_t,
+    group_id: gid_t,
+    effective_group_id: gid_t,
+}
+
+// Fetch real and effective UID and GID and store them into `Pids`. Returns the "thread group id"
+// (tgid) as second value of the tuple.
+fn get_uid_and_gid_and_tgid(file_path: &Path) -> Option<(Ids, Pid)> {
     let status_data = get_all_data(file_path, 16_385).ok()?;
 
     // We're only interested in the lines starting with Uid: and Gid:
@@ -1364,6 +1399,7 @@ fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))>
     let mut effective_uid = None;
     let mut gid = None;
     let mut effective_gid = None;
+    let mut tgid = None;
     for line in status_data.split(|c| *c == b'\n') {
         if let (Some(real), Some(effective)) = f(line, b"Uid:") {
             debug_assert!(uid.is_none() && effective_uid.is_none());
@@ -1373,28 +1409,36 @@ fn get_uid_and_gid(file_path: &Path) -> Option<((uid_t, uid_t), (gid_t, gid_t))>
             debug_assert!(gid.is_none() && effective_gid.is_none());
             gid = Some(real);
             effective_gid = Some(effective);
+        } else if let Some(line) = line.strip_prefix(b"Tgid:")
+            && let Some(real) = parse_ascii_checked_pid_t(line.trim_ascii())
+        {
+            debug_assert!(tgid.is_none());
+            tgid = Some(real);
         } else {
             continue;
         }
-        if uid.is_some() && gid.is_some() {
+        if uid.is_some() && gid.is_some() && tgid.is_some() {
             break;
         }
     }
-    match (uid, effective_uid, gid, effective_gid) {
-        (Some(uid), Some(effective_uid), Some(gid), Some(effective_gid)) => {
-            Some(((uid, effective_uid), (gid, effective_gid)))
-        }
+    match (uid, effective_uid, gid, effective_gid, tgid) {
+        (
+            Some(user_id),
+            Some(effective_user_id),
+            Some(group_id),
+            Some(effective_group_id),
+            Some(thread_group_id),
+        ) => Some((
+            Ids {
+                user_id,
+                effective_user_id,
+                group_id,
+                effective_group_id,
+            },
+            Pid(thread_group_id),
+        )),
         _ => None,
     }
-}
-
-fn get_tgid(file_path: &Path) -> Option<Pid> {
-    const TGID_KEY: &str = "Tgid:";
-    let status_data = get_all_utf8_data(file_path, 16_385).ok()?;
-    let tgid_line = status_data
-        .lines()
-        .find(|line| line.starts_with(TGID_KEY))?;
-    tgid_line[TGID_KEY.len()..].trim_start().parse().ok()
 }
 
 /// Type used to correctly handle the `REMAINING_FILES` global.
