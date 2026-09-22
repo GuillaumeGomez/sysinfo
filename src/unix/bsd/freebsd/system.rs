@@ -28,6 +28,7 @@ pub(crate) struct SystemInner {
     process_list: HashMap<Pid, Process>,
     mem_total: u64,
     mem_free: u64,
+    mem_available: u64,
     mem_used: u64,
     swap_total: u64,
     swap_used: u64,
@@ -41,6 +42,7 @@ impl SystemInner {
             process_list: HashMap::with_capacity(200),
             mem_total: 0,
             mem_free: 0,
+            mem_available: 0,
             mem_used: 0,
             swap_total: 0,
             swap_used: 0,
@@ -56,6 +58,7 @@ impl SystemInner {
             }
             self.mem_used = self.system_info.get_used_memory();
             self.mem_free = self.system_info.get_free_memory();
+            self.mem_available = self.system_info.get_available_memory();
         }
         if refresh_kind.swap() {
             let (swap_used, swap_total) = self.system_info.get_swap_info();
@@ -118,7 +121,7 @@ impl SystemInner {
     }
 
     pub(crate) fn available_memory(&self) -> u64 {
-        self.mem_free
+        self.mem_available
     }
 
     pub(crate) fn used_memory(&self) -> u64 {
@@ -625,17 +628,27 @@ impl SystemInfo {
     }
 
     fn get_free_memory(&self) -> u64 {
+        let mut free_mem: u64 = 0;
+
+        unsafe {
+            get_sys_value(&self.virtual_free_count, &mut free_mem);
+
+            free_mem.saturating_mul(self.page_size as _)
+        }
+    }
+
+    fn get_available_memory(&self) -> u64 {
         let mut buffers_mem: u64 = 0;
         let mut inactive_mem: u64 = 0;
         let mut cached_mem: u64 = 0;
         let mut free_mem: u64 = 0;
 
         unsafe {
-            get_sys_value(&self.buf_space, &mut buffers_mem);
+            get_sys_value(&self.buf_space, &mut buffers_mem); //  in bytes
             get_sys_value(&self.virtual_inactive_count, &mut inactive_mem);
             get_sys_value(&self.virtual_cache_count, &mut cached_mem);
             get_sys_value(&self.virtual_free_count, &mut free_mem);
-            // For whatever reason, buffers_mem is already the right value...
+
             buffers_mem
                 .saturating_add(inactive_mem.saturating_mul(self.page_size as _))
                 .saturating_add(cached_mem.saturating_mul(self.page_size as _))
