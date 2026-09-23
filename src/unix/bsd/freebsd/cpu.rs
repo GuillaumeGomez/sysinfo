@@ -149,6 +149,10 @@ impl CpuInner {
     pub(crate) fn brand(&self) -> &str {
         ""
     }
+
+    pub(crate) fn physical_package_id(&self) -> Option<u64> {
+        todo!()
+    }
 }
 
 unsafe fn get_frequency_for_cpu(cpu_nb: usize) -> u64 {

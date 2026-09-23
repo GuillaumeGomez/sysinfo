@@ -198,6 +198,10 @@ impl CpuInner {
     pub(crate) fn brand(&self) -> &str {
         &self.brand
     }
+
+    pub(crate) fn physical_package_id(&self) -> Option<u64> {
+        None
+    }
 }
 
 pub(crate) unsafe fn get_cpu_frequency(#[allow(unused_variables)] brand: &str) -> u64 {

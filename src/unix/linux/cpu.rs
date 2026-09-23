@@ -5,6 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
+use std::path::Path;
 use std::time::Instant;
 
 use crate::sys::utils::to_u64;
@@ -14,6 +15,28 @@ macro_rules! to_str {
     ($e:expr) => {
         unsafe { std::str::from_utf8_unchecked($e) }
     };
+}
+
+fn read_signed<P: AsRef<Path>>(parent: P, path: &str, data: &mut [u8]) -> i64 {
+    if let Ok(mut f) = File::open(parent.as_ref().join(path))
+        && let Ok(size) = f.read(data)
+    {
+        let mut i = 0;
+        let mut ret = 0;
+
+        let negative = i < size && data[i] == b'-';
+        if negative {
+            i += 1;
+        }
+
+        while i < size && i < data.len() && data[i] >= b'0' && data[i] <= b'9' {
+            ret *= 10;
+            ret += (data[i] - b'0') as i64;
+            i += 1;
+        }
+        return if negative { -ret } else { ret };
+    }
+    i64::MIN
 }
 
 pub(crate) struct CpusWrapper {
@@ -111,6 +134,7 @@ impl CpusWrapper {
                                 Some((vendor_id, brand)) => (vendor_id, brand),
                                 None => (String::new(), String::new()),
                             };
+                            let cpu_name = to_str!(parts.next().unwrap_or(&[]));
                             self.cpus.push(Cpu {
                                 inner: CpuInner::new_with_values(
                                     to_str!(parts.next().unwrap_or(&[])),
@@ -127,6 +151,7 @@ impl CpusWrapper {
                                     0,
                                     vendor_id,
                                     brand,
+                                    get_physical_package_id(cpu_name),
                                 ),
                             });
                         } else {
@@ -377,6 +402,7 @@ pub(crate) struct CpuInner {
     pub(crate) frequency: u64,
     pub(crate) vendor_id: String,
     pub(crate) brand: String,
+    pub(crate) physical_package_id: Option<u64>,
 }
 
 impl CpuInner {
@@ -395,6 +421,7 @@ impl CpuInner {
         frequency: u64,
         vendor_id: String,
         brand: String,
+        physical_package_id: Option<u64>,
     ) -> Self {
         Self {
             usage: CpuUsage::new_with_values(
@@ -404,6 +431,7 @@ impl CpuInner {
             frequency,
             vendor_id,
             brand,
+            physical_package_id,
         }
     }
 
@@ -445,6 +473,10 @@ impl CpuInner {
     pub(crate) fn brand(&self) -> &str {
         &self.brand
     }
+
+    pub(crate) fn physical_package_id(&self) -> Option<u64> {
+        self.physical_package_id
+    }
 }
 
 pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
@@ -481,6 +513,19 @@ pub(crate) fn get_cpu_frequency(cpu_core_index: usize) -> u64 {
         .and_then(|val| val.replace("MHz", "").trim().parse::<f64>().ok())
         .map(|speed| speed as u64)
         .unwrap_or_default()
+}
+
+pub(crate) fn get_physical_package_id(cpu_name: &str) -> Option<u64> {
+    let mut num_buf = [0u8; u64::MAX.ilog(10) as usize + 2];
+
+    match read_signed(
+        format!("/sys/devices/system/cpu/{cpu_name}",),
+        "topology/physical_package_id",
+        &mut num_buf,
+    ) {
+        ..0 => None,
+        id => Some(id as u64),
+    }
 }
 
 #[allow(unused_assignments)]
@@ -801,6 +846,7 @@ fn build_cpus_from_cpuinfo(
                     },
                     vendor_id,
                     brand,
+                    None,
                 ),
             }
         })

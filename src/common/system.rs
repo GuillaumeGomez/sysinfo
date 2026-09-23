@@ -3080,6 +3080,25 @@ impl Cpu {
         self.inner.brand()
     }
 
+    /// Returns which physical processor package this CPU belongs to.
+    ///
+    /// This value is architecture and platform dependent.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// if let Ok(s) = System::new_with_specifics(
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
+    /// ) {
+    ///     for cpu in s.cpus() {
+    ///         println!("{:?}", cpu.physical_package_id());
+    ///     }
+    /// }
+    /// ```
+    pub fn physical_package_id(&self) -> Option<u64> {
+        self.inner.physical_package_id()
+    }
+
     /// Returns the CPU's frequency (in MHz).
     ///
     /// ```no_run

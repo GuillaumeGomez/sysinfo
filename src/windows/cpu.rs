@@ -434,6 +434,10 @@ impl CpuInner {
         &self.brand
     }
 
+    pub(crate) fn physical_package_id(&self) -> Option<u64> {
+        todo!()
+    }
+
     pub(crate) fn new_with_values(
         name: String,
         vendor_id: String,
