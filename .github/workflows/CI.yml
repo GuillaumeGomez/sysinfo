@@ -23,7 +23,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: syphar/docs.rs/github-actions/build@build-action
         with:
-          package: sysinfo
           strict: "true"
 
   rustfmt:
