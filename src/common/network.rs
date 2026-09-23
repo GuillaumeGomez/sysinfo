@@ -425,7 +425,6 @@ impl NetworkData {
         self.inner.mtu()
     }
 
-    //  FIXME: update once testing is done for Windows and BSD
     /// Returns the transmit link speed of the interface in bits per second.
     ///
     /// For Ethernet interfaces, this is the negotiated link speed.
@@ -455,7 +454,6 @@ impl NetworkData {
         self.inner.transmit_link_speed()
     }
 
-    //  FIXME: update once testing is done for Windows and BSD
     /// Returns the receive link speed of the interface in bits per second.
     ///
     /// For Ethernet interfaces, this is the negotiated link speed.
