@@ -21,7 +21,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: syphar/docs.rs/github-actions/build@build-action
+      - uses: rust-lang/docs.rs/github-actions/build@main
         with:
           strict: "true"
 
