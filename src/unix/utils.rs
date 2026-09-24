@@ -78,11 +78,11 @@ pub(crate) fn realpath<P: AsRef<std::path::Path>>(path: P) -> Option<std::path::
 //  Based off NetBSD `x86_cpu_topology()` implementation
 //  https://github.com/NetBSD/src/blob/trunk/sys/arch/x86/x86/cpu_topology.c
 #[cfg(all(
-    feature = "system"
-    any(target_os = "netbsd", target_os = "freebsd")
+    feature = "system",
+    any(target_os = "netbsd", target_os = "freebsd"),
     any(target_arch = "x86", target_arch = "x86_64")
 ))]
-unsafe fn x86_cpu_package_id() -> Result<u32, crate::Error> {
+fn x86_cpu_package_id() -> Result<u32, crate::Error> {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::{__cpuid, __cpuid_count};
     #[cfg(target_arch = "x86_64")]
@@ -109,9 +109,11 @@ unsafe fn x86_cpu_package_id() -> Result<u32, crate::Error> {
 
     let vendor_res = __cpuid(0);
     let mut x = Vec::with_capacity(3 * std::mem::size_of::<u32>());
-    add_u32(&mut x, vendor_res.ebx);
-    add_u32(&mut x, vendor_res.edx);
-    add_u32(&mut x, vendor_res.ecx);
+    unsafe {
+        add_u32(&mut x, vendor_res.ebx);
+        add_u32(&mut x, vendor_res.edx);
+        add_u32(&mut x, vendor_res.ecx);
+    }
     let mut pos = 0;
     for e in x.iter() {
         if *e == 0 {
