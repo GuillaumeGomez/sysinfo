@@ -7,6 +7,26 @@ impl CpuInner {
         0.0
     }
 
+    pub(crate) fn idle(&self) -> f32 {
+        0.0
+    }
+
+    pub(crate) fn io_wait(&self) -> f32 {
+        0.0
+    }
+
+    pub(crate) fn nice(&self) -> f32 {
+        0.0
+    }
+
+    pub(crate) fn system(&self) -> f32 {
+        0.0
+    }
+
+    pub(crate) fn user(&self) -> f32 {
+        0.0
+    }
+
     pub(crate) fn name(&self) -> &str {
         ""
     }
