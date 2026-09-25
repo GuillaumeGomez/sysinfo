@@ -406,31 +406,6 @@ unsafe fn get_mapped_drives(disks: &mut Vec<Disk>, refreshes: DiskRefreshKind) {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_split_drive_roots() {
-        // "C:\" and "D:\" followed by the final null terminator.
-        let buf = [
-            b'C' as u16,
-            b':' as u16,
-            b'\\' as u16,
-            0,
-            b'D' as u16,
-            b':' as u16,
-            b'\\' as u16,
-            0,
-            0,
-        ];
-        let roots = split_drive_roots(&buf);
-        assert_eq!(roots.len(), 2);
-        assert_eq!(roots[0], [b'C' as u16, b':' as u16, b'\\' as u16, 0]);
-        assert_eq!(roots[1], [b'D' as u16, b':' as u16, b'\\' as u16, 0]);
-    }
-}
-
 pub(crate) unsafe fn get_list(
     disks: &mut Vec<Disk>,
     remove_not_listed_disks: bool,
@@ -629,4 +604,29 @@ fn get_disk_io(handle: HandleWrapper) -> Option<(u64, u64)> {
         disk_perf.BytesRead.try_into().ok()?,
         disk_perf.BytesWritten.try_into().ok()?,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_split_drive_roots() {
+        // "C:\" and "D:\" followed by the final null terminator.
+        let buf = [
+            b'C' as u16,
+            b':' as u16,
+            b'\\' as u16,
+            0,
+            b'D' as u16,
+            b':' as u16,
+            b'\\' as u16,
+            0,
+            0,
+        ];
+        let roots = split_drive_roots(&buf);
+        assert_eq!(roots.len(), 2);
+        assert_eq!(roots[0], [b'C' as u16, b':' as u16, b'\\' as u16, 0]);
+        assert_eq!(roots[1], [b'D' as u16, b':' as u16, b'\\' as u16, 0]);
+    }
 }
