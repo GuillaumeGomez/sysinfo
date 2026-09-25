@@ -177,6 +177,11 @@ impl Component {
     ///
     /// Returns `f32::NAN` if it failed to retrieve it.
     ///
+    /// ## illumos
+    ///
+    /// Reads kernel sensors under `/dev/sensors/temperature` and converts supported units to
+    /// Celsius.
+    ///
     /// ```no_run
     /// use sysinfo::Components;
     ///
@@ -202,6 +207,10 @@ impl Component {
     /// May be computed by `sysinfo` from kernel.
     /// Returns `f32::NAN` if it failed to retrieve it.
     ///
+    /// ## illumos
+    ///
+    /// Computed by `sysinfo` from the time the component is first discovered.
+    ///
     /// ```no_run
     /// use sysinfo::Components;
     ///
@@ -222,6 +231,10 @@ impl Component {
     /// ## Linux
     ///
     /// Critical threshold defined by chip or kernel.
+    ///
+    /// ## illumos
+    ///
+    /// Always returns `None` because the kernel sensor ABI does not expose critical thresholds.
     ///
     /// ```no_run
     /// use sysinfo::Components;
@@ -276,6 +289,7 @@ impl Component {
     /// | Linux/hwmon | hwmon file concatenated with the temp index. | ` hwmon0_1` if the temperature data comes from the `hwmon0/temp1_input` file. |
     /// | Linux/thermal | thermal file name | `thermal_zone0` |
     /// | FreeBSD | `cpu_` concatenated with the core index. | `cpu_1` for the first core. |
+    /// | illumos | Path relative to `/dev/sensors/temperature`. | `cpu/core.0` |
     /// | macOS/arm | Serial ID reported by the HID driver. | |
     /// | macOS/x86 | Technical ID sent to the OS (see below) | `TXCX` |
     /// | Windows | `Computer` (same as the label) | `Computer` |

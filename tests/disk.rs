@@ -73,6 +73,7 @@ fn test_disk_refresh_kind() {
                 #[cfg(not(any(
                     target_os = "freebsd",
                     target_os = "netbsd",
+                    target_os = "illumos",
                     target_os = "windows"
                 )))]
                 assert!(
