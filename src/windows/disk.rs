@@ -133,7 +133,7 @@ pub(crate) struct DiskInner {
     available_space: u64,
     is_removable: bool,
     is_read_only: bool,
-    device_path: Vec<u16>,
+    device_path: Option<Vec<u16>>,
     old_written_bytes: u64,
     old_read_bytes: u64,
     written_bytes: u64,
@@ -155,7 +155,7 @@ impl Default for DiskInner {
             available_space: 0,
             is_removable: false,
             is_read_only: false,
-            device_path: Vec::new(),
+            device_path: None,
             old_written_bytes: 0,
             old_read_bytes: 0,
             written_bytes: 0,
@@ -205,8 +205,9 @@ impl DiskInner {
     pub(crate) fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) -> bool {
         if refreshes.kind() || refreshes.io_usage() {
             unsafe {
-                if let Some(handle) =
-                    HandleWrapper::new_from_file(&self.device_path, Default::default())
+                if let Some(device_path) = &self.device_path
+                    && let Some(handle) =
+                        HandleWrapper::new_from_file(device_path, Default::default())
                 {
                     if refreshes.kind() && self.type_ == DiskKind::Unknown(-1) {
                         self.type_ = get_disk_kind(&handle);
@@ -371,6 +372,14 @@ unsafe fn get_mapped_drives(disks: &mut Vec<Disk>, refreshes: DiskRefreshKind) {
 
         let name = os_string_from_zero_terminated(&name);
         let file_system = os_string_from_zero_terminated(&file_system);
+
+        // A drive we can't report sizes for is of no use: skip it (this also
+        // filters out mappings to unreachable shares).
+        let Some((total_space, available_space)) = (unsafe { get_drive_size(&root) }) else {
+            sysinfo_debug!("Error: GetDiskFreeSpaceExW failed for a mapped drive");
+            continue;
+        };
+
         if let Some(disk) = disks
             .iter_mut()
             .find(|d| d.inner.mount_point == root && d.inner.file_system == file_system)
@@ -387,14 +396,14 @@ unsafe fn get_mapped_drives(disks: &mut Vec<Disk>, refreshes: DiskRefreshKind) {
             file_system: file_system.clone(),
             s_mount_point: OsString::from_wide(&root[..root.len() - 1]),
             mount_point: root.clone(),
-            total_space: 0,
-            available_space: 0,
+            total_space,
+            available_space,
             is_removable: false,
             is_read_only: (flags & FILE_READ_ONLY_VOLUME) != 0,
             // A mapped drive has no local device, so the IOCTL probes in
             // `refresh_specifics` are not attempted and the kind stays
             // `Unknown`.
-            device_path: vec![0],
+            device_path: None,
             old_read_bytes: 0,
             old_written_bytes: 0,
             read_bytes: 0,
@@ -505,7 +514,7 @@ pub(crate) unsafe fn get_list(
                 available_space: 0,
                 is_removable,
                 is_read_only,
-                device_path: device_path.clone(),
+                device_path: Some(device_path.clone()),
                 old_read_bytes: 0,
                 old_written_bytes: 0,
                 read_bytes: 0,
