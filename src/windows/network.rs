@@ -97,6 +97,11 @@ impl NetworksInner {
                 let interface_name = OsString::from_wide(&ptr.Alias[..pos]);
 
                 let mtu = ptr.Mtu as u64;
+
+                //  Definition of `0` value for `TransmitLinkSpeed` and `ReceiveLinkSpeed` is not explicitly mentioned in Windows docs
+                let transmit_link_speed = Some(ptr.TransmitLinkSpeed);
+                let receive_link_speed = Some(ptr.ReceiveLinkSpeed);
+
                 let operational_state = InterfaceOperationalState::from_enum(ptr.OperStatus);
 
                 match self.interfaces.entry(interface_name) {
@@ -120,6 +125,8 @@ impl NetworksInner {
                         old_and_new!(interface, errors_in, old_errors_in, ptr.InErrors);
                         old_and_new!(interface, errors_out, old_errors_out, ptr.OutErrors);
                         interface.mtu = mtu;
+                        interface.transmit_link_speed = transmit_link_speed;
+                        interface.receive_link_speed = receive_link_speed;
                         interface.operational_state = operational_state;
                         interface.updated = true;
                     }
@@ -144,6 +151,8 @@ impl NetworksInner {
                                 mac_addr: MacAddr::UNSPECIFIED,
                                 ip_networks: vec![],
                                 mtu,
+                                transmit_link_speed,
+                                receive_link_speed,
                                 updated: true,
                                 operational_state,
                             },
@@ -190,6 +199,9 @@ pub(crate) struct NetworkDataInner {
     pub(crate) ip_networks: Vec<IpNetwork>,
     /// Interface Maximum Transfer Unit (MTU)
     mtu: u64,
+    /// Link speed in bits per second
+    transmit_link_speed: Option<u64>,
+    receive_link_speed: Option<u64>,
     operational_state: InterfaceOperationalState,
 }
 
@@ -252,6 +264,14 @@ impl NetworkDataInner {
 
     pub(crate) fn mtu(&self) -> u64 {
         self.mtu
+    }
+
+    pub(crate) fn transmit_link_speed(&self) -> Option<u64> {
+        self.transmit_link_speed
+    }
+
+    pub(crate) fn receive_link_speed(&self) -> Option<u64> {
+        self.receive_link_speed
     }
 
     pub(crate) fn operational_state(&self) -> InterfaceOperationalState {

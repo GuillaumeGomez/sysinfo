@@ -38,6 +38,28 @@ fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut [u8]) -> u64 {
     0
 }
 
+fn read_signed<P: AsRef<Path>>(parent: P, path: &str, data: &mut [u8]) -> i64 {
+    if let Ok(mut f) = File::open(parent.as_ref().join(path))
+        && let Ok(size) = f.read(data)
+    {
+        let mut i = 0;
+        let mut ret = 0;
+
+        let negative = i < size && data[i] == b'-';
+        if negative {
+            i += 1;
+        }
+
+        while i < size && i < data.len() && data[i] >= b'0' && data[i] <= b'9' {
+            ret *= 10;
+            ret += (data[i] - b'0') as i64;
+            i += 1;
+        }
+        return if negative { -ret } else { ret };
+    }
+    i64::MIN
+}
+
 // `read_str` clears and refills the Vec, so its length becomes the length of
 // the string just read. For example, reading "up\n" leaves the Vec length at 3.
 // Keep this buffer separate from numeric read buffers, otherwise counters could
@@ -85,6 +107,11 @@ fn refresh_networks_list_from_sysfs(
         }
 
         for entry in dir.flatten() {
+            let link_speed = match read_signed(entry.path(), "speed", &mut num_buf) {
+                ..0 => None,
+                speed => Some(speed as u64),
+            };
+
             let parent = &entry.path().join("statistics");
             let entry_path = &entry.path();
             let rx_bytes = read(parent, "rx_bytes", &mut num_buf);
@@ -115,6 +142,7 @@ fn refresh_networks_list_from_sysfs(
                     // old_and_new!(e, rx_compressed, old_rx_compressed);
                     // old_and_new!(e, tx_compressed, old_tx_compressed);
                     interface.mtu = mtu;
+                    interface.link_speed = link_speed;
                     interface.operational_state = operational_state;
                     interface.updated = true;
                 }
@@ -141,6 +169,7 @@ fn refresh_networks_list_from_sysfs(
                             // old_tx_compressed: tx_compressed,
                             operational_state,
                             mtu,
+                            link_speed,
                             updated: true,
                         },
                     });
@@ -217,6 +246,8 @@ pub(crate) struct NetworkDataInner {
     pub(crate) ip_networks: Vec<IpNetwork>,
     /// Interface Maximum Transfer Unit (MTU)
     mtu: u64,
+    /// Link speed in megabits per second
+    link_speed: Option<u64>,
     operational_state: InterfaceOperationalState,
     // /// Indicates the number of compressed packets received by this
     // /// network device. This value might only be relevant for interfaces
@@ -291,6 +322,14 @@ impl NetworkDataInner {
 
     pub(crate) fn mtu(&self) -> u64 {
         self.mtu
+    }
+
+    pub(crate) fn transmit_link_speed(&self) -> Option<u64> {
+        self.link_speed.map(|v| v * 1_000_000)
+    }
+
+    pub(crate) fn receive_link_speed(&self) -> Option<u64> {
+        self.link_speed.map(|v| v * 1_000_000)
     }
 
     pub(crate) fn operational_state(&self) -> InterfaceOperationalState {
