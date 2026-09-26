@@ -28,4 +28,8 @@ impl MotherboardInner {
     pub(crate) fn asset_tag(&self) -> Option<String> {
         unreachable!()
     }
+
+    pub(crate) fn temperatures(&self) -> Vec<f32> {
+        Vec::new()
+    }
 }

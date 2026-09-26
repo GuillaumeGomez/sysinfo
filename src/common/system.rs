@@ -213,6 +213,22 @@ impl System {
         self.refresh_cpu_specifics(CpuRefreshKind::nothing().with_frequency())
     }
 
+    /// Refreshes CPUs temperature.
+    ///
+    /// Calling this method is the same as calling
+    /// `system.refresh_cpu_specifics(CpuRefreshKind::nothing().with_temperature())`.
+    ///
+    /// ```no_run
+    /// use sysinfo::System;
+    ///
+    /// if let Ok(mut s) = System::new_all() {
+    ///     s.refresh_cpu_temperature();
+    /// }
+    /// ```
+    pub fn refresh_cpu_temperature(&mut self) {
+        self.refresh_cpu_specifics(CpuRefreshKind::nothing().with_temperature())
+    }
+
     /// Refreshes the list of CPU.
     ///
     /// Normally, this should almost never be needed as it's pretty rare for a computer
@@ -1134,6 +1150,14 @@ impl Motherboard {
     /// ```
     pub fn asset_tag(&self) -> Option<String> {
         self.inner.asset_tag()
+    }
+
+    /// Returns the motherboard's temperature sensors in degrees Celsius.
+    ///
+    /// Currently only implemented on Linux.
+    /// Returns an empty `Vec` if the information is not available.
+    pub fn temperatures(&self) -> Vec<f32> {
+        self.inner.temperatures()
     }
 }
 
@@ -2756,6 +2780,7 @@ It will retrieve the following information:
 pub struct CpuRefreshKind {
     usage: bool,
     frequency: bool,
+    temperature: bool,
 }
 
 impl CpuRefreshKind {
@@ -2768,6 +2793,7 @@ impl CpuRefreshKind {
     ///
     /// assert_eq!(r.frequency(), false);
     /// assert_eq!(r.usage(), false);
+    /// assert_eq!(r.temperature(), false);
     /// ```
     pub fn nothing() -> Self {
         Self::default()
@@ -2782,16 +2808,24 @@ impl CpuRefreshKind {
     ///
     /// assert_eq!(r.frequency(), true);
     /// assert_eq!(r.usage(), true);
+    /// assert_eq!(r.temperature(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
             usage: true,
             frequency: true,
+            temperature: true,
         }
     }
 
     impl_get_set!(CpuRefreshKind, usage, with_usage, without_usage);
     impl_get_set!(CpuRefreshKind, frequency, with_frequency, without_frequency);
+    impl_get_set!(
+        CpuRefreshKind,
+        temperature,
+        with_temperature,
+        without_temperature
+    );
 }
 
 /// Used to determine which memory you want to refresh specifically.
@@ -3095,6 +3129,41 @@ impl Cpu {
     /// ```
     pub fn frequency(&self) -> u64 {
         self.inner.frequency()
+    }
+
+    /// Returns the CPU's temperature in degrees Celsius.
+    ///
+    /// This is currently only implemented on Linux.
+    ///
+    /// ```no_run
+    /// use sysinfo::{System, RefreshKind, CpuRefreshKind};
+    ///
+    /// if let Ok(s) = System::new_with_specifics(
+    ///     RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
+    /// ) {
+    ///     for cpu in s.cpus() {
+    ///         println!("{}", cpu.temperature());
+    ///     }
+    /// }
+    /// ```
+    pub fn temperature(&self) -> f32 {
+        self.inner.temperature()
+    }
+
+    /// Returns the highest temperature (in degrees Celsius) recorded for this CPU.
+    ///
+    /// This is currently only implemented on Linux.
+    /// Returns `None` if this information isn't available.
+    pub fn max(&self) -> Option<f32> {
+        self.inner.max()
+    }
+
+    /// Returns the critical temperature threshold (in degrees Celsius) for this CPU.
+    ///
+    /// This is currently only implemented on Linux.
+    /// Returns `None` if this information isn't available.
+    pub fn critical(&self) -> Option<f32> {
+        self.inner.critical()
     }
 }
 

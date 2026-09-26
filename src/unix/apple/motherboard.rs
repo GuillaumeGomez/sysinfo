@@ -50,4 +50,8 @@ impl MotherboardInner {
     pub(crate) fn asset_tag(&self) -> Option<String> {
         None
     }
+
+    pub(crate) fn temperatures(&self) -> Vec<f32> {
+        Vec::new()
+    }
 }
