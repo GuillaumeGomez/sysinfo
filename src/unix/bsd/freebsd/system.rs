@@ -561,30 +561,27 @@ impl SystemInfo {
 
     /// Returns (used, total).
     fn get_swap_info(&mut self) -> (u64, u64) {
-        // Magic number used in htop. Cannot find how they got it when reading `kvm_getswapinfo`
-        // source code so here we go...
-        const LEN: usize = 16;
-        let mut swap = MaybeUninit::<[libc::kvm_swap; LEN]>::uninit();
+        //  FreeBSD docs:
+        //  https://man.freebsd.org/cgi/man.cgi?query=kvm_getswapinfo&sektion=3&n=1
+        //  A grand total of all swap devices (including any devices that go beyond maxswap - 1)
+        //  is returned in one additional array entry.
+        //
+        //  Thus, if you specify a maxswap value of 1, the function will typically return the value
+        //  0 and the single kvm_swap structure will be filled with the grand total over all swap
+        //  devices.
+        let mut swap = MaybeUninit::<libc::kvm_swap>::uninit();
         let Some(kd) = self.get_kd() else {
             return (0, 0);
         };
         unsafe {
-            let nswap = libc::kvm_getswapinfo(kd.as_ptr(), swap.as_mut_ptr() as *mut _, LEN as _, 0)
-                as usize;
-            if nswap < 1 {
+            let nswap = libc::kvm_getswapinfo(kd.as_ptr(), swap.as_mut_ptr(), 1, 0);
+            if nswap < 0 {
                 return (0, 0);
             }
-            let swap =
-                std::slice::from_raw_parts(swap.as_ptr() as *mut libc::kvm_swap, nswap.min(LEN));
-            let (used, total) = swap.iter().fold((0, 0), |(used, total): (u64, u64), swap| {
-                (
-                    used.saturating_add(swap.ksw_used as _),
-                    total.saturating_add(swap.ksw_total as _),
-                )
-            });
+            let swap = swap.assume_init();
             (
-                used.saturating_mul(self.page_size as _),
-                total.saturating_mul(self.page_size as _),
+                (swap.ksw_used as u64).saturating_mul(self.page_size as u64),
+                (swap.ksw_total as u64).saturating_mul(self.page_size as u64),
             )
         }
     }
