@@ -551,15 +551,30 @@ impl SystemInner {
         }
     }
 
-    // FIXME: Would be better to query this information instead of using a "default" value like this.
+    //  Comment in XNU source:
+    //  https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_resource.c#L1643
+    //  The real NOFILE limits enforced by the kernel is capped at MIN(RLIMIT_NOFILE, maxfilesperproc)
     pub(crate) fn open_files_limit() -> Result<usize, Error> {
-        #[cfg(target_os = "ios")]
-        {
-            Ok(256)
-        }
-        #[cfg(not(target_os = "ios"))]
-        {
-            Ok(10_240)
+        let rlim_cur = unsafe {
+            getrlimit()
+                .ok_or(Error::Other("failed to retrieve open files limit".into()))?
+                .rlim_cur
+        };
+
+        let mut maxfilesperproc: c_int = 0;
+        let mut len = std::mem::size_of::<c_int>();
+        let ret = unsafe {
+            get_sys_value_by_name(
+                b"kern.maxfilesperproc\0",
+                &mut len,
+                &mut maxfilesperproc as *mut _ as *mut c_void,
+            )
+        };
+
+        if ret && maxfilesperproc >= 0 {
+            Ok(std::cmp::min(rlim_cur as usize, maxfilesperproc as usize))
+        } else {
+            Err(Error::Other("failed to retrieve open files limit".into()))
         }
     }
 }
@@ -602,6 +617,19 @@ fn get_system_info(value: c_int) -> Option<String> {
             }
         }
         None
+    }
+}
+
+unsafe fn getrlimit() -> Option<libc::rlimit> {
+    let mut limits = libc::rlimit {
+        rlim_cur: 0,
+        rlim_max: 0,
+    };
+
+    if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) } != 0 {
+        None
+    } else {
+        Some(limits)
     }
 }
 
