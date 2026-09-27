@@ -572,7 +572,6 @@ impl SystemInner {
         };
 
         if ret && maxfilesperproc >= 0 {
-            println!("{rlim_cur}, {maxfilesperproc}");
             Ok(std::cmp::min(rlim_cur as usize, maxfilesperproc as usize))
         } else {
             Err(Error::Other("failed to retrieve open files limit".into()))
