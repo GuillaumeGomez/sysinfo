@@ -136,7 +136,6 @@ impl SystemInner {
         self.swap_total - self.swap_used
     }
 
-    // TODO: need to be checked
     pub(crate) fn used_swap(&self) -> u64 {
         self.swap_used
     }
