@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use libc::{
-    self, CTL_NET, IFF_RUNNING, IFF_UP, IFNAMSIZ, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2, c_char,
-    c_int, c_uint, if_data64, if_msghdr2, sysctl,
+    self, CTL_NET, IFF_RUNNING, IFF_UP, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2, c_char, if_data64,
+    if_msghdr2, sysctl,
 };
 
 use std::collections::{HashMap, hash_map};
@@ -13,25 +13,6 @@ use std::ptr::null_mut;
 
 use crate::network::refresh_networks_addresses;
 use crate::{Error, InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
-
-// FIXME: To be removed once https://github.com/rust-lang/libc/pull/4022 is merged and released.
-#[repr(C)]
-struct ifmibdata {
-    ifmd_name: [c_char; IFNAMSIZ],
-    ifmd_pcount: c_uint,
-    ifmd_flags: c_uint,
-    ifmd_snd_len: c_uint,
-    ifmd_snd_maxlen: c_uint,
-    ifmd_snd_drops: c_uint,
-    ifmd_filler: [c_uint; 4],
-    ifmd_data: if_data64,
-}
-// FIXME: To be removed once https://github.com/rust-lang/libc/pull/4022 is merged and released.
-pub const IFDATA_GENERAL: c_int = 1;
-// FIXME: To be removed once https://github.com/rust-lang/libc/pull/4022 is merged and released.
-pub const IFMIB_IFDATA: c_int = 2;
-// FIXME: To be removed once https://github.com/rust-lang/libc/pull/4022 is merged and released.
-pub const NETLINK_GENERIC: c_int = 0;
 
 #[inline]
 fn update_field(old_field: &mut u64, new_field: &mut u64, value: u64) {
@@ -107,10 +88,10 @@ impl NetworksInner {
         let mib2 = &mut [
             CTL_NET,
             libc::PF_LINK,
-            NETLINK_GENERIC,
-            IFMIB_IFDATA,
+            libc::NETLINK_GENERIC,
+            libc::IFMIB_IFDATA,
             0,
-            IFDATA_GENERAL,
+            libc::IFDATA_GENERAL,
         ];
 
         let mut len = 0;
@@ -174,14 +155,14 @@ impl NetworksInner {
                     // we originally got into `ifm.ifm_data`...
                     //
                     // Issue: https://github.com/GuillaumeGomez/sysinfo/issues/1378
-                    let mut mib_data: MaybeUninit<ifmibdata> = MaybeUninit::uninit();
+                    let mut mib_data: MaybeUninit<libc::ifmibdata> = MaybeUninit::uninit();
 
                     mib2[4] = (*if2m).ifm_index as _;
                     let ret = sysctl(
                         mib2.as_mut_ptr(),
                         mib2.len() as _,
                         mib_data.as_mut_ptr() as *mut _,
-                        &mut size_of::<ifmibdata>(),
+                        &mut size_of::<libc::ifmibdata>(),
                         null_mut(),
                         0,
                     );

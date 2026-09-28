@@ -26,6 +26,7 @@ pub(crate) struct SystemInner {
     mem_total: u64,
     mem_free: u64,
     mem_used: u64,
+    mem_available: u64,
     swap_total: u64,
     swap_used: u64,
     system_info: SystemInfo,
@@ -38,6 +39,7 @@ impl SystemInner {
             process_list: HashMap::with_capacity(200),
             mem_total: 0,
             mem_free: 0,
+            mem_available: 0,
             mem_used: 0,
             swap_total: 0,
             swap_used: 0,
@@ -70,6 +72,7 @@ impl SystemInner {
             let cached_memory =
                 (info.filepages + info.execpages) as u64 * self.system_info.page_size;
             self.mem_free = self.mem_total.saturating_sub(self.mem_used + cached_memory);
+            self.mem_available = self.mem_total.saturating_sub(self.mem_used);
         }
         if refresh_kind.swap() {
             self.swap_total = info.swpages as u64 * self.system_info.page_size;
@@ -131,7 +134,7 @@ impl SystemInner {
     }
 
     pub(crate) fn available_memory(&self) -> u64 {
-        self.mem_free
+        self.mem_available
     }
 
     pub(crate) fn used_memory(&self) -> u64 {
