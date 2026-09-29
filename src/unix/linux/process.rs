@@ -403,14 +403,6 @@ mod gpu {
     const ACCEL_MAJOR: u32 = 261; // `/dev/accel/*`
 
     #[inline(always)]
-    fn device_major(device: libc::dev_t) -> u32 {
-        // Equivalent to Linux's `major` macro, which `libc` doesn't expose on every target.
-        #[allow(clippy::unnecessary_cast)]
-        let device = device as u64;
-        (((device >> 32) & 0xffff_f000) | ((device >> 8) & 0x0000_0fff)) as u32
-    }
-
-    #[inline(always)]
     fn is_gpu_device(
         dir: &Dir,
         file_name: &[libc::c_char],
@@ -424,7 +416,7 @@ mod gpu {
 
             let stat = stat.assume_init_ref();
             stat.st_mode & libc::S_IFMT == libc::S_IFCHR
-                && matches!(device_major(stat.st_rdev), DRM_MAJOR | ACCEL_MAJOR)
+                && matches!(libc::major(stat.st_rdev), DRM_MAJOR | ACCEL_MAJOR)
         }
     }
 
