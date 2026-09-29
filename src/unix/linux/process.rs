@@ -403,6 +403,7 @@ mod gpu {
     const ACCEL_MAJOR: u32 = 261; // `/dev/accel/*`
 
     #[inline(always)]
+    #[allow(clippy::unnecessary_cast)]
     fn is_gpu_device(
         dir: &Dir,
         file_name: &[libc::c_char],
