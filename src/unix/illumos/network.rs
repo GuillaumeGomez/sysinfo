@@ -14,9 +14,24 @@ const LINK_MODULE: &CStr = c"link";
 const LOOPBACK_MODULE: &CStr = c"lo";
 const UNIX_MODULE: &CStr = c"unix";
 const LIFNAMSIZ: usize = 32;
-// _IOWR('i', 122, struct lifreq) and _IOWR('i', 192, struct lifreq).
-const SIOCGLIFMTU: libc::c_int = 0xc078_697a_u32 as libc::c_int;
-const SIOCGLIFHWADDR: libc::c_int = 0xc078_69c0_u32 as libc::c_int;
+const SIOCGLIFMTU: libc::c_int = _IOWR::<LifReq>(b'i', 122); // 0xc078_697a
+const SIOCGLIFHWADDR: libc::c_int = _IOWR::<LifReq>(b'i', 192); // 0xc078_69c0
+
+// See <sys/ioccom.h>
+// #define _IOWR(x, y, t)
+//     ((int)((uint32_t)(IOC_INOUT|(((sizeof (t))&IOCPARM_MASK)<<16)|(x<<8)|y)))
+#[allow(non_snake_case)]
+const fn _IOWR<T>(x: u8, y: u8) -> libc::c_int {
+    const IOCPARM_MASK: u32 = 0xff; // parameters must be < 256 bytes
+    const IOC_OUT: u32 = 0x4000_0000; // copy out parameters
+    const IOC_IN: u32 = 0x8000_0000; // copy in parameters
+    const IOC_INOUT: u32 = IOC_IN | IOC_OUT;
+
+    (IOC_INOUT
+        | (((std::mem::size_of::<T>() as u32) & IOCPARM_MASK) << 16)
+        | ((x as u32) << 8)
+        | y as u32) as libc::c_int
+}
 
 #[repr(C)]
 struct LifReq {
