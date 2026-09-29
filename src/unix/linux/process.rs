@@ -399,8 +399,8 @@ mod gpu {
     use super::*;
     use std::mem::MaybeUninit;
 
-    const DRM_MAJOR: libc::dev_t = 226; // `/dev/dri/*`
-    const ACCEL_MAJOR: libc::dev_t = 261; // `/dev/accel/*`
+    const DRM_MAJOR: u32 = 226; // `/dev/dri/*`
+    const ACCEL_MAJOR: u32 = 261; // `/dev/accel/*`
 
     #[inline(always)]
     fn is_gpu_device(
