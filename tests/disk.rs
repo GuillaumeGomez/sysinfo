@@ -129,7 +129,8 @@ fn test_disk_refresh_kind() {
 
             if refreshes.io_usage() {
                 // CI can fail for netbsd so ignoring it for now...
-                if std::env::var("NETBSD_CI").is_err() {
+                // sysinfo's illumos backend does not currently report I/O usage for ZFS datasets.
+                if !cfg!(target_os = "illumos") && std::env::var("NETBSD_CI").is_err() {
                     // This would ideally assert that *all* are refreshed, but we settle for a
                     //  weaker assertion because failures can't be distinguished from "not
                     // refreshed" values.
@@ -168,6 +169,10 @@ fn test_disks_usage() {
     // update, regardless of how long we wait. Until the root cause is discovered, skip the test
     // in CI.
     if cfg!(target_os = "linux") && std::env::var("CI").is_ok() {
+        return;
+    }
+    // illumos exposes ZFS pool I/O counters, which cannot be attributed to individual datasets.
+    if cfg!(target_os = "illumos") {
         return;
     }
     if std::env::var("NETBSD_CI").is_ok() || std::env::var("FREEBSD_CI").is_ok() {
