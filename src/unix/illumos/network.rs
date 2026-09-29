@@ -13,7 +13,6 @@ use super::kstat::{KstatReader, KstatRecord};
 const LINK_MODULE: &CStr = c"link";
 const LOOPBACK_MODULE: &CStr = c"lo";
 const UNIX_MODULE: &CStr = c"unix";
-const LIFNAMSIZ: usize = 32;
 const SIOCGLIFMTU: libc::c_int = _IOWR::<LifReq>(b'i', 122); // 0xc078_697a
 const SIOCGLIFHWADDR: libc::c_int = _IOWR::<LifReq>(b'i', 192); // 0xc078_69c0
 
@@ -35,7 +34,7 @@ const fn _IOWR<T>(x: u8, y: u8) -> libc::c_int {
 
 #[repr(C)]
 struct LifReq {
-    name: [libc::c_char; LIFNAMSIZ],
+    name: [libc::c_char; libc::IF_NAMESIZE],
     address_length: libc::c_int,
     interface_type: libc::c_uint,
     data: [u8; 336],
@@ -46,12 +45,12 @@ const _: [(); 376] = [(); std::mem::size_of::<LifReq>()];
 impl LifReq {
     fn new(name: &[u8]) -> Self {
         let mut request = Self {
-            name: [0; LIFNAMSIZ],
+            name: [0; libc::IF_NAMESIZE],
             address_length: 0,
             interface_type: 0,
             data: [0; 336],
         };
-        for (output, input) in request.name[..LIFNAMSIZ - 1].iter_mut().zip(name) {
+        for (output, input) in request.name[..libc::IF_NAMESIZE - 1].iter_mut().zip(name) {
             *output = *input as libc::c_char;
         }
         request
