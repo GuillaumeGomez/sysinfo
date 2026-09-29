@@ -399,8 +399,8 @@ mod gpu {
     use super::*;
     use std::mem::MaybeUninit;
 
-    const DRM_MAJOR: u32 = 226; // `/dev/dri/*`
-    const ACCEL_MAJOR: u32 = 261; // `/dev/accel/*`
+    const DRM_MAJOR: libc::dev_t = 226; // `/dev/dri/*`
+    const ACCEL_MAJOR: libc::dev_t = 261; // `/dev/accel/*`
 
     #[inline(always)]
     fn is_gpu_device(
@@ -410,12 +410,12 @@ mod gpu {
     ) -> bool {
         unsafe {
             // Flags must be 0 so that we inspect the target of the `/proc/<pid>/fd` symlink.
-            if libc::fstatat(dir.dir_fd, file_name.as_ptr(), stat.as_mut_ptr(), 0) < 0 {
+            if libc::fstatat(dir.dir_fd, file_name.as_ptr(), stat.as_mut_ptr(), 0) != 0 {
                 return false;
             }
 
             let stat = stat.assume_init_ref();
-            stat.st_mode & libc::S_IFMT == libc::S_IFCHR
+            (stat.st_mode & libc::S_IFMT as libc::mode_t) == libc::S_IFCHR as libc::mode_t
                 && matches!(libc::major(stat.st_rdev), DRM_MAJOR | ACCEL_MAJOR)
         }
     }
