@@ -177,16 +177,28 @@ impl NetworksInner {
     }
 }
 
+struct Socket(libc::c_int);
+
+impl Socket {
+    fn new() -> Option<Self> {
+        let socket = unsafe { libc::socket(libc::AF_INET, libc::SOCK_DGRAM, 0) };
+        if socket < 0 { None } else { Some(Self(socket)) }
+    }
+}
+
+impl Drop for Socket {
+    fn drop(&mut self) {
+        // SAFETY: The descriptor is valid and owned exclusively by this wrapper.
+        unsafe { libc::close(self.0) };
+    }
+}
+
 fn read_mtu(name: &[u8]) -> u64 {
     let mut request = LifReq::new(name);
-    let socket = unsafe { libc::socket(libc::AF_INET, libc::SOCK_DGRAM, 0) };
-    if socket < 0 {
+    let Some(socket) = Socket::new() else {
         return 0;
-    }
-    let result = unsafe { libc::ioctl(socket, SIOCGLIFMTU, &mut request) };
-    unsafe {
-        libc::close(socket);
-    }
+    };
+    let result = unsafe { libc::ioctl(socket.0, SIOCGLIFMTU, &mut request) };
     if result == 0 {
         u32::from_ne_bytes(request.data[..4].try_into().unwrap()) as u64
     } else {
@@ -196,14 +208,10 @@ fn read_mtu(name: &[u8]) -> u64 {
 
 fn read_mac_addr(name: &[u8]) -> MacAddr {
     let mut request = LifReq::new(name);
-    let socket = unsafe { libc::socket(libc::AF_INET, libc::SOCK_DGRAM, 0) };
-    if socket < 0 {
+    let Some(socket) = Socket::new() else {
         return MacAddr::UNSPECIFIED;
-    }
-    let result = unsafe { libc::ioctl(socket, SIOCGLIFHWADDR, &mut request) };
-    unsafe {
-        libc::close(socket);
-    }
+    };
+    let result = unsafe { libc::ioctl(socket.0, SIOCGLIFHWADDR, &mut request) };
     if result != 0 {
         return MacAddr::UNSPECIFIED;
     }
