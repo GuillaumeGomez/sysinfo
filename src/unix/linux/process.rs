@@ -415,8 +415,11 @@ mod gpu {
             }
 
             let stat = stat.assume_init_ref();
-            (stat.st_mode & libc::S_IFMT as libc::mode_t) == libc::S_IFCHR as libc::mode_t
-                && matches!(libc::major(stat.st_rdev), DRM_MAJOR | ACCEL_MAJOR)
+            (stat.st_mode & libc::S_IFMT as _) == libc::S_IFCHR as _
+                && matches!(
+                    libc::major(stat.st_rdev as libc::dev_t),
+                    DRM_MAJOR | ACCEL_MAJOR
+                )
         }
     }
 
