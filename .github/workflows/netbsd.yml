@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     name: A job to run tests in NetBSD
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup NetBSD VM
         uses: vmactions/netbsd-vm@v1
         with:
