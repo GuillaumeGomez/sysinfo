@@ -95,6 +95,8 @@ impl NetworksInner {
             let flags = data.ifmd_flags;
             let data = &data.ifmd_data;
             let mtu = data.ifi_mtu as u64;
+            let baudrate = data.ifi_baudrate;
+            let link_speed = if baudrate != 0 { Some(baudrate) } else { None };
             let operational_state =
                 InterfaceOperationalState::from_flag(flags, data.ifi_link_state.into());
 
@@ -110,6 +112,7 @@ impl NetworksInner {
                     old_and_new!(interface, ifi_ierrors, old_ifi_ierrors, data);
                     old_and_new!(interface, ifi_oerrors, old_ifi_oerrors, data);
                     interface.mtu = mtu;
+                    interface.link_speed = link_speed;
                     interface.operational_state = operational_state;
                     interface.updated = true;
                 }
@@ -136,6 +139,7 @@ impl NetworksInner {
                             mac_addr: MacAddr::UNSPECIFIED,
                             ip_networks: vec![],
                             mtu,
+                            link_speed,
                             operational_state,
                         },
                     });

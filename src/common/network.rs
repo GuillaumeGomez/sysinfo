@@ -425,6 +425,54 @@ impl NetworkData {
         self.inner.mtu()
     }
 
+    /// Returns the transmit link speed of the interface in bits per second.
+    ///
+    /// For Ethernet interfaces, this is the negotiated link speed.
+    ///
+    /// For Wi-Fi interfaces, this is the link speed reported by the OS.
+    ///
+    /// Returns the same value as [Self::receive_link_speed] on Unix systems.
+    ///
+    /// Returns `None` when the link speed is not available.
+    /// For example, when the interface is down or when the driver does not provide a link speed.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("transmit link speed: {:?}", network.transmit_link_speed());
+    ///     }
+    /// }
+    /// ```
+    pub fn transmit_link_speed(&self) -> Option<u64> {
+        self.inner.transmit_link_speed()
+    }
+
+    /// Returns the receive link speed of the interface in bits per second.
+    ///
+    /// For Ethernet interfaces, this is the negotiated link speed.
+    ///
+    /// For Wi-Fi interfaces, this is the link speed reported by the OS.
+    ///
+    /// Returns the same value as [Self::transmit_link_speed] on Unix systems.
+    ///
+    /// Returns `None` when the link speed is not available.
+    /// For example, when the interface is down or when the driver does not provide a link speed.
+    ///
+    /// ```no_run
+    /// use sysinfo::Networks;
+    ///
+    /// if let Ok(mut networks) = Networks::new_with_refreshed_list() {
+    ///     for (interface_name, network) in &networks {
+    ///         println!("receive link speed: {:?}", network.receive_link_speed());
+    ///     }
+    /// }
+    /// ```
+    pub fn receive_link_speed(&self) -> Option<u64> {
+        self.inner.receive_link_speed()
+    }
+
     /// Returns the operational state of the interface.
     ///
     /// The operational state indicates whether the interface is able to pass packets or not.
