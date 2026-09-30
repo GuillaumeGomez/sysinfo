@@ -35,4 +35,8 @@ impl MotherboardInner {
         // FIXME: Wrong mib
         get_sys_value_str_by_name(b"machdep.dmi.board-serial\0")
     }
+
+    pub(crate) fn temperatures(&self) -> Vec<f32> {
+        Vec::new()
+    }
 }

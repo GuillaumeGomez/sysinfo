@@ -72,4 +72,8 @@ impl MotherboardInner {
             .copied()
             .map(str::to_string)
     }
+
+    pub(crate) fn temperatures(&self) -> Vec<f32> {
+        Vec::new()
+    }
 }
