@@ -38,6 +38,25 @@ impl Disk {
         self.inner.kind()
     }
 
+    /// On Unix, returns the Unix device ID.
+    ///
+    /// On Windows, returns the Volume Serial Number.
+    ///
+    /// Returns `None` if the device ID or the Volume Serial Number cannot be retrieved.
+    ///
+    /// ```no_run
+    /// use sysinfo::Disks;
+    ///
+    /// if let Ok(disks) = Disks::new_with_refreshed_list() {
+    ///     for disk in disks.list() {
+    ///         println!("[{:?}] {:?}", disk.name(), disk.id());
+    ///     }
+    /// }
+    /// ```
+    pub fn id(&self) -> Option<u64> {
+        self.inner.id()
+    }
+
     /// Returns the disk name.
     ///
     /// ```no_run

@@ -28,6 +28,7 @@ pub(crate) struct SystemInner {
     process_list: HashMap<Pid, Process>,
     mem_total: u64,
     mem_free: u64,
+    mem_available: u64,
     mem_used: u64,
     swap_total: u64,
     swap_used: u64,
@@ -41,6 +42,7 @@ impl SystemInner {
             process_list: HashMap::with_capacity(200),
             mem_total: 0,
             mem_free: 0,
+            mem_available: 0,
             mem_used: 0,
             swap_total: 0,
             swap_used: 0,
@@ -56,6 +58,7 @@ impl SystemInner {
             }
             self.mem_used = self.system_info.get_used_memory();
             self.mem_free = self.system_info.get_free_memory();
+            self.mem_available = self.system_info.get_available_memory();
         }
         if refresh_kind.swap() {
             let (swap_used, swap_total) = self.system_info.get_swap_info();
@@ -118,7 +121,7 @@ impl SystemInner {
     }
 
     pub(crate) fn available_memory(&self) -> u64 {
-        self.mem_free
+        self.mem_available
     }
 
     pub(crate) fn used_memory(&self) -> u64 {
@@ -133,7 +136,6 @@ impl SystemInner {
         self.swap_total - self.swap_used
     }
 
-    // TODO: need to be checked
     pub(crate) fn used_swap(&self) -> u64 {
         self.swap_used
     }
@@ -561,30 +563,27 @@ impl SystemInfo {
 
     /// Returns (used, total).
     fn get_swap_info(&mut self) -> (u64, u64) {
-        // Magic number used in htop. Cannot find how they got it when reading `kvm_getswapinfo`
-        // source code so here we go...
-        const LEN: usize = 16;
-        let mut swap = MaybeUninit::<[libc::kvm_swap; LEN]>::uninit();
+        //  FreeBSD docs:
+        //  https://man.freebsd.org/cgi/man.cgi?query=kvm_getswapinfo&sektion=3&n=1
+        //  A grand total of all swap devices (including any devices that go beyond maxswap - 1)
+        //  is returned in one additional array entry.
+        //
+        //  Thus, if you specify a maxswap value of 1, the function will typically return the value
+        //  0 and the single kvm_swap structure will be filled with the grand total over all swap
+        //  devices.
+        let mut swap = MaybeUninit::<libc::kvm_swap>::uninit();
         let Some(kd) = self.get_kd() else {
             return (0, 0);
         };
         unsafe {
-            let nswap = libc::kvm_getswapinfo(kd.as_ptr(), swap.as_mut_ptr() as *mut _, LEN as _, 0)
-                as usize;
-            if nswap < 1 {
+            let nswap = libc::kvm_getswapinfo(kd.as_ptr(), swap.as_mut_ptr(), 1, 0);
+            if nswap < 0 {
                 return (0, 0);
             }
-            let swap =
-                std::slice::from_raw_parts(swap.as_ptr() as *mut libc::kvm_swap, nswap.min(LEN));
-            let (used, total) = swap.iter().fold((0, 0), |(used, total): (u64, u64), swap| {
-                (
-                    used.saturating_add(swap.ksw_used as _),
-                    total.saturating_add(swap.ksw_total as _),
-                )
-            });
+            let swap = swap.assume_init();
             (
-                used.saturating_mul(self.page_size as _),
-                total.saturating_mul(self.page_size as _),
+                (swap.ksw_used as u64).saturating_mul(self.page_size as u64),
+                (swap.ksw_total as u64).saturating_mul(self.page_size as u64),
             )
         }
     }
@@ -625,17 +624,27 @@ impl SystemInfo {
     }
 
     fn get_free_memory(&self) -> u64 {
+        let mut free_mem: u64 = 0;
+
+        unsafe {
+            get_sys_value(&self.virtual_free_count, &mut free_mem);
+
+            free_mem.saturating_mul(self.page_size as _)
+        }
+    }
+
+    fn get_available_memory(&self) -> u64 {
         let mut buffers_mem: u64 = 0;
         let mut inactive_mem: u64 = 0;
         let mut cached_mem: u64 = 0;
         let mut free_mem: u64 = 0;
 
         unsafe {
-            get_sys_value(&self.buf_space, &mut buffers_mem);
+            get_sys_value(&self.buf_space, &mut buffers_mem); //  in bytes
             get_sys_value(&self.virtual_inactive_count, &mut inactive_mem);
             get_sys_value(&self.virtual_cache_count, &mut cached_mem);
             get_sys_value(&self.virtual_free_count, &mut free_mem);
-            // For whatever reason, buffers_mem is already the right value...
+
             buffers_mem
                 .saturating_add(inactive_mem.saturating_mul(self.page_size as _))
                 .saturating_add(cached_mem.saturating_mul(self.page_size as _))

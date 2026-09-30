@@ -69,8 +69,8 @@ impl ProcessInner {
 
 #[inline]
 fn get_accumulated_cpu_time(kproc: &libc::kinfo_proc2) -> u64 {
-    // from htop source code
-    100 * (kproc.p_rtime_sec as u64 + ((kproc.p_rtime_usec as u64 + 500_000) / 1_000_000))
+    // `p_rtime_*` is timeval-style seconds and microseconds; this returns milliseconds.
+    kproc.p_rtime_sec as u64 * 1_000 + kproc.p_rtime_usec as u64 / 1_000
 }
 
 fn get_active_status(kd: NonNull<ffi::kvm_t>, kproc: &libc::kinfo_proc2) -> Option<ProcessStatus> {
