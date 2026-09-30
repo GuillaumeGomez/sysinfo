@@ -8,10 +8,11 @@ It currently supports the following OSes (alphabetically sorted):
 
  * Android
  * FreeBSD
- * NetBSD
+ * illumos
  * iOS
  * Linux
  * macOS
+ * NetBSD
  * Raspberry Pi
  * Windows
 

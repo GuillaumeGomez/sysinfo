@@ -26,6 +26,13 @@ cfg_select! {
         #[allow(unused_imports)]
         pub(crate) use bsd::libc_errno;
     }
+    target_os = "illumos" => {
+        pub(crate) mod illumos;
+        pub(crate) use illumos as sys;
+
+        #[allow(unused_imports)]
+        pub(crate) use libc::___errno as libc_errno;
+    }
     _ => {
         compile_error!("Invalid cfg!");
     }
@@ -73,6 +80,8 @@ mod apple;
 mod bsd;
 #[cfg(any())]
 mod groups;
+#[cfg(any())]
+mod illumos;
 #[cfg(any())]
 mod linux;
 #[cfg(any())]

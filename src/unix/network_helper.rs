@@ -129,6 +129,7 @@ impl<'a> Iterator for InterfaceAddressIterator<'a> {
     target_os = "macos",
     target_os = "freebsd",
     target_os = "netbsd",
+    target_os = "illumos",
     target_os = "ios"
 ))]
 impl From<&libc::sockaddr_dl> for MacAddr {
@@ -136,8 +137,13 @@ impl From<&libc::sockaddr_dl> for MacAddr {
         let sdl_data = value.sdl_data;
         // interface name length, NO trailing 0
         let sdl_nlen = value.sdl_nlen as usize;
-        // make sure that it is never out of bound
-        if sdl_nlen + 5 < 12 {
+        // Link-layer addresses can have a different length, and `sdl_data` is
+        // not the same size on every supported platform.
+        if value.sdl_alen == 6
+            && sdl_nlen
+                .checked_add(6)
+                .is_some_and(|end| end <= sdl_data.len())
+        {
             MacAddr([
                 sdl_data[sdl_nlen] as u8,
                 sdl_data[sdl_nlen + 1] as u8,
@@ -156,6 +162,7 @@ impl From<&libc::sockaddr_dl> for MacAddr {
     target_os = "macos",
     target_os = "freebsd",
     target_os = "netbsd",
+    target_os = "illumos",
     target_os = "ios"
 ))]
 unsafe fn parse_interface_address(ifap: &libc::ifaddrs) -> Option<MacAddr> {
@@ -377,6 +384,25 @@ pub(crate) fn ipv6_mask_to_prefix(mask: Ipv6Addr) -> Result<u8, &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "illumos")]
+    #[test]
+    fn mac_address_after_long_interface_name() {
+        let mut address = unsafe { std::mem::zeroed::<libc::sockaddr_dl>() };
+        address.sdl_nlen = 16;
+        address.sdl_alen = 6;
+        for (output, input) in address.sdl_data[16..22]
+            .iter_mut()
+            .zip([0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc])
+        {
+            *output = input as libc::c_char;
+        }
+
+        assert_eq!(
+            MacAddr::from(&address),
+            MacAddr([0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc])
+        );
+    }
 
     #[test]
     fn ipv4_mask() {
