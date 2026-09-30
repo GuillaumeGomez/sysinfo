@@ -433,13 +433,8 @@ impl NetworkData {
     ///
     /// Returns the same value as [Self::receive_link_speed] on Unix systems.
     ///
-    /// On Linux, returns `None` when the OS indicates that the link speed is not available.
-    /// On other systems, this value is always `Some`.
-    ///
-    /// Confirmed special, platform-specific cases:
-    /// - Linux: loopback and Wi-Fi interfaces return `None`.
-    /// - macOS: loopback, vlan, fake (feth), redirect and headless interfaces return `Some(0)`.
-    /// - FreeBSD: loopback returns `Some(0)`.
+    /// Returns `None` when the link speed is not available.
+    /// For example, when the interface is down or when the driver does not provide a link speed.
     ///
     /// ```no_run
     /// use sysinfo::Networks;
@@ -462,13 +457,8 @@ impl NetworkData {
     ///
     /// Returns the same value as [Self::transmit_link_speed] on Unix systems.
     ///
-    /// On Linux, returns `None` when the OS indicates that the link speed is not available.
-    /// On other systems, this value is always `Some`.
-    ///
-    /// Confirmed special, platform-specific cases:
-    /// - Linux: loopback and Wi-Fi interfaces return `None`.
-    /// - macOS: loopback, vlan, fake (feth), redirect and headless interfaces return `Some(0)`.
-    /// - FreeBSD: loopback returns `Some(0)`.
+    /// Returns `None` when the link speed is not available.
+    /// For example, when the interface is down or when the driver does not provide a link speed.
     ///
     /// ```no_run
     /// use sysinfo::Networks;

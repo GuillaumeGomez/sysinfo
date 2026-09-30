@@ -146,8 +146,8 @@ impl NetworksInner {
                     let name = OsString::from_vec(name);
                     let mtu = (*if2m).ifm_data.ifi_mtu as u64;
 
-                    //  Definition of `0` value for `ifi_baudrate` is not explicitly mentioned in XNU docs
-                    let link_speed = Some((*if2m).ifm_data.ifi_baudrate);
+                    let baudrate = (*if2m).ifm_data.ifi_baudrate;
+                    let link_speed = if baudrate != 0 { Some(baudrate) } else { None };
 
                     // FIXME: the documentation I could find was rather spars and unclear, are these the right flags?
                     let operational_state =

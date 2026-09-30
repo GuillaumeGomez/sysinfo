@@ -98,9 +98,18 @@ impl NetworksInner {
 
                 let mtu = ptr.Mtu as u64;
 
-                //  Definition of `0` value for `TransmitLinkSpeed` and `ReceiveLinkSpeed` is not explicitly mentioned in Windows docs
-                let transmit_link_speed = Some(ptr.TransmitLinkSpeed);
-                let receive_link_speed = Some(ptr.ReceiveLinkSpeed);
+                let transmit_link_speed_raw = ptr.TransmitLinkSpeed;
+                let receive_link_speed_raw = ptr.ReceiveLinkSpeed;
+                let transmit_link_speed = if transmit_link_speed_raw != 0 {
+                    Some(transmit_link_speed_raw)
+                } else {
+                    None
+                };
+                let receive_link_speed = if receive_link_speed_raw != 0 {
+                    Some(receive_link_speed_raw)
+                } else {
+                    None
+                };
 
                 let operational_state = InterfaceOperationalState::from_enum(ptr.OperStatus);
 

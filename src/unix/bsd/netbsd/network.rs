@@ -71,8 +71,8 @@ impl NetworksInner {
                 let flags = ifa.ifa_flags;
                 let data: &libc::if_data = &*(ifa.ifa_data as *mut libc::if_data);
                 let mtu = data.ifi_mtu;
-                //  Definition of `0` value for `ifi_baudrate` is not explicitly mentioned in BSD docs
-                let link_speed = Some(data.ifi_baudrate);
+                let baudrate = data.ifi_baudrate;
+                let link_speed = if baudrate != 0 { Some(baudrate) } else { None };
                 let operational_state = InterfaceOperationalState::from_flag(
                     flags as core::ffi::c_int,
                     data.ifi_link_state,
