@@ -266,6 +266,12 @@ impl Component {
     /// | ✓    | ✗    | ✓  | ✓ | `"{name} {device_model}"` |
     /// | ✓    | ✗    | ✗  | ✓ | `"{name} temp{id}"` |
     ///
+    /// ## illumos
+    ///
+    /// CPU core sensors under `/dev/sensors/temperature/cpu/core.N` use one-based labels,
+    /// such as `CPU 1` for `core.0`.
+    /// Other sensors use their path relative to `/dev/sensors/temperature`.
+    ///
     /// ```no_run
     /// use sysinfo::Components;
     ///
@@ -281,7 +287,7 @@ impl Component {
 
     /// Returns the identifier of the component.
     ///
-    /// Note: The identifier should be reasonably unique but is provided by the kernel.
+    /// Note: The identifier should be reasonably unique and is derived from kernel sensor data.
     /// It could change if the hardware changes or after a reboot.
     ///
     /// | OS | Computed ID by `sysinfo` | Example |
@@ -289,7 +295,7 @@ impl Component {
     /// | Linux/hwmon | hwmon file concatenated with the temp index. | ` hwmon0_1` if the temperature data comes from the `hwmon0/temp1_input` file. |
     /// | Linux/thermal | thermal file name | `thermal_zone0` |
     /// | FreeBSD | `cpu_` concatenated with the core index. | `cpu_1` for the first core. |
-    /// | illumos | Path relative to `/dev/sensors/temperature`. | `cpu/core.0` |
+    /// | illumos | `cpu_` plus the one-based core number for `cpu/core.N` sensors; otherwise the path relative to `/dev/sensors/temperature`. | `cpu_1` for `cpu/core.0` |
     /// | macOS/arm | Serial ID reported by the HID driver. | |
     /// | macOS/x86 | Technical ID sent to the OS (see below) | `TXCX` |
     /// | Windows | `Computer` (same as the label) | `Computer` |

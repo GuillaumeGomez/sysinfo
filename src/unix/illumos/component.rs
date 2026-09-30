@@ -51,14 +51,10 @@ pub(crate) struct ComponentInner {
 impl ComponentInner {
     fn new(path: PathBuf, root: &Path) -> Option<Self> {
         let temperature = read_temperature(&path)?;
-        let id = path
-            .strip_prefix(root)
-            .unwrap_or(&path)
-            .to_string_lossy()
-            .into_owned();
+        let (id, label) = component_names(&path, root);
         Some(Self {
             path,
-            label: id.clone(),
+            label,
             id,
             temperature: Some(temperature),
             max: Some(temperature),
@@ -132,6 +128,22 @@ impl ComponentsInner {
             }
         }
     }
+}
+
+fn component_names(path: &Path, root: &Path) -> (String, String) {
+    let id = path
+        .strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .into_owned();
+    if let Some(core_name) = id.strip_prefix("cpu/core.")
+        && let Ok(core) = core_name.parse::<usize>()
+        && core_name == core.to_string()
+        && let Some(number) = core.checked_add(1)
+    {
+        return (format!("cpu_{number}"), format!("CPU {number}"));
+    }
+    (id.clone(), id)
 }
 
 fn sensor_paths(directory: &Path, paths: &mut Vec<PathBuf>) {

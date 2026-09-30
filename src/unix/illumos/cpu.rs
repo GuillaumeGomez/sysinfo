@@ -108,7 +108,7 @@ impl CpusWrapper {
             self.cpus.push(Cpu {
                 inner: CpuInner {
                     cpu_usage: 0.,
-                    name: format!("cpu {id}"),
+                    name: format!("cpu{id}"),
                     vendor_id,
                     brand,
                     frequency,
