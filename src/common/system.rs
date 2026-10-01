@@ -1429,6 +1429,40 @@ pub struct CGroupLimits {
     pub rss: u64,
 }
 
+impl CGroupLimits {
+    /// Retrieves the limits for the cgroup of the process with the given PID.
+    ///
+    /// This information is computed on each call, without creating a [`System`] or refreshing
+    /// processes. This method does not change the process's file descriptor limits.
+    ///
+    /// Returns `None` if the information cannot be retrieved or no constraining cgroup memory
+    /// limit is found. `None` does not establish that host memory is available to the process.
+    ///
+    /// This method is only implemented for Linux and Android. It returns `None` on other systems.
+    ///
+    /// ```no_run
+    /// use sysinfo::{CGroupLimits, get_current_pid};
+    ///
+    /// if let Ok(pid) = get_current_pid() {
+    ///     println!("limits: {:?}", CGroupLimits::for_pid(pid));
+    /// }
+    /// ```
+    pub fn for_pid(pid: Pid) -> Option<Self> {
+        cfg_select! {
+            all(
+                not(feature = "unknown-ci"),
+                any(target_os = "linux", target_os = "android"),
+            ) => {
+                crate::sys::cgroup::limits_for_process(&Path::new("/proc").join(pid.to_string()))
+            }
+            _ => {
+                let _ = pid;
+                None
+            }
+        }
+    }
+}
+
 /// Enum describing the different status of a process.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
@@ -1853,6 +1887,8 @@ impl Process {
     /// Retrieves the limits for the process cgroup (if any), otherwise it returns `None`.
     ///
     /// This information is computed every time the method is called.
+    ///
+    /// To query a PID without refreshing processes, use [`CGroupLimits::for_pid`].
     ///
     /// ⚠️ This method is only implemented for Linux. It always returns `None` for all other
     /// systems.
