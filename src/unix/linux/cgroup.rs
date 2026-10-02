@@ -3,6 +3,7 @@
 use crate::sys::utils::get_all_utf8_data;
 
 use std::cmp::min;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -69,19 +70,27 @@ pub(crate) fn limits_for_system() -> Option<crate::CGroupLimits> {
 
 pub(crate) fn limits_for_process(proc_path: &Path) -> Option<crate::CGroupLimits> {
     let cgroup_path = get_cgroup_path(&proc_path.join("cgroup"))?;
-    let cgroup_mounts = get_cgroup_mounts(&proc_path.join("mountinfo"));
-    let v2_root = Path::new("/sys/fs/cgroup");
-    let v1_root = Path::new("/sys/fs/cgroup/memory");
-    let (v2_bases, v1_bases) =
-        cgroup_base_paths(&cgroup_path, cgroup_mounts.as_ref(), v2_root, v1_root);
+    let cgroup_mounts = get_cgroup_mounts(&proc_path.join("mountinfo"))?;
 
-    limits_for_base(&v2_bases, &v1_bases)
+    limits_for_process_with_context(&cgroup_path, &cgroup_mounts, read_cgroup_limits_context()?)
 }
 
-/// Evaluate candidate cgroup base paths for a process or the whole system.
-/// Prefer paths resolved from mountinfo, then fall back to the conventional
-/// cgroup locations. v1 memory is tried before v2 because hybrid cgroups expose
-/// the effective memory limit through the v1 memory controller.
+fn limits_for_process_with_context(
+    cgroup_path: &CGroupPath,
+    cgroup_mounts: &CGroupMounts,
+    context: CGroupLimitsContext,
+) -> Option<crate::CGroupLimits> {
+    // Select the memory controller and mount before reading limits. A failed read must not
+    // fall back to a different mount or controller that could report a larger limit.
+    if let Some(path) = &cgroup_path.v1_memory {
+        let base = cgroup_base_for_path(path, &cgroup_mounts.v1_memory)?;
+        return v1_limits(&base.base, &base.root, context);
+    }
+    let base = cgroup_base_for_path(cgroup_path.v2.as_ref()?, &cgroup_mounts.v2)?;
+    v2_limits(&base.base, &base.root, context)
+}
+
+/// Evaluate the conventional cgroup roots for system-wide limits.
 fn limits_for_base(
     v2_bases: &[CGroupBase],
     v1_bases: &[CGroupBase],
@@ -132,7 +141,7 @@ fn v2_limits(
     root: &Path,
     context: CGroupLimitsContext,
 ) -> Option<crate::CGroupLimits> {
-    let mem_max = read_v2_memory_max(&base.join("memory.max"));
+    let mem_max = read_v2_memory_max(&base.join("memory.max"), root)?;
     let (total_memory, free_memory) = memory_limits(
         base,
         root,
@@ -140,7 +149,7 @@ fn v2_limits(
         "memory.current",
         context.mem_total,
         mem_max,
-        read_v2_memory_max,
+        |path| read_v2_memory_max(path, root),
     )?;
     let mem_rss = read_table_key(&base.join("memory.stat"), "anon", ' ')?;
 
@@ -171,7 +180,7 @@ fn v1_limits(
         "memory.usage_in_bytes",
         context.mem_total,
         mem_max,
-        |path| read_u64(path).unwrap_or(u64::MAX),
+        read_u64,
     )?;
     let mem_rss = read_table_key(&base.join("memory.stat"), "total_rss", ' ')?;
 
@@ -193,7 +202,7 @@ fn memory_limits<F>(
     read_limit: F,
 ) -> Option<(u64, u64)>
 where
-    F: Fn(&Path) -> u64,
+    F: Fn(&Path) -> Option<u64>,
 {
     let mem_cur = read_u64(&base.join(usage_file))?;
     let mut total_memory = None;
@@ -204,7 +213,7 @@ where
         let mem_max = if is_base {
             base_limit
         } else {
-            read_limit(&path.join(limit_file))
+            read_limit(&path.join(limit_file))?
         };
         if mem_max <= mem_total {
             let mem_cur = if is_base {
@@ -229,24 +238,37 @@ where
     None
 }
 
-fn read_v2_memory_max(filename: &Path) -> u64 {
+fn read_v2_memory_max(filename: &Path, root: &Path) -> Option<u64> {
     let content = match get_all_utf8_data(filename, 16_635) {
         Ok(content) => content,
+        // The actual v2 hierarchy root has neither memory.max nor cgroup.type. A mount
+        // rooted at a non-root cgroup still has cgroup.type, so it must not use this exception.
+        Err(err)
+            if err.kind() == ErrorKind::NotFound
+                && filename.parent() == Some(root)
+                && get_all_utf8_data(root.join("cgroup.controllers"), 4096).is_ok()
+                && matches!(
+                    std::fs::metadata(root.join("cgroup.type")),
+                    Err(err) if err.kind() == ErrorKind::NotFound
+                ) =>
+        {
+            return Some(u64::MAX);
+        }
         Err(_) => {
             sysinfo_debug!("Failed to read u64 in filename {filename:?}");
-            return u64::MAX;
+            return None;
         }
     };
     let content = content.trim();
     if content == "max" {
-        return u64::MAX;
+        return Some(u64::MAX);
     }
 
     match u64::from_str(content).ok() {
-        Some(value) => value,
+        Some(value) => Some(value),
         None => {
             sysinfo_debug!("Failed to read u64 in filename {filename:?}");
-            u64::MAX
+            None
         }
     }
 }
@@ -314,60 +336,10 @@ fn get_cgroup_mounts(path: &Path) -> Option<CGroupMounts> {
     Some(parse_cgroup_mounts(&content))
 }
 
-fn cgroup_base_paths(
-    cgroup_path: &CGroupPath,
-    cgroup_mounts: Option<&CGroupMounts>,
-    v2_root: &Path,
-    v1_root: &Path,
-) -> (Vec<CGroupBase>, Vec<CGroupBase>) {
-    let v2_mounts = cgroup_mounts
-        .map(|mounts| mounts.v2.as_slice())
-        .unwrap_or(&[]);
-    let v2_bases = match &cgroup_path.v2 {
-        Some(path) => cgroup_bases_for_path(path, v2_mounts, v2_root),
-        None => Vec::new(),
-    };
-
-    let v1_memory_mounts = cgroup_mounts
-        .map(|mounts| mounts.v1_memory.as_slice())
-        .unwrap_or(&[]);
-    let v1_bases = match &cgroup_path.v1_memory {
-        Some(path) => cgroup_bases_for_path(path, v1_memory_mounts, v1_root),
-        None => Vec::new(),
-    };
-
-    (v2_bases, v1_bases)
-}
-
-fn cgroup_bases_for_path(
-    cgroup_path: &Path,
-    mounts: &[CGroupMount],
-    fallback_root: &Path,
-) -> Vec<CGroupBase> {
-    let mut bases = Vec::new();
-
-    for mount in mounts {
-        if let Some(base) = resolve_cgroup_base(cgroup_path, mount) {
-            push_unique_base(&mut bases, base);
-        }
-    }
-
-    push_unique_base(
-        &mut bases,
-        CGroupBase::new(
-            join_cgroup_path(fallback_root, cgroup_path),
-            fallback_root.to_path_buf(),
-        ),
-    );
-    push_unique_base(&mut bases, CGroupBase::root(fallback_root));
-
-    bases
-}
-
-fn push_unique_base(bases: &mut Vec<CGroupBase>, candidate: CGroupBase) {
-    if !bases.contains(&candidate) {
-        bases.push(candidate);
-    }
+fn cgroup_base_for_path(cgroup_path: &Path, mounts: &[CGroupMount]) -> Option<CGroupBase> {
+    mounts
+        .iter()
+        .find_map(|mount| resolve_cgroup_base(cgroup_path, mount))
 }
 
 fn resolve_cgroup_base(cgroup_path: &Path, mount: &CGroupMount) -> Option<CGroupBase> {
@@ -510,9 +482,10 @@ mod test {
     use super::CGroupMount;
     use super::CGroupMounts;
     use super::CGroupPath;
-    use super::cgroup_base_paths;
+    use super::cgroup_base_for_path;
     use super::decode_mountinfo_path;
-    use super::limits_for_base_with_context;
+    use super::limits_for_process;
+    use super::limits_for_process_with_context;
     use super::parse_cgroup_mounts;
     use super::parse_cgroup_path;
     use super::read_table;
@@ -768,7 +741,11 @@ mod test {
 
         create_dir_all(&v2_child).unwrap();
         create_dir_all(&v1_child).unwrap();
+        for ancestor in [v1_root.as_path(), v1_child.parent().unwrap()] {
+            write(ancestor.join("memory.limit_in_bytes"), u64::MAX.to_string()).unwrap();
+        }
         write(v2_root.join("memory.max"), "max").unwrap();
+        write(v2_child.parent().unwrap().join("memory.max"), "max").unwrap();
         write(v2_root.join("memory.current"), cgroup_usage.to_string()).unwrap();
         write(v2_child.join("memory.max"), "max").unwrap();
         write(v2_child.join("memory.current"), cgroup_usage.to_string()).unwrap();
@@ -789,11 +766,17 @@ mod test {
             "0::/system.slice/service.scope\n\
              11:memory:/memory.slice/service.scope\n",
         );
-        let (v2_bases, v1_bases) = cgroup_base_paths(&cgroup_path, None, &v2_root, &v1_root);
+        let mountinfo = format!(
+            "30 23 0:25 / {} rw - cgroup cgroup rw,memory\n\
+             31 23 0:26 / {} rw - cgroup2 cgroup rw\n",
+            v1_root.display(),
+            v2_root.display(),
+        );
+        let cgroup_mounts = parse_cgroup_mounts(&mountinfo);
 
-        let limits = limits_for_base_with_context(
-            &v2_bases,
-            &v1_bases,
+        let limits = limits_for_process_with_context(
+            &cgroup_path,
+            &cgroup_mounts,
             CGroupLimitsContext {
                 mem_total: host_memory,
                 swap_total: 0,
@@ -810,8 +793,6 @@ mod test {
     #[test]
     fn test_mountinfo_resolves_v1_memory_path() {
         let root = tempdir().unwrap();
-        let v2_root = root.path().join("unified");
-        let v1_root = root.path().join("memory");
         let v1_mount = root.path().join("mounted-memory");
         let v1_child = v1_mount.join("pod/container");
         let host_memory = 32 * 1024 * 1024 * 1024;
@@ -819,6 +800,9 @@ mod test {
         let cgroup_usage = 1024 * 1024 * 1024;
 
         create_dir_all(&v1_child).unwrap();
+        for ancestor in [v1_mount.as_path(), v1_child.parent().unwrap()] {
+            write(ancestor.join("memory.limit_in_bytes"), u64::MAX.to_string()).unwrap();
+        }
         write(
             v1_child.join("memory.limit_in_bytes"),
             cgroup_limit.to_string(),
@@ -837,17 +821,18 @@ mod test {
             v1_mount.display(),
         );
         let cgroup_mounts = parse_cgroup_mounts(&mountinfo);
-        let (v2_bases, v1_bases) =
-            cgroup_base_paths(&cgroup_path, Some(&cgroup_mounts), &v2_root, &v1_root);
 
         assert_eq!(
-            v1_bases.first(),
-            Some(&CGroupBase::new(v1_child.clone(), v1_mount.clone()))
+            cgroup_base_for_path(
+                Path::new("kubepods/pod/container"),
+                &cgroup_mounts.v1_memory,
+            ),
+            Some(CGroupBase::new(v1_child.clone(), v1_mount.clone()))
         );
 
-        let limits = limits_for_base_with_context(
-            &v2_bases,
-            &v1_bases,
+        let limits = limits_for_process_with_context(
+            &cgroup_path,
+            &cgroup_mounts,
             CGroupLimitsContext {
                 mem_total: host_memory,
                 swap_total: 0,
@@ -862,7 +847,7 @@ mod test {
     }
 
     #[test]
-    fn test_cgroup_root_fallback_uses_v1_memory_limit() {
+    fn test_process_cgroup_does_not_fall_back_to_v1_root() {
         let root = tempdir().unwrap();
         let v2_root = root.path().join("unified");
         let v2_child = v2_root.join("system.slice/service.scope");
@@ -874,6 +859,7 @@ mod test {
         create_dir_all(&v2_child).unwrap();
         create_dir_all(&v1_root).unwrap();
         write(v2_root.join("memory.max"), "max").unwrap();
+        write(v2_child.parent().unwrap().join("memory.max"), "max").unwrap();
         write(v2_root.join("memory.current"), cgroup_usage.to_string()).unwrap();
         write(v2_child.join("memory.max"), "max").unwrap();
         write(v2_child.join("memory.current"), cgroup_usage.to_string()).unwrap();
@@ -894,22 +880,26 @@ mod test {
             "0::/system.slice/service.scope\n\
              11:memory:/kubepods/pod/container\n",
         );
-        let (v2_bases, v1_bases) = cgroup_base_paths(&cgroup_path, None, &v2_root, &v1_root);
+        let mountinfo = format!(
+            "30 23 0:25 / {} rw - cgroup cgroup rw,memory\n\
+             31 23 0:26 / {} rw - cgroup2 cgroup rw\n",
+            v1_root.display(),
+            v2_root.display(),
+        );
+        let cgroup_mounts = parse_cgroup_mounts(&mountinfo);
 
-        let limits = limits_for_base_with_context(
-            &v2_bases,
-            &v1_bases,
-            CGroupLimitsContext {
-                mem_total: host_memory,
-                swap_total: 0,
-                swap_free: 0,
-            },
-        )
-        .unwrap();
-
-        assert_eq!(limits.total_memory, cgroup_limit);
-        assert_eq!(limits.free_memory, cgroup_limit - cgroup_usage);
-        assert_eq!(limits.rss, cgroup_usage);
+        let context = CGroupLimitsContext {
+            mem_total: host_memory,
+            swap_total: 0,
+            swap_free: 0,
+        };
+        assert_eq!(
+            v1_limits(&v1_root, &v1_root, context).unwrap().total_memory,
+            cgroup_limit,
+        );
+        // The process belongs to a missing child. Its readable root is not a substitute.
+        let limits = limits_for_process_with_context(&cgroup_path, &cgroup_mounts, context);
+        assert!(limits.is_none());
     }
 
     #[test]
@@ -925,8 +915,21 @@ mod test {
 
         create_dir_all(&v2_child).unwrap();
         create_dir_all(&v1_child).unwrap();
+        for ancestor in [v1_root.as_path(), v1_child.parent().unwrap()] {
+            write(ancestor.join("memory.limit_in_bytes"), u64::MAX.to_string()).unwrap();
+        }
         write(v2_root.join("memory.max"), v2_limit.to_string()).unwrap();
         write(v2_root.join("memory.current"), cgroup_usage.to_string()).unwrap();
+        write(
+            v2_child.parent().unwrap().join("memory.max"),
+            v2_limit.to_string(),
+        )
+        .unwrap();
+        write(
+            v2_child.parent().unwrap().join("memory.current"),
+            cgroup_usage.to_string(),
+        )
+        .unwrap();
         write(v2_child.join("memory.max"), v2_limit.to_string()).unwrap();
         write(v2_child.join("memory.current"), cgroup_usage.to_string()).unwrap();
         write(v2_child.join("memory.stat"), "anon 1073741824\n").unwrap();
@@ -938,11 +941,20 @@ mod test {
         .unwrap();
         write(v1_child.join("memory.stat"), "total_rss 1073741824\n").unwrap();
 
-        let v2_bases = vec![CGroupBase::new(v2_child, v2_root)];
-        let v1_bases = vec![CGroupBase::new(v1_child, v1_root)];
-        let limits = limits_for_base_with_context(
-            &v2_bases,
-            &v1_bases,
+        let cgroup_path = parse_cgroup_path(
+            "0::/system.slice/service.scope\n\
+             11:memory:/memory.slice/service.scope\n",
+        );
+        let mountinfo = format!(
+            "30 23 0:25 / {} rw - cgroup cgroup rw,memory\n\
+             31 23 0:26 / {} rw - cgroup2 cgroup rw\n",
+            v1_root.display(),
+            v2_root.display(),
+        );
+        let cgroup_mounts = parse_cgroup_mounts(&mountinfo);
+        let limits = limits_for_process_with_context(
+            &cgroup_path,
+            &cgroup_mounts,
             CGroupLimitsContext {
                 mem_total: v2_limit,
                 swap_total: 0,
@@ -954,6 +966,167 @@ mod test {
         assert_eq!(limits.total_memory, v1_limit);
         assert_eq!(limits.free_memory, v1_limit - cgroup_usage);
         assert_eq!(limits.rss, cgroup_usage);
+    }
+
+    fn write_memory_cgroup(path: &Path, v1: bool, limit: &str) {
+        create_dir_all(path).unwrap();
+        let (limit_file, usage_file, stat) = if v1 {
+            (
+                "memory.limit_in_bytes",
+                "memory.usage_in_bytes",
+                "total_rss 30\n",
+            )
+        } else {
+            ("memory.max", "memory.current", "anon 30\n")
+        };
+        write(path.join(limit_file), limit).unwrap();
+        write(path.join(usage_file), "100").unwrap();
+        write(path.join("memory.stat"), stat).unwrap();
+    }
+
+    const CONTEXT: CGroupLimitsContext = CGroupLimitsContext {
+        mem_total: 2000,
+        swap_total: 1000,
+        swap_free: 700,
+    };
+
+    #[test]
+    fn test_memory_limit_read_errors() {
+        for v1 in [false, true] {
+            for level in ["", "parent", "parent/child"] {
+                for failure in ["missing", "malformed", "unreadable"] {
+                    let root = tempdir().unwrap();
+                    let child = root.path().join("parent/child");
+                    write_memory_cgroup(root.path(), v1, "1000");
+                    write_memory_cgroup(&root.path().join("parent"), v1, "500");
+                    write_memory_cgroup(&child, v1, "200");
+                    let limits = if v1 { v1_limits } else { v2_limits };
+                    assert_eq!(
+                        limits(&child, root.path(), CONTEXT).unwrap().total_memory,
+                        200
+                    );
+
+                    let filename = if v1 {
+                        "memory.limit_in_bytes"
+                    } else {
+                        "memory.max"
+                    };
+                    let path = root.path().join(level).join(filename);
+                    std::fs::remove_file(&path).unwrap();
+                    match failure {
+                        "malformed" => write(&path, "invalid").unwrap(),
+                        // A directory gives a read error even when tests run as root.
+                        "unreadable" => create_dir_all(&path).unwrap(),
+                        _ => {}
+                    }
+                    assert!(
+                        limits(&child, root.path(), CONTEXT).is_none(),
+                        "v1={v1}, level={level}, failure={failure}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_v2_root_without_memory_max() {
+        let root = tempdir().unwrap();
+        let child = root.path().join("child");
+        write_memory_cgroup(&child, false, "200");
+        assert!(v2_limits(&child, root.path(), CONTEXT).is_none());
+
+        write(root.path().join("cgroup.controllers"), "memory\n").unwrap();
+        assert_eq!(
+            v2_limits(&child, root.path(), CONTEXT)
+                .unwrap()
+                .total_memory,
+            200
+        );
+
+        // A mount rooted at a non-root cgroup must have its own limit read.
+        write(root.path().join("cgroup.type"), "domain\n").unwrap();
+        assert!(v2_limits(&child, root.path(), CONTEXT).is_none());
+        std::fs::remove_file(root.path().join("cgroup.type")).unwrap();
+
+        write(root.path().join("memory.max"), "invalid").unwrap();
+        assert!(v2_limits(&child, root.path(), CONTEXT).is_none());
+        std::fs::remove_file(root.path().join("memory.max")).unwrap();
+        create_dir_all(root.path().join("memory.max")).unwrap();
+        assert!(v2_limits(&child, root.path(), CONTEXT).is_none());
+        std::fs::remove_dir(root.path().join("memory.max")).unwrap();
+
+        // Missing limits below the root remain errors, even with the same marker files.
+        write(child.join("cgroup.controllers"), "memory\n").unwrap();
+        std::fs::remove_file(child.join("memory.max")).unwrap();
+        assert!(v2_limits(&child, root.path(), CONTEXT).is_none());
+    }
+
+    #[test]
+    fn test_mountinfo_resolves_v2_memory_path() {
+        let root = tempdir().unwrap();
+        let mount = root.path().join("remapped-memory");
+        let child = mount.join("pod/container");
+        write_memory_cgroup(&mount, false, "1500");
+        write_memory_cgroup(&mount.join("pod"), false, "500");
+        write_memory_cgroup(&child, false, "1000");
+        let cgroup_path = parse_cgroup_path("0::/kubepods/pod/container\n");
+        let mounts = parse_cgroup_mounts(&format!(
+            "30 23 0:25 /kubepods {} rw - cgroup2 cgroup rw\n",
+            mount.display(),
+        ));
+        assert_eq!(
+            cgroup_base_for_path(Path::new("kubepods/pod/container"), &mounts.v2),
+            Some(CGroupBase::new(child, mount)),
+        );
+        let limits = limits_for_process_with_context(&cgroup_path, &mounts, CONTEXT).unwrap();
+        assert_eq!(limits.total_memory, 500);
+        assert_eq!(limits.free_memory, 400);
+        assert_eq!(limits.rss, 30);
+    }
+
+    #[test]
+    fn test_process_limits_do_not_fall_back() {
+        for v1 in [false, true] {
+            let root = tempdir().unwrap();
+            let selected = root.path().join("selected");
+            let alternative = root.path().join("alternative");
+            let v2_root = root.path().join("unified");
+            write_memory_cgroup(&selected, v1, "1000");
+            write_memory_cgroup(&alternative, v1, "1000");
+            write_memory_cgroup(&alternative.join("child"), v1, "1000");
+            write_memory_cgroup(&v2_root, false, "1500");
+            write_memory_cgroup(&v2_root.join("child"), false, "1500");
+            let (membership, filesystem) = if v1 {
+                ("0::/child\n11:memory:/child\n", "cgroup cgroup rw,memory")
+            } else {
+                ("0::/child\n", "cgroup2 cgroup rw")
+            };
+            let membership = parse_cgroup_path(membership);
+            let mut mounts = parse_cgroup_mounts(&format!(
+                "30 23 0:25 / {} rw - {filesystem}\n\
+                 31 23 0:25 / {} rw - {filesystem}\n\
+                 32 23 0:26 / {} rw - cgroup2 cgroup rw\n",
+                selected.display(),
+                alternative.display(),
+                v2_root.display(),
+            ));
+            // The selected child is missing; neither its root nor another mount is a substitute.
+            assert!(limits_for_process_with_context(&membership, &mounts, CONTEXT).is_none());
+            write_memory_cgroup(&selected.join("child"), v1, "invalid");
+            assert!(limits_for_process_with_context(&membership, &mounts, CONTEXT).is_none());
+            if v1 {
+                mounts.v1_memory.clear();
+            } else {
+                mounts.v2.clear();
+            }
+            assert!(limits_for_process_with_context(&membership, &mounts, CONTEXT).is_none());
+        }
+
+        let proc_path = tempdir().unwrap();
+        write(proc_path.path().join("cgroup"), "0::/child\n").unwrap();
+        assert!(limits_for_process(proc_path.path()).is_none());
+        write(proc_path.path().join("mountinfo"), "invalid").unwrap();
+        assert!(limits_for_process(proc_path.path()).is_none());
     }
 
     #[test]
