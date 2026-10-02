@@ -728,6 +728,246 @@ mod test {
         assert!(limits.is_none());
     }
 
+    #[test]
+    fn test_hybrid_cgroup_uses_v1_memory_path_when_v2_is_unlimited() {
+        let root = tempdir().unwrap();
+        let v2_root = root.path().join("unified");
+        let v2_child = v2_root.join("system.slice/service.scope");
+        let v1_root = root.path().join("memory");
+        let v1_child = v1_root.join("memory.slice/service.scope");
+        let host_memory = 32 * 1024 * 1024 * 1024;
+        let cgroup_limit = 8 * 1024 * 1024 * 1024;
+        let cgroup_usage = 1024 * 1024 * 1024;
+
+        create_dir_all(&v2_child).unwrap();
+        create_dir_all(&v1_child).unwrap();
+        for ancestor in [v1_root.as_path(), v1_child.parent().unwrap()] {
+            write(ancestor.join("memory.limit_in_bytes"), u64::MAX.to_string()).unwrap();
+        }
+        write(v2_root.join("memory.max"), "max").unwrap();
+        write(v2_child.parent().unwrap().join("memory.max"), "max").unwrap();
+        write(v2_root.join("memory.current"), cgroup_usage.to_string()).unwrap();
+        write(v2_child.join("memory.max"), "max").unwrap();
+        write(v2_child.join("memory.current"), cgroup_usage.to_string()).unwrap();
+        write(v2_child.join("memory.stat"), "anon 1073741824\n").unwrap();
+        write(
+            v1_child.join("memory.limit_in_bytes"),
+            cgroup_limit.to_string(),
+        )
+        .unwrap();
+        write(
+            v1_child.join("memory.usage_in_bytes"),
+            cgroup_usage.to_string(),
+        )
+        .unwrap();
+        write(v1_child.join("memory.stat"), "total_rss 1073741824\n").unwrap();
+
+        let cgroup_path = parse_cgroup_path(
+            "0::/system.slice/service.scope\n\
+             11:memory:/memory.slice/service.scope\n",
+        );
+        let mountinfo = format!(
+            "30 23 0:25 / {} rw - cgroup cgroup rw,memory\n\
+             31 23 0:26 / {} rw - cgroup2 cgroup rw\n",
+            v1_root.display(),
+            v2_root.display(),
+        );
+        let cgroup_mounts = parse_cgroup_mounts(&mountinfo);
+
+        let limits = limits_for_process_with_context(
+            &cgroup_path,
+            &cgroup_mounts,
+            CGroupLimitsContext {
+                mem_total: host_memory,
+                swap_total: 0,
+                swap_free: 0,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(limits.total_memory, cgroup_limit);
+        assert_eq!(limits.free_memory, cgroup_limit - cgroup_usage);
+        assert_eq!(limits.rss, cgroup_usage);
+    }
+
+    #[test]
+    fn test_mountinfo_resolves_v1_memory_path() {
+        let root = tempdir().unwrap();
+        let v1_mount = root.path().join("mounted-memory");
+        let v1_child = v1_mount.join("pod/container");
+        let host_memory = 32 * 1024 * 1024 * 1024;
+        let cgroup_limit = 8 * 1024 * 1024 * 1024;
+        let cgroup_usage = 1024 * 1024 * 1024;
+
+        create_dir_all(&v1_child).unwrap();
+        for ancestor in [v1_mount.as_path(), v1_child.parent().unwrap()] {
+            write(ancestor.join("memory.limit_in_bytes"), u64::MAX.to_string()).unwrap();
+        }
+        write(
+            v1_child.join("memory.limit_in_bytes"),
+            cgroup_limit.to_string(),
+        )
+        .unwrap();
+        write(
+            v1_child.join("memory.usage_in_bytes"),
+            cgroup_usage.to_string(),
+        )
+        .unwrap();
+        write(v1_child.join("memory.stat"), "total_rss 1073741824\n").unwrap();
+
+        let cgroup_path = parse_cgroup_path("11:memory:/kubepods/pod/container\n");
+        let mountinfo = format!(
+            "30 23 0:25 /kubepods {} rw,nosuid,nodev,noexec - cgroup cgroup rw,memory\n",
+            v1_mount.display(),
+        );
+        let cgroup_mounts = parse_cgroup_mounts(&mountinfo);
+
+        assert_eq!(
+            cgroup_base_for_path(
+                Path::new("kubepods/pod/container"),
+                &cgroup_mounts.v1_memory,
+            ),
+            Some(CGroupBase::new(v1_child.clone(), v1_mount.clone()))
+        );
+
+        let limits = limits_for_process_with_context(
+            &cgroup_path,
+            &cgroup_mounts,
+            CGroupLimitsContext {
+                mem_total: host_memory,
+                swap_total: 0,
+                swap_free: 0,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(limits.total_memory, cgroup_limit);
+        assert_eq!(limits.free_memory, cgroup_limit - cgroup_usage);
+        assert_eq!(limits.rss, cgroup_usage);
+    }
+
+    #[test]
+    fn test_process_cgroup_does_not_fall_back_to_v1_root() {
+        let root = tempdir().unwrap();
+        let v2_root = root.path().join("unified");
+        let v2_child = v2_root.join("system.slice/service.scope");
+        let v1_root = root.path().join("memory");
+        let host_memory = 32 * 1024 * 1024 * 1024;
+        let cgroup_limit = 8 * 1024 * 1024 * 1024;
+        let cgroup_usage = 1024 * 1024 * 1024;
+
+        create_dir_all(&v2_child).unwrap();
+        create_dir_all(&v1_root).unwrap();
+        write(v2_root.join("memory.max"), "max").unwrap();
+        write(v2_child.parent().unwrap().join("memory.max"), "max").unwrap();
+        write(v2_root.join("memory.current"), cgroup_usage.to_string()).unwrap();
+        write(v2_child.join("memory.max"), "max").unwrap();
+        write(v2_child.join("memory.current"), cgroup_usage.to_string()).unwrap();
+        write(v2_child.join("memory.stat"), "anon 1073741824\n").unwrap();
+        write(
+            v1_root.join("memory.limit_in_bytes"),
+            cgroup_limit.to_string(),
+        )
+        .unwrap();
+        write(
+            v1_root.join("memory.usage_in_bytes"),
+            cgroup_usage.to_string(),
+        )
+        .unwrap();
+        write(v1_root.join("memory.stat"), "total_rss 1073741824\n").unwrap();
+
+        let cgroup_path = parse_cgroup_path(
+            "0::/system.slice/service.scope\n\
+             11:memory:/kubepods/pod/container\n",
+        );
+        let mountinfo = format!(
+            "30 23 0:25 / {} rw - cgroup cgroup rw,memory\n\
+             31 23 0:26 / {} rw - cgroup2 cgroup rw\n",
+            v1_root.display(),
+            v2_root.display(),
+        );
+        let cgroup_mounts = parse_cgroup_mounts(&mountinfo);
+
+        let context = CGroupLimitsContext {
+            mem_total: host_memory,
+            swap_total: 0,
+            swap_free: 0,
+        };
+        assert_eq!(
+            v1_limits(&v1_root, &v1_root, context).unwrap().total_memory,
+            cgroup_limit,
+        );
+        // The process belongs to a missing child. Its readable root is not a substitute.
+        let limits = limits_for_process_with_context(&cgroup_path, &cgroup_mounts, context);
+        assert!(limits.is_none());
+    }
+
+    #[test]
+    fn test_hybrid_cgroup_prefers_v1_memory_path_over_v2_limit() {
+        let root = tempdir().unwrap();
+        let v2_root = root.path().join("unified");
+        let v2_child = v2_root.join("system.slice/service.scope");
+        let v1_root = root.path().join("memory");
+        let v1_child = v1_root.join("memory.slice/service.scope");
+        let v2_limit = 32 * 1024 * 1024 * 1024;
+        let v1_limit = 8 * 1024 * 1024 * 1024;
+        let cgroup_usage = 1024 * 1024 * 1024;
+
+        create_dir_all(&v2_child).unwrap();
+        create_dir_all(&v1_child).unwrap();
+        for ancestor in [v1_root.as_path(), v1_child.parent().unwrap()] {
+            write(ancestor.join("memory.limit_in_bytes"), u64::MAX.to_string()).unwrap();
+        }
+        write(v2_root.join("memory.max"), v2_limit.to_string()).unwrap();
+        write(v2_root.join("memory.current"), cgroup_usage.to_string()).unwrap();
+        write(
+            v2_child.parent().unwrap().join("memory.max"),
+            v2_limit.to_string(),
+        )
+        .unwrap();
+        write(
+            v2_child.parent().unwrap().join("memory.current"),
+            cgroup_usage.to_string(),
+        )
+        .unwrap();
+        write(v2_child.join("memory.max"), v2_limit.to_string()).unwrap();
+        write(v2_child.join("memory.current"), cgroup_usage.to_string()).unwrap();
+        write(v2_child.join("memory.stat"), "anon 1073741824\n").unwrap();
+        write(v1_child.join("memory.limit_in_bytes"), v1_limit.to_string()).unwrap();
+        write(
+            v1_child.join("memory.usage_in_bytes"),
+            cgroup_usage.to_string(),
+        )
+        .unwrap();
+        write(v1_child.join("memory.stat"), "total_rss 1073741824\n").unwrap();
+
+        let cgroup_path = parse_cgroup_path(
+            "0::/system.slice/service.scope\n\
+             11:memory:/memory.slice/service.scope\n",
+        );
+        let mountinfo = format!(
+            "30 23 0:25 / {} rw - cgroup cgroup rw,memory\n\
+             31 23 0:26 / {} rw - cgroup2 cgroup rw\n",
+            v1_root.display(),
+            v2_root.display(),
+        );
+        let cgroup_mounts = parse_cgroup_mounts(&mountinfo);
+        let limits = limits_for_process_with_context(
+            &cgroup_path,
+            &cgroup_mounts,
+            CGroupLimitsContext {
+                mem_total: v2_limit,
+                swap_total: 0,
+                swap_free: 0,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(limits.total_memory, v1_limit);
+        assert_eq!(limits.free_memory, v1_limit - cgroup_usage);
+        assert_eq!(limits.rss, cgroup_usage);
+    }
+
     fn write_memory_cgroup(path: &Path, v1: bool, limit: &str) {
         create_dir_all(path).unwrap();
         let (limit_file, usage_file, stat) = if v1 {
@@ -822,59 +1062,26 @@ mod test {
     }
 
     #[test]
-    fn test_mountinfo_resolves_memory_path() {
-        for v1 in [false, true] {
-            let root = tempdir().unwrap();
-            let mount = root.path().join("remapped-memory");
-            let child = mount.join("pod/container");
-            write_memory_cgroup(&mount, v1, "1500");
-            write_memory_cgroup(&mount.join("pod"), v1, "500");
-            write_memory_cgroup(&child, v1, "1000");
-            let (membership, filesystem) = if v1 {
-                (
-                    "11:memory:/kubepods/pod/container\n",
-                    "cgroup cgroup rw,memory",
-                )
-            } else {
-                ("0::/kubepods/pod/container\n", "cgroup2 cgroup rw")
-            };
-            let cgroup_path = parse_cgroup_path(membership);
-            let mounts = parse_cgroup_mounts(&format!(
-                "30 23 0:25 /kubepods {} rw - {filesystem}\n",
-                mount.display(),
-            ));
-            let matching_mounts = if v1 { &mounts.v1_memory } else { &mounts.v2 };
-            assert_eq!(
-                cgroup_base_for_path(Path::new("kubepods/pod/container"), matching_mounts),
-                Some(CGroupBase::new(child, mount)),
-            );
-            let limits = limits_for_process_with_context(&cgroup_path, &mounts, CONTEXT).unwrap();
-            assert_eq!(limits.total_memory, 500);
-            assert_eq!(limits.free_memory, 400);
-            assert_eq!(limits.rss, 30);
-        }
-    }
-
-    #[test]
-    fn test_hybrid_cgroup_prefers_v1_memory_path() {
-        for v2_limit in ["max", "1500"] {
-            let root = tempdir().unwrap();
-            let v1_root = root.path().join("memory");
-            let v2_root = root.path().join("unified");
-            write_memory_cgroup(&v1_root, true, "1000");
-            write_memory_cgroup(&v1_root.join("child"), true, "500");
-            write_memory_cgroup(&v2_root, false, v2_limit);
-            write_memory_cgroup(&v2_root.join("child"), false, v2_limit);
-            let membership = parse_cgroup_path("0::/child\n11:memory:/child\n");
-            let mounts = parse_cgroup_mounts(&format!(
-                "30 23 0:25 / {} rw - cgroup cgroup rw,memory\n\
-                 31 23 0:26 / {} rw - cgroup2 cgroup rw\n",
-                v1_root.display(),
-                v2_root.display(),
-            ));
-            let limits = limits_for_process_with_context(&membership, &mounts, CONTEXT).unwrap();
-            assert_eq!(limits.total_memory, 500);
-        }
+    fn test_mountinfo_resolves_v2_memory_path() {
+        let root = tempdir().unwrap();
+        let mount = root.path().join("remapped-memory");
+        let child = mount.join("pod/container");
+        write_memory_cgroup(&mount, false, "1500");
+        write_memory_cgroup(&mount.join("pod"), false, "500");
+        write_memory_cgroup(&child, false, "1000");
+        let cgroup_path = parse_cgroup_path("0::/kubepods/pod/container\n");
+        let mounts = parse_cgroup_mounts(&format!(
+            "30 23 0:25 /kubepods {} rw - cgroup2 cgroup rw\n",
+            mount.display(),
+        ));
+        assert_eq!(
+            cgroup_base_for_path(Path::new("kubepods/pod/container"), &mounts.v2),
+            Some(CGroupBase::new(child, mount)),
+        );
+        let limits = limits_for_process_with_context(&cgroup_path, &mounts, CONTEXT).unwrap();
+        assert_eq!(limits.total_memory, 500);
+        assert_eq!(limits.free_memory, 400);
+        assert_eq!(limits.rss, 30);
     }
 
     #[test]
