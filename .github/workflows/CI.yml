@@ -10,7 +10,7 @@ concurrency:
 
 env:
   RUSTFLAGS: -Dwarnings
-  CROSS_VERSION: git:167aa99f5c460bb88e9c8b31065f11a3325c9c73
+  CROSS_VERSION: git:74e99b2223de06166f8cdcc1af7f1308ec52baf4
   CROSS_REPOSITORY: https://github.com/GuillaumeGomez/cross
 
 jobs:
