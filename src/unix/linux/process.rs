@@ -550,22 +550,22 @@ mod gpu {
         let mut c_path = Vec::with_capacity(path.len() + 1);
         c_path.extend_from_slice(path);
         c_path.push(0);
-        let Some(fdinfo_dir) = Dir::new(&c_path) else {
+
+        // We replace `/fdinfo\0` with `/fd\0nfo\0` to the folder name becomes `fd`.
+        // So 4 characters for `info` and 1 for the `\0`.
+        let info_index = c_path.len() - 5;
+        c_path[info_index] = 0;
+        let Some(fd_dir) = Dir::new(&c_path) else {
             return;
         };
+        // Most processes don't have any GPU file descriptor, so we only open `fdinfo` once we
+        // found one.
+        let mut fdinfo_dir: Option<Dir> = None;
 
         let mut total_time: u64 = 0;
         let mut total_memory: u64 = 0;
         let mut found_memory = false;
-        let fdinfo_dir_fd = fdinfo_dir.dir_fd;
-        if let Some(fd_dir) = {
-            // We replace `/fdinfo\0` with `/fd\0nfo\0` to the folder name becomes `fd`.
-            // So 4 characters for `info` and 1 for the `\0`.
-            let index = c_path.len() - 5;
-            c_path[index] = 0;
-            Dir::new(&c_path)
-        } && let Ok(Some(dir_iter)) = fd_dir.iter()
-        {
+        if let Ok(Some(dir_iter)) = fd_dir.iter() {
             // 4096 is the limit used in htop so why not.
             let buf: MaybeUninit<[u8; 4096]> = MaybeUninit::uninit();
             // SAFETY: `openat` will initialize the values.
@@ -577,6 +577,17 @@ mod gpu {
                 if !is_gpu_device(&fd_dir, file_name, &mut stat) {
                     continue;
                 }
+                let fdinfo_dir_fd = match fdinfo_dir {
+                    Some(ref dir) => dir.dir_fd,
+                    None => {
+                        // We put back `/fdinfo\0`.
+                        c_path[info_index] = b'i';
+                        let Some(dir) = Dir::new(&c_path) else {
+                            return;
+                        };
+                        fdinfo_dir.insert(dir).dir_fd
+                    }
+                };
                 let buf = unsafe {
                     let fd = retry_eintr!(libc::openat(
                         fdinfo_dir_fd,
@@ -893,7 +904,10 @@ fn update_proc_info(
             p.utime.saturating_add(p.stime).saturating_mul(1_000) / info.clock_cycle;
     }
     #[cfg(feature = "gpu")]
-    if refresh_kind.gpu_usage() || refresh_kind.gpu_memory() {
+    if (refresh_kind.gpu_usage() || refresh_kind.gpu_memory())
+        // Kernel threads don't have file descriptors, so no need to look for GPU ones.
+        && p.thread_kind != Some(ThreadKind::Kernel)
+    {
         self::gpu::compute_gpu_usage(proc_path, &mut p.gpu_info, now, refresh_kind);
     }
     p.updated = true;
