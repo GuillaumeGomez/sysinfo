@@ -5,7 +5,6 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fs::{self, DirEntry, File, read_dir};
-use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
@@ -17,7 +16,7 @@ use libc::{c_ulong, gid_t, pid_t, uid_t};
 
 use crate::sys::system::SystemInfo;
 use crate::sys::utils::{
-    PathHandler, PathPush, get_all_data, get_all_data_from_file, get_all_utf8_data,
+    PathHandler, PathPush, get_all_data_from_file, read_file_into, read_path_into,
 };
 use crate::unix::utils::realpath;
 use crate::{
@@ -284,7 +283,7 @@ impl ProcessInner {
     pub(crate) fn wait(&self) -> Option<ExitStatus> {
         // If anything fails when trying to retrieve the start time, better to return `None`.
         let (data, _) = _get_stat_data_and_file(&self.proc_path).ok()?;
-        let parts = parse_stat_file(&data)?;
+        let parts = parse_stat_file(&data, Some(self.start_time_raw))?;
 
         if parts.start_time != self.start_time_raw {
             sysinfo_debug!("Seems to not be the same process anymore");
@@ -534,14 +533,16 @@ mod gpu {
         gpu_info: &mut GpuInfo,
         now: Instant,
         refresh_kind: ProcessRefreshKind,
-        dents: &mut Vec<u8>,
+        buffers: &mut ProcessBuffers,
     ) {
         use std::fs::File;
+        use std::io::Read;
         use std::os::fd::FromRawFd;
 
+        let ProcessBuffers { dents, c_path, .. } = buffers;
         // CString is apparently expensive, so we do our own...
         let path = proc_path.replace_and_join("fdinfo").as_os_str().as_bytes();
-        let mut c_path = Vec::with_capacity(path.len() + 1);
+        c_path.clear();
         c_path.extend_from_slice(path);
         c_path.push(0);
 
@@ -549,7 +550,7 @@ mod gpu {
         // So 4 characters for `info` and 1 for the `\0`.
         let info_index = c_path.len() - 5;
         c_path[info_index] = 0;
-        let Some(fd_dir) = Dir::new(&c_path) else {
+        let Some(fd_dir) = Dir::new(c_path) else {
             return;
         };
         // Most processes don't have any GPU file descriptor, so we only open `fdinfo` once we
@@ -576,7 +577,7 @@ mod gpu {
                     None => {
                         // We put back `/fdinfo\0`.
                         c_path[info_index] = b'i';
-                        let Some(dir) = Dir::new(&c_path) else {
+                        let Some(dir) = Dir::new(c_path) else {
                             return;
                         };
                         fdinfo_dir.insert(dir).dir_fd
@@ -723,10 +724,16 @@ pub(crate) fn set_time(p: &mut ProcessInner, utime: u64, stime: u64) {
     p.stime = stime;
 }
 
-pub(crate) fn update_process_disk_activity(p: &mut ProcessInner, path: &mut PathHandler) {
-    let data = match get_all_utf8_data(path.replace_and_join("io"), 16_384) {
-        Ok(d) => d,
-        Err(_) => return,
+pub(crate) fn update_process_disk_activity(
+    p: &mut ProcessInner,
+    path: &mut PathHandler,
+    buf: &mut Vec<u8>,
+) {
+    if read_path_into(path.replace_and_join("io"), buf).is_err() {
+        return;
+    }
+    let Ok(data) = std::str::from_utf8(buf) else {
+        return;
     };
     let mut done = 0;
     for line in data.split('\n') {
@@ -756,14 +763,28 @@ pub(crate) fn update_process_disk_activity(p: &mut ProcessInner, path: &mut Path
     }
 }
 
+/// Buffers reused across processes during a refresh, to avoid allocating for each of them.
 struct ProcessBuffers {
+    buf: Vec<u8>,
+    /// Used to build the paths of the files to read.
+    path: PathBuf,
     #[cfg(feature = "gpu")]
     dents: Vec<u8>,
+    /// NUL-terminated path of the `fd` and `fdinfo` folders.
+    #[cfg(feature = "gpu")]
+    c_path: Vec<u8>,
 }
 
 impl ProcessBuffers {
-    fn new(refresh_kind: ProcessRefreshKind) -> Self {
+    #[allow(clippy::uninit_vec)]
+    fn new(
+        #[cfg_attr(not(feature = "gpu"), allow(unused_variables))] refresh_kind: ProcessRefreshKind,
+    ) -> Self {
         Self {
+            buf: Vec::with_capacity(16_384),
+            path: PathBuf::new(),
+            #[cfg(feature = "gpu")]
+            c_path: Vec::new(),
             #[cfg(feature = "gpu")]
             dents: {
                 if refresh_kind.gpu_usage() || refresh_kind.gpu_memory() {
@@ -799,10 +820,24 @@ fn _get_stat_data_and_file(path: &Path) -> Result<(Vec<u8>, File), ()> {
     Ok((data, file))
 }
 
-fn _get_stat_data(path: &Path, stat_file: &mut Option<FileCounter>) -> Result<Vec<u8>, ()> {
-    let (data, file) = _get_stat_data_and_file(path)?;
+/// Reads the `stat` file into `buffers.stat`.
+fn _get_stat_data(
+    path: &Path,
+    stat_file: &mut Option<FileCounter>,
+    buffers: &mut ProcessBuffers,
+) -> Result<(), ()> {
+    let mut file = File::open(build_path(&mut buffers.path, path, "stat")).map_err(|_| ())?;
+    read_file_into(&mut file, &mut buffers.buf).map_err(|_| ())?;
     *stat_file = FileCounter::new(file);
-    Ok(data)
+    Ok(())
+}
+
+/// Writes `base/file_name` into `buf` and returns it.
+fn build_path<'a>(buf: &'a mut PathBuf, base: &Path, file_name: &str) -> &'a Path {
+    buf.as_mut_os_string().clear();
+    buf.push(base);
+    buf.push(file_name);
+    buf
 }
 
 fn refresh_user_group_ids(
@@ -843,11 +878,11 @@ fn update_proc_info(
     parent_pid: Option<Pid>,
     refresh_kind: ProcessRefreshKind,
     proc_path: &mut PathHandler,
-    parts: &Parts<'_>,
+    parts: &Parts,
     uptime: u64,
     info: &SystemInfo,
     ids: Option<Ids>,
-    #[cfg_attr(not(feature = "gpu"), allow(unused_variables))] buffers: &mut ProcessBuffers,
+    buffers: &mut ProcessBuffers,
     #[cfg(feature = "gpu")] now: Instant,
 ) {
     update_parent_pid(p, parent_pid, parts);
@@ -880,13 +915,13 @@ fn update_proc_info(
     }
 
     if refresh_kind.cmd().needs_update(|| p.cmd.is_empty()) {
-        let new_cmd = copy_from_file(proc_path.replace_and_join("cmdline"));
+        let new_cmd = copy_from_file(proc_path.replace_and_join("cmdline"), &mut buffers.buf);
         if !new_cmd.is_empty() || p.cmd.is_empty() {
             p.cmd = new_cmd;
         }
     }
     if refresh_kind.environ().needs_update(|| p.environ.is_empty()) {
-        let new_environ = copy_from_file(proc_path.replace_and_join("environ"));
+        let new_environ = copy_from_file(proc_path.replace_and_join("environ"), &mut buffers.buf);
         if !new_environ.is_empty() || p.environ.is_empty() {
             p.environ = new_environ;
         }
@@ -898,9 +933,17 @@ fn update_proc_info(
         update_optional_path(&mut p.root, proc_path.replace_and_join("root"));
     }
 
-    update_time_and_memory(proc_path, p, parts, uptime, info, refresh_kind);
+    update_time_and_memory(
+        proc_path,
+        p,
+        parts,
+        uptime,
+        info,
+        refresh_kind,
+        &mut buffers.buf,
+    );
     if refresh_kind.disk_usage() {
-        update_process_disk_activity(p, proc_path);
+        update_process_disk_activity(p, proc_path, &mut buffers.buf);
     }
     // Needs to be after `update_time_and_memory`.
     if refresh_kind.cpu() {
@@ -914,21 +957,15 @@ fn update_proc_info(
         // Kernel threads don't have file descriptors, so no need to look for GPU ones.
         && p.thread_kind != Some(ThreadKind::Kernel)
     {
-        self::gpu::compute_gpu_usage(
-            proc_path,
-            &mut p.gpu_info,
-            now,
-            refresh_kind,
-            &mut buffers.dents,
-        );
+        self::gpu::compute_gpu_usage(proc_path, &mut p.gpu_info, now, refresh_kind, buffers);
     }
     p.updated = true;
 }
 
-fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, parts: &Parts<'_>) {
+fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, parts: &Parts) {
     p.parent = match parent_pid {
         Some(parent_pid) if parent_pid.0 != 0 => Some(parent_pid),
-        _ => match parts.parent_pid.and_then(parse_ascii_checked_pid_t) {
+        _ => match parts.parent_pid {
             Some(p) if p != 0 => Some(Pid(p)),
             _ => None,
         },
@@ -940,7 +977,7 @@ fn retrieve_all_new_process_info(
     is_thread: bool,
     pid: Pid,
     parent_pid: Option<Pid>,
-    parts: &Parts<'_>,
+    parts: &mut Parts,
     path: &Path,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
@@ -950,8 +987,7 @@ fn retrieve_all_new_process_info(
     #[cfg(feature = "gpu")] now: Instant,
 ) -> Process {
     let mut p = ProcessInner::new(pid, path.to_owned());
-    let mut proc_path = PathHandler::new(path);
-    let name = parts.short_exe;
+    let mut proc_path = PathHandler::new(std::mem::take(&mut buffers.path), path);
 
     // To be noted that the start time is invalid here, it still needs to be converted into
     // "real" time.
@@ -962,10 +998,10 @@ fn retrieve_all_new_process_info(
         .start_time_without_boot_time
         .saturating_add(info.boot_time);
 
-    p.name = OsStr::from_bytes(name).to_os_string();
-    if let Some(part) = parts.flags
-        && parse_ascii_checked_culong(part)
-            .is_some_and(|flags| flags & libc::PF_KTHREAD as c_ulong != 0)
+    p.name = std::mem::take(&mut parts.short_exe);
+    if parts
+        .flags
+        .is_some_and(|flags| flags & libc::PF_KTHREAD as c_ulong != 0)
     {
         p.thread_kind = Some(ThreadKind::Kernel);
     } else if is_thread {
@@ -985,6 +1021,7 @@ fn retrieve_all_new_process_info(
         #[cfg(feature = "gpu")]
         now,
     );
+    buffers.path = proc_path.into_inner();
 
     Process { inner: p }
 }
@@ -1003,31 +1040,29 @@ fn update_existing_process(
     #[cfg(feature = "gpu")] now: Instant,
 ) -> Result<Option<Process>, ()> {
     let entry = &mut proc.inner;
-    let data = if let Some(mut f) = entry.stat_file.take() {
-        match get_all_data_from_file(&mut f, 1024) {
-            Ok(data) => {
-                // Everything went fine, we put back the file descriptor.
-                entry.stat_file = Some(f);
-                data
-            }
-            Err(_) => {
-                // It's possible that the file descriptor is no longer valid in case the
-                // original process was terminated and another one took its place.
-                _get_stat_data(&entry.proc_path, &mut entry.stat_file)?
-            }
-        }
+    if let Some(mut f) = entry.stat_file.take()
+        && read_file_into(&mut f, &mut buffers.buf).is_ok()
+    {
+        // Everything went fine, we put back the file descriptor.
+        entry.stat_file = Some(f);
     } else {
-        _get_stat_data(&entry.proc_path, &mut entry.stat_file)?
-    };
+        // It's possible that the file descriptor is no longer valid in case the
+        // original process was terminated and another one took its place.
+        _get_stat_data(&entry.proc_path, &mut entry.stat_file, buffers)?;
+    }
     entry.tasks = tasks;
 
-    let parts = parse_stat_file(&data).ok_or(())?;
+    // `parts` borrows the `stat` buffer while `buffers` is still needed, so we take it out and put
+    // it back once done.
+    let Some(mut parts) = parse_stat_file(&buffers.buf, Some(entry.start_time_raw)) else {
+        return Err(());
+    };
 
     // It's possible that a new process took this same PID when the "original one" terminated.
     // If the start time differs, then it means it's not the same process anymore and that we
     // need to get all its information, hence why we check it here.
     if parts.start_time == entry.start_time_raw {
-        let mut proc_path = PathHandler::new(&entry.proc_path);
+        let mut proc_path = PathHandler::new(std::mem::take(&mut buffers.path), &entry.proc_path);
 
         // If the entry was first discovered without thread info
         // (e.g. in ProcessesToUpdate::All mode), fix its thread_kind now.
@@ -1048,7 +1083,7 @@ fn update_existing_process(
             #[cfg(feature = "gpu")]
             now,
         );
-
+        buffers.path = proc_path.into_inner();
         return Ok(None);
     }
     // If we're here, it means that the PID still exists but it's a different process.
@@ -1056,7 +1091,7 @@ fn update_existing_process(
         is_thread,
         entry.pid,
         parent_pid,
-        &parts,
+        &mut parts,
         &entry.proc_path,
         info,
         refresh_kind,
@@ -1102,14 +1137,18 @@ fn _get_process_data(
         );
     }
     let mut stat_file = None;
-    let data = _get_stat_data(path, &mut stat_file)?;
-    let parts = parse_stat_file(&data).ok_or(())?;
+    _get_stat_data(path, &mut stat_file, buffers)?;
+    // `parts` borrows the `stat` buffer while `buffers` is still needed, so we take it out and put
+    // it back once done.
+    let Some(mut parts) = parse_stat_file(&buffers.buf, None) else {
+        return Err(());
+    };
 
     let mut new_process = retrieve_all_new_process_info(
         is_thread,
         pid,
         parent_pid,
-        &parts,
+        &mut parts,
         path,
         info,
         refresh_kind,
@@ -1126,17 +1165,10 @@ fn _get_process_data(
 
 fn old_get_memory(entry: &mut ProcessInner, parts: &Parts, info: &SystemInfo) {
     // rss
-    entry.memory = parts
-        .resident_set_size
-        .and_then(parse_ascii_checked_u64)
-        .unwrap_or(0)
-        .saturating_mul(info.page_size_b);
+    entry.memory = parts.resident_set_size.saturating_mul(info.page_size_b);
     // vsz correspond to the Virtual memory size in bytes.
     // see: https://man7.org/linux/man-pages/man5/proc.5.html
-    entry.virtual_memory = parts
-        .virtual_size
-        .and_then(parse_ascii_checked_u64)
-        .unwrap_or(0);
+    entry.virtual_memory = parts.virtual_size
 }
 
 fn slice_to_nb(s: &[u8]) -> u64 {
@@ -1148,19 +1180,8 @@ fn slice_to_nb(s: &[u8]) -> u64 {
     nb
 }
 
-fn get_memory(path: &Path, entry: &mut ProcessInner, info: &SystemInfo) -> bool {
-    let mut file = match File::open(path) {
-        Ok(f) => f,
-        Err(_e) => {
-            sysinfo_debug!(
-                "Using old memory information (failed to open {:?}: {_e:?})",
-                path
-            );
-            return false;
-        }
-    };
-    let mut buf = Vec::new();
-    if let Err(_e) = file.read_to_end(&mut buf) {
+fn get_memory(path: &Path, entry: &mut ProcessInner, info: &SystemInfo, buf: &mut Vec<u8>) -> bool {
+    if let Err(_e) = read_path_into(path, buf) {
         sysinfo_debug!(
             "Using old memory information (failed to read {:?}: {_e:?})",
             path
@@ -1189,12 +1210,13 @@ fn update_time_and_memory(
     uptime: u64,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
+    buf: &mut Vec<u8>,
 ) {
     {
         #[allow(clippy::collapsible_if)]
         if refresh_kind.memory() {
             // Keeping this nested level for readability reasons.
-            if !get_memory(path.replace_and_join("statm"), entry, info) {
+            if !get_memory(path.replace_and_join("statm"), entry, info, buf) {
                 old_get_memory(entry, parts, info);
             }
         }
@@ -1294,19 +1316,24 @@ pub(crate) fn refresh_procs(
             nb_updated.fetch_add(1, Ordering::Relaxed);
             new_process
         };
-        let procs = iter(pid_iter).flat_map(|(path, pid)| {
-            get_proc_and_tasks(path, pid, refresh_kind, processes_to_update)
-        });
+        let get_procs = |buffers: &mut ProcessBuffers, (path, pid): (PathBuf, Pid)| {
+            get_proc_and_tasks(path, pid, refresh_kind, processes_to_update, buffers)
+        };
 
         // Each rayon job gets its own buffers.
         #[cfg(feature = "multithread")]
-        let procs = procs
+        let procs = iter(pid_iter)
+            .map_init(|| ProcessBuffers::new(refresh_kind), get_procs)
+            .flatten()
             .map_init(|| ProcessBuffers::new(refresh_kind), get_process_data)
             .flatten();
         #[cfg(not(feature = "multithread"))]
         let procs = {
+            let mut procs_buffers = ProcessBuffers::new(refresh_kind);
             let mut buffers = ProcessBuffers::new(refresh_kind);
-            procs.filter_map(move |e| get_process_data(&mut buffers, e))
+            iter(pid_iter)
+                .flat_map(move |e| get_procs(&mut procs_buffers, e))
+                .filter_map(move |e| get_process_data(&mut buffers, e))
         };
         procs.collect::<Vec<_>>()
     };
@@ -1332,11 +1359,12 @@ fn get_proc_and_tasks(
     pid: Pid,
     refresh_kind: ProcessRefreshKind,
     processes_to_update: ProcessesToUpdate<'_>,
+    buffers: &mut ProcessBuffers,
 ) -> Vec<ProcAndTasks> {
     let mut parent_pid = None;
     let mut is_thread = false;
 
-    let (ids, tgid) = match get_uid_and_gid_and_tgid(&path.join("status")) {
+    let (ids, tgid) = match get_uid_and_gid_and_tgid(&path, buffers) {
         Some((ids, tgid)) => (Some(ids), Some(tgid)),
         None => (None, None),
     };
@@ -1347,7 +1375,7 @@ fn get_proc_and_tasks(
         // The `status` file allows to retrieve user info and tgid. If we're not interested in any,
         // then we don't read it.
         let retrieve_ids = update_processes_list && refresh_kind.user() != UpdateKind::Never;
-        let mut procs = get_proc_tasks(&path, pid, retrieve_ids);
+        let mut procs = get_proc_tasks(&path, pid, retrieve_ids, buffers);
         let tasks = procs.iter().map(|ProcAndTasks { pid, .. }| *pid).collect();
 
         if !update_processes_list {
@@ -1378,7 +1406,12 @@ fn get_proc_and_tasks(
     procs
 }
 
-fn get_proc_tasks(path: &Path, parent_pid: Pid, retrieve_ids: bool) -> Vec<ProcAndTasks> {
+fn get_proc_tasks(
+    path: &Path,
+    parent_pid: Pid,
+    retrieve_ids: bool,
+    buffers: &mut ProcessBuffers,
+) -> Vec<ProcAndTasks> {
     let task_path = path.join("task");
 
     read_dir(&task_path)
@@ -1390,7 +1423,7 @@ fn get_proc_tasks(path: &Path, parent_pid: Pid, retrieve_ids: bool) -> Vec<ProcA
                 .filter(|(_, pid)| *pid != parent_pid)
                 .map(|(path, pid)| {
                     let ids = if retrieve_ids {
-                        get_uid_and_gid_and_tgid(&path.join("status")).map(|(ids, _)| ids)
+                        get_uid_and_gid_and_tgid(&path, buffers).map(|(ids, _)| ids)
                     } else {
                         None
                     };
@@ -1418,20 +1451,11 @@ fn split_content(data: &[u8]) -> Vec<OsString> {
     out
 }
 
-fn copy_from_file(entry: &Path) -> Vec<OsString> {
-    match File::open(entry) {
-        Ok(mut f) => {
-            let mut data = Vec::with_capacity(16_384);
-
-            if let Err(_e) = f.read_to_end(&mut data) {
-                sysinfo_debug!("Failed to read file in `copy_from_file`: {:?}", _e);
-                Vec::new()
-            } else {
-                split_content(&data)
-            }
-        }
+fn copy_from_file(entry: &Path, buf: &mut Vec<u8>) -> Vec<OsString> {
+    match read_path_into(entry, buf) {
+        Ok(()) => split_content(buf),
         Err(_e) => {
-            sysinfo_debug!("Failed to open file in `copy_from_file`: {:?}", _e);
+            sysinfo_debug!("Failed to read file in `copy_from_file`: {:?}", _e);
             Vec::new()
         }
     }
@@ -1446,8 +1470,10 @@ pub(crate) struct Ids {
 
 // Fetch real and effective UID and GID and store them into `Pids`. Returns the "thread group id"
 // (tgid) as second value of the tuple.
-fn get_uid_and_gid_and_tgid(file_path: &Path) -> Option<(Ids, Pid)> {
-    let status_data = get_all_data(file_path, 16_385).ok()?;
+fn get_uid_and_gid_and_tgid(proc_path: &Path, buffers: &mut ProcessBuffers) -> Option<(Ids, Pid)> {
+    let status_path = build_path(&mut buffers.path, proc_path, "status");
+    read_path_into(status_path, &mut buffers.buf).ok()?;
+    let status_data = &buffers.buf;
 
     // We're only interested in the lines starting with Uid: and Gid:
     // here. From these lines, we're looking at the first and second entries to get
@@ -1552,19 +1578,19 @@ impl Drop for FileCounter {
 }
 
 #[cfg_attr(test, derive(PartialEq, Debug))]
-struct Parts<'a> {
-    short_exe: &'a [u8],
+struct Parts {
+    short_exe: OsString,
     status: ProcessStatus,
-    parent_pid: Option<&'a [u8]>,
-    flags: Option<&'a [u8]>,
+    parent_pid: Option<pid_t>,
+    flags: Option<c_ulong>,
     user_time: u64,
     system_time: u64,
     start_time: u64,
-    virtual_size: Option<&'a [u8]>,
-    resident_set_size: Option<&'a [u8]>,
+    virtual_size: u64,
+    resident_set_size: u64,
 }
 
-fn parse_stat_file(data: &[u8]) -> Option<Parts<'_>> {
+fn parse_stat_file(data: &[u8], start_time_raw: Option<u64>) -> Option<Parts> {
     // The stat file is "interesting" to parse, because spaces cannot
     // be used as delimiters. The second field stores the command name
     // surrounded by parentheses. Unfortunately, whitespace and
@@ -1592,9 +1618,11 @@ fn parse_stat_file(data: &[u8]) -> Option<Parts<'_>> {
         .next()
         .and_then(|part| part.first().copied().map(ProcessStatus::from))
         .unwrap_or(ProcessStatus::Unknown(0));
-    let parent_pid = data.next();
+    let parent_pid = data.next().and_then(parse_ascii_checked_pid_t);
 
-    let flags = data.nth(ProcIndex::Flags as usize - ProcIndex::ParentPid as usize - 1);
+    let flags = data
+        .nth(ProcIndex::Flags as usize - ProcIndex::ParentPid as usize - 1)
+        .and_then(parse_ascii_checked_culong);
     let user_time = data
         .nth(ProcIndex::UserTime as usize - ProcIndex::Flags as usize - 1)
         .and_then(parse_ascii_checked_u64)
@@ -1605,8 +1633,8 @@ fn parse_stat_file(data: &[u8]) -> Option<Parts<'_>> {
         .nth(ProcIndex::StartTime as usize - ProcIndex::SystemTime as usize - 1)
         .and_then(parse_ascii_checked_u64)
         .unwrap_or(0);
-    let virtual_size = data.next();
-    let resident_set_size = data.next();
+    let virtual_size = data.next().and_then(parse_ascii_checked_u64).unwrap_or(0);
+    let resident_set_size = data.next().and_then(parse_ascii_checked_u64).unwrap_or(0);
 
     Some(Parts {
         status,
@@ -1617,7 +1645,11 @@ fn parse_stat_file(data: &[u8]) -> Option<Parts<'_>> {
         start_time,
         virtual_size,
         resident_set_size,
-        short_exe,
+        short_exe: if start_time_raw.is_some_and(|raw| start_time == raw) {
+            OsString::new()
+        } else {
+            OsStr::from_bytes(short_exe).to_os_string()
+        },
     })
 }
 
@@ -1645,7 +1677,7 @@ mod tests {
     fn test_parse_stat_file() {
         // The (trimmed) content of a stat file.
         let content = b"1 (blob) S 2 0 0 0 -1 2129984 0 0 0 0 14 28 0 0 20 0 1 0 21 66 77";
-        let data = parse_stat_file(content).unwrap();
+        let data = parse_stat_file(content, None).unwrap();
         assert_eq!(
             data,
             Parts {
@@ -1668,7 +1700,7 @@ mod tests {
     fn test_parse_stat_file_short_exe() {
         // The (trimmed) content of a stat file.
         let content = b"1 (bl()ob) S 2 0 0 0 -1 2129984 0 0 0 0 14 28 0 0 20 0 1 0 21 66 77";
-        let data = parse_stat_file(content).unwrap();
+        let data = parse_stat_file(content, None).unwrap();
         assert_eq!(
             data,
             Parts {
@@ -1689,7 +1721,7 @@ mod tests {
     fn test_parse_stat_file_long_exe() {
         // In case you wonder: yes, it's a real "short" exe name.
         let content = b"1 (nvidia-modeset/deferred_close_kthread_q) S 2 0 0 0 -1 2129984 0 0 0 0 14 28 0 0 20 0 1 0 21 66 77";
-        let data = parse_stat_file(content).unwrap();
+        let data = parse_stat_file(content, None).unwrap();
         assert_eq!(
             data,
             Parts {
