@@ -465,15 +465,8 @@ mod gpu {
             }
         }
 
-        #[allow(clippy::uninit_vec)]
-        fn iter(&self) -> Result<Option<DirIter<'_>>, ()> {
-            // 20 dir entries at once should be enough.
-            let mut buf = Vec::with_capacity(std::mem::size_of::<libc::dirent64>() * 20);
-            // SAFETY: Data is set by syscalls, so no need to initialize it ourselves.
-            unsafe {
-                buf.set_len(buf.capacity());
-            }
-            if let Some(read) = self.update_dents_buf(&mut buf)? {
+        fn iter<'a>(&'a self, buf: &'a mut Vec<u8>) -> Result<Option<DirIter<'a>>, ()> {
+            if let Some(read) = self.update_dents_buf(buf)? {
                 Ok(Some(DirIter {
                     read,
                     pos: 0,
@@ -499,8 +492,8 @@ mod gpu {
         read: usize,
         dir: &'a Dir,
         // If we use an array instead of a Vec here, we get unaligned memory errors when we go
-        // through the `dirent64` entries. So sadly, we need to go through the allocation...
-        buf: Vec<u8>,
+        // through the `dirent64` entries. The `Vec` is reused across processes.
+        buf: &'a mut Vec<u8>,
     }
 
     impl<'a> Iterator for DirIter<'a> {
@@ -510,7 +503,7 @@ mod gpu {
             loop {
                 unsafe {
                     if self.pos >= self.read {
-                        if let Ok(Some(read)) = self.dir.update_dents_buf(&mut self.buf) {
+                        if let Ok(Some(read)) = self.dir.update_dents_buf(self.buf) {
                             self.read = read;
                             self.pos = 0;
                         } else {
@@ -541,6 +534,7 @@ mod gpu {
         gpu_info: &mut GpuInfo,
         now: Instant,
         refresh_kind: ProcessRefreshKind,
+        dents: &mut Vec<u8>,
     ) {
         use std::fs::File;
         use std::os::fd::FromRawFd;
@@ -565,7 +559,7 @@ mod gpu {
         let mut total_time: u64 = 0;
         let mut total_memory: u64 = 0;
         let mut found_memory = false;
-        if let Ok(Some(dir_iter)) = fd_dir.iter() {
+        if let Ok(Some(dir_iter)) = fd_dir.iter(dents) {
             // 4096 is the limit used in htop so why not.
             let buf: MaybeUninit<[u8; 4096]> = MaybeUninit::uninit();
             // SAFETY: `openat` will initialize the values.
@@ -762,6 +756,31 @@ pub(crate) fn update_process_disk_activity(p: &mut ProcessInner, path: &mut Path
     }
 }
 
+struct ProcessBuffers {
+    #[cfg(feature = "gpu")]
+    dents: Vec<u8>,
+}
+
+impl ProcessBuffers {
+    fn new(refresh_kind: ProcessRefreshKind) -> Self {
+        Self {
+            #[cfg(feature = "gpu")]
+            dents: {
+                if refresh_kind.gpu_usage() || refresh_kind.gpu_memory() {
+                    let mut data = Vec::with_capacity(std::mem::size_of::<libc::dirent64>() * 20);
+                    // SAFETY: `data` is set by syscalls, so no need to initialize it ourselves.
+                    unsafe {
+                        data.set_len(data.capacity());
+                    }
+                    data
+                } else {
+                    Vec::new()
+                }
+            },
+        }
+    }
+}
+
 struct Wrap<'a, T>(UnsafeCell<&'a mut T>);
 
 impl<'a, T> Wrap<'a, T> {
@@ -828,6 +847,7 @@ fn update_proc_info(
     uptime: u64,
     info: &SystemInfo,
     ids: Option<Ids>,
+    #[cfg_attr(not(feature = "gpu"), allow(unused_variables))] buffers: &mut ProcessBuffers,
     #[cfg(feature = "gpu")] now: Instant,
 ) {
     update_parent_pid(p, parent_pid, parts);
@@ -894,7 +914,13 @@ fn update_proc_info(
         // Kernel threads don't have file descriptors, so no need to look for GPU ones.
         && p.thread_kind != Some(ThreadKind::Kernel)
     {
-        self::gpu::compute_gpu_usage(proc_path, &mut p.gpu_info, now, refresh_kind);
+        self::gpu::compute_gpu_usage(
+            proc_path,
+            &mut p.gpu_info,
+            now,
+            refresh_kind,
+            &mut buffers.dents,
+        );
     }
     p.updated = true;
 }
@@ -920,6 +946,7 @@ fn retrieve_all_new_process_info(
     refresh_kind: ProcessRefreshKind,
     uptime: u64,
     ids: Option<Ids>,
+    buffers: &mut ProcessBuffers,
     #[cfg(feature = "gpu")] now: Instant,
 ) -> Process {
     let mut p = ProcessInner::new(pid, path.to_owned());
@@ -954,6 +981,7 @@ fn retrieve_all_new_process_info(
         uptime,
         info,
         ids,
+        buffers,
         #[cfg(feature = "gpu")]
         now,
     );
@@ -971,6 +999,7 @@ fn update_existing_process(
     refresh_kind: ProcessRefreshKind,
     tasks: Option<HashSet<Pid>>,
     ids: Option<Ids>,
+    buffers: &mut ProcessBuffers,
     #[cfg(feature = "gpu")] now: Instant,
 ) -> Result<Option<Process>, ()> {
     let entry = &mut proc.inner;
@@ -1015,6 +1044,7 @@ fn update_existing_process(
             uptime,
             info,
             ids,
+            buffers,
             #[cfg(feature = "gpu")]
             now,
         );
@@ -1032,6 +1062,7 @@ fn update_existing_process(
         refresh_kind,
         uptime,
         ids,
+        buffers,
         #[cfg(feature = "gpu")]
         now,
     );
@@ -1041,7 +1072,7 @@ fn update_existing_process(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn _get_process_data(
+fn _get_process_data(
     path: &Path,
     proc_list: &mut HashMap<Pid, Process>,
     pid: Pid,
@@ -1052,6 +1083,7 @@ pub(crate) fn _get_process_data(
     refresh_kind: ProcessRefreshKind,
     tasks: Option<HashSet<Pid>>,
     ids: Option<Ids>,
+    buffers: &mut ProcessBuffers,
     #[cfg(feature = "gpu")] now: Instant,
 ) -> Result<Option<Process>, ()> {
     if let Some(ref mut entry) = proc_list.get_mut(&pid) {
@@ -1064,6 +1096,7 @@ pub(crate) fn _get_process_data(
             refresh_kind,
             tasks,
             ids,
+            buffers,
             #[cfg(feature = "gpu")]
             now,
         );
@@ -1082,6 +1115,7 @@ pub(crate) fn _get_process_data(
         refresh_kind,
         uptime,
         ids,
+        buffers,
         #[cfg(feature = "gpu")]
         now,
     );
@@ -1239,31 +1273,42 @@ pub(crate) fn refresh_procs(
         #[cfg(feature = "gpu")]
         let now = Instant::now();
 
-        iter(pid_iter)
-            .flat_map(|(path, pid)| {
-                get_proc_and_tasks(path, pid, refresh_kind, processes_to_update)
-            })
-            .filter_map(|e| {
-                let proc_list = proc_list.get();
-                let new_process = _get_process_data(
-                    e.path.as_path(),
-                    proc_list,
-                    e.pid,
-                    e.is_thread,
-                    e.parent_pid,
-                    uptime,
-                    info,
-                    refresh_kind,
-                    e.tasks,
-                    e.ids,
-                    #[cfg(feature = "gpu")]
-                    now,
-                )
-                .ok()?;
-                nb_updated.fetch_add(1, Ordering::Relaxed);
-                new_process
-            })
-            .collect::<Vec<_>>()
+        let get_process_data = |buffers: &mut ProcessBuffers, e: ProcAndTasks| {
+            let proc_list = proc_list.get();
+            let new_process = _get_process_data(
+                e.path.as_path(),
+                proc_list,
+                e.pid,
+                e.is_thread,
+                e.parent_pid,
+                uptime,
+                info,
+                refresh_kind,
+                e.tasks,
+                e.ids,
+                buffers,
+                #[cfg(feature = "gpu")]
+                now,
+            )
+            .ok()?;
+            nb_updated.fetch_add(1, Ordering::Relaxed);
+            new_process
+        };
+        let procs = iter(pid_iter).flat_map(|(path, pid)| {
+            get_proc_and_tasks(path, pid, refresh_kind, processes_to_update)
+        });
+
+        // Each rayon job gets its own buffers.
+        #[cfg(feature = "multithread")]
+        let procs = procs
+            .map_init(|| ProcessBuffers::new(refresh_kind), get_process_data)
+            .flatten();
+        #[cfg(not(feature = "multithread"))]
+        let procs = {
+            let mut buffers = ProcessBuffers::new(refresh_kind);
+            procs.filter_map(move |e| get_process_data(&mut buffers, e))
+        };
+        procs.collect::<Vec<_>>()
     };
     for proc_ in procs {
         proc_list.insert(proc_.pid(), proc_);
