@@ -407,20 +407,23 @@ mod gpu {
     fn is_gpu_device(
         dir: &Dir,
         file_name: &[libc::c_char],
-        stat: &mut MaybeUninit<libc::stat>,
+        stat: &mut MaybeUninit<libc::statx>,
     ) -> bool {
         unsafe {
-            // Flags must be 0 so that we inspect the target of the `/proc/<pid>/fd` symlink.
-            if libc::fstatat(dir.dir_fd, file_name.as_ptr(), stat.as_mut_ptr(), 0) != 0 {
+            if libc::statx(
+                dir.dir_fd,
+                file_name.as_ptr(),
+                libc::AT_STATX_DONT_SYNC | libc::AT_NO_AUTOMOUNT,
+                libc::STATX_TYPE,
+                stat.as_mut_ptr(),
+            ) != 0
+            {
                 return false;
             }
 
             let stat = stat.assume_init_ref();
-            ((stat.st_mode as u32) & libc::S_IFMT as u32) == libc::S_IFCHR as u32
-                && matches!(
-                    libc::major(stat.st_rdev as libc::dev_t) as u32,
-                    DRM_MAJOR | ACCEL_MAJOR
-                )
+            (stat.stx_mode as u32 & libc::S_IFMT) == libc::S_IFCHR
+                && matches!(stat.stx_rdev_major, DRM_MAJOR | ACCEL_MAJOR)
         }
     }
 
@@ -567,7 +570,7 @@ mod gpu {
             let buf: MaybeUninit<[u8; 4096]> = MaybeUninit::uninit();
             // SAFETY: `openat` will initialize the values.
             let mut buf: [u8; 4096] = unsafe { buf.assume_init() };
-            let mut stat = MaybeUninit::<libc::stat>::uninit();
+            let mut stat = MaybeUninit::<libc::statx>::uninit();
             let mut gpus: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
 
             for file_name in dir_iter {
