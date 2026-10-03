@@ -692,6 +692,20 @@ mod gpu {
             gpu_info.gpu_usage = Some(0.);
         }
     }
+
+    extern crate test;
+
+    #[bench]
+    fn bench_gpu(b: &mut test::Bencher) {
+        let mut p = PathHandler::new("/proc/17169");
+        let mut gpu = GpuInfo::default();
+        let now = Instant::now();
+        let refresh_kind = ProcessRefreshKind::everything();
+
+        b.iter(|| {
+            compute_gpu_usage(&mut p, &mut gpu, now, refresh_kind);
+        });
+    }
 }
 
 pub(crate) fn compute_cpu_usage(p: &mut ProcessInner, total_time: f32, max_value: f32) {
