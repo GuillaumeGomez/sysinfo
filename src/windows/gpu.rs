@@ -4,9 +4,10 @@ use std::collections::HashMap;
 use std::mem::{MaybeUninit, zeroed};
 
 use windows::Wdk::Graphics::Direct3D::{
-    D3DKMT_ADAPTERADDRESS, D3DKMT_CLOSEADAPTER, D3DKMT_OPENADAPTERFROMLUID,
-    D3DKMT_QUERYADAPTERINFO, D3DKMTCloseAdapter, D3DKMTOpenAdapterFromLuid, D3DKMTQueryAdapterInfo,
-    KMTQAITYPE_ADAPTERADDRESS,
+    D3DKMT_ADAPTER_PERFDATA, D3DKMT_ADAPTERADDRESS, D3DKMT_CLOSEADAPTER,
+    D3DKMT_OPENADAPTERFROMLUID, D3DKMT_QUERYADAPTERINFO, D3DKMTCloseAdapter,
+    D3DKMTOpenAdapterFromLuid, D3DKMTQueryAdapterInfo, KMTQAITYPE_ADAPTERADDRESS,
+    KMTQAITYPE_ADAPTERPERFDATA,
 };
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     DIGCF_PRESENT, GUID_DEVCLASS_DISPLAY, HDEVINFO, SETUP_DI_REGISTRY_PROPERTY, SP_DEVINFO_DATA,
@@ -31,6 +32,7 @@ pub(crate) struct GpuInner {
     total_memory: Option<u64>,
     used_memory: Option<u64>,
     usage: Option<f32>,
+    temperature: Option<f32>,
     model: Option<String>,
     vendor: Option<String>,
     pci: PCI,
@@ -56,6 +58,9 @@ impl GpuInner {
     }
     pub(crate) fn used_memory(&self) -> Option<u64> {
         self.used_memory
+    }
+    pub(crate) fn temperature(&self) -> Option<f32> {
+        self.temperature
     }
 }
 
@@ -116,6 +121,7 @@ impl GpusInner {
                 let Ok(desc) = adapter.GetDesc1() else {
                     continue;
                 };
+                let luid_adapter = LUIDAdapter::new(desc.AdapterLuid);
                 let gpu = match self
                     .gpus
                     .iter_mut()
@@ -130,8 +136,9 @@ impl GpusInner {
                             pcis = get_all_pcis();
                         }
                         if let Some(ref pcis) = pcis
-                            && let Some(addr) = LUIDAdapter::new(desc.AdapterLuid)
-                                .and_then(|adapter| adapter.query())
+                            && let Some(addr) = luid_adapter
+                                .as_ref()
+                                .and_then(|adapter| adapter.address())
                             // Why not using the `addr` info instead of iterating through PCIs?
                             // Because it might return a "fake" GPU, and PCIs allow us to filter.
                             && let Some(pci) = pcis.iter().find(|pci| {
@@ -148,6 +155,7 @@ impl GpusInner {
                                 total_memory: None,
                                 used_memory: None,
                                 usage: None,
+                                temperature: None,
                                 updated: true,
                                 luid: desc.AdapterLuid,
                             };
@@ -160,6 +168,9 @@ impl GpusInner {
                 };
 
                 gpu.total_memory = Some(desc.DedicatedVideoMemory as u64);
+                gpu.temperature = luid_adapter
+                    .as_ref()
+                    .and_then(|adapter| adapter.temperature());
 
                 if let Ok(adapter3) = adapter.cast::<IDXGIAdapter3>() {
                     let mut mem = MaybeUninit::<DXGI_QUERY_VIDEO_MEMORY_INFO>::uninit();
@@ -386,7 +397,7 @@ impl LUIDAdapter {
         }
     }
 
-    unsafe fn query(self) -> Option<D3DKMT_ADAPTERADDRESS> {
+    unsafe fn address(&self) -> Option<D3DKMT_ADAPTERADDRESS> {
         let mut address = D3DKMT_ADAPTERADDRESS::default();
 
         let mut query = D3DKMT_QUERYADAPTERINFO {
@@ -399,6 +410,25 @@ impl LUIDAdapter {
         unsafe {
             if D3DKMTQueryAdapterInfo(&mut query).is_ok() {
                 Some(address)
+            } else {
+                None
+            }
+        }
+    }
+
+    unsafe fn temperature(&self) -> Option<f32> {
+        let mut perf_data = D3DKMT_ADAPTER_PERFDATA::default();
+
+        let mut query = D3DKMT_QUERYADAPTERINFO {
+            hAdapter: self.0.hAdapter,
+            Type: KMTQAITYPE_ADAPTERPERFDATA,
+            pPrivateDriverData: &mut perf_data as *mut _ as _,
+            PrivateDriverDataSize: size_of::<D3DKMT_ADAPTER_PERFDATA>() as u32,
+        };
+
+        unsafe {
+            if D3DKMTQueryAdapterInfo(&mut query).is_ok() && perf_data.Temperature != 0 {
+                Some(perf_data.Temperature as f32 / 10.0)
             } else {
                 None
             }
