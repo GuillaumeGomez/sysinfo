@@ -1,8 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use libc::{
-    self, CTL_NET, IFF_RUNNING, IFF_UP, NET_RT_IFLIST2, PF_ROUTE, RTM_IFINFO2, c_char, if_data64,
-    if_msghdr2, sysctl,
+    self, CTL_NET, IFF_RUNNING, IFF_UP, NET_RT_IFLIST2, PF_ROUTE, c_char, if_data64, if_msghdr2,
+    sysctl,
 };
 
 use std::collections::{HashMap, hash_map};
@@ -12,6 +12,7 @@ use std::os::unix::ffi::OsStringExt;
 use std::ptr::null_mut;
 
 use crate::network::refresh_networks_addresses;
+use crate::sys::ffi;
 use crate::{Error, InterfaceOperationalState, IpNetwork, MacAddr, NetworkData};
 
 #[inline]
@@ -88,10 +89,10 @@ impl NetworksInner {
         let mib2 = &mut [
             CTL_NET,
             libc::PF_LINK,
-            libc::NETLINK_GENERIC,
-            libc::IFMIB_IFDATA,
+            ffi::NETLINK_GENERIC,
+            ffi::IFMIB_IFDATA,
             0,
-            libc::IFDATA_GENERAL,
+            ffi::IFDATA_GENERAL,
         ];
 
         let mut len = 0;
@@ -129,7 +130,7 @@ impl NetworksInner {
             while next < lim {
                 let ifm = next as *const libc::if_msghdr;
                 next = next.offset((*ifm).ifm_msglen as isize);
-                if (*ifm).ifm_type == RTM_IFINFO2 as u8 {
+                if (*ifm).ifm_type == ffi::RTM_IFINFO2 as u8 {
                     // The interface (line description) name stored at ifname will be returned in
                     // the default coded character set identifier (CCSID) currently in effect for
                     // the job. If this is not a single byte CCSID, then storage greater than
@@ -158,14 +159,14 @@ impl NetworksInner {
                     // we originally got into `ifm.ifm_data`...
                     //
                     // Issue: https://github.com/GuillaumeGomez/sysinfo/issues/1378
-                    let mut mib_data: MaybeUninit<libc::ifmibdata> = MaybeUninit::uninit();
+                    let mut mib_data: MaybeUninit<ffi::ifmibdata> = MaybeUninit::uninit();
 
                     mib2[4] = (*if2m).ifm_index as _;
                     let ret = sysctl(
                         mib2.as_mut_ptr(),
                         mib2.len() as _,
                         mib_data.as_mut_ptr() as *mut _,
-                        &mut size_of::<libc::ifmibdata>(),
+                        &mut size_of::<ffi::ifmibdata>(),
                         null_mut(),
                         0,
                     );

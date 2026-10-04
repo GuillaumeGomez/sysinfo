@@ -1,6 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::cpu::*;
+use crate::sys::ffi;
 #[cfg(all(target_os = "macos", not(feature = "apple-sandbox")))]
 use crate::sys::process::*;
 use crate::sys::utils::{get_sys_value, get_sys_value_by_name};
@@ -132,8 +133,7 @@ fn get_now() -> u64 {
 impl SystemInner {
     pub(crate) fn new() -> Result<Self, Error> {
         unsafe {
-            #[allow(deprecated)]
-            let port = libc::mach_host_self();
+            let port = ffi::mach_host_self();
 
             Ok(Self {
                 process_list: HashMap::with_capacity(200),
