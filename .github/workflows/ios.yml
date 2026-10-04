@@ -1,0 +1,52 @@
+on:
+  pull_request:
+
+name: iOS simulator
+
+env:
+  RUSTFLAGS: -Dwarnings
+
+jobs:
+  check:
+    # `aarch64-apple-ios-sim` uses the same `target_os = "ios"` code as `aarch64-apple-ios`, but
+    # it can be built natively on macOS (arm64) runners using the Xcode SDK, no need for `cross`.
+    runs-on: macos-latest
+    name: Check iOS simulator (rust ${{ matrix.toolchain }})
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.95.0 # minimum supported rust version
+          targets: aarch64-apple-ios-sim
+      - name: Check
+        env:
+          TARGET: aarch64-apple-ios-sim
+        run: |
+          cargo rustc --target=$TARGET
+          cargo rustc --target=$TARGET --features=debug
+          cargo rustc --target=$TARGET --no-default-features --features=debug
+          cargo rustc --target=$TARGET --features=serde
+          cargo rustc --target=$TARGET --no-default-features --features=serde
+          echo "===== debug/serde features ====="
+          cargo rustc --target=$TARGET --no-default-features --features=debug,serde,system
+          cargo rustc --target=$TARGET --no-default-features --features=debug,serde,disk
+          cargo rustc --target=$TARGET --no-default-features --features=debug,serde,component
+          cargo rustc --target=$TARGET --no-default-features --features=debug,serde,network
+          cargo rustc --target=$TARGET --no-default-features --features=debug,serde,user
+          cargo rustc --target=$TARGET --no-default-features --features=debug,serde,gpu
+          echo "===== no-default-features ====="
+          cargo check --target=$TARGET --no-default-features
+          echo "===== features ====="
+          cargo check --target=$TARGET --no-default-features --features system
+          cargo check --target=$TARGET --no-default-features --features disk
+          cargo check --target=$TARGET --no-default-features --features component
+          cargo check --target=$TARGET --no-default-features --features network
+          cargo check --target=$TARGET --no-default-features --features user
+          cargo check --target=$TARGET --no-default-features --features gpu
+          echo "===== example ====="
+          cargo check --target=$TARGET --example simple
+          echo "===== Apple app store restrictions ====="
+          cargo check --target=$TARGET --features apple-sandbox
+          cargo check --target=$TARGET --features apple-sandbox --no-default-features
+          cargo check --target=$TARGET --no-default-features --features system,apple-sandbox
