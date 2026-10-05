@@ -68,6 +68,7 @@ cfg_select! {
         windows,
         target_os = "linux",
         target_os = "android",
+        target_os = "illumos",
         target_os = "macos",
         target_os = "ios",
     ),
