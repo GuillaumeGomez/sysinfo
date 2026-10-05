@@ -10,6 +10,8 @@ pub(crate) mod gpu;
 pub(crate) mod impl_get_set;
 #[cfg(feature = "network")]
 pub(crate) mod network;
+#[cfg(feature = "pci")]
+pub(crate) mod pci;
 #[cfg(feature = "system")]
 pub(crate) mod system;
 #[cfg(feature = "user")]

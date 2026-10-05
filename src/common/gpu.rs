@@ -1,9 +1,8 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{GpuInner, GpusInner};
+use crate::{GpuInner, GpusInner, PCIAddress};
 
 use std::cmp::Ordering;
-use std::fmt;
 
 /// Type containing GPU information.
 ///
@@ -122,78 +121,6 @@ impl<'a> IntoIterator for &'a Gpus {
     }
 }
 
-/// A PCI (Peripheral Component Interconnect) is an architecture used to identify and manage
-/// hardware devices.
-///
-/// It is returned by [`Gpu::pci`][crate::Gpu::pci].
-///
-/// If you want to understand in details what a PCI is, I recommend:
-/// <https://en.wikipedia.org/wiki/Peripheral_Component_Interconnect>.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-pub struct PCI {
-    /// A PCI domain, also called "segment".
-    pub domain: u32,
-    /// A PCI bus.
-    pub bus: u32,
-    /// A PCI device.
-    pub device: u32,
-    /// A PCI function.
-    pub function: u32,
-}
-
-impl fmt::Display for PCI {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let Self {
-            domain,
-            bus,
-            device,
-            function,
-        } = self;
-        write!(f, "{domain:04x}:{bus:02x}:{device:02x}.{function}")
-    }
-}
-
-impl core::str::FromStr for PCI {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        fn get_next_u32<'a>(
-            iter: &mut impl Iterator<Item = &'a str>,
-            missing_msg: &'static str,
-            invalid_msg: &'static str,
-        ) -> Result<u32, &'static str> {
-            let Some(value) = iter.next() else {
-                return Err(missing_msg);
-            };
-            value.parse::<u32>().map_err(|_| invalid_msg)
-        }
-
-        let mut iter = s.split(':');
-        let domain = get_next_u32(&mut iter, "missing domain", "invalid domain")?;
-        let bus = get_next_u32(&mut iter, "missing bus", "invalid bus")?;
-        let Some(last) = iter.next() else {
-            return Err("missing device");
-        };
-        if iter.next().is_some() {
-            return Err("unexpected `:` after bus");
-        };
-        let mut iter = last.split('.');
-        let device = get_next_u32(&mut iter, "missing device", "invalid device")?;
-        let function = get_next_u32(&mut iter, "missing function", "invalid function")?;
-        if iter.next().is_some() {
-            return Err("unexpected `:` after function");
-        };
-
-        Ok(Self {
-            domain,
-            bus,
-            device,
-            function,
-        })
-    }
-}
-
 /// Type containing GPU information.
 ///
 /// It is returned by [`Gpus`][crate::Gpus].
@@ -213,7 +140,7 @@ pub struct Gpu {
 
 impl PartialEq for Gpu {
     fn eq(&self, other: &Self) -> bool {
-        self.pci() == other.pci()
+        self.pci_address() == other.pci_address()
     }
 }
 
@@ -227,13 +154,13 @@ impl PartialOrd for Gpu {
 
 impl Ord for Gpu {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.pci().cmp(other.pci())
+        self.pci_address().cmp(other.pci_address())
     }
 }
 
 impl Gpu {
-    /// Returns the PCI of this GPU. Can be used as ID as it's unique to this GPU.
-    pub fn pci(&self) -> &PCI {
+    /// Returns the PCI Address of this GPU. Can be used as ID as it's unique to this GPU.
+    pub fn pci_address(&self) -> &PCIAddress {
         self.inner.pci()
     }
 

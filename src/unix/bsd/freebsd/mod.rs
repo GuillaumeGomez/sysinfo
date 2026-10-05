@@ -59,6 +59,14 @@ cfg_select! {
     }
     _ => {}
 }
+cfg_select! {
+    feature = "pci" => {
+        pub mod pci;
+
+        pub(crate) use self::pci::{PCIDeviceInner, PCIDevicesInner};
+    }
+    _ => {}
+}
 
 #[cfg(any(feature = "disk", feature = "system"))]
 pub mod ffi;
@@ -74,6 +82,8 @@ mod disk;
 mod motherboard;
 #[cfg(any())]
 mod network;
+#[cfg(any())]
+mod pci;
 #[cfg(any())]
 mod process;
 #[cfg(any())]

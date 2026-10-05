@@ -1,7 +1,7 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::sys::utils::{IOReleaser, MAIN_PORT};
-use crate::{Gpu, PCI};
+use crate::{Gpu, PCIAddress};
 
 use objc2_core_foundation::{
     CFData, CFDictionary, CFNumber, CFRange, CFRetained, CFString, kCFAllocatorDefault,
@@ -77,7 +77,7 @@ impl GpusInner {
                 ) && let Ok(prop_ref) = prop.downcast::<CFData>()
                     && let [domain, bus, device, func, ..] = prop_ref.as_bytes_unchecked()
                 {
-                    PCI {
+                    PCIAddress {
                         domain: *domain as _,
                         bus: *bus as _,
                         device: *device as _,
@@ -87,7 +87,7 @@ impl GpusInner {
                     continue;
                 };
 
-                let gpu = match self.gpus.iter_mut().find(|g| g.inner.pci == pci) {
+                let gpu = match self.gpus.iter_mut().find(|g| g.inner.pci_address == pci) {
                     Some(g) => {
                         g.inner.updated = true;
                         &mut g.inner
@@ -95,7 +95,7 @@ impl GpusInner {
                     None => {
                         self.gpus.push(Gpu {
                             inner: GpuInner {
-                                pci,
+                                pci_address: pci,
                                 model: None,
                                 vendor: None,
                                 usage: None,
@@ -181,7 +181,7 @@ unsafe fn is_gpu(device: io_object_t, class_code_key: &CFString) -> bool {
 }
 
 pub(crate) struct GpuInner {
-    pci: PCI,
+    pci_address: PCIAddress,
     vendor: Option<String>,
     model: Option<String>,
     usage: Option<f32>,
@@ -189,8 +189,8 @@ pub(crate) struct GpuInner {
 }
 
 impl GpuInner {
-    pub(crate) fn pci(&self) -> &PCI {
-        &self.pci
+    pub(crate) fn pci(&self) -> &PCIAddress {
+        &self.pci_address
     }
     pub(crate) fn vendor(&self) -> Option<&str> {
         self.vendor.as_deref()
