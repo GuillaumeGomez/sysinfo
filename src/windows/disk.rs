@@ -12,8 +12,8 @@ use windows::Win32::Foundation::{CloseHandle, MAX_PATH};
 use windows::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE,
     FILE_SHARE_READ, FILE_SHARE_WRITE, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose,
-    GetDiskFreeSpaceExW, GetDriveTypeW, GetFileInformationByHandle, GetVolumeInformationW,
-    GetVolumePathNamesForVolumeNameW, OPEN_EXISTING,
+    GetDiskFreeSpaceExW, GetDriveTypeW, GetFileInformationByHandle, GetLogicalDriveStringsW,
+    GetVolumeInformationW, GetVolumePathNamesForVolumeNameW, OPEN_EXISTING,
 };
 use windows::Win32::System::IO::DeviceIoControl;
 use windows::Win32::System::Ioctl::{
@@ -22,7 +22,7 @@ use windows::Win32::System::Ioctl::{
     StorageDeviceSeekPenaltyProperty,
 };
 use windows::Win32::System::SystemServices::FILE_READ_ONLY_VOLUME;
-use windows::Win32::System::WindowsProgramming::{DRIVE_FIXED, DRIVE_REMOVABLE};
+use windows::Win32::System::WindowsProgramming::{DRIVE_FIXED, DRIVE_REMOTE, DRIVE_REMOVABLE};
 use windows::core::{Error, HRESULT, PCWSTR};
 
 /// Creates a copy of the first zero-terminated wide string in `buf`.
@@ -133,7 +133,7 @@ pub(crate) struct DiskInner {
     available_space: u64,
     is_removable: bool,
     is_read_only: bool,
-    device_path: Vec<u16>,
+    device_path: Option<Vec<u16>>,
     old_written_bytes: u64,
     old_read_bytes: u64,
     written_bytes: u64,
@@ -155,7 +155,7 @@ impl Default for DiskInner {
             available_space: 0,
             is_removable: false,
             is_read_only: false,
-            device_path: Vec::new(),
+            device_path: None,
             old_written_bytes: 0,
             old_read_bytes: 0,
             written_bytes: 0,
@@ -205,8 +205,9 @@ impl DiskInner {
     pub(crate) fn refresh_specifics(&mut self, refreshes: DiskRefreshKind) -> bool {
         if refreshes.kind() || refreshes.io_usage() {
             unsafe {
-                if let Some(handle) =
-                    HandleWrapper::new_from_file(&self.device_path, Default::default())
+                if let Some(device_path) = &self.device_path
+                    && let Some(handle) =
+                        HandleWrapper::new_from_file(device_path, Default::default())
                 {
                     if refreshes.kind() && self.type_ == DiskKind::Unknown(-1) {
                         self.type_ = get_disk_kind(&handle);
@@ -301,6 +302,116 @@ unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {
         Some((total_size, available_space))
     } else {
         None
+    }
+}
+
+/// Returns the roots of all drive letters currently assigned on the system
+/// (`A:\`, `B:\`, ...), each zero terminated. Unlike `FindFirstVolumeW`, this
+/// also includes network mappings, which are not local volumes.
+unsafe fn get_logical_drive_roots() -> Vec<Vec<u16>> {
+    // First call with a null buffer to query the required size (in `u16`s),
+    // including the final null terminator.
+    let needed = unsafe { GetLogicalDriveStringsW(None) };
+    if needed == 0 {
+        return Vec::new();
+    }
+    let mut buf = vec![0u16; needed as usize];
+    if unsafe { GetLogicalDriveStringsW(Some(&mut buf)) } == 0 {
+        return Vec::new();
+    }
+    split_drive_roots(&buf)
+}
+
+/// Splits the double-null-terminated drive list returned by
+/// `GetLogicalDriveStringsW` into individual zero-terminated roots.
+fn split_drive_roots(buf: &[u16]) -> Vec<Vec<u16>> {
+    let mut roots = Vec::new();
+    for root in buf.split(|&c| c == 0) {
+        if root.is_empty() {
+            continue;
+        }
+        let mut root = root.to_vec();
+        root.push(0);
+        roots.push(root);
+    }
+    roots
+}
+
+/// Adds network-mapped drives (`GetDriveTypeW` == `DRIVE_REMOTE`) to `disks`.
+/// The volume enumeration above skips them since they are not local volumes,
+/// but they are still filesystems the user can see and fill up.
+unsafe fn get_mapped_drives(disks: &mut Vec<Disk>, refreshes: DiskRefreshKind) {
+    for root in unsafe { get_logical_drive_roots() } {
+        let raw_root = PCWSTR::from_raw(root.as_ptr());
+        if unsafe { GetDriveTypeW(raw_root) } != DRIVE_REMOTE {
+            continue;
+        }
+
+        let mut name = [0u16; MAX_PATH as usize + 1];
+        let mut file_system = [0u16; 32];
+        let mut flags = 0;
+        if unsafe {
+            GetVolumeInformationW(
+                raw_root,
+                Some(&mut name),
+                None,
+                None,
+                Some(&mut flags),
+                Some(&mut file_system),
+            )
+        }
+        .is_err()
+        {
+            // Disconnected or inaccessible mappings are skipped.
+            sysinfo_debug!(
+                "Error: GetVolumeInformationW = {:?}",
+                Error::from_thread().code()
+            );
+            continue;
+        }
+
+        let name = os_string_from_zero_terminated(&name);
+        let file_system = os_string_from_zero_terminated(&file_system);
+
+        // A drive we can't report sizes for is of no use: skip it (this also
+        // filters out mappings to unreachable shares).
+        let Some((total_space, available_space)) = (unsafe { get_drive_size(&root) }) else {
+            sysinfo_debug!("Error: GetDiskFreeSpaceExW failed for a mapped drive");
+            continue;
+        };
+
+        if let Some(disk) = disks
+            .iter_mut()
+            .find(|d| d.inner.mount_point == root && d.inner.file_system == file_system)
+        {
+            disk.refresh_specifics(refreshes);
+            disk.inner.updated = true;
+            continue;
+        }
+
+        let mut disk = DiskInner {
+            type_: DiskKind::Unknown(-1),
+            name,
+            volume_serial_number: None,
+            file_system: file_system.clone(),
+            s_mount_point: OsString::from_wide(&root[..root.len() - 1]),
+            mount_point: root.clone(),
+            total_space,
+            available_space,
+            is_removable: false,
+            is_read_only: (flags & FILE_READ_ONLY_VOLUME) != 0,
+            // A mapped drive has no local device, so the IOCTL probes in
+            // `refresh_specifics` are not attempted and the kind stays
+            // `Unknown`.
+            device_path: None,
+            old_read_bytes: 0,
+            old_written_bytes: 0,
+            read_bytes: 0,
+            written_bytes: 0,
+            updated: true,
+        };
+        disk.refresh_specifics(refreshes);
+        disks.push(Disk { inner: disk });
     }
 }
 
@@ -403,7 +514,7 @@ pub(crate) unsafe fn get_list(
                 available_space: 0,
                 is_removable,
                 is_read_only,
-                device_path: device_path.clone(),
+                device_path: Some(device_path.clone()),
                 old_read_bytes: 0,
                 old_written_bytes: 0,
                 read_bytes: 0,
@@ -413,6 +524,10 @@ pub(crate) unsafe fn get_list(
             disk.refresh_specifics(refreshes);
             disks.push(Disk { inner: disk });
         }
+    }
+
+    unsafe {
+        get_mapped_drives(disks, refreshes);
     }
 
     if remove_not_listed_disks {
@@ -498,4 +613,29 @@ fn get_disk_io(handle: HandleWrapper) -> Option<(u64, u64)> {
         disk_perf.BytesRead.try_into().ok()?,
         disk_perf.BytesWritten.try_into().ok()?,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_split_drive_roots() {
+        // "C:\" and "D:\" followed by the final null terminator.
+        let buf = [
+            b'C' as u16,
+            b':' as u16,
+            b'\\' as u16,
+            0,
+            b'D' as u16,
+            b':' as u16,
+            b'\\' as u16,
+            0,
+            0,
+        ];
+        let roots = split_drive_roots(&buf);
+        assert_eq!(roots.len(), 2);
+        assert_eq!(roots[0], [b'C' as u16, b':' as u16, b'\\' as u16, 0]);
+        assert_eq!(roots[1], [b'D' as u16, b':' as u16, b'\\' as u16, 0]);
+    }
 }
