@@ -14,7 +14,7 @@ edition = "2024"
 name = "sysinfo"
 
 [features]
-default = ["component", "disk", "gpu", "network", "system", "user"]
+default = ["component", "disk", "gpu", "network", "system", "user", "pci"]
 component = [
     "dep:windows",
     "windows/Win32_Foundation",
@@ -110,9 +110,12 @@ user = [
     "windows/Win32_Security",
     "windows/Win32_Security_Authentication_Identity",
     "windows/Win32_Security_Authorization",
-    "dep:objc2-core-foundation",    
+    "dep:objc2-core-foundation",
     "objc2-core-foundation/CFString",
     "dep:objc2-open-directory",
+]
+pci = [
+    
 ]
 apple-sandbox = []
 apple-app-store = ["apple-sandbox"]
@@ -169,7 +172,7 @@ objc2-io-kit = { version = "0.3.2", optional = true, default-features = false, f
 objc2-open-directory = { version = "0.3.2", optional = true, default-features = false, features = [
     "objc2-core-foundation",
     "std",
-    "CFODNode", 
+    "CFODNode",
     "CFODSession",
     "CFODQuery",
     "CFODRecord",

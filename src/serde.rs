@@ -514,7 +514,7 @@ impl Serialize for crate::Gpu {
         S: Serializer,
     {
         let fields: Vec<Box<SerializeField<S>>> = vec![
-            Box::new(|s| s.serialize_field("pci", &self.pci())),
+            Box::new(|s| s.serialize_field("pci", &self.pci_address())),
             Box::new(|s| s.serialize_field("vendor", &self.vendor())),
             Box::new(|s| s.serialize_field("model", &self.model())),
             Box::new(|s| s.serialize_field("usage", &self.usage())),

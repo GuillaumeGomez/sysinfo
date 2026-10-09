@@ -6,7 +6,7 @@ use std::fs::{File, read_dir};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::Path;
 
-use crate::{Gpu, PCI};
+use crate::{Gpu, PciAddress};
 
 pub(crate) struct GpusInner {
     pub(crate) gpus: Vec<Gpu>,
@@ -38,12 +38,12 @@ pub(crate) struct GpuInner {
     usage: Option<f32>,
     model: Option<String>,
     vendor: String,
-    pci: PCI,
+    pci: PciAddress,
     pub(crate) updated: bool,
 }
 
 impl GpuInner {
-    fn new(pci: PCI, vendor: &str, model: Option<&String>) -> Self {
+    fn new(pci: PciAddress, vendor: &str, model: Option<&String>) -> Self {
         Self {
             total_memory: None,
             used_memory: None,
@@ -55,7 +55,7 @@ impl GpuInner {
         }
     }
 
-    pub(crate) fn pci(&self) -> &PCI {
+    pub(crate) fn pci(&self) -> &PciAddress {
         &self.pci
     }
     pub(crate) fn vendor(&self) -> Option<&str> {
@@ -93,7 +93,7 @@ impl GpusInner {
     ) -> Option<(&str, Option<&HashMap<u32, String>>)> {
         match self.device_map.get(&vendor_id) {
             Some(devices) => Some((&devices.name, Some(&devices.devices))),
-            None => crate::utils::gpu_vendor_name(vendor_id).map(|vendor| (vendor, None)),
+            None => crate::utils::pci_vendor_name(vendor_id as u16).map(|vendor| (vendor, None)),
         }
     }
 
@@ -132,11 +132,12 @@ impl GpusInner {
                 continue;
             }
             let device = entry.path().join("device");
-            let Some(pci) = device
-                .read_link()
-                .ok()
-                .and_then(|path| path.file_name()?.to_string_lossy().parse::<PCI>().ok())
-            else {
+            let Some(pci) = device.read_link().ok().and_then(|path| {
+                path.file_name()?
+                    .to_string_lossy()
+                    .parse::<PciAddress>()
+                    .ok()
+            }) else {
                 continue;
             };
             // If this GPU is already in our GPU list, no need to re-add it.
@@ -502,8 +503,8 @@ mod nvidia {
                         continue;
                     }
                     let pci_info = pci_info.assume_init();
-                    let Some(pci) =
-                        convert_to_str(&pci_info.bus_id).and_then(|pci| pci.parse::<PCI>().ok())
+                    let Some(pci) = convert_to_str(&pci_info.bus_id)
+                        .and_then(|pci| pci.parse::<PciAddress>().ok())
                     else {
                         continue;
                     };
@@ -1004,7 +1005,7 @@ mod vulkan {
 
                     // Format the extracted PCI string explicitly to match `NVML`/`sys/drm`
                     // format.
-                    let pci = PCI {
+                    let pci = PciAddress {
                         domain: pci_properties.pci_domain,
                         bus: pci_properties.pci_bus,
                         device: pci_properties.pci_device,

@@ -60,6 +60,15 @@ cfg_select! {
     }
     _ => {}
 }
+cfg_select! {
+    feature = "pci" => {
+        pub mod pci;
+
+        pub(crate) use self::pci::{PciDeviceInner};
+        pub(crate) use crate::unix::PciDevicesInner;
+    }
+    _ => {}
+}
 
 #[doc = include_str!("../../../md_doc/is_supported.md")]
 pub const IS_SUPPORTED_SYSTEM: bool = true;
@@ -79,6 +88,8 @@ mod gpu;
 mod motherboard;
 #[cfg(any())]
 mod network;
+#[cfg(any())]
+mod pci;
 #[cfg(any())]
 mod process;
 #[cfg(any())]

@@ -2,11 +2,28 @@
 
 #[cfg(feature = "system")]
 use std::ffi::OsStr;
-#[cfg(any(feature = "disk", feature = "system"))]
+#[cfg(any(
+    feature = "disk",
+    feature = "system",
+    feature = "network",
+    feature = "pci"
+))]
 use std::fs::File;
+#[cfg(any(
+    feature = "disk",
+    feature = "system",
+    feature = "network",
+    feature = "pci"
+))]
+use std::io::Read;
 #[cfg(any(feature = "disk", feature = "system"))]
-use std::io::{self, Read};
-#[cfg(any(feature = "disk", feature = "system"))]
+use std::io::{self};
+#[cfg(any(
+    feature = "disk",
+    feature = "system",
+    feature = "network",
+    feature = "pci"
+))]
 use std::path::Path;
 
 #[cfg(feature = "system")]
@@ -120,4 +137,80 @@ pub(crate) fn to_cpath(path: &std::path::Path) -> Vec<u8> {
     let mut cpath = path_os.as_bytes().to_vec();
     cpath.push(0);
     cpath
+}
+
+#[cfg(feature = "network")]
+pub(crate) fn read<P: AsRef<Path>>(parent: P, path: &str, data: &mut [u8]) -> u64 {
+    if let Ok(mut f) = File::open(parent.as_ref().join(path))
+        && let Ok(size) = f.read(data)
+    {
+        let mut i = 0;
+        let mut ret = 0;
+
+        while i < size && i < data.len() && data[i] >= b'0' && data[i] <= b'9' {
+            ret *= 10;
+            ret += (data[i] - b'0') as u64;
+            i += 1;
+        }
+        return ret;
+    }
+    0
+}
+
+#[cfg(feature = "network")]
+pub(crate) fn read_signed<P: AsRef<Path>>(parent: P, path: &str, data: &mut [u8]) -> i64 {
+    if let Ok(mut f) = File::open(parent.as_ref().join(path))
+        && let Ok(size) = f.read(data)
+    {
+        let mut i = 0;
+        let mut ret = 0;
+
+        let negative = i < size && data[i] == b'-';
+        if negative {
+            i += 1;
+        }
+
+        while i < size && i < data.len() && data[i] >= b'0' && data[i] <= b'9' {
+            ret *= 10;
+            ret += (data[i] - b'0') as i64;
+            i += 1;
+        }
+        return if negative { -ret } else { ret };
+    }
+    i64::MIN
+}
+
+#[cfg(feature = "pci")]
+pub(crate) fn read_hex<P: AsRef<Path>>(parent: P, path: &str, data: &mut [u8]) -> u64 {
+    if let Ok(mut f) = File::open(parent.as_ref().join(path))
+        && let Ok(size) = f.read(data)
+        && size >= 3
+        && data.len() >= 3
+        && let Ok(str) = str::from_utf8(&data[..size])
+        && let Some(str) = str.strip_prefix("0x")
+    {
+        return u64::from_str_radix(str.trim(), 16).unwrap_or(0);
+    }
+    0
+}
+
+// `read_str` clears and refills the Vec, so its length becomes the length of
+// the string just read. For example, reading "up\n" leaves the Vec length at 3.
+// Keep this buffer separate from numeric read buffers, otherwise counters could
+// be truncated to a few bytes.
+#[allow(clippy::ptr_arg)]
+#[cfg(feature = "network")]
+pub(crate) fn read_str<'data, P: AsRef<Path>>(
+    parent: P,
+    path: &str,
+    data: &'data mut Vec<u8>,
+) -> &'data [u8] {
+    data.clear();
+    if let Ok(mut f) = File::open(parent.as_ref().join(path))
+        && let Ok(size) = f.read_to_end(data)
+    {
+        &mut data[..size]
+    } else {
+        b""
+    }
 }
