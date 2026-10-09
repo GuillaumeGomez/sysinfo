@@ -94,7 +94,7 @@ pub use crate::common::network::{
     NetworkData, Networks,
 };
 #[cfg(feature = "pci")]
-pub use crate::common::pci::{PCIAddress, PCIDevice, PCIDevices};
+pub use crate::common::pci::{PciDevice, PciDeviceClass, PciDevices};
 #[cfg(feature = "system")]
 pub use crate::common::system::{
     CGroupLimits, Cpu, CpuRefreshKind, KillError, LoadAvg, MemoryRefreshKind, Motherboard, Pid,
@@ -110,6 +110,8 @@ pub use crate::sys::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
 
 #[cfg(any(feature = "system", feature = "disk"))]
 pub use crate::common::DiskUsage;
+#[cfg(any(feature = "pci", feature = "gpu"))]
+pub use crate::common::PciAddress;
 
 #[cfg(feature = "user")]
 pub(crate) use crate::common::user::GroupInner;
@@ -126,7 +128,7 @@ pub(crate) use crate::sys::{GpuInner, GpusInner};
 #[cfg(feature = "network")]
 pub(crate) use crate::sys::{NetworkDataInner, NetworksInner};
 #[cfg(feature = "pci")]
-pub(crate) use crate::sys::{PCIDeviceInner, PCIDevicesInner};
+pub(crate) use crate::sys::{PciDeviceInner, PciDevicesInner};
 
 pub use crate::errors::Error;
 pub use crate::sys::IS_SUPPORTED_SYSTEM;

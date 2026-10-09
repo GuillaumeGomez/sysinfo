@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{GpuInner, GpusInner, PCIAddress};
+use crate::{GpuInner, GpusInner, PciAddress};
 
 use std::cmp::Ordering;
 
@@ -160,7 +160,7 @@ impl Ord for Gpu {
 
 impl Gpu {
     /// Returns the PCI Address of this GPU. Can be used as ID as it's unique to this GPU.
-    pub fn pci_address(&self) -> &PCIAddress {
+    pub fn pci_address(&self) -> &PciAddress {
         self.inner.pci()
     }
 

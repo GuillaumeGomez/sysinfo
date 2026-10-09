@@ -63,7 +63,7 @@ cfg_select! {
     feature = "pci" => {
         pub mod pci;
 
-        pub(crate) use self::pci::{PCIDevicesInner, PCIDeviceInner};
+        pub(crate) use self::pci::{PciDevicesInner, PciDeviceInner};
     }
     _ => {}
 }

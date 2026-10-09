@@ -64,6 +64,25 @@ cfg_select! {
     _ => {}
 }
 
+cfg_select! {
+    feature = "pci" => {
+        pub(crate) struct PciDevicesInner {
+            pub(crate) pci_devices: Vec<crate::PciDevice>,
+        }
+
+        impl PciDevicesInner {
+            pub(crate) fn from_vec(pci_devices: Vec<crate::PciDevice>) -> Self {
+                Self { pci_devices }
+            }
+
+            pub(crate) fn into_vec(self) -> Vec<crate::PciDevice> {
+                self.pci_devices
+            }
+        }
+    }
+    _ => {}
+}
+
 pub(crate) mod utils;
 
 // Make formattable by rustfmt.

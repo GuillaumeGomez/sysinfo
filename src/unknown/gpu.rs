@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::{Gpu, PCIAddress};
+use crate::{Gpu, PciAddress};
 
 pub(crate) struct GpusInner {
     pub(crate) gpus: Vec<Gpu>,
@@ -21,7 +21,7 @@ pub(crate) struct GpuInner {
 }
 
 impl GpuInner {
-    pub(crate) fn pci(&self) -> &PCIAddress {
+    pub(crate) fn pci(&self) -> &PciAddress {
         unreachable!()
     }
     pub(crate) fn vendor(&self) -> Option<&str> {

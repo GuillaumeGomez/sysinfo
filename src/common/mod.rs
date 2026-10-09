@@ -60,6 +60,77 @@ pub struct DiskUsage {
     pub read_bytes: u64,
 }
 
+/// Unique id for PCI devices on a system.
+///
+/// It is returned by [`Gpu::pci_address`][crate::Gpu::pci_address] and [`PciDevice::address`].
+#[cfg(any(feature = "pci", feature = "gpu"))]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct PciAddress {
+    /// A PCI domain, also called "segment".
+    pub domain: u32,
+    /// A PCI bus.
+    pub bus: u32,
+    /// A PCI device.
+    pub device: u32,
+    /// A PCI function.
+    pub function: u32,
+}
+
+#[cfg(any(feature = "pci", feature = "gpu"))]
+impl std::fmt::Display for PciAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let Self {
+            domain,
+            bus,
+            device,
+            function,
+        } = self;
+        write!(f, "{domain:04x}:{bus:02x}:{device:02x}.{function}")
+    }
+}
+
+#[cfg(any(feature = "pci", feature = "gpu"))]
+impl core::str::FromStr for PciAddress {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        fn get_next_u32<'a>(
+            iter: &mut impl Iterator<Item = &'a str>,
+            missing_msg: &'static str,
+            invalid_msg: &'static str,
+        ) -> Result<u32, &'static str> {
+            let Some(value) = iter.next() else {
+                return Err(missing_msg);
+            };
+            u32::from_str_radix(value, 16).map_err(|_| invalid_msg)
+        }
+
+        let mut iter = s.split(':');
+        let domain = get_next_u32(&mut iter, "missing domain", "invalid domain")?;
+        let bus = get_next_u32(&mut iter, "missing bus", "invalid bus")?;
+        let Some(last) = iter.next() else {
+            return Err("missing device");
+        };
+        if iter.next().is_some() {
+            return Err("unexpected `:` after bus");
+        };
+        let mut iter = last.split('.');
+        let device = get_next_u32(&mut iter, "missing device", "invalid device")?;
+        let function = get_next_u32(&mut iter, "missing function", "invalid function")?;
+        if iter.next().is_some() {
+            return Err("unexpected `:` after function");
+        };
+
+        Ok(Self {
+            domain,
+            bus,
+            device,
+            function,
+        })
+    }
+}
+
 macro_rules! xid {
     ($(#[$outer:meta])+ $name:ident, $type:ty $(, $trait:ty)?) => {
         #[cfg(any(feature = "system", feature = "user"))]

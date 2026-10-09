@@ -62,7 +62,7 @@ cfg_select! {
 }
 
 #[cfg(all(
-    feature = "gpu",
+    any(feature = "gpu", feature = "pci"),
     not(feature = "unknown-ci"),
     any(
         windows,
@@ -72,6 +72,6 @@ cfg_select! {
         target_os = "ios",
     ),
 ))]
-pub(crate) fn gpu_vendor_name(vendor_id: u32) -> Option<&'static str> {
+pub(crate) fn pci_vendor_name(vendor_id: u16) -> Option<&'static str> {
     include!("pcis.rs")
 }
