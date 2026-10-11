@@ -31,7 +31,7 @@ fn refresh_pci_devices_list_from_sysfs(
         let vendor_name = pci_vendor_name(vendor).map(|v| v.to_string());
         let device = read_hex(parent, "device", &mut num_buf) as u16;
         let subsystem_vendor = read_hex(parent, "subsystem_vendor", &mut num_buf) as u16;
-        let subsystem_vendor_name = pci_vendor_name(vendor).map(|v| v.to_string());
+        let subsystem_vendor_name = pci_vendor_name(subsystem_vendor).map(|v| v.to_string());
         let subsystem_device = read_hex(parent, "subsystem_device", &mut num_buf) as u16;
         let class = PciDeviceClass::from(read_hex(parent, "class", &mut num_buf) as u32);
         let revision = read_hex(parent, "revision", &mut num_buf) as u8;

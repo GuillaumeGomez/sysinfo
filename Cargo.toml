@@ -115,7 +115,11 @@ user = [
     "dep:objc2-open-directory",
 ]
 pci = [
-    
+    "dep:objc2-core-foundation",
+    "objc2-core-foundation/CFDictionary",
+    "objc2-core-foundation/CFNumber",
+    "objc2-core-foundation/CFString",
+    "dep:objc2-io-kit",
 ]
 apple-sandbox = []
 apple-app-store = ["apple-sandbox"]

@@ -28,7 +28,7 @@ impl PciDevices {
     /// ```no_run
     /// use sysinfo::PciDevices;
     ///
-    /// if let Ok(&mut pci_devices) = PciDevices::new() {
+    /// if let Ok(mut pci_devices) = PciDevices::new() {
     ///     pci_devices.refresh(false);
     ///     for pci_device in pci_devices.list() {
     ///         println!("{}", pci_device.address());
@@ -178,7 +178,7 @@ impl PciDevice {
     ///
     /// if let Ok(pci_devices) = PciDevices::new_with_refreshed_list() {
     ///     for pci_device in pci_devices.list() {
-    ///         println!("{}", pci_device.vendor_id());
+    ///         println!("{:04x}", pci_device.vendor_id());
     ///     }
     /// }
     /// ```
@@ -212,7 +212,7 @@ impl PciDevice {
     ///
     /// if let Ok(pci_devices) = PciDevices::new_with_refreshed_list() {
     ///     for pci_device in pci_devices.list() {
-    ///         println!("{}", pci_device.device_id());
+    ///         println!("{:04x}", pci_device.device_id());
     ///     }
     /// }
     /// ```
@@ -230,7 +230,7 @@ impl PciDevice {
     ///
     /// if let Ok(pci_devices) = PciDevices::new_with_refreshed_list() {
     ///     for pci_device in pci_devices.list() {
-    ///         println!("{}", pci_device.subsystem_vendor_id());
+    ///         println!("{:04x}", pci_device.subsystem_vendor_id());
     ///     }
     /// }
     /// ```
@@ -268,7 +268,7 @@ impl PciDevice {
     ///
     /// if let Ok(pci_devices) = PciDevices::new_with_refreshed_list() {
     ///     for pci_device in pci_devices.list() {
-    ///         println!("{}", pci_device.subsystem_device_id());
+    ///         println!("{:04x}", pci_device.subsystem_device_id());
     ///     }
     /// }
     /// ```
@@ -307,6 +307,8 @@ impl PciDevice {
     }
 
     /// Returns the path to driver used by the PCI device.
+    ///
+    /// ⚠️ Not implemented on macOS.
     ///
     /// ```no_run
     /// use sysinfo::PciDevices;
