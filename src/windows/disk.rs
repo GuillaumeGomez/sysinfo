@@ -338,8 +338,11 @@ fn split_drive_roots(buf: &[u16]) -> Vec<Vec<u16>> {
 }
 
 /// Adds network-mapped drives (`GetDriveTypeW` == `DRIVE_REMOTE`) to `disks`.
-/// The volume enumeration above skips them since they are not local volumes,
-/// but they are still filesystems the user can see and fill up.
+///
+/// The volume enumeration above is based on `FindFirstVolumeW`, which only lists local
+/// volumes and provides the volume GUID path needed to open a device handle for the IOCTL
+/// probes. `GetLogicalDriveStringsW` is used here on purpose: it also reports the drive
+/// letters of network mappings, which are not local volumes and would otherwise be invisible.
 unsafe fn get_mapped_drives(disks: &mut Vec<Disk>, refreshes: DiskRefreshKind) {
     for root in unsafe { get_logical_drive_roots() } {
         let raw_root = PCWSTR::from_raw(root.as_ptr());
@@ -526,8 +529,10 @@ pub(crate) unsafe fn get_list(
         }
     }
 
-    unsafe {
-        get_mapped_drives(disks, refreshes);
+    if refreshes.remote() {
+        unsafe {
+            get_mapped_drives(disks, refreshes);
+        }
     }
 
     if remove_not_listed_disks {
