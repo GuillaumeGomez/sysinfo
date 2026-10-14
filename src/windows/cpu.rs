@@ -560,7 +560,16 @@ pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
 
 #[cfg(all(not(target_arch = "x86_64"), not(target_arch = "x86")))]
 pub(crate) fn get_vendor_id_and_brand(info: &SYSTEM_INFO) -> (String, String) {
-    (get_vendor_id_not_great(info), String::new())
+    use crate::sys::system::get_reg_string_value;
+    use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
+
+    const HKEY_PROCESSOR: &str = r"HARDWARE\DESCRIPTION\System\CentralProcessor\0";
+
+    let vendor_id = get_reg_string_value(HKEY_LOCAL_MACHINE, HKEY_PROCESSOR, "VendorIdentifier")
+        .unwrap_or_else(|| get_vendor_id_not_great(info));
+    let brand = get_reg_string_value(HKEY_LOCAL_MACHINE, HKEY_PROCESSOR, "ProcessorNameString")
+        .unwrap_or_default();
+    (vendor_id, brand)
 }
 
 #[inline]
