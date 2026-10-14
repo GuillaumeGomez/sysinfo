@@ -36,7 +36,7 @@ impl PciDeviceInner {
         unreachable!()
     }
 
-    pub(crate) fn vendor_id(&self) -> u16 {
+    pub(crate) fn vendor_id(&self) -> Option<u16> {
         unreachable!()
     }
 
@@ -44,11 +44,11 @@ impl PciDeviceInner {
         unreachable!()
     }
 
-    pub(crate) fn device_id(&self) -> u16 {
+    pub(crate) fn device_id(&self) -> Option<u16> {
         unreachable!()
     }
 
-    pub(crate) fn subsystem_vendor_id(&self) -> u16 {
+    pub(crate) fn subsystem_vendor_id(&self) -> Option<u16> {
         unreachable!()
     }
 
@@ -56,7 +56,7 @@ impl PciDeviceInner {
         unreachable!()
     }
 
-    pub(crate) fn subsystem_device_id(&self) -> u16 {
+    pub(crate) fn subsystem_device_id(&self) -> Option<u16> {
         unreachable!()
     }
 
@@ -64,7 +64,7 @@ impl PciDeviceInner {
         unreachable!()
     }
 
-    pub(crate) fn revision(&self) -> u8 {
+    pub(crate) fn revision(&self) -> Option<u8> {
         unreachable!()
     }
 

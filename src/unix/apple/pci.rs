@@ -47,17 +47,19 @@ fn refresh_pci_devices_from_ioreg(devices: &mut Vec<PciDevice>, remove_not_liste
                 continue;
             };
 
-            let vendor_id = read_property_u32(entry, &vendor_id_key).unwrap_or(0) as u16;
-            let device_id = read_property_u32(entry, &device_id_key).unwrap_or(0) as u16;
+            let vendor_id = read_property_u32(entry, &vendor_id_key).map(|v| v as u16);
+            let device_id = read_property_u32(entry, &device_id_key).map(|v| v as u16);
             let subsystem_vendor_id =
-                read_property_u32(entry, &subsystem_vendor_id_key).unwrap_or(0) as u16;
+                read_property_u32(entry, &subsystem_vendor_id_key).map(|v| v as u16);
             let subsystem_device_id =
-                read_property_u32(entry, &subsystem_device_id_key).unwrap_or(0) as u16;
-            let class = PciDeviceClass::from(read_property_u32(entry, &class_key).unwrap_or(0));
-            let revision = read_property_u32(entry, &revision_key).unwrap_or(0) as u8;
+                read_property_u32(entry, &subsystem_device_id_key).map(|v| v as u16);
+            let class = read_property_u32(entry, &class_key).map(PciDeviceClass::from);
+            let revision = read_property_u32(entry, &revision_key).map(|v| v as u8);
 
-            let vendor_name = pci_vendor_name(vendor_id).map(|v| v.to_string());
-            let subsystem_vendor_name = pci_vendor_name(subsystem_vendor_id).map(|v| v.to_string());
+            let vendor_name = vendor_id.and_then(pci_vendor_name).map(str::to_string);
+            let subsystem_vendor_name = subsystem_vendor_id
+                .and_then(pci_vendor_name)
+                .map(str::to_string);
 
             if let Some(existing_device) =
                 devices.iter_mut().find(|d| d.inner.address == pci_address)
@@ -162,14 +164,14 @@ unsafe fn read_property_data(entry: io_registry_entry_t, key: &CFString) -> Opti
 #[allow(clippy::too_many_arguments)]
 fn new_pci_device(
     address: PciAddress,
-    vendor_id: u16,
+    vendor_id: Option<u16>,
     vendor_name: Option<String>,
-    device: u16,
-    subsystem_vendor_id: u16,
+    device: Option<u16>,
+    subsystem_vendor_id: Option<u16>,
     subsystem_vendor_name: Option<String>,
-    subsystem_device: u16,
-    class: PciDeviceClass,
-    revision: u8,
+    subsystem_device: Option<u16>,
+    class: Option<PciDeviceClass>,
+    revision: Option<u8>,
 ) -> PciDevice {
     PciDevice {
         inner: PciDeviceInner {
@@ -209,14 +211,14 @@ impl PciDevicesInner {
 
 pub(crate) struct PciDeviceInner {
     address: PciAddress,
-    vendor_id: u16,
+    vendor_id: Option<u16>,
     vendor_name: Option<String>,
-    subsystem_vendor_id: u16,
+    subsystem_vendor_id: Option<u16>,
     subsystem_vendor_name: Option<String>,
-    device: u16,
-    subsystem_device: u16,
-    class: PciDeviceClass,
-    revision: u8,
+    device: Option<u16>,
+    subsystem_device: Option<u16>,
+    class: Option<PciDeviceClass>,
+    revision: Option<u8>,
     updated: bool,
 }
 
@@ -225,7 +227,7 @@ impl PciDeviceInner {
         &self.address
     }
 
-    pub(crate) fn vendor_id(&self) -> u16 {
+    pub(crate) fn vendor_id(&self) -> Option<u16> {
         self.vendor_id
     }
 
@@ -233,11 +235,11 @@ impl PciDeviceInner {
         self.vendor_name.as_deref()
     }
 
-    pub(crate) fn device_id(&self) -> u16 {
+    pub(crate) fn device_id(&self) -> Option<u16> {
         self.device
     }
 
-    pub(crate) fn subsystem_vendor_id(&self) -> u16 {
+    pub(crate) fn subsystem_vendor_id(&self) -> Option<u16> {
         self.subsystem_vendor_id
     }
 
@@ -245,15 +247,15 @@ impl PciDeviceInner {
         self.subsystem_vendor_name.as_deref()
     }
 
-    pub(crate) fn subsystem_device_id(&self) -> u16 {
+    pub(crate) fn subsystem_device_id(&self) -> Option<u16> {
         self.subsystem_device
     }
 
-    pub(crate) fn class(&self) -> &PciDeviceClass {
-        &self.class
+    pub(crate) fn class(&self) -> Option<&PciDeviceClass> {
+        self.class.as_ref()
     }
 
-    pub(crate) fn revision(&self) -> u8 {
+    pub(crate) fn revision(&self) -> Option<u8> {
         self.revision
     }
 

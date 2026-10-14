@@ -25,12 +25,12 @@ impl PciDevicesInner {
 
 pub(crate) struct PciDeviceInner {}
 
-impl PciDeviceInner {
+impl crate::sys::PciDeviceInner {
     pub(crate) fn address(&self) -> &PciAddress {
         todo!()
     }
 
-    pub(crate) fn vendor_id(&self) -> u16 {
+    pub(crate) fn vendor_id(&self) -> Option<u16> {
         todo!()
     }
 
@@ -38,11 +38,11 @@ impl PciDeviceInner {
         todo!()
     }
 
-    pub(crate) fn device_id(&self) -> u16 {
+    pub(crate) fn device_id(&self) -> Option<u16> {
         todo!()
     }
 
-    pub(crate) fn subsystem_vendor_id(&self) -> u16 {
+    pub(crate) fn subsystem_vendor_id(&self) -> Option<u16> {
         todo!()
     }
 
@@ -50,15 +50,15 @@ impl PciDeviceInner {
         todo!()
     }
 
-    pub(crate) fn subsystem_device_id(&self) -> u16 {
+    pub(crate) fn subsystem_device_id(&self) -> Option<u16> {
         todo!()
     }
 
-    pub(crate) fn class(&self) -> &PciDeviceClass {
+    pub(crate) fn class(&self) -> Option<&PciDeviceClass> {
         todo!()
     }
 
-    pub(crate) fn revision(&self) -> u8 {
+    pub(crate) fn revision(&self) -> Option<u8> {
         todo!()
     }
 

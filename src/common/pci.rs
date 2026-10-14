@@ -173,22 +173,27 @@ impl PciDevice {
 
     /// Returns the vendor ID of the PCI device.
     ///
+    /// Returns `None` if the information cannot be retrieved.
+    ///
     /// ```no_run
     /// use sysinfo::PciDevices;
     ///
     /// if let Ok(pci_devices) = PciDevices::new_with_refreshed_list() {
     ///     for pci_device in pci_devices.list() {
-    ///         println!("{:04x}", pci_device.vendor_id());
+    ///         match pci_device.vendor_id() {
+    ///             Some(vendor_id) => { println!("{:04x}", vendor_id); },
+    ///             None => { println!("Not available"); }
+    ///         }
     ///     }
     /// }
     /// ```
-    pub fn vendor_id(&self) -> u16 {
+    pub fn vendor_id(&self) -> Option<u16> {
         self.inner.vendor_id()
     }
 
     /// Returns the vendor name of the PCI device.
     ///
-    /// Returns `None` when the vendor ID is not found in the database.
+    /// Returns `None` if the information cannot be retrieved or not found in the database.
     ///
     /// ```no_run
     /// use sysinfo::PciDevices;
@@ -207,16 +212,21 @@ impl PciDevice {
     ///
     /// It is often used together with the vendor ID to identify the PCI device.
     ///
+    /// Returns `None` if the information cannot be retrieved.
+    ///
     /// ```no_run
     /// use sysinfo::PciDevices;
     ///
     /// if let Ok(pci_devices) = PciDevices::new_with_refreshed_list() {
     ///     for pci_device in pci_devices.list() {
-    ///         println!("{:04x}", pci_device.device_id());
+    ///         match pci_device.device_id() {
+    ///             Some(device_id) => { println!("{:04x}", device_id); },
+    ///             None => { println!("Not available"); }
+    ///         }
     ///     }
     /// }
     /// ```
-    pub fn device_id(&self) -> u16 {
+    pub fn device_id(&self) -> Option<u16> {
         self.inner.device_id()
     }
 
@@ -225,25 +235,32 @@ impl PciDevice {
     /// The subsystem vendor is typically the manufacturer of the subsystem (i.e. the board or the
     /// system integrating it), while the vendor is typically responsible for the device or chip.
     ///
+    /// Returns `None` if the information cannot be retrieved. It is rather common for manufacturers
+    /// to not `subsystem_*` fields.
+    ///
     /// ```no_run
     /// use sysinfo::PciDevices;
     ///
     /// if let Ok(pci_devices) = PciDevices::new_with_refreshed_list() {
     ///     for pci_device in pci_devices.list() {
-    ///         println!("{:04x}", pci_device.subsystem_vendor_id());
+    ///         match pci_device.subsystem_vendor_id() {
+    ///             Some(subsystem_vendor_id) => { println!("{:04x}", subsystem_vendor_id); },
+    ///             None => { println!("Not available"); }
+    ///         }
     ///     }
     /// }
     /// ```
-    pub fn subsystem_vendor_id(&self) -> u16 {
+    pub fn subsystem_vendor_id(&self) -> Option<u16> {
         self.inner.subsystem_vendor_id()
     }
 
     /// Returns the subsystem vendor name of the PCI device.
     ///
-    /// Returns `None` when the subsystem vendor ID is not found in the database.
-    ///
     /// The subsystem vendor is typically the manufacturer of the subsystem (i.e. the board or the
     /// system integrating it), while the vendor is typically responsible for the device or chip.
+    ///
+    /// Returns `None` if the information cannot be retrieved or not found in the database. It is
+    /// rather common for manufacturers to not `subsystem_*` fields.
     ///
     /// ```no_run
     /// use sysinfo::PciDevices;
@@ -263,50 +280,64 @@ impl PciDevice {
     /// It is often used together with the subsystem vendor id to identify the system or board
     /// implementation PCI device.
     ///
+    /// Returns `None` if the information cannot be retrieved.
+    ///
     /// ```no_run
     /// use sysinfo::PciDevices;
     ///
     /// if let Ok(pci_devices) = PciDevices::new_with_refreshed_list() {
     ///     for pci_device in pci_devices.list() {
-    ///         println!("{:04x}", pci_device.subsystem_device_id());
+    ///         match pci_device.subsystem_device_id() {
+    ///             Some(subsystem_device_id) => { println!("{:04x}", subsystem_device_id); },
+    ///             None => { println!("Not available"); }
+    ///         }
     ///     }
     /// }
     /// ```
-    pub fn subsystem_device_id(&self) -> u16 {
+    pub fn subsystem_device_id(&self) -> Option<u16> {
         self.inner.subsystem_device_id()
     }
 
     /// Returns the device class (i.e. type) of the PCI device.
     ///
+    /// Returns `None` if the information cannot be retrieved.
+    ///
     /// ```no_run
     /// use sysinfo::PciDevices;
     ///
     /// if let Ok(pci_devices) = PciDevices::new_with_refreshed_list() {
     ///     for pci_device in pci_devices.list() {
-    ///         println!("{}", pci_device.class());
+    ///         match pci_device.class() {
+    ///             Some(class) => { println!("{class}"); },
+    ///             None => { println!("Not available"); }
+    ///         }
     ///     }
     /// }
     /// ```
-    pub fn class(&self) -> &PciDeviceClass {
+    pub fn class(&self) -> Option<&PciDeviceClass> {
         self.inner.class()
     }
 
     /// Returns the device revision of the PCI device.
     ///
+    /// Returns `None` if the information cannot be retrieved.
+    ///
     /// ```no_run
     /// use sysinfo::PciDevices;
     ///
     /// if let Ok(pci_devices) = PciDevices::new_with_refreshed_list() {
     ///     for pci_device in pci_devices.list() {
-    ///         println!("{}", pci_device.revision());
+    ///         println!("{:?}", pci_device.revision());
     ///     }
     /// }
     /// ```
-    pub fn revision(&self) -> u8 {
+    pub fn revision(&self) -> Option<u8> {
         self.inner.revision()
     }
 
     /// Returns the path to driver used by the PCI device.
+    ///
+    /// On Linux,`None`
     ///
     /// ⚠️ Not implemented on macOS.
     ///

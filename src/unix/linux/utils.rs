@@ -181,7 +181,11 @@ pub(crate) fn read_signed<P: AsRef<Path>>(parent: P, path: &str, data: &mut [u8]
 }
 
 #[cfg(feature = "pci")]
-pub(crate) fn read_hex<P: AsRef<Path>>(parent: P, path: &str, data: &mut [u8]) -> u64 {
+pub(crate) fn read_hex_option<P: AsRef<Path>>(
+    parent: P,
+    path: &str,
+    data: &mut [u8],
+) -> Option<u64> {
     if let Ok(mut f) = File::open(parent.as_ref().join(path))
         && let Ok(size) = f.read(data)
         && size >= 3
@@ -189,9 +193,9 @@ pub(crate) fn read_hex<P: AsRef<Path>>(parent: P, path: &str, data: &mut [u8]) -
         && let Ok(str) = str::from_utf8(&data[..size])
         && let Some(str) = str.strip_prefix("0x")
     {
-        return u64::from_str_radix(str.trim(), 16).unwrap_or(0);
+        return u64::from_str_radix(str.trim(), 16).ok();
     }
-    0
+    None
 }
 
 // `read_str` clears and refills the Vec, so its length becomes the length of

@@ -1,6 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-use crate::unix::linux::utils::read_hex;
+use crate::unix::linux::utils::read_hex_option;
 use crate::utils::pci_vendor_name;
 use crate::{Error, PciAddress, PciDevice, PciDeviceClass, PciDevicesInner};
 use std::path::{Path, PathBuf};
@@ -27,14 +27,19 @@ fn refresh_pci_devices_list_from_sysfs(
             continue;
         };
 
-        let vendor = read_hex(parent, "vendor", &mut num_buf) as u16;
-        let vendor_name = pci_vendor_name(vendor).map(|v| v.to_string());
-        let device = read_hex(parent, "device", &mut num_buf) as u16;
-        let subsystem_vendor = read_hex(parent, "subsystem_vendor", &mut num_buf) as u16;
-        let subsystem_vendor_name = pci_vendor_name(subsystem_vendor).map(|v| v.to_string());
-        let subsystem_device = read_hex(parent, "subsystem_device", &mut num_buf) as u16;
-        let class = PciDeviceClass::from(read_hex(parent, "class", &mut num_buf) as u32);
-        let revision = read_hex(parent, "revision", &mut num_buf) as u8;
+        let vendor = read_hex_option(parent, "vendor", &mut num_buf).map(|v| v as u16);
+        let vendor_name = vendor.and_then(pci_vendor_name).map(str::to_string);
+        let device = read_hex_option(parent, "device", &mut num_buf).map(|v| v as u16);
+        let subsystem_vendor =
+            read_hex_option(parent, "subsystem_vendor", &mut num_buf).map(|v| v as u16);
+        let subsystem_vendor_name = subsystem_vendor
+            .and_then(pci_vendor_name)
+            .map(str::to_string);
+        let subsystem_device =
+            read_hex_option(parent, "subsystem_device", &mut num_buf).map(|v| v as u16);
+        let class =
+            read_hex_option(parent, "class", &mut num_buf).map(|v| PciDeviceClass::from(v as u32));
+        let revision = read_hex_option(parent, "revision", &mut num_buf).map(|v| v as u8);
 
         let driver = std::fs::canonicalize(entry.path().join("driver")).ok();
 
@@ -86,14 +91,14 @@ fn refresh_pci_devices_list_from_sysfs(
 #[allow(clippy::too_many_arguments)]
 fn new_pci_device(
     address: PciAddress,
-    vendor_id: u16,
+    vendor_id: Option<u16>,
     vendor_name: Option<String>,
-    device: u16,
-    subsystem_vendor_id: u16,
+    device: Option<u16>,
+    subsystem_vendor_id: Option<u16>,
     subsystem_vendor_name: Option<String>,
-    subsystem_device: u16,
-    class: PciDeviceClass,
-    revision: u8,
+    subsystem_device: Option<u16>,
+    class: Option<PciDeviceClass>,
+    revision: Option<u8>,
     driver: Option<PathBuf>,
 ) -> PciDevice {
     PciDevice {
@@ -139,14 +144,14 @@ impl PciDevicesInner {
 
 pub(crate) struct PciDeviceInner {
     address: PciAddress,
-    vendor_id: u16,
+    vendor_id: Option<u16>,
     vendor_name: Option<String>,
-    subsystem_vendor_id: u16,
+    subsystem_vendor_id: Option<u16>,
     subsystem_vendor_name: Option<String>,
-    device: u16,
-    subsystem_device: u16,
-    class: PciDeviceClass,
-    revision: u8,
+    device: Option<u16>,
+    subsystem_device: Option<u16>,
+    class: Option<PciDeviceClass>,
+    revision: Option<u8>,
     driver: Option<PathBuf>,
     updated: bool,
 }
@@ -156,7 +161,7 @@ impl PciDeviceInner {
         &self.address
     }
 
-    pub(crate) fn vendor_id(&self) -> u16 {
+    pub(crate) fn vendor_id(&self) -> Option<u16> {
         self.vendor_id
     }
 
@@ -164,11 +169,11 @@ impl PciDeviceInner {
         self.vendor_name.as_deref()
     }
 
-    pub(crate) fn device_id(&self) -> u16 {
+    pub(crate) fn device_id(&self) -> Option<u16> {
         self.device
     }
 
-    pub(crate) fn subsystem_vendor_id(&self) -> u16 {
+    pub(crate) fn subsystem_vendor_id(&self) -> Option<u16> {
         self.subsystem_vendor_id
     }
 
@@ -176,15 +181,15 @@ impl PciDeviceInner {
         self.subsystem_vendor_name.as_deref()
     }
 
-    pub(crate) fn subsystem_device_id(&self) -> u16 {
+    pub(crate) fn subsystem_device_id(&self) -> Option<u16> {
         self.subsystem_device
     }
 
-    pub(crate) fn class(&self) -> &PciDeviceClass {
-        &self.class
+    pub(crate) fn class(&self) -> Option<&PciDeviceClass> {
+        self.class.as_ref()
     }
 
-    pub(crate) fn revision(&self) -> u8 {
+    pub(crate) fn revision(&self) -> Option<u8> {
         self.revision
     }
 
