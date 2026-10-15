@@ -9,7 +9,7 @@ use std::path::Path;
 
 fn refresh_pci_devices_from_ioctl(devices: &mut Vec<PciDevice>, remove_not_listed_devices: bool) {
     const BUFFER_LEN: usize = 256;
-    const PCIOCGETCONF: libc::c_ulong = libc::_IOWR::<pci_conf_io>(b'p' as libc::c_ulong, 10);
+    const PCIOCGETCONF: libc::c_ulong = libc::_IOWR::<pci_conf_io>(b'p' as libc::c_ulong, 5);
 
     let Ok(file) = std::fs::File::open("/dev/pci") else {
         sysinfo_debug!("Failed to open /dev/pci");
@@ -45,7 +45,7 @@ fn refresh_pci_devices_from_ioctl(devices: &mut Vec<PciDevice>, remove_not_liste
         };
 
         if ret < 0 {
-            sysinfo_debug!("PCIOCGETCONF failed: {}", libc_errno());
+            sysinfo_debug!("PCIOCGETCONF failed");
             return;
         }
 
@@ -109,6 +109,11 @@ fn refresh_pci_devices_from_ioctl(devices: &mut Vec<PciDevice>, remove_not_liste
                 class,
                 revision,
             ));
+        }
+
+        //  Check for PCI_GETCONF_LAST_DEVICE
+        if request.status == 0 {
+            break;
         }
     }
 

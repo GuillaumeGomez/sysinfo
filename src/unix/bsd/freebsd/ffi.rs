@@ -5,7 +5,7 @@
 use libc::{c_int, c_void};
 
 #[cfg(feature = "pci")]
-use libc::{c_char, c_ulong, size_t};
+use libc::{c_char, c_ulong};
 
 // definitions come from:
 // https://github.com/freebsd/freebsd-src/blob/main/lib/libdevstat/devstat.h
@@ -40,7 +40,8 @@ unsafe extern "C" {
     pub(crate) fn geom_stats_snapshot_free(arg: *mut c_void);
 }
 
-//  https://github.com/freebsd/freebsd-src/blob/main/sys/sys/pciio.h
+//  https://github.com/freebsd/freebsd-src/blob/4a12e28f330c2fd002f31c6a70f88994fe902f8f/sys/sys/pciio.h
+//  Note: FreeBSD 15.0.0 changed the struct `pci_conf` as well as `PCIOCGETCONF`, so main branch does not work.
 #[cfg(feature = "pci")]
 const PCI_MAXNAMELEN: usize = 16;
 
@@ -49,7 +50,7 @@ const PCI_MAXNAMELEN: usize = 16;
 pub(crate) struct pci_conf_io {
     pub pat_buf_len: u32,
     pub num_patterns: u32,
-    pub patterns: *mut c_void,
+    pub patterns: *mut c_void, //  struct pci_match_conf; not used
     pub match_buf_len: u32,
     pub num_matches: u32,
     pub matches: *mut pci_conf,
@@ -71,13 +72,8 @@ pub(crate) struct pci_conf {
     pub(crate) pc_subclass: u8,
     pub(crate) pc_progif: u8,
     pub(crate) pc_revid: u8,
-    pub(crate) pc_name: [c_char; PCI_MAXNAMELEN + 1],
-    pub(crate) pc_unit: c_ulong,
-    pub(crate) pc_numa_domain: c_int,
-    pub(crate) pc_reported_len: size_t,
-    pub(crate) pc_secbus: u8,
-    pub(crate) pc_subbus: u8,
-    pub(crate) pc_spare: [c_char; 62],
+    pub(crate) pd_name: [c_char; PCI_MAXNAMELEN + 1],
+    pub(crate) pd_unit: c_ulong,
 }
 
 #[repr(C)]
