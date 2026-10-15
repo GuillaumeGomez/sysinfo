@@ -337,9 +337,9 @@ impl PciDevice {
 
     /// Returns the path to driver used by the PCI device.
     ///
-    /// On Linux,`None`
+    /// On Linux, `None` is means no driver for this PCI device (for example, host bridges).
     ///
-    /// ⚠️ Not implemented on macOS.
+    /// ⚠️ Only implemented on Linux. This always return `None` on other systems.
     ///
     /// ```no_run
     /// use sysinfo::PciDevices;

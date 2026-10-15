@@ -60,7 +60,7 @@ impl PciDeviceInner {
         unreachable!()
     }
 
-    pub(crate) fn class(&self) -> &PciDeviceClass {
+    pub(crate) fn class(&self) -> Option<&PciDeviceClass> {
         unreachable!()
     }
 

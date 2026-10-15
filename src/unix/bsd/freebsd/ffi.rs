@@ -4,6 +4,9 @@
 
 use libc::{c_int, c_void};
 
+#[cfg(feature = "pci")]
+use libc::{c_char, c_ulong, size_t};
+
 // definitions come from:
 // https://github.com/freebsd/freebsd-src/blob/main/lib/libdevstat/devstat.h
 // https://github.com/freebsd/freebsd-src/blob/main/sys/sys/devicestat.h
@@ -35,4 +38,53 @@ unsafe extern "C" {
     pub(crate) fn geom_stats_snapshot_next(arg: *mut c_void) -> *mut libc::devstat;
     pub(crate) fn geom_stats_snapshot_reset(arg: *mut c_void);
     pub(crate) fn geom_stats_snapshot_free(arg: *mut c_void);
+}
+
+//  https://github.com/freebsd/freebsd-src/blob/main/sys/sys/pciio.h
+#[cfg(feature = "pci")]
+const PCI_MAXNAMELEN: usize = 16;
+
+#[repr(C)]
+#[cfg(feature = "pci")]
+pub(crate) struct pci_conf_io {
+    pub pat_buf_len: u32,
+    pub num_patterns: u32,
+    pub patterns: *mut c_void,
+    pub match_buf_len: u32,
+    pub num_matches: u32,
+    pub matches: *mut pci_conf,
+    pub offset: u32,
+    pub generation: u32,
+    pub status: c_int,
+}
+
+#[repr(C)]
+#[cfg(feature = "pci")]
+pub(crate) struct pci_conf {
+    pub(crate) pc_sel: pcisel,
+    pub(crate) pc_hdr: u8,
+    pub(crate) pc_subvendor: u16,
+    pub(crate) pc_subdevice: u16,
+    pub(crate) pc_vendor: u16,
+    pub(crate) pc_device: u16,
+    pub(crate) pc_class: u8,
+    pub(crate) pc_subclass: u8,
+    pub(crate) pc_progif: u8,
+    pub(crate) pc_revid: u8,
+    pub(crate) pc_name: [c_char; PCI_MAXNAMELEN + 1],
+    pub(crate) pc_unit: c_ulong,
+    pub(crate) pc_numa_domain: c_int,
+    pub(crate) pc_reported_len: size_t,
+    pub(crate) pc_secbus: u8,
+    pub(crate) pc_subbus: u8,
+    pub(crate) pc_spare: [c_char; 62],
+}
+
+#[repr(C)]
+#[cfg(feature = "pci")]
+pub struct pcisel {
+    pub(crate) pc_domain: u32,
+    pub(crate) pc_bus: u8,
+    pub(crate) pc_dev: u8,
+    pub(crate) pc_func: u8,
 }
