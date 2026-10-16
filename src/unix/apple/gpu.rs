@@ -11,7 +11,6 @@ use objc2_io_kit::{
     IORegistryEntryGetParentEntry, IOServiceGetMatchingServices, IOServiceMatching, io_iterator_t,
     io_object_t, kIOReturnSuccess, kIOServicePlane,
 };
-use std::ffi::CStr;
 
 pub(crate) struct GpusInner {
     pub(crate) gpus: Vec<Gpu>,
@@ -63,18 +62,26 @@ impl GpusInner {
                 let Some(device) = IOReleaser::new(device) else {
                     continue;
                 };
-                if !IOObjectConformsTo(device.inner(), c"IOPCIDevice".as_ptr() as *mut _)
-                    || !is_gpu(device.inner(), &class_code_key)
-                {
-                    continue;
-                }
 
-                let pci = if let Some(prop) = IORegistryEntryCreateCFProperty(
-                    device.inner(),
-                    Some(&pcidebug_key),
-                    kCFAllocatorDefault,
-                    0,
-                ) && let Ok(prop_ref) = prop.downcast::<CFData>()
+                let is_m_series =
+                    if IOObjectConformsTo(device.inner(), c"AppleARMIODevice".as_ptr() as *mut _) {
+                        true
+                    } else if IOObjectConformsTo(device.inner(), c"IOPCIDevice".as_ptr() as *mut _)
+                        && is_gpu(device.inner(), &class_code_key)
+                    {
+                        false
+                    } else {
+                        continue;
+                    };
+
+                let pci = if !is_m_series
+                    && let Some(prop) = IORegistryEntryCreateCFProperty(
+                        device.inner(),
+                        Some(&pcidebug_key),
+                        kCFAllocatorDefault,
+                        0,
+                    )
+                    && let Ok(prop_ref) = prop.downcast::<CFData>()
                     && let [domain, bus, device, func, ..] = prop_ref.as_bytes_unchecked()
                 {
                     PCI {
@@ -82,6 +89,15 @@ impl GpusInner {
                         bus: *bus as _,
                         device: *device as _,
                         function: *func as _,
+                    }
+                } else if is_m_series {
+                    //  M series GPUs do not use PCI. This fake PCI address is only for identification.
+                    //  It cannot collide with valid PCI addresses because of device (5 bits) and function (3 bits).
+                    PCI {
+                        domain: 0xffffffff,
+                        bus: 0xff,
+                        device: 0xff,
+                        function: 0xff,
                     }
                 } else {
                     continue;
@@ -108,22 +124,19 @@ impl GpusInner {
 
                 if gpu.model.is_none()
                     && let Some(model) = IORegistryEntryCreateCFProperty(
-                        device.inner(),
+                        accelerator.inner(),
                         Some(&model_key),
                         kCFAllocatorDefault,
                         0,
                     )
-                    && let Ok(model_ref) = model.downcast::<CFData>()
-                    && let bytes = model_ref.as_bytes_unchecked()
-                    && !bytes.is_empty()
-                    && let Ok(c_str) = CStr::from_bytes_with_nul(bytes)
+                    && let Ok(model_ref) = model.downcast::<CFString>()
                 {
-                    gpu.model = Some(c_str.to_string_lossy().into_owned());
+                    gpu.model = Some(model_ref.to_string());
                 }
 
                 if gpu.vendor.is_none()
                     && let Some(vendor_prop) = IORegistryEntryCreateCFProperty(
-                        device.inner(),
+                        accelerator.inner(),
                         Some(&vendor_id_key),
                         kCFAllocatorDefault,
                         0,
