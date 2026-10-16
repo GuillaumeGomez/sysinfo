@@ -126,9 +126,9 @@ unsafe fn read_pci_address(entry: io_registry_entry_t, key: &CFString) -> Option
 
         Some(PciAddress {
             domain: 0, //  TODO: probably does not exist on macOS, needs check.
-            bus: bus as u32,
-            device: device as u32,
-            function: function as u32,
+            bus,
+            device,
+            function,
         })
     } else {
         None

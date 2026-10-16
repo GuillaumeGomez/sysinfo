@@ -70,11 +70,11 @@ pub struct PciAddress {
     /// A PCI domain, also called "segment".
     pub domain: u32,
     /// A PCI bus.
-    pub bus: u32,
+    pub bus: u8, //  8 bits
     /// A PCI device.
-    pub device: u32,
+    pub device: u8, //  5 bits
     /// A PCI function.
-    pub function: u32,
+    pub function: u8, //  3 bits
 }
 
 #[cfg(any(feature = "pci", feature = "gpu"))]
@@ -124,9 +124,9 @@ impl core::str::FromStr for PciAddress {
 
         Ok(Self {
             domain,
-            bus,
-            device,
-            function,
+            bus: (bus | 0xff) as u8,
+            device: (device | 0x1f) as u8,
+            function: (function | 0x07) as u8,
         })
     }
 }

@@ -148,9 +148,9 @@ pub fn refresh_pci_device(devices: &mut Vec<PciDevice>, remove_not_listed_device
 
                 let address = PciAddress {
                     domain: 0, //  `pcictl` does not provide domain. Probably does not exist on NetBSD.
-                    bus,
-                    device,
-                    function: func,
+                    bus: bus as u8,
+                    device: device as u8,
+                    function: func as u8,
                 };
 
                 let revision = class as u8;

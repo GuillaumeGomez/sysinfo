@@ -1007,9 +1007,9 @@ mod vulkan {
                     // format.
                     let pci = PciAddress {
                         domain: pci_properties.pci_domain,
-                        bus: pci_properties.pci_bus,
-                        device: pci_properties.pci_device,
-                        function: pci_properties.pci_function,
+                        bus: pci_properties.pci_bus as u8,
+                        device: pci_properties.pci_device as u8,
+                        function: pci_properties.pci_function as u8,
                     };
 
                     // We don't want to discover new GPUs, just to add extra info to existing

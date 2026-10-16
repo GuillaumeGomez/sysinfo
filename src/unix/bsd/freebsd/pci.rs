@@ -79,9 +79,9 @@ fn refresh_pci_devices_from_ioctl(devices: &mut Vec<PciDevice>, remove_not_liste
 
             let address = PciAddress {
                 domain: entry.pc_sel.pc_domain,
-                bus: entry.pc_sel.pc_bus as u32,
-                device: entry.pc_sel.pc_dev as u32,
-                function: entry.pc_sel.pc_func as u32,
+                bus: entry.pc_sel.pc_bus,
+                device: entry.pc_sel.pc_dev,
+                function: entry.pc_sel.pc_func,
             };
 
             let vendor_id = entry.pc_vendor;
