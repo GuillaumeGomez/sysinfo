@@ -233,6 +233,8 @@ impl Ord for Gpu {
 
 impl Gpu {
     /// Returns the PCI of this GPU. Can be used as ID as it's unique to this GPU.
+    ///
+    /// Returns an invalid PCI Address, `ffffffff:ff:ff.255`, for Apple M Series GPU.
     pub fn pci(&self) -> &PCI {
         self.inner.pci()
     }
