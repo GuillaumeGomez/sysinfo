@@ -3,7 +3,7 @@
 use crate::unix::linux::utils::read_hex_option;
 use crate::utils::pci_vendor_name;
 use crate::{Error, PciAddress, PciDevice, PciDeviceClass, PciDevicesInner};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 fn refresh_pci_devices_list_from_sysfs(
     devices: &mut Vec<PciDevice>,
@@ -41,7 +41,9 @@ fn refresh_pci_devices_list_from_sysfs(
             read_hex_option(parent, "class", &mut num_buf).map(|v| PciDeviceClass::from(v as u32));
         let revision = read_hex_option(parent, "revision", &mut num_buf).map(|v| v as u8);
 
-        let driver = std::fs::canonicalize(entry.path().join("driver")).ok();
+        let driver = std::fs::canonicalize(entry.path().join("driver"))
+            .map(|v| v.to_string_lossy().to_string())
+            .ok();
 
         if let Some(existing_device) = devices.iter_mut().find(|d| d.inner.address == *address) {
             let inner = &mut existing_device.inner;
@@ -99,7 +101,7 @@ fn new_pci_device(
     subsystem_device: Option<u16>,
     class: Option<PciDeviceClass>,
     revision: Option<u8>,
-    driver: Option<PathBuf>,
+    driver: Option<String>,
 ) -> PciDevice {
     PciDevice {
         inner: PciDeviceInner {
@@ -152,7 +154,7 @@ pub(crate) struct PciDeviceInner {
     subsystem_device: Option<u16>,
     class: Option<PciDeviceClass>,
     revision: Option<u8>,
-    driver: Option<PathBuf>,
+    driver: Option<String>,
     updated: bool,
 }
 
@@ -193,7 +195,7 @@ impl PciDeviceInner {
         self.revision
     }
 
-    pub(crate) fn driver(&self) -> Option<&Path> {
+    pub(crate) fn driver(&self) -> Option<&str> {
         self.driver.as_deref()
     }
 }

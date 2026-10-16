@@ -8,7 +8,6 @@ use objc2_io_kit::{
     IOIteratorNext, IORegistryEntryCreateCFProperty, IOServiceGetMatchingServices,
     IOServiceMatching, io_iterator_t, io_registry_entry_t, kIOReturnSuccess,
 };
-use std::path::Path;
 
 fn refresh_pci_devices_from_ioreg(devices: &mut Vec<PciDevice>, remove_not_listed_devices: bool) {
     unsafe {
@@ -126,7 +125,7 @@ unsafe fn read_pci_address(entry: io_registry_entry_t, key: &CFString) -> Option
         let function: u8 = parts.next()?.parse().ok()?;
 
         Some(PciAddress {
-            domain: 0, // TODO: to be checked
+            domain: 0, //  TODO: probably does not exist on macOS, needs check.
             bus: bus as u32,
             device: device as u32,
             function: function as u32,
@@ -259,7 +258,7 @@ impl PciDeviceInner {
         self.revision
     }
 
-    pub(crate) fn driver(&self) -> Option<&Path> {
+    pub(crate) fn driver(&self) -> Option<&str> {
         None
     }
 }

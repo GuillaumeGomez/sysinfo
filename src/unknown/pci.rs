@@ -1,7 +1,6 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
 use crate::{Error, PciAddress, PciDevice, PciDeviceClass};
-use std::path::Path;
 
 pub(crate) struct PciDevicesInner;
 
@@ -68,7 +67,7 @@ impl PciDeviceInner {
         unreachable!()
     }
 
-    pub(crate) fn driver(&self) -> Option<&Path> {
+    pub(crate) fn driver(&self) -> Option<&str> {
         unreachable!()
     }
 }

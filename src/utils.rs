@@ -74,7 +74,8 @@ cfg_select! {
             ),
             any(feature = "gpu", feature = "pci"),
         ),
-        all(target_os = "freebsd", feature = "pci",),
+        all(target_os = "freebsd", feature = "pci"),
+        all(target_os = "netbsd", feature = "pci"),
     ),
 ))]
 pub(crate) fn pci_vendor_name(vendor_id: u16) -> Option<&'static str> {

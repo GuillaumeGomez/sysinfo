@@ -5,10 +5,10 @@ use crate::utils::pci_vendor_name;
 use crate::{Error, PciAddress, PciDevice, PciDeviceClass, PciDevicesInner};
 use std::mem::MaybeUninit;
 use std::os::fd::AsRawFd;
-use std::path::Path;
 
 fn refresh_pci_devices_from_ioctl(devices: &mut Vec<PciDevice>, remove_not_listed_devices: bool) {
     const BUFFER_LEN: usize = 256;
+    //  see note in `ffi.rs` for more information
     const PCIOCGETCONF: libc::c_ulong = libc::_IOWR::<pci_conf_io>(b'p' as libc::c_ulong, 5);
 
     let Ok(file) = std::fs::File::open("/dev/pci") else {
@@ -213,7 +213,7 @@ pub(crate) struct PciDeviceInner {
     updated: bool,
 }
 
-impl crate::sys::PciDeviceInner {
+impl PciDeviceInner {
     pub(crate) fn address(&self) -> &PciAddress {
         &self.address
     }
@@ -250,7 +250,7 @@ impl crate::sys::PciDeviceInner {
         Some(self.revision)
     }
 
-    pub(crate) fn driver(&self) -> Option<&Path> {
+    pub(crate) fn driver(&self) -> Option<&str> {
         None
     }
 }

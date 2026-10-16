@@ -3,7 +3,6 @@
 use crate::Error;
 use crate::common::PciAddress;
 use std::cmp::Ordering;
-use std::path::Path;
 
 /// Interacting with PCI (Peripheral Component Interconnect) interfaces.
 ///
@@ -335,11 +334,14 @@ impl PciDevice {
         self.inner.revision()
     }
 
-    /// Returns the path to driver used by the PCI device.
+    /// Returns the driver used by the PCI device.
     ///
-    /// On Linux, `None` is means no driver for this PCI device (for example, host bridges).
+    /// On Linux, the value is the absolute path to the driver; `None` is means no driver for this
+    /// PCI device (for example, host bridges).
     ///
-    /// ⚠️ Only implemented on Linux. This always return `None` on other systems.
+    /// On NetBSD, the value is the name of the driver
+    ///
+    /// ⚠️ Only implemented on Linux and NetBSD. This always return `None` on other systems.
     ///
     /// ```no_run
     /// use sysinfo::PciDevices;
@@ -350,7 +352,7 @@ impl PciDevice {
     ///     }
     /// }
     /// ```
-    pub fn driver(&self) -> Option<&Path> {
+    pub fn driver(&self) -> Option<&str> {
         self.inner.driver()
     }
 }

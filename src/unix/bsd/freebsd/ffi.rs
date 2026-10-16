@@ -41,7 +41,9 @@ unsafe extern "C" {
 }
 
 //  https://github.com/freebsd/freebsd-src/blob/4a12e28f330c2fd002f31c6a70f88994fe902f8f/sys/sys/pciio.h
-//  Note: FreeBSD 15.0.0 changed the struct `pci_conf` as well as `PCIOCGETCONF`, so main branch does not work.
+//  Note: FreeBSD 15.0.0 changed the definition of struct `pci_conf` and command number of `PCIOCGETCONF`.
+//  Therefore, the definition on the `main` branch is new and does not work on earlier versions.
+//  Backwards compatibility is preserved according to docs. (Tested on 15.1)
 #[cfg(feature = "pci")]
 const PCI_MAXNAMELEN: usize = 16;
 
