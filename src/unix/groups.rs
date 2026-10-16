@@ -24,19 +24,8 @@ pub(crate) fn get_groups(groups: &mut Vec<Group>) {
     unsafe {
         libc::setgrent();
         loop {
-            // `getgrent` leaves `errno` untouched when it reaches the end of the list, so it must be
-            // reset first. Otherwise a stale `EINTR` makes the end of the list look like an
-            // interrupted call and the loop never ends.
-            let errno = crate::unix::libc_errno();
-            if !errno.is_null() {
-                *errno = 0;
-            }
-            let gr = libc::getgrent();
+            let gr = retry_eintr!(set_to_0 => null => libc::getgrent());
             if gr.is_null() {
-                // The call was interrupted by a signal, retrying.
-                if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
-                    continue;
-                }
                 break;
             }
 
