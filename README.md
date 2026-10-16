@@ -157,7 +157,7 @@ executable to your Raspberry Pi.
 First install the arm toolchain, for example on Ubuntu:
 
 ```bash
-> sudo apt-get install gcc-multilib-arm-linux-gnueabihf
+> sudo apt-get install gcc-arm-linux-gnueabihf
 ```
 
 Then configure cargo to use the corresponding toolchain:
