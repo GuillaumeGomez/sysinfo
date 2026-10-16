@@ -539,7 +539,9 @@ mod gpu {
         use std::io::Read;
         use std::os::fd::FromRawFd;
 
-        let ProcessBuffers { dents, c_path, .. } = buffers;
+        let ProcessBuffers {
+            dents, c_path, buf, ..
+        } = buffers;
         // CString is apparently expensive, so we do our own...
         let path = proc_path.replace_and_join("fdinfo").as_os_str().as_bytes();
         c_path.clear();
@@ -561,10 +563,6 @@ mod gpu {
         let mut total_memory: u64 = 0;
         let mut found_memory = false;
         if let Ok(Some(dir_iter)) = fd_dir.iter(dents) {
-            // 4096 is the limit used in htop so why not.
-            let buf: MaybeUninit<[u8; 4096]> = MaybeUninit::uninit();
-            // SAFETY: `openat` will initialize the values.
-            let mut buf: [u8; 4096] = unsafe { buf.assume_init() };
             let mut stat = MaybeUninit::<libc::statx>::uninit();
             let mut gpus: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
 
@@ -592,8 +590,18 @@ mod gpu {
                     if fd < 0 {
                         continue;
                     }
+                    // 4096 is the limit used in htop so why not.
+                    const BUF_SIZE: usize = 4096;
+                    if buf.len() < BUF_SIZE {
+                        assert!(buf.capacity() > BUF_SIZE);
+                        // SAFETY: we create `ProcessBuffers::buf` with a capacity of `16_384`, so
+                        // it's fine.
+                        buf.set_len(BUF_SIZE);
+                    }
                     if let mut file = File::from_raw_fd(fd)
-                        && let Ok(read) = file.read(&mut buf)
+                        // We pass a slice of maximum `BUF_SIZE` to never read more than
+                        // "necessary".
+                        && let Ok(read) = file.read(&mut buf[..BUF_SIZE])
                     {
                         &buf[..read]
                     } else {
