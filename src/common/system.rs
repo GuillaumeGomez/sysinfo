@@ -2464,6 +2464,7 @@ cfg_select! {
             target_os = "android",
             target_os = "macos",
             target_os = "ios",
+            target_os = "illumos",
         )
     ) => {
         use libc::pid_t;
@@ -2960,6 +2961,7 @@ pub fn get_current_pid() -> Result<Pid, Error> {
             target_os = "android",
             target_os = "macos",
             target_os = "ios",
+            target_os = "illumos",
         ) => {
             fn inner() -> Result<Pid, Error> {
                 unsafe { Ok(Pid(libc::getpid())) }

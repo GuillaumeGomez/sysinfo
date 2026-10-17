@@ -208,6 +208,10 @@ fn test_process_disk_usage() {
     if cfg!(feature = "apple-sandbox") {
         return;
     }
+    // illumos procfs doesn't expose per-process byte counters.
+    if cfg!(target_os = "illumos") {
+        return;
+    }
     if std::env::var("FREEBSD_CI").is_ok() || std::env::var("NETBSD_CI").is_ok() {
         // For an unknown reason, when running this test on Cirrus CI, it fails. It works perfectly
         // locally though... Dark magic...
