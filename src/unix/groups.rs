@@ -24,7 +24,7 @@ pub(crate) fn get_groups(groups: &mut Vec<Group>) {
     unsafe {
         libc::setgrent();
         loop {
-            let gr = retry_eintr!(set_to_0 => null => libc::getgrent());
+            let gr = retry_eintr!(null => libc::getgrent());
             if gr.is_null() {
                 break;
             }

@@ -72,14 +72,17 @@ macro_rules! retry_eintr {
     }};
     (null => $($t:tt)+) => {{
         loop {
+            // Reset `errno` before every call: a null-returning function such as `getgrent` leaves
+            // `errno` untouched at the end of the list, so a stale `EINTR` (from an earlier call or a
+            // previous interrupted iteration) would make the end look interrupted and loop forever.
+            #[allow(unused_unsafe)]
+            let errno = unsafe { crate::unix::libc_errno() };
+            if !errno.is_null() {
+                #[allow(unused_unsafe)]
+                unsafe { *errno = 0; }
+            }
             let ret = $($t)+;
             if ret.is_null() && std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
-                #[allow(unused_unsafe)]
-                let errno = unsafe { crate::unix::libc_errno() };
-                if !errno.is_null() {
-                    #[allow(unused_unsafe)]
-                    unsafe { *errno = 0; }
-                }
                 continue;
             }
             break ret;
