@@ -45,7 +45,8 @@ cfg_select! {
             not(feature = "apple-sandbox"),
             feature = "component",
             any(target_arch = "x86", target_arch = "x86_64"),
-        )
+        ),
+        feature = "pci"
     ) => {
         type IoObject = std::num::NonZeroU32;
 

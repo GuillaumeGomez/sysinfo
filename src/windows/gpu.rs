@@ -25,7 +25,7 @@ use windows::Win32::System::Performance::{
 };
 use windows::core::{Interface, PCWSTR};
 
-use crate::{Gpu, PCI};
+use crate::{Gpu, PciAddress};
 
 pub(crate) struct GpuInner {
     total_memory: Option<u64>,
@@ -33,14 +33,14 @@ pub(crate) struct GpuInner {
     usage: Option<f32>,
     model: Option<String>,
     vendor: Option<String>,
-    pci: PCI,
+    pci_address: PciAddress,
     pub(crate) updated: bool,
     luid: LUID,
 }
 
 impl GpuInner {
-    pub(crate) fn pci(&self) -> &PCI {
-        &self.pci
+    pub(crate) fn pci(&self) -> &PciAddress {
+        &self.pci_address
     }
     pub(crate) fn vendor(&self) -> Option<&str> {
         self.vendor.as_deref()
@@ -141,8 +141,8 @@ impl GpusInner {
                             })
                         {
                             let gpu = GpuInner {
-                                pci: pci.clone(),
-                                vendor: crate::utils::gpu_vendor_name(desc.VendorId)
+                                pci_address: pci.clone(),
+                                vendor: crate::utils::pci_vendor_name(desc.VendorId as u16)
                                     .map(|v| v.to_owned()),
                                 model: Some(utf16_to_string(&desc.Description)),
                                 total_memory: None,
@@ -267,7 +267,7 @@ unsafe fn get_u32_property(
     }
 }
 
-unsafe fn get_all_pcis() -> Option<Vec<PCI>> {
+unsafe fn get_all_pcis() -> Option<Vec<PciAddress>> {
     unsafe {
         let dev_info_set = ClassDevs::new()?;
 
@@ -287,7 +287,7 @@ unsafe fn get_all_pcis() -> Option<Vec<PCI>> {
             let device = (address >> 16) & 0xFFFF;
             let function = address & 0xFFFF;
 
-            pcis.push(PCI {
+            pcis.push(PciAddress {
                 domain: 0,
                 bus,
                 device,

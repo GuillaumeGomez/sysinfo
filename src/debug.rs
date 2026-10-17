@@ -197,7 +197,7 @@ impl std::fmt::Debug for crate::Gpus {
 impl std::fmt::Debug for crate::Gpu {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Gpu")
-            .field("pci", &self.pci())
+            .field("pci", &self.pci_address())
             .field("vendor", &self.vendor())
             .field("model", &self.model())
             .field("usage", &self.usage())

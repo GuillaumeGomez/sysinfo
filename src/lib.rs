@@ -7,7 +7,8 @@
         feature = "component",
         feature = "gpu",
         feature = "network",
-        feature = "user"
+        feature = "user",
+        feature = "pci"
     ),
     doc = include_str!("../README.md")
 )]
@@ -18,7 +19,8 @@
         feature = "component",
         feature = "gpu",
         feature = "network",
-        feature = "user"
+        feature = "user",
+        feature = "pci"
     )),
     doc = "For crate-level documentation, all features need to be enabled."
 )]
@@ -85,12 +87,14 @@ pub use crate::common::component::{Component, Components};
 #[cfg(feature = "disk")]
 pub use crate::common::disk::{Disk, DiskKind, DiskRefreshKind, Disks};
 #[cfg(feature = "gpu")]
-pub use crate::common::gpu::{Gpu, Gpus, PCI};
+pub use crate::common::gpu::{Gpu, Gpus};
 #[cfg(feature = "network")]
 pub use crate::common::network::{
     InterfaceOperationalState, IpNetwork, IpNetworkFromStrError, MacAddr, MacAddrFromStrError,
     NetworkData, Networks,
 };
+#[cfg(feature = "pci")]
+pub use crate::common::pci::{PciDevice, PciDeviceClass, PciDevices};
 #[cfg(feature = "system")]
 pub use crate::common::system::{
     CGroupLimits, Cpu, CpuRefreshKind, KillError, LoadAvg, MemoryRefreshKind, Motherboard, Pid,
@@ -106,6 +110,8 @@ pub use crate::sys::{MINIMUM_CPU_UPDATE_INTERVAL, SUPPORTED_SIGNALS};
 
 #[cfg(any(feature = "system", feature = "disk"))]
 pub use crate::common::DiskUsage;
+#[cfg(any(feature = "pci", feature = "gpu"))]
+pub use crate::common::PciAddress;
 
 #[cfg(feature = "user")]
 pub(crate) use crate::common::user::GroupInner;
@@ -121,6 +127,8 @@ pub(crate) use crate::sys::{DiskInner, DisksInner};
 pub(crate) use crate::sys::{GpuInner, GpusInner};
 #[cfg(feature = "network")]
 pub(crate) use crate::sys::{NetworkDataInner, NetworksInner};
+#[cfg(feature = "pci")]
+pub(crate) use crate::sys::{PciDeviceInner, PciDevicesInner};
 
 pub use crate::errors::Error;
 pub use crate::sys::IS_SUPPORTED_SYSTEM;
@@ -277,6 +285,7 @@ use sysinfo::", stringify!($imports), r";
 
 #[cfg(test)]
 mod test {
+    //  TODO add pci test
     use crate::*;
 
     #[cfg(feature = "unknown-ci")]

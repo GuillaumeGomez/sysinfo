@@ -62,16 +62,22 @@ cfg_select! {
 }
 
 #[cfg(all(
-    feature = "gpu",
     not(feature = "unknown-ci"),
     any(
-        windows,
-        target_os = "linux",
-        target_os = "android",
-        target_os = "macos",
-        target_os = "ios",
+        all(
+            any(
+                windows,
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "ios",
+            ),
+            any(feature = "gpu", feature = "pci"),
+        ),
+        all(target_os = "freebsd", feature = "pci"),
+        all(target_os = "netbsd", feature = "pci"),
     ),
 ))]
-pub(crate) fn gpu_vendor_name(vendor_id: u32) -> Option<&'static str> {
+pub(crate) fn pci_vendor_name(vendor_id: u16) -> Option<&'static str> {
     include!("pcis.rs")
 }

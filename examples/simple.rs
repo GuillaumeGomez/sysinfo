@@ -164,7 +164,7 @@ fn interpret_input(
                 for gpu in gpus.list() {
                     println!(
                         "GPU (PCI: {}): Vendor: {}",
-                        gpu.pci(),
+                        gpu.pci_address(),
                         gpu.vendor().unwrap_or("Unknown")
                     );
                     if let Some(model) = gpu.model() {

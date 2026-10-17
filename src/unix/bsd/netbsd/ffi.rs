@@ -2,7 +2,7 @@
 
 #![allow(non_camel_case_types, dead_code)]
 
-use libc::{c_char, c_int, c_long, c_ulong, c_void, kinfo_proc2, size_t};
+use libc::{_IOR, c_char, c_int, c_long, c_uint, c_ulong, c_void, kinfo_proc2, size_t};
 
 pub(crate) const SIDL: u64 = 1;
 pub(crate) const SACTIVE: u64 = 2;
@@ -65,6 +65,19 @@ pub(crate) const KERN_PROC_PATHNAME: c_int = 5;
 pub(crate) const KERN_PROC_CWD: c_int = 6;
 
 pub(crate) const IOSTATNAMELEN: usize = 16;
+
+//  PCI
+pub(crate) const PCI_IOC_BUSINFO: c_ulong = _IOR::<pciio_businfo>(b'P' as c_ulong, 4);
+
+pub(crate) const PCI_BHLC_REG: c_uint = 0x0c;
+pub(crate) const PCI_ID_REG: c_uint = 0x00;
+pub(crate) const PCI_SUBSYS_ID_REG: c_uint = 0x2c;
+pub(crate) const PCI_CLASS_REG: c_uint = 0x08;
+
+pub(crate) const PCI_HDRTYPE_SHIFT: u8 = 16;
+pub(crate) const PCI_HDRTYPE_MASK: u32 = 0xff;
+
+pub(crate) const PCI_IO_DRVNAME_LEN: usize = 16;
 
 #[repr(C)]
 pub(crate) struct uvmexp_sysctl {
@@ -240,4 +253,30 @@ unsafe extern "C" {
     // block-op counts into bytes; matches the historical BSD convention
     // (`time(1)`, `ps -o inblk`).
     pub(crate) fn getbsize(headerlenp: *mut c_int, blocksizep: *mut c_long) -> *const c_char;
+}
+
+#[link(name = "pci")]
+unsafe extern "C" {
+    pub(crate) fn pcibus_conf_read(
+        fd: c_int,
+        bus: c_uint,
+        device: c_uint,
+        func: c_uint,
+        reg: c_uint,
+        valp: *mut u32,
+    ) -> c_int;
+
+    pub(crate) fn pci_drvname(
+        fd: c_int,
+        device: c_uint,
+        func: c_uint,
+        name: *mut c_char,
+        len: size_t,
+    ) -> c_int;
+}
+
+#[repr(C)]
+pub(crate) struct pciio_businfo {
+    pub busno: c_uint,
+    pub maxdev: c_uint,
 }
