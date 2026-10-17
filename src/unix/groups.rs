@@ -24,12 +24,8 @@ pub(crate) fn get_groups(groups: &mut Vec<Group>) {
     unsafe {
         libc::setgrent();
         loop {
-            let gr = libc::getgrent();
+            let gr = retry_eintr!(set_to_0 => null => libc::getgrent());
             if gr.is_null() {
-                // The call was interrupted by a signal, retrying.
-                if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
-                    continue;
-                }
                 break;
             }
 
@@ -53,4 +49,25 @@ pub(crate) fn get_groups(groups: &mut Vec<Group>) {
 
 pub(crate) fn new_groups() -> Result<Vec<Group>, Error> {
     Ok(Vec::new())
+}
+
+#[cfg(test)]
+mod tests {
+    // A stale `EINTR` left by an earlier call must not make `get_groups` loop forever.
+    #[test]
+    fn get_groups_ignores_stale_eintr() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            unsafe {
+                *crate::unix::libc_errno() = libc::EINTR;
+            }
+            let mut groups = Vec::new();
+            super::get_groups(&mut groups);
+            let _ = tx.send(groups.len());
+        });
+        let found = rx
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("get_groups did not return");
+        assert!(found > 0);
+    }
 }

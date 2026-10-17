@@ -70,6 +70,21 @@ macro_rules! retry_eintr {
         }
         retry_eintr!($($t)+)
     }};
+    (null => $($t:tt)+) => {{
+        loop {
+            let ret = $($t)+;
+            if ret.is_null() && std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                #[allow(unused_unsafe)]
+                let errno = unsafe { crate::unix::libc_errno() };
+                if !errno.is_null() {
+                    #[allow(unused_unsafe)]
+                    unsafe { *errno = 0; }
+                }
+                continue;
+            }
+            break ret;
+        }
+    }};
     ($errno_value:ident => $($t:tt)+) => {{
         loop {
             let ret = $($t)+;
