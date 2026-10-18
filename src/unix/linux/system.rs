@@ -17,7 +17,6 @@ use std::io::Read;
 use std::mem::MaybeUninit;
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::{OnceLock, atomic::AtomicIsize};
 use std::time::Duration;
 
 unsafe fn getrlimit() -> Option<libc::rlimit> {
@@ -31,45 +30,6 @@ unsafe fn getrlimit() -> Option<libc::rlimit> {
     } else {
         Some(limits)
     }
-}
-
-pub(crate) fn get_max_nb_fds() -> usize {
-    unsafe {
-        let mut limits = libc::rlimit {
-            rlim_cur: 0,
-            rlim_max: 0,
-        };
-        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limits) != 0 {
-            // Most Linux system now defaults to 1024.
-            1024 / 2
-        } else {
-            limits.rlim_max as usize / 2
-        }
-    }
-}
-
-// This whole thing is to prevent having too many files open at once. It could be problematic
-// for processes using a lot of files and using sysinfo at the same time.
-pub(crate) fn remaining_files() -> &'static AtomicIsize {
-    static REMAINING_FILES: OnceLock<AtomicIsize> = OnceLock::new();
-    REMAINING_FILES.get_or_init(|| unsafe {
-        let Some(mut limits) = getrlimit() else {
-            // Most Linux system now defaults to 1024.
-            return AtomicIsize::new(1024 / 2);
-        };
-        // We save the value in case the update fails.
-        let current = limits.rlim_cur;
-
-        // The set the soft limit to the hard one.
-        limits.rlim_cur = limits.rlim_max;
-        // In this part, we leave minimum 50% of the available file descriptors to the process
-        // using sysinfo.
-        AtomicIsize::new(if libc::setrlimit(libc::RLIMIT_NOFILE, &limits) == 0 {
-            limits.rlim_cur / 2
-        } else {
-            current / 2
-        } as _)
-    })
 }
 
 declare_signals! {

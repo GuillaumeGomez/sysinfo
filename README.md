@@ -138,16 +138,7 @@ time better to instantiate the `System` struct once and use this one instance th
 program. The reason is because a lot of information needs a previous measure to be computed
 (the CPU usage for example). Another example why it's much better: in case you want to list
 all running processes, `sysinfo` needs to allocate all memory for the `Process` struct list,
-which takes quite some time on the first run.
-
-If your program needs to use a lot of file descriptors, you'd better use:
-
-```rust,no_run
-sysinfo::set_open_files_limit(0);
-```
-
-as `sysinfo` keeps a number of file descriptors open to have better performance on some
-targets when refreshing processes.
+which takes extra time on the first run.
 
 ### Running on Raspberry Pi
 

@@ -299,9 +299,6 @@ impl System {
     /// removed. So if you refresh pids 1, 2 and 3. If 2 and 7 are dead, only 2 will be removed
     /// since 7 is not part of the update.
     ///
-    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
-    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
-    ///
     /// ⚠️ On Linux, if you dont need the tasks of each process, you can use
     /// `refresh_processes_specifics` with `ProcessRefreshKind::everything().without_tasks()`.
     /// Refreshing all processes and their tasks can be quite expensive. For more information
@@ -340,9 +337,6 @@ impl System {
     /// ⚠️ `remove_dead_processes` works as follows: if an updated process is dead, then it is
     /// removed. So if you refresh pids 1, 2 and 3. If 2 and 7 are dead, only 2 will be removed
     /// since 7 is not part of the update.
-    ///
-    /// ⚠️ On Linux, `sysinfo` keeps the `stat` files open by default. You can change this behaviour
-    /// by using [`set_open_files_limit`][crate::set_open_files_limit].
     ///
     /// ```no_run
     /// use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System};

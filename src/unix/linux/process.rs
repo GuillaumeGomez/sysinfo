@@ -23,8 +23,6 @@ use crate::{
     ThreadKind, Uid, UpdateKind,
 };
 
-use crate::sys::system::remaining_files;
-
 #[doc(hidden)]
 impl From<u8> for ProcessStatus {
     fn from(status: u8) -> ProcessStatus {
@@ -129,7 +127,6 @@ pub(crate) struct ProcessInner {
     effective_group_id: Option<Gid>,
     pub(crate) status: ProcessStatus,
     pub(crate) tasks: Option<HashSet<Pid>>,
-    stat_file: Option<FileCounter>,
     old_read_bytes: u64,
     old_written_bytes: u64,
     read_bytes: u64,
@@ -171,7 +168,6 @@ impl ProcessInner {
             effective_group_id: None,
             status: ProcessStatus::Unknown(0),
             tasks: None,
-            stat_file: None,
             old_read_bytes: 0,
             old_written_bytes: 0,
             read_bytes: 0,
@@ -913,16 +909,11 @@ unsafe impl<T> Send for Wrap<'_, T> {}
 unsafe impl<T> Sync for Wrap<'_, T> {}
 
 /// Reads the `stat` file into `buffers.buf`.
-fn _get_stat_data(
-    proc_dir: &mut ProcDir<'_>,
-    stat_file: &mut Option<FileCounter>,
-    buffers: &mut ProcessBuffers,
-) -> Result<(), ()> {
+fn _get_stat_data(proc_dir: &mut ProcDir<'_>, buffers: &mut ProcessBuffers) -> Result<(), ()> {
     let Some(mut file) = proc_dir.open(c"stat") else {
         return Err(());
     };
     read_file_into(&mut file, &mut buffers.buf).map_err(|_| ())?;
-    *stat_file = FileCounter::new(file);
     Ok(())
 }
 
@@ -1135,16 +1126,9 @@ fn update_existing_process(
     #[cfg(feature = "gpu")] now: Instant,
 ) -> Result<Option<Process>, ()> {
     let entry = &mut proc.inner;
-    if let Some(mut f) = entry.stat_file.take()
-        && read_file_into(&mut f, &mut buffers.buf).is_ok()
-    {
-        // Everything went fine, we put back the file descriptor.
-        entry.stat_file = Some(f);
-    } else {
-        // It's possible that the file descriptor is no longer valid in case the
-        // original process was terminated and another one took its place.
-        _get_stat_data(proc_dir, &mut entry.stat_file, buffers)?;
-    }
+    // It's possible that the file descriptor is no longer valid in case the
+    // original process was terminated and another one took its place.
+    _get_stat_data(proc_dir, buffers)?;
     entry.tasks = tasks;
 
     // `parts` borrows the `stat` buffer while `buffers` is still needed, so we take it out and put
@@ -1230,8 +1214,7 @@ fn _get_process_data(
             now,
         );
     }
-    let mut stat_file = None;
-    _get_stat_data(&mut proc_dir, &mut stat_file, buffers)?;
+    _get_stat_data(&mut proc_dir, buffers)?;
     // `parts` borrows the `stat` buffer while `buffers` is still needed, so we take it out and put
     // it back once done.
     let Some(mut parts) = parse_stat_file(&buffers.buf, None) else {
@@ -1252,7 +1235,6 @@ fn _get_process_data(
         #[cfg(feature = "gpu")]
         now,
     );
-    new_process.inner.stat_file = stat_file;
     new_process.inner.tasks = tasks;
     Ok(Some(new_process))
 }
@@ -1625,45 +1607,6 @@ fn get_uid_and_gid_and_tgid(proc_path: &Path, buffers: &mut ProcessBuffers) -> O
             Pid(thread_group_id),
         )),
         _ => None,
-    }
-}
-
-/// Type used to correctly handle the `REMAINING_FILES` global.
-struct FileCounter(File);
-
-impl FileCounter {
-    fn new(f: File) -> Option<Self> {
-        let any_remaining =
-            remaining_files().try_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
-                if remaining > 0 {
-                    Some(remaining - 1)
-                } else {
-                    // All file descriptors we were allowed are being used.
-                    None
-                }
-            });
-
-        any_remaining.ok().map(|_| Self(f))
-    }
-}
-
-impl std::ops::Deref for FileCounter {
-    type Target = File;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for FileCounter {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl Drop for FileCounter {
-    fn drop(&mut self) {
-        remaining_files().fetch_add(1, Ordering::Relaxed);
     }
 }
 
