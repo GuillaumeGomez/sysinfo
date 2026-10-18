@@ -1,19 +1,12 @@
 // Take a look at the license at the top of the repository in the LICENSE file.
 
-#[cfg(feature = "debug")]
 #[doc(hidden)]
 #[allow(unused)]
 macro_rules! sysinfo_debug {
     ($($x:tt)*) => {{
+        #[cfg(feature = "debug")]
         eprintln!($($x)*);
     }}
-}
-
-#[cfg(not(feature = "debug"))]
-#[doc(hidden)]
-#[allow(unused)]
-macro_rules! sysinfo_debug {
-    ($($x:tt)*) => {{}};
 }
 
 #[cfg(feature = "system")]
