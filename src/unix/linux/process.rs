@@ -2,10 +2,12 @@
 
 use std::cell::UnsafeCell;
 use std::collections::{HashMap, HashSet};
-use std::ffi::{OsStr, OsString};
+use std::ffi::{CStr, CString, OsStr, OsString};
 use std::fmt;
 use std::fs::{self, DirEntry, File, read_dir};
-use std::os::unix::ffi::OsStrExt;
+use std::io::Read;
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -15,10 +17,7 @@ use std::time::Instant;
 use libc::{c_ulong, gid_t, pid_t, uid_t};
 
 use crate::sys::system::SystemInfo;
-use crate::sys::utils::{
-    PathHandler, PathPush, get_all_data_from_file, read_file_into, read_path_into,
-};
-use crate::unix::utils::realpath;
+use crate::sys::utils::{get_all_data_from_file, read_file_into, read_path_into};
 use crate::{
     DiskUsage, Gid, Pid, Process, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, Signal,
     ThreadKind, Uid, UpdateKind,
@@ -282,7 +281,9 @@ impl ProcessInner {
 
     pub(crate) fn wait(&self) -> Option<ExitStatus> {
         // If anything fails when trying to retrieve the start time, better to return `None`.
-        let (data, _) = _get_stat_data_and_file(&self.proc_path).ok()?;
+        let mut file = File::open(self.proc_path.join("stat")).ok()?;
+        let data = get_all_data_from_file(&mut file, 1024).ok()?;
+
         let parts = parse_stat_file(&data, Some(self.start_time_raw))?;
 
         if parts.start_time != self.start_time_raw {
@@ -431,10 +432,12 @@ mod gpu {
     }
 
     impl Dir {
-        fn new(path: &[u8]) -> Option<Self> {
+        fn open(proc_dir: &mut ProcDir<'_>, name: &CStr) -> Option<Self> {
+            let proc_dir_fd = proc_dir.dir_fd()?;
             unsafe {
-                let dir_fd = retry_eintr!(libc::open(
-                    path.as_ptr() as *const _,
+                let dir_fd = retry_eintr!(libc::openat(
+                    proc_dir_fd.as_raw_fd(),
+                    name.as_ptr(),
                     libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_DIRECTORY | libc::O_CLOEXEC,
                 ));
                 if dir_fd < 0 {
@@ -528,31 +531,16 @@ mod gpu {
     // time, so likely needs to be part of `System`, just like `Cpu`. Not really worth it since it comes
     // with limitations (such as: only gives information for current user, unless it's an admin), so for
     // now ignoring it.
-    pub fn compute_gpu_usage(
-        proc_path: &mut PathHandler,
+    pub(super) fn compute_gpu_usage(
+        proc_dir: &mut ProcDir<'_>,
         gpu_info: &mut GpuInfo,
         now: Instant,
         refresh_kind: ProcessRefreshKind,
         buffers: &mut ProcessBuffers,
     ) {
         use std::fs::File;
-        use std::io::Read;
-        use std::os::fd::FromRawFd;
 
-        let ProcessBuffers {
-            dents, c_path, buf, ..
-        } = buffers;
-        // CString is apparently expensive, so we do our own...
-        let path = proc_path.replace_and_join("fdinfo").as_os_str().as_bytes();
-        c_path.clear();
-        c_path.extend_from_slice(path);
-        c_path.push(0);
-
-        // We replace `/fdinfo\0` with `/fd\0nfo\0` to the folder name becomes `fd`.
-        // So 4 characters for `info` and 1 for the `\0`.
-        let info_index = c_path.len() - 5;
-        c_path[info_index] = 0;
-        let Some(fd_dir) = Dir::new(c_path) else {
+        let Some(fd_dir) = Dir::open(proc_dir, c"fd") else {
             return;
         };
         // Most processes don't have any GPU file descriptor, so we only open `fdinfo` once we
@@ -562,7 +550,7 @@ mod gpu {
         let mut total_time: u64 = 0;
         let mut total_memory: u64 = 0;
         let mut found_memory = false;
-        if let Ok(Some(dir_iter)) = fd_dir.iter(dents) {
+        if let Ok(Some(dir_iter)) = fd_dir.iter(&mut buffers.dents) {
             let mut stat = MaybeUninit::<libc::statx>::uninit();
             let mut gpus: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
 
@@ -573,9 +561,7 @@ mod gpu {
                 let fdinfo_dir_fd = match fdinfo_dir {
                     Some(ref dir) => dir.dir_fd,
                     None => {
-                        // We put back `/fdinfo\0`.
-                        c_path[info_index] = b'i';
-                        let Some(dir) = Dir::new(c_path) else {
+                        let Some(dir) = Dir::open(proc_dir, c"fdinfo") else {
                             return;
                         };
                         fdinfo_dir.insert(dir).dir_fd
@@ -592,6 +578,7 @@ mod gpu {
                     }
                     // 4096 is the limit used in htop so why not.
                     const BUF_SIZE: usize = 4096;
+                    let buf = &mut buffers.buf;
                     if buf.len() < BUF_SIZE {
                         assert!(buf.capacity() > BUF_SIZE);
                         // SAFETY: we create `ProcessBuffers::buf` with a capacity of `16_384`, so
@@ -654,7 +641,7 @@ mod gpu {
                                 _ => {
                                     eprintln!(
                                         "Unknown GPU memory unit {unit:?} in {:?}",
-                                        proc_path.as_path()
+                                        proc_dir.path
                                     );
                                     None
                                 }
@@ -732,12 +719,12 @@ pub(crate) fn set_time(p: &mut ProcessInner, utime: u64, stime: u64) {
     p.stime = stime;
 }
 
-pub(crate) fn update_process_disk_activity(
+fn update_process_disk_activity(
     p: &mut ProcessInner,
-    path: &mut PathHandler,
+    proc_dir: &mut ProcDir<'_>,
     buf: &mut Vec<u8>,
 ) {
-    if read_path_into(path.replace_and_join("io"), buf).is_err() {
+    if !proc_dir.read_into(c"io", buf) {
         return;
     }
     let Ok(data) = std::str::from_utf8(buf) else {
@@ -778,9 +765,6 @@ struct ProcessBuffers {
     path: PathBuf,
     #[cfg(feature = "gpu")]
     dents: Vec<u8>,
-    /// NUL-terminated path of the `fd` and `fdinfo` folders.
-    #[cfg(feature = "gpu")]
-    c_path: Vec<u8>,
 }
 
 impl ProcessBuffers {
@@ -791,8 +775,6 @@ impl ProcessBuffers {
         Self {
             buf: Vec::with_capacity(16_384),
             path: PathBuf::new(),
-            #[cfg(feature = "gpu")]
-            c_path: Vec::new(),
             #[cfg(feature = "gpu")]
             dents: {
                 if refresh_kind.gpu_usage() || refresh_kind.gpu_memory() {
@@ -810,6 +792,114 @@ impl ProcessBuffers {
     }
 }
 
+/// Gives access to the files of a `/proc/<pid>` folder. The folder is opened (lazily) once and
+/// its files are then accessed relative to it, which avoids the kernel resolving the whole path
+/// every time.
+struct ProcDir<'a> {
+    path: &'a CStr,
+    dir_fd: Option<OwnedFd>,
+}
+
+impl<'a> ProcDir<'a> {
+    fn new(path: &'a CStr) -> Self {
+        Self { path, dir_fd: None }
+    }
+
+    fn dir_fd(&mut self) -> Option<&OwnedFd> {
+        if let Some(ref dir_fd) = self.dir_fd {
+            return Some(dir_fd);
+        }
+        let fd = retry_eintr!(unsafe {
+            libc::open(
+                self.path.as_ptr(),
+                libc::O_RDONLY | libc::O_PATH | libc::O_DIRECTORY | libc::O_CLOEXEC,
+            )
+        });
+        if fd < 0 {
+            sysinfo_debug!(
+                "failed to open {:?}: {:?}",
+                self.path,
+                std::io::Error::last_os_error()
+            );
+            return None;
+        }
+        // SAFETY: `fd` was just opened and isn't owned by anything else.
+        self.dir_fd = unsafe { Some(OwnedFd::from_raw_fd(fd)) };
+        self.dir_fd.as_ref()
+    }
+
+    fn open(&mut self, name: &CStr) -> Option<File> {
+        let dir_fd = self.dir_fd()?;
+        let fd = retry_eintr!(unsafe {
+            libc::openat(
+                dir_fd.as_raw_fd(),
+                name.as_ptr(),
+                libc::O_RDONLY | libc::O_CLOEXEC,
+            )
+        });
+        if fd < 0 {
+            sysinfo_debug!(
+                "Failed to open file {name:?}: {:?}",
+                std::io::Error::last_os_error()
+            );
+            None
+        } else {
+            // SAFETY: `fd` was just opened and isn't owned by anything else.
+            Some(unsafe { File::from_raw_fd(fd) })
+        }
+    }
+
+    /// Reads the whole content of `name` into `buf`, replacing its previous content. Returns
+    /// `false` if an error occurred.
+    fn read_into(&mut self, name: &CStr, buf: &mut Vec<u8>) -> bool {
+        let Some(mut file) = self.open(name) else {
+            return false;
+        };
+        buf.clear();
+        if let Err(_err) = file.read_to_end(buf) {
+            sysinfo_debug!("Failed to read file: {_err:?}");
+            false
+        } else {
+            true
+        }
+    }
+
+    /// Reads the target of the `name` link into `buf`, replacing its previous content.
+    fn read_link<'b>(&mut self, name: &CStr, buf: &'b mut Vec<u8>) -> Option<&'b [u8]> {
+        let dir_fd = self.dir_fd()?;
+        buf.clear();
+        if buf.len() < 256 {
+            buf.reserve(256);
+        }
+        loop {
+            let read = unsafe {
+                libc::readlinkat(
+                    dir_fd.as_raw_fd(),
+                    name.as_ptr(),
+                    buf.as_mut_ptr() as *mut _,
+                    buf.capacity(),
+                )
+            };
+            if read < 0 {
+                sysinfo_debug!(
+                    "failed to read link {name:?} in {:?}: {:?}",
+                    self.path,
+                    std::io::Error::last_os_error(),
+                );
+                return None;
+            }
+            let read = read as usize;
+            if read < buf.capacity() {
+                // SAFETY: `readlinkat` initialized the first `read` bytes.
+                unsafe { buf.set_len(read) };
+                return Some(buf);
+            }
+            // The link might have been truncated, so we try again with a bigger buffer.
+            buf.reserve(buf.capacity() * 2);
+        }
+    }
+}
+
 struct Wrap<'a, T>(UnsafeCell<&'a mut T>);
 
 impl<'a, T> Wrap<'a, T> {
@@ -822,30 +912,18 @@ impl<'a, T> Wrap<'a, T> {
 unsafe impl<T> Send for Wrap<'_, T> {}
 unsafe impl<T> Sync for Wrap<'_, T> {}
 
-fn _get_stat_data_and_file(path: &Path) -> Result<(Vec<u8>, File), ()> {
-    let mut file = File::open(path.join("stat")).map_err(|_| ())?;
-    let data = get_all_data_from_file(&mut file, 1024).map_err(|_| ())?;
-    Ok((data, file))
-}
-
-/// Reads the `stat` file into `buffers.stat`.
+/// Reads the `stat` file into `buffers.buf`.
 fn _get_stat_data(
-    path: &Path,
+    proc_dir: &mut ProcDir<'_>,
     stat_file: &mut Option<FileCounter>,
     buffers: &mut ProcessBuffers,
 ) -> Result<(), ()> {
-    let mut file = File::open(build_path(&mut buffers.path, path, "stat")).map_err(|_| ())?;
+    let Some(mut file) = proc_dir.open(c"stat") else {
+        return Err(());
+    };
     read_file_into(&mut file, &mut buffers.buf).map_err(|_| ())?;
     *stat_file = FileCounter::new(file);
     Ok(())
-}
-
-/// Writes `base/file_name` into `buf` and returns it.
-fn build_path<'a>(buf: &'a mut PathBuf, base: &Path, file_name: &str) -> &'a Path {
-    buf.as_mut_os_string().clear();
-    buf.push(base);
-    buf.push(file_name);
-    buf
 }
 
 fn refresh_user_group_ids(
@@ -871,13 +949,14 @@ fn refresh_user_group_ids(
     }
 }
 
-/// Only overwrite if the new value is `Some` or the old value was `None`,
-/// to avoid wiping previously-read data if the process terminated mid-refresh.
-fn update_optional_path(target: &mut Option<PathBuf>, path: &std::path::Path) {
-    let new_val = realpath(path);
-    if new_val.is_some() || target.is_none() {
-        *target = new_val;
+fn split_content(data: &[u8]) -> Vec<OsString> {
+    let mut out = Vec::with_capacity(10);
+    for part in data.split(|c| *c == 0) {
+        if !part.is_empty() {
+            out.push(OsStr::from_bytes(part).to_os_string());
+        }
     }
+    out
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -885,7 +964,7 @@ fn update_proc_info(
     p: &mut ProcessInner,
     parent_pid: Option<Pid>,
     refresh_kind: ProcessRefreshKind,
-    proc_path: &mut PathHandler,
+    proc_dir: &mut ProcDir<'_>,
     parts: &Parts,
     uptime: u64,
     info: &SystemInfo,
@@ -893,6 +972,24 @@ fn update_proc_info(
     buffers: &mut ProcessBuffers,
     #[cfg(feature = "gpu")] now: Instant,
 ) {
+    fn copy_from_file(proc_dir: &mut ProcDir<'_>, name: &CStr, buf: &mut Vec<u8>) -> Vec<OsString> {
+        if proc_dir.read_into(name, buf) {
+            split_content(buf)
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn update_optional_path(target: &mut Option<PathBuf>, new_val: Option<&[u8]>) {
+        if let Some(new_val) = new_val
+            && target
+                .as_ref()
+                .is_none_or(|target| target.as_os_str().as_bytes() != new_val)
+        {
+            *target = Some(PathBuf::from(OsStr::from_bytes(new_val)));
+        }
+    }
+
     update_parent_pid(p, parent_pid, parts);
 
     p.status = parts.status;
@@ -901,48 +998,36 @@ fn update_proc_info(
     if refresh_kind.exe().needs_update(|| p.exe.is_none()) {
         // Do not use cmd[0] because it is not the same thing.
         // See https://github.com/GuillaumeGomez/sysinfo/issues/697.
-        let new_exe = realpath(proc_path.replace_and_join("exe"));
-        // Avoid overwriting with None if the process terminated mid-refresh.
-        if new_exe.is_some() || p.exe.is_none() {
-            p.exe = new_exe;
+        let new_exe = proc_dir.read_link(c"exe", &mut buffers.buf).map(|exe| {
             // If the target executable file was modified or removed, linux appends ` (deleted)`
             // at the end. We need to remove it.
             // See https://github.com/GuillaumeGomez/sysinfo/issues/1585.
-            let deleted = b" (deleted)";
-            if let Some(exe) = &mut p.exe
-                && let Some(file_name) = exe.file_name()
-                && file_name.as_encoded_bytes().ends_with(deleted)
-            {
-                let mut file_name = file_name.as_encoded_bytes().to_vec();
-                file_name.truncate(file_name.len() - deleted.len());
-                unsafe {
-                    exe.set_file_name(OsString::from_encoded_bytes_unchecked(file_name));
-                }
-            }
-        }
+            exe.strip_suffix(b" (deleted)").unwrap_or(exe)
+        });
+        update_optional_path(&mut p.exe, new_exe);
     }
 
     if refresh_kind.cmd().needs_update(|| p.cmd.is_empty()) {
-        let new_cmd = copy_from_file(proc_path.replace_and_join("cmdline"), &mut buffers.buf);
+        let new_cmd = copy_from_file(proc_dir, c"cmdline", &mut buffers.buf);
         if !new_cmd.is_empty() || p.cmd.is_empty() {
             p.cmd = new_cmd;
         }
     }
     if refresh_kind.environ().needs_update(|| p.environ.is_empty()) {
-        let new_environ = copy_from_file(proc_path.replace_and_join("environ"), &mut buffers.buf);
+        let new_environ = copy_from_file(proc_dir, c"environ", &mut buffers.buf);
         if !new_environ.is_empty() || p.environ.is_empty() {
             p.environ = new_environ;
         }
     }
     if refresh_kind.cwd().needs_update(|| p.cwd.is_none()) {
-        update_optional_path(&mut p.cwd, proc_path.replace_and_join("cwd"));
+        update_optional_path(&mut p.cwd, proc_dir.read_link(c"cwd", &mut buffers.buf));
     }
     if refresh_kind.root().needs_update(|| p.root.is_none()) {
-        update_optional_path(&mut p.root, proc_path.replace_and_join("root"));
+        update_optional_path(&mut p.root, proc_dir.read_link(c"root", &mut buffers.buf));
     }
 
     update_time_and_memory(
-        proc_path,
+        proc_dir,
         p,
         parts,
         uptime,
@@ -951,7 +1036,7 @@ fn update_proc_info(
         &mut buffers.buf,
     );
     if refresh_kind.disk_usage() {
-        update_process_disk_activity(p, proc_path, &mut buffers.buf);
+        update_process_disk_activity(p, proc_dir, &mut buffers.buf);
     }
     // Needs to be after `update_time_and_memory`.
     if refresh_kind.cpu() {
@@ -965,7 +1050,7 @@ fn update_proc_info(
         // Kernel threads don't have file descriptors, so no need to look for GPU ones.
         && p.thread_kind != Some(ThreadKind::Kernel)
     {
-        self::gpu::compute_gpu_usage(proc_path, &mut p.gpu_info, now, refresh_kind, buffers);
+        self::gpu::compute_gpu_usage(proc_dir, &mut p.gpu_info, now, refresh_kind, buffers);
     }
     p.updated = true;
 }
@@ -986,7 +1071,7 @@ fn retrieve_all_new_process_info(
     pid: Pid,
     parent_pid: Option<Pid>,
     parts: &mut Parts,
-    path: &Path,
+    proc_dir: &mut ProcDir<'_>,
     info: &SystemInfo,
     refresh_kind: ProcessRefreshKind,
     uptime: u64,
@@ -994,8 +1079,10 @@ fn retrieve_all_new_process_info(
     buffers: &mut ProcessBuffers,
     #[cfg(feature = "gpu")] now: Instant,
 ) -> Process {
-    let mut p = ProcessInner::new(pid, path.to_owned());
-    let mut proc_path = PathHandler::new(std::mem::take(&mut buffers.path), path);
+    let mut p = ProcessInner::new(
+        pid,
+        PathBuf::from(OsStr::from_bytes(proc_dir.path.to_bytes())),
+    );
 
     // To be noted that the start time is invalid here, it still needs to be converted into
     // "real" time.
@@ -1020,7 +1107,7 @@ fn retrieve_all_new_process_info(
         &mut p,
         parent_pid,
         refresh_kind,
-        &mut proc_path,
+        proc_dir,
         parts,
         uptime,
         info,
@@ -1029,7 +1116,6 @@ fn retrieve_all_new_process_info(
         #[cfg(feature = "gpu")]
         now,
     );
-    buffers.path = proc_path.into_inner();
 
     Process { inner: p }
 }
@@ -1038,6 +1124,7 @@ fn retrieve_all_new_process_info(
 fn update_existing_process(
     is_thread: bool,
     proc: &mut Process,
+    proc_dir: &mut ProcDir<'_>,
     parent_pid: Option<Pid>,
     uptime: u64,
     info: &SystemInfo,
@@ -1056,7 +1143,7 @@ fn update_existing_process(
     } else {
         // It's possible that the file descriptor is no longer valid in case the
         // original process was terminated and another one took its place.
-        _get_stat_data(&entry.proc_path, &mut entry.stat_file, buffers)?;
+        _get_stat_data(proc_dir, &mut entry.stat_file, buffers)?;
     }
     entry.tasks = tasks;
 
@@ -1070,8 +1157,6 @@ fn update_existing_process(
     // If the start time differs, then it means it's not the same process anymore and that we
     // need to get all its information, hence why we check it here.
     if parts.start_time == entry.start_time_raw {
-        let mut proc_path = PathHandler::new(std::mem::take(&mut buffers.path), &entry.proc_path);
-
         // If the entry was first discovered without thread info
         // (e.g. in ProcessesToUpdate::All mode), fix its thread_kind now.
         if is_thread && entry.thread_kind.is_none() {
@@ -1082,7 +1167,7 @@ fn update_existing_process(
             entry,
             parent_pid,
             refresh_kind,
-            &mut proc_path,
+            proc_dir,
             &parts,
             uptime,
             info,
@@ -1091,7 +1176,6 @@ fn update_existing_process(
             #[cfg(feature = "gpu")]
             now,
         );
-        buffers.path = proc_path.into_inner();
         return Ok(None);
     }
     // If we're here, it means that the PID still exists but it's a different process.
@@ -1100,7 +1184,7 @@ fn update_existing_process(
         entry.pid,
         parent_pid,
         &mut parts,
-        &entry.proc_path,
+        proc_dir,
         info,
         refresh_kind,
         uptime,
@@ -1116,7 +1200,7 @@ fn update_existing_process(
 
 #[allow(clippy::too_many_arguments)]
 fn _get_process_data(
-    path: &Path,
+    path: &CStr,
     proc_list: &mut HashMap<Pid, Process>,
     pid: Pid,
     is_thread: bool,
@@ -1129,10 +1213,12 @@ fn _get_process_data(
     buffers: &mut ProcessBuffers,
     #[cfg(feature = "gpu")] now: Instant,
 ) -> Result<Option<Process>, ()> {
+    let mut proc_dir = ProcDir::new(path);
     if let Some(ref mut entry) = proc_list.get_mut(&pid) {
         return update_existing_process(
             is_thread,
             entry,
+            &mut proc_dir,
             parent_pid,
             uptime,
             info,
@@ -1145,7 +1231,7 @@ fn _get_process_data(
         );
     }
     let mut stat_file = None;
-    _get_stat_data(path, &mut stat_file, buffers)?;
+    _get_stat_data(&mut proc_dir, &mut stat_file, buffers)?;
     // `parts` borrows the `stat` buffer while `buffers` is still needed, so we take it out and put
     // it back once done.
     let Some(mut parts) = parse_stat_file(&buffers.buf, None) else {
@@ -1157,7 +1243,7 @@ fn _get_process_data(
         pid,
         parent_pid,
         &mut parts,
-        path,
+        &mut proc_dir,
         info,
         refresh_kind,
         uptime,
@@ -1188,12 +1274,13 @@ fn slice_to_nb(s: &[u8]) -> u64 {
     nb
 }
 
-fn get_memory(path: &Path, entry: &mut ProcessInner, info: &SystemInfo, buf: &mut Vec<u8>) -> bool {
-    if let Err(_e) = read_path_into(path, buf) {
-        sysinfo_debug!(
-            "Using old memory information (failed to read {:?}: {_e:?})",
-            path
-        );
+fn get_memory(
+    proc_dir: &mut ProcDir<'_>,
+    entry: &mut ProcessInner,
+    info: &SystemInfo,
+    buf: &mut Vec<u8>,
+) -> bool {
+    if !proc_dir.read_into(c"statm", buf) {
         return false;
     }
     let mut parts = buf.split(|c| *c == b' ');
@@ -1212,7 +1299,7 @@ fn get_memory(path: &Path, entry: &mut ProcessInner, info: &SystemInfo, buf: &mu
 
 #[allow(clippy::too_many_arguments)]
 fn update_time_and_memory(
-    path: &mut PathHandler,
+    proc_dir: &mut ProcDir<'_>,
     entry: &mut ProcessInner,
     parts: &Parts,
     uptime: u64,
@@ -1224,7 +1311,7 @@ fn update_time_and_memory(
         #[allow(clippy::collapsible_if)]
         if refresh_kind.memory() {
             // Keeping this nested level for readability reasons.
-            if !get_memory(path.replace_and_join("statm"), entry, info, buf) {
+            if !get_memory(proc_dir, entry, info, buf) {
                 old_get_memory(entry, parts, info);
             }
         }
@@ -1236,7 +1323,7 @@ fn update_time_and_memory(
 struct ProcAndTasks {
     pid: Pid,
     parent_pid: Option<Pid>,
-    path: PathBuf,
+    path: CString,
     tasks: Option<HashSet<Pid>>,
     is_thread: bool,
     ids: Option<Ids>,
@@ -1306,7 +1393,7 @@ pub(crate) fn refresh_procs(
         let get_process_data = |buffers: &mut ProcessBuffers, e: ProcAndTasks| {
             let proc_list = proc_list.get();
             let new_process = _get_process_data(
-                e.path.as_path(),
+                &e.path,
                 proc_list,
                 e.pid,
                 e.is_thread,
@@ -1406,12 +1493,19 @@ fn get_proc_and_tasks(
         is_thread,
         pid,
         parent_pid,
-        path,
+        path: to_c_string(path),
         tasks,
         ids,
     });
 
     procs
+}
+
+fn to_c_string(path: PathBuf) -> CString {
+    let mut path = path.into_os_string().into_vec();
+    path.push(0);
+    // SAFETY: Paths cannot contain NUL bytes and we added one at the end.
+    unsafe { CString::from_vec_with_nul_unchecked(path) }
 }
 
 fn get_proc_tasks(
@@ -1438,7 +1532,7 @@ fn get_proc_tasks(
                     ProcAndTasks {
                         pid,
                         is_thread: true,
-                        path,
+                        path: to_c_string(path),
                         parent_pid: Some(parent_pid),
                         tasks: None,
                         ids,
@@ -1447,26 +1541,6 @@ fn get_proc_tasks(
                 .collect()
         })
         .unwrap_or_default()
-}
-
-fn split_content(data: &[u8]) -> Vec<OsString> {
-    let mut out = Vec::with_capacity(10);
-    for part in data.split(|c| *c == 0) {
-        if !part.is_empty() {
-            out.push(OsStr::from_bytes(part).to_os_string());
-        }
-    }
-    out
-}
-
-fn copy_from_file(entry: &Path, buf: &mut Vec<u8>) -> Vec<OsString> {
-    match read_path_into(entry, buf) {
-        Ok(()) => split_content(buf),
-        Err(_e) => {
-            sysinfo_debug!("Failed to read file in `copy_from_file`: {:?}", _e);
-            Vec::new()
-        }
-    }
 }
 
 pub(crate) struct Ids {
@@ -1479,6 +1553,14 @@ pub(crate) struct Ids {
 // Fetch real and effective UID and GID and store them into `Pids`. Returns the "thread group id"
 // (tgid) as second value of the tuple.
 fn get_uid_and_gid_and_tgid(proc_path: &Path, buffers: &mut ProcessBuffers) -> Option<(Ids, Pid)> {
+    /// Writes `{base}/{file_name}` into `buf` and returns a reference to it.
+    fn build_path<'a>(buf: &'a mut PathBuf, base: &Path, file_name: &str) -> &'a Path {
+        buf.as_mut_os_string().clear();
+        buf.push(base);
+        buf.push(file_name);
+        buf
+    }
+
     let status_path = build_path(&mut buffers.path, proc_path, "status");
     read_path_into(status_path, &mut buffers.buf).ok()?;
     let status_data = &buffers.buf;

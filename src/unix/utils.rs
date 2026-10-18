@@ -59,10 +59,7 @@ pub(crate) fn wait_process(pid: crate::Pid) -> Option<std::process::ExitStatus> 
     }
 }
 
-#[cfg(all(
-    feature = "system",
-    any(target_os = "linux", target_os = "android", target_os = "netbsd"),
-))]
+#[cfg(all(feature = "system", target_os = "netbsd"))]
 #[allow(clippy::useless_conversion)]
 pub(crate) fn realpath<P: AsRef<std::path::Path>>(path: P) -> Option<std::path::PathBuf> {
     let path = path.as_ref();
