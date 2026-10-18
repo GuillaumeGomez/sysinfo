@@ -147,63 +147,6 @@ mod unknown;
 #[cfg(any())]
 mod windows;
 
-/// This function is only used on Linux targets, when the `system` feature is enabled. In other
-/// cases, it does nothing and returns `false`.
-///
-/// On Linux, to improve performance, we keep a `/proc` file open for each process we index with
-/// a maximum number of files open equivalent to half of the system limit.
-///
-/// The problem is that some users might need all the available file descriptors so we need to
-/// allow them to change this limit.
-///
-/// Note that if you set a limit bigger than the system limit, the system limit will be set.
-///
-/// Returns `true` if the new value has been set.
-///
-#[cfg_attr(feature = "system", doc = "```no_run")]
-#[cfg_attr(not(feature = "system"), doc = "```ignore")]
-/// use sysinfo::{System, set_open_files_limit};
-///
-/// // We call the function before any call to the processes update.
-/// if !set_open_files_limit(10) {
-///     // It'll always return false on non-linux targets.
-///     eprintln!("failed to update the open files limit...");
-/// }
-/// if let Ok(s) = System::new_all() {
-///     // ...
-/// }
-/// ```
-pub fn set_open_files_limit(mut _new_limit: usize) -> bool {
-    cfg_select! {
-        all(feature = "system", not(feature = "unknown-ci"), any(target_os = "linux", target_os = "android")) =>
-        {
-            use crate::sys::system::remaining_files;
-            use std::sync::atomic::Ordering;
-
-            let max = sys::system::get_max_nb_fds();
-            if _new_limit > max {
-                _new_limit = max;
-            }
-
-            // If files are already open, to be sure that the number won't be bigger when those
-            // files are closed, we subtract the current number of opened files to the new
-            // limit.
-            if remaining_files().try_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
-                let _new_limit = _new_limit as isize;
-                let diff = (max as isize).saturating_sub(remaining);
-                Some(_new_limit.saturating_sub(diff))
-            }).is_err() {
-                sysinfo_debug!("failed to update open files limit");
-            }
-
-            true
-        }
-        _ => {
-            false
-        }
-    }
-}
-
 #[cfg(doctest)]
 mod doctest {
     macro_rules! compile_fail_import {
