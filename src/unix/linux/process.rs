@@ -98,6 +98,11 @@ struct GpuInfo {
     gpu_time: u64,
     gpu_usage: Option<f32>,
     memory: Option<u64>,
+    /// `true` if this is a thread sharing the fd table of its parent process. In such cases, to
+    /// prevent reading the `fd`/`fdinfo` folders to retrieve the same information, we instead skip
+    /// threads with this field to `true` and copy the information from the parent process after
+    /// we're done updating all processes.
+    share_parent_fd_table: bool,
 }
 
 pub(crate) struct ProcessInner {
@@ -397,6 +402,66 @@ mod gpu {
 
     const DRM_MAJOR: u32 = 226; // `/dev/dri/*`
     const ACCEL_MAJOR: u32 = 261; // `/dev/accel/*`
+
+    // It's possible, using the `unshare` function, to make a thread not use the same `fd` table
+    // as its parent process. So returns `true` if both `pid` share the same fd table.
+    pub(super) fn same_fd_table(pid1: Pid, pid2: Pid) -> bool {
+        // FIXME: Remove it once `libc` defines this constant.
+        const KCMP_FILES: libc::c_int = 2;
+
+        unsafe { libc::syscall(libc::SYS_kcmp, pid1.0, pid2.0, KCMP_FILES, 0, 0) == 0 }
+    }
+
+    // Threads which share the fd table of their parent process aren't refreshed as it would be a
+    // duplicate. Instead, we go through all updated processes and for thread ones, we copy the
+    // GPU information from their parent. If the parent wasn't updated, the thread's own `fd` folder
+    // is read instead.
+    pub(super) fn update_threads_gpu_info(
+        proc_list: &mut HashMap<Pid, Process>,
+        refresh_kind: ProcessRefreshKind,
+        now: Instant,
+        buffers: &mut ProcessBuffers,
+    ) {
+        // Same issue as `refresh_procs`: `proc_list` needs to be accessed from two places at once.
+        // It's fine since the map itself isn't modified (and the thread and its parent are
+        // different entries).
+        let proc_list = Wrap(UnsafeCell::new(proc_list));
+        for p in proc_list.get().values_mut() {
+            let p = &mut p.inner;
+            if !p.updated || !p.gpu_info.share_parent_fd_table {
+                continue;
+            }
+            let parent_info = p
+                .parent
+                .filter(|parent| *parent != p.pid)
+                .and_then(|parent| proc_list.get().get(&parent))
+                .filter(|parent| parent.inner.updated)
+                .map(|parent| {
+                    (
+                        parent.inner.gpu_info.gpu_usage,
+                        parent.inner.gpu_info.memory,
+                    )
+                });
+            let gpu_info = &mut p.gpu_info;
+            if let Some((gpu_usage, memory)) = parent_info {
+                if refresh_kind.gpu_usage() {
+                    gpu_info.gpu_usage = gpu_usage;
+                }
+                if refresh_kind.gpu_memory() {
+                    gpu_info.memory = memory;
+                }
+            } else {
+                let path = super::to_c_string(p.proc_path.clone());
+                compute_gpu_usage(
+                    &mut ProcDir::new(&path),
+                    gpu_info,
+                    now,
+                    refresh_kind,
+                    buffers,
+                );
+            }
+        }
+    }
 
     #[inline(always)]
     #[allow(clippy::unnecessary_cast)]
@@ -1041,7 +1106,14 @@ fn update_proc_info(
         // Kernel threads don't have file descriptors, so no need to look for GPU ones.
         && p.thread_kind != Some(ThreadKind::Kernel)
     {
-        self::gpu::compute_gpu_usage(proc_dir, &mut p.gpu_info, now, refresh_kind, buffers);
+        p.gpu_info.share_parent_fd_table = p.thread_kind == Some(ThreadKind::Userland)
+            && p.parent
+                .is_some_and(|parent| self::gpu::same_fd_table(parent, p.pid));
+        // If it's a thread sharing its parent process's file descriptor table, its GPU information
+        // will be copied from it once all processes have been updated.
+        if !p.gpu_info.share_parent_fd_table {
+            self::gpu::compute_gpu_usage(proc_dir, &mut p.gpu_info, now, refresh_kind, buffers);
+        }
     }
     p.updated = true;
 }
@@ -1343,6 +1415,9 @@ pub(crate) fn refresh_procs(
     use rayon::iter::ParallelIterator;
 
     let nb_updated = AtomicUsize::new(0);
+    #[cfg(feature = "gpu")]
+    let now = Instant::now();
+    let mut buffers = ProcessBuffers::new(refresh_kind);
 
     // This code goes through processes (listed in `/proc`) and through tasks (listed in
     // `/proc/[PID]/task`). However, the stored tasks information is supposed to be already present
@@ -1369,8 +1444,6 @@ pub(crate) fn refresh_procs(
         };
 
         let proc_list = Wrap(UnsafeCell::new(proc_list));
-        #[cfg(feature = "gpu")]
-        let now = Instant::now();
 
         let get_process_data = |buffers: &mut ProcessBuffers, e: ProcAndTasks| {
             let proc_list = proc_list.get();
@@ -1407,15 +1480,19 @@ pub(crate) fn refresh_procs(
         #[cfg(not(feature = "multithread"))]
         let procs = {
             let mut procs_buffers = ProcessBuffers::new(refresh_kind);
-            let mut buffers = ProcessBuffers::new(refresh_kind);
+            let buffers = &mut buffers;
             iter(pid_iter)
                 .flat_map(move |e| get_procs(&mut procs_buffers, e))
-                .filter_map(move |e| get_process_data(&mut buffers, e))
+                .filter_map(move |e| get_process_data(buffers, e))
         };
         procs.collect::<Vec<_>>()
     };
     for proc_ in procs {
         proc_list.insert(proc_.pid(), proc_);
+    }
+    #[cfg(feature = "gpu")]
+    if refresh_kind.gpu_usage() || refresh_kind.gpu_memory() {
+        gpu::update_threads_gpu_info(proc_list, refresh_kind, now, &mut buffers);
     }
     nb_updated.into_inner()
 }
