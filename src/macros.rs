@@ -54,14 +54,30 @@ macro_rules! declare_signals {
 #[cfg(all(unix, not(feature = "unknown-ci")))]
 #[allow(unused_macros)]
 macro_rules! retry_eintr {
-    (set_to_0 => $($t:tt)+) => {{
+    // Resets `errno` before every attempt, not only the first one: otherwise a stale `EINTR` from an
+    // interrupted attempt is still there when the retried call succeeds without touching `errno`.
+    (set_to_0 => $kind:ident => $($t:tt)+) => {
+        retry_eintr!($kind => { retry_eintr!(@reset_errno); $($t)+ })
+    };
+    (set_to_0 => $($t:tt)+) => {
+        retry_eintr!({ retry_eintr!(@reset_errno); $($t)+ })
+    };
+    (@reset_errno) => {{
         #[allow(unused_unsafe)]
         let errno = unsafe { crate::unix::libc_errno() };
         if !errno.is_null() {
             #[allow(unused_unsafe)]
             unsafe { *errno = 0; }
         }
-        retry_eintr!($($t)+)
+    }};
+    (null => $($t:tt)+) => {{
+        loop {
+            let ret = $($t)+;
+            if ret.is_null() && std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            break ret;
+        }
     }};
     ($errno_value:ident => $($t:tt)+) => {{
         loop {
