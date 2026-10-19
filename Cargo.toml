@@ -151,7 +151,7 @@ ntapi = { version = "0.4", optional = true }
 windows = { version = ">=0.62, <0.63", optional = true }
 
 [target.'cfg(not(any(target_os = "unknown", target_arch = "wasm32")))'.dependencies]
-libc = "^0.2.173"
+libc = "^0.2.191"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 objc2-core-foundation = { version = "0.3.2", optional = true, default-features = false, features = [
