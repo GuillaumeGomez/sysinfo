@@ -1116,6 +1116,9 @@ fn update_proc_info(
         }
     }
     p.updated = true;
+    // A process can be marked as nonexistent (e.g. while hidden by `hidepid=invisible`) and
+    // become readable again later.
+    p.exists = true;
 }
 
 fn update_parent_pid(p: &mut ProcessInner, parent_pid: Option<Pid>, parts: &Parts) {
@@ -1767,6 +1770,31 @@ fn parse_stat_file(data: &[u8], start_time_raw: Option<u64>) -> Option<Parts> {
 mod tests {
     use super::{Parts, parse_stat_file, split_content};
     use std::ffi::OsString;
+
+    // A process marked as nonexistent (e.g. hidden by `hidepid=invisible` for one refresh) must
+    // be reported as existing again once it can be read.
+    #[test]
+    fn test_exists_after_being_nonexistent() {
+        use crate::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+
+        let pid = Pid::from_u32(std::process::id());
+        let mut s = System::new().unwrap();
+        s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
+        s.process(pid).unwrap();
+        s.inner
+            .processes_mut()
+            .get_mut(&pid)
+            .unwrap()
+            .inner
+            .set_nonexistent();
+        assert!(!s.process(pid).unwrap().exists());
+        s.refresh_processes_specifics(
+            ProcessesToUpdate::Some(&[pid]),
+            false,
+            ProcessRefreshKind::nothing(),
+        );
+        assert!(s.process(pid).unwrap().exists());
+    }
 
     // This test ensures that all the parts of the data are split.
     #[test]
