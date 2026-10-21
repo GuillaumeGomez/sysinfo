@@ -3242,7 +3242,7 @@ mod test {
     #[test]
     fn check_system_info() {
         // We don't want to test on unsupported systems.
-        if IS_SUPPORTED_SYSTEM {
+        if System::new().is_ok() {
             assert!(
                 !System::name()
                     .expect("Failed to get system name")
@@ -3274,7 +3274,7 @@ mod test {
     #[test]
     fn check_host_name() {
         // We don't want to test on unsupported systems.
-        if IS_SUPPORTED_SYSTEM {
+        if System::new().is_ok() {
             assert!(System::host_name().is_ok());
         }
     }
@@ -3282,7 +3282,7 @@ mod test {
     #[test]
     fn check_refresh_process_return_value() {
         // We don't want to test on unsupported systems.
-        if IS_SUPPORTED_SYSTEM {
+        if System::new().is_ok() {
             let _pid = get_current_pid().expect("Failed to get current PID");
 
             #[cfg(not(feature = "apple-sandbox"))]
@@ -3308,7 +3308,7 @@ mod test {
 
         // This information isn't retrieved by default.
         assert!(s.cpus().is_empty());
-        if IS_SUPPORTED_SYSTEM {
+        if System::new().is_ok() {
             // The physical cores count is recomputed every time the function is called, so the
             // information must be relevant even with nothing initialized.
             let physical_cores_count =
@@ -3352,7 +3352,7 @@ mod test {
     #[test]
     #[allow(clippy::const_is_empty)]
     fn check_nb_supported_signals() {
-        if IS_SUPPORTED_SYSTEM {
+        if System::new().is_ok() {
             assert!(
                 !SUPPORTED_SIGNALS.is_empty(),
                 "SUPPORTED_SIGNALS shouldn't be empty on supported systems!"

@@ -15,9 +15,7 @@ It currently supports the following OSes (alphabetically sorted):
  * Raspberry Pi
  * Windows
 
-You can still use `sysinfo` on non-supported OSes, it'll simply do nothing and always return
-empty values. You can check in your program directly if an OS is supported by checking the
-[`IS_SUPPORTED_SYSTEM`] constant.
+You can still compile and use `sysinfo` on non-supported OSes, it'll simply do nothing.
 
 The minimum-supported version of `rustc` is **1.95**.
 

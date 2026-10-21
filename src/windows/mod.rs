@@ -73,9 +73,6 @@ cfg_select! {
     _ => {}
 }
 
-#[doc = include_str!("../../md_doc/is_supported.md")]
-pub const IS_SUPPORTED_SYSTEM: bool = true;
-
 // Make formattable by rustfmt.
 #[cfg(any())]
 mod component;

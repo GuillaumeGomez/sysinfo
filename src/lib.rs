@@ -38,9 +38,11 @@ cfg_select! {
     feature = "unknown-ci" => {
         // This is used in CI to check that the build for unknown targets is compiling fine.
         mod unknown;
+        #[allow(unused_imports)]
         use crate::unknown as sys;
 
         #[cfg(test)]
+    #[allow(dead_code)]
         pub(crate) const MIN_USERS: usize = 0;
     }
     any(
@@ -49,6 +51,7 @@ cfg_select! {
         target_os = "freebsd", target_os = "netbsd") =>
     {
         mod unix;
+        #[allow(unused_imports)]
         use crate::unix::sys as sys;
 
         #[cfg(feature = "network")]
@@ -57,10 +60,12 @@ cfg_select! {
         use crate::unix::network_helper;
 
         #[cfg(test)]
+    #[allow(dead_code)]
         pub(crate) const MIN_USERS: usize = 1;
     }
     windows => {
         mod windows;
+        #[allow(unused_imports)]
         use crate::windows as sys;
 
         #[cfg(feature = "network")]
@@ -69,13 +74,16 @@ cfg_select! {
         use crate::windows::network_helper;
 
         #[cfg(test)]
+    #[allow(dead_code)]
         pub(crate) const MIN_USERS: usize = 1;
     }
     _ => {
         mod unknown;
+        #[allow(unused_imports)]
         use crate::unknown as sys;
 
         #[cfg(test)]
+    #[allow(dead_code)]
         pub(crate) const MIN_USERS: usize = 0;
     }
 }
@@ -123,7 +131,6 @@ pub(crate) use crate::sys::{GpuInner, GpusInner};
 pub(crate) use crate::sys::{NetworkDataInner, NetworksInner};
 
 pub use crate::errors::Error;
-pub use crate::sys::IS_SUPPORTED_SYSTEM;
 
 #[cfg(feature = "c-interface")]
 pub use crate::c_interface::*;
@@ -220,20 +227,22 @@ use sysinfo::", stringify!($imports), r";
 
 #[cfg(test)]
 mod test {
+    #[allow(unused_imports)]
     use crate::*;
 
-    #[cfg(feature = "unknown-ci")]
+    #[cfg(all(feature = "unknown-ci", feature = "system"))]
     #[test]
     fn check_unknown_ci_feature() {
-        assert!(!IS_SUPPORTED_SYSTEM);
+        assert!(System::new().is_err());
     }
 
     // If this test doesn't compile, it means the current OS doesn't implement them correctly.
+    #[cfg(feature = "system")]
     #[test]
     fn check_macro_types() {
         fn check_is_supported(_: bool) {}
 
-        check_is_supported(IS_SUPPORTED_SYSTEM);
+        check_is_supported(System::new().is_ok());
     }
 
     // If this test doesn't compile, it means the current OS doesn't implement them correctly.
@@ -256,37 +265,34 @@ mod test {
         let user_list = users.list();
         assert!(user_list.len() >= MIN_USERS);
 
-        if IS_SUPPORTED_SYSTEM {
-            #[cfg(not(target_os = "windows"))]
-            {
-                let user = user_list
-                    .iter()
-                    .find(|u| u.name() == "root")
-                    .expect("no root user");
-                assert_eq!(**user.id(), 0);
-                assert_eq!(*user.group_id(), 0);
-                if let Some(user) = users.iter().find(|u| *u.group_id() > 0) {
-                    assert!(**user.id() > 0);
-                    assert!(*user.group_id() > 0);
-                }
-                assert!(user_list.iter().filter(|u| **u.id() > 0).count() > 0);
+        #[cfg(not(target_os = "windows"))]
+        {
+            let user = user_list
+                .iter()
+                .find(|u| u.name() == "root")
+                .expect("no root user");
+            assert_eq!(**user.id(), 0);
+            assert_eq!(*user.group_id(), 0);
+            if let Some(user) = users.iter().find(|u| *u.group_id() > 0) {
+                assert!(**user.id() > 0);
+                assert!(*user.group_id() > 0);
             }
+            assert!(user_list.iter().filter(|u| **u.id() > 0).count() > 0);
+        }
 
-            #[cfg(feature = "system")]
-            {
-                // And now check that our `get_user_by_id` method works.
-                if let Ok(s) =
-                    System::new_with_specifics(RefreshKind::nothing().with_processes(
-                        ProcessRefreshKind::nothing().with_user(UpdateKind::Always),
-                    ))
-                {
-                    assert!(
-                        s.processes()
-                            .values()
-                            .filter_map(|p| p.user_id())
-                            .any(|uid| users.get_user_by_id(uid).is_some())
-                    );
-                }
+        #[cfg(feature = "system")]
+        {
+            // And now check that our `get_user_by_id` method works.
+            if let Ok(s) = System::new_with_specifics(
+                RefreshKind::nothing()
+                    .with_processes(ProcessRefreshKind::nothing().with_user(UpdateKind::Always)),
+            ) {
+                assert!(
+                    s.processes()
+                        .values()
+                        .filter_map(|p| p.user_id())
+                        .any(|uid| users.get_user_by_id(uid).is_some())
+                );
             }
         }
     }
@@ -314,12 +320,13 @@ mod test {
         }
     }
 
+    #[cfg(feature = "system")]
     #[test]
     fn ensure_is_supported_is_set_correctly() {
         if MIN_USERS > 0 {
-            assert!(IS_SUPPORTED_SYSTEM);
+            assert!(System::new().is_ok());
         } else {
-            assert!(!IS_SUPPORTED_SYSTEM);
+            assert!(System::new().is_err());
         }
     }
 

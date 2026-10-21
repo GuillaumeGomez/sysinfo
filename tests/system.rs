@@ -47,18 +47,10 @@ fn test_get_process() {
     sys.refresh_processes(ProcessesToUpdate::All, false);
     let current_pid = match sysinfo::get_current_pid() {
         Ok(pid) => pid,
-        _ => {
-            if !sysinfo::IS_SUPPORTED_SYSTEM {
-                return;
-            }
-            panic!("get_current_pid should work!");
-        }
+        _ => panic!("get_current_pid should work!"),
     };
     if let Some(p) = sys.process(current_pid) {
         assert!(p.memory() > 0);
-    } else {
-        #[cfg(not(feature = "apple-sandbox"))]
-        assert!(!sysinfo::IS_SUPPORTED_SYSTEM);
     }
 }
 
@@ -87,10 +79,6 @@ fn check_if_send_and_sync() {
         p.foo(); // If this doesn't compile, it'll simply mean that the Process type
         // doesn't implement the Send trait.
         p.bar(); // If this doesn't compile, it'll simply mean that the Process type
-    // doesn't implement the Sync trait.
-    } else {
-        #[cfg(not(feature = "apple-sandbox"))]
-        assert!(!sysinfo::IS_SUPPORTED_SYSTEM);
     }
 }
 
@@ -103,8 +91,8 @@ fn check_hostname_has_no_nuls() {
 
 #[test]
 fn check_uptime() {
-    let uptime = System::uptime();
-    if sysinfo::IS_SUPPORTED_SYSTEM {
+    if sysinfo::System::new().is_ok() {
+        let uptime = System::uptime();
         std::thread::sleep(std::time::Duration::from_millis(1000));
         let new_uptime = System::uptime().unwrap();
         assert!(uptime.unwrap() < new_uptime);
@@ -113,7 +101,7 @@ fn check_uptime() {
 
 #[test]
 fn check_boot_time() {
-    if sysinfo::IS_SUPPORTED_SYSTEM {
+    if sysinfo::System::new().is_ok() {
         assert_ne!(System::boot_time().unwrap(), 0);
     }
 }
