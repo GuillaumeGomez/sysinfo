@@ -240,3 +240,58 @@ impl GpuInner {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::PCI;
+    use crate::unix::sys::gpu::parse_pcidebug;
+
+    #[test]
+    fn test_parse_pcidebug() {
+        assert_eq!(
+            parse_pcidebug("1:2:3"),
+            Some(PCI {
+                domain: 0,
+                bus: 1,
+                device: 2,
+                function: 3
+            })
+        );
+
+        assert_eq!(
+            parse_pcidebug("128:31:7"),
+            Some(PCI {
+                domain: 0,
+                bus: 128,
+                device: 31,
+                function: 7
+            })
+        );
+
+        assert_eq!(
+            parse_pcidebug("1:2:3(4:5)"),
+            Some(PCI {
+                domain: 0,
+                bus: 1,
+                device: 2,
+                function: 3
+            })
+        );
+
+        assert_eq!(
+            parse_pcidebug("255:31:7(1:2)"),
+            Some(PCI {
+                domain: 0,
+                bus: 255,
+                device: 31,
+                function: 7
+            })
+        );
+
+        assert_eq!(parse_pcidebug("256:31:7(1:2)"), None);
+        assert_eq!(parse_pcidebug("128:32:7(1:2)"), None);
+        assert_eq!(parse_pcidebug("128:31:8(1:2)"), None);
+        assert_eq!(parse_pcidebug("ff:1f:07"), None);
+        assert_eq!(parse_pcidebug("::"), None);
+    }
+}
