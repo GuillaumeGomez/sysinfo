@@ -12,8 +12,6 @@ use objc2_io_kit::{
     io_object_t, kIOReturnSuccess, kIOServicePlane,
 };
 
-use std::str::FromStr;
-
 pub(crate) struct GpusInner {
     pub(crate) gpus: Vec<Gpu>,
 }
@@ -92,23 +90,10 @@ impl GpusInner {
                     kCFAllocatorDefault,
                     0,
                 ) && let Ok(prop_ref) = prop.downcast::<CFString>()
-                    && let pci = prop_ref.to_string()
-                    && let mut parts = pci.split(':')
-                    && let Some(domain) = parts.next().and_then(|nb| u32::from_str(nb).ok())
-                    && let Some(bus) = parts.next().and_then(|nb| u32::from_str(nb).ok())
+                    && let pcidebug = prop_ref.to_string()
+                    && let Some(pci) = parse_pcidebug(pcidebug.as_str())
                 {
-                    PCI {
-                        domain,
-                        bus,
-                        device: parts
-                            .next()
-                            .and_then(|nb| u32::from_str(nb).ok())
-                            .unwrap_or(0),
-                        function: parts
-                            .next()
-                            .and_then(|nb| u32::from_str(nb).ok())
-                            .unwrap_or(0),
-                    }
+                    pci
                 } else {
                     continue;
                 };
@@ -201,6 +186,30 @@ unsafe fn is_gpu(device: io_object_t, class_code_key: &CFString) -> bool {
             false
         }
     }
+}
+
+//  `pcidebug` format: either `busNum:deviceNum:functionNum` or `busNum:deviceNum:functionNum(secBusNum:subBusNum)` (decimal)
+//  https://github.com/apple-oss-distributions/IOPCIFamily/blob/main/IOPCIConfigurator.cpp
+fn parse_pcidebug(pcidebug: &str) -> Option<PCI> {
+    let (address, _) = pcidebug.split_once('(').unwrap_or((pcidebug, ""));
+    let mut parts = address.split(':');
+    let bus: u8 = parts.next()?.parse().ok()?;
+    let device: u8 = parts.next()?.parse().ok()?;
+    let function: u8 = parts.next()?.parse().ok()?;
+
+    if device > 0x1f {
+        return None;
+    }
+    if function > 0x07 {
+        return None;
+    }
+
+    Some(PCI {
+        domain: 0,
+        bus: bus as u32,
+        device: device as u32,
+        function: function as u32,
+    })
 }
 
 pub(crate) struct GpuInner {
