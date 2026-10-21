@@ -166,7 +166,7 @@ impl core::str::FromStr for PCI {
             let Some(value) = iter.next() else {
                 return Err(missing_msg);
             };
-            value.parse::<u32>().map_err(|_| invalid_msg)
+            u32::from_str_radix(value, 16).map_err(|_| invalid_msg)
         }
 
         let mut iter = s.split(':');
@@ -184,6 +184,19 @@ impl core::str::FromStr for PCI {
         if iter.next().is_some() {
             return Err("unexpected `:` after function");
         };
+
+        //  if not the fake address used for M series GPUs
+        if s != "ffffffff:ff:ff.255" {
+            if bus > 0xff {
+                return Err("invalid bus");
+            }
+            if device > 0x1f {
+                return Err("invalid device");
+            }
+            if function > 0x07 {
+                return Err("invalid function");
+            }
+        }
 
         Ok(Self {
             domain,

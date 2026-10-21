@@ -12,8 +12,6 @@ use objc2_io_kit::{
     io_object_t, kIOReturnSuccess, kIOServicePlane,
 };
 
-use std::str::FromStr;
-
 pub(crate) struct GpusInner {
     pub(crate) gpus: Vec<Gpu>,
 }
@@ -92,23 +90,10 @@ impl GpusInner {
                     kCFAllocatorDefault,
                     0,
                 ) && let Ok(prop_ref) = prop.downcast::<CFString>()
-                    && let pci = prop_ref.to_string()
-                    && let mut parts = pci.split(':')
-                    && let Some(domain) = parts.next().and_then(|nb| u32::from_str(nb).ok())
-                    && let Some(bus) = parts.next().and_then(|nb| u32::from_str(nb).ok())
+                    && let pcidebug = prop_ref.to_string()
+                    && let Some(pci) = parse_pcidebug(pcidebug.as_str())
                 {
-                    PCI {
-                        domain,
-                        bus,
-                        device: parts
-                            .next()
-                            .and_then(|nb| u32::from_str(nb).ok())
-                            .unwrap_or(0),
-                        function: parts
-                            .next()
-                            .and_then(|nb| u32::from_str(nb).ok())
-                            .unwrap_or(0),
-                    }
+                    pci
                 } else {
                     continue;
                 };
@@ -203,6 +188,30 @@ unsafe fn is_gpu(device: io_object_t, class_code_key: &CFString) -> bool {
     }
 }
 
+//  `pcidebug` format: either `busNum:deviceNum:functionNum` or `busNum:deviceNum:functionNum(secBusNum:subBusNum)` (decimal)
+//  https://github.com/apple-oss-distributions/IOPCIFamily/blob/main/IOPCIConfigurator.cpp
+fn parse_pcidebug(pcidebug: &str) -> Option<PCI> {
+    let (address, _) = pcidebug.split_once('(').unwrap_or((pcidebug, ""));
+    let mut parts = address.split(':');
+    let bus: u8 = parts.next()?.parse().ok()?;
+    let device: u8 = parts.next()?.parse().ok()?;
+    let function: u8 = parts.next()?.parse().ok()?;
+
+    if device > 0x1f {
+        return None;
+    }
+    if function > 0x07 {
+        return None;
+    }
+
+    Some(PCI {
+        domain: 0,
+        bus: bus as u32,
+        device: device as u32,
+        function: function as u32,
+    })
+}
+
 pub(crate) struct GpuInner {
     pci: PCI,
     vendor: Option<String>,
@@ -229,5 +238,60 @@ impl GpuInner {
     }
     pub(crate) fn used_memory(&self) -> Option<u64> {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::PCI;
+    use crate::unix::sys::gpu::parse_pcidebug;
+
+    #[test]
+    fn test_parse_pcidebug() {
+        assert_eq!(
+            parse_pcidebug("1:2:3"),
+            Some(PCI {
+                domain: 0,
+                bus: 1,
+                device: 2,
+                function: 3
+            })
+        );
+
+        assert_eq!(
+            parse_pcidebug("128:31:7"),
+            Some(PCI {
+                domain: 0,
+                bus: 128,
+                device: 31,
+                function: 7
+            })
+        );
+
+        assert_eq!(
+            parse_pcidebug("1:2:3(4:5)"),
+            Some(PCI {
+                domain: 0,
+                bus: 1,
+                device: 2,
+                function: 3
+            })
+        );
+
+        assert_eq!(
+            parse_pcidebug("255:31:7(1:2)"),
+            Some(PCI {
+                domain: 0,
+                bus: 255,
+                device: 31,
+                function: 7
+            })
+        );
+
+        assert_eq!(parse_pcidebug("256:31:7(1:2)"), None);
+        assert_eq!(parse_pcidebug("128:32:7(1:2)"), None);
+        assert_eq!(parse_pcidebug("128:31:8(1:2)"), None);
+        assert_eq!(parse_pcidebug("ff:1f:07"), None);
+        assert_eq!(parse_pcidebug("::"), None);
     }
 }
