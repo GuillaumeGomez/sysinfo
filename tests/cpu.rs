@@ -27,7 +27,7 @@ fn test_cpu() {
 
 #[test]
 fn test_physical_core_numbers() {
-    if sysinfo::IS_SUPPORTED_SYSTEM {
+    if sysinfo::System::new().is_ok() {
         let count = sysinfo::System::physical_core_count();
         assert!(count.is_ok());
         assert!(count.unwrap() > 0);
