@@ -12,6 +12,8 @@ use objc2_io_kit::{
     io_object_t, kIOReturnSuccess, kIOServicePlane,
 };
 
+use std::str::FromStr;
+
 pub(crate) struct GpusInner {
     pub(crate) gpus: Vec<Gpu>,
 }
@@ -89,14 +91,23 @@ impl GpusInner {
                     Some(&pcidebug_key),
                     kCFAllocatorDefault,
                     0,
-                ) && let Ok(prop_ref) = prop.downcast::<CFData>()
-                    && let [domain, bus, device, func, ..] = prop_ref.as_bytes_unchecked()
+                ) && let Ok(prop_ref) = prop.downcast::<CFString>()
+                    && let pci = prop_ref.to_string()
+                    && let mut parts = pci.split(':')
+                    && let Some(domain) = parts.next().and_then(|nb| u32::from_str(nb).ok())
+                    && let Some(bus) = parts.next().and_then(|nb| u32::from_str(nb).ok())
                 {
                     PCI {
-                        domain: *domain as _,
-                        bus: *bus as _,
-                        device: *device as _,
-                        function: *func as _,
+                        domain,
+                        bus,
+                        device: parts
+                            .next()
+                            .and_then(|nb| u32::from_str(nb).ok())
+                            .unwrap_or(0),
+                        function: parts
+                            .next()
+                            .and_then(|nb| u32::from_str(nb).ok())
+                            .unwrap_or(0),
                     }
                 } else {
                     continue;
