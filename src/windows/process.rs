@@ -328,8 +328,14 @@ impl ProcessInner {
         nb_cpus: u64,
         now: u64,
         refresh_parent: bool,
+        nb_threads: u32,
         #[cfg(feature = "gpu")] gpu_query: &mut Option<Query>,
     ) {
+        // A process without threads never exits: it is destroyed once every handle to it is
+        // closed, so holding ours would keep it alive.
+        if nb_threads == 0 {
+            self.handle = None;
+        }
         if refresh_kind.cpu() {
             compute_cpu_usage(self, nb_cpus);
         }

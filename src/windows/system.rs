@@ -289,6 +289,7 @@ impl SystemInner {
                         nb_cpus,
                         now,
                         false,
+                        process_entry.cntThreads,
                         #[cfg(feature = "gpu")]
                         &mut self.gpu_query,
                     );
@@ -309,6 +310,7 @@ impl SystemInner {
                         nb_cpus,
                         now,
                         false,
+                        process_entry.cntThreads,
                         #[cfg(feature = "gpu")]
                         &mut self.gpu_query,
                     );
@@ -654,5 +656,65 @@ pub(crate) fn get_reg_value_u32(hkey: HKEY, path: &str, field_name: &str) -> Opt
             .get_value(&c_field_name, &mut buf, &mut buf_len)
             .map(|_| buf)
             .ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Pid, ProcessesToUpdate, System};
+    use std::time::Duration;
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::System::Diagnostics::ProcessSnapshotting::{
+        HPSS, PSS_CAPTURE_VA_CLONE, PSS_QUERY_VA_CLONE_INFORMATION, PSS_VA_CLONE_INFORMATION,
+        PssCaptureSnapshot, PssFreeSnapshot, PssQuerySnapshot,
+    };
+    use windows::Win32::System::Threading::{GetCurrentProcess, GetProcessId};
+
+    // A process without threads (such as a `PssCaptureSnapshot` clone) never exits: it is destroyed
+    // once every handle to it is closed. Make sure keeping it in the processes list doesn't keep it
+    // alive.
+    #[test]
+    fn test_threadless_process_not_kept_alive() {
+        let Ok(mut s) = System::new() else { return };
+        let mut snapshot = HPSS::default();
+        let mut clone = PSS_VA_CLONE_INFORMATION {
+            VaCloneHandle: HANDLE::default(),
+        };
+        let clone_pid = unsafe {
+            assert_eq!(
+                PssCaptureSnapshot(
+                    GetCurrentProcess(),
+                    PSS_CAPTURE_VA_CLONE,
+                    None,
+                    &mut snapshot
+                ),
+                0
+            );
+            assert_eq!(
+                PssQuerySnapshot(
+                    snapshot,
+                    PSS_QUERY_VA_CLONE_INFORMATION,
+                    (&mut clone as *mut PSS_VA_CLONE_INFORMATION).cast(),
+                    size_of::<PSS_VA_CLONE_INFORMATION>() as _,
+                ),
+                0
+            );
+            Pid::from_u32(GetProcessId(clone.VaCloneHandle))
+        };
+
+        s.refresh_processes(ProcessesToUpdate::All, true);
+        assert!(s.process(clone_pid).is_some());
+
+        // This closes the last handle to the clone, apart from any `System` might hold.
+        assert_eq!(unsafe { PssFreeSnapshot(GetCurrentProcess(), snapshot) }, 0);
+        // Something else (another test's `System`, an antivirus) can briefly hold the clone too.
+        for _ in 0..5 {
+            s.refresh_processes(ProcessesToUpdate::All, true);
+            if s.process(clone_pid).is_none() {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        panic!("thread-less process {clone_pid} is still alive");
     }
 }
