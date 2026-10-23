@@ -183,6 +183,9 @@ bstr = "1.9.0"
 tempfile = "3.9"
 itertools = "0.14.0"
 
+[target.'cfg(windows)'.dev-dependencies]
+windows = { version = ">=0.62, <0.63", features = ["Win32_System_Diagnostics_ProcessSnapshotting"] }
+
 [[example]]
 name = "simple"
 path = "examples/simple.rs"
