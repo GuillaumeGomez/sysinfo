@@ -196,6 +196,9 @@ impl Disk {
 
     /// Returns number of bytes read and written by the disk
     ///
+    /// On illumos, I/O counters are not reported for ZFS datasets, so all fields are zero.
+    /// Pool-wide counters are not attributed to individual datasets.
+    ///
     /// ```no_run
     /// use sysinfo::Disks;
     ///

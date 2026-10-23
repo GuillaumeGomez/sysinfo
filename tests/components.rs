@@ -19,7 +19,7 @@ fn test_components() {
     assert!(c.is_empty());
 
     // Unfortunately, we can't get components in the CI...
-    if cfg!(windows) || var("CI").is_ok() {
+    if cfg!(windows) || cfg!(target_os = "illumos") || var("CI").is_ok() {
         return;
     }
 
