@@ -17,9 +17,9 @@ fn test_networks() {
             return;
         }
     };
-    assert_eq!(networks.list().len(), 0);
+    assert_eq!(networks.len(), 0);
     networks.refresh(false);
-    assert_ne!(networks.list().len(), 0);
+    assert_ne!(networks.len(), 0);
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn test_mac_addr() {
         }
     };
     networks.refresh(false);
-    assert_ne!(networks.list().len(), 0);
+    assert_ne!(networks.len(), 0);
     networks
         .iter()
         .any(|(_, n)| !n.mac_address().is_unspecified());

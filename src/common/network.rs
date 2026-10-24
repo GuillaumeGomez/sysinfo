@@ -72,21 +72,6 @@ impl Networks {
         Ok(networks)
     }
 
-    /// Returns the network interfaces map.
-    ///
-    /// ```no_run
-    /// use sysinfo::Networks;
-    ///
-    /// if let Ok(networks) = Networks::new_with_refreshed_list() {
-    ///     for network in networks.list() {
-    ///         println!("{network:?}");
-    ///     }
-    /// }
-    /// ```
-    pub fn list(&self) -> &HashMap<OsString, NetworkData> {
-        self.inner.list()
-    }
-
     /// Refreshes the network interfaces.
     ///
     /// ```no_run
@@ -108,7 +93,7 @@ impl std::ops::Deref for Networks {
     type Target = HashMap<OsString, NetworkData>;
 
     fn deref(&self) -> &Self::Target {
-        self.list()
+        self.inner.list()
     }
 }
 
