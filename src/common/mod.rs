@@ -40,7 +40,7 @@ pub(crate) mod user;
 /// }
 ///
 /// if let Ok(disks) = Disks::new_with_refreshed_list() {
-///     for disk in disks.list() {
+///     for disk in &disks {
 ///         println!("[{:?}] disk usage: {:?}", disk.name(), disk.usage());
 ///     }
 /// }
