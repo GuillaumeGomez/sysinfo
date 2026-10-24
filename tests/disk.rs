@@ -31,13 +31,13 @@ fn test_disks() {
     }
 
     let mut disks = Disks::new().unwrap();
-    assert!(disks.list().is_empty());
+    assert!(disks.is_empty());
     disks.refresh(false);
     // Sometimes some disks are not retrieved on NetBSD. No clue why...
     if std::env::var("NETBSD_CI").is_ok() {
         return;
     }
-    assert!(!disks.list().is_empty());
+    assert!(!disks.is_empty());
 }
 
 #[test]
@@ -194,7 +194,7 @@ fn test_disks_usage() {
 
     // Depending on the OS and how disks are configured, the disk usage may be the exact same
     // across multiple disks. To account for this, collect the disk usages and dedup.
-    let mut disk_usages = disks.list().iter().map(|d| d.usage()).collect::<Vec<_>>();
+    let mut disk_usages = disks.iter().map(|d| d.usage()).collect::<Vec<_>>();
     disk_usages.dedup();
 
     let mut written_bytes = 0;

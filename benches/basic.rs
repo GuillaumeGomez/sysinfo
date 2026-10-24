@@ -79,7 +79,6 @@ fn bench_refresh_disk(b: &mut test::Bencher) {
         return;
     };
 
-    let disks = disks.list_mut();
     let disk = &mut disks[0];
     b.iter(move || {
         black_box(disk.refresh());

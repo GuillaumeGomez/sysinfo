@@ -257,14 +257,6 @@ impl DisksInner {
         })
     }
 
-    pub(crate) fn from_vec(disks: Vec<Disk>) -> Self {
-        Self { disks }
-    }
-
-    pub(crate) fn into_vec(self) -> Vec<Disk> {
-        self.disks
-    }
-
     pub(crate) fn refresh_specifics(
         &mut self,
         remove_not_listed_disks: bool,

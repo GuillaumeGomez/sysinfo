@@ -72,14 +72,6 @@ impl DisksInner {
         Err(Error::Unsupported)
     }
 
-    pub(crate) fn from_vec(_: Vec<Disk>) -> Self {
-        Self
-    }
-
-    pub(crate) fn into_vec(self) -> Vec<Disk> {
-        Vec::new()
-    }
-
     pub(crate) fn refresh_specifics(
         &mut self,
         _remove_not_listed_disks: bool,
