@@ -297,4 +297,50 @@ impl Gpu {
     pub fn used_memory(&self) -> Option<u64> {
         self.inner.used_memory()
     }
+
+    /// Returns the temperature of this GPU in degrees Celsius.
+    ///
+    /// On Linux, this information is only available for NVIDIA and AMD GPUs.
+    ///
+    /// On macOS and Windows, availability depends on GPU driver support.
+    ///
+    /// Returns `None` if the information cannot be retrieved.
+    pub fn temperature(&self) -> Option<f32> {
+        self.inner.temperature()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PCI;
+
+    #[test]
+    fn test_pci_from_str() {
+        // sysfs BDF notation (e.g. `/sys/class/drm/*/device`)
+        let pci: PCI = "0000:c1:00.0".parse().unwrap();
+        assert_eq!(
+            pci,
+            PCI {
+                domain: 0,
+                bus: 0xc1,
+                device: 0,
+                function: 0,
+            }
+        );
+        assert_eq!(pci.to_string(), "0000:c1:00.0");
+
+        // NVML's `busId` format (8-digit hex domain)
+        let pci: PCI = "00000000:65:00.0".parse().unwrap();
+        assert_eq!(
+            pci,
+            PCI {
+                domain: 0,
+                bus: 0x65,
+                device: 0,
+                function: 0,
+            }
+        );
+
+        assert!("0000:01:00".parse::<PCI>().is_err());
+    }
 }
