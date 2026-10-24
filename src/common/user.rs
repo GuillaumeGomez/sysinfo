@@ -12,7 +12,7 @@ use crate::{Error, Gid, Uid, UserInner};
 /// use sysinfo::Users;
 ///
 /// if let Ok(users) = Users::new_with_refreshed_list() {
-///     for user in users.list() {
+///     for user in &users {
 ///         println!("{:?}", user);
 ///     }
 /// }
@@ -50,7 +50,7 @@ impl User {
     /// use sysinfo::Users;
     ///
     /// if let Ok(users) = Users::new_with_refreshed_list() {
-    ///     for user in users.list() {
+    ///     for user in &users {
     ///         println!("{:?}", *user.id());
     ///     }
     /// }
@@ -72,7 +72,7 @@ impl User {
     /// use sysinfo::Users;
     ///
     /// if let Ok(users) = Users::new_with_refreshed_list() {
-    ///     for user in users.list() {
+    ///     for user in &users {
     ///         println!("{}", *user.group_id());
     ///     }
     /// }
@@ -87,7 +87,7 @@ impl User {
     /// use sysinfo::Users;
     ///
     /// if let Ok(users) = Users::new_with_refreshed_list() {
-    ///     for user in users.list() {
+    ///     for user in &users {
     ///         println!("{}", user.name());
     ///     }
     /// }
@@ -104,7 +104,7 @@ impl User {
     /// use sysinfo::Users;
     ///
     /// if let Ok(users) = Users::new_with_refreshed_list() {
-    ///     for user in users.list() {
+    ///     for user in &users {
     ///         println!("{} is in {:?}", user.name(), user.groups());
     ///     }
     /// }
@@ -122,13 +122,13 @@ pub(crate) struct GroupInner {
 
 /// Type containing group information.
 ///
-/// It is returned by [`User::groups`] or [`Groups::list`].
+/// It is returned by [`User::groups`].
 ///
 /// ```no_run
 /// use sysinfo::Users;
 ///
 /// if let Ok(users) = Users::new_with_refreshed_list() {
-///     for user in users.list() {
+///     for user in &users {
 ///         println!(
 ///             "user: (ID: {:?}, group ID: {:?}, name: {:?})",
 ///             user.id(),
@@ -155,7 +155,7 @@ impl Group {
     /// use sysinfo::Users;
     ///
     /// if let Ok(users) = Users::new_with_refreshed_list() {
-    ///     for user in users.list() {
+    ///     for user in &users {
     ///         for group in user.groups() {
     ///             println!("{:?}", group.id());
     ///         }
@@ -172,7 +172,7 @@ impl Group {
     /// use sysinfo::Users;
     ///
     /// if let Ok(users) = Users::new_with_refreshed_list() {
-    ///     for user in users.list() {
+    ///     for user in &users {
     ///         for group in user.groups() {
     ///             println!("{}", group.name());
     ///         }
@@ -190,7 +190,7 @@ impl Group {
 /// use sysinfo::Users;
 ///
 /// if let Ok(users) = Users::new_with_refreshed_list() {
-///     for user in users.list() {
+///     for user in &users {
 ///         println!("{} is in {} groups", user.name(), user.groups().len());
 ///     }
 /// }
@@ -199,29 +199,17 @@ pub struct Users {
     users: Vec<User>,
 }
 
-impl From<Users> for Vec<User> {
-    fn from(users: Users) -> Self {
-        users.users
-    }
-}
-
-impl From<Vec<User>> for Users {
-    fn from(users: Vec<User>) -> Self {
-        Self { users }
-    }
-}
-
 impl std::ops::Deref for Users {
     type Target = [User];
 
     fn deref(&self) -> &Self::Target {
-        self.list()
+        &self.users
     }
 }
 
 impl std::ops::DerefMut for Users {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.list_mut()
+        &mut self.users
     }
 }
 
@@ -230,7 +218,7 @@ impl<'a> IntoIterator for &'a Users {
     type IntoIter = std::slice::Iter<'a, User>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.list().iter()
+        self.users.iter()
     }
 }
 
@@ -239,7 +227,7 @@ impl<'a> IntoIterator for &'a mut Users {
     type IntoIter = std::slice::IterMut<'a, User>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.list_mut().iter_mut()
+        self.users.iter_mut()
     }
 }
 
@@ -253,7 +241,7 @@ impl Users {
     ///
     /// if let Ok(mut users) = Users::new() {
     ///     users.refresh();
-    ///     for user in users.list() {
+    ///     for user in &users {
     ///         println!("{user:?}");
     ///     }
     /// }
@@ -270,7 +258,7 @@ impl Users {
     /// use sysinfo::Users;
     ///
     /// if let Ok(users) = Users::new_with_refreshed_list() {
-    ///     for user in users.list() {
+    ///     for user in &users {
     ///         println!("{user:?}");
     ///     }
     /// }
@@ -279,36 +267,6 @@ impl Users {
         let mut users = Self::new()?;
         users.refresh();
         Ok(users)
-    }
-
-    /// Returns the users list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// if let Ok(users) = Users::new_with_refreshed_list() {
-    ///     for user in users.list() {
-    ///         println!("{user:?}");
-    ///     }
-    /// }
-    /// ```
-    pub fn list(&self) -> &[User] {
-        &self.users
-    }
-
-    /// Returns the users list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Users;
-    ///
-    /// if let Ok(mut users) = Users::new_with_refreshed_list() {
-    ///     users.list_mut().sort_by(|user1, user2| {
-    ///         user1.name().partial_cmp(user2.name()).unwrap()
-    ///     });
-    /// }
-    /// ```
-    pub fn list_mut(&mut self) -> &mut [User] {
-        &mut self.users
     }
 
     /// The user list will be emptied then completely recomputed.
@@ -334,7 +292,7 @@ impl Users {
     /// ```ignore
     /// # use sysinfo::Users;
     /// if let Ok(users) = Users::new_with_refreshed_list() {
-    ///     users.list().find(|user| user.id() == user_id);
+    ///     users.find(|user| user.id() == user_id);
     /// }
     /// ```
     ///
@@ -363,7 +321,7 @@ impl Users {
 /// use sysinfo::Groups;
 ///
 /// if let Ok(groups) = Groups::new_with_refreshed_list() {
-///     for group in groups.list() {
+///     for group in &groups {
 ///         println!("{}", group.name());
 ///     }
 /// }
@@ -372,29 +330,17 @@ pub struct Groups {
     groups: Vec<Group>,
 }
 
-impl From<Groups> for Vec<Group> {
-    fn from(groups: Groups) -> Self {
-        groups.groups
-    }
-}
-
-impl From<Vec<Group>> for Groups {
-    fn from(groups: Vec<Group>) -> Self {
-        Self { groups }
-    }
-}
-
 impl std::ops::Deref for Groups {
     type Target = [Group];
 
     fn deref(&self) -> &Self::Target {
-        self.list()
+        &self.groups
     }
 }
 
 impl std::ops::DerefMut for Groups {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.list_mut()
+        &mut self.groups
     }
 }
 
@@ -403,7 +349,7 @@ impl<'a> IntoIterator for &'a Groups {
     type IntoIter = std::slice::Iter<'a, Group>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.list().iter()
+        self.groups.iter()
     }
 }
 
@@ -412,7 +358,7 @@ impl<'a> IntoIterator for &'a mut Groups {
     type IntoIter = std::slice::IterMut<'a, Group>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.list_mut().iter_mut()
+        self.groups.iter_mut()
     }
 }
 
@@ -426,7 +372,7 @@ impl Groups {
     ///
     /// if let Ok(mut groups) = Groups::new() {
     ///     groups.refresh();
-    ///     for group in groups.list() {
+    ///     for group in &groups {
     ///         println!("{group:?}");
     ///     }
     /// }
@@ -443,7 +389,7 @@ impl Groups {
     /// use sysinfo::Groups;
     ///
     /// if let Ok(groups) = Groups::new_with_refreshed_list() {
-    ///     for group in groups.list() {
+    ///     for group in &groups {
     ///         println!("{group:?}");
     ///     }
     /// }
@@ -452,36 +398,6 @@ impl Groups {
         let mut groups = Self::new()?;
         groups.refresh();
         Ok(groups)
-    }
-
-    /// Returns the groups list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Groups;
-    ///
-    /// if let Ok(groups) = Groups::new_with_refreshed_list() {
-    ///     for group in groups.list() {
-    ///         println!("{group:?}");
-    ///     }
-    /// }
-    /// ```
-    pub fn list(&self) -> &[Group] {
-        &self.groups
-    }
-
-    /// Returns the groups list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Groups;
-    ///
-    /// if let Ok(mut groups) = Groups::new_with_refreshed_list() {
-    ///     groups.list_mut().sort_by(|user1, user2| {
-    ///         user1.name().partial_cmp(user2.name()).unwrap()
-    ///     });
-    /// }
-    /// ```
-    pub fn list_mut(&mut self) -> &mut [Group] {
-        &mut self.groups
     }
 
     /// The group list will be emptied then completely recomputed.
@@ -505,9 +421,9 @@ mod tests {
     #[test]
     fn check_list() {
         let mut users = check_unsupported!(Users::new());
-        assert!(users.list().is_empty());
+        assert!(users.is_empty());
         users.refresh();
-        assert!(users.list().len() >= MIN_USERS);
+        assert!(users.len() >= MIN_USERS);
     }
 
     // This test exists to ensure that the `TryFrom<usize>` and `FromStr` traits are implemented

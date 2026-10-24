@@ -394,7 +394,7 @@ fn interpret_input(
         },
         "groups" => match Groups::new_with_refreshed_list() {
             Ok(groups) => {
-                for group in groups.list() {
+                for group in &groups {
                     println!("{group:?}");
                 }
             }
