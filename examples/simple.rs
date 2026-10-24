@@ -161,7 +161,7 @@ fn interpret_input(
         "gpus" => match gpus {
             Ok(gpus) => {
                 gpus.refresh(true);
-                for gpu in gpus.list() {
+                for gpu in &*gpus {
                     println!(
                         "GPU (PCI: {}): Vendor: {}",
                         gpu.pci(),
