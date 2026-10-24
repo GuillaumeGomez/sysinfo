@@ -15,7 +15,7 @@ use std::fmt;
 /// use sysinfo::Gpus;
 ///
 /// if let Ok(gpus) = Gpus::new_with_refreshed_list() {
-///     for gpu in gpus.list() {
+///     for gpu in &gpus {
 ///         println!("{gpu:?}");
 ///     }
 /// }
@@ -34,7 +34,7 @@ impl Gpus {
     ///
     /// if let Ok(mut gpus) = Gpus::new() {
     ///     gpus.refresh(true);
-    ///     for gpu in gpus.list() {
+    ///     for gpu in &gpus {
     ///         println!("{gpu:?}");
     ///     }
     /// }
@@ -51,7 +51,7 @@ impl Gpus {
     /// use sysinfo::Gpus;
     ///
     /// if let Ok(gpus) = Gpus::new_with_refreshed_list() {
-    ///     for gpu in gpus.list() {
+    ///     for gpu in &gpus {
     ///         println!("{gpu:?}");
     ///     }
     /// }
@@ -60,21 +60,6 @@ impl Gpus {
         let mut gpus = Self::new()?;
         gpus.refresh(false);
         Ok(gpus)
-    }
-
-    /// Returns the list of GPUs.
-    ///
-    /// ```no_run
-    /// use sysinfo::Gpus;
-    ///
-    /// if let Ok(gpus) = Gpus::new_with_refreshed_list() {
-    ///     for gpu in gpus.list() {
-    ///         println!("{gpu:?}");
-    ///     }
-    /// }
-    /// ```
-    pub fn list(&self) -> &[Gpu] {
-        &self.inner.gpus
     }
 
     /// Refreshes the list of GPUs.
@@ -109,7 +94,7 @@ impl std::ops::Deref for Gpus {
     type Target = [Gpu];
 
     fn deref(&self) -> &Self::Target {
-        self.list()
+        &self.inner.gpus
     }
 }
 
@@ -118,7 +103,7 @@ impl<'a> IntoIterator for &'a Gpus {
     type IntoIter = std::slice::Iter<'a, Gpu>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.list().iter()
+        self.inner.gpus.iter()
     }
 }
 
@@ -215,7 +200,7 @@ impl core::str::FromStr for PCI {
 /// use sysinfo::Gpus;
 ///
 /// if let Ok(gpus) = Gpus::new_with_refreshed_list() {
-///     for gpu in gpus.list() {
+///     for gpu in &gpus {
 ///         println!("{gpu:?}");
 ///     }
 /// }
