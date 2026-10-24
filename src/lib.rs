@@ -260,14 +260,13 @@ mod test {
     #[test]
     fn check_uid_gid() {
         let mut users = check_unsupported!(Users::new());
-        assert!(users.list().is_empty());
+        assert!(users.is_empty());
         users.refresh();
-        let user_list = users.list();
-        assert!(user_list.len() >= MIN_USERS);
+        assert!(users.len() >= MIN_USERS);
 
         #[cfg(not(target_os = "windows"))]
         {
-            let user = user_list
+            let user = users
                 .iter()
                 .find(|u| u.name() == "root")
                 .expect("no root user");
@@ -277,7 +276,7 @@ mod test {
                 assert!(**user.id() > 0);
                 assert!(*user.group_id() > 0);
             }
-            assert!(user_list.iter().filter(|u| **u.id() > 0).count() > 0);
+            assert!(users.iter().filter(|u| **u.id() > 0).count() > 0);
         }
 
         #[cfg(feature = "system")]

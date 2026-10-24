@@ -46,5 +46,5 @@ fn test_groups() {
         }
     };
     groups.refresh();
-    assert!(groups.list().len() > 1);
+    assert!(groups.len() > 1);
 }
