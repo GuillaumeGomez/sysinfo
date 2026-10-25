@@ -20,6 +20,8 @@ fn test_networks() {
     assert_eq!(networks.list().len(), 0);
     networks.refresh(false);
     assert_ne!(networks.list().len(), 0);
+    #[cfg(target_os = "illumos")]
+    assert!(networks.iter().any(|(_, network)| network.mtu() > 0));
 }
 
 #[test]
@@ -38,4 +40,10 @@ fn test_mac_addr() {
     networks
         .iter()
         .any(|(_, n)| !n.mac_address().is_unspecified());
+    #[cfg(target_os = "illumos")]
+    assert!(
+        networks
+            .iter()
+            .any(|(_, network)| !network.mac_address().is_unspecified())
+    );
 }
