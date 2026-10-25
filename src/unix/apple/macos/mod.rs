@@ -16,6 +16,8 @@ cfg_select! {
 
 #[cfg(feature = "disk")]
 pub mod disk;
+#[cfg(feature = "network")]
+pub mod network;
 
 cfg_select! {
     feature = "component" => {

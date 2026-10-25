@@ -7,7 +7,7 @@ mod ffi;
 mod utils;
 
 cfg_select! {
-    all(target_os = "macos", any(feature = "disk", feature = "system", feature = "component")) => {
+    all(target_os = "macos", any(feature = "disk", feature = "system", feature = "component", feature = "network")) => {
         pub(crate) mod macos;
         pub(crate) use self::macos as inner;
     }
