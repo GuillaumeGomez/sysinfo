@@ -23,13 +23,13 @@ impl std::ops::Deref for Components {
     type Target = [Component];
 
     fn deref(&self) -> &Self::Target {
-        self.list()
+        self.inner.list()
     }
 }
 
 impl std::ops::DerefMut for Components {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.list_mut()
+        self.inner.list_mut()
     }
 }
 
@@ -38,7 +38,7 @@ impl<'a> IntoIterator for &'a Components {
     type IntoIter = std::slice::Iter<'a, Component>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.list().iter()
+        self.inner.list().iter()
     }
 }
 
@@ -47,7 +47,7 @@ impl<'a> IntoIterator for &'a mut Components {
     type IntoIter = std::slice::IterMut<'a, Component>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.list_mut().iter_mut()
+        self.inner.list_mut().iter_mut()
     }
 }
 
@@ -80,7 +80,7 @@ impl Components {
     /// use sysinfo::Components;
     ///
     /// if let Ok(mut components) = Components::new_with_refreshed_list() {
-    ///     for component in components.list() {
+    ///     for component in &components {
     ///         println!("{component:?}");
     ///     }
     /// }
@@ -89,37 +89,6 @@ impl Components {
         let mut components = Self::new()?;
         components.refresh(true);
         Ok(components)
-    }
-
-    /// Returns the components list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// if let Ok(components) = Components::new_with_refreshed_list() {
-    ///     for component in components.list() {
-    ///         println!("{component:?}");
-    ///     }
-    /// }
-    /// ```
-    pub fn list(&self) -> &[Component] {
-        self.inner.list()
-    }
-
-    /// Returns the components list.
-    ///
-    /// ```no_run
-    /// use sysinfo::Components;
-    ///
-    /// if let Ok(mut components) = Components::new_with_refreshed_list() {
-    ///     for component in components.list_mut() {
-    ///         component.refresh();
-    ///         println!("{component:?}");
-    ///     }
-    /// }
-    /// ```
-    pub fn list_mut(&mut self) -> &mut [Component] {
-        self.inner.list_mut()
     }
 
     /// Refreshes the components list.
