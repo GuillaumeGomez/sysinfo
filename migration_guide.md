@@ -1,5 +1,43 @@
 # Migration guide
 
+## 0.39 to 0.40
+
+### Major changes
+
+The `IS_SUPPORTED_SYSTEM` constant has been removed. Types now return a `Result` and will `Err` if not supported on this OS.
+
+The `set_open_files_limit` API has been removed.
+
+The `list[_mut]` methods and `From` trait implementations were removed from `Groups`, `Users`, `Components`, `Disks` and `Networks`.
+
+### New APIs
+
+There is a new `gpu` feature which enables the `gpu_usage` and `gpu_memory` methods on the `Process` type and give access to the `GPUs` type.
+
+`NetworkData` now has two new methods: `transmit_link_speed` and `receive_link_speed`.
+
+`Disk` now has a new `id` method.
+
+## 0.38 to 0.39
+
+### New APIs
+
+`NetworkData` now has a `operational_state` method.
+
+`Process` now has a `cgroup_limits` method (only supported on Linux).
+
+## 0.36 to 0.37
+
+### New APIs
+
+`Component` has a new method: `id`.
+
+## 0.35 to 0.36
+
+### New APIs
+
+There are two types: `Motherboard` and `Product`.
+
 ## 0.34 to 0.35
 
 ### Major changes

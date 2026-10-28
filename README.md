@@ -121,9 +121,9 @@ loop {
 }
 ```
 
-With the `multithread` feature (which is not enabled by default), `sysinfo`
-uses multiple threads.
-However, this can increase the memory usage on some platforms (macOS for example).
+The `multithread` feature (disabled by default) enables `sysinfo` to use more than
+one thread to query information. It gives a performance boost, however, this can increase
+the memory usage on some platforms (macOS for example).
 
 ### Good practice / Performance tips
 
