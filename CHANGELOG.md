@@ -1,3 +1,38 @@
+# 0.40.0
+
+ * Add new `gpu` feature.
+ * Add new `Process::gpu_usage` and `Process::gpu_memory` API.
+ * Add new `GPUs` API.
+ * Add new `NetworkData::transmit_link_speed` and `NetworkData::receive_link_speed` API.
+ * Add new `Disk::id` API.
+ * Remove `IS_SUPPORTED_SYSTEM` constant.
+ * Remove `set_open_files_limit` API.
+ * Remove `list[_mut]` methods for `Users`, `Components` and `Disks`.
+ * Remove `Networks::list` method.
+ * Remove `From` trait implementations for `Users`, `Groups` and `Disks`.
+ * Fix `Networks` refresh.
+ * `Networks` interface names have been switched from `String` to `OsString`.
+ * Unix: Fix not thread-safe code in `Groups`.
+ * Unix: Fix potential crash when a user's group cannot be retrieved.
+ * Linux: Correctly mark a process as existing after update.
+ * Linux: Fix cgroup memory information retrieval.
+ * Linux: Multiple performance optimizations and memory usage reduction.
+ * Linux: Fixes for thermal zone temperatures.
+ * Linux: Keep `Component` max temperature across refreshes.
+ * Android: Fall back to `/proc/cpuinfo` when `/proc/stat` is unreadable.
+ * Raspberry Pi: Fix toolchain package name in README.
+ * FreeBSD/NetBSD: Fix `System::free_memory` and `System::available_memory`.
+ * FreeBSD: Correctly query `sysctl` values.
+ * FreeBSD: Fix swap memory information retrieval.
+ * NetBSD: Fix `Process::accumulated_cpu_time` unit.
+ * macOS: Implement `System::open_files_limit`.
+ * macOS: Fix bug in `Disks::refresh`.
+ * iOS: Mark `Networks` as unsupported.
+ * iOS: Make `Process::open_files` return `None`.
+ * Windows: Don't keep thread-less processes alive.
+ * Windows: Fix CPU brand on ARM64.
+ * Windows: Fix crash in `Components::refresh`.
+
 # 0.39.6
 
  * NetBSD: Add support for disk I/O usage.
