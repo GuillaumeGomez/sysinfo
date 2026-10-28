@@ -18,7 +18,7 @@ use crate::sys::cpu::CpusWrapper;
 use crate::sys::process::get_exe;
 use crate::sys::utils::{
     self, c_buf_to_os_string, c_buf_to_utf8_string, from_cstr_array, get_sys_value,
-    get_sys_value_by_name,
+    get_sys_value_by_name, get_sys_value_str,
 };
 use crate::unix::bsd::common::{boot_time, init_mib};
 
@@ -235,21 +235,10 @@ impl SystemInner {
     }
 
     pub(crate) fn cpu_arch() -> Option<String> {
-        let mut arch_str: [u8; 32] = [0; 32];
+        let mut arch_str: [libc::c_char; 32] = [0; 32];
         let mib = [libc::CTL_HW as _, libc::HW_MACHINE as _];
 
-        unsafe {
-            if get_sys_value(&mib, &mut arch_str) {
-                CStr::from_bytes_until_nul(&arch_str)
-                    .ok()
-                    .and_then(|res| match res.to_str() {
-                        Ok(arch) => Some(arch.to_string()),
-                        Err(_) => None,
-                    })
-            } else {
-                None
-            }
-        }
+        unsafe { get_sys_value_str(&mib, &mut arch_str).and_then(|arch| arch.into_string().ok()) }
     }
 
     pub(crate) fn physical_core_count() -> Result<usize, Error> {
@@ -589,55 +578,55 @@ impl SystemInfo {
     }
 
     fn get_total_memory(&self) -> u64 {
-        let mut nb_pages: u64 = 0;
+        let mut nb_pages: libc::c_uint = 0;
         unsafe {
             if get_sys_value(&self.virtual_page_count, &mut nb_pages) {
-                return nb_pages.saturating_mul(self.page_size as _);
+                return u64::from(nb_pages).saturating_mul(self.page_size as _);
             }
 
             // This is a fallback. It includes all the available memory, not just the one available
             // for the users.
-            let mut total_memory: u64 = 0;
+            let mut total_memory: libc::c_ulong = 0;
             get_sys_value(&self.hw_physical_memory, &mut total_memory);
-            total_memory
+            total_memory as u64
         }
     }
 
     fn get_used_memory(&self) -> u64 {
-        let mut mem_active: u64 = 0;
-        let mut mem_wire: u64 = 0;
+        let mut mem_active: libc::c_uint = 0;
+        let mut mem_wire: libc::c_uint = 0;
 
         unsafe {
             get_sys_value(&self.virtual_active_count, &mut mem_active);
             get_sys_value(&self.virtual_wire_count, &mut mem_wire);
 
-            let mut mem_wire = mem_wire.saturating_mul(self.page_size as _);
+            let mut mem_wire = u64::from(mem_wire).saturating_mul(self.page_size as _);
             // We need to subtract "ZFS ARC" from the "wired memory" because it should belongs to cache
             // but the kernel reports it as "wired memory" instead...
             if let Some(arc_size) = self.zfs.arc_size() {
                 mem_wire = mem_wire.saturating_sub(arc_size);
             }
-            mem_active
+            u64::from(mem_active)
                 .saturating_mul(self.page_size as _)
                 .saturating_add(mem_wire)
         }
     }
 
     fn get_free_memory(&self) -> u64 {
-        let mut free_mem: u64 = 0;
+        let mut free_mem: libc::c_uint = 0;
 
         unsafe {
             get_sys_value(&self.virtual_free_count, &mut free_mem);
 
-            free_mem.saturating_mul(self.page_size as _)
+            u64::from(free_mem).saturating_mul(self.page_size as _)
         }
     }
 
     fn get_available_memory(&self) -> u64 {
-        let mut buffers_mem: u64 = 0;
-        let mut inactive_mem: u64 = 0;
-        let mut cached_mem: u64 = 0;
-        let mut free_mem: u64 = 0;
+        let mut buffers_mem: libc::c_long = 0;
+        let mut inactive_mem: libc::c_uint = 0;
+        let mut cached_mem: libc::c_uint = 0;
+        let mut free_mem: libc::c_uint = 0;
 
         unsafe {
             get_sys_value(&self.buf_space, &mut buffers_mem); //  in bytes
@@ -645,10 +634,10 @@ impl SystemInfo {
             get_sys_value(&self.virtual_cache_count, &mut cached_mem);
             get_sys_value(&self.virtual_free_count, &mut free_mem);
 
-            buffers_mem
-                .saturating_add(inactive_mem.saturating_mul(self.page_size as _))
-                .saturating_add(cached_mem.saturating_mul(self.page_size as _))
-                .saturating_add(free_mem.saturating_mul(self.page_size as _))
+            (buffers_mem as u64)
+                .saturating_add(u64::from(inactive_mem).saturating_mul(self.page_size as _))
+                .saturating_add(u64::from(cached_mem).saturating_mul(self.page_size as _))
+                .saturating_add(u64::from(free_mem).saturating_mul(self.page_size as _))
         }
     }
 

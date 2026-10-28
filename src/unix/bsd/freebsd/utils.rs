@@ -6,9 +6,14 @@ use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStrExt;
 
 #[cfg(any(feature = "system", feature = "network"))]
+/// Reads a sysctl value of exactly `size_of::<T>()` bytes.
+///
+/// Panics if the kernel hands back a value of another size: a narrower one would otherwise land
+/// in the wrong half of `value` on big-endian hosts (and only look right on little-endian ones).
 pub(crate) unsafe fn get_sys_value<T: Sized>(mib: &[libc::c_int], value: &mut T) -> bool {
     let mut len = std::mem::size_of::<T>() as libc::size_t;
-    unsafe {
+    let original = len;
+    let ret = unsafe {
         libc::sysctl(
             mib.as_ptr(),
             mib.len() as _,
@@ -16,8 +21,13 @@ pub(crate) unsafe fn get_sys_value<T: Sized>(mib: &[libc::c_int], value: &mut T)
             &mut len,
             std::ptr::null_mut(),
             0,
-        ) == 0
+        )
+    };
+    if ret != 0 {
+        return false;
     }
+    assert_eq!(original, len, "invalid value size provided for {mib:?}");
+    true
 }
 
 #[cfg(feature = "system")]
