@@ -36,6 +36,12 @@ cfg_select! {
         pub(crate) struct DisksInner {
             pub(crate) disks: Vec<crate::Disk>,
         }
+
+        impl DisksInner {
+            pub(crate) fn into_vec(self) -> Vec<crate::Disk> {
+                self.disks
+            }
+        }
     }
     _ => {}
 }

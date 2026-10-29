@@ -274,6 +274,10 @@ impl DisksInner {
     pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
     }
+
+    pub(crate) fn into_vec(self) -> Vec<Disk> {
+        self.disks
+    }
 }
 
 unsafe fn get_drive_size(mount_point: &[u16]) -> Option<(u64, u64)> {

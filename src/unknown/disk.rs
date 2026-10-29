@@ -87,4 +87,8 @@ impl DisksInner {
     pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
         &mut []
     }
+
+    pub(crate) fn into_vec(self) -> Vec<Disk> {
+        Vec::new()
+    }
 }
