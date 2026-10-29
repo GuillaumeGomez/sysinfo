@@ -244,10 +244,6 @@ impl DiskInner {
             total_written_bytes: self.written_bytes,
         }
     }
-
-    pub(crate) fn into_vec(self) -> Vec<Disk> {
-        self.disks
-    }
 }
 
 pub(crate) struct DisksInner {
@@ -277,6 +273,10 @@ impl DisksInner {
 
     pub(crate) fn list_mut(&mut self) -> &mut [Disk] {
         &mut self.disks
+    }
+
+    pub(crate) fn into_vec(self) -> Vec<Disk> {
+        self.disks
     }
 }
 
