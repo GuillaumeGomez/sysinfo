@@ -346,6 +346,12 @@ impl std::ops::DerefMut for Disks {
     }
 }
 
+impl From<Disks> for Vec<Disk> {
+    fn from(value: Disks) -> Self {
+        value.inner.disks
+    }
+}
+
 /// Enum containing the different supported kinds of disks.
 ///
 /// This type is returned by [`Disk::kind`](`crate::Disk::kind`).
