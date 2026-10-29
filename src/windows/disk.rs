@@ -244,6 +244,10 @@ impl DiskInner {
             total_written_bytes: self.written_bytes,
         }
     }
+
+    pub(crate) fn into_vec(self) -> Vec<Disk> {
+        self.disks
+    }
 }
 
 pub(crate) struct DisksInner {

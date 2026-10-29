@@ -63,6 +63,10 @@ impl DiskInner {
     pub(crate) fn usage(&self) -> DiskUsage {
         DiskUsage::default()
     }
+
+    pub(crate) fn into_vec(self) -> Vec<Disk> {
+        Vec::new()
+    }
 }
 
 pub(crate) struct DisksInner;

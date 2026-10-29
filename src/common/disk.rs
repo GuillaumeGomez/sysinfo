@@ -346,10 +346,9 @@ impl std::ops::DerefMut for Disks {
     }
 }
 
-#[cfg(feature = "disk")]
 impl From<Disks> for Vec<Disk> {
-    fn from(value: Disks) -> Self {
-        value.inner.disks
+    fn from(disks: Disks) -> Self {
+        disks.inner.into_vec()
     }
 }
 
