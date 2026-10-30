@@ -231,6 +231,12 @@ impl<'a> IntoIterator for &'a mut Users {
     }
 }
 
+impl From<Users> for Vec<User> {
+    fn from(users: Users) -> Self {
+        users.users
+    }
+}
+
 impl Users {
     /// Creates a new empty [`Users`][crate::Users] type.
     ///
@@ -359,6 +365,12 @@ impl<'a> IntoIterator for &'a mut Groups {
 
     fn into_iter(self) -> Self::IntoIter {
         self.groups.iter_mut()
+    }
+}
+
+impl From<Groups> for Vec<Group> {
+    fn from(groups: Groups) -> Self {
+        groups.groups
     }
 }
 

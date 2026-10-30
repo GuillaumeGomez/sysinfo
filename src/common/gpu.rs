@@ -107,6 +107,13 @@ impl<'a> IntoIterator for &'a Gpus {
     }
 }
 
+impl From<Gpus> for Vec<Gpu> {
+    fn from(mut gpus: Gpus) -> Self {
+        // Needed because on Windows, `Gpus` implements the `Drop` trait.
+        std::mem::take(&mut gpus.inner.gpus)
+    }
+}
+
 /// A PCI (Peripheral Component Interconnect) is an architecture used to identify and manage
 /// hardware devices.
 ///
