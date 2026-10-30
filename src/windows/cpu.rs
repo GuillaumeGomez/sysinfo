@@ -3,17 +3,14 @@
 use crate::{Cpu, CpuRefreshKind, Error as SError, LoadAvg};
 
 use std::collections::HashMap;
-use std::ffi::c_void;
 use std::io::Error;
 use std::mem;
-use std::ops::DerefMut;
-use std::sync::{Mutex, OnceLock};
 
 use windows::Win32::Foundation::{CloseHandle, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS, HANDLE};
 use windows::Win32::System::Performance::{
     PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY, PERF_DETAIL_NOVICE,
-    PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData, PdhCollectQueryDataEx,
-    PdhEnumObjectsW, PdhGetFormattedCounterValue, PdhOpenQueryW, PdhRemoveCounter,
+    PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData, PdhEnumObjectsW,
+    PdhGetFormattedCounterValue, PdhOpenQueryW, PdhRemoveCounter,
 };
 use windows::Win32::System::Power::{
     CallNtPowerInformation, PROCESSOR_POWER_INFORMATION, ProcessorInformation,
@@ -22,124 +19,10 @@ use windows::Win32::System::SystemInformation::{
     self, GetLogicalProcessorInformationEx, GetSystemInfo, RelationAll, RelationProcessorCore,
     SYSTEM_INFO, SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
 };
-use windows::Win32::System::Threading::{
-    CreateEventW, INFINITE, RegisterWaitForSingleObject, WT_EXECUTEDEFAULT,
-};
-use windows::core::{PCWSTR, w};
-
-// This formula comes from Linux's include/linux/sched/loadavg.h
-// https://github.com/torvalds/linux/blob/345671ea0f9258f410eb057b9ced9cefbbe5dc78/include/linux/sched/loadavg.h#L20-L23
-#[allow(clippy::excessive_precision)]
-const LOADAVG_FACTOR_1F: f64 = 0.9200444146293232478931553241;
-#[allow(clippy::excessive_precision)]
-const LOADAVG_FACTOR_5F: f64 = 0.9834714538216174894737477501;
-#[allow(clippy::excessive_precision)]
-const LOADAVG_FACTOR_15F: f64 = 0.9944598480048967508795473394;
-// The time interval in seconds between taking load counts, same as Linux
-const SAMPLING_INTERVAL: usize = 5;
-
-// maybe use a read/write lock instead?
-fn load_avg() -> &'static Mutex<Option<LoadAvg>> {
-    static LOAD_AVG: OnceLock<Mutex<Option<LoadAvg>>> = OnceLock::new();
-    LOAD_AVG.get_or_init(|| unsafe { init_load_avg() })
-}
+use windows::core::PCWSTR;
 
 pub(crate) fn get_load_average() -> Result<LoadAvg, crate::Error> {
-    if let Ok(avg) = load_avg().lock()
-        && let Some(avg) = &*avg
-    {
-        Ok(avg.clone())
-    } else {
-        Err(crate::Error::from(
-            "failed to lock mutex to get load average",
-        ))
-    }
-}
-
-unsafe extern "system" fn load_avg_callback(counter: *mut c_void, _: bool) {
-    let mut display_value = mem::MaybeUninit::<PDH_FMT_COUNTERVALUE>::uninit();
-
-    unsafe {
-        if PdhGetFormattedCounterValue(
-            PDH_HCOUNTER(counter),
-            PDH_FMT_DOUBLE,
-            None,
-            display_value.as_mut_ptr(),
-        ) != ERROR_SUCCESS.0
-        {
-            return;
-        }
-        let display_value = display_value.assume_init();
-        if let Ok(mut avg) = load_avg().lock()
-            && let Some(avg) = avg.deref_mut()
-        {
-            let current_load = display_value.Anonymous.doubleValue;
-
-            avg.one = avg.one * LOADAVG_FACTOR_1F + current_load * (1.0 - LOADAVG_FACTOR_1F);
-            avg.five = avg.five * LOADAVG_FACTOR_5F + current_load * (1.0 - LOADAVG_FACTOR_5F);
-            avg.fifteen =
-                avg.fifteen * LOADAVG_FACTOR_15F + current_load * (1.0 - LOADAVG_FACTOR_15F);
-        }
-    }
-}
-
-unsafe fn init_load_avg() -> Mutex<Option<LoadAvg>> {
-    // You can see the original implementation here: https://github.com/giampaolo/psutil
-    let mut query = PDH_HQUERY::default();
-
-    unsafe {
-        if PdhOpenQueryW(PCWSTR::null(), 0, &mut query) != ERROR_SUCCESS.0 {
-            sysinfo_debug!("init_load_avg: PdhOpenQueryW failed");
-            return Mutex::new(None);
-        }
-
-        let counter = 0;
-        if PdhAddEnglishCounterW(
-            query,
-            w!("\\System\\Cpu Queue Length"),
-            0,
-            &mut PDH_HCOUNTER(counter as *mut c_void),
-        ) != ERROR_SUCCESS.0
-        {
-            PdhCloseQuery(query);
-            sysinfo_debug!("init_load_avg: failed to get CPU queue length");
-            return Mutex::new(None);
-        }
-
-        let event = match CreateEventW(None, false, false, w!("LoadUpdateEvent")) {
-            Ok(ev) => ev,
-            Err(_) => {
-                PdhCloseQuery(query);
-                sysinfo_debug!("init_load_avg: failed to create event `LoadUpdateEvent`");
-                return Mutex::new(None);
-            }
-        };
-
-        if PdhCollectQueryDataEx(query, SAMPLING_INTERVAL as _, event) != ERROR_SUCCESS.0 {
-            PdhCloseQuery(query);
-            sysinfo_debug!("init_load_avg: PdhCollectQueryDataEx failed");
-            return Mutex::new(None);
-        }
-
-        let mut wait_handle = HANDLE::default();
-        if RegisterWaitForSingleObject(
-            &mut wait_handle,
-            event,
-            Some(load_avg_callback),
-            Some(counter as *const c_void),
-            INFINITE,
-            WT_EXECUTEDEFAULT,
-        )
-        .is_ok()
-        {
-            Mutex::new(Some(LoadAvg::default()))
-        } else {
-            PdhRemoveCounter(PDH_HCOUNTER(counter as *mut c_void));
-            PdhCloseQuery(query);
-            sysinfo_debug!("init_load_avg: RegisterWaitForSingleObject failed");
-            Mutex::new(None)
-        }
-    }
+    Err(crate::Error::Unsupported)
 }
 
 struct Counter {
