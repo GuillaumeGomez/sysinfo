@@ -9,7 +9,7 @@ use std::fmt;
 ///
 /// It is returned by [`Gpus`][crate::Gpus].
 ///
-/// It is currently supported on Linux and macOS.
+/// It is currently supported on Linux, Windows and macOS.
 ///
 /// ```no_run
 /// use sysinfo::Gpus;
