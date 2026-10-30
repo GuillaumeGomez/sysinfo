@@ -9,7 +9,7 @@ use std::fmt;
 ///
 /// It is returned by [`Gpus`][crate::Gpus].
 ///
-/// It is currently supported on Linux and macOS.
+/// It is currently supported on Linux, Windows and macOS.
 ///
 /// ```no_run
 /// use sysinfo::Gpus;
@@ -104,6 +104,13 @@ impl<'a> IntoIterator for &'a Gpus {
 
     fn into_iter(self) -> Self::IntoIter {
         self.inner.gpus.iter()
+    }
+}
+
+impl From<Gpus> for Vec<Gpu> {
+    fn from(mut gpus: Gpus) -> Self {
+        // Needed because on Windows, `Gpus` implements the `Drop` trait.
+        std::mem::take(&mut gpus.inner.gpus)
     }
 }
 
