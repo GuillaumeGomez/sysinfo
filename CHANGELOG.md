@@ -1,3 +1,8 @@
+# 0.40.1
+
+ * Add back `From<X> for Vec<Y>` trait implementations for `Disks`, `Gpus`, `Groups` and `Users`.
+ * Windows: `System::load_average` now returns `Err(Error::Unsupported)`.
+
 # 0.40.0
 
  * Add new `gpu` feature.

@@ -8,7 +8,7 @@ The `IS_SUPPORTED_SYSTEM` constant has been removed. Types now return a `Result`
 
 The `set_open_files_limit` API has been removed.
 
-The `list[_mut]` methods and `From` trait implementations were removed from `Groups`, `Users`, `Components`, `Disks` and `Networks`.
+The `list[_mut]` methods and `From<Vec<>>` trait implementations were removed from `Groups`, `Users`, `Components`, `Disks` and `Networks`.
 
 ### New APIs
 
