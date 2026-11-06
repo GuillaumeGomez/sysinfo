@@ -613,7 +613,7 @@ mod gpu {
         let mut found_memory = false;
         if let Ok(Some(dir_iter)) = fd_dir.iter(&mut buffers.dents) {
             let mut stat = MaybeUninit::<libc::statx>::uninit();
-            let mut gpus: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
+            let mut gpus: Vec<(Vec<u8>, Option<Vec<u8>>)> = Vec::new();
 
             for file_name in dir_iter {
                 if !is_gpu_device(&fd_dir, file_name, &mut stat) {
@@ -712,7 +712,6 @@ mod gpu {
                 }
                 // This is the fallback in case the gpu memory or time wasn't retrieved.
                 if let Some(gpu_id) = gpu_id
-                    && let Some(pci) = pci
                     && !gpus
                         .iter()
                         .any(|(s_id, s_pci)| *s_id == gpu_id && *s_pci == pci)
