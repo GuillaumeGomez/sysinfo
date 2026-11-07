@@ -344,7 +344,7 @@ pub(crate) unsafe fn get_list(
         let is_read_only = (flags & FILE_READ_ONLY_VOLUME) != 0;
 
         // The device path is the volume name without the trailing backslash.
-        let device_path = volume_name[..(volume_name.len() - 2)]
+        let device_path = volume_name[..volume_name.len().saturating_sub(2)]
             .iter()
             .copied()
             .chain([0])
@@ -393,7 +393,9 @@ pub(crate) unsafe fn get_list(
                 name: name.clone(),
                 volume_serial_number,
                 file_system: file_system.clone(),
-                s_mount_point: OsString::from_wide(&mount_path[..mount_path.len() - 1]),
+                s_mount_point: OsString::from_wide(
+                    &mount_path[..mount_path.len().saturating_sub(1)],
+                ),
                 mount_point: mount_path,
                 total_space: 0,
                 available_space: 0,
