@@ -5,7 +5,7 @@ name: macOS m1
 
 jobs:
   test:
-    runs-on: macos-14
+    runs-on: macos-15
     name: A job to run tests in macOS M1
     steps:
       - uses: actions/checkout@v7
