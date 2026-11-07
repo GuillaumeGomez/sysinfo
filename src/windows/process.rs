@@ -1082,7 +1082,7 @@ fn get_proc_env<T: RtlUserProcessParameters>(
         }
         Err(_e) => {
             sysinfo_debug!("get_proc_env failed to get data: {}", _e);
-            *environ = Vec::new();
+            environ.clear();
         }
     }
 }
