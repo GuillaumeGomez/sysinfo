@@ -502,15 +502,25 @@ impl ProcessInner {
 
     pub(crate) fn wait(&self) -> Option<ExitStatus> {
         if let Some(handle) = self.get_handle() {
-            if get_start_time(handle) != self.start_time() {
-                // PID owner changed so the previous process was finished!
-                sysinfo_debug!("PID owner changed so cannot get old process exit status");
-                return None;
-            }
             // `GetExitCodeProcess` stops returning "STILL_ACTIVE" as soon as the process starts
             // exiting. However it can take some time to actually finish the process. To go around
             // that, we first try to open a new `HANDLE` with `PROCESS_SYNCHRONIZE` as permission.
             // If it fails, we use the fallback based on `GetExitCodeProcess`.
+            //
+            // As a side-note: since a process cannot actually terminate as long as `sysinfo` has a
+            // `HANDLE` to it, it means the PID is "reserved" for the current process and therefore
+            // we never need to check if it's still the same process by using (similar to linux's):
+            //
+            // ```
+            // pub(crate) fn get_start_time(handle: HANDLE) -> u64 {
+            //     unsafe {
+            //         let process_times = get_process_times(handle);
+            //         compute_start(process_times)
+            //     }
+            // }
+            //
+            // if get_start_time(handle) != self.start_time() { different_pid_owner }
+            // ```
             let mut need_fallback = true;
             match HandleWrapper::new(unsafe {
                 OpenProcess(PROCESS_SYNCHRONIZE, false, self.pid.0 as u32).unwrap_or_default()
@@ -534,11 +544,6 @@ impl ProcessInner {
             }
             if need_fallback {
                 while is_proc_running(handle) {
-                    if get_start_time(handle) != self.start_time() {
-                        // PID owner changed so the previous process was finished!
-                        sysinfo_debug!("PID owner changed so cannot get old process exit status");
-                        return None;
-                    }
                     std::thread::sleep(std::time::Duration::from_millis(10));
                 }
             }
@@ -679,14 +684,6 @@ fn get_start_and_run_time(handle: HANDLE, now: u64) -> (u64, u64) {
         let start = compute_start(process_times);
         let run_time = check_sub(now, start);
         (start, run_time)
-    }
-}
-
-#[inline]
-pub(crate) fn get_start_time(handle: HANDLE) -> u64 {
-    unsafe {
-        let process_times = get_process_times(handle);
-        compute_start(process_times)
     }
 }
 
