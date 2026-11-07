@@ -363,7 +363,7 @@ impl SystemInner {
     }
 
     pub(crate) fn used_memory(&self) -> u64 {
-        self.mem_total - self.mem_available
+        self.mem_total.saturating_sub(self.mem_available)
     }
 
     pub(crate) fn total_swap(&self) -> u64 {
@@ -371,7 +371,7 @@ impl SystemInner {
     }
 
     pub(crate) fn free_swap(&self) -> u64 {
-        self.swap_total - self.swap_used
+        self.swap_total.saturating_sub(self.swap_used)
     }
 
     pub(crate) fn used_swap(&self) -> u64 {

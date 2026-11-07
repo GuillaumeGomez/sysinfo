@@ -675,7 +675,7 @@ fn update_root(refresh_kind: ProcessRefreshKind, cwd: &Path, root: &mut Option<P
 fn compute_start(process_times: u64) -> u64 {
     // 11_644_473_600 is the number of seconds between the Windows epoch (1601-01-01) and
     // the Linux epoch (1970-01-01).
-    process_times / 10_000_000 - 11_644_473_600
+    (process_times / 10_000_000).saturating_sub(11_644_473_600)
 }
 
 fn get_start_and_run_time(handle: HANDLE, now: u64) -> (u64, u64) {
