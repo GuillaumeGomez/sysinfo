@@ -32,6 +32,7 @@ use windows::Wdk::System::Threading::{
 use windows::Win32::Foundation::{
     ERROR_INSUFFICIENT_BUFFER, FILETIME, HANDLE, HLOCAL, HMODULE, LocalFree, MAX_PATH,
     STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH, UNICODE_STRING,
+    WAIT_OBJECT_0,
 };
 use windows::Win32::Security::{GetTokenInformation, TOKEN_QUERY, TOKEN_USER, TokenUser};
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
@@ -46,9 +47,9 @@ use windows::Win32::System::RemoteDesktop::ProcessIdToSessionId;
 use windows::Win32::System::SystemInformation::OSVERSIONINFOEXW;
 use windows::Win32::System::Threading::{
     CREATE_NO_WINDOW, GetExitCodeProcess, GetProcessHandleCount, GetProcessIoCounters,
-    GetProcessTimes, GetSystemTimes, IO_COUNTERS, OpenProcess, OpenProcessToken, PEB,
+    GetProcessTimes, GetSystemTimes, INFINITE, IO_COUNTERS, OpenProcess, OpenProcessToken, PEB,
     PROCESS_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
-    PROCESS_VM_READ,
+    PROCESS_SYNCHRONIZE, PROCESS_VM_READ, WaitForSingleObject,
 };
 use windows::Win32::UI::Shell::CommandLineToArgvW;
 use windows::core::PCWSTR;
@@ -501,13 +502,45 @@ impl ProcessInner {
 
     pub(crate) fn wait(&self) -> Option<ExitStatus> {
         if let Some(handle) = self.get_handle() {
-            while is_proc_running(handle) {
-                if get_start_time(handle) != self.start_time() {
-                    // PID owner changed so the previous process was finished!
-                    sysinfo_debug!("PID owner changed so cannot get old process exit status");
-                    return None;
+            if get_start_time(handle) != self.start_time() {
+                // PID owner changed so the previous process was finished!
+                sysinfo_debug!("PID owner changed so cannot get old process exit status");
+                return None;
+            }
+            // `GetExitCodeProcess` stops returning "STILL_ACTIVE" as soon as the process starts
+            // exiting. However it can take some time to actually finish the process. To go around
+            // that, we first try to open a new `HANDLE` with `PROCESS_SYNCHRONIZE` as permission.
+            // If it fails, we use the fallback based on `GetExitCodeProcess`.
+            let mut need_fallback = true;
+            match HandleWrapper::new(unsafe {
+                OpenProcess(PROCESS_SYNCHRONIZE, false, self.pid.0 as u32).unwrap_or_default()
+            }) {
+                Some(sync_handle) => {
+                    if unsafe { WaitForSingleObject(*sync_handle, INFINITE) } != WAIT_OBJECT_0 {
+                        sysinfo_debug!(
+                            "`WaitForSingleObject` failed: {:?}. Using fallback",
+                            io::Error::last_os_error()
+                        );
+                    } else {
+                        need_fallback = false;
+                    }
                 }
-                std::thread::sleep(std::time::Duration::from_millis(10));
+                None => {
+                    sysinfo_debug!(
+                        "OpenProcess with `PROCESS_SYNCHRONIZE` failed: {:?}. Using fallback",
+                        io::Error::last_os_error()
+                    );
+                }
+            }
+            if need_fallback {
+                while is_proc_running(handle) {
+                    if get_start_time(handle) != self.start_time() {
+                        // PID owner changed so the previous process was finished!
+                        sysinfo_debug!("PID owner changed so cannot get old process exit status");
+                        return None;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
             }
             let mut exit_status = 0;
             unsafe {
