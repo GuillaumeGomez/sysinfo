@@ -613,7 +613,8 @@ mod gpu {
         let mut found_memory = false;
         if let Ok(Some(dir_iter)) = fd_dir.iter(&mut buffers.dents) {
             let mut stat = MaybeUninit::<libc::statx>::uninit();
-            // `drm-pdev` is only there for PCI GPUs. If this field is absent, `drm-client-id` is globally
+            // `drm-pdev` is only there for PCI GPUs. If this field is absent, `drm-client-id` is
+            // globally unique, so it's enough on its own to tell clients apart.
             let mut gpus: Vec<(Vec<u8>, Option<Vec<u8>>)> = Vec::new();
 
             for file_name in dir_iter {
