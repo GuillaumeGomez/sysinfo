@@ -1,3 +1,7 @@
+# 0.40.3
+
+ * Linux: Improve `GPUs` retrieval, better fallbacks handling.
+
 # 0.40.2
 
  * Unix: Fix invalid `IpAddr` retrieval.
