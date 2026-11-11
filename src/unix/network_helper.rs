@@ -4,12 +4,11 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::{CStr, OsString};
 use std::marker::PhantomData;
+use std::mem;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::raw::c_char;
 use std::os::unix::ffi::OsStringExt;
-use std::ptr::null_mut;
-use std::{io, mem};
+use std::ptr::{self, null_mut};
 
 use crate::{IpNetwork, MacAddr};
 
@@ -118,7 +117,7 @@ impl<'a> Iterator for InterfaceAddressIterator<'a> {
 
             self.helper.ifap = ifap;
             // Safety: The returned reference will always match `Self`'s so should not be an issue.
-            Some(std::mem::transmute::<&InterfaceAddressHelper, Self::Item>(
+            Some(mem::transmute::<&InterfaceAddressHelper, Self::Item>(
                 &self.helper,
             ))
         }
@@ -231,94 +230,39 @@ pub(crate) unsafe fn refresh_network_interfaces(
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-fn sockaddr_to_network_addr(sa: *const libc::sockaddr) -> Option<IpAddr> {
-    unsafe {
-        if sa.is_null() || (*sa).sa_family as libc::c_int == libc::AF_PACKET {
-            None
-        } else {
-            let addr = sockaddr_to_addr(
-                &(sa as *const libc::sockaddr_storage).read_unaligned(),
-                mem::size_of::<libc::sockaddr_storage>(),
-            );
-
-            match addr {
-                Ok(SocketAddr::V4(sa)) => Some(IpAddr::V4(*sa.ip())),
-                Ok(SocketAddr::V6(sa)) => Some(IpAddr::V6(*sa.ip())),
-                _ => None,
-            }
-        }
-    }
+unsafe fn read_sockaddr<T>(sa: *const libc::sockaddr) -> T {
+    unsafe { (sa as *const T).read_unaligned() }
 }
-#[cfg(not(any(target_os = "illumos", target_os = "solaris")))]
-pub type InAddrType = libc::c_uint;
-#[cfg(any(target_os = "illumos", target_os = "solaris"))]
-pub type InAddrType = libc::c_ulonglong;
 
-fn sockaddr_to_addr(storage: &libc::sockaddr_storage, len: usize) -> io::Result<SocketAddr> {
-    match storage.ss_family as libc::c_int {
-        libc::AF_INET => {
-            assert!(len >= mem::size_of::<libc::sockaddr_in>());
-            let storage: &libc::sockaddr_in = unsafe { mem::transmute(storage) };
-            let ip = (storage.sin_addr.s_addr as InAddrType).to_be();
-            let a = (ip >> 24) as u8;
-            let b = (ip >> 16) as u8;
-            let c = (ip >> 8) as u8;
-            let d = ip as u8;
-            let sockaddrv4 = SocketAddrV4::new(Ipv4Addr::new(a, b, c, d), storage.sin_port.to_be());
-            Ok(SocketAddr::V4(sockaddrv4))
-        }
-        libc::AF_INET6 => {
-            assert!(len >= mem::size_of::<libc::sockaddr_in6>());
-            let storage: &libc::sockaddr_in6 = unsafe { mem::transmute(storage) };
-            let arr: [u16; 8] = unsafe { mem::transmute(storage.sin6_addr.s6_addr) };
-            let ip = Ipv6Addr::new(
-                arr[0].to_be(),
-                arr[1].to_be(),
-                arr[2].to_be(),
-                arr[3].to_be(),
-                arr[4].to_be(),
-                arr[5].to_be(),
-                arr[6].to_be(),
-                arr[7].to_be(),
-            );
-            Ok(SocketAddr::V6(SocketAddrV6::new(
-                ip,
-                storage.sin6_port.to_be(),
-                u32::from_be(storage.sin6_flowinfo),
-                storage.sin6_scope_id,
-            )))
-        }
-        _ => Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "expected IPv4 or IPv6 socket",
-        )),
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+unsafe fn read_sockaddr<T>(sa: *const libc::sockaddr) -> T {
+    unsafe {
+        let available = usize::from((*sa).sa_len);
+        let len = available.min(size_of::<T>());
+        let mut out = mem::MaybeUninit::<T>::zeroed();
+        ptr::copy_nonoverlapping(sa.cast::<u8>(), out.as_mut_ptr().cast::<u8>(), len);
+        out.assume_init()
     }
 }
 
-#[cfg(any(
-    target_os = "openbsd",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "illumos",
-    target_os = "solaris",
-    target_os = "macos",
-    target_os = "ios"
-))]
 fn sockaddr_to_network_addr(sa: *const libc::sockaddr) -> Option<IpAddr> {
+    if sa.is_null() {
+        return None;
+    }
     unsafe {
-        if sa.is_null() || (*sa).sa_family as libc::c_int == 18 {
-            None
-        } else {
-            let addr = sockaddr_to_addr(
-                &(sa as *const libc::sockaddr_storage).read_unaligned(),
-                mem::size_of::<libc::sockaddr_storage>(),
-            );
-
-            match addr {
-                Ok(SocketAddr::V4(sa)) => Some(IpAddr::V4(*sa.ip())),
-                Ok(SocketAddr::V6(sa)) => Some(IpAddr::V6(*sa.ip())),
-                _ => None,
+        let family = ptr::addr_of!((*sa).sa_family).read_unaligned() as libc::c_int;
+        match family {
+            libc::AF_INET => {
+                let sin: libc::sockaddr_in = read_sockaddr(sa);
+                Some(IpAddr::V4(Ipv4Addr::from(
+                    sin.sin_addr.s_addr.to_ne_bytes(),
+                )))
             }
+            libc::AF_INET6 => {
+                let sin6: libc::sockaddr_in6 = read_sockaddr(sa);
+                Some(IpAddr::V6(Ipv6Addr::from(sin6.sin6_addr.s6_addr)))
+            }
+            _ => None,
         }
     }
 }
