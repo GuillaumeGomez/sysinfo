@@ -98,26 +98,40 @@ impl GpusInner {
     }
 
     pub(crate) fn refresh(&mut self) {
-        let mut need_vulkan = false;
-        let mut need_nvidia = false;
+        let mut need_vulkan = Vec::new();
+        let mut need_nvidia = Vec::new();
         self.get_non_nvidia_gpus(&mut need_vulkan, &mut need_nvidia);
-        if need_nvidia {
+        if !need_nvidia.is_empty() {
             self.nvm_lib = unsafe { self::nvidia::NvmlLib::load() };
             if let Some(nvml) = &self.nvm_lib {
                 nvml.get_nvidia_gpus(&mut self.gpus);
             }
+            // If the NVML lib is not available or an NVIDIA GPU didn't get updated for some reason,
+            // we add it to the list of GPUs that need to be updated with the Vulkan API.
+            need_vulkan.extend(need_nvidia.into_iter().filter(|pci| {
+                self.gpus
+                    .iter()
+                    .any(|gpu| !gpu.inner.updated && gpu.inner.pci == *pci)
+            }));
         }
-        if need_vulkan {
+        if !need_vulkan.is_empty() {
             if self.vulkan_lib.is_none() {
                 self.vulkan_lib = vulkan::Vulkan::load();
             }
             if let Some(ref vulkan) = self.vulkan_lib {
                 vulkan.get_vulkan_info(&mut self.gpus);
             }
+            // These GPUs are still present, so even if we can't retrieve their information, we
+            // still need to keep them.
+            for gpu in self.gpus.iter_mut() {
+                if need_vulkan.contains(&gpu.inner.pci) {
+                    gpu.inner.updated = true;
+                }
+            }
         }
     }
 
-    fn get_non_nvidia_gpus(&mut self, need_vulkan: &mut bool, need_nvidia: &mut bool) {
+    fn get_non_nvidia_gpus(&mut self, need_vulkan: &mut Vec<PCI>, need_nvidia: &mut Vec<PCI>) {
         let drm_path = "/sys/class/drm";
         let Ok(items) = read_dir(drm_path) else {
             sysinfo_debug!("failed to read `{drm_path}`");
@@ -143,9 +157,10 @@ impl GpusInner {
             if let Some(gpu) = self.gpus.iter_mut().find(|gpu| gpu.inner.pci == pci) {
                 if gpu.inner.vendor.contains("AMD") {
                     get_amd_info(&mut gpu.inner, &mut buffer, &device);
-                }
-                if gpu.inner.vendor.contains("NVIDIA") {
-                    *need_nvidia = true;
+                } else if gpu.inner.vendor.contains("NVIDIA") {
+                    need_nvidia.push(pci);
+                } else {
+                    need_vulkan.push(pci);
                 }
                 continue;
             }
@@ -176,7 +191,7 @@ impl GpusInner {
             if let Some((vendor, devices)) = self.get_vendor_and_devices(vendor) {
                 if vendor.contains("NVIDIA") {
                     // NVIDIA GPUs are retrieved elsewhere.
-                    *need_nvidia = true;
+                    need_nvidia.push(pci);
                     continue;
                 }
                 let model = devices.and_then(|devices| {
@@ -187,13 +202,13 @@ impl GpusInner {
                         })
                         .and_then(|device_id| devices.get(&device_id))
                 });
-                let mut gpu = GpuInner::new(pci, vendor, model);
+                let mut gpu = GpuInner::new(pci.clone(), vendor, model);
                 if vendor.contains("AMD") {
                     // We special-case AMD since we know how to retrieve its information with the
                     // sysfs only.
                     get_amd_info(&mut gpu, &mut buffer, &device);
                 } else {
-                    *need_vulkan = true;
+                    need_vulkan.push(pci);
                 }
                 self.gpus.push(Gpu { inner: gpu });
             }
