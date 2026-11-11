@@ -124,7 +124,6 @@ pub(crate) unsafe fn get_user_groups(
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 pub(crate) fn get_users(users: &mut Vec<crate::User>) {
-    use std::io::{BufRead, BufReader};
     use std::str::FromStr;
 
     fn filter(shell: &str, uid: libc::uid_t) -> bool {
@@ -133,43 +132,84 @@ pub(crate) fn get_users(users: &mut Vec<crate::User>) {
 
     users.clear();
 
-    // We cannot use `getpwent`, `setpwent` and `endpwent` because they're not thread-safe. The
-    // `getpwent_r` equivalent is not thread-safe either. So we have to retrieve the users list
-    // ourselves...
-    let Ok(file) = std::fs::File::open("/etc/passwd") else {
-        sysinfo_debug!("failed to open `/etc/passwd`");
-        return;
-    };
-    let mut users_map = std::collections::HashMap::with_capacity(10);
-
-    for line in BufReader::new(file).lines() {
-        let Ok(line) = line else { continue };
-        let mut parts = line.split(':');
-        let Some(name) = parts.next() else { continue };
-        if users_map.contains_key(name) {
-            continue;
-        }
-        parts.next(); // We skip the password field.
-        let Some(uid) = parts.next().and_then(|v| libc::uid_t::from_str(v).ok()) else {
-            continue;
+    #[cfg(target_env = "gnu")]
+    {
+        use libc::{
+            endpwent, getpwent_r, passwd, setpwent, ERANGE,
         };
-        let Some(gid) = parts.next().and_then(|v| libc::gid_t::from_str(v).ok()) else {
-            continue;
-        };
-        parts.next(); // We skip the "comment" field.
-        parts.next(); // We skip the directory field.
-        let Some(shell) = parts.next() else { continue };
+        use std::ptr;
 
-        if !filter(shell, uid) {
-            continue;
+        unsafe {
+            setpwent();
+            let mut pwd = std::mem::MaybeUninit::<passwd>::uninit();
+            let mut buf = vec![0u8; 2048];
+            loop {
+                let mut res = ptr::null_mut();
+                let err = getpwent_r(
+                    pwd.as_mut_ptr(),
+                    buf.as_mut_ptr() as *mut _,
+                    buf.len(),
+                    &mut res,
+                );
+                if err == ERANGE {
+                    buf.resize(buf.len() * 2, 0);
+                    continue;
+                }
+                if res.is_null() {
+                    break;
+                }
+                let pwd = pwd.assume_init();
+                let name = super::utils::cstr_to_rust(pwd.pw_name).unwrap_or_default();
+                let shell = super::utils::cstr_to_rust(pwd.pw_shell).unwrap_or_default();
+                if filter(&shell, pwd.pw_uid) {
+                    users.push(crate::User {
+                        inner: UserInner::new(Uid(pwd.pw_uid), Gid(pwd.pw_gid), name),
+                    });
+                }
+            }
+            endpwent();
         }
-        users_map.insert(name.into(), (Uid(uid), Gid(gid)));
     }
 
-    for (name, (uid, gid)) in users_map {
-        users.push(crate::User {
-            inner: UserInner::new(uid, gid, name),
-        });
+    #[cfg(not(target_env = "gnu"))]
+    {
+        use std::io::{BufRead, BufReader};
+
+        let Ok(file) = std::fs::File::open("/etc/passwd") else {
+            sysinfo_debug!("failed to open `/etc/passwd`");
+            return;
+        };
+        let mut users_map = std::collections::HashMap::with_capacity(10);
+
+        for line in BufReader::new(file).lines() {
+            let Ok(line) = line else { continue };
+            let mut parts = line.split(':');
+            let Some(name) = parts.next() else { continue };
+            if users_map.contains_key(name) {
+                continue;
+            }
+            parts.next(); // We skip the password field.
+            let Some(uid) = parts.next().and_then(|v| libc::uid_t::from_str(v).ok()) else {
+                continue;
+            };
+            let Some(gid) = parts.next().and_then(|v| libc::gid_t::from_str(v).ok()) else {
+                continue;
+            };
+            parts.next(); // We skip the "comment" field.
+            parts.next(); // We skip the directory field.
+            let Some(shell) = parts.next() else { continue };
+
+            if !filter(shell, uid) {
+                continue;
+            }
+            users_map.insert(name.to_owned(), (Uid(uid), Gid(gid)));
+        }
+
+        for (name, (uid, gid)) in users_map {
+            users.push(crate::User {
+                inner: UserInner::new(uid, gid, name),
+            });
+        }
     }
 }
 
