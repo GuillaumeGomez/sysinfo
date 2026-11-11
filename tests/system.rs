@@ -91,7 +91,7 @@ fn check_hostname_has_no_nuls() {
 
 #[test]
 fn check_uptime() {
-    if sysinfo::System::new().is_ok() {
+    if System::new().is_ok() {
         let uptime = System::uptime();
         std::thread::sleep(std::time::Duration::from_millis(1000));
         let new_uptime = System::uptime().unwrap();
@@ -101,7 +101,7 @@ fn check_uptime() {
 
 #[test]
 fn check_boot_time() {
-    if sysinfo::System::new().is_ok() {
+    if System::new().is_ok() {
         assert_ne!(System::boot_time().unwrap(), 0);
     }
 }
@@ -113,7 +113,7 @@ fn test_consecutive_cpu_usage_update() {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
-    use sysinfo::{Pid, ProcessRefreshKind, System};
+    use sysinfo::{Pid, ProcessRefreshKind};
 
     if std::env::var("NETBSD_CI").is_ok() {
         // FIXME
@@ -227,4 +227,21 @@ fn test_refresh_memory() {
     }
     assert_ne!(s.total_memory(), 0);
     assert_ne!(s.free_memory(), 0);
+}
+
+#[test]
+#[cfg(feature = "multithread")]
+fn same_pid_multithreaded_refresh() {
+    use sysinfo::{ProcessRefreshKind, System, UpdateKind};
+
+    let Ok(mut system) = System::new() else {
+        return;
+    };
+    let pid = sysinfo::get_current_pid().expect("failed to get current pid");
+    let kind = ProcessRefreshKind::nothing()
+        .with_cmd(UpdateKind::Always)
+        .with_environ(UpdateKind::Always);
+    system.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), false, kind);
+    let pids = vec![pid; 20000];
+    system.refresh_processes_specifics(ProcessesToUpdate::Some(&pids), false, kind);
 }

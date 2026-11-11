@@ -355,6 +355,17 @@ impl System {
         remove_dead_processes: bool,
         refresh_kind: ProcessRefreshKind,
     ) -> usize {
+        // FIXME: Replace the slice with a `&HashSet<Pid>`.
+        let mut data;
+        let processes_to_update = match processes_to_update {
+            ProcessesToUpdate::All => ProcessesToUpdate::All,
+            ProcessesToUpdate::Some(pids) => {
+                data = pids.to_vec();
+                data.sort_unstable();
+                data.dedup();
+                ProcessesToUpdate::Some(data.as_slice())
+            }
+        };
         let nb_updated = self
             .inner
             .refresh_processes_specifics(processes_to_update, refresh_kind);

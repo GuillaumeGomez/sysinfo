@@ -314,8 +314,19 @@ jobs:
         if: matrix.os != 'macos-latest'
         env:
           RUST_BACKTRACE: full
+      - name: Execute tests (not mac, multithread feature)
+        run: cargo test --features multithread
+        if: matrix.os != 'macos-latest'
+        env:
+          RUST_BACKTRACE: full
       - name: Execute tests (mac)
         run: cargo test -- --test-threads 1
+        if: matrix.os == 'macos-latest'
+        env:
+          RUST_BACKTRACE: full
+          APPLE_CI: 1 # FIXME: remove this once CI mac tests are fixed
+      - name: Execute tests (mac, multithread feature)
+        run: cargo test --features multithread -- --test-threads 1
         if: matrix.os == 'macos-latest'
         env:
           RUST_BACKTRACE: full

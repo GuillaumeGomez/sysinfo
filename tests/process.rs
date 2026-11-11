@@ -1129,16 +1129,26 @@ fn test_tasks() {
     let pid = sysinfo::get_current_pid().expect("failed to get current pid");
     let old_tasks = get_tasks(&system, pid);
 
-    // Spawn a thread to increase the task count
+    // Spawn a thread to increase the task count.
     let scheduler = std::thread::spawn(move || {
+        // With the `multithread` feature enabled, tasks may appear/disappear while the test is running,
+        // so instead we just check if our thread is listed.
+        //
+        // `/proc/thread-self` is a symlink to `/proc/<pid>/task/<tid>`.
+        let tid: Pid = std::fs::read_link("/proc/thread-self")
+            .expect("failed to read `/proc/thread-self`")
+            .file_name()
+            .and_then(|name| name.to_str())
+            .and_then(|name| name.parse().ok())
+            .expect("failed to get current thread id");
+        assert!(!old_tasks.contains(&tid));
+
         system.refresh_processes_specifics(
             ProcessesToUpdate::All,
             true,
             ProcessRefreshKind::nothing(),
         );
-
-        // Try to remove flakyness a bit.
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        assert!(get_tasks(&system, pid).contains(&tid));
 
         let mut system_new = System::new_with_specifics(RefreshKind::nothing()).unwrap();
         system_new.refresh_processes_specifics(
@@ -1146,10 +1156,7 @@ fn test_tasks() {
             true,
             ProcessRefreshKind::nothing(),
         );
-
-        let new_tasks = get_tasks(&system, pid);
-        assert_ne!(old_tasks, new_tasks);
-        assert_eq!(new_tasks, get_tasks(&system_new, pid));
+        assert!(get_tasks(&system_new, pid).contains(&tid));
     });
     scheduler.join().expect("Scheduler panicked");
 }
