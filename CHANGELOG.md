@@ -1,3 +1,11 @@
+# 0.40.2
+
+ * Unix: Fix invalid `IpAddr` retrieval.
+ * Linux: Fix bug when `ProcessesToUpdate::Some` contains the same PID more than once.
+ * Linux: Fix process GPU information retrieval when GPU has no associated PCI.
+ * NetBSD: Fix process status retrieval.
+ * Windows: Fix `Process::wait`. It now correctly waits for the process to be completely removed.
+
 # 0.40.1
 
  * Add back `From<X> for Vec<Y>` trait implementations for `Disks`, `Gpus`, `Groups` and `Users`.
