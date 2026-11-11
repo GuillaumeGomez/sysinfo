@@ -78,8 +78,8 @@ fn get_active_status(kd: NonNull<ffi::kvm_t>, kproc: &libc::kinfo_proc2) -> Opti
     unsafe {
         let klwps = ffi::kvm_getlwps(
             kd.as_ptr(),
-            kproc.p_pid,
-            kproc.p_paddr,
+            kproc.p_pid as libc::c_int,
+            kproc.p_paddr as libc::c_ulong,
             std::mem::size_of::<libc::kinfo_lwp>(),
             &mut nlwps,
         );
