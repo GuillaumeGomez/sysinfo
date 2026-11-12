@@ -372,6 +372,8 @@ pub enum DiskKind {
     HDD,
     /// SSD type.
     SSD,
+    /// Network type.
+    Network,
     /// Unknown type.
     Unknown(isize),
 }
@@ -381,6 +383,7 @@ impl fmt::Display for DiskKind {
         f.write_str(match *self {
             DiskKind::HDD => "HDD",
             DiskKind::SSD => "SSD",
+            DiskKind::Network => "Network",
             _ => "Unknown",
         })
     }
