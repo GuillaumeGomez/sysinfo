@@ -261,6 +261,7 @@ fn new_disk(
     device_name: &OsStr,
     mount_point: &Path,
     file_system: &OsStr,
+    type_: DiskKind,
     removable_entries: &[PathBuf],
     procfs_disk_stats: &HashMap<String, DiskStat>,
     refresh_kind: DiskRefreshKind,
@@ -275,7 +276,7 @@ fn new_disk(
 
     let mut disk = Disk {
         inner: DiskInner {
-            type_: DiskKind::Unknown(-1),
+            type_,
             device_id,
             device_name: device_name.to_owned(),
             actual_device_name: None,
@@ -419,10 +420,20 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
             disk.inner.updated = true;
             continue;
         }
+
+        //  `cifs` includes SMB1 (CIFS), SMB2 and SMB3
+        let type_ = if matches!(fs_vfstype, "cifs" | "nfs" | "nfs4") {
+            DiskKind::Network
+        } else {
+            //  Will be updated in `new_disk`
+            DiskKind::Unknown(-1)
+        };
+
         container.push(new_disk(
             fs_spec.as_ref(),
             mount_point,
             fs_vfstype.as_ref(),
+            type_,
             &removable_entries,
             &procfs_disk_stats,
             refresh_kind,
