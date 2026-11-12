@@ -391,6 +391,7 @@ impl fmt::Display for DiskKind {
 /// * `kind` is about refreshing the [`Disk::kind`] information.
 /// * `storage` is about refreshing the [`Disk::available_space`] and [`Disk::total_space`] information.
 /// * `io_usage` is about refreshing the [`Disk::usage`] information.
+/// * `remote` is about listing remote disks (network shares, mapped drives) in addition to local ones.
 ///
 /// ```no_run
 /// use sysinfo::{Disks, DiskRefreshKind};
@@ -406,6 +407,7 @@ pub struct DiskRefreshKind {
     kind: bool,
     storage: bool,
     io_usage: bool,
+    remote: bool,
 }
 
 impl DiskRefreshKind {
@@ -419,6 +421,7 @@ impl DiskRefreshKind {
     /// assert_eq!(r.kind(), false);
     /// assert_eq!(r.storage(), false);
     /// assert_eq!(r.io_usage(), false);
+    /// assert_eq!(r.remote(), false);
     /// ```
     pub fn nothing() -> Self {
         Self::default()
@@ -434,18 +437,21 @@ impl DiskRefreshKind {
     /// assert_eq!(r.kind(), true);
     /// assert_eq!(r.storage(), true);
     /// assert_eq!(r.io_usage(), true);
+    /// assert_eq!(r.remote(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
             kind: true,
             storage: true,
             io_usage: true,
+            remote: true,
         }
     }
 
     impl_get_set!(DiskRefreshKind, kind, with_kind, without_kind);
     impl_get_set!(DiskRefreshKind, storage, with_storage, without_storage);
     impl_get_set!(DiskRefreshKind, io_usage, with_io_usage, without_io_usage);
+    impl_get_set!(DiskRefreshKind, remote, with_remote, without_remote);
 }
 
 #[cfg(test)]
