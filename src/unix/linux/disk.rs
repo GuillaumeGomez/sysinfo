@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::mem::MaybeUninit;
-use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -298,67 +297,36 @@ fn new_disk(
     disk
 }
 
-#[allow(clippy::manual_range_contains)]
 fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
-    // The format of devices are as follows:
-    //  - device_name is symbolic link in the case of /dev/mapper/
-    //     and /dev/root, and the target is corresponding device under
-    //     /sys/block/
-    //  - In the case of /dev/sd, the format is /dev/sd[a-z][1-9],
-    //     corresponding to /sys/block/sd[a-z]
-    //  - In the case of /dev/nvme, the format is /dev/nvme[0-9]n[0-9]p[0-9],
-    //     corresponding to /sys/block/nvme[0-9]n[0-9]
-    //  - In the case of /dev/mmcblk, the format is /dev/mmcblk[0-9]p[0-9],
-    //     corresponding to /sys/block/mmcblk[0-9]
-    let device_name_path = device_name.to_str().unwrap_or_default();
-    let real_path = fs::canonicalize(device_name).unwrap_or_else(|_| PathBuf::from(device_name));
-    let mut real_path = real_path.to_str().unwrap_or_default();
-    if device_name_path.starts_with("/dev/mapper/") {
-        // Recursively solve, for example /dev/dm-0
-        if real_path != device_name_path {
-            return find_type_for_device_name(OsStr::new(&real_path));
-        }
-    } else if device_name_path.starts_with("/dev/sd") || device_name_path.starts_with("/dev/vd") {
-        // Turn "sda1" into "sda" or "vda1" into "vda"
-        real_path = real_path.trim_start_matches("/dev/");
-        real_path = real_path.trim_end_matches(|c| c >= '0' && c <= '9');
-    } else if device_name_path.starts_with("/dev/nvme") {
-        // Turn "nvme0n1p1" into "nvme0n1"
-        real_path = match real_path.find('p') {
-            Some(idx) => &real_path["/dev/".len()..idx],
-            None => &real_path["/dev/".len()..],
+    let device_path = fs::canonicalize(device_name).unwrap_or_else(|_| PathBuf::from(device_name));
+    let Some(device_name) = device_path.file_name() else {
+        return DiskKind::Unknown(-1);
+    };
+
+    let device_sysfs_path = Path::new("/sys/class/block").join(device_name);
+    let mut device_sysfs_real_path = device_sysfs_path
+        .canonicalize()
+        .unwrap_or(device_sysfs_path.clone());
+
+    //  partitions (sdX, nvmeXnYpZ, etc.)
+    if device_sysfs_path.join("partition").exists() {
+        //  The path behind symlink has hierarchy (e.g. /sys/devices/${some_path}/sda/sda1)
+        let Some(parent) = device_sysfs_real_path.parent() else {
+            return DiskKind::Unknown(-1);
         };
-    } else if device_name_path.starts_with("/dev/root") {
-        // Recursively solve, for example /dev/mmcblk0p1
-        if real_path != device_name_path {
-            return find_type_for_device_name(OsStr::new(&real_path));
-        }
-    } else if device_name_path.starts_with("/dev/mmcblk") {
-        // Turn "mmcblk0p1" into "mmcblk0"
-        real_path = match real_path.find('p') {
-            Some(idx) => &real_path["/dev/".len()..idx],
-            None => &real_path["/dev/".len()..],
-        };
-    } else {
-        // Default case: remove /dev/ and expects the name presents under /sys/block/
-        // For example, /dev/dm-0 to dm-0
-        real_path = real_path.trim_start_matches("/dev/");
+
+        device_sysfs_real_path = parent.to_path_buf();
     }
 
-    let trimmed: &OsStr = OsStrExt::from_bytes(real_path.as_bytes());
-
-    let path = Path::new("/sys/block/")
-        .to_owned()
-        .join(trimmed)
-        .join("queue/rotational");
+    let rotational_path = device_sysfs_real_path.join("queue/rotational");
     // Normally, this file only contains '0' or '1' but just in case, we get 8 bytes...
-    match get_all_utf8_data(path, 8)
+    match get_all_utf8_data(rotational_path, 8)
         .unwrap_or_default()
         .trim()
         .parse()
         .ok()
     {
-        // The disk is marked as rotational so it's a HDD.
+        // The disk is marked as rotational so it's an HDD.
         Some(1) => DiskKind::HDD,
         // The disk is marked as non-rotational so it's very likely a SSD.
         Some(0) => DiskKind::SSD,
