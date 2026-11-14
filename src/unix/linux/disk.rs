@@ -421,12 +421,9 @@ fn get_all_list(container: &mut Vec<Disk>, content: &str, refresh_kind: DiskRefr
             continue;
         }
 
-        //  `cifs` includes SMB1 (CIFS), SMB2 and SMB3
-        let type_ = if matches!(fs_vfstype, "cifs" | "nfs" | "nfs4") {
-            DiskKind::Network
-        } else {
-            //  Will be updated in `new_disk`
-            DiskKind::Unknown(-1)
+        let type_ = match fs_vfstype {
+            "cifs" | "nfs" | "nfs4" => DiskKind::Network, //  `cifs` includes SMB1 (CIFS), SMB2 and SMB3
+            _ => DiskKind::Unknown(-1),                   //  Will be updated in `new_disk`
         };
 
         container.push(new_disk(
