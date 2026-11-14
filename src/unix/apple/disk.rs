@@ -331,15 +331,6 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
                 continue;
             }
 
-            let local_only = get_bool_value(&prop_dict, kCFURLVolumeIsLocalKey).unwrap_or(true);
-
-            // Skip any drive that is not locally attached to the system.
-            //
-            // This includes items like SMB mounts, and matches the other platform's behavior.
-            if !local_only {
-                continue;
-            }
-
             let mount_point = PathBuf::from(OsStr::from_bytes(
                 CStr::from_ptr(c_disk.f_mntonname.as_ptr()).to_bytes(),
             ));
@@ -522,8 +513,17 @@ unsafe fn new_disk(
 
     let is_read_only = (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0;
 
+    // Notes: `vfs_fsadd` is used to register fs types by macOS kernel extensions:
+    // https://github.com/search?q=org%3Aapple-oss-distributions+vfs_fsadd&type=code
+    // Not supported: AFP server has been removed in macOS 11; client deprecated in macOS 15 and
+    // removed in macOS 27.
+    let type_ = match file_system.to_string_lossy().as_ref() {
+        "smbfs" | "nfs" => DiskKind::Network,
+        _ => DiskKind::Unknown(-1), // will be updated in `refresh_kind`
+    };
+
     let mut disk = DiskInner {
-        type_: DiskKind::Unknown(-1),
+        type_,
         name,
         id: device_id,
         #[cfg(target_os = "macos")]
