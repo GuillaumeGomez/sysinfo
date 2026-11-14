@@ -51,6 +51,9 @@ disk = [
     "objc2-core-foundation/CFString",
     "objc2-core-foundation/CFURL",
     "dep:objc2-io-kit",
+    "dep:objc2-disk-arbitration",
+    "objc2-disk-arbitration/DADisk",
+    "objc2-disk-arbitration/DASession"
 ]
 gpu = [
     "dep:windows",
@@ -110,7 +113,7 @@ user = [
     "windows/Win32_Security",
     "windows/Win32_Security_Authentication_Identity",
     "windows/Win32_Security_Authorization",
-    "dep:objc2-core-foundation",    
+    "dep:objc2-core-foundation",
     "objc2-core-foundation/CFString",
     "dep:objc2-open-directory",
 ]
@@ -161,6 +164,7 @@ objc2-io-kit = { version = "0.3.2", optional = true, default-features = false, f
     "std",
     "libc",
 ] }
+objc2-disk-arbitration = { version = "0.3.2", optional = true, default-features = false, features = ["std"] }
 
 # OpenDirectory framework is macOS-only; binding it on iOS triggers a linker
 # error (`framework 'OpenDirectory' not found`) because the framework does not
@@ -169,7 +173,7 @@ objc2-io-kit = { version = "0.3.2", optional = true, default-features = false, f
 objc2-open-directory = { version = "0.3.2", optional = true, default-features = false, features = [
     "objc2-core-foundation",
     "std",
-    "CFODNode", 
+    "CFODNode",
     "CFODSession",
     "CFODQuery",
     "CFODRecord",

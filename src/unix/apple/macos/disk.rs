@@ -6,8 +6,10 @@ use crate::sys::{
     macos::ffi,
     utils::{IOReleaser, MAIN_PORT},
 };
+use std::ptr::NonNull;
 
 use objc2_core_foundation::{CFDictionary, CFRetained, CFString, kCFAllocatorDefault};
+use objc2_disk_arbitration::{DADisk, DASession, kDADiskDescriptionDeviceModelKey};
 use objc2_io_kit::{
     IOBSDNameMatching, IOIteratorNext, IOObjectConformsTo, IORegistryEntryCreateCFProperty,
     IORegistryEntryGetParentEntry, IOServiceGetMatchingServices, io_iterator_t,
@@ -88,6 +90,20 @@ where
 }
 
 pub(crate) fn get_disk_type(bsd_name: &[u8]) -> Option<DiskKind> {
+    unsafe {
+        if let Some(da_session) = DASession::new(kCFAllocatorDefault)
+            && let Some(bsd_name) = NonNull::new(bsd_name.as_ptr() as _)
+            && let Some(da_disk) = DADisk::from_bsd_name(kCFAllocatorDefault, &da_session, bsd_name)
+            && let Some(dictionary) = da_disk.description()
+            && let Some(model) =
+                get_cf_dictionary_string(&dictionary, kDADiskDescriptionDeviceModelKey)
+            && model.as_str() == "Disk Image"
+        {
+            //  includes ISO, .dmg
+            return Some(DiskKind::DiskImage);
+        }
+    }
+
     let characteristics_string =
         CFString::from_static_str(ffi::kIOPropertyDeviceCharacteristicsKey);
 
@@ -134,4 +150,19 @@ pub(crate) fn get_disk_io(bsd_name: &[u8]) -> Option<(u64, u64)> {
             Some((read_bytes, written_bytes))
         }
     })
+}
+
+fn get_cf_dictionary_string(dict: &CFRetained<CFDictionary>, key: &CFString) -> Option<String> {
+    unsafe {
+        let value = dict.value(key as *const CFString as _);
+        if value.is_null() {
+            return None;
+        }
+
+        Some(
+            (&*(value as *const objc2_core_foundation::CFType))
+                .downcast_ref::<CFString>()?
+                .to_string(),
+        )
+    }
 }
