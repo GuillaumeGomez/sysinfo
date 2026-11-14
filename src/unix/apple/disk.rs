@@ -7,8 +7,8 @@ use objc2_core_foundation::{
     CFArray, CFBoolean, CFDictionary, CFNumber, CFRetained, CFString, CFURL, kCFAllocatorDefault,
     kCFTypeArrayCallBacks, kCFURLVolumeAvailableCapacityForImportantUsageKey,
     kCFURLVolumeAvailableCapacityKey, kCFURLVolumeIsBrowsableKey, kCFURLVolumeIsEjectableKey,
-    kCFURLVolumeIsInternalKey, kCFURLVolumeIsLocalKey, kCFURLVolumeIsRemovableKey,
-    kCFURLVolumeNameKey, kCFURLVolumeTotalCapacityKey, kCFURLVolumeUUIDStringKey,
+    kCFURLVolumeIsInternalKey, kCFURLVolumeIsRemovableKey, kCFURLVolumeNameKey,
+    kCFURLVolumeTotalCapacityKey, kCFURLVolumeUUIDStringKey,
 };
 
 use libc::c_void;
@@ -267,12 +267,11 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
             disks
         };
 
-        // Currently we query maximum 10 properties.
-        let mut properties = Vec::with_capacity(10);
+        // Currently we query maximum 9 properties.
+        let mut properties = Vec::with_capacity(9);
         // "mandatory" information
         properties.push(kCFURLVolumeNameKey);
         properties.push(kCFURLVolumeIsBrowsableKey);
-        properties.push(kCFURLVolumeIsLocalKey);
         properties.push(kCFURLVolumeUUIDStringKey);
 
         // is_removable
