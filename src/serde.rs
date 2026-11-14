@@ -66,6 +66,7 @@ impl Serialize for crate::DiskKind {
             Self::SSD => (1, "SSD", None),
             Self::Unknown(ref s) => (2, "Unknown", Some(s)),
             Self::Network => (3, "Network", None),
+            Self::DiskImage => (4, "Disk Image", None),
         };
 
         if let Some(ref value) = maybe_value {
