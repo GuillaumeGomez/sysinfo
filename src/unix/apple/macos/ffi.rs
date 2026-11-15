@@ -19,6 +19,16 @@ cfg_select! {
         pub const kIOBlockStorageDriverStatisticsBytesReadKey: &str = "Bytes (Read)";
         #[allow(non_upper_case_globals)]
         pub const kIOBlockStorageDriverStatisticsBytesWrittenKey: &str = "Bytes (Write)";
+        #[allow(non_upper_case_globals)]
+        pub const kIOPropertyProtocolCharacteristicsKey: &str = "Protocol Characteristics";
+        #[allow(non_upper_case_globals)]
+        pub const kIOPropertyPhysicalInterconnectTypeKey: &str = "Physical Interconnect";
+        #[allow(non_upper_case_globals)]
+        pub const kIOPropertyPhysicalInterconnectTypeVirtual: &str = "Virtual Interface";
+        #[allow(non_upper_case_globals)]
+        pub const kIOPropertyPhysicalInterconnectLocationKey: &str = "Physical Interconnect Location";
+        #[allow(non_upper_case_globals)]
+        pub const kIOPropertyInterconnectFileKey: &str = "File";
     }
     _ => {}
 }
