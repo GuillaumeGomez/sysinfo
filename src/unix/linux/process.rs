@@ -468,23 +468,20 @@ mod gpu {
     fn is_gpu_device(
         dir: &Dir,
         file_name: &[libc::c_char],
-        stat: &mut MaybeUninit<libc::statx>,
+        stat: &mut MaybeUninit<libc::stat>,
     ) -> bool {
         unsafe {
-            if libc::statx(
-                dir.dir_fd,
-                file_name.as_ptr(),
-                libc::AT_STATX_DONT_SYNC | libc::AT_NO_AUTOMOUNT,
-                libc::STATX_TYPE,
-                stat.as_mut_ptr(),
-            ) != 0
-            {
+            // Flags must be 0 so that we inspect the target of the `/proc/<pid>/fd` symlink.
+            if libc::fstatat(dir.dir_fd, file_name.as_ptr(), stat.as_mut_ptr(), 0) != 0 {
                 return false;
             }
 
             let stat = stat.assume_init_ref();
-            (stat.stx_mode & libc::S_IFMT as libc::__u16) == libc::S_IFCHR as libc::__u16
-                && matches!(stat.stx_rdev_major, DRM_MAJOR | ACCEL_MAJOR)
+            ((stat.st_mode as u32) & libc::S_IFMT as u32) == libc::S_IFCHR as u32
+                && matches!(
+                    libc::major(stat.st_rdev as libc::dev_t) as u32,
+                    DRM_MAJOR | ACCEL_MAJOR
+                )
         }
     }
 
@@ -612,7 +609,7 @@ mod gpu {
         let mut total_memory: u64 = 0;
         let mut found_memory = false;
         if let Ok(Some(dir_iter)) = fd_dir.iter(&mut buffers.dents) {
-            let mut stat = MaybeUninit::<libc::statx>::uninit();
+            let mut stat = MaybeUninit::<libc::stat>::uninit();
             // `drm-pdev` is only there for PCI GPUs. If this field is absent, `drm-client-id` is
             // globally unique, so it's enough on its own to tell clients apart.
             let mut gpus: Vec<(Vec<u8>, Option<Vec<u8>>)> = Vec::new();
