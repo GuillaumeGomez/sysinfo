@@ -174,8 +174,28 @@ fn test_consecutive_cpu_usage_update() {
 
 #[test]
 fn test_refresh_memory() {
+    // CI might not have swap, to prevent this test to fail, we disable some checks in
+    // this case.
+    fn has_swap() -> bool {
+        if cfg!(target_os = "macos") {
+            // SWAP can be 0 on macOS.
+            return false;
+        } else if !cfg!(any(target_os = "linux", target_os = "android")) {
+            return true;
+        }
+        std::fs::read_to_string("/proc/meminfo")
+            .ok()
+            .and_then(|s| {
+                s.lines()
+                    .find(|l| l.starts_with("SwapTotal:"))
+                    .and_then(|l| l.split_whitespace().nth(1)?.parse::<u64>().ok())
+            })
+            .is_some_and(|bytes| bytes != 0)
+    }
+
     // On linux, since it's the same file, memory information are always retrieved.
     let is_linux = cfg!(any(target_os = "linux", target_os = "android"));
+    let has_swap = has_swap();
     let Ok(mut s) = System::new() else { return };
     assert_eq!(s.total_memory(), 0);
     assert_eq!(s.free_memory(), 0);
@@ -184,7 +204,7 @@ fn test_refresh_memory() {
     assert_ne!(s.total_memory(), 0);
     assert_ne!(s.free_memory(), 0);
 
-    if is_linux {
+    if is_linux && has_swap {
         assert_ne!(s.total_swap(), 0);
         assert_ne!(s.free_swap(), 0);
     } else {
@@ -202,9 +222,8 @@ fn test_refresh_memory() {
     }
 
     s.refresh_memory_specifics(sysinfo::MemoryRefreshKind::nothing().with_swap());
-    // SWAP can be 0 on macOS so this test is disabled
-    #[cfg(not(target_os = "macos"))]
-    {
+
+    if has_swap {
         assert_ne!(s.total_swap(), 0);
         assert_ne!(s.free_swap(), 0);
     }
@@ -219,9 +238,7 @@ fn test_refresh_memory() {
 
     let mut s = System::new().unwrap();
     s.refresh_memory();
-    // SWAP can be 0 on macOS so this test is disabled
-    #[cfg(not(target_os = "macos"))]
-    {
+    if has_swap {
         assert_ne!(s.total_swap(), 0);
         assert_ne!(s.free_swap(), 0);
     }
