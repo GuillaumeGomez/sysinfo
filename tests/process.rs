@@ -1188,6 +1188,123 @@ fn open_files() {
     }
 }
 
+/// The number of file descriptors this process has open, counted by asking about each
+/// descriptor number in turn. Slow, but it does not depend on how sysinfo counts.
+#[cfg(unix)]
+fn count_open_descriptors() -> usize {
+    (0..4096)
+        // `F_GETFD` only reads the descriptor's flags, and fails with `EBADF` if no such
+        // descriptor is open.
+        .filter(|&fd| unsafe { libc::fcntl(fd, libc::F_GETFD) } != -1)
+        .count()
+}
+
+/// What the FreeBSD kernel lists for this process under `kern.proc.filedesc`: one line per
+/// record, with its descriptor number, type and path. Shown when the count is wrong.
+#[cfg(target_os = "freebsd")]
+fn describe_kernel_file_table() -> String {
+    let mib = [
+        libc::CTL_KERN,
+        libc::KERN_PROC,
+        libc::KERN_PROC_FILEDESC,
+        std::process::id() as libc::c_int,
+    ];
+    let mut len: libc::size_t = 0;
+    let mut out = String::new();
+    unsafe {
+        if libc::sysctl(
+            mib.as_ptr(),
+            mib.len() as _,
+            std::ptr::null_mut(),
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        ) != 0
+        {
+            return "kern.proc.filedesc: the size query failed".to_string();
+        }
+        // Room for descriptors opened between the two calls, as libutil's `kinfo_getfile` does.
+        len = len * 4 / 3;
+        let mut buf = vec![0u8; len];
+        if libc::sysctl(
+            mib.as_ptr(),
+            mib.len() as _,
+            buf.as_mut_ptr() as _,
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        ) != 0
+        {
+            return "kern.proc.filedesc: the read failed".to_string();
+        }
+        let mut offset = 0;
+        while offset < len {
+            let record = buf.as_ptr().add(offset) as *const libc::kinfo_file;
+            let size = std::ptr::addr_of!((*record).kf_structsize).read_unaligned();
+            if size <= 0 {
+                break;
+            }
+            let fd = std::ptr::addr_of!((*record).kf_fd).read_unaligned();
+            let kind = std::ptr::addr_of!((*record).kf_type).read_unaligned();
+            let path = std::ffi::CStr::from_ptr(std::ptr::addr_of!((*record).kf_path) as _);
+            out.push_str(&format!(
+                "  kf_fd={fd:>3} kf_type={kind} path={:?}\n",
+                path.to_string_lossy()
+            ));
+            offset += size as usize;
+        }
+    }
+    out
+}
+
+#[cfg(all(unix, not(target_os = "freebsd")))]
+fn describe_kernel_file_table() -> String {
+    String::new()
+}
+
+// `Process::open_files` must report the number of file descriptors the process has open, no
+// more and no less.
+#[test]
+#[cfg(unix)]
+fn open_files_counts_the_open_descriptors() {
+    if cfg!(feature = "apple-sandbox") {
+        return;
+    }
+    let Ok(pid) = sysinfo::get_current_pid() else {
+        return;
+    };
+    let Ok(mut s) = System::new() else { return };
+    // Other tests in this process open and close descriptors too, even in the middle of a
+    // refresh. So compare many times, keep the rounds where the direct count was the same
+    // before and after, and ask that most of them agree: a count that is always off never
+    // would.
+    let (mut same, mut differ) = (0, 0);
+    let mut last = None;
+    for _ in 0..100 {
+        let before = count_open_descriptors();
+        s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
+        let Some(reported) = s.process(pid).and_then(|p| p.open_files()) else {
+            // Not supported on this system.
+            return;
+        };
+        if count_open_descriptors() != before {
+            continue;
+        }
+        if reported == before {
+            same += 1;
+        } else {
+            differ += 1;
+            last = Some((reported, before));
+        }
+    }
+    assert!(
+        same > differ,
+        "`open_files` agreed with a direct count {same} times and differed {differ} times; \
+         last (open_files, direct count): {last:?}\n{}",
+        describe_kernel_file_table(),
+    );
+}
+
 #[test]
 fn test_wait() {
     if cfg!(feature = "apple-sandbox") {
