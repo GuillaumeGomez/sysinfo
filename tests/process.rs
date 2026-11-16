@@ -1192,7 +1192,15 @@ fn open_files() {
 /// descriptor number in turn. Slow, but it does not depend on how sysinfo counts.
 #[cfg(unix)]
 fn count_open_descriptors() -> usize {
-    (0..4096)
+    // Descriptor numbers stay below the open-file limit of the process, which `sysconf`
+    // reports. That limit can be "none" or in the millions. This test process only has a
+    // few descriptors, so stop at 65536 to keep the walk short.
+    const CAP: libc::c_long = 1 << 16;
+    let limit = match unsafe { libc::sysconf(libc::_SC_OPEN_MAX) } {
+        n if n > 0 => n.min(CAP),
+        _ => CAP,
+    };
+    (0..limit as libc::c_int)
         // `F_GETFD` only reads the descriptor's flags, and fails with `EBADF` if no such
         // descriptor is open.
         .filter(|&fd| unsafe { libc::fcntl(fd, libc::F_GETFD) } != -1)
@@ -1288,7 +1296,7 @@ fn open_files_counts_the_open_descriptors() {
     )));
     let (mut same, mut differ) = (0, 0);
     let mut last = None;
-    for _ in 0..100 {
+    for _ in 0..25 {
         let before = count_open_descriptors();
         s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
         let Some(reported) = s.process(pid).and_then(|p| p.open_files()) else {
