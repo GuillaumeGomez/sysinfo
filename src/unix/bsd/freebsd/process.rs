@@ -76,13 +76,14 @@ impl ProcessInner {
                 sysinfo_debug!("Failed to query `open_files` info");
                 return None;
             }
+            // Leave room for the files opened between the two calls, as `kinfo_getfile` in
+            // FreeBSD's libutil does. The buffer has to be allocated with the bigger size: the
+            // kernel is told it may write that much.
+            len = len * 4 / 3;
             let Some(data) = AllocatedPtr::<()>::new(len) else {
                 sysinfo_debug!("Failed to allocate memory to get `open_files` info");
                 return None;
             };
-            // No clue why, it's done this way in `freebsd/lib/libutil/kinfo_getfile.c` so I suppose
-            // they have a good reason...
-            len = len * 4 / 3;
             if get_sysctl_raw(mib, data.0, &mut len).is_none() {
                 sysinfo_debug!("Couldn't retrieve `open_files` data");
                 return None;
@@ -92,11 +93,16 @@ impl ProcessInner {
             let mut count = 0;
             while current < end {
                 let t = current as *mut libc::kinfo_file;
-                if t.is_null() || (*t).kf_structsize == 0 {
+                if t.is_null() || (*t).kf_structsize <= 0 {
                     break;
                 }
+                // The kernel also lists the current directory, the root directory, the
+                // executable, the controlling terminal and a few more (`KF_FD_TYPE_*`), each
+                // with a negative descriptor number. Only the others are open files.
+                if (*t).kf_fd >= 0 {
+                    count += 1;
+                }
                 current = current.byte_add((*t).kf_structsize as _);
-                count += 1;
             }
             Some(count)
         }
