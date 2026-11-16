@@ -1,3 +1,9 @@
+# 0.40.4
+
+ * Linux: Improve disk retrieval.
+ * Linux: Remove `glibc` 2.28 restriction.
+ * Linux: Fix musl build failure by updating `libc` version to 0.2.191.
+
 # 0.40.3
 
  * Linux: Improve `GPUs` retrieval, better fallbacks handling.
