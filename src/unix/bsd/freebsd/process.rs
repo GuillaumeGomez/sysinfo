@@ -77,8 +77,8 @@ impl ProcessInner {
                 return None;
             }
             // Leave room for the files opened between the two calls, as `kinfo_getfile` in
-            // FreeBSD's libutil does. The buffer has to be allocated with the bigger size: the
-            // kernel is told it may write that much.
+            // FreeBSD's libutil (freebsd/lib/libutil/kinfo_getfile.c) does. The buffer hasr
+            // to be allocated with the bigger size: the kernel is told it may write that much.
             len = len * 4 / 3;
             let Some(data) = AllocatedPtr::<()>::new(len) else {
                 sysinfo_debug!("Failed to allocate memory to get `open_files` info");
