@@ -109,6 +109,11 @@ fn open_files_counts_the_open_descriptors() {
         target_os = "android",
         target_os = "netbsd"
     )));
+    // Refresh once before counting. sysinfo may open handles of its own on the first refresh
+    // and keep them for the life of `System`: on FreeBSD, `kvm_openfiles` opens `/dev/null`
+    // twice. Those are descriptors of this process as well, so they must be open already
+    // when the direct count is taken.
+    s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let expected = count_open_descriptors() + probe;
     s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let Some(reported) = s.process(pid).and_then(|p| p.open_files()) else {
