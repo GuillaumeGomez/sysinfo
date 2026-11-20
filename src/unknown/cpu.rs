@@ -15,6 +15,18 @@ impl CpuInner {
         0
     }
 
+    pub(crate) fn temperature(&self) -> f32 {
+        0.0
+    }
+
+    pub(crate) fn max(&self) -> Option<f32> {
+        None
+    }
+
+    pub(crate) fn critical(&self) -> Option<f32> {
+        None
+    }
+
     pub(crate) fn vendor_id(&self) -> &str {
         ""
     }

@@ -29,4 +29,8 @@ impl MotherboardInner {
     pub(crate) fn serial_number(&self) -> Option<String> {
         get_kenv_var(b"smbios.planar.serial\0")
     }
+
+    pub(crate) fn temperatures(&self) -> Vec<f32> {
+        Vec::new()
+    }
 }
