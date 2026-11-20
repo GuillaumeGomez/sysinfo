@@ -874,23 +874,27 @@ fn update_proc_disk_activity(p: &mut ProcessInner) {
     }
 }
 
-#[allow(clippy::uninit_vec)]
 pub(crate) fn get_proc_list() -> Option<Vec<Pid>> {
     unsafe {
-        let count = libc::proc_listallpids(::std::ptr::null_mut(), 0);
+        let mut count = libc::proc_listallpids(::std::ptr::null_mut(), 0);
         if count < 1 {
             return None;
         }
-        let mut pids: Vec<Pid> = Vec::with_capacity(count as usize);
-        pids.set_len(count as usize);
-        let count = count * mem::size_of::<Pid>() as i32;
-        let x = libc::proc_listallpids(pids.as_mut_ptr() as *mut c_void, count);
+        loop {
+            let mut pids: Vec<Pid> = Vec::with_capacity(count as usize);
+            let size = count.checked_mul(mem::size_of::<Pid>() as i32)?;
+            let x = libc::proc_listallpids(pids.as_mut_ptr() as *mut c_void, size);
 
-        if x < 1 || x as usize >= pids.len() {
-            None
-        } else {
-            pids.set_len(x as usize);
-            Some(pids)
+            if x < 1 {
+                return None;
+            }
+            if x < count {
+                pids.set_len(x as usize);
+                return Some(pids);
+            }
+            // The buffer is full, so the list may be missing PIDs: processes were started since
+            // we asked for the size. We try again with a bigger buffer.
+            count = x.checked_mul(2)?;
         }
     }
 }
