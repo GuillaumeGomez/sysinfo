@@ -57,6 +57,8 @@ fn test_disk_refresh_kind() {
         DiskRefreshKind::without_storage,
         DiskRefreshKind::with_io_usage,
         DiskRefreshKind::without_io_usage,
+        DiskRefreshKind::with_remote,
+        DiskRefreshKind::without_remote,
     ]
     .iter()
     .powerset()
