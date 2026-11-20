@@ -10,19 +10,19 @@ use std::path::Path;
 
 use windows::Win32::Foundation::{CloseHandle, MAX_PATH};
 use windows::Win32::Storage::FileSystem::{
-    BY_HANDLE_FILE_INFORMATION, CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE,
-    FILE_SHARE_READ, FILE_SHARE_WRITE, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose,
-    GetDiskFreeSpaceExW, GetDriveTypeW, GetFileInformationByHandle, GetVolumeInformationW,
-    GetVolumePathNamesForVolumeNameW, OPEN_EXISTING,
+    BY_HANDLE_FILE_INFORMATION, BusTypeFileBackedVirtual, CreateFileW, FILE_FLAG_BACKUP_SEMANTICS,
+    FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FindFirstVolumeW, FindNextVolumeW,
+    FindVolumeClose, GetDiskFreeSpaceExW, GetDriveTypeW, GetFileInformationByHandle,
+    GetVolumeInformationW, GetVolumePathNamesForVolumeNameW, OPEN_EXISTING,
 };
 use windows::Win32::System::IO::DeviceIoControl;
 use windows::Win32::System::Ioctl::{
     DEVICE_SEEK_PENALTY_DESCRIPTOR, DISK_PERFORMANCE, IOCTL_DISK_PERFORMANCE,
-    IOCTL_STORAGE_QUERY_PROPERTY, PropertyStandardQuery, STORAGE_PROPERTY_QUERY,
-    StorageDeviceSeekPenaltyProperty,
+    IOCTL_STORAGE_QUERY_PROPERTY, PropertyStandardQuery, STORAGE_DEVICE_DESCRIPTOR,
+    STORAGE_PROPERTY_QUERY, StorageDeviceProperty, StorageDeviceSeekPenaltyProperty,
 };
 use windows::Win32::System::SystemServices::FILE_READ_ONLY_VOLUME;
-use windows::Win32::System::WindowsProgramming::{DRIVE_FIXED, DRIVE_REMOVABLE};
+use windows::Win32::System::WindowsProgramming::{DRIVE_CDROM, DRIVE_FIXED, DRIVE_REMOVABLE};
 use windows::core::{Error, HRESULT, PCWSTR};
 
 /// Creates a copy of the first zero-terminated wide string in `buf`.
@@ -314,7 +314,8 @@ pub(crate) unsafe fn get_list(
         let raw_volume_name = PCWSTR::from_raw(volume_name.as_ptr());
         let drive_type = unsafe { GetDriveTypeW(raw_volume_name) };
 
-        if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE {
+        // FIXME: Add `DRIVE_REMOTE` when network disk identification is implemented.
+        if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE && drive_type != DRIVE_CDROM {
             continue;
         }
 
@@ -434,21 +435,47 @@ fn os_string_from_zero_terminated(name: &[u16]) -> OsString {
 }
 
 unsafe fn get_disk_kind(handle: &HandleWrapper) -> DiskKind {
-    let spq_trim = STORAGE_PROPERTY_QUERY {
+    let query = STORAGE_PROPERTY_QUERY {
+        PropertyId: StorageDeviceProperty,
+        QueryType: PropertyStandardQuery,
+        AdditionalParameters: [0],
+    };
+    let mut device_descriptor: STORAGE_DEVICE_DESCRIPTOR = unsafe { std::mem::zeroed() };
+    let mut dw_size = 0;
+
+    let ret = unsafe {
+        DeviceIoControl(
+            handle.0,
+            IOCTL_STORAGE_QUERY_PROPERTY,
+            Some(&query as *const STORAGE_PROPERTY_QUERY as *const _),
+            size_of::<STORAGE_PROPERTY_QUERY>() as _,
+            Some(&mut device_descriptor as *mut STORAGE_DEVICE_DESCRIPTOR as *mut _),
+            size_of::<STORAGE_DEVICE_DESCRIPTOR>() as _,
+            Some(&mut dw_size),
+            None,
+        )
+        .is_ok()
+    };
+
+    if ret && device_descriptor.BusType == BusTypeFileBackedVirtual {
+        return DiskKind::DiskImage;
+    }
+
+    let query = STORAGE_PROPERTY_QUERY {
         PropertyId: StorageDeviceSeekPenaltyProperty,
         QueryType: PropertyStandardQuery,
         AdditionalParameters: [0],
     };
-    let mut result: DEVICE_SEEK_PENALTY_DESCRIPTOR = unsafe { std::mem::zeroed() };
-
+    let mut seek_penalty_descriptor: DEVICE_SEEK_PENALTY_DESCRIPTOR = unsafe { std::mem::zeroed() };
     let mut dw_size = 0;
-    let device_io_control = unsafe {
+
+    let ret = unsafe {
         DeviceIoControl(
             handle.0,
             IOCTL_STORAGE_QUERY_PROPERTY,
-            Some(&spq_trim as *const STORAGE_PROPERTY_QUERY as *const _),
+            Some(&query as *const STORAGE_PROPERTY_QUERY as *const _),
             size_of::<STORAGE_PROPERTY_QUERY>() as _,
-            Some(&mut result as *mut DEVICE_SEEK_PENALTY_DESCRIPTOR as *mut _),
+            Some(&mut seek_penalty_descriptor as *mut DEVICE_SEEK_PENALTY_DESCRIPTOR as *mut _),
             size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as _,
             Some(&mut dw_size),
             None,
@@ -456,11 +483,14 @@ unsafe fn get_disk_kind(handle: &HandleWrapper) -> DiskKind {
         .is_ok()
     };
 
-    if !device_io_control || dw_size != size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as u32 {
-        DiskKind::Unknown(-1)
+    if ret && dw_size == size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as u32 {
+        if seek_penalty_descriptor.IncursSeekPenalty {
+            DiskKind::HDD
+        } else {
+            DiskKind::SSD
+        }
     } else {
-        let is_hdd = result.IncursSeekPenalty;
-        if is_hdd { DiskKind::HDD } else { DiskKind::SSD }
+        DiskKind::Unknown(-1)
     }
 }
 

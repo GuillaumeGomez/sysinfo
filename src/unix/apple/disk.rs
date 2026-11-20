@@ -158,6 +158,15 @@ impl DiskInner {
 
     fn refresh_kind(&mut self, refresh_kind: DiskRefreshKind) {
         if refresh_kind.kind() && self.type_ == DiskKind::Unknown(-1) {
+            // Notes: `vfs_fsadd` is used to register fs types by macOS kernel extensions:
+            // https://github.com/search?q=org%3Aapple-oss-distributions+vfs_fsadd&type=code
+            // Not supported: AFP server has been removed in macOS 11; client deprecated in macOS 15 and
+            // removed in macOS 27.
+            if self.file_system == "smbfs" || self.file_system == "nfs" {
+                self.type_ = DiskKind::Network;
+                return;
+            }
+
             #[cfg(target_os = "macos")]
             {
                 match self
@@ -512,17 +521,8 @@ unsafe fn new_disk(
 
     let is_read_only = (c_disk.f_flags & libc::MNT_RDONLY as u32) != 0;
 
-    // Notes: `vfs_fsadd` is used to register fs types by macOS kernel extensions:
-    // https://github.com/search?q=org%3Aapple-oss-distributions+vfs_fsadd&type=code
-    // Not supported: AFP server has been removed in macOS 11; client deprecated in macOS 15 and
-    // removed in macOS 27.
-    let type_ = match file_system.to_string_lossy().as_ref() {
-        "smbfs" | "nfs" => DiskKind::Network,
-        _ => DiskKind::Unknown(-1), // will be updated in `refresh_kind`
-    };
-
     let mut disk = DiskInner {
-        type_,
+        type_: DiskKind::Unknown(-1),
         name,
         id: device_id,
         #[cfg(target_os = "macos")]

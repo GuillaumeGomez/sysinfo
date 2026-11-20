@@ -89,11 +89,46 @@ where
 
 pub(crate) fn get_disk_type(bsd_name: &[u8]) -> Option<DiskKind> {
     let characteristics_string =
+        CFString::from_static_str(ffi::kIOPropertyProtocolCharacteristicsKey);
+    if let Some(disk_type) =
+        iterate_service_tree(bsd_name, &characteristics_string, |_, properties| {
+            let physical_interconnect_type = unsafe {
+                get_str_value(
+                    properties,
+                    Some(&CFString::from_static_str(
+                        ffi::kIOPropertyPhysicalInterconnectTypeKey,
+                    )),
+                )
+            }?;
+            let physical_interconnect_location = unsafe {
+                get_str_value(
+                    properties,
+                    Some(&CFString::from_static_str(
+                        ffi::kIOPropertyPhysicalInterconnectLocationKey,
+                    )),
+                )
+            }?;
+
+            if physical_interconnect_type.as_str()
+                == ffi::kIOPropertyPhysicalInterconnectTypeVirtual
+                && physical_interconnect_location.as_str() == ffi::kIOPropertyInterconnectFileKey
+            {
+                Some(DiskKind::DiskImage)
+            } else {
+                Some(DiskKind::Unknown(-1))
+            }
+        })
+        && disk_type != DiskKind::Unknown(-1)
+    {
+        return Some(disk_type);
+    }
+
+    let characteristics_string =
         CFString::from_static_str(ffi::kIOPropertyDeviceCharacteristicsKey);
 
     iterate_service_tree(bsd_name, &characteristics_string, |_, properties| {
         let medium = unsafe {
-            super::disk::get_str_value(
+            get_str_value(
                 properties,
                 Some(&CFString::from_static_str(ffi::kIOPropertyMediumTypeKey)),
             )

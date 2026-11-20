@@ -66,6 +66,7 @@ impl Serialize for crate::DiskKind {
             Self::SSD => (1, "SSD", None),
             Self::Unknown(ref s) => (2, "Unknown", Some(s)),
             Self::Network => (3, "Network", None),
+            Self::DiskImage => (4, "DiskImage", None),
         };
 
         if let Some(ref value) = maybe_value {
@@ -662,6 +663,7 @@ mod tests {
             DiskKind::HDD,
             DiskKind::SSD,
             DiskKind::Network,
+            DiskKind::DiskImage,
             DiskKind::Unknown(-1),
             DiskKind::Unknown(0),
             DiskKind::Unknown(isize::MIN),
@@ -670,7 +672,11 @@ mod tests {
             // This `match` is to ensure that if this enum is updated, it will fail compilation,
             // forcing to update this test.
             match kind {
-                DiskKind::HDD | DiskKind::SSD | DiskKind::Network | DiskKind::Unknown(_) => {}
+                DiskKind::HDD
+                | DiskKind::SSD
+                | DiskKind::Network
+                | DiskKind::DiskImage
+                | DiskKind::Unknown(_) => {}
             }
             round_trip(kind);
         }

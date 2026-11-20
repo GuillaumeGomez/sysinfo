@@ -309,7 +309,7 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
         .canonicalize()
         .unwrap_or(device_sysfs_path.clone());
 
-    //  partitions (sdX, nvmeXnYpZ, etc.)
+    // partitions (sdX, nvmeXnYpZ, etc.)
     if device_sysfs_path.join("partition").exists() {
         //  The path behind symlink has hierarchy (e.g. /sys/devices/${some_path}/sda/sda1)
         let Some(parent) = device_sysfs_real_path.parent() else {
@@ -317,6 +317,11 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
         };
 
         device_sysfs_real_path = parent.to_path_buf();
+    }
+
+    // The loop device is used to mount files as block devices.
+    if device_sysfs_real_path.join("loop/backing_file").exists() {
+        return DiskKind::DiskImage;
     }
 
     let rotational_path = device_sysfs_real_path.join("queue/rotational");

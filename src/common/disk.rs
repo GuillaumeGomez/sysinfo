@@ -374,6 +374,8 @@ pub enum DiskKind {
     SSD,
     /// Network type.
     Network,
+    /// Virtual disk image type. (e.g. ISO, Apple Disk Image (.dmg))
+    DiskImage,
     /// Unknown type.
     Unknown(isize),
 }
@@ -384,6 +386,7 @@ impl fmt::Display for DiskKind {
             DiskKind::HDD => "HDD",
             DiskKind::SSD => "SSD",
             DiskKind::Network => "Network",
+            DiskKind::DiskImage => "Disk Image",
             _ => "Unknown",
         })
     }
