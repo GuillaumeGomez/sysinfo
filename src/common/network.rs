@@ -481,7 +481,6 @@ impl NetworkData {
 ///
 /// It is returned by [`NetworkData::mac_address`][crate::NetworkData::mac_address].
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct MacAddr(pub [u8; 6]);
 
 impl MacAddr {

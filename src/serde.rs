@@ -425,6 +425,39 @@ impl Serialize for crate::MacAddr {
 }
 
 #[cfg(feature = "network")]
+impl<'de> serde::Deserialize<'de> for crate::MacAddr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct MacAddrVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for MacAddrVisitor {
+            type Value = crate::MacAddr;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a MAC address string like `12:34:56:78:9a:bc`")
+            }
+
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                value.parse().map_err(E::custom)
+            }
+
+            // `Serialize` writes a newtype struct wrapping the string, so formats that keep
+            // the wrapper (unlike JSON) call this.
+            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                deserializer.deserialize_str(self)
+            }
+        }
+
+        deserializer.deserialize_newtype_struct("MacAddr", MacAddrVisitor)
+    }
+}
+
+#[cfg(feature = "network")]
 impl Serialize for crate::IpNetwork {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -604,5 +637,227 @@ mod tests {
             obj.get("file_system"),
             Some(&serde_json::Value::String("ZFS".to_string()))
         );
+    }
+
+    /// Util function to ensure that `serde`'s serialization then deserialization end up with the
+    /// same data.
+    #[allow(dead_code)]
+    fn round_trip<T>(value: T)
+    where
+        T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+    {
+        let json = serde_json::to_string(&value)
+            .unwrap_or_else(|e| panic!("failed to serialize `{value:?}`: {e}"));
+        let back: T = serde_json::from_str(&json)
+            .unwrap_or_else(|e| panic!("failed to deserialize `{value:?}` from `{json}`: {e}"));
+        assert_eq!(back, value, "round-trip mismatch (JSON: `{json}`)");
+    }
+
+    #[test]
+    #[cfg(feature = "disk")]
+    fn test_serde_round_trip_disk_kind() {
+        use crate::DiskKind;
+
+        for kind in [
+            DiskKind::HDD,
+            DiskKind::SSD,
+            DiskKind::Network,
+            DiskKind::Unknown(-1),
+            DiskKind::Unknown(0),
+            DiskKind::Unknown(isize::MIN),
+            DiskKind::Unknown(isize::MAX),
+        ] {
+            // This `match` is to ensure that if this enum is updated, it will fail compilation,
+            // forcing to update this test.
+            match kind {
+                DiskKind::HDD | DiskKind::SSD | DiskKind::Network | DiskKind::Unknown(_) => {}
+            }
+            round_trip(kind);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "system")]
+    fn test_serde_round_trip_signal() {
+        use crate::Signal;
+
+        for signal in [
+            Signal::Hangup,
+            Signal::Interrupt,
+            Signal::Quit,
+            Signal::Illegal,
+            Signal::Trap,
+            Signal::Abort,
+            Signal::IOT,
+            Signal::Bus,
+            Signal::FloatingPointException,
+            Signal::Kill,
+            Signal::User1,
+            Signal::Segv,
+            Signal::User2,
+            Signal::Pipe,
+            Signal::Alarm,
+            Signal::Term,
+            Signal::Child,
+            Signal::Continue,
+            Signal::Stop,
+            Signal::TSTP,
+            Signal::TTIN,
+            Signal::TTOU,
+            Signal::Urgent,
+            Signal::XCPU,
+            Signal::XFSZ,
+            Signal::VirtualAlarm,
+            Signal::Profiling,
+            Signal::Winch,
+            Signal::IO,
+            Signal::Poll,
+            Signal::Power,
+            Signal::Sys,
+        ] {
+            // This `match` is to ensure that if this enum is updated, it will fail compilation,
+            // forcing to update this test.
+            match signal {
+                Signal::Hangup
+                | Signal::Interrupt
+                | Signal::Quit
+                | Signal::Illegal
+                | Signal::Trap
+                | Signal::Abort
+                | Signal::IOT
+                | Signal::Bus
+                | Signal::FloatingPointException
+                | Signal::Kill
+                | Signal::User1
+                | Signal::Segv
+                | Signal::User2
+                | Signal::Pipe
+                | Signal::Alarm
+                | Signal::Term
+                | Signal::Child
+                | Signal::Continue
+                | Signal::Stop
+                | Signal::TSTP
+                | Signal::TTIN
+                | Signal::TTOU
+                | Signal::Urgent
+                | Signal::XCPU
+                | Signal::XFSZ
+                | Signal::VirtualAlarm
+                | Signal::Profiling
+                | Signal::Winch
+                | Signal::IO
+                | Signal::Poll
+                | Signal::Power
+                | Signal::Sys => {}
+            }
+            round_trip(signal);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "system")]
+    fn test_serde_round_trip_process_status() {
+        use crate::ProcessStatus;
+
+        for status in [
+            ProcessStatus::Idle,
+            ProcessStatus::Run,
+            ProcessStatus::Sleep,
+            ProcessStatus::Stop,
+            ProcessStatus::Zombie,
+            ProcessStatus::Tracing,
+            ProcessStatus::Dead,
+            ProcessStatus::Wakekill,
+            ProcessStatus::Waking,
+            ProcessStatus::Parked,
+            ProcessStatus::LockBlocked,
+            ProcessStatus::UninterruptibleDiskSleep,
+            ProcessStatus::Suspended,
+            // No need to test more cases, it can contains all integers...
+            ProcessStatus::Unknown(42),
+        ] {
+            // This `match` is to ensure that if this enum is updated, it will fail compilation,
+            // forcing to update this test.
+            match status {
+                ProcessStatus::Idle
+                | ProcessStatus::Run
+                | ProcessStatus::Sleep
+                | ProcessStatus::Stop
+                | ProcessStatus::Zombie
+                | ProcessStatus::Tracing
+                | ProcessStatus::Dead
+                | ProcessStatus::Wakekill
+                | ProcessStatus::Waking
+                | ProcessStatus::Parked
+                | ProcessStatus::LockBlocked
+                | ProcessStatus::UninterruptibleDiskSleep
+                | ProcessStatus::Suspended
+                | ProcessStatus::Unknown(_) => {}
+            }
+            round_trip(status);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "system")]
+    fn test_serde_round_trip_thread_kind() {
+        use crate::ThreadKind;
+
+        for kind in [ThreadKind::Kernel, ThreadKind::Userland] {
+            // This `match` is to ensure that if this enum is updated, it will fail compilation,
+            // forcing to update this test.
+            match kind {
+                ThreadKind::Kernel | ThreadKind::Userland => {}
+            }
+            round_trip(kind);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "network")]
+    fn test_serde_round_trip_mac_addr() {
+        round_trip(crate::MacAddr::UNSPECIFIED);
+        round_trip(crate::MacAddr([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC]));
+        round_trip(crate::MacAddr([0xFF; 6]));
+    }
+
+    #[test]
+    #[cfg(feature = "network")]
+    fn test_serde_deserialize_invalid_mac_addr() {
+        for input in [
+            r#""""#,
+            r#""12:34:56:78:9a""#,
+            r#""12:34:56:78:9a:bc:de""#,
+            r#""12:34:56:78:9a:zz""#,
+            r#""123:34:56:78:9a:bc""#,
+            "42",
+        ] {
+            assert!(
+                serde_json::from_str::<crate::MacAddr>(input).is_err(),
+                "`{input}` should not deserialize into a `MacAddr`",
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "network")]
+    fn test_serde_round_trip_ip_network() {
+        use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+        for (addr, prefix) in [
+            (IpAddr::V4(Ipv4Addr::new(192, 168, 1, 10)), 24),
+            (IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
+            (IpAddr::V4(Ipv4Addr::BROADCAST), 32),
+            (IpAddr::V6(Ipv6Addr::LOCALHOST), 128),
+            (
+                IpAddr::V6(Ipv6Addr::new(
+                    0xfe80, 0, 0, 0, 0x1234, 0x5678, 0x9abc, 0xdef0,
+                )),
+                64,
+            ),
+        ] {
+            round_trip(crate::IpNetwork { addr, prefix });
+        }
     }
 }
