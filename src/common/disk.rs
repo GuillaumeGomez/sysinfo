@@ -225,10 +225,10 @@ impl Disk {
 /// ⚠️ Note that tmpfs mounts are excluded by default under Linux.
 /// To display tmpfs mount points, the `linux-tmpfs` feature must be enabled.
 ///
-/// ⚠️ Note that network devices are excluded by default under Linux.
-/// To display mount points using the CIFS and NFS protocols, the `linux-netdevs`
-/// feature must be enabled. Note, however, that sysinfo may hang under certain
-/// circumstances. For example, if a CIFS or NFS share has been mounted with
+/// ⚠️ Note that network devices are excluded by default.
+/// To display mount points using the CIFS and NFS protocols, the [`DiskRefreshKind::with_network`]
+/// refresh option must be enabled. Note, however, that sysinfo may hang under certain
+/// circumstances on Linux. For example, if a CIFS or NFS share has been mounted with
 /// the _hard_ option, but the connection has an error, such as the share server has stopped.
 pub struct Disks {
     inner: crate::DisksInner,
@@ -275,7 +275,7 @@ impl Disks {
 
     /// Creates a new [`Disks`][crate::Disks] type with the disk list loaded.
     ///
-    /// Equivalent to <code>[Disks::new_with_refreshed_list_specifics]\([DiskRefreshKind::everything]\())</code>.
+    /// Equivalent to <code>[Disks::new_with_refreshed_list_specifics]\([DiskRefreshKind::everything]\().without_network\())</code>.
     ///
     /// ```no_run
     /// use sysinfo::Disks;
@@ -287,7 +287,7 @@ impl Disks {
     /// }
     /// ```
     pub fn new_with_refreshed_list() -> Result<Self, Error> {
-        Self::new_with_refreshed_list_specifics(DiskRefreshKind::everything())
+        Self::new_with_refreshed_list_specifics(DiskRefreshKind::default())
     }
 
     /// Creates a new [`Disks`][crate::Disks] type with the disk list loaded
@@ -397,6 +397,7 @@ impl fmt::Display for DiskKind {
 /// * `kind` is about refreshing the [`Disk::kind`] information.
 /// * `storage` is about refreshing the [`Disk::available_space`] and [`Disk::total_space`] information.
 /// * `io_usage` is about refreshing the [`Disk::usage`] information.
+/// * `network` is about refreshing remote storage information. ⚠️ `sysinfo` may hang under certain circumstances on Linux. See [`Disks`][crate::Disks] for more information.
 ///
 /// ```no_run
 /// use sysinfo::{Disks, DiskRefreshKind};
@@ -407,11 +408,23 @@ impl fmt::Display for DiskKind {
 ///     }
 /// }
 /// ```
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 pub struct DiskRefreshKind {
     kind: bool,
     storage: bool,
     io_usage: bool,
+    network: bool,
+}
+
+impl Default for DiskRefreshKind {
+    fn default() -> Self {
+        Self {
+            kind: true,
+            storage: true,
+            io_usage: true,
+            network: false,
+        }
+    }
 }
 
 impl DiskRefreshKind {
@@ -425,9 +438,15 @@ impl DiskRefreshKind {
     /// assert_eq!(r.kind(), false);
     /// assert_eq!(r.storage(), false);
     /// assert_eq!(r.io_usage(), false);
+    /// assert_eq!(r.network(), false);
     /// ```
     pub fn nothing() -> Self {
-        Self::default()
+        Self {
+            kind: false,
+            storage: false,
+            io_usage: false,
+            network: false,
+        }
     }
 
     /// Creates a new `DiskRefreshKind` with every refresh set to true.
@@ -440,18 +459,21 @@ impl DiskRefreshKind {
     /// assert_eq!(r.kind(), true);
     /// assert_eq!(r.storage(), true);
     /// assert_eq!(r.io_usage(), true);
+    /// assert_eq!(r.network(), true);
     /// ```
     pub fn everything() -> Self {
         Self {
             kind: true,
             storage: true,
             io_usage: true,
+            network: true,
         }
     }
 
     impl_get_set!(DiskRefreshKind, kind, with_kind, without_kind);
     impl_get_set!(DiskRefreshKind, storage, with_storage, without_storage);
     impl_get_set!(DiskRefreshKind, io_usage, with_io_usage, without_io_usage);
+    impl_get_set!(DiskRefreshKind, network, with_network, without_network);
 }
 
 #[cfg(test)]
