@@ -114,6 +114,8 @@ pub(crate) fn get_disk_type(bsd_name: &[u8]) -> Option<DiskKind> {
                 && physical_interconnect_location.as_str() == ffi::kIOPropertyInterconnectFileKey
             {
                 Some(DiskKind::DiskImage)
+            } else if physical_interconnect_location.as_str() == ffi::kIOPropertyExternalKey {
+                Some(DiskKind::External)
             } else {
                 Some(DiskKind::Unknown(-1))
             }
