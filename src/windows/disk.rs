@@ -314,7 +314,7 @@ pub(crate) unsafe fn get_list(
         let raw_volume_name = PCWSTR::from_raw(volume_name.as_ptr());
         let drive_type = unsafe { GetDriveTypeW(raw_volume_name) };
 
-        // FIXME: Add `DRIVE_REMOTE` when network disk identification is implemented.
+        // FIXME: Add conditional `DRIVE_REMOTE` depending on `refreshes.network()` when network disk identification is implemented.
         if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE && drive_type != DRIVE_CDROM {
             continue;
         }
