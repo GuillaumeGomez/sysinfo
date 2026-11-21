@@ -67,6 +67,7 @@ impl Serialize for crate::DiskKind {
             Self::Unknown(ref s) => (2, "Unknown", Some(s)),
             Self::Network => (3, "Network", None),
             Self::DiskImage => (4, "DiskImage", None),
+            Self::External => (5, "External", None),
         };
 
         if let Some(ref value) = maybe_value {
@@ -662,6 +663,7 @@ mod tests {
         for kind in [
             DiskKind::HDD,
             DiskKind::SSD,
+            DiskKind::External,
             DiskKind::Network,
             DiskKind::DiskImage,
             DiskKind::Unknown(-1),
@@ -674,6 +676,7 @@ mod tests {
             match kind {
                 DiskKind::HDD
                 | DiskKind::SSD
+                | DiskKind::External
                 | DiskKind::Network
                 | DiskKind::DiskImage
                 | DiskKind::Unknown(_) => {}
