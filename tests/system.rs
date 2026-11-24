@@ -169,7 +169,7 @@ fn test_consecutive_cpu_usage_update() {
             "using NO CPU: failed at iteration {it}",
         );
     }
-    stop.store(false, Ordering::Relaxed);
+    stop.store(true, Ordering::Relaxed);
 }
 
 #[test]
