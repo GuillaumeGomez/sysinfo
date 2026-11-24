@@ -229,12 +229,6 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub(crate) fn err(status: c_int, fmt: *const c_char);
 
-    // The `#[link_name = "__getmntinfo13"]` on `getmntinfo` was accidentally
-    // dropped in libc 0.2.174 and restored by rust-lang/libc#5251.
-    // Can be removed once libc makes a new release.
-    #[link_name = "__getmntinfo13"]
-    pub(crate) fn getmntinfo(mntbufp: *mut *mut libc::statvfs, flags: c_int) -> c_int;
-
     // Reads the user-preferred display block size (BLOCKSIZE env var, or the
     // system default DEV_BSIZE = 512). Used to convert `struct rusage`
     // block-op counts into bytes; matches the historical BSD convention
