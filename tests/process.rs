@@ -629,10 +629,7 @@ fn test_wait_child() {
         s.refresh_processes(ProcessesToUpdate::Some(&[pid]), true),
         0
     );
-    if std::env::var("NETBSD_CI").is_ok() {
-        // FIXME
-        return;
-    }
+
     assert!(before.elapsed() < std::time::Duration::from_millis(1000));
 }
 
@@ -1225,23 +1222,20 @@ fn test_cpu_processes_usage() {
     if cfg!(feature = "apple-sandbox") {
         return;
     }
-    if std::env::var("FREEBSD_CI").is_ok() {
-        // FIXME: once I'm able to run a virtual freebsd machine, need to check if this test
-        // is working.
-        return;
-    }
-    if std::env::var("NETBSD_CI").is_ok() {
-        // FIXME
-        return;
-    }
 
     let Ok(mut sys) = System::new_all() else {
         return;
     };
 
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stop_c = stop.clone();
+    std::thread::spawn(move || while !stop_c.load(std::sync::atomic::Ordering::Relaxed) {});
+
     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
 
     sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
 
     assert!(sys.processes().iter().any(|(_, p)| p.cpu_usage() > 0.));
 }

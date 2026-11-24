@@ -11,7 +11,7 @@ use std::ffi::CStr;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use crate::sys::cpu::CpusWrapper;
 use crate::sys::utils::{self, c_buf_to_utf8_string, get_sys_value, get_sys_value_by_name};
@@ -20,6 +20,9 @@ use super::ffi;
 use crate::unix::bsd::common::{boot_time, init_mib};
 
 use libc::c_int;
+
+#[doc = include_str!("../../../../md_doc/minimum_cpu_update_interval.md")]
+pub const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(250);
 
 pub(crate) struct SystemInner {
     process_list: HashMap<Pid, Process>,

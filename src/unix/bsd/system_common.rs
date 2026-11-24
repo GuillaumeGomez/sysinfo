@@ -7,7 +7,6 @@ use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::path::Path;
 use std::process::ExitStatus;
-use std::time::Duration;
 
 declare_signals! {
     libc::c_int,
@@ -46,9 +45,6 @@ declare_signals! {
 
 #[doc = include_str!("../../../md_doc/supported_signals.md")]
 pub const SUPPORTED_SIGNALS: &[crate::Signal] = supported_signals();
-
-#[doc = include_str!("../../../md_doc/minimum_cpu_update_interval.md")]
-pub const MINIMUM_CPU_UPDATE_INTERVAL: Duration = Duration::from_millis(100);
 
 impl fmt::Display for ProcessStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -24,6 +24,7 @@ cfg_select! {
         pub mod system_common;
 
         pub use self::system_common::*;
+        pub use crate::sys::system::MINIMUM_CPU_UPDATE_INTERVAL;
     }
     _ => {}
 }
