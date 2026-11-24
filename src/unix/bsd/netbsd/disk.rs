@@ -6,7 +6,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 
-use libc::c_char;
+use libc::{c_char, getmntinfo};
 
 use super::ffi;
 use super::utils::c_buf_to_utf8_str;
@@ -307,7 +307,7 @@ pub unsafe fn get_all_list(
 ) {
     let mut mnt_buf: *mut libc::statvfs = null_mut();
 
-    let count = unsafe { ffi::getmntinfo(&mut mnt_buf, libc::MNT_WAIT) };
+    let count = unsafe { getmntinfo(&mut mnt_buf, libc::MNT_WAIT) };
     if count < 1 {
         return;
     }
