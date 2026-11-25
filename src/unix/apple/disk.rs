@@ -7,8 +7,8 @@ use objc2_core_foundation::{
     CFArray, CFBoolean, CFDictionary, CFNumber, CFRetained, CFString, CFURL, kCFAllocatorDefault,
     kCFTypeArrayCallBacks, kCFURLVolumeAvailableCapacityForImportantUsageKey,
     kCFURLVolumeAvailableCapacityKey, kCFURLVolumeIsBrowsableKey, kCFURLVolumeIsEjectableKey,
-    kCFURLVolumeIsInternalKey, kCFURLVolumeIsRemovableKey, kCFURLVolumeNameKey,
-    kCFURLVolumeTotalCapacityKey, kCFURLVolumeUUIDStringKey,
+    kCFURLVolumeIsInternalKey, kCFURLVolumeIsLocalKey, kCFURLVolumeIsRemovableKey,
+    kCFURLVolumeNameKey, kCFURLVolumeTotalCapacityKey, kCFURLVolumeUUIDStringKey,
 };
 
 use libc::c_void;
@@ -277,7 +277,7 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
         };
 
         // Currently we query maximum 9 properties.
-        let mut properties = Vec::with_capacity(9);
+        let mut properties = Vec::with_capacity(10);
         // "mandatory" information
         properties.push(kCFURLVolumeNameKey);
         properties.push(kCFURLVolumeIsBrowsableKey);
@@ -292,6 +292,10 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
             properties.push(kCFURLVolumeTotalCapacityKey);
             properties.push(kCFURLVolumeAvailableCapacityForImportantUsageKey);
             properties.push(kCFURLVolumeAvailableCapacityKey);
+        }
+
+        if !refresh_kind.network() {
+            properties.push(kCFURLVolumeIsLocalKey);
         }
 
         // Create a list of properties about the disk that we want to fetch.
@@ -336,6 +340,18 @@ unsafe fn get_list(container: &mut Vec<Disk>, refresh_kind: DiskRefreshKind) {
             // To avoid seemingly duplicating many disks and creating an inaccurate view of the system's
             // resources, these are skipped entirely.
             if !browsable {
+                continue;
+            }
+
+            // When `refresh_kind.network()` is true, `kCFURLVolumeIsLocalKey` is not added to `properties`,
+            // so prop_dict would not contain `kCFURLVolumeIsLocalKey`, and this would be `None`.
+            //
+            // When `refresh_kind.network()` is false, we need to filter out non-local disks.
+            // If a disk is local, `kCFURLVolumeIsLocalKey`'s value would be `Some(true)`.
+            let local_or_network_enabled =
+                get_bool_value(&prop_dict, kCFURLVolumeIsLocalKey).unwrap_or(true);
+
+            if !local_or_network_enabled {
                 continue;
             }
 
