@@ -633,7 +633,6 @@ fn test_wait_child() {
     assert!(before.elapsed() < std::time::Duration::from_millis(1000));
 }
 
-#[allow(clippy::zombie_processes)]
 #[test]
 fn test_wait_non_child() {
     if !cfg!(target_os = "linux") || cfg!(feature = "apple-sandbox") {
@@ -643,15 +642,21 @@ fn test_wait_non_child() {
 
     let before = std::time::Instant::now();
 
-    // spawn non child process.
-    let p = std::process::Command::new("setsid")
-        .arg("-w")
-        .arg("sleep")
-        .arg("2")
-        .stdout(std::process::Stdio::null())
-        .spawn()
+    // Spawn child process that spawns its own child and die.
+    // The grandchild will become an orphan and be adopted.
+    let child_output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg("sleep 2 >/dev/null 2>&1 & echo $!")
+        .output()
         .unwrap();
-    let pid = Pid::from_u32(p.id());
+
+    let pid = Pid::from_u32(
+        String::from_utf8_lossy(&child_output.stdout)
+            .as_ref()
+            .trim()
+            .parse::<u32>()
+            .unwrap(),
+    );
 
     s.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let process = s.process(pid).expect("Process not found!");
@@ -659,7 +664,7 @@ fn test_wait_non_child() {
     // Wait for a non child process.
     process.wait();
 
-    // Child process should not be present.
+    // The process should not be present.
     assert_eq!(
         s.refresh_processes(ProcessesToUpdate::Some(&[pid]), true),
         0
@@ -1231,7 +1236,7 @@ fn test_cpu_processes_usage() {
     let stop_c = stop.clone();
     std::thread::spawn(move || while !stop_c.load(std::sync::atomic::Ordering::Relaxed) {});
 
-    std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    std::thread::sleep(std::time::Duration::from_secs(2));
 
     sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
