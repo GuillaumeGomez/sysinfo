@@ -675,6 +675,12 @@ mod gpu {
     }
 
     pub fn get_processes_gpu_usage(processes: &mut HashMap<Pid, Process>) {
+        // A process can disappear from the IORegistry after it stops using the GPU.
+        // Clear the previous sample even if the registry walk fails or finds no clients.
+        for process in processes.values_mut() {
+            process.inner.gpu_usage = None;
+        }
+
         let mut result = HashMap::new();
 
         unsafe {
@@ -800,5 +806,19 @@ mod gpu {
             let dict = dict.cast_unchecked::<CFString, CFType>();
             dict.get(key)?.downcast::<CFArray>().ok()
         }
+    }
+
+    #[test]
+    fn missing_gpu_client_does_not_keep_previous_usage() {
+        let pid = Pid::from_u32(u32::MAX);
+        let mut process = Process {
+            inner: crate::ProcessInner::new_empty(pid),
+        };
+        process.inner.gpu_usage = Some(17.0);
+
+        let mut processes = HashMap::from([(pid, process)]);
+        get_processes_gpu_usage(&mut processes);
+
+        assert_eq!(processes[&pid].gpu_usage(), None);
     }
 }
