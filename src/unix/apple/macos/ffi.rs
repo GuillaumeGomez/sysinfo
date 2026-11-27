@@ -29,6 +29,8 @@ cfg_select! {
         pub const kIOPropertyPhysicalInterconnectLocationKey: &str = "Physical Interconnect Location";
         #[allow(non_upper_case_globals)]
         pub const kIOPropertyInterconnectFileKey: &str = "File";
+        #[allow(non_upper_case_globals)]
+        pub const kIOPropertyExternalKey: &str = "External";
     }
     _ => {}
 }

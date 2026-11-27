@@ -324,6 +324,26 @@ fn find_type_for_device_name(device_name: &OsStr) -> DiskKind {
         return DiskKind::DiskImage;
     }
 
+    // `/sys/devices` has hierarchy
+    let mut current_sysfs_path = device_sysfs_real_path.clone();
+    loop {
+        if let Ok(subsystem) = current_sysfs_path.join("subsystem").read_link()
+            && let Some(filename) = subsystem.file_name()
+            && matches!(
+                filename.to_string_lossy().as_ref(),
+                "firewire" | "mmc" | "pcmcia" | "sdio" | "usb"
+            )
+        {
+            return DiskKind::External;
+        }
+
+        let Some(parent) = current_sysfs_path.parent() else {
+            // reached root
+            break;
+        };
+        current_sysfs_path = parent.to_path_buf();
+    }
+
     let rotational_path = device_sysfs_real_path.join("queue/rotational");
     // Normally, this file only contains '0' or '1' but just in case, we get 8 bytes...
     match get_all_utf8_data(rotational_path, 8)

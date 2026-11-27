@@ -10,10 +10,11 @@ use std::path::Path;
 
 use windows::Win32::Foundation::{CloseHandle, MAX_PATH};
 use windows::Win32::Storage::FileSystem::{
-    BY_HANDLE_FILE_INFORMATION, BusTypeFileBackedVirtual, CreateFileW, FILE_FLAG_BACKUP_SEMANTICS,
-    FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FindFirstVolumeW, FindNextVolumeW,
-    FindVolumeClose, GetDiskFreeSpaceExW, GetDriveTypeW, GetFileInformationByHandle,
-    GetVolumeInformationW, GetVolumePathNamesForVolumeNameW, OPEN_EXISTING,
+    BY_HANDLE_FILE_INFORMATION, BusType1394, BusTypeFileBackedVirtual, BusTypeMmc, BusTypeSd,
+    BusTypeUsb, CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE, FILE_SHARE_READ,
+    FILE_SHARE_WRITE, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDiskFreeSpaceExW,
+    GetDriveTypeW, GetFileInformationByHandle, GetVolumeInformationW,
+    GetVolumePathNamesForVolumeNameW, OPEN_EXISTING,
 };
 use windows::Win32::System::IO::DeviceIoControl;
 use windows::Win32::System::Ioctl::{
@@ -457,8 +458,17 @@ unsafe fn get_disk_kind(handle: &HandleWrapper) -> DiskKind {
         .is_ok()
     };
 
-    if ret && device_descriptor.BusType == BusTypeFileBackedVirtual {
-        return DiskKind::DiskImage;
+    if ret {
+        #[allow(non_upper_case_globals)]
+        match device_descriptor.BusType {
+            BusTypeFileBackedVirtual => {
+                return DiskKind::DiskImage;
+            }
+            BusType1394 | BusTypeMmc | BusTypeSd | BusTypeUsb => {
+                return DiskKind::External;
+            }
+            _ => {}
+        }
     }
 
     let query = STORAGE_PROPERTY_QUERY {

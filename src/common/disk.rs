@@ -372,6 +372,8 @@ pub enum DiskKind {
     HDD,
     /// SSD type.
     SSD,
+    /// External type (e.g. USB, SD)
+    External,
     /// Network type.
     Network,
     /// Virtual disk image type. (e.g. ISO, Apple Disk Image (.dmg))
@@ -385,6 +387,7 @@ impl fmt::Display for DiskKind {
         f.write_str(match *self {
             DiskKind::HDD => "HDD",
             DiskKind::SSD => "SSD",
+            DiskKind::External => "External",
             DiskKind::Network => "Network",
             DiskKind::DiskImage => "Disk Image",
             _ => "Unknown",
