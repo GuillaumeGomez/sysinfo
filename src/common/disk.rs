@@ -368,16 +368,17 @@ impl From<Disks> for Vec<Disk> {
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub enum DiskKind {
+    // The order is the serde variant index: add new variants last and update `src/serde.rs`.
     /// HDD type.
     HDD,
     /// SSD type.
     SSD,
+    /// Unknown type.
+    Unknown(isize),
     /// Network type.
     Network,
     /// Virtual disk image type. (e.g. ISO, Apple Disk Image (.dmg))
     DiskImage,
-    /// Unknown type.
-    Unknown(isize),
 }
 
 impl fmt::Display for DiskKind {

@@ -652,6 +652,14 @@ mod tests {
         let back: T = serde_json::from_str(&json)
             .unwrap_or_else(|e| panic!("failed to deserialize `{value:?}` from `{json}`: {e}"));
         assert_eq!(back, value, "round-trip mismatch (JSON: `{json}`)");
+
+        // Non-self-describing formats encode enum variants by index instead of name.
+        let bytes = postcard::to_allocvec(&value)
+            .unwrap_or_else(|e| panic!("failed to serialize `{value:?}` with postcard: {e}"));
+        let back: T = postcard::from_bytes(&bytes).unwrap_or_else(|e| {
+            panic!("failed to deserialize `{value:?}` from postcard `{bytes:?}`: {e}")
+        });
+        assert_eq!(back, value, "round-trip mismatch (postcard: `{bytes:?}`)");
     }
 
     #[test]
