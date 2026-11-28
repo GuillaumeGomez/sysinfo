@@ -11,9 +11,8 @@ use std::path::Path;
 use windows::Win32::Foundation::{CloseHandle, MAX_PATH};
 use windows::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, BusTypeFileBackedVirtual, CreateFileW, FILE_FLAG_BACKUP_SEMANTICS,
-    FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FindFirstVolumeW, FindNextVolumeW,
-    FindVolumeClose, GetDiskFreeSpaceExW, GetDriveTypeW, GetFileInformationByHandle,
-    GetVolumeInformationW, GetVolumePathNamesForVolumeNameW, OPEN_EXISTING,
+    FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, GetDiskFreeSpaceExW, GetDriveTypeW,
+    GetFileInformationByHandle, GetLogicalDriveStringsW, GetVolumeInformationW, OPEN_EXISTING,
 };
 use windows::Win32::System::IO::DeviceIoControl;
 use windows::Win32::System::Ioctl::{
@@ -22,105 +21,10 @@ use windows::Win32::System::Ioctl::{
     STORAGE_PROPERTY_QUERY, StorageDeviceProperty, StorageDeviceSeekPenaltyProperty,
 };
 use windows::Win32::System::SystemServices::FILE_READ_ONLY_VOLUME;
-use windows::Win32::System::WindowsProgramming::{DRIVE_CDROM, DRIVE_FIXED, DRIVE_REMOVABLE};
-use windows::core::{Error, HRESULT, PCWSTR};
-
-/// Creates a copy of the first zero-terminated wide string in `buf`.
-/// The copy includes the zero terminator.
-fn from_zero_terminated(buf: &[u16]) -> Vec<u16> {
-    let end = buf.iter().position(|&x| x == 0).unwrap_or(buf.len());
-    buf[..=end].to_vec()
-}
-
-// Realistically, volume names are probably not longer than 44 characters,
-// but the example in the Microsoft documentation uses MAX_PATH as well.
-// https://learn.microsoft.com/en-us/windows/win32/fileio/displaying-volume-paths
-const VOLUME_NAME_SIZE: usize = MAX_PATH as usize + 1;
-
-const ERROR_NO_MORE_FILES: HRESULT = windows::Win32::Foundation::ERROR_NO_MORE_FILES.to_hresult();
-const ERROR_MORE_DATA: HRESULT = windows::Win32::Foundation::ERROR_MORE_DATA.to_hresult();
-
-/// Returns a list of zero-terminated wide strings containing volume GUID paths.
-/// Volume GUID paths have the form `\\?\{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}\`.
-///
-/// Rather confusingly, the Win32 API _also_ calls these "volume names".
-pub(crate) fn get_volume_guid_paths() -> Vec<Vec<u16>> {
-    let mut volume_names = Vec::new();
-    unsafe {
-        let mut buf = Box::new([0u16; VOLUME_NAME_SIZE]);
-        let Ok(handle) = FindFirstVolumeW(&mut buf[..]) else {
-            sysinfo_debug!(
-                "Error: FindFirstVolumeW() = {:?}",
-                Error::from_thread().code()
-            );
-            return Vec::new();
-        };
-        volume_names.push(from_zero_terminated(&buf[..]));
-        loop {
-            if FindNextVolumeW(handle, &mut buf[..]).is_err() {
-                if Error::from_thread().code() != ERROR_NO_MORE_FILES {
-                    sysinfo_debug!("Error: FindNextVolumeW = {}", Error::from_thread().code());
-                }
-                break;
-            }
-            volume_names.push(from_zero_terminated(&buf[..]));
-        }
-        if FindVolumeClose(handle).is_err() {
-            sysinfo_debug!("Error: FindVolumeClose = {:?}", Error::from_thread().code());
-        };
-    }
-    volume_names
-}
-
-/// Given a volume GUID path (`\\?\{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}\`), returns all
-/// volume paths (drive letters and mount paths) associated with it
-/// as zero terminated wide strings.
-///
-/// # Safety
-/// `volume_name` must contain a zero-terminated wide string.
-pub(crate) unsafe fn get_volume_path_names_for_volume_name(
-    volume_guid_path: &[u16],
-) -> Vec<Vec<u16>> {
-    let volume_guid_path = PCWSTR::from_raw(volume_guid_path.as_ptr());
-
-    // Initial buffer size is just a guess. There is no direct connection between MAX_PATH
-    // the output of GetVolumePathNamesForVolumeNameW.
-    let mut path_names_buf = vec![0u16; MAX_PATH as usize];
-    let mut path_names_output_size = 0u32;
-    for _ in 0..10 {
-        let volume_path_names = unsafe {
-            GetVolumePathNamesForVolumeNameW(
-                volume_guid_path,
-                Some(path_names_buf.as_mut_slice()),
-                &mut path_names_output_size,
-            )
-        };
-        let code = volume_path_names.map_err(|_| Error::from_thread().code());
-        match code {
-            Ok(()) => break,
-            Err(ERROR_MORE_DATA) => {
-                // We need a bigger buffer. path_names_output_size contains the required buffer size.
-                path_names_buf = vec![0u16; path_names_output_size as usize];
-                continue;
-            }
-            Err(_e) => {
-                sysinfo_debug!("Error: GetVolumePathNamesForVolumeNameW() = {}", _e);
-                return Vec::new();
-            }
-        }
-    }
-
-    // path_names_buf contains multiple zero terminated wide strings.
-    // An additional zero terminates the list.
-    let mut path_names = Vec::new();
-    let mut buf = &path_names_buf[..];
-    while !buf.is_empty() && buf[0] != 0 {
-        let path = from_zero_terminated(buf);
-        buf = &buf[path.len()..];
-        path_names.push(path);
-    }
-    path_names
-}
+use windows::Win32::System::WindowsProgramming::{
+    DRIVE_CDROM, DRIVE_FIXED, DRIVE_REMOTE, DRIVE_REMOVABLE,
+};
+use windows::core::PCWSTR;
 
 pub(crate) struct DiskInner {
     type_: DiskKind,
@@ -305,28 +209,24 @@ pub(crate) unsafe fn get_list(
     remove_not_listed_disks: bool,
     refreshes: DiskRefreshKind,
 ) {
-    for volume_name in get_volume_guid_paths() {
-        let mount_paths = unsafe { get_volume_path_names_for_volume_name(&volume_name[..]) };
-        if mount_paths.is_empty() {
+    for mount_path in get_logical_drive_strings() {
+        let raw_mount_path = PCWSTR::from_raw(mount_path.as_ptr());
+        let drive_type = unsafe { GetDriveTypeW(raw_mount_path) };
+
+        if !(matches!(drive_type, DRIVE_FIXED | DRIVE_REMOVABLE | DRIVE_CDROM)
+            || (drive_type == DRIVE_REMOTE && refreshes.network()))
+        {
             continue;
         }
 
-        let raw_volume_name = PCWSTR::from_raw(volume_name.as_ptr());
-        let drive_type = unsafe { GetDriveTypeW(raw_volume_name) };
-
-        // FIXME: Add conditional `DRIVE_REMOTE` depending on `refreshes.network()` when network disk identification is implemented.
-        if drive_type != DRIVE_FIXED && drive_type != DRIVE_REMOVABLE && drive_type != DRIVE_CDROM {
-            continue;
-        }
-
-        let is_removable = drive_type == DRIVE_REMOVABLE;
+        let is_removable = matches!(drive_type, DRIVE_REMOVABLE | DRIVE_CDROM | DRIVE_REMOTE);
 
         let mut name = [0u16; MAX_PATH as usize + 1];
         let mut file_system = [0u16; 32];
         let mut flags = 0;
         let volume_info_res = unsafe {
             GetVolumeInformationW(
-                raw_volume_name,
+                raw_mount_path,
                 Some(&mut name),
                 None,
                 None,
@@ -338,80 +238,87 @@ pub(crate) unsafe fn get_list(
         if !volume_info_res {
             sysinfo_debug!(
                 "Error: GetVolumeInformationW = {:?}",
-                Error::from_thread().code()
+                windows::core::Error::from_thread().code()
             );
             continue;
         }
         let is_read_only = (flags & FILE_READ_ONLY_VOLUME) != 0;
 
-        // The device path is the volume name without the trailing backslash.
-        let device_path = volume_name[..volume_name.len().saturating_sub(2)]
-            .iter()
-            .copied()
+        // The `device_path` that `CreateFileW` expects is `\\.\${local_path}` without trailing backslash.
+        let device_path = r"\\.\"
+            .encode_utf16()
+            .chain(
+                mount_path[..mount_path.len().saturating_sub(2)]
+                    .iter()
+                    .copied(),
+            )
             .chain([0])
             .collect::<Vec<_>>();
 
         let name = os_string_from_zero_terminated(&name);
         let file_system = os_string_from_zero_terminated(&file_system);
-        for mount_path in mount_paths {
-            if let Some(disk) = disks
-                .iter_mut()
-                .find(|d| d.inner.mount_point == mount_path && d.inner.file_system == file_system)
-            {
-                disk.refresh_specifics(refreshes);
-                disk.inner.updated = true;
-                continue;
-            }
 
-            //  FIXME: replace with `std::os::windows::fs::MetadataExt::volume_serial_number` when stable
-            //  https://github.com/rust-lang/rust/issues/63010
-            let volume_serial_number = unsafe {
-                if let Ok(handle) = CreateFileW(
-                    PCWSTR(mount_path.as_ptr()),
-                    0,
-                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                    None,
-                    OPEN_EXISTING,
-                    FILE_FLAG_BACKUP_SEMANTICS,
-                    None,
-                ) {
-                    let mut info: BY_HANDLE_FILE_INFORMATION = std::mem::zeroed();
-                    let volume_serial_number =
-                        if GetFileInformationByHandle(handle, &mut info).is_ok() {
-                            Some(info.dwVolumeSerialNumber)
-                        } else {
-                            None
-                        };
-                    let _ = CloseHandle(handle);
-                    volume_serial_number
+        if let Some(disk) = disks
+            .iter_mut()
+            .find(|d| d.inner.mount_point == mount_path && d.inner.file_system == file_system)
+        {
+            disk.refresh_specifics(refreshes);
+            disk.inner.updated = true;
+            continue;
+        }
+
+        //  FIXME: replace with `std::os::windows::fs::MetadataExt::volume_serial_number` when stable
+        //  https://github.com/rust-lang/rust/issues/63010
+        let volume_serial_number = unsafe {
+            if let Ok(handle) = CreateFileW(
+                PCWSTR(mount_path.as_ptr()),
+                0,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                None,
+                OPEN_EXISTING,
+                FILE_FLAG_BACKUP_SEMANTICS,
+                None,
+            ) {
+                let mut info: BY_HANDLE_FILE_INFORMATION = std::mem::zeroed();
+                let volume_serial_number = if GetFileInformationByHandle(handle, &mut info).is_ok()
+                {
+                    Some(info.dwVolumeSerialNumber)
                 } else {
                     None
-                }
-            };
+                };
+                let _ = CloseHandle(handle);
+                volume_serial_number
+            } else {
+                None
+            }
+        };
 
-            let mut disk = DiskInner {
-                type_: DiskKind::Unknown(-1),
-                name: name.clone(),
-                volume_serial_number,
-                file_system: file_system.clone(),
-                s_mount_point: OsString::from_wide(
-                    &mount_path[..mount_path.len().saturating_sub(1)],
-                ),
-                mount_point: mount_path,
-                total_space: 0,
-                available_space: 0,
-                is_removable,
-                is_read_only,
-                device_path: device_path.clone(),
-                old_read_bytes: 0,
-                old_written_bytes: 0,
-                read_bytes: 0,
-                written_bytes: 0,
-                updated: true,
-            };
-            disk.refresh_specifics(refreshes);
-            disks.push(Disk { inner: disk });
-        }
+        let type_ = if drive_type == DRIVE_REMOTE {
+            DiskKind::Network
+        } else {
+            DiskKind::Unknown(-1)
+        };
+
+        let mut disk = DiskInner {
+            type_,
+            name: name.clone(),
+            volume_serial_number,
+            file_system: file_system.clone(),
+            s_mount_point: OsString::from_wide(&mount_path[..mount_path.len().saturating_sub(1)]),
+            mount_point: mount_path,
+            total_space: 0,
+            available_space: 0,
+            is_removable,
+            is_read_only,
+            device_path,
+            old_read_bytes: 0,
+            old_written_bytes: 0,
+            read_bytes: 0,
+            written_bytes: 0,
+            updated: true,
+        };
+        disk.refresh_specifics(refreshes);
+        disks.push(Disk { inner: disk });
     }
 
     if remove_not_listed_disks {
@@ -426,6 +333,40 @@ pub(crate) unsafe fn get_list(
         for c in disks.iter_mut() {
             c.inner.updated = false;
         }
+    }
+}
+
+fn get_logical_drive_strings() -> Vec<Vec<u16>> {
+    unsafe {
+        let required = GetLogicalDriveStringsW(None);
+
+        if required == 0 {
+            sysinfo_debug!(
+                "GetLogicalDriveStringsW failed: {:?}",
+                windows::core::Error::from_thread().code()
+            );
+            return Vec::new();
+        }
+
+        let mut buffer = vec![0u16; required as usize];
+
+        let len = GetLogicalDriveStringsW(Some(&mut buffer));
+
+        if len == 0 || len > required {
+            sysinfo_debug!(
+                "GetLogicalDriveStringsW failed: {:?}",
+                windows::core::Error::from_thread().code()
+            );
+            return Vec::new();
+        }
+
+        // `GetLogicalDriveStringsW` returns a multi-string.
+        // '\0' terminates a string; an additional '\0' terminates the list.
+        buffer[..(len as usize)]
+            .split_inclusive(|w| *w == 0)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_vec())
+            .collect()
     }
 }
 
